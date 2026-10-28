@@ -1,4 +1,0 @@
-# A dependency the package doesn't have: `unknown.txt` holds the error.
-package = "crates-fixture"
-dependencies = ["crates-dep", "bytes"]
-roots = ["harness::run"]

@@ -36,15 +36,19 @@ use crate::ts::{self, Ctor, FieldId, Item, Loc, SymId, Type};
 
 /// Translate what the config's roots reach, or `None` after reporting why not.
 pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
-	let mut t = Translator::new(tcx, config, None)?;
-	t.bind();
-	for root in &config.roots {
-		t.root(root);
+	let (mut t, ()) = Translator::settle(tcx, config, false, |t| {
+		for root in &config.roots {
+			t.root(root);
+		}
+		for path in &config.printable {
+			t.printable(path);
+		}
+		t.drain();
+	})?;
+	for (span, msg) in t.refusals.take().unwrap_or_default() {
+		tcx.dcx().span_err(span, format!("rust2-ts: {msg}"));
 	}
-	for path in &config.printable {
-		t.printable(path);
-	}
-	t.drain();
+	t.crate_dirs();
 	if t.failed {
 		return None;
 	}
@@ -57,9 +61,7 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 /// translation does, or where it names none, in what each item reaches as if each were a
 /// root.
 pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
-	let mut t = Translator::new(tcx, config, Some(Vec::new()))?;
-	t.bind();
-	let polymorphic = match config.roots.is_empty() {
+	let (mut t, polymorphic) = Translator::settle(tcx, config, true, |t| match config.roots.is_empty() {
 		true => t.every_item(),
 		false => {
 			for root in &config.roots {
@@ -71,7 +73,7 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 			t.drain();
 			0
 		}
-	};
+	})?;
 	let sm = tcx.sess.source_map();
 	let mut seen = rustc_data_structures::fx::FxHashSet::default();
 	let mut refusals = Vec::new();
@@ -179,7 +181,10 @@ pub struct Translator<'a, 'tcx> {
 	/// Where trait bounds come from: none outside a census, which lowers some functions
 	/// over their own type parameters.
 	env: TypingEnv<'tcx>,
-	/// Refusals collected for a census, rather than reported as errors.
+	/// Whether this is a census, which lowers some functions over their type parameters and
+	/// writes nothing.
+	census: bool,
+	/// Refusals collected until translation settles, then reported or counted.
 	refusals: Option<Vec<(Span, String)>>,
 	/// Whether each type's drop does something JS can see, as [`Self::drops`] found.
 	drops: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, bool>,
@@ -194,6 +199,8 @@ pub struct Translator<'a, 'tcx> {
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
+	/// The bodies of other crates whose writes count: those the run before reached.
+	read: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// The class of each coroutine instance.
 	pub coroutines: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, mir::coroutine::Info<'tcx>>,
 	/// Whether [`Self::ty`] is typing a variable: see [`Self::held_ty`].
@@ -207,78 +214,33 @@ pub struct Translator<'a, 'tcx> {
 	bindings: bind::Bindings<'tcx>,
 }
 
-/// The crates that translate as one program: the package, and the dependencies its config
-/// names. Any other crate's function is std's mapping, a binding, or refused.
+/// The crates that translate as one program: the package, and every crate it depends on
+/// but std's. What the roots reach of them translates; any function of std's is its
+/// mapping, a binding, or refused.
 #[derive(Default)]
 pub struct Crates(rustc_data_structures::fx::FxHashSet<CrateNum>);
 
 impl Crates {
-	/// The dependencies `config` names, or `None` after reporting why they can't translate.
-	fn new(tcx: TyCtxt<'_>, config: &Config) -> Option<Self> {
-		let mut crates = Self::default();
-		for package in &config.dependencies {
-			// A library is named for its package unless its manifest says otherwise.
-			let name = package.replace('-', "_");
-			let found: Vec<CrateNum> = tcx
-				.crates(())
+	fn new(tcx: TyCtxt<'_>) -> Self {
+		Self(
+			tcx.crates(())
 				.iter()
 				.copied()
-				.filter(|&krate| tcx.crate_name(krate).as_str() == name)
-				.collect();
-			let why = match found[..] {
-				[] => "is no library the package depends on",
-				[_, _, ..] => "is more than one version of a library, whose items would share their paths",
-				[krate] => {
-					crates.0.insert(krate);
-					continue;
-				}
-			};
-			tcx.dcx().err(format!("rust2-ts: `{package}` in `dependencies` {why}"));
-			return None;
-		}
-		// Another crate's modules go under its name, which a module of the package's own
-		// at its root would share.
-		let shares = |name: &str| {
-			["core", "alloc", "std"].contains(&name)
-				|| crates.0.iter().any(|&krate| tcx.crate_name(krate).as_str() == name)
-		};
-		for child in tcx.module_children_local(rustc_hir::def_id::CRATE_DEF_ID) {
-			if let rustc_hir::def::Res::Def(DefKind::Mod, def_id) = child.res
-				&& def_id.is_local()
-				&& shares(child.ident.as_str())
-			{
-				tcx.dcx().span_err(
-					tcx.def_span(def_id),
-					format!(
-						"rust2-ts: module `{}` would share its files with the crate of its name",
-						child.ident
-					),
-				);
-				return None;
-			}
-		}
-		Some(crates)
+				.filter(|&krate| !tcx.crate_dep_kind(krate).macros_only() && !of_std(tcx, krate))
+				.collect(),
+		)
 	}
 
 	/// Whether `def_id`'s crate translates.
 	pub fn translates(&self, def_id: DefId) -> bool {
 		def_id.is_local() || self.0.contains(&def_id.krate)
 	}
+}
 
-	/// Every function, closure, and coroutine body of the crates that translate.
-	pub fn bodies<'tcx>(&self, tcx: TyCtxt<'tcx>) -> Vec<DefId> {
-		let mut bodies: Vec<DefId> = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id()).collect();
-		// Another crate's items are numbered from zero, and it lists none of its bodies.
-		let cstore = rustc_metadata::creader::CStore::from_tcx(tcx);
-		for &krate in &self.0 {
-			let items = (0..cstore.num_def_ids_untracked(krate)).map(|index| DefId {
-				krate,
-				index: rustc_hir::def_id::DefIndex::from_usize(index),
-			});
-			bodies.extend(items.filter(|&def_id| tcx.def_kind(def_id).is_fn_like() && tcx.is_mir_available(def_id)));
-		}
-		bodies
-	}
+/// Whether `krate` is std or a crate std is built from: `-Zbuild-std` compiles those, and
+/// only those, with stability on every item.
+fn of_std(tcx: TyCtxt<'_>, krate: CrateNum) -> bool {
+	tcx.lookup_stability(krate.as_def_id()).is_some()
 }
 
 /// A translated struct or enum, and how it is represented.
@@ -317,7 +279,42 @@ pub struct Erased {
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
-	fn new(tcx: TyCtxt<'tcx>, config: &'a Config, refusals: Option<Vec<(Span, String)>>) -> Option<Self> {
+	/// A translator that has run `reach`, with what it copies settled. Whether code writes
+	/// into a type in place decides that, and of another crate's code, only what
+	/// translation reaches runs, which it knows once it has reached it. So it runs again
+	/// while it reaches a body whose writes it didn't read.
+	fn settle<R>(
+		tcx: TyCtxt<'tcx>,
+		config: &'a Config,
+		census: bool,
+		mut reach: impl FnMut(&mut Self) -> R,
+	) -> Option<(Self, R)> {
+		let mut read = rustc_data_structures::fx::FxHashSet::default();
+		loop {
+			let mut t = Self::new(tcx, config, census, read)?;
+			t.bind();
+			let out = reach(&mut t);
+			let reached: Vec<DefId> = t
+				.instances
+				.keys()
+				.map(|instance| instance.def_id())
+				.filter(|&def_id| !def_id.is_local() && t.crates.translates(def_id) && !t.read.contains(&def_id))
+				.collect();
+			// The config's errors are reported as they are found, so only once.
+			if reached.is_empty() || tcx.dcx().has_errors().is_some() {
+				return Some((t, out));
+			}
+			read = std::mem::take(&mut t.read);
+			read.extend(reached);
+		}
+	}
+
+	fn new(
+		tcx: TyCtxt<'tcx>,
+		config: &'a Config,
+		census: bool,
+		read: rustc_data_structures::fx::FxHashSet<DefId>,
+	) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
 				"rust2-ts: translation needs a 32-bit target, such as wasm32-unknown-unknown, so usize is a number",
@@ -327,7 +324,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(Self {
 			tcx,
 			config,
-			crates: Crates::new(tcx, config)?,
+			crates: Crates::new(tcx),
 			program: Program::default(),
 			instances: Default::default(),
 			queue: VecDeque::new(),
@@ -335,7 +332,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			sources: Default::default(),
 			failed: false,
 			env: TypingEnv::fully_monomorphized(),
-			refusals,
+			census,
+			refusals: Some(Vec::new()),
 			drops: Default::default(),
 			drops_open: Default::default(),
 			drops_cycle: false,
@@ -345,6 +343,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			copy_shims: Default::default(),
 			// Once the bindings are known.
 			writes: Default::default(),
+			read,
 			held: false,
 			sites: Default::default(),
 			site: None,
@@ -381,8 +380,43 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// its bounds are that function's, not the caller's. Translation never reaches one.
 	fn drain(&mut self) {
 		while let Some((instance, sym)) = self.queue.pop_front() {
-			if self.refusals.is_none() || !instance.args.has_param() {
+			if !self.census || !instance.args.has_param() {
 				self.function(instance, sym);
+			}
+		}
+	}
+
+	/// Refuse a reached crate whose files another crate's would be: another crate's modules
+	/// go under its name, which a module at the package's root or another version of the
+	/// crate could share.
+	fn crate_dirs(&mut self) {
+		let tcx = self.tcx;
+		let reached: std::collections::BTreeSet<CrateNum> = self
+			.instances
+			.keys()
+			.map(|instance| instance.def_id().krate)
+			.chain(self.adts.keys().map(|def_id| def_id.krate))
+			.filter(|&krate| krate != rustc_hir::def_id::LOCAL_CRATE)
+			.collect();
+		let mut names = rustc_data_structures::fx::FxHashMap::default();
+		for &krate in &reached {
+			let name = tcx.crate_name(krate);
+			if names.insert(name, krate).is_some() {
+				self.err(
+					tcx.def_span(krate.as_def_id()),
+					format!("more than one version of `{name}` is reached, whose modules would share their files"),
+				);
+			}
+		}
+		for child in tcx.module_children_local(rustc_hir::def_id::CRATE_DEF_ID) {
+			if let rustc_hir::def::Res::Def(DefKind::Mod, def_id) = child.res
+				&& def_id.is_local()
+				&& names.contains_key(&child.ident.name)
+			{
+				self.err(
+					tcx.def_span(def_id),
+					format!("module `{}` would share its files with the crate of its name", child.ident),
+				);
 			}
 		}
 	}

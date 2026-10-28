@@ -292,7 +292,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		// A census lowers a generic function over its type parameters, where only an
 		// instance can say what the glue is.
-		if rustc && self.refusals.is_some() && (ty.has_param() || ty.has_aliases()) {
+		if rustc && self.census && (ty.has_param() || ty.has_aliases()) {
 			return Some(Expr::rt("drop", vec![value]));
 		}
 		self.err(span, format!("dropping `{ty}`, which is not supported yet"));

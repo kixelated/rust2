@@ -11,27 +11,42 @@ use rustc_middle::ty::TyCtxt;
 use crate::config::{self, Config};
 use crate::{lower, program};
 
-/// What rustc compiles each crate that translates with: the package here, and the
-/// dependencies it names through cargo's profile, which cargo's fingerprint sees.
+/// What rustc compiles each crate that translates with: the package, and every crate it
+/// depends on but std's.
 ///
-/// MIR without the checks of undefined behavior that debug builds add around raw
-/// pointers, such as a box's: JS has no pointers to check. And with the cleanups a panic
+/// Every function's MIR, which a `cargo check` encodes for no dependency's functions
+/// otherwise. Without the checks of undefined behavior that debug builds add around raw
+/// pointers, such as a box's: JS has no pointers to check. With the cleanups a panic
 /// unwinds through, which wasm32's default of aborting leaves out: a JS caller can catch
-/// a panic and go on. And with every call where the source has it, as a release build's
+/// a panic and go on. With every call where the source has it, as a release build's
 /// inlining would not keep it, since a call is what a binding or a std function's
-/// translation stands in for. And with `rust2_ts` set, so a crate can give translation
-/// a safe twin of its `unsafe`.
-pub const FLAGS: &[&str] = &["-Zub-checks=no", "-Cpanic=unwind", "-Zinline-mir=no", "--cfg=rust2_ts"];
+/// translation stands in for. And with `rust2_ts` set, so a crate can give translation a
+/// safe twin of its `unsafe`.
+const FLAGS: &[&str] = &[
+	"-Zalways-encode-mir",
+	"-Zub-checks=no",
+	"-Cpanic=unwind",
+	"-Zinline-mir=no",
+	"--cfg=rust2_ts",
+];
 
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
 pub fn run(args: Vec<String>) -> ExitCode {
 	rust2_driver::rustc::run("rust2-ts", args, |args| {
-		let job = Translate::for_args(args)?;
-		if job.is_some() {
+		if translates(args) {
 			args.extend(FLAGS.iter().map(|flag| flag.to_string()));
 		}
+		let job = Translate::for_args(args)?;
 		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
+}
+
+/// Whether rustc's `args` compile a crate that may translate: one for the target, not a
+/// build script or proc macro, which compile for the host, and not one of std's, which
+/// `-Zbuild-std` compiles with every item unstable.
+fn translates(args: &[String]) -> bool {
+	args.iter().any(|arg| arg == "--target" || arg.starts_with("--target="))
+		&& !args.iter().any(|arg| arg.ends_with("force-unstable-if-unmarked"))
 }
 
 /// Compiles the configured crate, translating it after analysis.

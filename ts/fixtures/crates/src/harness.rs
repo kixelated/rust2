@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use crates_dep::{Guard, Point, Weigh};
+use crates_dep::{Countdown, Guard, Point, Weigh};
 
 /// The package's own type, which the dependency's generic function ranks.
 struct Item(u8);
@@ -39,6 +39,9 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		drop(held);
 	}
 	out.extend(log.lock().unwrap().iter());
+	for n in Countdown::new(input.len().min(4) as u8) {
+		out.push(n);
+	}
 	out.push(crates_dep::first(input));
 	out.push(crates_dep::last(input));
 	out

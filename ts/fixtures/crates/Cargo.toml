@@ -13,6 +13,8 @@ crate-type = ["lib", "cdylib"]
 [features]
 # A module of the dependency's name, whose files would be the dependency's.
 shared = []
+# The dependency's iterator runs from either end, which translation refuses.
+rev = ["crates-dep/rev"]
 
 [dependencies]
 crates-dep = { path = "dep" }

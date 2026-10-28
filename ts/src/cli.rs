@@ -5,7 +5,6 @@ use std::process::ExitCode;
 use rust2_driver::cargo::{Args, Check, Output};
 
 use crate::config::{self, Config};
-use crate::driver;
 
 /// Translation type-checks for this target: its 32-bit `usize` is what a JS number
 /// holds exactly, and its `cfg`s are the browser's.
@@ -46,7 +45,6 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true".as_ref()),
 	];
 	let mut cargo = std_from_source();
-	cargo.extend(dependencies(&config.dependencies));
 	cargo.extend(args.cargo);
 	Check {
 		tool: "rust2-ts",
@@ -75,24 +73,3 @@ fn std_from_source() -> Vec<String> {
 	args
 }
 
-/// Cargo args that compile each dependency that translates with the package as the
-/// package compiles, and with every function's MIR, which a `cargo check` encodes for no
-/// dependency's functions otherwise.
-fn dependencies(packages: &[String]) -> Vec<String> {
-	let mut flags = vec!["-Zalways-encode-mir"];
-	flags.extend(driver::FLAGS);
-	let flags = flags
-		.iter()
-		.map(|flag| format!("{flag:?}"))
-		.collect::<Vec<_>>()
-		.join(", ");
-	packages
-		.iter()
-		.flat_map(|package| {
-			[
-				"--config".into(),
-				format!("profile.dev.package.{package:?}.rustflags=[{flags}]"),
-			]
-		})
-		.collect()
-}

@@ -77,24 +77,23 @@ pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
 	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
 		return;
 	};
-	for (&tr, impls) in tcx.all_local_trait_impls(()) {
-		let path = library::std_path(tcx, tr);
-		let Some(name) = path.last().filter(|n| {
+	// Only the type's crate can implement std's traits for it.
+	for &other in tcx.trait_impls_in_crate(adt.did().krate) {
+		let self_ty = tcx.type_of(other).instantiate_identity().skip_norm_wip();
+		if !matches!(self_ty.kind(), ty::Adt(other, _) if other.did() == adt.did()) {
+			continue;
+		}
+		let path = library::std_path(tcx, tcx.impl_trait_id(other));
+		if let Some(name) = path.last().filter(|n| {
 			matches!(
 				n.as_str(),
 				"DoubleEndedIterator" | "ExactSizeIterator" | "FusedIterator"
 			)
-		}) else {
-			continue;
-		};
-		for other in impls {
-			let self_ty = tcx.type_of(other.to_def_id()).instantiate_identity().skip_norm_wip();
-			if matches!(self_ty.kind(), ty::Adt(other, _) if other.did() == adt.did()) {
-				t.err(
-					tcx.def_span(other.to_def_id()),
-					format!("an iterator of the crate implementing `{name}`, which is not supported yet"),
-				);
-			}
+		}) {
+			t.err(
+				tcx.def_span(other),
+				format!("an iterator of the crate implementing `{name}`, which is not supported yet"),
+			);
 		}
 	}
 }

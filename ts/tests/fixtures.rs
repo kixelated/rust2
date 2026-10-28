@@ -515,10 +515,10 @@ fn bind() {
 	);
 }
 
-/// A package and the dependency its config names translate as one program, the
-/// dependency's safe twin of its `unsafe` included, and run as native Rust does. Its
-/// `unsafe` that nothing binds is refused at its span, and so are a dependency the package
-/// doesn't have and a module of the package's that would share a dependency's files.
+/// A package and its dependency translate as one program, the dependency's safe twin of
+/// its `unsafe` included, and run as native Rust does. Its `unsafe` that nothing binds is
+/// refused at its span, and so are its iterator that runs from either end and a module of
+/// the package's that would share the dependency's files.
 #[test]
 fn crates() {
 	let out = translated("crates");
@@ -527,7 +527,7 @@ fn crates() {
 	differential("crates-fixture", &[], &out, "harness.ts", 1_000, &[]);
 	let cases: [(&str, &str, &[&str]); 3] = [
 		("refused", "refused.toml", &[]),
-		("unknown", "unknown.toml", &[]),
+		("rev", "ts.toml", &["--", "--features", "rev"]),
 		("shared", "ts.toml", &["--", "--features", "shared"]),
 	];
 	for (case, config, cargo) in cases {

@@ -4,6 +4,7 @@ import * as rt from "./rt.ts";
 import { copy$Point } from "./lib.ts";
 import * as last from "./bind/last.ts";
 import { heaviest$Item, first } from "./crates_dep.ts";
+import * as Countdown from "./crates_dep.Countdown.ts";
 import * as Guard from "./crates_dep.Guard.ts";
 import * as Point from "./crates_dep.Point.ts";
 import type * as Item from "./harness.Item.ts";
@@ -13,12 +14,12 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	let guards!: Guard.Guard[];
 	let held!: Guard.Guard;
 	let _late!: Guard.Guard;
-	let _71!: boolean;
-	let _72!: boolean;
+	let _83!: boolean;
+	let _84!: boolean;
 	let unwind: number = 0;
 	try {
-		_72 = false;
-		_71 = false;
+		_84 = false;
+		_83 = false;
 		const out: rt.ByteVec = new rt.ByteVec();
 		if (input.length >= 2) {
 			const p: Point.Point = { x: input.data[input.start] as rt.i32, y: input.data[input.start + 1] as rt.i32 };
@@ -33,62 +34,70 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 			rt.byteVecPush(out, _29._0);
 		}
 		log = new rt.Arc(new rt.Mutex(new rt.ByteVec()));
-		unwind = 41;
+		unwind = 49;
 		guards = rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(input)), 3), (_26: rt.u8): Guard.Guard => {
 			return Guard.new(_26, log);
 		}), false, undefined, rt.drop);
-		unwind = 47;
-		_72 = true;
+		unwind = 55;
+		_84 = true;
 		held = Guard.new(255, log);
-		unwind = 45;
-		_71 = true;
-		_72 = false;
+		unwind = 53;
+		_83 = true;
+		_84 = false;
 		rt.dropAll(guards);
 		_late = Guard.new(254, log);
-		unwind = 40;
-		_71 = false;
+		unwind = 48;
+		_83 = false;
 		rt.drop(held);
-		unwind = 45;
+		unwind = 53;
 		rt.drop(_late);
-		unwind = 41;
-		_71 = false;
-		_72 = false;
+		unwind = 49;
+		_83 = false;
+		_84 = false;
 		const _60: rt.Mutex<rt.ByteVec> = log.value;
-		unwind = 39;
+		unwind = 47;
 		const _56: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_60.value)));
 		rt.iterExtendBytes(out, _56);
-		unwind = 41;
-		const _66: rt.u8 = first(input);
-		rt.byteVecPush(out, _66);
-		const _69: rt.u8 = last.last(input);
-		rt.byteVecPush(out, _69);
+		unwind = 49;
+		const iter: Countdown.Countdown = Countdown.new(rt.min(input.length, 4) & 0xff);
+		while (true) {
+			const _70: rt.u8 | rt.Done = Countdown.next$Iterator(iter);
+			if (_70 === rt.DONE) {
+				break;
+			}
+			rt.byteVecPush(out, _70);
+		}
+		const _78: rt.u8 = first(input);
+		rt.byteVecPush(out, _78);
+		const _81: rt.u8 = last.last(input);
+		rt.byteVecPush(out, _81);
 		unwind = 0;
 		rt.drop(log);
 		return out;
 	} catch (e) {
-		b2: {
-			b3: {
+		b4: {
+			b5: {
 				if (unwind === 0) {
 					throw e;
 				}
-				if (unwind === 39) {
-					break b2;
+				if (unwind === 47) {
+					break b4;
 				}
-				if (unwind === 40) {
+				if (unwind === 48) {
 					rt.drop(_late);
 				} else {
-					if (unwind === 41) {
-						break b2;
+					if (unwind === 49) {
+						break b4;
 					}
-					if (unwind !== 45) {
-						break b3;
+					if (unwind !== 53) {
+						break b5;
 					}
 				}
-				if (_71) {
+				if (_83) {
 					rt.drop(held);
 				}
 			}
-			if (_72) {
+			if (_84) {
 				rt.dropAll(guards);
 			}
 		}

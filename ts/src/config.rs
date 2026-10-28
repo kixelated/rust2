@@ -11,9 +11,6 @@ use serde::Deserialize;
 pub struct Config {
 	/// The cargo package whose library is translated.
 	pub package: String,
-	/// Cargo packages it depends on whose libraries translate with it, as one program.
-	#[serde(default)]
-	pub dependencies: Vec<String>,
 	/// Paths from the crate root to the items to translate: a function, or a type with
 	/// its non-generic methods. Everything they reach comes along.
 	pub roots: Vec<String>,

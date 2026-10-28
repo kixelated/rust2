@@ -1,6 +1,6 @@
 //! The dependency `crates-fixture` translates with: a type the package copies, which only
-//! this crate writes into, a generic function over the package's type, drops, and
-//! `unsafe` with a safe twin where it translates and without one.
+//! this crate writes into, a generic function over the package's type, drops, an
+//! iterator, and `unsafe` with a safe twin where it translates and without one.
 
 use std::sync::{Arc, Mutex};
 
@@ -50,6 +50,41 @@ impl Guard {
 impl Drop for Guard {
 	fn drop(&mut self) {
 		self.log.lock().unwrap().push(self.id);
+	}
+}
+
+/// Counts down from where it starts to one.
+pub struct Countdown {
+	next: u8,
+	last: u8,
+}
+
+impl Countdown {
+	pub fn new(from: u8) -> Self {
+		Self { next: from, last: 0 }
+	}
+}
+
+impl Iterator for Countdown {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		if self.next == self.last {
+			return None;
+		}
+		self.next -= 1;
+		Some(self.next + 1)
+	}
+}
+
+#[cfg(feature = "rev")]
+impl DoubleEndedIterator for Countdown {
+	fn next_back(&mut self) -> Option<u8> {
+		if self.next == self.last {
+			return None;
+		}
+		self.last += 1;
+		Some(self.last)
 	}
 }
 

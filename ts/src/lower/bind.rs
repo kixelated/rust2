@@ -141,7 +141,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		self.writes = super::copy::Writes::of_crate(tcx, &self.crates.bodies(tcx), &|def_id| self.own(def_id));
+		let bodies = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id()).chain(self.read.iter().copied());
+		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| self.own(def_id));
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate
@@ -363,9 +364,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.program.bound.contains_key(module) {
 			let file = &self.bindings.files[module];
 			// A census writes nothing, so it reads no file.
-			let text = match &self.refusals {
-				Some(_) => Ok(String::new()),
-				None => std::fs::read_to_string(self.config.dir.join(&file.path)),
+			let text = match self.census {
+				true => Ok(String::new()),
+				false => std::fs::read_to_string(self.config.dir.join(&file.path)),
 			};
 			let (namespace, prefix) = (file.namespace.clone(), file.prefix.clone());
 			let source = self.config.dir.join(&file.path);

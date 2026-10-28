@@ -1,5 +1,5 @@
-a root must not be generic at fixtures/reject/src/lib.rs:102:1
 no item `missing` in the crate
+a root must not be generic at fixtures/reject/src/lib.rs:102:1
 a printable type must implement `Display` or `Debug` at fixtures/reject/src/lib.rs:100:1
 unsupported type `f64` at fixtures/reject/src/lib.rs:7:14
 a scalar constant of type `f64` at fixtures/reject/src/lib.rs:8:2

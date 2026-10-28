@@ -226,15 +226,24 @@ pub struct Writes<'tcx> {
 
 impl<'tcx> Writes<'tcx> {
 	/// The writes of every function, closure, and coroutine body of `bodies` that `own`
-	/// says translates: a binding stands in for any other, which counts as code it doesn't
-	/// read.
-	pub fn of_crate(tcx: TyCtxt<'tcx>, bodies: &[DefId], own: &dyn Fn(DefId) -> bool) -> Self {
+	/// says translates, and of the closures and coroutines they hold: a binding stands in
+	/// for any other, which counts as code it doesn't read.
+	pub fn of_bodies(tcx: TyCtxt<'tcx>, bodies: impl IntoIterator<Item = DefId>, own: &dyn Fn(DefId) -> bool) -> Self {
 		let mut writes = Writes::default();
-		for &def_id in bodies {
-			if !tcx.def_kind(def_id).is_fn_like() || !own(def_id) {
+		let mut queue: Vec<DefId> = bodies.into_iter().collect();
+		let mut seen = FxHashSet::default();
+		while let Some(def_id) = queue.pop() {
+			if !seen.insert(def_id) || !tcx.def_kind(def_id).is_fn_like() || !own(def_id) {
 				continue;
 			}
 			let body = tcx.optimized_mir(def_id);
+			// Another crate lists none of its closures' bodies.
+			for local in body.local_decls.iter() {
+				queue.extend(local.ty.walk().filter_map(|arg| match *arg.as_type()?.kind() {
+					ty::Closure(nested, _) | ty::Coroutine(nested, _) | ty::CoroutineClosure(nested, _) => Some(nested),
+					_ => None,
+				}));
+			}
 			BodyWrites {
 				tcx,
 				body,

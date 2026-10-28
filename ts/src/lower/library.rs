@@ -578,14 +578,6 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 
 pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
-	// thiserror's `Display` derive reads each field through `AsDisplay`, which is the
-	// field itself for anything but a path.
-	if tcx.crate_name(call.def_id.krate).as_str() == "thiserror"
-		&& tcx.item_name(call.def_id).as_str() == "as_display"
-		&& matches!(targ(call.args, 0).kind(), ty::Ref(..))
-	{
-		return args.into_iter().next_back();
-	}
 	if !is_std(tcx, call.def_id) {
 		return None;
 	}

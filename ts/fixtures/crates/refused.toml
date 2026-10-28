@@ -1,5 +1,4 @@
 # The dependency's `unsafe` without the binding that stands in for it: `refused.txt` holds
 # the errors.
 package = "crates-fixture"
-dependencies = ["crates-dep"]
 roots = ["harness::run"]
