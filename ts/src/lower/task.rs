@@ -1,11 +1,29 @@
 //! The standard library's ownership and async types, as `rt/task.ts` gives them: `Arc`,
-//! `Weak`, `Mutex`, `Waker`, `Context`, `Poll`, and `Pin`.
+//! `Weak`, `Mutex`, `Waker`, `Context`, `Poll`, `Pin`, and std's futures.
 
 use rustc_middle::ty::{self, Ty};
+use rustc_span::Span;
 
+use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use crate::ts::Expr;
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// `Future::Output` of `ty`, a future.
+	pub fn future_output(&mut self, ty: Ty<'tcx>, span: Span) -> Ty<'tcx> {
+		let tcx = self.tcx;
+		let output = tcx.lang_items().future_output().and_then(|item| {
+			let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
+			tcx.try_normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(projection))
+				.ok()
+		});
+		output.unwrap_or_else(|| {
+			self.err(span, format!("`{ty}` has no `Future::Output`"));
+			tcx.types.unit
+		})
+	}
+}
 
 /// A call of a standard library function on these types, or its arguments back if it is
 /// none of theirs. `Ok(None)` refuses it.
@@ -69,8 +87,16 @@ pub fn call<'tcx>(
 			let [l, r] = two(args);
 			l.member("willWake").call(vec![r])
 		}
+		("poll_fn", "poll_fn") => Expr::New(Box::new(Expr::Rt("PollFn".into())), args),
+		("pending", "pending") => Expr::Rt("NEVER".into()),
+		// std's futures are the runtime's, which poll themselves.
+		("Future", "poll") if matches!(self_std, Some(Std::PollFn | Std::Pending)) => {
+			let [future, cx] = two(args);
+			future.member("poll").call(vec![cx])
+		}
 		("Context", "waker" | "from_waker")
 		| ("Pin", "new" | "new_unchecked" | "as_mut" | "get_mut" | "get_unchecked_mut")
+		| ("pin", "pin_new_unchecked_in_helper")
 		| ("future", "get_context")
 		| ("IntoFuture", "into_future") => first(args),
 		("mem", "drop") => {

@@ -41,6 +41,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Mutex
 					| Std::Poll
 					| Std::Pin
+					| Std::PollFn
 					| Std::HashMap
 					| Std::HashSet
 					| Std::BTreeMap
@@ -115,7 +116,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::Waker) => true,
-				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin) => {
+				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin | Std::PollFn) => {
 					self.disposable(args.type_at(0), span)
 				}
 				// An `rt.Iter` drops what it was given to.

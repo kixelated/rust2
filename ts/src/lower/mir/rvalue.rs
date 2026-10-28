@@ -429,7 +429,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(Std::Option, 0) => self.b.t.none(args.type_at(0)),
 				(Std::Poll, 1) => Expr::Rt("Pending".into()),
-				(Std::Option | Std::Poll, _) => values.pop().unwrap(),
+				(Std::Option | Std::Poll | Std::Pin, _) => values.pop().unwrap(),
 				// Either variant is its text.
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),

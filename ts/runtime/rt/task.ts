@@ -158,6 +158,26 @@ export interface Future<T> extends Disposable {
 	poll(cx: Context): Poll<T>;
 }
 
+/** `future::poll_fn`'s future: each poll calls `f`, which drops with it. */
+export class PollFn<T> implements Future<T> {
+	#f: (cx: Context) => Poll<T>;
+
+	constructor(f: (cx: Context) => Poll<T>) {
+		this.#f = f;
+	}
+
+	poll(cx: Context): Poll<T> {
+		return this.#f(cx);
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.#f);
+	}
+}
+
+/** `future::pending()`: a future never ready, which drops as nothing. */
+export const NEVER: Future<never> = { poll: () => Pending, [Symbol.dispose]() {} };
+
 /** An `async fn` polled again after it returned. */
 export function asyncFnResumed(): never {
 	throw new Panic("`async fn` resumed after completion");

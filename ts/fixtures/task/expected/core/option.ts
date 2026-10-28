@@ -165,6 +165,13 @@ export function okOr$Option_Guard_Guard(self: Guard.Guard | undefined, err: Guar
 	return _0;
 }
 
+export function okOr$Option_u64_u64(self: rt.u64 | undefined, err: rt.u64): rt.Result<rt.u64, rt.u64> {
+	if (self === undefined) {
+		return rt.Err(err);
+	}
+	return rt.Ok(self);
+}
+
 export function filter$Option_Guard_options_closure4(self: Guard.Guard | undefined, predicate: (a0: Guard.Guard) => boolean): Guard.Guard | undefined {
 	let x!: Guard.Guard;
 	let unwind: number = 0;
