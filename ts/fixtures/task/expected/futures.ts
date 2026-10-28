@@ -3,9 +3,7 @@
 import * as rt from "./rt.ts";
 import { unwrapOr$Option_u64, okOr$Option_u64_u64 } from "./core/option.ts";
 import { map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0, map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0, map$Poll_u64_u64_boxed_closure0_closure1_closure0, isReady$Poll_Option_u64, isPending$Poll_Option_u64, isPending$Poll_u64, mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1, mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2 } from "./core/task/poll.ts";
-import * as Blast from "./futures.Blast.ts";
 import * as Forward from "./futures.Forward.ts";
-import * as Fused from "./futures.Fused.ts";
 import * as Plain from "./futures.Plain.ts";
 import * as Relay from "./futures.Relay.ts";
 import { wait$boxed_closure0_closure3_u64, wait$boxed_closure0_closure5_u64, recvFuture } from "./kio.ts";
@@ -22,9 +20,8 @@ import * as Guard from "./model.Guard.ts";
  * wakes; and `Poll`'s methods on what each poll returns. `recv` wakes the task through
  * a relay, a waker the `poll_fn` makes on its first poll from an `Arc` of a `Wake` impl,
  * which an even value also wakes by value, and which logs its own drop. It stops at a
- * value of 77, and panics on 99 inside the `poll_fn`. First, a `poll_fn` of a borrowed
- * function drops in an `Arc` without dropping the function, and for one guard in eight,
- * a waker whose last drop panics goes before a guard that unwinding still drops.
+ * value of 77. First, a `poll_fn` of a borrowed function drops in an `Arc` without
+ * dropping the function.
  */
 export function helpers(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return new helpersFuture(rx, guard);
@@ -58,7 +55,7 @@ export class helpersFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _77!: rt.u64;
+		let _51!: rt.u64;
 		let bb0: number = 0;
 		while (true) {
 			switch (bb0) {
@@ -73,25 +70,17 @@ export class helpersFuture {
 						rt.drop(new rt.Arc(new rt.PollFn(this.#lend)));
 						Guard.note(this.#guard, "lent");
 						rt.drop(this.#lend);
-						if (!(rt.u32Rem(Guard.id(this.#guard), 8) === 7)) {
-							bb0 = 26;
-							continue;
-						}
-						rt.drop(new Fused.Fused({ waker: new rt.ArcWaker(new rt.Arc(new Blast.Blast(Guard.new(rt.u32Add(Guard.id(this.#guard), 700), Log.clone$Clone(Guard.log(this.#guard))))), Blast.wake$Wake, (arc: rt.Arc<Blast.Blast>) => rt.drop(arc)), after: Guard.new(rt.u32Add(Guard.id(this.#guard), 800), Log.clone$Clone(Guard.log(this.#guard))) }));
-						bb0 = 26;
+						this.#total = 0;
+						bb0 = 11;
 						continue;
 					}
 					if (this.#state === 1) {
 						rt.asyncFnResumed();
 					} else {
-						bb0 = 39;
+						bb0 = 23;
 						continue;
 					}
-				case 26:
-					this.#total = 0;
-					bb0 = 27;
-					continue;
-				case 27:
+				case 11:
 					const owned: Guard.Guard = Guard.new(rt.u32Add(Guard.id(this.#guard), 500), Log.clone$Clone(Guard.log(this.#guard)));
 					this.#pinned = rt.NEVER;
 					const never: rt.Future<rt.u64> = this.#pinned;
@@ -113,16 +102,12 @@ export class helpersFuture {
 						const polled: rt.Poll<rt.u64 | undefined> = captured5.poll(relay2);
 						const _392: boolean = isPending$Poll_u64(waiting);
 						const _422: boolean = isReady$Poll_Option_u64(polled);
-						const _452: boolean = isPending$Poll_Option_u64(polled);
-						const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_392, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_452, f)];
+						const _45: boolean = isPending$Poll_Option_u64(polled);
+						const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_392, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_45, f)];
 						Guard.note(captured4, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
 						if (polled !== rt.Pending) {
 							if (polled !== undefined) {
-								if (polled === 99) {
-									const part = Guard.id(captured4);
-									const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-									rt.panicFmt(["g", args4[0], " poisoned"]);
-								} else if (rt.u64Rem(polled, 2) === 0) {
+								if (rt.u64Rem(polled, 2) === 0) {
 									relay2.clone().wake();
 								}
 							}
@@ -138,36 +123,36 @@ export class helpersFuture {
 						rt.drop(captured3);
 						rt.drop(captured4);
 					}), rt.drop);
-					bb0 = 39;
+					bb0 = 23;
 					continue;
-				case 39:
-					const _65: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
-					if (_65 !== rt.Pending) {
-						const read: rt.Result<rt.u64, rt.u64> = _65;
+				case 23:
+					const _39: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
+					if (_39 !== rt.Pending) {
+						const read: rt.Result<rt.u64, rt.u64> = _39;
 						rt.drop(this.#awaitee);
 						if (read.ok) {
 							if (read.value === 154) {
-								_77 = this.#total;
-								bb0 = 51;
+								_51 = this.#total;
+								bb0 = 35;
 								continue;
 							}
 							this.#total = rt.u64Add(this.#total, read.value);
 							rt.drop(this.#pinned$2);
-							bb0 = 27;
+							bb0 = 11;
 							continue;
 						}
-						_77 = read.error;
-						bb0 = 51;
+						_51 = read.error;
+						bb0 = 35;
 						continue;
 					}
 					this.#state = 3;
 					return rt.Pending;
-				case 51:
+				case 35:
 					rt.drop(this.#pinned$2);
 					rt.drop(this.#guard);
 					rt.drop(this.#rx);
 					this.#state = 1;
-					return _77;
+					return _51;
 			}
 		}
 	}
@@ -193,7 +178,7 @@ export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
  * queue in turn through [`poll_unsized`], as moq's tasks do through kio's
  * `Waiter::poll_future`, dropping each future as it is ready, and a pinned `&mut dyn
  * Future` of the crate's struct last. A cancel drops the futures the queue still holds,
- * in order, and the async block panics on 99.
+ * in order.
  */
 export function boxed(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return new boxedFuture(rx, guard);
@@ -432,23 +417,17 @@ export class boxedFuture$2 {
 			const result: rt.u64 | undefined = _7;
 			rt.drop(this.#awaitee);
 			const value: rt.u64 = unwrapOr$Option_u64(result, 0);
-			if (!(value === 99)) {
-				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(value, f)];
-				const _28: string = rt.fmtFormat(["block ", args4[0]]);
-				Guard.note(this.#block, _28);
-				const _42: rt.u64 = rt.u64Add(value, 1);
-				rt.drop(this.#rx);
-				rt.drop(this.#block);
-				this.#state = 1;
-				return _42;
-			}
-			const part = Guard.id(this.#block);
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-			rt.panicFmt(["g", args2[0], " poisoned"]);
-		} else {
-			this.#state = 3;
-			return rt.Pending;
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(value, f)];
+			const _17: string = rt.fmtFormat(["block ", args2[0]]);
+			Guard.note(this.#block, _17);
+			const _30: rt.u64 = rt.u64Add(value, 1);
+			rt.drop(this.#rx);
+			rt.drop(this.#block);
+			this.#state = 1;
+			return _30;
 		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 

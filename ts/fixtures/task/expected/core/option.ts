@@ -5,7 +5,7 @@ import type * as Part from "../drops/objects.Part.ts";
 import type * as Key from "../drops.Key.ts";
 import type * as Guard from "../model.Guard.ts";
 
-export function isSomeAnd$Option_Guard_options_closure7(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => boolean): boolean {
+export function isSomeAnd$Option_Guard_options_closure6(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => boolean): boolean {
 	if (self === undefined) {
 		return false;
 	}
@@ -43,14 +43,14 @@ export function map$Option_Box_dyn_Part_u32_take(self: Part.Part | undefined, _:
 	return self.take$Part();
 }
 
-export function map$Option_Guard_u32_folded_closure100(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
+export function map$Option_Guard_u32_folded_closure5_closure0(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
 }
 
-export function map$Option_u32_u32_blasted_closure3(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
+export function map$Option_u32_u32_discarded_closure1(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _8: boolean = false;
 	_8 = true;
@@ -68,7 +68,7 @@ export function map$Option_u32_u32_blasted_closure3(self: rt.u32 | undefined, f:
 	return _0;
 }
 
-export function map$Option_u32_u32_discarded_closure16(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
+export function map$Option_u32_u32_discarded_closure15(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _8: boolean = false;
 	_8 = true;
@@ -93,49 +93,49 @@ export function map$Option_u64_Result_u64_u64_streamed_closure0_closure0(self: r
 	return f(self);
 }
 
-export function map$Option_usize_Guard_usize_u32_folded_closure103(self: [rt.usize, Guard.Guard] | undefined, f: (a0: [rt.usize, Guard.Guard]) => [rt.usize, rt.u32]): [rt.usize, rt.u32] | undefined {
+export function map$Option_usize_Guard_usize_u32_folded_closure83(self: [rt.usize, Guard.Guard] | undefined, f: (a0: [rt.usize, Guard.Guard]) => [rt.usize, rt.u32]): [rt.usize, rt.u32] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
 }
 
-export function mapOr$Option_Arc_dyn_Part_u32_shared_closure4(self: rt.Arc<Part.Part> | undefined, default_: rt.u32, f: (a0: rt.Arc<Part.Part>) => rt.u32): rt.u32 {
+export function mapOr$Option_Arc_dyn_Part_u32_shared_closure3(self: rt.Arc<Part.Part> | undefined, default_: rt.u32, f: (a0: rt.Arc<Part.Part>) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$Option_Box_dyn_Part_u32_boxed_closure3(self: Part.Part | undefined, default_: rt.u32, f: (a0: Part.Part) => rt.u32): rt.u32 {
+export function mapOr$Option_Box_dyn_Part_u32_boxed_closure2(self: Part.Part | undefined, default_: rt.u32, f: (a0: Part.Part) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$Option_Guard_u32_drained_closure4(self: Guard.Guard | undefined, default_: rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
+export function mapOr$Option_Guard_u32_drained_closure3(self: Guard.Guard | undefined, default_: rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$Option_Key_u32_drained_closure5(self: Key.Key | undefined, default_: rt.u32, f: (a0: Key.Key) => rt.u32): rt.u32 {
+export function mapOr$Option_Key_u32_drained_closure4(self: Key.Key | undefined, default_: rt.u32, f: (a0: Key.Key) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$Option_Vec_Guard_usize_collected_closure11(self: Guard.Guard[] | undefined, default_: rt.usize, f: (a0: Guard.Guard[]) => rt.usize): rt.usize {
+export function mapOr$Option_Vec_Guard_usize_collected_closure6(self: Guard.Guard[] | undefined, default_: rt.usize, f: (a0: Guard.Guard[]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$Option_u32_Guard_options_closure2(self: rt.u32 | undefined, default_: Guard.Guard, f: (a0: rt.u32) => Guard.Guard): Guard.Guard {
+export function mapOr$Option_u32_Guard_options_closure1(self: rt.u32 | undefined, default_: Guard.Guard, f: (a0: rt.u32) => Guard.Guard): Guard.Guard {
 	let _0!: Guard.Guard;
 	let _9: boolean = false;
 	_9 = true;
@@ -152,7 +152,7 @@ export function mapOr$Option_u32_Guard_options_closure2(self: rt.u32 | undefined
 	return _0;
 }
 
-export function mapOr$Option_u32_u32_discarded_closure12(self: rt.u32 | undefined, default_: rt.u32, f: (a0: rt.u32) => rt.u32): rt.u32 {
+export function mapOr$Option_u32_u32_discarded_closure11(self: rt.u32 | undefined, default_: rt.u32, f: (a0: rt.u32) => rt.u32): rt.u32 {
 	let _0!: rt.u32;
 	let _8: boolean = false;
 	_8 = true;
@@ -194,7 +194,7 @@ export function okOr$Option_u64_u64(self: rt.u64 | undefined, err: rt.u64): rt.R
 	return rt.Ok(self);
 }
 
-export function filter$Option_Guard_options_closure4(self: Guard.Guard | undefined, predicate: (a0: Guard.Guard) => boolean): Guard.Guard | undefined {
+export function filter$Option_Guard_options_closure3(self: Guard.Guard | undefined, predicate: (a0: Guard.Guard) => boolean): Guard.Guard | undefined {
 	if (self !== undefined) {
 		const x: Guard.Guard = self;
 		if (!predicate(x)) {
@@ -206,7 +206,7 @@ export function filter$Option_Guard_options_closure4(self: Guard.Guard | undefin
 	return undefined;
 }
 
-export function orElse$Option_Guard_options_closure6(self: Guard.Guard | undefined, f: () => Guard.Guard | undefined): Guard.Guard | undefined {
+export function orElse$Option_Guard_options_closure5(self: Guard.Guard | undefined, f: () => Guard.Guard | undefined): Guard.Guard | undefined {
 	let _0!: Guard.Guard | undefined;
 	let _7: boolean = false;
 	_7 = true;

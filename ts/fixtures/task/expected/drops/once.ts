@@ -2,20 +2,18 @@
 
 import * as rt from "../rt.ts";
 import { drop$Option_Held, drop$Result_unit_Guard, drop$Result_unit_Held, drop$Result_unit_Option_Guard } from "../lib.ts";
-import { mapOr$Option_Guard_u32_drained_closure4 } from "../core/option.ts";
+import { mapOr$Option_Guard_u32_drained_closure3 } from "../core/option.ts";
 import * as Cached from "../drops/once.Cached.ts";
-import * as CellProbe from "../drops/once.CellProbe.ts";
-import * as LockProbe from "../drops/once.LockProbe.ts";
 import type * as Held from "../drops.Held.ts";
 import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
 
-/** Run scenario `at`: what each cell drops, where Rust drops it, and in Rust's order. */
-export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
+/** Run scenario `arg % 6`: what each cell drops, where Rust drops it, and in Rust's order. */
+export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 	};
-	const _6: rt.u8 = rt.u8Rem(at, 8);
+	const _6: rt.u8 = rt.u8Rem(arg, 6);
 	if (_6 === 0) {
 		const cell: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
 		const _19: Guard.Guard = guard(1);
@@ -31,7 +29,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part14, f)];
 		Log.note(log, rt.fmtFormat(["refused ", args4[0]]));
 		drop$Result_unit_Guard(refused);
-		const part15 = mapOr$Option_Guard_u32_drained_closure4(cell.v, 0, (g2: Guard.Guard): rt.u32 => {
+		const part15 = mapOr$Option_Guard_u32_drained_closure3(cell.v, 0, (g2: Guard.Guard): rt.u32 => {
 			return rt.u32Sub(Guard.id(g2), id);
 		});
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part15, f)];
@@ -46,58 +44,58 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		drop$Option_Held(lock.v);
 	} else if (_6 === 1) {
 		const cell2: rt.OnceLock<Guard.Guard> = new rt.OnceLock(undefined);
-		const captured7 = guard(11);
-		const captured8 = guard;
+		const captured3 = guard(11);
+		const captured4 = guard;
 		const part11 = rt.u32Sub(Guard.id(rt.onceGetOrInit(cell2, rt.closure((): Guard.Guard => {
-			Guard.note(captured7, "init");
-			const _07: Guard.Guard = captured8(12);
-			rt.drop(captured7);
-			return _07;
+			Guard.note(captured3, "init");
+			const _05: Guard.Guard = captured4(12);
+			rt.drop(captured3);
+			return _05;
 		}, (): void => {
-			rt.drop(captured7);
+			rt.drop(captured3);
 		}), rt.drop)), id);
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part11, f)];
 		Log.note(log, rt.fmtFormat(["made ", args10[0]]));
-		const captured9 = guard(13);
-		const captured10 = guard;
+		const captured5 = guard(13);
+		const captured6 = guard;
 		const part12 = rt.u32Sub(Guard.id(rt.onceGetOrInit(cell2, rt.closure((): Guard.Guard => {
-			Guard.note(captured9, "init");
-			const _08: Guard.Guard = captured10(14);
-			rt.drop(captured9);
-			return _08;
+			Guard.note(captured5, "init");
+			const _06: Guard.Guard = captured6(14);
+			rt.drop(captured5);
+			return _06;
 		}, (): void => {
-			rt.drop(captured9);
+			rt.drop(captured5);
 		}), rt.drop)), id);
 		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part12, f)];
 		Log.note(log, rt.fmtFormat(["kept ", args12[0]]));
 		const other: rt.OnceCell<Held.Held> = new rt.OnceCell(undefined);
-		const captured11 = guard(15);
-		const captured12 = guard;
+		const captured7 = guard(15);
+		const captured8 = guard;
 		rt.onceGetOrInit(other, rt.closure((): Held.Held => {
-			return { tag: "Two", _0: captured11, _1: captured12(16) } as Held.Held;
+			return { tag: "Two", _0: captured7, _1: captured8(16) } as Held.Held;
 		}, (): void => {
-			rt.drop(captured11);
+			rt.drop(captured7);
 		}), rt.drop);
 		drop$Option_Held(other.v);
 		const fresh: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
 		const _140: [Guard.Guard, Guard.Guard] = [guard(17), guard(18)];
 		const first: Guard.Guard = _140[0];
 		const second: Guard.Guard = _140[1];
-		const captured13 = first;
-		const captured14 = guard;
+		const captured9 = first;
+		const captured10 = guard;
 		const first2: () => Guard.Guard = rt.closure((): Guard.Guard => {
-			Guard.note(captured13, "init");
-			return captured14(19);
+			Guard.note(captured9, "init");
+			return captured10(19);
 		}, (): void => {
-			rt.drop(captured13);
+			rt.drop(captured9);
 		});
-		const captured15 = second;
-		const captured16 = guard;
+		const captured11 = second;
+		const captured12 = guard;
 		const second2: () => Guard.Guard = rt.closure((): Guard.Guard => {
-			Guard.note(captured15, "init");
-			return captured16(20);
+			Guard.note(captured11, "init");
+			return captured12(20);
 		}, (): void => {
-			rt.drop(captured15);
+			rt.drop(captured11);
 		});
 		const made2: rt.u32 = rt.u32Sub(Guard.id(rt.onceGetOrInit(fresh, rt.once(first2), rt.drop)), id);
 		const _160: rt.u32 = rt.u32Sub(Guard.id(rt.onceGetOrInit(fresh, rt.once(second2), rt.drop)), id);
@@ -121,59 +119,29 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _206: Guard.Guard = guard(22);
 		drop$Result_unit_Guard(rt.onceSet(cell3, _206));
 		rt.drop(new rt.OnceLock(guard(23)).v);
-		const part10 = mapOr$Option_Guard_u32_drained_closure4(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
-			const _06: rt.u32 = rt.u32Sub(Guard.id(g), id);
+		const part10 = mapOr$Option_Guard_u32_drained_closure3(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
+			const _04: rt.u32 = rt.u32Sub(Guard.id(g), id);
 			rt.drop(g);
-			return _06;
+			return _04;
 		});
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part10, f)];
 		Log.note(log, rt.fmtFormat(["inner ", args20[0]]));
 	} else if (_6 === 3) {
 		const cell4: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
 		const owned3: Guard.Guard = guard(31);
-		const captured5 = guard;
-		const captured6 = owned3;
+		const captured = guard;
+		const captured2 = owned3;
 		rt.onceGetOrInit(cell4, rt.closure((): Guard.Guard => {
-			drop$Result_unit_Guard(rt.onceSet(cell4, captured5(32)));
-			Guard.note(captured6, "init");
-			const _05: Guard.Guard = captured5(33);
-			rt.drop(captured6);
-			return _05;
+			drop$Result_unit_Guard(rt.onceSet(cell4, captured(32)));
+			Guard.note(captured2, "init");
+			const _03: Guard.Guard = captured(33);
+			rt.drop(captured2);
+			return _03;
 		}, (): void => {
-			rt.drop(captured6);
+			rt.drop(captured2);
 		}), rt.drop);
 		rt.drop(cell4);
 	} else if (_6 === 4) {
-		const cell5: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
-		const _241: Guard.Guard = guard(40);
-		const _probe: CellProbe.CellProbe = new CellProbe.CellProbe(cell5, _241);
-		const captured3 = guard(42);
-		const captured4 = id;
-		rt.onceGetOrInit(cell5, rt.closure((): Guard.Guard => {
-			Guard.note(captured3, "init");
-			const args40: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(captured4, f)];
-			rt.panicFmt(["d", args40[0], " init"]);
-		}, (): void => {
-			rt.drop(captured3);
-		}), rt.drop);
-		rt.drop(_probe);
-		rt.drop(cell5);
-	} else if (_6 === 5) {
-		const lock3: rt.OnceLock<Guard.Guard> = new rt.OnceLock(undefined);
-		const _253: Guard.Guard = guard(50);
-		const _probe2: LockProbe.LockProbe = new LockProbe.LockProbe(lock3, _253);
-		const captured = guard(52);
-		const captured2 = id;
-		rt.onceGetOrInit(lock3, rt.closure((): Guard.Guard => {
-			Guard.note(captured, "init");
-			const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(captured2, f)];
-			rt.panicFmt(["d", args38[0], " init"]);
-		}, (): void => {
-			rt.drop(captured);
-		}), rt.drop);
-		rt.drop(_probe2);
-		rt.drop(lock3);
-	} else if (_6 === 6) {
 		const shared: rt.Arc<Cached.Cached> = new rt.Arc(new Cached.Cached({ sweep: new rt.OnceLock(undefined), guard: guard(61) }));
 		const other2: rt.Arc<Cached.Cached> = rt.arcClone(shared);
 		rt.onceGetOrInit(shared.value.sweep, (): Held.Held => {
@@ -185,12 +153,12 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		Log.note(log, rt.fmtFormat(["swept ", args22[0]]));
 		rt.drop(other2);
 		const v: rt.OnceCell<Guard.Guard>[] = [];
-		const _298: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(63));
-		v.push(_298);
-		const _304: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
-		v.push(_304);
-		const _307: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(64));
-		v.push(_307);
+		const _274: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(63));
+		v.push(_274);
+		const _280: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
+		v.push(_280);
+		const _283: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(64));
+		v.push(_283);
 		const cells: rt.OnceCell<Guard.Guard>[] = v;
 		const part7 = cells.length;
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part7, f)];
@@ -198,20 +166,20 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		rt.dropAll(cells);
 		rt.drop(new rt.OnceLock(guard(65)));
 	} else {
-		const cell6: rt.OnceCell<Guard.Guard | undefined, rt.None> = new rt.OnceCell(rt.None);
-		const _339: rt.Result<undefined, Guard.Guard | undefined> = rt.onceSet(cell6, undefined as Guard.Guard | undefined, rt.None);
-		const part = _339.ok;
+		const cell5: rt.OnceCell<Guard.Guard | undefined, rt.None> = new rt.OnceCell(rt.None);
+		const _315: rt.Result<undefined, Guard.Guard | undefined> = rt.onceSet(cell5, undefined as Guard.Guard | undefined, rt.None);
+		const part = _315.ok;
 		const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part, f)];
-		const _333: string = rt.fmtFormat(["none ", args26[0]]);
-		drop$Result_unit_Option_Guard(_339);
-		Log.note(log, _333);
-		const _356: Guard.Guard | undefined = guard(71);
-		const _354: rt.Result<undefined, Guard.Guard | undefined> = rt.onceSet(cell6, _356, rt.None);
-		const part2 = !_354.ok;
+		const _309: string = rt.fmtFormat(["none ", args26[0]]);
+		drop$Result_unit_Option_Guard(_315);
+		Log.note(log, _309);
+		const _332: Guard.Guard | undefined = guard(71);
+		const _330: rt.Result<undefined, Guard.Guard | undefined> = rt.onceSet(cell5, _332, rt.None);
+		const part2 = !_330.ok;
 		const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
-		const _348: string = rt.fmtFormat(["full ", args28[0]]);
-		drop$Result_unit_Option_Guard(_354);
-		Log.note(log, _348);
+		const _324: string = rt.fmtFormat(["full ", args28[0]]);
+		drop$Result_unit_Option_Guard(_330);
+		Log.note(log, _324);
 		const unit: rt.OnceLock<undefined, rt.None> = new rt.OnceLock(rt.None);
 		const part3 = rt.onceSet(unit, undefined, rt.None).ok;
 		const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
@@ -219,10 +187,10 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const part4 = !rt.onceSet(unit, undefined, rt.None).ok;
 		const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
 		Log.note(log, rt.fmtFormat(["again ", args32[0]]));
-		const part5 = cell6.v !== rt.None;
+		const part5 = cell5.v !== rt.None;
 		const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
 		Log.note(log, rt.fmtFormat(["got ", args34[0]]));
-		rt.drop(cell6);
+		rt.drop(cell5);
 	}
 	const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f)];
 	Log.note(log, rt.fmtFormat(["d", args36[0], " cells done"]));

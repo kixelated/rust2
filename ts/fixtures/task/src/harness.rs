@@ -103,7 +103,7 @@ fn steps() -> Vec<(&'static str, Step)> {
 			}
 		}),
 		("edited", |log, exec, _, arg| {
-			drops::edited(log, 1000 * exec.len() as u32, arg % 8)
+			drops::edited(log, 1000 * exec.len() as u32, arg)
 		}),
 		("helpers", |log, exec, channels, arg| {
 			if let Some(c) = pick(channels.len(), arg) {

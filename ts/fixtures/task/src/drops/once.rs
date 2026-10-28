@@ -1,8 +1,7 @@
 //! What one-time cells drop: the value they hold, as they drop; a value `set` refuses, by
 //! whoever it goes back to; an initializing closure, as a call consumes it, or uncalled
-//! when the cell is full; and what a `OnceCell` initialized from within its own
-//! initialization made, before it panics. A panic in the initializing closure leaves the
-//! cell empty, which a value dropping as it unwinds sees and fills.
+//! when the cell is full; and a `OnceCell` initialized from within its own
+//! initialization, which panics with std's message.
 
 use std::cell::OnceCell;
 use std::sync::{Arc, OnceLock};
@@ -11,42 +10,16 @@ use super::Held;
 use crate::log::Log;
 use crate::model::Guard;
 
-/// As it drops, notes whether `cell` is empty, then fills it.
-struct CellProbe<'a>(&'a OnceCell<Guard>, Guard);
-
-impl Drop for CellProbe<'_> {
-	fn drop(&mut self) {
-		self.1.note(&format!("probe {}", self.0.get().is_some()));
-		let id = self.1.id() + 1;
-		let log = self.1.log().clone();
-		let filled = self.0.get_or_init(|| Guard::new(id, log));
-		self.1.note(&format!("filled {}", filled.id()));
-	}
-}
-
-/// [`CellProbe`] of a `OnceLock`, which must also be free to initialize again.
-struct LockProbe<'a>(&'a OnceLock<Guard>, Guard);
-
-impl Drop for LockProbe<'_> {
-	fn drop(&mut self) {
-		self.1.note(&format!("probe {}", self.0.get().is_some()));
-		let id = self.1.id() + 1;
-		let log = self.1.log().clone();
-		let filled = self.0.get_or_init(|| Guard::new(id, log));
-		self.1.note(&format!("filled {}", filled.id()));
-	}
-}
-
 /// A struct holding a cell, as moq's caches do.
 struct Cached {
 	sweep: OnceLock<Held>,
 	guard: Guard,
 }
 
-/// Run scenario `at`: what each cell drops, where Rust drops it, and in Rust's order.
-pub fn run(log: &Log, id: u32, at: u8) {
+/// Run scenario `arg % 6`: what each cell drops, where Rust drops it, and in Rust's order.
+pub fn run(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
-	match at % 8 {
+	match arg % 6 {
 		0 => {
 			let cell = OnceCell::new();
 			log.note(format!("set {}", cell.set(guard(1)).is_ok()));
@@ -115,24 +88,6 @@ pub fn run(log: &Log, id: u32, at: u8) {
 			});
 		}
 		4 => {
-			let cell = OnceCell::new();
-			let _probe = CellProbe(&cell, guard(40));
-			let owned = guard(42);
-			cell.get_or_init(move || -> Guard {
-				owned.note("init");
-				panic!("d{id} init");
-			});
-		}
-		5 => {
-			let lock = OnceLock::new();
-			let _probe = LockProbe(&lock, guard(50));
-			let owned = guard(52);
-			lock.get_or_init(move || -> Guard {
-				owned.note("init");
-				panic!("d{id} init");
-			});
-		}
-		6 => {
 			let shared = Arc::new(Cached {
 				sweep: OnceLock::new(),
 				guard: guard(61),

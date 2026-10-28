@@ -20,7 +20,7 @@ import * as Watch from "./model.Watch.ts";
 
 /**
  * Every value until the channel closes, summed, holding a guard of its own across
- * each await beside the one it was given. It panics on 99.
+ * each await beside the one it was given. A value of 99 fails an `assert!`.
  */
 export function sum(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return new sumFuture(rx, guard);
