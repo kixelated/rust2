@@ -197,7 +197,11 @@ pub fn call<'tcx>(
 		}
 		("atomic", "fence" | "compiler_fence") => Expr::rt("fence", args),
 		// A panic aborts, so no thread is ever unwinding from one.
-		(_, "panicking") if library::std_path(tcx, call.def_id).first().is_some_and(|m| m == "thread") => {
+		(_, "panicking")
+			if library::std_path(tcx, call.def_id)
+				.first()
+				.is_some_and(|m| m == "thread") =>
+		{
 			Expr::lit("false")
 		}
 		("Waker", "wake_by_ref") => first(args).member("wakeByRef").call(vec![]),

@@ -1771,10 +1771,8 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 			),
 			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
 			Std::Box => part(b, args.type_at(0), out),
-			Std::Arc | Std::Mutex => {
-				let class = if Std::of(tcx, adt.did())? == Std::Arc { "Arc" } else { "Mutex" };
-				Expr::New(Box::new(Expr::Rt(class.into())), vec![part(b, args.type_at(0), out)])
-			}
+			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
+			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Weak => Expr::New(Box::new(Expr::Rt("Weak".into())), Vec::new()),
 			_ => return None,
 		},
