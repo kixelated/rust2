@@ -318,8 +318,13 @@ impl<'a> Abi<'a> {
 			};
 			let name = escape(&param.name);
 			if let Type::Closure(..) = param.ty {
-				params.push((name.clone(), ty));
-				params.push((format!("{name}_data"), Ty::Data));
+				// Named apart from every parameter of the function, which C requires.
+				let mut data = format!("{name}_data");
+				while function.params.iter().any(|p| escape(&p.name) == data) {
+					data.push('_');
+				}
+				params.push((name, ty));
+				params.push((data, Ty::Data));
 				continue;
 			}
 			params.push((name, ty));

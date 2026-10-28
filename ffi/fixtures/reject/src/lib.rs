@@ -203,3 +203,9 @@ pub fn twice(f: impl Fn() + Clone) {
 	f.clone()();
 	f()
 }
+
+/// One closure type for two parameters, which C's two functions cannot be.
+pub fn both<F: Fn()>(a: F, b: F) {
+	a();
+	b()
+}

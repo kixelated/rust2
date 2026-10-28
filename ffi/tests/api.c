@@ -50,6 +50,11 @@ static bool edit(void *data, api_counter *counter) {
 }
 
 /* Lent closures borrowing their object shared: one `Sync`, one not. */
+static uint32_t seven(void *data) {
+	(void)data;
+	return 7;
+}
+
 static uint64_t visit(void *data, const api_cursor *cursor) {
 	(void)data;
 	return api_cursor_at(cursor) * 2;
@@ -192,6 +197,7 @@ static int script(void) {
 	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
 	api_counter_free(first);
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
+	printf("offset %u\n", api_offset(seven, NULL, 3));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */

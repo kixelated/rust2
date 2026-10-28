@@ -1852,6 +1852,17 @@ impl<'tcx> Collector<'tcx> {
 		if kept {
 			return Some(Err(why("closure kept past the call", param.to_string())));
 		}
+		// Each parameter makes its own closure, which one type parameter cannot name twice.
+		if sig
+			.skip_binder()
+			.inputs()
+			.iter()
+			.filter(|&&input| input == param)
+			.count()
+			> 1
+		{
+			return Some(Err(why("closure type taken twice", param.to_string())));
+		}
 		if !other.is_empty() {
 			return Some(Err(why("closure bound", other.join(" + "))));
 		}

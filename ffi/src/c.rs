@@ -392,8 +392,12 @@ impl Header<'_> {
 				continue;
 			};
 			let name = abi::escape(&param.name);
+			let at = (export.call.params.iter())
+				.position(|(n, _)| *n == name)
+				.expect("a C parameter for each");
+			let data = &export.call.params[at + 1].0;
 			docs.push_str(&format!(
-				"\n\nRust calls `{name}` with `{name}_data` only during the call, from any thread."
+				"\n\nRust calls `{name}` with `{data}` only during the call, from any thread."
 			));
 			if params.iter().any(|p| matches!(p.base(), Type::Object(_))) {
 				docs.push_str(&format!(

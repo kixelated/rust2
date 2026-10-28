@@ -107,6 +107,7 @@ fn main() {
 	});
 	println!("edit {edited} {}", registry.first.get());
 	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
+	println!("offset {}", api_lib::offset(|| 7, 3));
 
 	let name = Name::owned("a".to_string());
 	let mut joined = name.join(&Name::owned("b".to_string()));

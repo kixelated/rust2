@@ -499,6 +499,11 @@ pub fn bump_both(a: &Tally, b: &Tally) -> u32 {
 	a.bump() + b.bump()
 }
 
+/// What `by` returns, plus `by_data`: a closure taking nothing, whose data C names apart.
+pub fn offset(by: impl Fn() -> u32, by_data: u32) -> u32 {
+	by() + by_data
+}
+
 /// A position, which C reaches only as [`walk`] lends it.
 pub struct Cursor {
 	at: u64,
