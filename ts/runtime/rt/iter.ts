@@ -81,10 +81,99 @@ export abstract class Iter<T> implements Iterable<T> {
 		return this.advanceBackBy(n, drop) === 0 ? this.nextBack() : DONE;
 	}
 
+	/**
+	 * `fold`, as std's of its kind, which takes the iterator by value and drops what it
+	 * holds as std's does, a panic included. `release` drops what `f` owns, as std drops
+	 * the closure it was given: as its fold ends, before the iterator. The accumulator
+	 * drops by `dropAcc` where a panic leaves it to the fold rather than to `f`.
+	 */
+	fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return foldBy(this, false, acc, f, dropAcc, release);
+	}
+
+	/** `rfold`, from the back, as `fold`. */
+	rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return foldBy(this, true, acc, f, dropAcc, release);
+	}
+
 	/** Its items, for a JS `for ... of`. */
 	*[Symbol.iterator](): Iterator<T> {
 		for (let item = this.next(); item !== DONE; item = this.next()) yield item;
 	}
+}
+
+/**
+ * std's default `fold`, or `rfold` if `back`: each item by `next`, the accumulator dropped
+ * by `dropAcc` if reading one panics, and then `release` and `it`.
+ */
+function foldBy<T, A>(it: Iter<T>, back: boolean, acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+	try {
+		for (;;) {
+			let item: T | Done;
+			try {
+				item = back ? it.nextBack() : it.next();
+			} catch (e) {
+				dropAcc?.(acc);
+				throw e;
+			}
+			if (item === DONE) break;
+			acc = f(acc, item);
+		}
+	} catch (e) {
+		ended(it, release);
+		throw e;
+	}
+	// A panic here leaks the accumulator, as std's unwinding does a returned value.
+	ended(it, release);
+	return acc;
+}
+
+/**
+ * What a panic unwinding a fold drops before the fold took its accumulator: its closure by
+ * `release`, the accumulator by `dropAcc`, and then `it`, as std's drop its parameters.
+ */
+function unwound<A>(it: unknown, acc: A, dropAcc?: Drop<A>, release?: () => void): void {
+	release?.();
+	dropAcc?.(acc);
+	dispose(it);
+}
+
+/**
+ * The first step of a fold that reads an item by `read` before it folds the rest: whether
+ * `it` ended, which drops `release` and then `it` as the fold returns, and the accumulator,
+ * then `f` of the item. A panic drops what std's unwinding of the fold does.
+ */
+function foldFirst<T, A>(it: unknown, read: () => T | Done, acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): [boolean, A] {
+	let item: T | Done;
+	try {
+		item = read();
+	} catch (e) {
+		unwound(it, acc, dropAcc, release);
+		throw e;
+	}
+	if (item === DONE) {
+		ended(it, release);
+		return [true, acc];
+	}
+	try {
+		return [false, f(acc, item)];
+	} catch (e) {
+		ended(it, release);
+		throw e;
+	}
+}
+
+/** `release`, then `it` dropped, as a fold's closure drops and then its iterator. */
+function ended(it: unknown, release?: () => void): void {
+	if (release === undefined) dispose(it);
+	else both(release, () => dispose(it));
+}
+
+/** What drops `a`'s and then `b`'s, as a closure that captured them in that order drops. */
+function then(a: (() => void) | undefined, b: (() => void) | undefined): (() => void) | undefined {
+	if (a === undefined) return b;
+	if (b === undefined) return a;
+	return () => both(a, b);
 }
 
 /** An adaptor of `inner`, which drops with it. */
@@ -112,6 +201,12 @@ abstract class Calling<S, T, F> extends Adaptor<S, T> {
 	constructor(inner: Iter<S>, f: F) {
 		super(inner);
 		this.f = f;
+	}
+
+	/** What drops `f`, which a fold of `inner` takes from it: dropping it then drops nothing. */
+	protected take(): () => void {
+		this.dropped = true;
+		return () => dispose(this.f);
 	}
 
 	override [Symbol.dispose](): void {
@@ -199,26 +294,22 @@ export function iterBorrow<T>(it: Iter<T>): Iter<T> {
 	return new Borrowed(it);
 }
 
-/** `Extend::extend` of a `Vec`, which drops `items` by `dropIt` once done or a panic. */
-export function iterExtend<T>(v: T[], items: Iter<T>, dropIt?: Drop<Iter<T>>): void {
-	if (dropIt === undefined) {
+/** `Extend::extend` of a `Vec`, which takes `items` as `take` says. */
+export function iterExtend<T>(v: T[], items: Iter<T>, take?: Take): void {
+	if (take === undefined) {
 		for (let item = items.next(); item !== DONE; item = items.next()) v.push(item);
 		return;
 	}
-	try {
-		for (let item = items.next(); item !== DONE; item = items.next()) v.push(item);
-	} finally {
-		dropIt(items);
-	}
+	each(items, (item) => v.push(item), take);
 }
 
 /** `Extend::extend` of a `Vec<u8>`. */
-export function iterExtendBytes(v: ByteVec, items: Iter<number>, dropIt?: Drop<Iter<number>>): void {
-	try {
+export function iterExtendBytes(v: ByteVec, items: Iter<number>, take?: Take): void {
+	if (take === undefined) {
 		for (let item = items.next(); item !== DONE; item = items.next()) byteVecPush(v, item);
-	} finally {
-		dropIt?.(items);
+		return;
 	}
+	each(items, (item) => byteVecPush(v, item), take);
 }
 
 // Adaptors
@@ -341,8 +432,26 @@ export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fus
 	return new FlattenIter(it, into ?? (itself as (value: T) => Iter<V>), fused);
 }
 
-// Consumers. Each that takes the iterator by value drops it by `dropIt` once done, or as
-// a panic unwinds through it.
+// Consumers. Each that takes an iterator by value that `drops` takes it as std's does: by
+// its own `fold` where std's folds, which drops what it holds as it goes, or as `take`
+// says, and else by `next`, dropping it once done or as a panic unwinds through it.
+
+/**
+ * How a consumer takes an iterator by value that drops, where std's may either way: by
+ * `next`, as std's does one it can't trust the length of, or by its own `fold`.
+ */
+export type Take = "next" | "fold";
+
+/** `it`, taken as `take` says: `f` of each item, and then it dropped, a panic included. */
+function each<T>(it: Iter<T>, f: (item: T) => void, take: Take | undefined): void {
+	if (take === "fold") {
+		it.fold<void>(undefined, (_, item) => f(item));
+		return;
+	}
+	consumed(it, () => {
+		for (let item = it.next(); item !== DONE; item = it.next()) f(item);
+	});
+}
 
 /** `Iterator::count` of an iterator that drops nothing. */
 export function iterCount<T>(it: Iter<T>): number {
@@ -443,84 +552,62 @@ export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | 
  * `Iterator::fold`. A panic reading an item drops the accumulator by `dropAcc`; one in
  * `f`, which took it, leaves it to `f`.
  */
-export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, dropIt?: Drop<Iter<T>>, dropAcc?: Drop<A>): A {
-	let acc = init;
-	if (dropIt === undefined && dropAcc === undefined) {
+export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, drops = false, dropAcc?: Drop<A>): A {
+	if (!drops && dropAcc === undefined) {
+		let acc = init;
 		for (let item = it.next(); item !== DONE; item = it.next()) acc = f(acc, item);
 		return acc;
 	}
-	try {
-		for (;;) {
-			let item: T | Done;
-			try {
-				item = it.next();
-			} catch (e) {
-				dropAcc?.(acc);
-				throw e;
-			}
-			if (item === DONE) break;
-			acc = f(acc, item);
-		}
-	} catch (e) {
-		dropIt?.(it);
-		throw e;
-	}
-	// A panic here leaks the accumulator, as std's unwinding does a returned value.
-	dropIt?.(it);
-	return acc;
+	return it.fold(init, f, dropAcc);
 }
 
 /** `Iterator::for_each`. */
-export function iterForEach<T>(it: Iter<T>, f: (item: T) => void, dropIt?: Drop<Iter<T>>): void {
-	if (dropIt === undefined) {
+export function iterForEach<T>(it: Iter<T>, f: (item: T) => void, drops = false): void {
+	if (!drops) {
 		for (let item = it.next(); item !== DONE; item = it.next()) f(item);
 		return;
 	}
-	try {
-		for (let item = it.next(); item !== DONE; item = it.next()) f(item);
-	} finally {
-		dropIt(it);
-	}
+	it.fold<void>(undefined, (_, item) => f(item));
 }
 
 /** `sum`, adding with an integer type's checked `add`, so overflow panics as Rust's does. */
-export function iterSum<T>(it: Iter<T>, add: (a: T, b: T) => T, zero: T, dropIt?: Drop<Iter<T>>): T {
-	return iterFold(it, zero, add, dropIt);
+export function iterSum<T>(it: Iter<T>, add: (a: T, b: T) => T, zero: T, drops = false): T {
+	return iterFold(it, zero, add, drops);
 }
 
 /** `product`, multiplying with an integer type's checked `mul`. */
-export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T, dropIt?: Drop<Iter<T>>): T {
-	return iterFold(it, one, mul, dropIt);
+export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T, drops = false): T {
+	return iterFold(it, one, mul, drops);
 }
 
 /** `max` of integers or booleans: the last of the greatest, as `Ord::max` keeps it. */
-export function iterMax<K extends number | Limbs | boolean>(it: Iter<K>, dropIt?: Drop<Iter<K>>): K | undefined {
-	return iterMaxByKey(it, (item) => item, dropIt);
+export function iterMax<K extends number | Limbs | boolean>(it: Iter<K>, drops = false): K | undefined {
+	return iterMaxByKey(it, (item) => item, drops);
 }
 
 /** `min` of integers or booleans: the first of the least. */
-export function iterMin<K extends number | Limbs | boolean>(it: Iter<K>, dropIt?: Drop<Iter<K>>): K | undefined {
-	return iterMinByKey(it, (item) => item, dropIt);
+export function iterMin<K extends number | Limbs | boolean>(it: Iter<K>, drops = false): K | undefined {
+	return iterMinByKey(it, (item) => item, drops);
 }
 
 /** `max_by_key` with an integer or boolean key, each item's taken once, dropping the others by `drop`. */
-export function iterMaxByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
-	return best(it, f, false, dropIt, drop);
+export function iterMaxByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, drops = false, drop?: Drop<T>): T | undefined {
+	return best(it, f, false, drops, drop);
 }
 
 /** `min_by_key` with an integer or boolean key, each item's taken once, dropping the others by `drop`. */
-export function iterMinByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
-	return best(it, f, true, dropIt, drop);
+export function iterMinByKey<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, drops = false, drop?: Drop<T>): T | undefined {
+	return best(it, f, true, drops, drop);
 }
 
 /**
  * The item of the greatest key, the last of equal ones, or of the least if `least`, the
- * first, as std's `reduce` keeps it: each other drops as it loses. A panic in `f` drops
- * its item, then the best, then the iterator; one dropping a loser leaks the winner, as
- * std's unwinding does a returned value.
+ * first, as std's `reduce` keeps it: the first by `next`, and the rest by `fold`, each
+ * other dropped as it loses. A panic in `f` drops its item, then the best; one dropping
+ * a loser leaks the winner, as std's unwinding does a returned value.
  */
-function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, least: boolean, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
-	if (dropIt === undefined && drop === undefined) {
+function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) => K, least: boolean, drops: boolean, drop?: Drop<T>): T | undefined {
+	if (!drops && drop === undefined) {
 		let best = it.next();
 		if (best === DONE) return undefined;
 		let key = f(best);
@@ -530,66 +617,68 @@ function best<T, K extends number | Limbs | boolean>(it: Iter<T>, f: (item: T) =
 		}
 		return best;
 	}
-	let best: T | Done = DONE;
-	let key: K | undefined;
+	let first: [K, T] | Done = DONE;
 	try {
-		for (let item = it.next(); item !== DONE; item = it.next()) {
+		const item = it.next();
+		if (item !== DONE) first = [drop === undefined ? f(item) : test(f, item, drop), item];
+	} catch (e) {
+		dispose(it);
+		throw e;
+	}
+	if (first === DONE) {
+		dispose(it);
+		return undefined;
+	}
+	const [, item] = it.fold(
+		first,
+		(best, item) => {
 			let k: K;
 			try {
 				k = f(item);
 			} catch (e) {
 				drop?.(item);
+				drop?.(best[1]);
 				throw e;
 			}
-			if (best === DONE) {
-				[best, key] = [item, k];
-				continue;
-			}
-			const wins = least ? lt(k, key as K) : !lt(k, key as K);
-			const loser = wins ? best : item;
-			if (wins) [best, key] = [item, k];
-			if (drop !== undefined) {
-				const held: T | Done = best;
-				best = DONE;
-				drop(loser);
-				best = held;
-			}
-		}
-	} catch (e) {
-		try {
-			if (best !== DONE) drop?.(best);
-		} finally {
-			dropIt?.(it);
-		}
-		throw e;
-	}
-	// A panic here leaks the best, as std's unwinding does a returned value.
-	dropIt?.(it);
-	return iterToOption(best);
+			const wins = least ? lt(k, best[0]) : !lt(k, best[0]);
+			drop?.(wins ? best[1] : item);
+			return wins ? [k, item] : best;
+		},
+		(best) => drop?.(best[1]),
+	);
+	return item;
 }
 
 /**
- * `collect` into a `Vec`. A panic drops `it` by `dropIt` and then what it collected by
- * `drop`, or with `inPlace`, as std's collects into the source `Vec`'s buffer, the other
- * way around.
+ * `collect` into a `Vec`, taking `it` as `take` says, or in `place` of the `Vec` its items
+ * come from. A panic drops `it` and then what it collected by `drop`, or in place, as
+ * std's collects into the source `Vec`'s buffer, the other way around.
  */
-export function iterToArray<T>(it: Iter<T>, inPlace = false, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T[] {
+export function iterToArray<T>(it: Iter<T>, take?: Take | "place", drop?: Drop<T>): T[] {
 	const out: T[] = [];
-	if (dropIt === undefined && drop === undefined) {
+	if (take === undefined && drop === undefined) {
 		for (let item = it.next(); item !== DONE; item = it.next()) out.push(item);
 		return out;
 	}
 	// Not `dropAll`'s default, which would drop what a collected reference points to.
 	const collected = () => drop !== undefined && dropAll(out, drop);
+	if (take !== "place") {
+		try {
+			each(it, (item) => out.push(item), take);
+		} catch (e) {
+			collected();
+			throw e;
+		}
+		return out;
+	}
 	try {
 		for (let item = it.next(); item !== DONE; item = it.next()) out.push(item);
 	} catch (e) {
-		if (inPlace) both(collected, () => dropIt?.(it));
-		else both(() => dropIt?.(it), collected);
+		both(collected, () => dispose(it));
 		throw e;
 	}
 	try {
-		dropIt?.(it);
+		dispose(it);
 	} catch (e) {
 		collected();
 		throw e;
@@ -597,19 +686,15 @@ export function iterToArray<T>(it: Iter<T>, inPlace = false, dropIt?: Drop<Iter<
 	return out;
 }
 
-/** `collect` into a `Vec<u8>`. */
-export function iterToByteVec(it: Iter<number>, dropIt?: Drop<Iter<number>>): ByteVec {
+/** `collect` into a `Vec<u8>`, taking `it` as `take` says. */
+export function iterToByteVec(it: Iter<number>, take?: Take): ByteVec {
 	const out = new ByteVec();
 	// Its own loop: through `iterExtendBytes`, JavaScriptCore took 1.9x as long.
-	if (dropIt === undefined) {
+	if (take === undefined) {
 		for (let item = it.next(); item !== DONE; item = it.next()) byteVecPush(out, item);
 		return out;
 	}
-	try {
-		for (let item = it.next(); item !== DONE; item = it.next()) byteVecPush(out, item);
-	} finally {
-		dropIt?.(it);
-	}
+	each(it, (item) => byteVecPush(out, item), take);
 	return out;
 }
 
@@ -647,73 +732,61 @@ export function iterCollectOption<U, C>(it: Iter<U | undefined>, into: (values: 
 // kind, rather than as methods every iterator would carry, and the translation calls them
 // only where an item or the iterator drops.
 
-/** `Iterator::count` of an iterator that drops what it holds: each item by `drop`, as its own `count` does, and then it by `dropIt`, a panic included. */
-export function ownedCount<T>(it: Iter<T>, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): number {
-	try {
-		return count(it, drop);
-	} finally {
-		dropIt?.(it);
-	}
+/** `Iterator::count` of an iterator that drops what it holds: each item by `drop`, as its own `count` does, and then it, a panic included. */
+export function ownedCount<T>(it: Iter<T>, drop?: Drop<T>): number {
+	return count(it, drop);
 }
 
-/** `Iterator::last` of an iterator that drops what it holds: each item but the last by `drop`, as its own `last` does, and then it by `dropIt`. */
-export function ownedLast<T>(it: Iter<T>, dropIt?: Drop<Iter<T>>, drop?: Drop<T>): T | undefined {
-	let item: T | Done;
-	try {
-		item = last(it, drop);
-	} catch (e) {
-		dropIt?.(it);
-		throw e;
-	}
-	// A panic here leaks the last, as std's unwinding does a returned value.
-	dropIt?.(it);
-	return iterToOption(item);
+/** `Iterator::last` of an iterator that drops what it holds: each item but the last by `drop`, as its own `last` does, and then it. */
+export function ownedLast<T>(it: Iter<T>, drop?: Drop<T>): T | undefined {
+	return iterToOption(last(it, drop));
 }
 
-/** `count`, dropping each item by `drop`. */
+/** `count`, dropping each item by `drop`, and then `it`, as std's of its kind does. */
 function count<T>(it: Iter<T>, drop: Drop<T> | undefined): number {
 	if (it instanceof EnumerateIter) return count(it.inner, items(drop));
 	if (it instanceof ChainIter) {
 		// std's: each iterator's own `count`, the first's first.
-		const a = it.a;
-		it.a = undefined;
-		const n = a === undefined ? 0 : consumed(a, () => count(a, drop));
-		const b = it.b;
-		it.b = undefined;
-		return n + (b === undefined ? 0 : consumed(b, () => count(b, drop)));
+		const { a, b } = it;
+		it.a = it.b = undefined;
+		let n = 0;
+		try {
+			if (a !== undefined) n = count(a, drop);
+		} catch (e) {
+			dispose(b);
+			throw e;
+		}
+		return n + (b === undefined ? 0 : count(b, drop));
 	}
 	if (it instanceof SkipIter) {
 		// std's: past what it skips by `nth`, and then its iterator's own `count`.
-		if (skipped(it, drop)) return 0;
-		return consumed(it.inner, () => count(it.inner, drop));
+		return skipped(it, drop) ? 0 : count(it.inner, drop);
 	}
 	if (it instanceof TakeIter) {
 		// std's: its iterator advanced through the limit, dropping what it passes.
-		if (it.n === 0) return 0;
 		const n = it.n;
 		it.n = 0;
-		return n - it.inner.advanceBy(n, drop);
+		return consumed(it.inner, () => (n === 0 ? 0 : n - it.inner.advanceBy(n, drop)));
 	}
 	if (it instanceof FuseIter) {
 		const inner = it.inner;
 		it.inner = undefined;
-		return inner === undefined ? 0 : consumed(inner, () => count(inner, drop));
+		return inner === undefined ? 0 : count(inner, drop);
 	}
 	if (it instanceof FlattenIter) {
-		// std's: each iterator's own `count` in turn, each dropped once counted.
-		let n = 0;
-		flattenEach(it, (inner) => {
-			n += consumed(inner, () => count(inner, drop));
-		});
-		return n;
+		// std's: each iterator's own `count` in turn.
+		return flattenFold(it as FlattenIter<unknown, T>, false, 0, (n, inner) => n + count(inner, drop));
 	}
 	if (it instanceof Peekable) {
 		// std's: the item it peeked drops after its iterator is counted.
-		if (!it.peeked) return consumed(it.inner, () => count(it.inner, drop));
+		if (!it.peeked) return count(it.inner, drop);
 		const peeked = it.take();
-		if (peeked === DONE) return 0;
+		if (peeked === DONE) {
+			dispose(it.inner);
+			return 0;
+		}
 		try {
-			return 1 + consumed(it.inner, () => count(it.inner, drop));
+			return 1 + count(it.inner, drop);
 		} finally {
 			drop?.(peeked);
 		}
@@ -724,18 +797,17 @@ function count<T>(it: Iter<T>, drop: Drop<T> | undefined): number {
 		dispose(it);
 		return n;
 	}
-	let n = 0;
-	for (let item = it.next(); item !== DONE; item = it.next()) {
+	return it.fold(0, (n, item) => {
 		drop?.(item);
-		n++;
-	}
-	return n;
+		return n + 1;
+	});
 }
 
 /**
- * `last`, as std's `fold` takes it: each item drops by `drop` as the next replaces it.
- * A panic reading the next drops the last; one dropping it leaks the next, as std's
- * unwinding leaves a returned value.
+ * `last`, dropping each item but the last by `drop`, and then `it`, as std's of its kind
+ * does. By `fold`, each item drops as the next replaces it. A panic reading the next
+ * drops the last; one dropping it leaks the next, as std's unwinding leaves a returned
+ * value.
  */
 function last<T>(it: Iter<T>, drop: Drop<T> | undefined): T | Done {
 	if ((it instanceof SliceIter && drop !== undefined) || (it instanceof BTreeIter && it.back)) {
@@ -749,72 +821,77 @@ function last<T>(it: Iter<T>, drop: Drop<T> | undefined): T | Done {
 	if (it instanceof ChainIter) {
 		// std's: each iterator's last, the first's held while the second is read, and
 		// dropped once the second has one.
-		const a = it.a;
-		it.a = undefined;
-		const aLast = a === undefined ? DONE : consumed(a, () => last(a, drop));
-		const b = it.b;
-		it.b = undefined;
-		if (b === undefined) return aLast;
-		let bLast: T | Done;
+		const { a, b } = it;
+		it.a = it.b = undefined;
+		let aLast: T | Done = DONE;
 		try {
-			bLast = consumed(b, () => last(b, drop));
+			if (a !== undefined) aLast = last(a, drop);
 		} catch (e) {
-			if (aLast !== DONE) drop?.(aLast);
+			dispose(b);
 			throw e;
 		}
-		if (bLast === DONE) return aLast;
-		// A panic here leaks the second's, as std's unwinding does a returned value.
-		if (aLast !== DONE) drop?.(aLast);
-		return bLast;
+		if (b === undefined) return aLast;
+		return or(() => last(b, drop), aLast, drop);
 	}
 	if (it instanceof SkipIter) {
 		// std's: past what it skips by `nth`, and then its iterator's own `last`.
-		if (skipped(it, drop)) return DONE;
-		return consumed(it.inner, () => last(it.inner, drop));
+		return skipped(it, drop) ? DONE : last(it.inner, drop);
 	}
 	if (it instanceof FuseIter) {
 		const inner = it.inner;
 		it.inner = undefined;
-		return inner === undefined ? DONE : consumed(inner, () => last(inner, drop));
+		return inner === undefined ? DONE : last(inner, drop);
 	}
-	if (it instanceof FlattenIter) return flattenLast(it, drop);
+	if (it instanceof FlattenIter) {
+		// std's: the last of each iterator in turn, the last so far dropped once a later
+		// one has one.
+		const flat = it as FlattenIter<unknown, T>;
+		return flattenFold<unknown, T, T | Done>(
+			flat,
+			false,
+			DONE,
+			(prev, inner) => or(() => last(inner, drop), prev, drop),
+			drop && ((prev) => prev !== DONE && drop(prev)),
+		);
+	}
 	if (it instanceof Peekable) {
 		// std's: the item it peeked, unless its iterator has a last, which drops it after.
 		let peeked: T | Done = DONE;
 		if (it.peeked) {
 			peeked = it.take();
-			if (peeked === DONE) return DONE;
+			if (peeked === DONE) {
+				dispose(it.inner);
+				return DONE;
+			}
 		}
-		let item: T | Done;
-		try {
-			item = consumed(it.inner, () => last(it.inner, drop));
-		} catch (e) {
-			if (peeked !== DONE) drop?.(peeked);
-			throw e;
-		}
-		if (item === DONE) return peeked;
-		// A panic here leaks the last, as std's unwinding does a returned value.
-		if (peeked !== DONE) drop?.(peeked);
-		return item;
+		return or(() => last(it.inner, drop), peeked, drop);
 	}
-	let item: T | Done = DONE;
-	if (drop === undefined) {
-		for (let next = it.next(); next !== DONE; next = it.next()) item = next;
-		return item;
+	return it.fold<T | Done>(
+		DONE,
+		(prev, item) => {
+			if (prev !== DONE) drop?.(prev);
+			return item;
+		},
+		drop && ((prev) => prev !== DONE && drop(prev)),
+	);
+}
+
+/**
+ * `read().or(prev)`: what `read` returns, unless that is `DONE`, and then `prev`, which
+ * drops by `drop` if `read` panics or returns an item. A panic dropping it leaks the item,
+ * as std's unwinding does a returned value.
+ */
+function or<T>(read: () => T | Done, prev: T | Done, drop: Drop<T> | undefined): T | Done {
+	let item: T | Done;
+	try {
+		item = read();
+	} catch (e) {
+		if (prev !== DONE) drop?.(prev);
+		throw e;
 	}
-	for (;;) {
-		let next: T | Done;
-		try {
-			next = it.next();
-		} catch (e) {
-			if (item !== DONE) drop(item);
-			throw e;
-		}
-		if (next === DONE) return item;
-		const prev = item;
-		item = next;
-		if (prev !== DONE) drop(prev);
-	}
+	if (item === DONE) return prev;
+	if (prev !== DONE) drop?.(prev);
+	return item;
 }
 
 /**
@@ -838,71 +915,61 @@ function items(drop: Drop<never> | undefined): Drop<unknown> | undefined {
 	return drop === undefined ? undefined : (item) => drop([0, item] as never);
 }
 
-/** Read past what `it` still skips, as `nth` reads, and whether its iterator ended first. */
+/**
+ * Read past what `it` still skips, as `nth` reads, and whether its iterator ended first,
+ * which then drops, as it does if that panics.
+ */
 function skipped<T>(it: SkipIter<T>, drop: Drop<T> | undefined): boolean {
 	if (it.n === 0) return false;
 	const n = it.n;
 	it.n = 0;
-	const item = it.inner.nth(n - 1, drop);
-	if (item === DONE) return true;
-	drop?.(item);
-	return false;
-}
-
-/**
- * Run `f` on each iterator of `it` in turn, the front, each of the source's, and the back,
- * as std's `fold` takes them by value; the source drops once read through.
- */
-function flattenEach<T, V>(it: FlattenIter<T, V>, f: (inner: Iter<V>) => void, onPanic?: () => void): void {
-	const front = it.front;
-	it.front = undefined;
-	if (front !== undefined) f(front);
-	const outer = it.outer;
-	it.outer = undefined;
-	if (outer !== undefined) {
-		consumed(outer, () => {
-			for (;;) {
-				let inner: T | Done;
-				try {
-					inner = outer.next();
-				} catch (e) {
-					onPanic?.();
-					throw e;
-				}
-				if (inner === DONE) return;
-				f(it.into(inner));
-			}
-		});
-	}
-	const back = it.back;
-	it.back = undefined;
-	if (back !== undefined) f(back);
-}
-
-/**
- * `Flatten::last`, std's: the last of each iterator in turn, each dropped once read, and
- * the last so far dropped once a later one has one.
- */
-function flattenLast<T, V>(it: FlattenIter<T, V>, drop: Drop<V> | undefined): V | Done {
-	let item: V | Done = DONE;
-	const take = (inner: Iter<V>): void => {
-		let next: V | Done;
-		try {
-			next = consumed(inner, () => last(inner, drop));
-		} catch (e) {
-			if (item !== DONE) drop?.(item);
-			throw e;
-		}
-		if (next === DONE) return;
-		const prev = item;
-		item = next;
-		// A panic here leaks the later one, as std's unwinding does a returned value.
-		if (prev !== DONE) drop?.(prev);
-	};
-	flattenEach(it, take, () => {
+	let item: T | Done;
+	try {
+		item = it.inner.nth(n - 1, drop);
 		if (item !== DONE) drop?.(item);
-	});
-	return item;
+	} catch (e) {
+		dispose(it.inner);
+		throw e;
+	}
+	if (item === DONE) dispose(it.inner);
+	return item === DONE;
+}
+
+/**
+ * std's `iter_fold` of a flatten, or `iter_rfold` if `back`: `g` of each iterator it holds
+ * in turn, the front, then each of its source's by the source's own fold, and the back.
+ * `release` drops what `g` owns as it ends, before what it still holds.
+ */
+function flattenFold<T, V, A>(it: FlattenIter<T, V>, back: boolean, acc: A, g: (acc: A, inner: Iter<V>) => A, dropAcc?: Drop<A>, release?: () => void): A {
+	const { outer } = it;
+	const [first, rest] = back ? [it.back, it.front] : [it.front, it.back];
+	it.outer = it.front = it.back = undefined;
+	try {
+		if (first !== undefined) acc = g(acc, first);
+	} catch (e) {
+		release?.();
+		dispose(outer);
+		dispose(rest);
+		throw e;
+	}
+	try {
+		if (outer !== undefined) {
+			const each = (acc: A, item: T) => g(acc, it.into(item));
+			acc = back ? outer.rfold(acc, each, dropAcc) : outer.fold(acc, each, dropAcc);
+		}
+	} catch (e) {
+		ended(rest, release);
+		throw e;
+	}
+	try {
+		if (rest !== undefined) acc = g(acc, rest);
+	} catch (e) {
+		release?.();
+		throw e;
+	}
+	// A panic here leaks the accumulator, as std's unwinding does a returned value.
+	release?.();
+	return acc;
 }
 
 // Iterators. One has `[Symbol.dispose]` if it owns items or wraps an iterator: what holds
@@ -1154,6 +1221,30 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 	override len(): number {
 		return this.inner.len();
 	}
+
+	/** std's: `inner`'s, by a closure that drops `release`'s and then `f`. */
+	override fold<A>(acc: A, g: (acc: A, item: U) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.fold(acc, mapFold(this.f, g, dropAcc), dropAcc, then(release, this.take()));
+	}
+
+	override rfold<A>(acc: A, g: (acc: A, item: U) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.rfold(acc, mapFold(this.f, g, dropAcc), dropAcc, then(release, this.take()));
+	}
+}
+
+/** std's `map_fold`: `g` of what `f` makes of each item, the accumulator dropped if `f` panics. */
+function mapFold<T, U, A>(f: (item: T) => U, g: (acc: A, item: U) => A, dropAcc?: Drop<A>): (acc: A, item: T) => A {
+	if (dropAcc === undefined) return (acc, item) => g(acc, f(item));
+	return (acc, item) => {
+		let mapped: U;
+		try {
+			mapped = f(item);
+		} catch (e) {
+			dropAcc(acc);
+			throw e;
+		}
+		return g(acc, mapped);
+	};
 }
 
 /** `Copied` of items JS copies by a function: a `map` whose `nth` and `advance_by` are its iterator's. */
@@ -1187,6 +1278,33 @@ class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 	override nextBack(): T | Done {
 		return rfindItem(this.inner, this.f, this.drop);
 	}
+
+	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
+	override fold<A>(acc: A, g: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.fold(acc, this.filterFold(g, dropAcc), dropAcc, then(this.take(), release));
+	}
+
+	override rfold<A>(acc: A, g: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.rfold(acc, this.filterFold(g, dropAcc), dropAcc, then(this.take(), release));
+	}
+
+	/** std's `filter_fold`: `g` of each item `f` keeps. One `f` panics on drops, then the accumulator. */
+	private filterFold<A>(g: (acc: A, item: T) => A, dropAcc?: Drop<A>): (acc: A, item: T) => A {
+		const { f, drop } = this;
+		return (acc, item) => {
+			let keep: boolean;
+			try {
+				keep = f(item);
+			} catch (e) {
+				drop?.(item);
+				dropAcc?.(acc);
+				throw e;
+			}
+			if (keep) return g(acc, item);
+			drop?.(item);
+			return acc;
+		};
+	}
 }
 
 class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
@@ -1209,6 +1327,21 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 			if (mapped !== undefined) return mapped;
 		}
 		return DONE;
+	}
+
+	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
+	override fold<A>(acc: A, g: (acc: A, item: U) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.fold(acc, this.filterMapFold(g, dropAcc), dropAcc, then(this.take(), release));
+	}
+
+	override rfold<A>(acc: A, g: (acc: A, item: U) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.rfold(acc, this.filterMapFold(g, dropAcc), dropAcc, then(this.take(), release));
+	}
+
+	/** std's `filter_map_fold`: `g` of each value `f` makes, the accumulator dropped if `f` panics. */
+	private filterMapFold<A>(g: (acc: A, item: U) => A, dropAcc?: Drop<A>): (acc: A, item: T) => A {
+		const f = this.f;
+		return mapFold(f, (acc, mapped: U | undefined) => (mapped === undefined ? acc : g(acc, mapped)), dropAcc);
 	}
 }
 
@@ -1252,6 +1385,16 @@ class EnumerateIter<T> extends Adaptor<T, [number, T]> {
 	override nthBack(n: number, drop?: Drop<[number, T]>): [number, T] | Done {
 		const item = this.inner.nthBack(n, items(drop));
 		return item === DONE ? DONE : [this.index + this.inner.len(), item];
+	}
+
+	override fold<A>(acc: A, g: (acc: A, item: [number, T]) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		let i = this.index;
+		return this.inner.fold(acc, (acc, item) => g(acc, [i++, item]), dropAcc, release);
+	}
+
+	override rfold<A>(acc: A, g: (acc: A, item: [number, T]) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		let i = this.index + this.inner.len();
+		return this.inner.rfold(acc, (acc, item) => g(acc, [--i, item]), dropAcc, release);
 	}
 }
 
@@ -1348,6 +1491,40 @@ class ChainIter<T> extends Iter<T> implements Disposable {
 			this.endB();
 		}
 		return this.a === undefined ? DONE : this.a.nthBack(n, drop);
+	}
+
+	/** std's: the first's fold and then the second's, which drops `release`'s as it ends. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		const { a, b } = this;
+		this.a = this.b = undefined;
+		if (a !== undefined) {
+			try {
+				acc = a.fold(acc, f, dropAcc);
+			} catch (e) {
+				ended(b, release);
+				throw e;
+			}
+		}
+		if (b !== undefined) return b.fold(acc, f, dropAcc, release);
+		// A panic here leaks the accumulator, as std's unwinding does a returned value.
+		release?.();
+		return acc;
+	}
+
+	override rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		const { a, b } = this;
+		this.a = this.b = undefined;
+		if (b !== undefined) {
+			try {
+				acc = b.rfold(acc, f, dropAcc);
+			} catch (e) {
+				ended(a, release);
+				throw e;
+			}
+		}
+		if (a !== undefined) return a.rfold(acc, f, dropAcc, release);
+		release?.();
+		return acc;
 	}
 }
 
@@ -1473,6 +1650,14 @@ class RevIter<T> extends Adaptor<T, T> {
 	override nthBack(n: number, drop?: Drop<T>): T | Done {
 		return this.inner.nth(n, drop);
 	}
+
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.rfold(acc, f, dropAcc, release);
+	}
+
+	override rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.fold(acc, f, dropAcc, release);
+	}
 }
 
 /** `Skip`, whose items drop by `drop` as its iterator's own `nth` skips them. */
@@ -1532,6 +1717,25 @@ class SkipIter<T> extends Adaptor<T, T> {
 		if (item === DONE) return DONE;
 		drop?.(item);
 		return this.inner.nth(n, drop);
+	}
+
+	/** std's: past what it skips by `nth`, and then its iterator's own. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		if (this.n > 0) {
+			let item: T | Done;
+			try {
+				item = this.inner.nth(this.n - 1, this.drop);
+				if (item !== DONE) this.drop?.(item);
+			} catch (e) {
+				unwound(this.inner, acc, dropAcc, release);
+				throw e;
+			}
+			if (item === DONE) {
+				ended(this.inner, release);
+				return acc;
+			}
+		}
+		return this.inner.fold(acc, f, dropAcc, release);
 	}
 
 	/** std's: past what it doesn't skip, its iterator read from the back through what it does. */
@@ -1603,6 +1807,26 @@ class TakeIter<T> extends Adaptor<T, T> {
 		return DONE;
 	}
 
+	/** std's: past what its iterator holds beyond the limit by `nth_back`, and then its iterator's own. */
+	override rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		const len = this.n === 0 ? 0 : this.inner.len();
+		if (this.n === 0 || len > this.n) {
+			let item: T | Done = DONE;
+			try {
+				if (this.n > 0) item = this.inner.nthBack(len - this.n - 1, this.drop);
+				if (item !== DONE) this.drop?.(item);
+			} catch (e) {
+				unwound(this.inner, acc, dropAcc, release);
+				throw e;
+			}
+			if (item === DONE) {
+				ended(this.inner, release);
+				return acc;
+			}
+		}
+		return this.inner.rfold(acc, f, dropAcc, release);
+	}
+
 	/** std's: past the limit, it reads the whole rest from the back, even at a limit of 0. */
 	override nthBack(n: number, drop?: Drop<T>): T | Done {
 		const len = this.inner.len();
@@ -1640,6 +1864,25 @@ class SkipWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 			},
 			this.drop,
 		);
+	}
+
+	/** std's: its first item by `next`, and then its iterator's fold, after which `f` drops. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		if (!this.flag) {
+			let done: boolean;
+			[done, acc] = foldFirst(this, () => this.next(), acc, f, dropAcc, release);
+			if (done) return acc;
+		}
+		const pred = this.take();
+		try {
+			acc = this.inner.fold(acc, f, dropAcc, release);
+		} catch (e) {
+			pred();
+			throw e;
+		}
+		// A panic here leaks the accumulator, as std's unwinding does a returned value.
+		pred();
+		return acc;
 	}
 }
 
@@ -1752,6 +1995,34 @@ class StepByIter<T> extends Adaptor<T, T> {
 		const steps = Math.min(n * (this.step + 1), USIZE_MAX);
 		return this.inner.nthBack(Math.min(steps + this.backIndex(), USIZE_MAX), drop);
 	}
+
+	/** std's: the first item by `next`, then each step by `nth`, as `next` reads past it. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		if (this.firstTake) {
+			this.firstTake = false;
+			let done: boolean;
+			[done, acc] = foldFirst(this.inner, () => this.inner.next(), acc, f, dropAcc, release);
+			if (done) return acc;
+		}
+		return foldBy(this, false, acc, f, dropAcc, release);
+	}
+
+	/** std's: the last item by `next_back`, then each step back by `nth_back`. */
+	override rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		let done: boolean;
+		[done, acc] = foldFirst(this.inner, () => this.nextBack(), acc, f, dropAcc, release);
+		if (done) return acc;
+		const steps = new FromNext(this.inner, (inner) => inner.nthBack(this.step, this.drop));
+		try {
+			acc = foldBy(steps, false, acc, f, dropAcc, release);
+		} catch (e) {
+			dispose(this.inner);
+			throw e;
+		}
+		// A panic here leaks the accumulator, as std's unwinding does a returned value.
+		dispose(this.inner);
+		return acc;
+	}
 }
 
 class InspectIter<T> extends Calling<T, T, (item: T) => void> {
@@ -1780,6 +2051,30 @@ class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 
 	override len(): number {
 		return this.inner.len();
+	}
+
+	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
+	override fold<A>(acc: A, g: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.fold(acc, this.inspectFold(g, dropAcc), dropAcc, then(this.take(), release));
+	}
+
+	override rfold<A>(acc: A, g: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return this.inner.rfold(acc, this.inspectFold(g, dropAcc), dropAcc, then(this.take(), release));
+	}
+
+	/** std's `inspect_fold`: `f` of each item, then `g`. One `f` panics on drops, then the accumulator. */
+	private inspectFold<A>(g: (acc: A, item: T) => A, dropAcc?: Drop<A>): (acc: A, item: T) => A {
+		const { f, drop } = this;
+		return (acc, item) => {
+			try {
+				f(item);
+			} catch (e) {
+				drop?.(item);
+				dropAcc?.(acc);
+				throw e;
+			}
+			return g(acc, item);
+		};
 	}
 }
 
@@ -1828,6 +2123,23 @@ class FuseIter<T> extends Iter<T> implements Disposable {
 
 	override nthBack(n: number, drop?: Drop<T>): T | Done {
 		return this.inner === undefined ? DONE : this.clear(this.inner.nthBack(n, drop));
+	}
+
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		const inner = this.inner;
+		this.inner = undefined;
+		if (inner !== undefined) return inner.fold(acc, f, dropAcc, release);
+		// A panic here leaks the accumulator, as std's unwinding does a returned value.
+		release?.();
+		return acc;
+	}
+
+	override rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		const inner = this.inner;
+		this.inner = undefined;
+		if (inner !== undefined) return inner.rfold(acc, f, dropAcc, release);
+		release?.();
+		return acc;
 	}
 }
 
@@ -1932,6 +2244,14 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 					() => dispose(back),
 				),
 		);
+	}
+
+	override fold<A>(acc: A, f: (acc: A, item: V) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return flattenFold(this, false, acc, (acc, inner) => inner.fold(acc, f, dropAcc), dropAcc, release);
+	}
+
+	override rfold<A>(acc: A, f: (acc: A, item: V) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		return flattenFold(this, true, acc, (acc, inner) => inner.rfold(acc, f, dropAcc), dropAcc, release);
 	}
 
 	/**
@@ -2044,6 +2364,42 @@ export class Peekable<T> extends Adaptor<T, T> {
 				if (item !== DONE) this.drop?.(item);
 			},
 		);
+	}
+
+	/** std's: the item it peeked, and then its iterator's fold. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		if (this.peeked) {
+			let done: boolean;
+			[done, acc] = foldFirst(this.inner, () => this.take(), acc, f, dropAcc, release);
+			if (done) return acc;
+		}
+		return this.inner.fold(acc, f, dropAcc, release);
+	}
+
+	/** std's: its iterator's from the back, and then the item it peeked, which drops if that panics. */
+	override rfold<A>(acc: A, f: (acc: A, item: T) => A, dropAcc?: Drop<A>, release?: () => void): A {
+		if (!this.peeked) return this.inner.rfold(acc, f, dropAcc, release);
+		const peeked = this.take();
+		if (peeked === DONE) {
+			ended(this.inner, release);
+			return acc;
+		}
+		try {
+			acc = this.inner.rfold(acc, f, dropAcc);
+		} catch (e) {
+			this.drop?.(peeked);
+			release?.();
+			throw e;
+		}
+		try {
+			acc = f(acc, peeked);
+		} catch (e) {
+			release?.();
+			throw e;
+		}
+		// A panic here leaks the accumulator, as std's unwinding does a returned value.
+		release?.();
+		return acc;
 	}
 
 	/** std's: the item it peeked drops after what its iterator skips. */
