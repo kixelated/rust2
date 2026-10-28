@@ -120,13 +120,17 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by its generic item's name, then the name of
-  each argument but those at their defaults after the last that is not, so the instance at
-  its defaults is named as the item: by the rule, hang's `Catalog<()>` is `moq_catalog`,
-  and moq-mux's `catalog::Producer<catalog::hang::Extra>` is
-  `moq_catalog_producer_catalog_hang_extra`. A type instance's methods are named through
-  it, and a function instance appends its arguments' names, a reference's by what it
-  borrows. An `exclude` of a type or method by the generic type's path leaves it out of
+  `moq_session_stats`. An instance is named by its generic item's name, then each argument
+  but those at their defaults after the last that is not, so the instance at its defaults
+  is named as the item. Each argument takes the last segment of its C name, such as
+  `extra` for moq-mux's `catalog::hang::Extra`, so `catalog::Producer<catalog::hang::Extra>`
+  is `moq_catalog_producer_extra`. Where two instances of one item would still share a
+  name, each argument that tells them apart takes one more segment at a time, until they
+  differ: the api fixture's `Counter::seeded` is `api_counter_seeded_point` at its
+  `Point`, and `api_counter_seeded_polar_point` at `polar::Point`. The names depend on
+  every instance the item exports at, so one an upstream change adds can lengthen another's
+  name. A type instance's methods are named through it, and a function instance appends
+  its arguments' names, a reference's by what it borrows. An `exclude` of a type or method by the generic type's path leaves it out of
   every instance, and by the instance's path
   (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
   `rename` by the generic item's path renames each of its instances.
