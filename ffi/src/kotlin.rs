@@ -487,8 +487,8 @@ impl<'a> Gen<'a> {
 		for (c, ty) in &abi.ranges.clone() {
 			self.range(c, ty);
 		}
-		for (c, inner) in &abi.options.clone() {
-			self.glue_option(c, inner);
+		for c in abi.options.clone().keys() {
+			self.glue_option(c);
 		}
 		for constant in &api.constants {
 			let name = self.bare(&abi.name(&constant.path)).to_uppercase();
@@ -590,7 +590,7 @@ impl<'a> Gen<'a> {
 	}
 
 	/// The glue's codec for an option struct.
-	fn glue_option(&mut self, c: &str, _inner: &Type) {
+	fn glue_option(&mut self, c: &str) {
 		let _ = write!(
 			self.glue,
 			"impl Wire for crate::{c} {{\n\tfn read(r: &mut Reader<'_>) -> Self {{\n\t\tlet some: bool = r.get();\n\t\tSelf {{ some, value: if some {{ r.get() }} else {{ unsafe {{ std::mem::zeroed() }} }} }}\n\t}}\n\n\tfn write(self, w: &mut Writer) {{\n\t\tw.put(self.some);\n\t\tif self.some {{\n\t\t\tw.put(self.value);\n\t\t}}\n\t}}\n}}\n\n"
@@ -1341,12 +1341,16 @@ impl<'a> Gen<'a> {
 			let free_bare = self.bare(&free.name).to_string();
 			let poll_outs: Vec<(String, Ty)> = poll.params[2..].to_vec();
 			let (decl, ptrs, write) = self.glue_outs(&poll_outs, function.err.is_some());
+			let ok_set = match function.err.is_some() {
+				true => "let ok = ret == 1;\n\t\t",
+				false => "",
+			};
 			self.native(
 				&poll_bare,
 				&[("jlong", "Long"), ("jlong", "Long"), ("jboolean", "Boolean")],
 				("jbyteArray", "ByteArray?"),
 				&format!(
-					"let node = p1 as usize as *mut rt::Node;\n\t\tlet waker = match p2 {{\n\t\t\ttrue => rt::lend(node),\n\t\t\tfalse => rt::give(node),\n\t\t}};\n\t\t{decl}\n\t\tlet ret = crate::{}(p0 as usize as _, waker{});\n\t\tif ret == 0 {{\n\t\t\treturn std::ptr::null_mut();\n\t\t}}\n\t\tlet ok = ret == 1;\n\t\tlet _ = ok;\n\t\tlet mut w = rt::Writer::default();\n\t\t{write}\n\t\tw.array(env)",
+					"let node = p1 as usize as *mut rt::Node;\n\t\tlet waker = match p2 {{\n\t\t\ttrue => rt::lend(node),\n\t\t\tfalse => rt::give(node),\n\t\t}};\n\t\t{decl}\n\t\tlet ret = crate::{}(p0 as usize as _, waker{});\n\t\tif ret == 0 {{\n\t\t\treturn std::ptr::null_mut();\n\t\t}}\n\t\t{ok_set}let mut w = rt::Writer::default();\n\t\t{write}\n\t\tw.array(env)",
 					poll.name,
 					ptrs.iter().map(|p| format!(", {p}")).collect::<String>()
 				),
@@ -1369,16 +1373,17 @@ impl<'a> Gen<'a> {
 		} else if !outs.is_empty() {
 			let (decl, ptrs, write) = self.glue_outs(&outs, function.err.is_some());
 			let params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
+			// Only a result's write reads whether it returned ok.
 			let ret_set = match function.err.is_some() {
 				true => "let ok = ",
-				false => "let ok = true; ",
+				false => "",
 			};
 			self.native(
 				&bare,
 				&params,
 				("jbyteArray", "ByteArray"),
 				&format!(
-					"{}\n\t\t{decl}\n\t\t{ret_set}{};\n\t\tlet _ = ok;\n\t\tlet mut w = rt::Writer::default();\n\t\t{write}\n\t\tw.array(env)",
+					"{}\n\t\t{decl}\n\t\t{ret_set}{};\n\t\tlet mut w = rt::Writer::default();\n\t\t{write}\n\t\tw.array(env)",
 					rust_pre.join("\n\t\t"),
 					rust_call(&ptrs)
 				),
