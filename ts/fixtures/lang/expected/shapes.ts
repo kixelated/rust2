@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$ControlFlow_Arc_u8_u8s, copy$ControlFlow_unit_u8s, copy$Gauge, copy$Held, copy$Lens, copy$Level, copy$Mutex_u8_u8, copy$Mutex_u8s, copy$Option_Mutex_u8_u8, copy$Option_Shape, copy$Point, copy$Point_u8, copy$Points, copy$Poll_u8s, copy$Result_Mutex_u8_u8_u8, copy$Shape, copy$u8_u8, copy$u8s } from "./lib.ts";
-import { unwrapOr$Option_u8, map$Option_Dir_Shape_rematched_closure1, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_shares_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
+import { unwrapOr$Option_u8, map$Option_Dir_Shape_rematched_closure1, map$Option_Dir_u8_from, mapOr$Option_Meters_u64_copies_closure0, mapOr$Option_Mutex_u8_u8_u8_shares_closure0, mapOr$Option_Point_u8_known_closure0_closure0, mapOr$Option_Shape_u8_rematched_closure0, mapOr$Option_Vec_u8_u8_library_closure5, mapOr$Option_u8_usize_iters_closure1, okOr$Option_u8_u8 } from "./core/option.ts";
 import { map$Result_u8_str_u8_library_closure1, mapErr$Result_u8_str_u8_library_closure2 } from "./core/result.ts";
 import * as Pair from "./fmt.Pair.ts";
 import { advance, reset$Gauge } from "./generics.ts";
@@ -390,7 +390,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const bytes: Uint8Array = Uint8Array.of(a, 1);
 		rt.byteVecPush(out, unsizedCopy(rt.byteSliceFrom(bytes)));
 		rt.byteVecPush(out, bytes[0]);
-		const at: rt.usize = mapOr$Option_u8_usize_shares_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
+		const at: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceGet(data, 1), 0, (_22: rt.u8): rt.usize => {
 			return rt.usizeRem(_22 as rt.usize, 3);
 		});
 		rt.byteVecPush(out, writeAt(rt.byteSliceFrom(bytes), at, a));
