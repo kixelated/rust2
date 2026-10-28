@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { drop$Arc_Wrap_Pair_Held, drop$Arc_str_Arc_str, drop$Bomb_Guard, drop$Guard_Entries_Bomb_Guard_Held, drop$Held, drop$Key_Key, drop$Mutex_Held, drop$Option_Box_Held, drop$Option_Guard_Guard, drop$Option_Held, drop$Option_Result_Guard_u8, drop$Pair_Held, drop$Result_Guard_Guard, drop$Result_Guard_u8, drop$Result_u8_Key, drop$Wrap_Arc_Held, drop$Wrap_Guard, drop$Wrap_Held, drop$Wrap_Pair_Held, drop$Wrap_Vec_Wrap_Held } from "./lib.ts";
+import { thenSome$bool_Guard } from "./core/bool.ts";
 import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapOr$Option_u64, mapOr$Option_u32_Guard_options_closure2, okOr$Option_Guard_Guard, filter$Option_Guard_options_closure4, orElse$Option_Guard_options_closure6, zip$Option_Guard_Guard, clone$Clone_Option_Arc_Guard } from "./core/option.ts";
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, asRef$Result_Guard_u8, mapOr$Result_Guard_u8_u32_id, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
 import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
@@ -1774,9 +1775,9 @@ export function options(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_157, f), (f: rt.Formatter) => rt.u32Display(_160, f)];
 		Log.note(log, rt.fmtFormat(["map_or ", args8[0], " ", args8[1]]));
 		check(4);
-		then = rt.thenSome(rt.u8Rem(at, 2) === 0, guard(17), rt.drop);
+		then = thenSome$bool_Guard(rt.u8Rem(at, 2) === 0, guard(17));
 		unwind = 203;
-		never = rt.thenSome(false, guard(18), rt.drop);
+		never = thenSome$bool_Guard(false, guard(18));
 		unwind = 202;
 		const _187: boolean = then !== undefined;
 		const _190: boolean = never !== undefined;

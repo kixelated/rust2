@@ -197,25 +197,6 @@ export function optionExpect<T>(o: T | undefined | None, message: string, none?:
 	return o as T;
 }
 
-/** `bool::then_some`: `value` if `cond`, which is evaluated either way, and else drops. */
-export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined;
-export function thenSome<T>(cond: boolean, value: T, drop: ((value: T) => void) | undefined, none: None): T | None;
-export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void, none?: None): T | undefined | None {
-	if (cond) return value;
-	drop?.(value);
-	return none;
-}
-
-// Not `then`, which would make the module's namespace a thenable that `await` calls.
-/** `bool::then`: `f()` if `cond`, which is called only then, and else `f` drops. */
-export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined;
-export function boolThen<T>(cond: boolean, f: () => T, drop: ((f: () => T) => void) | undefined, none: None): T | None;
-export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void, none?: None): T | undefined | None {
-	if (cond) return f();
-	drop?.(f);
-	return none;
-}
-
 // Slices: arrays, but for bytes, which are `ByteSlice`s.
 
 /** A bounds-checked index into a slice. */

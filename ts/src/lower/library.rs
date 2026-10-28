@@ -469,10 +469,10 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 }
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
-/// than mapping here: a method of `Option`, `Result`, or `Poll`, or their `Clone`. Not one taking a
-/// `&mut` or a raw pointer, whose writes the crate's analysis of what it writes into
-/// would miss, nor an `unsafe` one, nor one mapped below as one expression or as the
-/// runtime's panic.
+/// than mapping here: a method of `bool`, `Option`, `Result`, or `Poll`, or their `Clone`.
+/// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
+/// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
+/// as the runtime's panic.
 pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> bool {
 	let tcx = t.tcx;
 	let ty::InstanceKind::Item(did) = instance.def else {
@@ -484,11 +484,14 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let Some(imp) = tcx.impl_of_assoc(did) else {
 		return false;
 	};
-	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
-		return false;
-	};
-	let Some(std @ (Std::Option | Std::Result | Std::Poll)) = Std::of(tcx, adt.did()) else {
-		return false;
+	// `None` for `bool`'s.
+	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
+			std @ Some(Std::Option | Std::Result | Std::Poll) => std,
+			_ => return false,
+		},
+		ty::Bool => None,
+		_ => return false,
 	};
 	let sig = tcx.fn_sig(did).instantiate_identity().skip_norm_wip().skip_binder();
 	let writes = |ty: Ty<'tcx>| {
@@ -510,9 +513,12 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	!matches!(
 		(std, name.as_str()),
 		(
-			Std::Option,
+			Some(Std::Option),
 			"unwrap" | "expect" | "is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter"
-		) | (Std::Result, "unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err")
+		) | (
+			Some(Std::Result),
+			"unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err"
+		)
 	)
 }
 
@@ -543,9 +549,6 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Result", "unwrap_err") => &[0],
 		// `Vec<T>` drops each element `retain` rejects and `dedup` removes.
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") => &[0],
-		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
-		("bool", "then_some") => &[0],
-		("bool", "then") => &[1],
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set or a
 		// `OnceLock` is initializing, and what it made if it set the cell itself.
 		("OnceCell" | "OnceLock", "get_or_init") => &[0, 1],
@@ -577,7 +580,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 fn none_last(owner: &str, name: &str) -> bool {
 	matches!(
 		(owner, name),
-		("Option", "unwrap" | "expect") | ("slice", "first" | "get") | ("bool", "then" | "then_some")
+		("Option", "unwrap" | "expect") | ("slice", "first" | "get")
 	)
 }
 
@@ -1094,11 +1097,6 @@ fn mapping<'tcx>(
 			};
 			bound(variant, field.map(|f| r.member(f)), ts)
 		}
-		("bool", "then_some") => {
-			let values = args;
-			Expr::rt("thenSome", values)
-		}
-		("bool", "then") => Expr::rt("boolThen", args),
 
 		// Slices, whose byte functions take an `rt.ByteSlice`.
 		("slice", "len") => super::mir::slice_member(args.pop()?, "length"),
