@@ -4,8 +4,7 @@
 
 [rust2-ts](/ts/README.md) translates the values that drop which it still refuses
 inside std's iterators and formatting, each dropping where std's does, in std's order,
-on a panic too, proven by the task fixture's differential and unwinding tests against
-native Rust. None appears in moq's census at the pinned revision; rust2 aims to support
+proven by the task fixture's differential tests against native Rust. None appears in moq's census at the pinned revision; rust2 aims to support
 all of std.
 
 ## Plan
@@ -23,7 +22,6 @@ with a span where std's order is one JS's can't follow yet:
 - `zip` of two `TrustedRandomAccess` iterators of items that drop.
 - A `flatten` whose inner iterator holds items once ended.
 - A B-tree's `collect` of entries that drop, sorted by the crate's own `Ord`.
-- A `collect` in place of a `zip` whose second iterator drops.
 - `DebugList::entries` of items that drop.
 
 Each `rt.Iter` has a `fold` and `rfold` that drop what it holds where std's do, and the

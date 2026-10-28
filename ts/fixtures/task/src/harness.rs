@@ -4,9 +4,6 @@
 //! Each step is two bytes, an op and its argument. Channels and tasks are picked by the
 //! argument, modulo how many there are; a step with nothing to pick does nothing. Once
 //! the script ends, every task drops in order, then every channel.
-//!
-//! Where a panic unwinds, as on the host, a step that panics is logged and the script
-//! goes on, so what unwinding dropped shows in the log: `examples/unwind.rs`.
 
 use crate::drops;
 use crate::exec::Executor;
@@ -23,19 +20,6 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	for step in input.chunks(2) {
 		let (op, arg) = (step[0], step.get(1).copied().unwrap_or(0));
 		let (_, run_step) = steps[usize::from(op) % steps.len()];
-		#[cfg(panic = "unwind")]
-		{
-			let run = std::panic::AssertUnwindSafe(|| run_step(&log, &mut exec, &mut channels, arg));
-			if let Err(panic) = std::panic::catch_unwind(run) {
-				let message = match (panic.downcast_ref::<String>(), panic.downcast_ref::<&str>()) {
-					(Some(s), _) => s.clone(),
-					(_, Some(s)) => s.to_string(),
-					_ => "Box<dyn Any>".to_string(),
-				};
-				log.note(format!("panic {message}"));
-			}
-		}
-		#[cfg(not(panic = "unwind"))]
 		run_step(&log, &mut exec, &mut channels, arg);
 	}
 	for t in 0..exec.len() {
@@ -119,7 +103,7 @@ fn steps() -> Vec<(&'static str, Step)> {
 			}
 		}),
 		("edited", |log, exec, _, arg| {
-			drops::edited(log, 1000 * exec.len() as u32, arg % 8)
+			drops::edited(log, 1000 * exec.len() as u32, arg)
 		}),
 		("helpers", |log, exec, channels, arg| {
 			if let Some(c) = pick(channels.len(), arg) {

@@ -106,12 +106,11 @@ impl Drop for Guard {
 }
 
 /// Every value until the channel closes, summed, holding a guard of its own across
-/// each await beside the one it was given. It panics on 99.
+/// each await beside the one it was given. A value of 99 fails an `assert!`.
 pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 	let inner = Guard::new(guard.id + 100, guard.log.clone());
 	let mut total = 0;
 	while let Some(value) = rx.recv().await {
-		// A poisoned value panics with every guard live, which unwinding drops.
 		assert!(value != 99, "g{} poisoned", guard.id);
 		inner.log.note(format!("g{} got {value}", guard.id));
 		total += value;

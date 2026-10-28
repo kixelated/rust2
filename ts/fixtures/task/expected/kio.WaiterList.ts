@@ -10,7 +10,8 @@ export interface WaiterList {
 }
 
 function new_(): WaiterList {
-	return { entries: [], cursor: 0 };
+	const _1: rt.Weak<rt.Waker>[] = [];
+	return { entries: _1, cursor: 0 };
 }
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {

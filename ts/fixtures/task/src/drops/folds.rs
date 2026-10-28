@@ -1,75 +1,38 @@
 //! What std's by-value consumers drop of an iterator whose adaptors hold closures that
 //! drop beside items that drop: `fold` drops each adaptor's closure as its own fold ends,
-//! before the source it wraps, where dropping the adaptor drops it after. Each closure
-//! panics as it reads the item `at` names, if any, to show what unwinding drops.
+//! before the source it wraps, where dropping the adaptor drops it after.
 
 use std::collections::{BTreeMap, VecDeque};
 
-use super::Bomb;
 use crate::log::Log;
 use crate::model::Guard;
 
-/// The id of `bomb`, which a closure that calls it captures whole.
-fn bomb_id(bomb: &Bomb) -> u32 {
-	bomb.id
-}
-
-/// Run scenario `arg % 32`, panicking as a closure reads item `arg / 32`, if any. Items
-/// are guards 1 to 7; what closures own, 10 and up.
+/// Run scenario `arg % 31`. Items are guards 1 to 7; what closures own, 10 and up.
 pub(super) fn folded(log: &Log, id: u32, arg: u8) {
-	let at = id + u32::from(arg / 32);
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
-	let trip = move |g: &Guard| {
-		if g.id() == at {
-			panic!("d{id} at {}", g.id() - id);
-		}
-	};
-	let trips = move |n: u32| {
-		if id + n == at {
-			panic!("d{id} at {n}");
-		}
-	};
 	let (c, d) = (guard(10), guard(11));
-	match arg % 32 {
+	match arg % 31 {
 		0 => {
-			let n = guards(1, 5)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + c.id()
-				})
-				.count();
-			let sum: u32 = guards(5, 8)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() - id + d.id() - id
-				})
-				.sum();
+			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).count();
+			let sum: u32 = guards(5, 8).into_iter().map(move |g| g.id() - id + d.id() - id).sum();
 			log.note(format!("count {n} {sum}"));
 		}
 		1 => {
-			// An accumulator that drops, which a panic in the closure drops after the item.
-			let kept = guards(1, 7)
-				.into_iter()
-				.filter(move |g| {
-					trip(g);
-					g.id() % 2 == c.id() % 2
-				})
-				.fold(None, |kept: Option<Guard>, g| {
+			// An accumulator that drops.
+			let kept = guards(1, 7).into_iter().filter(move |g| g.id() % 2 == c.id() % 2).fold(
+				None,
+				|kept: Option<Guard>, g| {
 					log.note(format!("fold {} {:?}", g.id(), kept.as_ref().map(|k| k.id())));
 					if g.id() % 4 == 0 { kept } else { Some(g) }
-				});
+				},
+			);
 			log.note(format!("fold {:?} {}", kept.map(|k| k.id()), d.id()));
 		}
 		2 => {
 			guards(1, 7)
 				.into_iter()
-				.filter_map(move |g| {
-					trip(&g);
-					(g.id() % 3 != c.id() % 3).then_some(g)
-				})
+				.filter_map(move |g| (g.id() % 3 != c.id() % 3).then_some(g))
 				.for_each(|g| log.note(format!("each {}", g.id())));
 			log.note(format!("each {}", d.id()));
 		}
@@ -77,7 +40,6 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let last = guards(1, 5)
 				.into_iter()
 				.inspect(move |g| {
-					trip(g);
 					log.note(format!("inspect {} {}", g.id(), c.id()));
 				})
 				.last();
@@ -87,34 +49,18 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let best = guards(1, 6)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
 				.max_by_key(|g| g.id() % 3);
-			let least = guards(6, 8)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
-				.min_by_key(|g| g.id() + d.id());
+			let least = guards(6, 8).into_iter().min_by_key(|g| g.id() + d.id());
 			log.note(format!("best {:?} {:?}", best.map(|g| g.id()), least.map(|g| g.id())));
 		}
 		5 => {
-			let max = guards(1, 4)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() % c.id()
-				})
-				.max();
+			let max = guards(1, 4).into_iter().map(move |g| g.id() % c.id()).max();
 			let product: u32 = guards(4, 7)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() - id + d.id() - d.id()
-				})
+				.map(move |g| g.id() - id + d.id() - d.id())
 				.product();
 			log.note(format!("max {max:?} {product}"));
 		}
@@ -123,60 +69,39 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let same: Vec<Guard> = guards(1, 4)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
 				.collect();
-			let wider: Vec<(Guard, u64)> = guards(4, 7)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					(g, u64::from(d.id()))
-				})
-				.collect();
+			let wider: Vec<(Guard, u64)> = guards(4, 7).into_iter().map(move |g| (g, u64::from(d.id()))).collect();
 			log.note(format!("collected {} {}", same.len(), wider.len()));
 		}
 		7 => {
 			let queue: VecDeque<Guard> = guards(1, 4)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
 				.collect();
-			let tree: BTreeMap<u32, Guard> = guards(4, 7)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					(g.id() + d.id(), g)
-				})
-				.collect();
+			let tree: BTreeMap<u32, Guard> = guards(4, 7).into_iter().map(move |g| (g.id() + d.id(), g)).collect();
 			log.note(format!("collected {} {}", queue.len(), tree.len()));
 		}
 		8 => {
 			let mut v = guards(1, 2);
 			v.extend(guards(2, 4).into_iter().map(move |g| {
-				trip(&g);
 				log.note(format!("map {} {}", g.id(), c.id()));
 				g
 			}));
 			let mut tree = BTreeMap::new();
-			tree.extend(guards(4, 7).into_iter().map(move |g| {
-				trip(&g);
-				(g.id() + d.id(), g)
-			}));
+			tree.extend(guards(4, 7).into_iter().map(move |g| (g.id() + d.id(), g)));
 			log.note(format!("extended {} {}", v.len(), tree.len()));
 		}
 		9 => {
 			// Two closures that drop, and nothing else.
 			let n = [1u32, 2, 3, 4, 5]
 				.iter()
-				.map(move |&n| {
-					trips(n);
-					n + c.id()
-				})
+				.map(move |&n| n + c.id())
 				.filter(move |n| n % 2 == d.id() % 2)
 				.count();
 			log.note(format!("count {n}"));
@@ -185,19 +110,13 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			// Two closures beside items: a `filter`'s drops before what it folds into.
 			let n: u32 = guards(1, 5)
 				.into_iter()
-				.filter(move |g| {
-					trip(g);
-					g.id() != c.id()
-				})
+				.filter(move |g| g.id() != c.id())
 				.map(move |g| g.id() - id + d.id() - d.id())
 				.sum();
 			let (e, f) = (guard(12), guard(13));
 			let m = guards(5, 8)
 				.into_iter()
-				.filter_map(move |g| {
-					trip(&g);
-					(g.id() != e.id()).then_some(g)
-				})
+				.filter_map(move |g| (g.id() != e.id()).then_some(g))
 				.inspect(move |g| log.note(format!("inspect {} {}", g.id(), f.id())))
 				.count();
 			log.note(format!("two {n} {m}"));
@@ -207,17 +126,11 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n: u32 = guards(1, 3)
 				.into_iter()
 				.chain(guards(3, 5))
-				.map(move |g| {
-					trip(&g);
-					g.id() - id + c.id() - id
-				})
+				.map(move |g| g.id() - id + c.id() - id)
 				.sum();
 			let m = guards(5, 7)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + d.id()
-				})
+				.map(move |g| g.id() + d.id())
 				.chain([1u32, 2])
 				.count();
 			log.note(format!("chain {n} {m}"));
@@ -225,19 +138,9 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 		12 => {
 			let n = guards(1, 4)
 				.into_iter()
-				.chain(guards(4, 7).into_iter().filter(move |g| {
-					trip(g);
-					g.id() != c.id()
-				}))
+				.chain(guards(4, 7).into_iter().filter(move |g| g.id() != c.id()))
 				.fold(0, |n, g| n + g.id() - id);
-			let m = guards(7, 8)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
-				.chain(Vec::new())
-				.last();
+			let m = guards(7, 8).into_iter().chain(Vec::new()).last();
 			log.note(format!("chain {n} {:?} {}", m.map(|g| g.id()), d.id()));
 		}
 		13 => {
@@ -245,7 +148,6 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n = guards(1, 8)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -260,15 +162,11 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n: usize = guards(1, 4)
 				.into_iter()
 				.enumerate()
-				.map(move |(i, g)| {
-					trip(&g);
-					i + c.id() as usize
-				})
+				.map(move |(i, _)| i + c.id() as usize)
 				.sum();
 			let last = guards(4, 7)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), d.id()));
 					g
 				})
@@ -281,7 +179,6 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let mut peek = guards(1, 5)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -291,10 +188,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let m = guards(5, 8)
 				.into_iter()
 				.fuse()
-				.filter(move |g| {
-					trip(g);
-					g.id() != d.id()
-				})
+				.filter(move |g| g.id() != d.id())
 				.fold(0, |n, g| n + g.id());
 			log.note(format!("peek {n} {m}"));
 		}
@@ -302,18 +196,11 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			// A `skip_while` folds what it wraps, and drops its closure after.
 			let n: u32 = guards(1, 5)
 				.into_iter()
-				.skip_while(move |g| {
-					trip(g);
-					g.id() < c.id() - 8
-				})
+				.skip_while(move |g| g.id() < c.id() - 8)
 				.map(|g| g.id() - id)
 				.sum();
 			let m: u32 = guards(5, 8)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
 				.skip_while(move |g| g.id() < d.id() - 5)
 				.take_while(|g| g.id() < id + 7)
 				.map(|g| g.id() - id)
@@ -324,17 +211,11 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			// What std folds by `try_fold`, which leaves its closure to the adaptor.
 			let n: u32 = guards(1, 5)
 				.into_iter()
-				.map_while(move |g| {
-					trip(&g);
-					(g.id() != c.id() - 7).then(|| g.id() - id)
-				})
+				.map_while(move |g| (g.id() != c.id() - 7).then(|| g.id() - id))
 				.sum();
 			let m = guards(5, 8)
 				.into_iter()
-				.take_while(move |g| {
-					trip(g);
-					g.id() != d.id() - 4
-				})
+				.take_while(move |g| g.id() != d.id() - 4)
 				.count();
 			log.note(format!("while {n} {m}"));
 		}
@@ -343,7 +224,6 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n = [1u32, 3, 5]
 				.into_iter()
 				.flat_map(move |n| {
-					trips(n);
 					let v = list![guard(n), guard(n + 1)];
 					log.note(format!("flat {n} {}", c.id()));
 					v
@@ -354,19 +234,13 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 		19 => {
 			let mut flat = guards(1, 4)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					list![g, guard(c.id() - id + 1)]
-				})
+				.map(move |g| list![g, guard(c.id() - id + 1)])
 				.flatten();
 			log.note(format!("front {:?}", flat.next().map(|g| g.id())));
 			let n: u32 = flat.map(|g| g.id() - id).sum();
 			let m = [4u32, 6]
 				.into_iter()
-				.flat_map(move |n| {
-					trips(n);
-					list![guard(n), guard(d.id() - id + n)]
-				})
+				.flat_map(move |n| list![guard(n), guard(d.id() - id + n)])
 				.last();
 			log.note(format!("flat {n} {:?}", m.map(|g| g.id())));
 		}
@@ -375,12 +249,10 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let mut held = guards(1, 5);
 			let n = std::iter::from_fn(move || {
 				let g = held.pop()?;
-				trip(&g);
 				Some(g.id() + c.id())
 			})
 			.count();
 			let m = std::iter::successors(Some(guard(5)), move |g| {
-				trip(g);
 				(g.id() < id + 7).then(|| Guard::new(g.id() + 1 + d.id() - d.id(), log.clone()))
 			})
 			.fold(0, |n, g| n + g.id() - id);
@@ -388,22 +260,8 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 		}
 		21 => {
 			// A consumer over the adaptor that holds the closure.
-			let n = guards(1, 5)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + c.id()
-				})
-				.skip(1)
-				.count();
-			let m = guards(5, 8)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
-				.take(2)
-				.count();
+			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).skip(1).count();
+			let m = guards(5, 8).into_iter().take(2).count();
 			log.note(format!("over {n} {m}"));
 		}
 		22 => {
@@ -411,7 +269,6 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n = guards(1, 5)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g.id() - id
 				})
@@ -420,10 +277,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let m = guards(5, 6)
 				.into_iter()
 				.chain(guards(6, 8))
-				.filter(move |g| {
-					trip(g);
-					g.id() != d.id() - 5
-				})
+				.filter(move |g| g.id() != d.id() - 5)
 				.rev()
 				.count();
 			log.note(format!("rev {n} {m}"));
@@ -432,29 +286,19 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n = guards(1, 6)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
 				.take(3)
 				.rev()
 				.fold(0, |n, g| n * 10 + g.id() - id);
-			let m: u32 = guards(6, 8)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() - id
-				})
-				.take(0)
-				.rev()
-				.sum();
+			let m: u32 = guards(6, 8).into_iter().map(move |g| g.id() - id).take(0).rev().sum();
 			log.note(format!("take {n} {m} {}", d.id()));
 		}
 		24 => {
 			let n: u32 = guards(1, 7)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -464,10 +308,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 				.sum();
 			let m = guards(7, 8)
 				.into_iter()
-				.filter(move |g| {
-					trip(g);
-					g.id() != d.id()
-				})
+				.filter(move |g| g.id() != d.id())
 				.step_by(3)
 				.count();
 			log.note(format!("step {n} {m}"));
@@ -476,20 +317,13 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let mut peek = guards(1, 5)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
 				.peekable();
 			log.note(format!("peek {:?}", peek.peek().map(|g| g.id())));
 			let n = peek.rev().fold(0, |n, g| n * 10 + g.id() - id);
-			let mut ended = guards(5, 6)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
-				.peekable();
+			let mut ended = guards(5, 6).into_iter().peekable();
 			log.note(format!("peek {:?}", ended.next().map(|g| g.id())));
 			log.note(format!("peek {:?}", ended.peek().map(|g| g.id())));
 			log.note(format!("peek {n} {} {}", ended.rev().count(), d.id()));
@@ -497,31 +331,17 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 		26 => {
 			let mut flat = guards(1, 4)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					list![g, guard(c.id() - id + 1)]
-				})
+				.map(move |g| list![g, guard(c.id() - id + 1)])
 				.flatten();
 			log.note(format!("back {:?}", flat.next_back().map(|g| g.id())));
 			let n = flat.rev().fold(0, |n, g| n * 100 + g.id() - id);
-			let m = guards(4, 8)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
-				.enumerate()
-				.rev()
-				.last();
+			let m = guards(4, 8).into_iter().enumerate().rev().last();
 			log.note(format!("flat {n} {:?} {}", m.map(|(i, g)| (i, g.id())), d.id()));
 		}
 		27 => {
 			let kept = guards(1, 5)
 				.into_iter()
-				.filter(move |g| {
-					trip(g);
-					g.id() != c.id() - 8
-				})
+				.filter(move |g| g.id() != c.id() - 8)
 				.rev()
 				.fold(
 					None,
@@ -529,10 +349,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 				);
 			let n: u32 = guards(5, 8)
 				.into_iter()
-				.filter_map(move |g| {
-					trip(&g);
-					(g.id() != d.id() - 5).then_some(g)
-				})
+				.filter_map(move |g| (g.id() != d.id() - 5).then_some(g))
 				.rev()
 				.map(|g| g.id() - id)
 				.sum();
@@ -542,17 +359,12 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			let n = guards(1, 5)
 				.into_iter()
 				.inspect(move |g| {
-					trip(g);
 					log.note(format!("inspect {} {}", g.id(), c.id()));
 				})
 				.rev()
 				.count();
 			let m: u32 = guards(5, 8)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
 				.fuse()
 				.rev()
 				.map(|g| g.id() - id + d.id() - d.id())
@@ -563,23 +375,15 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			// Two closures beside items, back to front.
 			let n = guards(1, 4)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g
-				})
-				.chain(guards(4, 7).into_iter().filter(move |g| {
-					trip(g);
-					g.id() != d.id() - 6
-				}))
+				.chain(guards(4, 7).into_iter().filter(move |g| g.id() != d.id() - 6))
 				.rev()
 				.fold(0, |n, g| n * 10 + g.id() - id);
 			log.note(format!("rev {n} {}", c.id()));
 		}
-		30 => {
+		_ => {
 			let n: u32 = guards(1, 6)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -589,53 +393,25 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 				.sum();
 			let m = guards(6, 8)
 				.into_iter()
-				.filter(move |g| {
-					trip(g);
-					g.id() != d.id()
-				})
+				.filter(move |g| g.id() != d.id())
 				.skip(1)
 				.fold(0, |n, g| n + g.id() - id);
 			log.note(format!("skip {n} {m}"));
-		}
-		_ => {
-			// A closure that panics as it drops, after a fold: what it wraps still drops,
-			// and so does what the rest of the chain holds.
-			let bomb = Bomb {
-				id: id + 12,
-				log: log.clone(),
-				blows: at == id,
-			};
-			let n = guards(1, 4)
-				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + bomb_id(&bomb)
-				})
-				.chain(guards(4, 6).into_iter().map(move |g| g.id() + c.id()))
-				.count();
-			log.note(format!("done {n} {}", d.id()));
 		}
 	}
 }
 
 /// Run scenario `arg % 9` of what folds back to front and through what wraps a closure
-/// beside another, panicking as a closure reads item `arg / 9 % 8`, if any, as `folded` does.
+/// beside another, as `folded` does.
 pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
-	let at = id + u32::from(arg / 9 % 8);
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
-	let trip = move |g: &Guard| {
-		if g.id() == at {
-			panic!("d{id} at {}", g.id() - id);
-		}
-	};
 	let (c, d, e) = (guard(10), guard(11), guard(12));
 	match arg % 9 {
 		0 => {
 			let n: u32 = guards(1, 5)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -647,20 +423,14 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 		1 => {
 			let n: u32 = guards(1, 5)
 				.into_iter()
-				.filter(move |g| {
-					trip(g);
-					g.id() != c.id()
-				})
+				.filter(move |g| g.id() != c.id())
 				.rev()
 				.map(move |g| g.id() - id + d.id() - d.id())
 				.sum();
 			let f = guard(13);
 			let m = guards(5, 8)
 				.into_iter()
-				.filter_map(move |g| {
-					trip(&g);
-					(g.id() != e.id()).then_some(g)
-				})
+				.filter_map(move |g| (g.id() != e.id()).then_some(g))
 				.rev()
 				.map(move |g| g.id() + f.id())
 				.count();
@@ -670,7 +440,6 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 			let n = guards(1, 4)
 				.into_iter()
 				.inspect(move |g| {
-					trip(g);
 					log.note(format!("inspect {} {}", g.id(), c.id()));
 				})
 				.map(move |g| g.id() + d.id())
@@ -679,7 +448,6 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 			let m = guards(4, 8)
 				.into_iter()
 				.inspect(move |g| {
-					trip(g);
 					log.note(format!("inspect {} {}", g.id(), e.id()));
 				})
 				.rev()
@@ -691,7 +459,6 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 			let last = guards(1, 5)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -708,29 +475,22 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 		4 => {
 			let n = guards(1, 5)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + c.id()
-				})
+				.map(move |g| g.id() + c.id())
 				.rev()
 				.rev()
 				.count();
 			let m = guards(5, 8)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + d.id()
-				})
+				.map(move |g| g.id() + d.id())
 				.skip(1)
 				.fold(0, |n, k| n + k);
 			log.note(format!("twice {n} {m} {}", e.id()));
 		}
 		5 => {
-			// The first step's panic drops the accumulator after what folds into it.
+			// An accumulator that drops, folded through `step_by`.
 			let kept = guards(1, 5)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -746,7 +506,6 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 			let kept = guards(1, 6)
 				.into_iter()
 				.map(move |g| {
-					trip(&g);
 					log.note(format!("map {} {}", g.id(), c.id()));
 					g
 				})
@@ -762,26 +521,19 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 		7 => {
 			let n: u32 = guards(1, 5)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() - id + c.id() - c.id()
-				})
+				.map(move |g| g.id() - id + c.id() - c.id())
 				.fuse()
 				.sum();
 			let m = guards(5, 8)
 				.into_iter()
-				.map(move |g| {
-					trip(&g);
-					g.id() + d.id()
-				})
+				.map(move |g| g.id() + d.id())
 				.fuse()
 				.rev()
 				.count();
 			log.note(format!("fuse {n} {m} {}", e.id()));
 		}
 		_ => {
-			// A panic folding the front iterator: what folds into it drops, then the
-			// source, then the back.
+			// What is left between the front and back iterators, folded.
 			let mut flat = guards(1, 4)
 				.into_iter()
 				.map(move |g| {
@@ -791,12 +543,7 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 				.flatten();
 			log.note(format!("ends {:?}", flat.next().map(|g| g.id())));
 			log.note(format!("ends {:?}", flat.next_back().map(|g| g.id())));
-			let n = flat
-				.map(move |g| {
-					trip(&g);
-					g.id() + d.id()
-				})
-				.count();
+			let n = flat.map(move |g| g.id() + d.id()).count();
 			log.note(format!("flat {n} {}", e.id()));
 		}
 	}

@@ -427,49 +427,11 @@ export {{ cases, steps }} from {harness:?};
 const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, watch, drops, futures }};
 const script = harness(fixture);
 export const run = (input: rt.ByteSlice) => script(rt.byteSliceView(input));
-export const unwind = harness(fixture, true);
 "#
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();
 	typecheck(out);
 	differential("task-fixture", &[], out, "caller.ts", 20_000);
-	unwinding(out, "caller.ts", 5_000);
-}
-
-/// Run the task fixture's scripts where a panic unwinds, natively on the host and
-/// translated, logging each step's panic and going on: what a panic drops must match.
-fn unwinding(out: &Path, entry: &str, scripts: u32) {
-	let target_dir = scratch().join("host");
-	let status = cargo()
-		.args([
-			"build",
-			"--locked",
-			"--package",
-			"task-fixture",
-			"--example",
-			"unwind",
-			"--target-dir",
-		])
-		.arg(&target_dir)
-		.arg("--manifest-path")
-		.arg(manifest_dir().join("Cargo.toml"))
-		.status()
-		.expect("running cargo");
-	assert!(status.success(), "building the unwind example failed");
-	let output = Command::new("node")
-		.arg(manifest_dir().join("tests").join("unwind.ts"))
-		.arg(target_dir.join("debug").join("examples").join("unwind"))
-		.arg(out.join(entry))
-		.arg(scripts.to_string())
-		.output()
-		.expect("running node, which the dev shell provides");
-	let stdout = String::from_utf8_lossy(&output.stdout);
-	let stderr = String::from_utf8_lossy(&output.stderr);
-	assert!(
-		output.status.success(),
-		"unwinding differs from native Rust:\n{stdout}{stderr}"
-	);
-	println!("{stdout}");
 }
 
 /// Each construct outside the subset fails with its span, and nothing is written.

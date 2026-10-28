@@ -400,10 +400,6 @@ fn decls(stmts: &[Stmt], f: &mut dyn FnMut(&str, &Expr)) {
 				cases.iter().for_each(|(_, body)| decls(body, f));
 				decls(default, f);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				decls(body, f);
-				decls(handler, f);
-			}
 			_ => {}
 		}
 	}
@@ -461,10 +457,6 @@ fn loops(
 					.iter_mut()
 					.for_each(|(_, body)| loops(body, names, zeros, indexes));
 				loops(default, names, zeros, indexes);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				loops(body, names, zeros, indexes);
-				loops(handler, names, zeros, indexes);
 			}
 			_ => {}
 		}
@@ -534,10 +526,6 @@ fn drop_decls(stmts: &mut Vec<Stmt>, names: &FxHashSet<String>) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| drop_decls(body, names));
 				drop_decls(default, names);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				drop_decls(body, names);
-				drop_decls(handler, names);
 			}
 			_ => {}
 		}
