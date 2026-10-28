@@ -75,7 +75,7 @@ fun main() {
 	scope.launch { frame = first.readFrame() }
 	q.drain()
 	expect(frame == null, "a read waits for a frame")
-	writer.writeFrame(null, "hello")
+	writer.writeFrame(null, "hello".encodeToByteArray())
 	expect(q.size == 1, "a frame's arrival wakes the read")
 	q.drain()
 	val hello = frame!!
@@ -89,18 +89,19 @@ fun main() {
 	val at = Timestamp.fromMillis(1500u)
 	expect(at.asSecs() == 1uL, "1500 ms is 1 s")
 	try {
-		writer.writeFrame(at, "late")
+		writer.writeFrame(at, "late".encodeToByteArray())
 		expect(false, "a timestamped frame on an untimed track is an error")
 	} catch (e: ErrorException) {
 		expect(e.message == "frame timestamp doesn't fit its track", "the late frame's error is Rust's")
 	}
 	expect(at.asSecs() == 1uL, "a copied timestamp stays usable")
 
-	// The last frame, then the group's end, which reads as null.
-	writer.writeFrame(null, "world")
+	// The last frame, bytes that are not UTF-8, then the group's end, which reads as null.
+	val world = byteArrayOf(0xff.toByte()) + "world".encodeToByteArray()
+	writer.writeFrame(null, world)
 	writer.finish()
 	runBlocking {
-		expect(first.readFrame()?.payload?.decodeToString() == "world", "the last frame reads")
+		expect(first.readFrame()?.payload?.contentEquals(world) == true, "the last frame reads")
 		expect(first.readFrame() == null, "a finished group reads null")
 	}
 
@@ -184,7 +185,7 @@ fun main() {
 	val catalog = CatalogProducerExtra.new(publisher, extra)
 	val snapshot = catalog.binarySnapshotConfig(publisher.createTrack("state", null), BinaryConfig.default())
 	expect(snapshot.name() == "state", "a snapshot has its track's name")
-	snapshot.update("latest")
+	snapshot.update("latest".encodeToByteArray())
 	var listed = 0
 	catalog.mutate { lent ->
 		if (lent.toJson().contains("state")) listed++

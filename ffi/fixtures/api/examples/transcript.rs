@@ -148,6 +148,7 @@ fn main() {
 
 	println!("{}", api_lib::greet("x", Shape::Square));
 	println!("len {}", api_lib::len(b"abc"));
+	println!("hex {}", api_lib::hex(Bytes::from_static(b"\xff\x00a")));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}

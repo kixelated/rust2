@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A type parameter whose bounds `Bytes` or `Vec<u8>` meet as well as `String`, such as
+  moq's `IntoBytes` frame payloads, exports as bytes rather than text. Kotlin takes a
+  `ByteArray` there: pass text as `"text".encodeToByteArray()`. C and C++ keep their
+  types, and accept a payload that is not UTF-8 rather than aborting.
 - In `exclude` and `rename`, a path that a field shares with a method or constant of its
   type, such as `Backoff::initial`, names only the method, as in rustdoc. Name the field
   `field@Backoff::initial`: an `exclude` that left out both now needs both entries.

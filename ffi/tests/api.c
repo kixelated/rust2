@@ -266,6 +266,7 @@ static int script(void) {
 
 	print("", api_greet(str("x"), API_SHAPE_SQUARE), "\n");
 	printf("len %zu\n", api_len(str("abc")));
+	print("hex ", api_hex((api_buf){.ptr = (const uint8_t *)"\xff\0a", .len = 3}), "\n");
 	api_event events[3] = {
 		{.tag = API_EVENT_MOVED, .moved = {._0 = p}},
 		{.tag = API_EVENT_NAMED, .named = {.name = str("n")}},

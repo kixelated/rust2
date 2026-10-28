@@ -122,13 +122,13 @@ int main(void) {
 	moq_error_free(err);
 	CHECK(moq_timestamp_as_secs(at) == 1);
 
-	/* The last frame, then the group's end, which reads as None. */
-	CHECK(moq_group_producer_write_frame(writer, NULL, str("world"), &err));
+	/* The last frame, bytes that are not UTF-8, then the group's end, which reads as None. */
+	CHECK(moq_group_producer_write_frame(writer, NULL, str("\xffworld"), &err));
 	CHECK(moq_group_producer_finish(writer, &err));
 	reading = moq_group_consumer_read_frame(group);
 	CHECK(moq_group_consumer_read_frame_poll(reading, waker, &frame, &err) == MOQ_POLL_READY);
 	moq_group_consumer_read_frame_future_free(reading);
-	CHECK(frame != NULL && is(moq_frame_frame_payload(frame), "world"));
+	CHECK(frame != NULL && is(moq_frame_frame_payload(frame), "\xffworld"));
 	moq_frame_frame_free(frame);
 	reading = moq_group_consumer_read_frame(group);
 	frame = (moq_frame_frame *)1;

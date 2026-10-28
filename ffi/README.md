@@ -78,7 +78,7 @@ export's, and adds nothing; another crate's type is refused.
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
-| `impl Into<X>`, `impl AsRef<X>` | `X` |
+| `impl Into<X>`, `impl AsRef<X>`, or a bound implying one, such as `IntoBytes: AsRef<[u8]>` | `X` |
 | another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
 
 A generic type infers the instances it exports at, with no config: the one at its

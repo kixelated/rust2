@@ -86,11 +86,12 @@ int main() {
 	CHECK(!late && is(late.error().to_string(), "frame timestamp doesn't fit its track"));
 	CHECK(at->as_secs() == 1);
 
-	// The last frame, then the group's end, which reads as None, both blocking.
-	CHECK(writer->write_frame(nullptr, "world"));
+	// The last frame, bytes that are not UTF-8, then the group's end, which reads as None,
+	// both blocking.
+	CHECK(writer->write_frame(nullptr, "\xffworld"));
 	CHECK(std::move(*writer).finish());
 	auto world = group.read_frame().get();
-	CHECK(world && world.value() && is(world.value()->payload(), "world"));
+	CHECK(world && world.value() && is(world.value()->payload(), "\xffworld"));
 	auto end = group.read_frame().get();
 	CHECK(end && !end.value());
 

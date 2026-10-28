@@ -14,6 +14,7 @@ use std::collections::VecDeque;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_infer::infer::TyCtxtInferExt;
+use rustc_infer::traits::util::elaborate;
 use rustc_infer::traits::{Obligation, ObligationCause};
 use rustc_middle::ty::{
 	self, GenericArgKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor, TypingEnv,
@@ -1742,7 +1743,8 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The types a type parameter may be exported as, best first, which typing takes the
-	/// first of: `X` for `impl Into<X>` or `impl AsRef<X>`, then `String`, `Bytes`, and
+	/// first of: `X` for each `Into<X>` or `AsRef<X>` its bounds imply, or `&X` and then
+	/// `String` or `Vec<T>` where `X` is `str` or `[T]`, then `String`, `Bytes`, and
 	/// `Vec<u8>`, each that meets its bounds and maps.
 	fn choose(&self, def_id: DefId, param: Ty<'tcx>, base: &[ty::GenericArg<'tcx>]) -> Result<Vec<Ty<'tcx>>, Why> {
 		let tcx = self.tcx;
@@ -1762,37 +1764,53 @@ impl<'tcx> Collector<'tcx> {
 				.as_type_outlives_clause()
 				.is_some_and(|pred| pred.skip_binder().0 == param)
 		});
+		let string = tcx
+			.lang_items()
+			.string()
+			.map(|string| Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
+		let vec = |elem: Ty<'tcx>| {
+			let vec = tcx.get_diagnostic_item(sym::Vec)?;
+			let alloc = tcx.lang_items().global_alloc_ty()?;
+			let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
+			Some(Ty::new_adt(
+				tcx,
+				tcx.adt_def(vec),
+				tcx.mk_args(&[elem.into(), alloc.into()]),
+			))
+		};
 		let mut candidates = Vec::new();
-		for bound in &bounds {
+		// With the bounds they imply: `IntoBytes: AsRef<[u8]>` makes a parameter it bounds bytes.
+		let implied = elaborate(tcx, identity.clauses.iter().map(|clause| clause.skip_norm_wip()))
+			.filter_map(|clause| clause.as_trait_clause())
+			.filter(|pred| pred.self_ty().skip_binder() == param);
+		for bound in implied {
 			let tr = bound.def_id();
 			let target = || bound.skip_binder().trait_ref.args.type_at(1);
 			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
 				let target = target();
-				match target.kind() {
-					ty::Str | ty::Slice(_) if outlives => {}
-					ty::Str | ty::Slice(_) => candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target)),
-					_ => candidates.push(target),
+				let owned = match target.kind() {
+					ty::Str => string,
+					ty::Slice(elem) => vec(*elem),
+					_ => {
+						candidates.push(target);
+						continue;
+					}
+				};
+				// A borrow of what C lends, unless the parameter outlives the call, then the
+				// owned form, which meets bounds that only owned types implement.
+				if !outlives {
+					candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target));
 				}
+				candidates.extend(owned);
 			} else if Some(tr) == self.range_bounds {
 				candidates.extend(self.bounds(target()));
 			}
 		}
-		if let Some(string) = tcx.lang_items().string() {
-			candidates.push(Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
-		}
+		candidates.extend(string);
 		if let Some(bytes) = self.bytes {
 			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
 		}
-		if let Some(vec) = tcx.get_diagnostic_item(sym::Vec) {
-			let alloc = tcx.lang_items().global_alloc_ty();
-			if let Some(alloc) = alloc {
-				let args = tcx.mk_args(&[
-					tcx.types.u8.into(),
-					Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty()).into(),
-				]);
-				candidates.push(Ty::new_adt(tcx, tcx.adt_def(vec), args));
-			}
-		}
+		candidates.extend(vec(tcx.types.u8));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
 		candidates
 			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));

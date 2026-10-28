@@ -130,6 +130,7 @@ fun script() {
 
 	println(greet("x", Shape.SQUARE))
 	println("len ${len("abc".encodeToByteArray())}")
+	println("hex ${hex(byteArrayOf(0xff.toByte(), 0, 'a'.code.toByte()))}")
 	for (event in listOf(Event.Moved(p), Event.Named("n"), Event.Done)) {
 		println(describe(event))
 	}

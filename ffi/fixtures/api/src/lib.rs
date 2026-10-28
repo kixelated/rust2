@@ -589,6 +589,41 @@ pub fn len(payload: &[u8]) -> usize {
 	payload.len()
 }
 
+/// Converts into owned bytes, as moq's `IntoBytes` does: text implements it too, but its
+/// supertrait makes a parameter it bounds bytes.
+pub trait Payload: AsRef<[u8]> {
+	fn into_bytes(self) -> Bytes;
+}
+
+impl Payload for Bytes {
+	fn into_bytes(self) -> Bytes {
+		self
+	}
+}
+
+impl Payload for Vec<u8> {
+	fn into_bytes(self) -> Bytes {
+		self.into()
+	}
+}
+
+impl Payload for String {
+	fn into_bytes(self) -> Bytes {
+		self.into()
+	}
+}
+
+impl Payload for &str {
+	fn into_bytes(self) -> Bytes {
+		Bytes::copy_from_slice(self.as_bytes())
+	}
+}
+
+/// A payload's bytes in hex, which need not be UTF-8.
+pub fn hex(payload: impl Payload) -> String {
+	payload.into_bytes().iter().map(|b| format!("{b:02x}")).collect()
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }
