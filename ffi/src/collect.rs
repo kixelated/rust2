@@ -475,9 +475,13 @@ impl<'tcx> Collector<'tcx> {
 				_ => {}
 			}
 		}
-		// Typing refuses an instance whose arguments cannot name one, and maps none of its
-		// members, which could name ever larger instances, as `Grow<(T,)>` from `Grow<T>`.
-		sites.extend((self.instances.iter()).filter(|site| self.arguable(site)).cloned());
+		// `declare` refuses an instance whose arguments cannot name one, before mapping any
+		// of its members, which could name ever larger instances, as `Grow<(T,)>` does.
+		sites.extend(
+			(self.instances.iter())
+				.filter(|site| self.unarguable(site).is_none())
+				.cloned(),
+		);
 		for site in sites {
 			let adt = tcx.adt_def(site.key.def_id);
 			// An object's private fields are no part of its API.
@@ -496,16 +500,16 @@ impl<'tcx> Collector<'tcx> {
 		named
 	}
 
-	/// Whether each type argument an instance is named by could map as [`Self::arg`]
-	/// requires: `()`, a primitive, `String`, or an export's type.
-	fn arguable(&self, site: &Site<'tcx>) -> bool {
+	/// The first type argument an instance is named by that cannot map as [`Self::arg`]
+	/// requires, which is `()`, a primitive, `String`, or an export's type.
+	fn unarguable(&self, site: &Site<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
-		site.args.types().take(site.explicit).all(|ty| match ty.kind() {
-			ty::Tuple(list) => list.is_empty(),
-			ty::Bool | ty::Char | ty::Float(_) => true,
-			ty::Int(_) | ty::Uint(_) => int(ty).is_some(),
-			ty::Adt(adt, _) => tcx.lang_items().string() == Some(adt.did()) || self.exported(adt.did().krate),
-			_ => false,
+		site.args.types().take(site.explicit).find(|&ty| match ty.kind() {
+			ty::Tuple(list) => !list.is_empty(),
+			ty::Bool | ty::Char | ty::Float(_) => false,
+			ty::Int(_) | ty::Uint(_) => int(ty).is_none(),
+			ty::Adt(adt, _) => tcx.lang_items().string() != Some(adt.did()) && !self.exported(adt.did().krate),
+			_ => true,
 		})
 	}
 
@@ -763,7 +767,10 @@ impl<'tcx> Collector<'tcx> {
 				continue;
 			}
 			for site in self.sites(def_id, &path) {
-				let decl = self.declare_site(&site);
+				let decl = match self.unarguable(&site) {
+					Some(ty) => Decl::Refused(why("type argument", self.spell(ty))),
+					None => self.declare_site(&site),
+				};
 				self.decls.insert(site.key, decl);
 			}
 		}

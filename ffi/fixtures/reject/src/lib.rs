@@ -198,6 +198,24 @@ pub fn grow(value: u32) -> Grow<u32> {
 	Grow(value)
 }
 
+/// A record whose instance at a tuple is refused before its fields map, so `Core<u8>`,
+/// which only those fields name, is neither inferred nor needed.
+pub struct Shell<T> {
+	pub core: Core<u8>,
+	pub tag: T,
+}
+
+pub struct Core<T> {
+	pub value: T,
+}
+
+pub fn shell() -> Shell<(u32,)> {
+	Shell {
+		core: Core { value: 1 },
+		tag: (2,),
+	}
+}
+
 /// An instance the config excludes.
 pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0
