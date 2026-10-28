@@ -73,7 +73,21 @@ export function unwrapOr$Option_u16(self: rt.u16 | undefined, default_: rt.u16):
 	return self;
 }
 
+export function unwrapOr$Option_u32(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$Option_u8(self: rt.u8 | undefined, default_: rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$Option_u8_u8(self: [rt.u8, rt.u8] | undefined, default_: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
 	if (self === undefined) {
 		return default_;
 	}
@@ -213,7 +227,21 @@ export function map$Option_u8_u32s_owned_closure9(self: rt.u8 | undefined, f: (a
 	return f(self);
 }
 
-export function map$Option_u8_u8_made_closure0_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+export function map$Option_u8_u8_elements_closure8(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8_u8_u8_elements_closure9(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8_u8_u8_u8_lent_closure2(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -339,6 +367,13 @@ export function mapOr$Option_u16_u8_hash_maps_closure0(self: rt.u16 | undefined,
 	return f(self);
 }
 
+export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | undefined, default_: rt.u32, f: (a0: rt.Place<rt.u32>) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_u8_bool_take_largest_closure0(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
 		return default_;
@@ -353,7 +388,7 @@ export function mapOr$Option_u8_u64_floats_closure1(self: rt.u8 | undefined, def
 	return f(self);
 }
 
-export function mapOr$Option_u8_u8_iters_closure3(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+export function mapOr$Option_u8_u8_elements_closure3(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -514,6 +549,13 @@ export function andThen$Option_Option_u8_Option_u8_made_closure1(self: rt.u8 | u
 	return f(self);
 }
 
+export function andThen$Option_u32_u32_lent_closure3(self: rt.Place<rt.u32> | undefined, f: (a0: rt.Place<rt.u32>) => rt.Place<rt.u32> | undefined): rt.Place<rt.u32> | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function andThen$Option_u8_u8_options_closure2(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -544,6 +586,16 @@ export function filter$Option_String_owned_closure1(self: string | undefined, pr
 export function filter$Option_u8_combinators_closure0(self: rt.u8 | undefined, predicate: (a0: rt.u8) => boolean): rt.u8 | undefined {
 	if (self !== undefined) {
 		const x: rt.u8 = self;
+		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$Option_u8_u8_lent_closure1(self: [rt.u8, rt.u8] | undefined, predicate: (a0: [rt.u8, rt.u8]) => boolean): [rt.u8, rt.u8] | undefined {
+	if (self !== undefined) {
+		const x: [rt.u8, rt.u8] = self;
 		if (predicate(x)) {
 			return x;
 		}
