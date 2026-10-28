@@ -50,7 +50,7 @@ roots = [
     "cow_made",
     "split_chars",
     "called_closure",
-    "owning_lazy",
+    "pattern_closure",
     "parts_summed",
     "last_bumped",
     "modified",
