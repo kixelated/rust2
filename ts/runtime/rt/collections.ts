@@ -834,13 +834,15 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
  * `c` by `drop`.
  */
 function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Take, fresh = false, drop?: (c: C) => void): C {
+	// By `next` where std's reads by it, and else as its `try_fold` steps.
+	const read = take === "next" ? items : items.folded();
 	if (take === undefined && !fresh) {
-		for (let item = items.next(); item !== DONE; item = items.next()) add(item);
+		for (let item = read.next(); item !== DONE; item = read.next()) add(item);
 		return c;
 	}
 	const all = () => {
 		if (take === "fold") items.fold<void>(undefined, (_, item) => add(item));
-		else for (let item = items.next(); item !== DONE; item = items.next()) add(item);
+		else for (let item = read.next(); item !== DONE; item = read.next()) add(item);
 	};
 	try {
 		try {
