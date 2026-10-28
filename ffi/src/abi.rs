@@ -417,10 +417,10 @@ impl<'a> Abi<'a> {
 			.map(|r| r.span)
 			.or_else(|| api.objects.first().map(|o| o.span))
 			.unwrap_or(rustc_span::DUMMY_SP);
-		for runtime in ["buf", "buf_free", "duration", "waker", "poll"] {
+		for runtime in ["contract", "buf", "buf_free", "duration", "waker", "poll"] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}
-		for constant in ["POLL_PENDING", "POLL_READY", "POLL_ERROR"] {
+		for constant in ["CONTRACT", "POLL_PENDING", "POLL_READY", "POLL_ERROR"] {
 			let name = format!("{}_{constant}", self.prefix.to_uppercase());
 			self.claim(name, "the runtime".to_string(), crate_span);
 		}

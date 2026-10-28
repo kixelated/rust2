@@ -125,6 +125,10 @@ refused, and the census counts why.
   each lent as a handle to the value where it is for that call: C borrows it no further
   than Rust lent it, and moving out of it, freeing it, or keeping a borrow past the call
   aborts.
+- **The contract** is a hash of the header's declarations, its docs included: the header
+  defines it as `<PREFIX>_CONTRACT`, and `<prefix>_contract()` returns it from the library
+  built with the header. A binding checks the two match before any other call, so a header
+  and a library from different builds refuse to mix.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is

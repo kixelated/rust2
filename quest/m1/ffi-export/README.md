@@ -21,6 +21,8 @@ package's place.
 
 Every generator on the C ABI:
 
+- checks `<prefix>_contract()` against the header's contract when it loads, before any
+  other call, and fails loud on a mismatch;
 - is measured on the [binding benchmark](/bench/ffi/README.md);
 - keeps the C ABI's bulk and zero-copy payloads, with no per-byte loop on either side;
 - reports its generated size, raw and gzipped, against the fork's (Python 653 KiB, Kotlin
@@ -50,6 +52,5 @@ Every generator on the C ABI:
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
-- [A contract symbol](/quest/m1/ffi-export/contract.md) - a header and a library from different builds refuse to mix
 - [C++ bindings](/quest/m1/ffi-export/cpp.md) - C++17, 20, and 23 over the C ABI, with native futures
 - [Kotlin bindings](/quest/m1/ffi-export/kotlin.md) - JNI or Panama over the C ABI, with native futures
