@@ -7,8 +7,8 @@
 //! named as its class or a field, takes a trailing `_`. An object is a move-only class
 //! owning its handle, copyable if `Clone`; a record a struct; an enum an `enum class`, or
 //! for one with data a `std::variant` of a struct per variant, with its methods free
-//! functions. The runtime they share, [`runtime/rt.hpp`](../runtime/rt.hpp), holds the
-//! bytes, results, wakers, and futures.
+//! functions; a closure lent for the call a template parameter. The runtime they share,
+//! [`runtime/rt.hpp`](../runtime/rt.hpp), holds the bytes, results, wakers, and futures.
 
 use std::collections::BTreeSet;
 
@@ -102,6 +102,7 @@ impl<'a> Header<'a> {
 			Type::Enum(i) => self.q(&abi.enumeration(*i)),
 			Type::Object(i) => self.q(&abi.object(*i)),
 			Type::Callback(i, _) => format!("::std::unique_ptr<{}>", self.q(&abi.callback(*i))),
+			Type::Closure(..) => unreachable!("a closure is a template parameter"),
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => self.q(&abi.range(ty)),
 			Type::Tuple(elements) => {
 				let elements: Vec<String> = elements.iter().map(|e| self.owned(e)).collect();
@@ -178,6 +179,7 @@ impl<'a> Header<'a> {
 			},
 			Type::Object(_) => format!("{d}::access::raw({e})"),
 			Type::Callback(..) => format!("{d}::lower(::std::move({e}))"),
+			Type::Closure(..) => unreachable!("a closure lowers to its trampoline"),
 			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => unreachable!("a buffer is above"),
 			Type::Tuple(_) => unreachable!("a tuple is only returned"),
 		}
@@ -284,7 +286,10 @@ impl<'a> Header<'a> {
 			"namespace detail {{\n\nusing c_buf = ::{p}_buf;\nusing c_waker = ::{p}_waker;\n\ninline void c_buf_free(c_buf buf) noexcept {{\n\t::{p}_buf_free(buf);\n}}\n\n}} // namespace detail\n"
 		));
 		self.out.push_str(RUNTIME);
-		self.line("");
+		self.line(format!(
+			"\nnamespace detail {{\n\n// Checked at load, before any other call: a header and a library from different builds\n// must not mix.\ninline const bool contract = ::{p}_contract() == {upper}_CONTRACT ||\n\t(fail(\"{p}.hpp and the library are from different builds\"), false);\n\n}} // namespace detail\n",
+			upper = p.to_uppercase()
+		));
 		self.line(format!("using duration = ::{p}_duration;"));
 		if abi.ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
 			self.line(format!("using bound = ::{};", abi.rt("bound")));
@@ -939,9 +944,22 @@ impl<'a> Header<'a> {
 				}
 			}
 		}
+		let mut templates = Vec::new();
 		for param in &function.params {
-			let (_, _) = c_params.next().expect("each parameter has its C one");
+			let (_, c_ty) = c_params.next().expect("each parameter has its C one");
 			let name = escape(&param.name);
+			if let (Type::Closure(lent, ret), Ty::Fn(c_lent, c_ret)) = (&param.ty, c_ty) {
+				c_params.next().expect("a closure has its data");
+				let f = format!("F{}", templates.len());
+				params.push(format!("{f} &&{name}"));
+				prelude.push(self.closure(&f, &name, (lent, ret), (c_lent, c_ret)));
+				args.push(format!("c_{name}_"));
+				args.push(format!(
+					"const_cast<void *>(static_cast<const void *>(::std::addressof({name})))"
+				));
+				templates.push(format!("class {f}"));
+				continue;
+			}
 			params.push(declare(&self.param(&param.ty), &name));
 			args.push(self.lower(&param.ty, &name));
 		}
@@ -988,14 +1006,33 @@ impl<'a> Header<'a> {
 			(Some(class), false) => format!("{class}::"),
 			_ => String::new(),
 		};
+		let template = match templates.is_empty() {
+			true => String::new(),
+			false => format!("template <{}>\n", templates.join(", ")),
+		};
 		self.def(format!(
-			"inline {ret} {scope}{member}({}){qualifier} {{\n\t{}\n}}\n",
+			"{template}inline {ret} {scope}{member}({}){qualifier} {{\n\t{}\n}}\n",
 			params.join(", "),
 			body.join("\n\t")
 		));
+		let mut text = function.docs.clone();
+		for param in &function.params {
+			if let Type::Closure(lent, _) = &param.ty {
+				let name = escape(&param.name);
+				text.push_str(&format!(
+					"\n\nRust calls `{name}` only during the call, from any thread."
+				));
+				if lent.iter().any(|p| matches!(p.base(), Type::Object(_))) {
+					text.push_str(&format!(
+						"\nAn object it lends lives only for that call of `{name}`: move none out of it."
+					));
+				}
+			}
+		}
 		let declaration = format!(
-			"{}\t{}{ret} {member}({}){qualifier};",
-			docs(&function.docs, "\t"),
+			"{}\t{}{}{ret} {member}({}){qualifier};",
+			docs(text.trim(), "\t"),
+			template.replace('\n', "\n\t"),
 			match is_static {
 				true => "static ",
 				false => "",
@@ -1003,6 +1040,49 @@ impl<'a> Header<'a> {
 			params.join(", ")
 		);
 		(declaration, member)
+	}
+
+	/// The trampoline C calls for the closure parameter `name`, of type `f`, taking `lent`
+	/// and returning `ret`, which C declares as `c_lent` and `c_ret`: it lends each object
+	/// as its class.
+	fn closure(&self, f: &str, name: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
+		let abi = self.abi;
+		let d = self.d();
+		let c_params: Vec<String> = std::iter::once("void *data".to_string())
+			.chain(c_lent.iter().enumerate().map(|(k, ty)| decl(abi, ty, &format!("p{k}"))))
+			.collect();
+		let mut body = vec![format!(
+			"auto &f = *static_cast<::std::remove_reference_t<{f}> *>(data);"
+		)];
+		let mut args = Vec::new();
+		for (k, (ty, c_ty)) in lent.iter().zip(c_lent).enumerate() {
+			let p = format!("p{k}");
+			match (ty, c_ty) {
+				(Type::Ref(m, object), Ty::Handle { name: c, constant }) => {
+					let constant = match constant {
+						true => "const ",
+						false => "",
+					};
+					body.push(format!("{d}::lent<{}, {constant}::{c}> l{k}({p});", self.owned(object)));
+					args.push(match m {
+						crate::ir::Mutability::Not => format!("::std::as_const(l{k}.get())"),
+						crate::ir::Mutability::Mut => format!("l{k}.get()"),
+					});
+				}
+				_ => args.push(self.lift_lent(ty, &p)),
+			}
+		}
+		let call = format!("f({})", args.join(", "));
+		body.push(match ret {
+			Type::Unit => format!("{call};"),
+			ret => format!("return {};", self.lower(ret, &call)),
+		});
+		format!(
+			"auto c_{name}_ = []({}) noexcept -> {} {{\n\t\t{}\n\t}};",
+			c_params.join(", "),
+			decl(abi, c_ret, ""),
+			body.join("\n\t\t")
+		)
 	}
 
 	/// The operations a future's type polls with.

@@ -15,6 +15,3 @@ nightly.
   need MSVC's.
 - Clang 21 passed every configuration locally when the generator landed; CI has no Clang
   yet.
-- Once [kixelated/rust2#146](https://github.com/kixelated/rust2/pull/146) lands, the
-  header checks `<prefix>_contract()` against `<PREFIX>_CONTRACT` at load, in an inline
-  variable's initializer, if the generator's PR has not already.

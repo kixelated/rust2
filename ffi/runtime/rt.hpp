@@ -500,11 +500,39 @@ struct access {
 	static T wrap(R *raw) noexcept {
 		return T(raw);
 	}
+	template <class T>
+	static void release(T &object) noexcept {
+		object.raw_ = nullptr;
+	}
 };
 
 inline c_buf none() noexcept {
 	return c_buf{nullptr, 0, nullptr};
 }
+
+// An object Rust lends a closure for one call, as its class over the lent handle, which
+// it gives back unfreed. Moving out of it would keep the borrow past the call.
+template <class T, class R>
+class lent {
+	T object_;
+	R *raw_;
+
+public:
+	explicit lent(R *raw) noexcept
+		: object_(access::wrap<T>(const_cast<::std::remove_const_t<R> *>(raw))), raw_(raw) {}
+	lent(const lent &) = delete;
+	lent &operator=(const lent &) = delete;
+	~lent() {
+		if (access::raw(object_) != raw_) {
+			fail("a lent object was moved out of");
+		}
+		access::release(object_);
+	}
+
+	T &get() noexcept {
+		return object_;
+	}
+};
 
 template <class Op, class Exec, class F>
 class driver final : public task_node {

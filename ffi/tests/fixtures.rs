@@ -128,6 +128,11 @@ fn api() {
 				"finished",
 				"api_channel_recv_poll: a future is polled after it finished",
 			),
+			(
+				"lent moved",
+				"api_counter_into_label: a lent handle's value cannot move out",
+			),
+			("lent kept", "a lent object was moved out of"),
 		] {
 			let output = Command::new(&exe).arg(case).output().unwrap();
 			assert!(!output.status.success(), "{standard} {case} did not abort");
@@ -135,6 +140,29 @@ fn api() {
 			assert!(stderr.contains(message), "{standard} {case} printed {stderr}");
 		}
 	}
+
+	// A C++ program whose header names another contract than its library's aborts at load.
+	let mismatched = scratch().join("api").join("contract.cpp");
+	std::fs::write(
+		&mismatched,
+		"#include \"api.h\"\n#undef API_CONTRACT\n#define API_CONTRACT ((uint64_t)0)\n#include \"api.hpp\"\nint main() {}\n",
+	)
+	.unwrap();
+	let contract = scratch().join("api").join("contract");
+	run(Command::new(&cxx)
+		.args(["-std=c++17", "-I"])
+		.arg(out.join("include"))
+		.arg(&mismatched)
+		.arg(target.join("debug").join("libapi.a"))
+		.args(["-lpthread", "-ldl", "-lm", "-o"])
+		.arg(&contract));
+	let output = Command::new(&contract).output().unwrap();
+	assert!(!output.status.success(), "a mismatched contract did not abort");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("api.hpp and the library are from different builds"),
+		"a mismatched contract printed {stderr}"
+	);
 
 	// Each broken contract aborts, naming the function and what broke.
 	for (case, message) in [
@@ -147,6 +175,12 @@ fn api() {
 		),
 		("enum", "api_greet: an enum value is invalid"),
 		("bound", "api_count: a bound's kind is invalid"),
+		("lent", "api_registry_edit: a lent handle was freed"),
+		(
+			"lent moved",
+			"api_counter_into_label: a lent handle's value cannot move out",
+		),
+		("null", "api_registry_edit: a function is null"),
 	] {
 		let output = Command::new(&exe).arg(case).output().unwrap();
 		assert!(!output.status.success(), "{case} did not abort");

@@ -8,24 +8,33 @@ use crate::coding::{
 };
 use crate::{SessionError, lite};
 
+/// What a case runs on the rest of the input.
+type Case = fn(&[u8], &mut Vec<u8>);
+
+/// Each case, which the first byte picks modulo their count, so a case added at the end
+/// moves no other.
+fn cases() -> Vec<Case> {
+	vec![
+		decode_script,
+		encode_script,
+		zigzag,
+		sizes,
+		roundtrip::<Versions>,
+		roundtrip_lite::<lite::Group>,
+		roundtrip_lite::<lite::Probe>,
+		encode_messages,
+		errors,
+	]
+}
+
 /// Run one case.
 pub fn run(input: &[u8]) -> Vec<u8> {
 	let mut out = Vec::new();
 	let Some((&op, data)) = input.split_first() else {
 		return out;
 	};
-
-	match op % 9 {
-		0 => decode_script(data, &mut out),
-		1 => encode_script(data, &mut out),
-		2 => zigzag(data, &mut out),
-		3 => sizes(data, &mut out),
-		4 => roundtrip::<Versions>(data, &mut out),
-		5 => roundtrip_lite::<lite::Group>(data, &mut out),
-		6 => roundtrip_lite::<lite::Probe>(data, &mut out),
-		7 => encode_messages(data, &mut out),
-		_ => errors(data, &mut out),
-	}
+	let cases = cases();
+	cases[usize::from(op) % cases.len()](data, &mut out);
 	out
 }
 

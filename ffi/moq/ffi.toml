@@ -8,7 +8,6 @@ prefix = "moq"
 # a hand-written wrapper still has to cover.
 exclude = [
     "ALPNS",
-    "AsPath",
     "BoundsExceeded",
     "Client::connect",
     "Client::with_url",
@@ -20,10 +19,8 @@ exclude = [
     "Hops::iter",
     "IntoBytes",
     "InvalidEpoch",
-    "Path::borrow",
-    "Path::new",
+    "Path::from_static",
     "Path::parts",
-    "Path::strip_prefix",
     "Server::accept",
     "Server::accept_request",
     "Timed",
@@ -35,6 +32,13 @@ exclude = [
     "Versions::iter",
     "announce::Announce",
     "announce::Consumer::poll_synced",
+    "auth::Dial",
+    "auth::EmptyToken",
+    "auth::Token",
+    "auth::Tokens::changed",
+    "auth::Tokens::dial",
+    "auth::Tokens::new",
+    "auth::Tokens::set",
     "bytes",
     "frame::Buffer",
     "frame::Producer::group",
@@ -44,8 +48,6 @@ exclude = [
     "group::Producer::write_frames",
     "origin::Requesting",
     "origin::Routing",
-    "path::Relative::borrow",
-    "path::Relative::new",
     "server::Handshake",
     "stats::Failure::ALL",
     "stats::RefusalKind::ALL",
@@ -59,14 +61,13 @@ exclude = [
     "time::Driver",
     "time::run",
     "track::Fetching",
-    "track::Querying",
+    "track::Resolving",
     "track::Subscribing",
     "track::Subscription::ranges",
     "track::Subscription::with_ranges",
     "transport::Error",
     "transport::MaybeSend",
     "transport::MaybeSync",
-    "transport::StatsUnavailable",
     "transport::memory::Chunks",
     "transport::memory::SendStream",
     "transport::poll::AcceptBi",
@@ -135,11 +136,6 @@ exclude = [
 [crates.moq-tokio]
 exclude = [
     "Addrs",
-    # Not refused: each names both a field and a method, whose getters `rename` cannot
-    # tell apart, so both are left out.
-    "Backoff::initial",
-    "Backoff::max",
-    "Backoff::timeout",
     "Client::connect",
     "Listener::accept_health",
     "Listener::local_addr",
@@ -171,14 +167,12 @@ exclude = [
     "connect::Config::tokens",
     "connect::Config::url",
     "connect::Config::version",
-    "connect::EmptyToken",
     "connect::Resolved::bind",
-    "connect::Token",
-    "connect::Tokens::set",
     "connection::Monitor::poll_presence",
     "crypto::install_default",
     "crypto::provider",
     "failover::Attempt",
+    "field@Log::level",
     "listen::Config::preferred_v4",
     "listen::Config::preferred_v6",
     "listen::Config::version",
@@ -204,7 +198,6 @@ exclude = [
     "quic::driver::Connecting",
     "quic::driver::Connection::accept_bi",
     "quic::driver::Connection::accept_uni",
-    "quic::driver::Connection::authenticated",
     "quic::driver::Connection::close",
     "quic::driver::Connection::close_reason",
     "quic::driver::Connection::closed",
@@ -325,6 +318,11 @@ exclude = [
 "connect::Error" = "connect_target_error"
 # The rule makes both this type and `Connection::monitor` `moq_connection_monitor`.
 "connection::Monitor" = "monitor"
+# The rule makes each of these fields and the method of its name, which resolves its
+# default, `moq_backoff_<field>`.
+"field@Backoff::initial" = "backoff_initial_setting"
+"field@Backoff::max" = "backoff_max_setting"
+"field@Backoff::timeout" = "backoff_timeout_setting"
 
 [crates.hang]
 exclude = [
@@ -408,7 +406,6 @@ exclude = [
     "catalog::Producer::json_snapshot",
     "catalog::Producer::json_stream",
     "catalog::Producer::modify",
-    "catalog::Producer::mutate",
     "catalog::Producer::stats",
     "catalog::Producer::text",
     "catalog::Producer::track",

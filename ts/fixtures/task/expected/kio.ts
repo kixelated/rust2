@@ -7,6 +7,40 @@ import * as Pending from "./kio.Pending.ts";
 import type * as Waiter from "./kio.Waiter.ts";
 
 /** A future from a poll function that receives a [`Waiter`]. */
+export function wait$boxed_closure0_closure3_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
+	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64>;
+	let unwind: number = 0;
+	try {
+		unwind = 3;
+		_2 = poll;
+		return new Pending.Pending({ poll: _2, park: Park.default$Default() });
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_2);
+		throw e;
+	}
+}
+
+/** A future from a poll function that receives a [`Waiter`]. */
+export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
+	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64>;
+	let unwind: number = 0;
+	try {
+		unwind = 3;
+		_2 = poll;
+		return new Pending.Pending({ poll: _2, park: Park.default$Default() });
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		rt.drop(_2);
+		throw e;
+	}
+}
+
+/** A future from a poll function that receives a [`Waiter`]. */
 export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
 	return new Pending.Pending({ poll, park: Park.default$Default() });
 }

@@ -153,6 +153,15 @@ int script() {
 		(void)last.add(10);
 		std::printf("last %llu lent %llu\n", ull(registry.last()->get()), ull(last.get()));
 	}
+	// A closure lent for the call edits the first counter through its class.
+	std::uint64_t by = 5;
+	bool edited = registry.edit([&](api::counter &counter) {
+		(void)counter.add(by);
+		return counter.edited() && counter.get() == 6;
+	});
+	std::printf("edit %s %llu\n", yes(edited), ull(registry.first().get()));
+	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
+	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
 
 	// A type generic only over lifetimes is a handle to its 'static form.
 	{
@@ -219,6 +228,12 @@ int script() {
 		std::printf("write %s\n", yes(logger.write("hi")));
 	}
 	std::printf("dropped\n");
+	// Rust calls it on another thread, before the call returns.
+	std::uint8_t threshold = 2;
+	std::printf("filtered %u\n", api::filter(api::view(levels, sizeof levels), [threshold](std::uint8_t level, api::view line) {
+		std::printf("filter %u %.*s\n", level, static_cast<int>(line.size()), reinterpret_cast<const char *>(line.data()));
+		return level > threshold;
+	}));
 
 	{
 		api::channel channel = api::channel::new_();
@@ -281,6 +296,7 @@ int script() {
 		std::uint32_t count = tally.bump();
 		std::printf("tally %u %s\n", count, yes(tally == tally));
 		std::printf("both %u\n", api::bump_both(tally, tally));
+		std::printf("peek %u\n", api::peek(tally, [](const api::tally &lent) { return lent.bump(); }));
 	}
 
 	// Another export's types, which this export's function takes and returns.
@@ -327,6 +343,12 @@ int script() {
 		std::printf("token %u dropped %u\n", token.id(), api::dropped());
 	}
 	std::printf("dropped %u\n", api::dropped());
+
+	// A field and the method of its name, each its own member.
+	api::retry retry = api::retry::new_(5u);
+	std::optional<std::uint32_t> limit = retry.limit_setting();
+	std::printf("retry %d %u %u %u\n", limit.has_value(), limit.value_or(0), retry.limit(), retry.delay());
+	std::printf("slot %u\n", api::byte_slot::new_(200).value());
 	return 0;
 }
 
@@ -467,6 +489,19 @@ int broken(const char *which) {
 		api::waker waker([]() {});
 		recv.poll(waker);
 		recv.poll(waker);
+	} else if (std::strcmp(which, "lent moved") == 0) {
+		api::registry registry = api::registry::new_(api::counter::new_("c", 0));
+		registry.edit([](api::counter &counter) {
+			api::label label = std::move(counter).into_label(std::nullopt);
+			return false;
+		});
+	} else if (std::strcmp(which, "lent kept") == 0) {
+		static std::optional<api::counter> kept;
+		api::registry registry = api::registry::new_(api::counter::new_("c", 0));
+		registry.edit([](api::counter &counter) {
+			kept.emplace(std::move(counter));
+			return false;
+		});
 	}
 	return 0;
 }

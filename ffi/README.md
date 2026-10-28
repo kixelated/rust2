@@ -32,7 +32,8 @@ package = "moq-net"
 # The prefix of every C name, the package's name in snake case by default.
 prefix = "moq"
 # Paths from the crate root left out: a module, an item, or one method or field. Each
-# must name something exported. Nothing else leaves an item out.
+# must name something exported. Nothing else leaves an item out. As in rustdoc, a path a
+# method or constant shares with a field names the method, and `field@` the field.
 exclude = ["track::Producer::poll_closed"]
 
 # C names, without the prefix, for paths whose names the naming rule makes clash.
@@ -71,6 +72,7 @@ export's, and adds nothing; another crate's type is refused.
 | a generic function or method, at each instance `instances` names | that instance in place of the rules below, at each instance of its type; one whose bounds fail, or that nothing exported reaches, is refused |
 | a `pub` field of an object | a getter returning a copy |
 | a `pub` trait | a callback interface: a table of C functions and their data |
+| a type parameter or `impl` bounded by `Fn`, `FnMut`, or `FnOnce`, which no lifetime bound or return lets outlive the call | a C function and its `void *` data, which Rust calls only during the call; any other closure is refused |
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
 | a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
@@ -119,6 +121,15 @@ refused, and the census counts why.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
+- **Closures** lent for a call are a function and its data, which Rust calls only during
+  the call, from any thread. One takes what a callback takes, and objects by reference,
+  each lent as a handle to the value where it is for that call: C borrows it no further
+  than Rust lent it, and moving out of it, freeing it, or keeping a borrow past the call
+  aborts.
+- **The contract** is a hash of the header's declarations, its docs included: the header
+  defines it as `<PREFIX>_CONTRACT`, and `<prefix>_contract()` returns it from the library
+  built with the header. A binding checks the two match before any other call, so a header
+  and a library from different builds refuse to mix.
 - **Panics** abort, as an `extern "C"` function's do.
 - **Names** are the prefix, then the item's path from its crate's root, each segment in
   snake case, joined by `_`: `track::Producer::append_group` is
@@ -126,7 +137,8 @@ refused, and the census counts why.
   Joining loses where segments split, and every export shares the prefix, so every C
   name is registered, and two items claiming one is a compile error at both spans, fixed
   by a `rename`: moq-net's `session::Stats` and `Session::stats` are both
-  `moq_session_stats`. An instance is named by `instances`, and a type instance's
+  `moq_session_stats`. So are a field and the method of its name, as moq-tokio's
+  `Backoff::initial`; `field@Backoff::initial` names the field. An instance is named by `instances`, and a type instance's
   methods through that name. An `exclude` of a method by the generic type's path leaves it out of every
   instance, and by the instance's path (`"Producer<moq_mux::catalog::hang::Extra>::stats"`)
   out of that one; a `rename` of a method by the generic type's path names it at every
@@ -154,6 +166,9 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
   tuple `std::tuple`, and `Result<T, E>` a `result<T, E>`, whose `value()` aborts on an
   error.
 - **Traits** are abstract classes, passed as a `std::unique_ptr` that Rust deletes.
+- **Closures** lent for a call are any callable, taken by a template parameter, which
+  Rust calls only during the call, from any thread. An object it lends is a reference to
+  its class for that call: moving out of it aborts.
 - **Futures** are move-only `future<...>`s, freed when destroyed, which cancels them and
   loses nothing. `poll(waker)` polls once; `std::move(f).get()` blocks the thread;
   `std::move(f).then(exec, callback)` polls on an executor and calls back there, returning
@@ -164,6 +179,8 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
   the future polls polls it again, and a future has one poller at a time, since awaiting
   it moves it.
 - A **waker** is a shared callable, which Rust may call from any thread.
+- **The contract** is checked when the program loads, before any other call: a header
+  and a library from different builds abort.
 
 ## IR
 
@@ -206,5 +223,6 @@ moq's crates export through `target/moq-ffi`, an empty library on each that `jus
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
-and publishes a binary track the catalog lists. `moq/moq.cpp` does the same through the
-C++ header, at C++17 without exceptions or RTTI, as OBS builds it.
+publishes a binary track the catalog lists, and reads the catalog lent to C through
+`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
+C++17 without exceptions or RTTI, as OBS builds it.

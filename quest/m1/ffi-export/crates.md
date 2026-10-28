@@ -1,17 +1,18 @@
-# [M] One library from several crates
+# [S] moq-clock's C names once it moves into kio
 
 ## Goal
 
-moq-net, moq-pattern, moq-clock, moq-tokio, hang, and moq-mux export into one library
-with every C name the bindings need, so nothing is excluded for a name clash.
+moq-clock's items export with C names that say they are the clock's: today `now()` and
+`origin()` are `moq_now` and `moq_origin`, which reads like moq-net's origin types.
+
+This waits on moq's [kio::clock quest](https://github.com/moq-dev/moq/blob/main/quest/m1/kio-clock.md),
+which moves moq-clock into `kio::clock`. It has landed once `rs/moq-clock` is gone from
+moq's `main`.
 
 ## Plan
 
-They export through an empty package standing in for moq-ffi's remainder, which
-`just ffi standin` writes. Left:
+Then bump the moq pin and export `kio::clock` in moq-clock's place, in
+[the config](/ffi/moq/ffi.toml) and `just ffi standin`, so the rule names its items
+`moq_clock_*` and moq-clock's renames go.
 
-- moq-clock's C names (`moq_now`, `moq_origin`) wait for its merge into kio.
-- A field and a method of one name, such as moq-tokio's `Backoff::initial`, claim one C
-  name that `rename` cannot split, so [the config](/ffi/moq/ffi.toml) excludes both.
-
-Public API: the exporter's config and the C names it emits.
+Public API: the C names moq's export emits.

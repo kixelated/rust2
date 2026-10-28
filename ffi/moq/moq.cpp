@@ -1,6 +1,7 @@
 // moq.c's script through the generated C++ header: a broadcast's track, published and
 // subscribed to in one process, with every read polled as a future, and an origin, with
-// moq-pattern, moq-clock, moq-tokio, hang, and moq-mux exported into the same library.
+// moq-pattern, moq-clock, moq-tokio, hang, and moq-mux exported into the same library,
+// and the catalog lent to C++ for a call.
 //
 // It needs no runtime: the waker counts wakes, and each poll that must wait is polled
 // again after the write that wakes it.
@@ -107,11 +108,13 @@ int main() {
 		auto scoped = origin.scope("room", patterns);
 		CHECK(scoped);
 		CHECK(is(scoped->root().as_str(), "room"));
-		CHECK(is(scoped->absolute("alice").as_str(), "room/alice"));
+		auto absolute = scoped->absolute("alice");
+		CHECK(absolute && is(absolute->as_str(), "room/alice"));
 		moq::patterns allowed = scoped->allowed();
 		CHECK(allowed.matches("alice/cam"));
 		CHECK(!allowed.matches("bob"));
-		CHECK(is(scoped->consume().absolute("bob").as_str(), "room/bob"));
+		absolute = scoped->consume().absolute("bob");
+		CHECK(absolute && is(absolute->as_str(), "room/bob"));
 	}
 
 	// A broadcast the origin creates is stamped with its path, which its info lends.
@@ -120,7 +123,19 @@ int main() {
 		CHECK(publication);
 		moq::path path = publication->broadcast().info().path();
 		CHECK(is(path.as_str(), "room/alice"));
-		CHECK(is(path.join("cam").as_str(), "room/alice/cam"));
+
+		// Paths own their segments, so C++ builds them, and relative ones, from a string.
+		auto cam = moq::path::new_("/cam/");
+		CHECK(cam && is(cam->as_str(), "cam"));
+		auto joined = path.join(*cam);
+		CHECK(joined && is(joined->as_str(), "room/alice/cam"));
+		std::optional<moq::path> stripped = joined->strip_prefix(path);
+		CHECK(stripped && *stripped == *cam);
+		CHECK(!path.strip_prefix(*joined));
+		auto up = moq::relative::new_("../bob");
+		CHECK(up);
+		auto resolved = joined->resolve(*up);
+		CHECK(resolved && is(resolved->as_str(), "room/bob"));
 	}
 
 	// The driver, polled as a language's event loop would: at the time, and with a waiter
@@ -169,6 +184,15 @@ int main() {
 		auto snapshot = catalog->binary_snapshot(std::move(*state), moq::binary_config::default_());
 		CHECK(snapshot && is(snapshot->name(), "state"));
 		CHECK(snapshot->update("latest"));
+		int listed_state = 0;
+		CHECK(catalog->mutate([&](moq::hang_catalog &lent) {
+			auto json = lent.to_json();
+			CHECK(json);
+			if (json && json.value().str().find("state") != std::string_view::npos) {
+				listed_state++;
+			}
+		}));
+		CHECK(listed_state == 1);
 	}
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.
