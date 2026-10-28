@@ -696,12 +696,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				{
 					let inner = poll_args.type_at(0);
 					let ty::Adt(_, inner_args) = inner.kind() else {
-						unreachable!("`Try` for a `Poll` of a `Result` or an `Option` of one")
+						unreachable!("Try for a Poll of a Result or an Option of one")
 					};
 					let value = match self.b.t.std_of(inner) {
 						Some(Std::Option) => {
 							let ty::Adt(_, result_args) = inner_args.type_at(0).kind() else {
-								unreachable!("`Try` for a `Poll` of an `Option` of a `Result`")
+								unreachable!("Try for a Poll of an Option of a Result")
 							};
 							let ok = result_args.type_at(0);
 							let pending = self.b.t.pending(Ty::new_option(self.tcx, ok));
