@@ -592,6 +592,23 @@ impl Seed<u64> for Size {
 	}
 }
 
+/// A second `Point`, whose last segment clashes with the crate root's: an instance named
+/// by it takes its module too, and one named by the other keeps the shorter name.
+pub mod polar {
+	/// A point by its angle in turns and its distance from the origin.
+	#[derive(Clone, Copy, Debug, PartialEq)]
+	pub struct Point {
+		pub turns: u8,
+		pub distance: u32,
+	}
+
+	impl super::Seed<u64> for Point {
+		fn seed(&self) -> u64 {
+			u64::from(self.turns) + u64::from(self.distance)
+		}
+	}
+}
+
 impl Counter {
 	/// A counter named `name` at `from`'s seed: an `impl Trait` argument, at an instance
 	/// for each implementation.

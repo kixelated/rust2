@@ -227,12 +227,13 @@ fn main() {
 	let from_point = Counter::seeded("p", Point { x: -3, y: 4 });
 	let from_size = Counter::seeded("s", Size { width: 5, height: 6 });
 	let from_counter = Counter::seeded("c", &from_point);
+	let from_polar = Counter::seeded("q", api_lib::polar::Point { turns: 1, distance: 2 });
 	println!(
 		"seeded {} {} {} {} past {} seeds {}",
 		from_point.get(),
 		from_size.get(),
 		from_counter.get(),
-		from_point.get(),
+		from_polar.get(),
 		stack.depth_past(&Point { x: 1, y: 2 }),
 		api_lib::seeds::<Point>(&Size { width: 2, height: 3 })
 	);

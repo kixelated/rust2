@@ -338,14 +338,17 @@ static int script(void) {
 	api_counter *from_point = api_counter_seeded_point(str("p"), (api_point){.x = -3, .y = 4});
 	api_counter *from_size = api_counter_seeded_size(str("s"), (api_size){.width = 5, .height = 6});
 	api_counter *from_counter = api_counter_seeded_counter(str("c"), from_point);
+	/* Two instances whose arguments share a last segment: one takes its module too. */
+	api_counter *from_polar = api_counter_seeded_polar_point(str("q"), (api_polar_point){.turns = 1, .distance = 2});
 	printf("seeded %llu %llu %llu %llu past %llu seeds %llu\n", (unsigned long long)api_counter_get(from_point),
 	       (unsigned long long)api_counter_get(from_size), (unsigned long long)api_counter_get(from_counter),
-	       (unsigned long long)api_counter_get(from_point),
+	       (unsigned long long)api_counter_get(from_polar),
 	       (unsigned long long)api_stack_depth_past_point(stack, (api_point){.x = 1, .y = 2}),
 	       (unsigned long long)api_seeds_point_size((api_size){.width = 2, .height = 3}));
 	api_counter_free(from_point);
 	api_counter_free(from_size);
 	api_counter_free(from_counter);
+	api_counter_free(from_polar);
 	api_stack_free(stack);
 
 	/* Its Drop runs when C frees the handle, not before. */

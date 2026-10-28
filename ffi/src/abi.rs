@@ -67,6 +67,9 @@ pub struct Export {
 	pub future: Option<(String, Sig, Sig)>,
 }
 
+/// The suffix naming each instance of a generic item, by its arguments.
+type Suffixes = HashMap<Vec<Type>, String>;
+
 pub struct Abi<'a> {
 	pub api: &'a Api,
 	pub prefix: String,
@@ -75,6 +78,9 @@ pub struct Abi<'a> {
 	rename: &'a BTreeMap<String, String>,
 	/// The renamed paths some name went through.
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
+	/// Each generic item's instances, by whether it is a function and its C name, with
+	/// the suffix that names each by its arguments.
+	suffixes: std::cell::RefCell<HashMap<(bool, String), Suffixes>>,
 	/// Each `Option<T>` struct by C name, with `T`.
 	pub options: BTreeMap<String, Type>,
 	/// Each range, bound, and pair of bounds struct by C name, with its type.
@@ -92,6 +98,7 @@ impl<'a> Abi<'a> {
 			prefix: prefix.to_string(),
 			rename,
 			renamed: Default::default(),
+			suffixes: Default::default(),
 			options: BTreeMap::new(),
 			ranges: BTreeMap::new(),
 			names: HashMap::new(),
@@ -103,23 +110,28 @@ impl<'a> Abi<'a> {
 
 	/// The C name for a Rust path, which starts with its crate's name.
 	pub fn name(&self, path: &[String]) -> String {
-		let mut name = self.prefix.clone();
+		std::iter::once(self.prefix.clone())
+			.chain(self.segments(path))
+			.collect::<Vec<_>>()
+			.join("_")
+	}
+
+	/// The segments of a Rust path's C name after the prefix: a renamed part as one, then
+	/// each segment past it in snake case.
+	fn segments(&self, path: &[String]) -> Vec<String> {
+		let mut segments = Vec::new();
 		let mut rest = &path[1..];
 		for len in (2..=path.len()).rev() {
 			let key = path[..len].join("::");
 			if let Some(renamed) = self.rename.get(&key) {
 				self.renamed.borrow_mut().insert(key);
-				name.push('_');
-				name.push_str(renamed);
+				segments.push(renamed.clone());
 				rest = &path[len..];
 				break;
 			}
 		}
-		for segment in rest {
-			name.push('_');
-			name.push_str(&snake(segment));
-		}
-		name
+		segments.extend(rest.iter().map(|segment| snake(segment)));
+		segments
 	}
 
 	/// The config's renames that name nothing exported.
@@ -138,24 +150,67 @@ impl<'a> Abi<'a> {
 	}
 
 	pub fn record(&self, i: usize) -> String {
-		self.instance(self.name(&self.api.records[i].path), &self.api.records[i].args)
+		self.type_instance(&self.api.records[i].path, &self.api.records[i].args)
 	}
 
 	pub fn enumeration(&self, i: usize) -> String {
-		self.instance(self.name(&self.api.enums[i].path), &self.api.enums[i].args)
+		self.type_instance(&self.api.enums[i].path, &self.api.enums[i].args)
 	}
 
 	pub fn object(&self, i: usize) -> String {
-		self.instance(self.name(&self.api.objects[i].path), &self.api.objects[i].args)
+		self.type_instance(&self.api.objects[i].path, &self.api.objects[i].args)
 	}
 
-	/// An instance's C name: its generic item's, then each argument's.
-	fn instance(&self, mut name: String, args: &[Type]) -> String {
-		for arg in args {
-			name.push('_');
-			name.push_str(&self.key(arg));
+	/// The C name of the instance of the type at `path` at `args`, among the type's every
+	/// instance, whichever kind each is.
+	fn type_instance(&self, path: &[String], args: &[Type]) -> String {
+		let api = self.api;
+		self.instance(false, self.name(path), args, || {
+			let records = api.records.iter().map(|r| (&r.path, &r.args));
+			let enums = api.enums.iter().map(|e| (&e.path, &e.args));
+			let objects = api.objects.iter().map(|o| (&o.path, &o.args));
+			(records.chain(enums).chain(objects))
+				.filter(|(other, _)| other[..] == *path)
+				.map(|(_, args)| args.clone())
+				.collect()
+		})
+	}
+
+	/// An instance's C name: its generic item's, `name`, then the suffix naming `args`
+	/// apart from the arguments of the item's other instances, which `group` lists.
+	fn instance(&self, function: bool, name: String, args: &[Type], group: impl FnOnce() -> Vec<Vec<Type>>) -> String {
+		if args.is_empty() {
+			return name;
 		}
-		name
+		let key = (function, name);
+		if let Some(suffix) = self.suffixes.borrow().get(&key).and_then(|suffixes| suffixes.get(args)) {
+			return format!("{}_{suffix}", key.1);
+		}
+		let group = group();
+		let segments: Vec<Vec<Vec<String>>> = (group.iter())
+			.map(|args| args.iter().map(|arg| self.arg_segments(arg)).collect())
+			.collect();
+		let suffixes: Suffixes = group.into_iter().zip(shortest(&segments)).collect();
+		let suffix = suffixes[args].clone();
+		self.suffixes.borrow_mut().insert(key.clone(), suffixes);
+		format!("{}_{suffix}", key.1)
+	}
+
+	/// The segments an instance's argument `ty` is named by, of which it takes the
+	/// fewest at the end that tell it apart: a type's path's, the last holding the
+	/// suffix of the instance it is.
+	fn arg_segments(&self, ty: &Type) -> Vec<String> {
+		let (path, name) = match ty {
+			Type::Record(i) => (&self.api.records[*i].path, self.record(*i)),
+			Type::Enum(i) => (&self.api.enums[*i].path, self.enumeration(*i)),
+			Type::Object(i) => (&self.api.objects[*i].path, self.object(*i)),
+			Type::Ref(_, inner) | Type::Box(inner) => return self.arg_segments(inner),
+			ty => return vec![self.key(ty)],
+		};
+		let mut segments = self.segments(path);
+		let suffix = &name[self.name(path).len()..];
+		segments.last_mut().expect("a path names its item").push_str(suffix);
+		segments
 	}
 
 	/// A function's C name: a method's through its type's, unless renamed itself, then
@@ -169,10 +224,26 @@ impl<'a> Abi<'a> {
 			}
 			_ => self.name(&function.path),
 		};
-		match &function.instance {
-			Some(instance) => self.instance(name, &instance.named),
-			None => name,
-		}
+		let Some(instance) = &function.instance else {
+			return name;
+		};
+		let owner = match owner {
+			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. }) => Some(owner.as_str()),
+			_ => None,
+		};
+		self.instance(true, name, &instance.named, || {
+			let api = self.api;
+			let records = (0..api.records.len()).map(|i| (Some(self.record(i)), &api.records[i].methods));
+			let enums = (0..api.enums.len()).map(|i| (Some(self.enumeration(i)), &api.enums[i].methods));
+			let objects = (0..api.objects.len()).map(|i| (Some(self.object(i)), &api.objects[i].methods));
+			let free = std::iter::once((None, &api.functions));
+			(records.chain(enums).chain(objects).chain(free))
+				.filter(|(other, _)| other.as_deref() == owner)
+				.flat_map(|(_, functions)| functions)
+				.filter(|other| other.path == function.path)
+				.filter_map(|other| other.instance.as_ref().map(|instance| instance.named.clone()))
+				.collect()
+		})
 	}
 
 	pub fn callback(&self, i: usize) -> String {
@@ -543,6 +614,43 @@ impl<'a> Abi<'a> {
 
 /// A Rust identifier in snake case: `TrackProducer` is `track_producer`, and a name
 /// already in snake case stays as it is.
+/// The suffix naming each of a generic item's instances, given the segments each of its
+/// arguments is named by: each argument's last segment, lengthened by one more at a time
+/// only where two instances' suffixes are alike while their arguments differ there. Each
+/// suffix depends on the whole group, not its order, so an instance added later can
+/// lengthen another's name. Instances alike at every segment keep their clash, which
+/// claiming their C names reports.
+fn shortest(group: &[Vec<Vec<String>>]) -> Vec<String> {
+	let mut lens: Vec<Vec<usize>> = group.iter().map(|args| vec![1; args.len()]).collect();
+	loop {
+		let names: Vec<String> = (group.iter().zip(&lens))
+			.map(|(args, lens)| {
+				(args.iter().zip(lens))
+					.map(|(segments, &len)| segments[segments.len() - len..].join("_"))
+					.collect::<Vec<_>>()
+					.join("_")
+			})
+			.collect();
+		let mut grow = std::collections::BTreeSet::new();
+		for (a, b) in (0..group.len()).flat_map(|a| (0..group.len()).map(move |b| (a, b))) {
+			if a == b || names[a] != names[b] {
+				continue;
+			}
+			for (j, segments) in group[a].iter().enumerate() {
+				if group[b].get(j) != Some(segments) && lens[a][j] < segments.len() {
+					grow.insert((a, j));
+				}
+			}
+		}
+		if grow.is_empty() {
+			return names;
+		}
+		for (a, j) in grow {
+			lens[a][j] += 1;
+		}
+	}
+}
+
 pub fn snake(name: &str) -> String {
 	let chars: Vec<char> = name.chars().collect();
 	let mut out = String::new();
@@ -590,5 +698,48 @@ pub fn dyn_wrap(form: Dyn, expr: &str) -> String {
 		Dyn::Impl => expr.to_string(),
 		Dyn::Box => format!("::std::boxed::Box::new({expr})"),
 		Dyn::Arc => format!("::std::sync::Arc::new({expr})"),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::shortest;
+
+	/// Each instance's arguments, each by its segments.
+	fn group(instances: &[&[&[&str]]]) -> Vec<Vec<Vec<String>>> {
+		(instances.iter())
+			.map(|args| {
+				(args.iter())
+					.map(|segments| segments.iter().map(|s| s.to_string()).collect())
+					.collect()
+			})
+			.collect()
+	}
+
+	#[test]
+	fn lengthens_only_where_instances_clash() {
+		// Only the clashing arguments lengthen, a segment a round, until they differ.
+		let names = shortest(&group(&[
+			&[&["a", "x", "foo"], &["u8"]],
+			&[&["b", "x", "foo"], &["u8"]],
+			&[&["foo"], &["u16"]],
+			&[&["c", "bar"], &["u8"]],
+		]));
+		assert_eq!(names, ["a_x_foo_u8", "b_x_foo_u8", "foo_u16", "bar_u8"]);
+		// One with no more segments keeps its name while the other lengthens.
+		assert_eq!(
+			shortest(&group(&[&[&["foo"]], &[&["polar", "foo"]]])),
+			["foo", "polar_foo"]
+		);
+	}
+
+	#[test]
+	fn names_apart_from_order() {
+		let instances: [&[&[&str]]; 3] = [&[&["x", "foo"]], &[&["y", "foo"]], &[&["bar"]]];
+		let forward = shortest(&group(&instances));
+		let mut reversed = shortest(&group(&[instances[2], instances[1], instances[0]]));
+		reversed.reverse();
+		assert_eq!(forward, ["x_foo", "y_foo", "bar"]);
+		assert_eq!(forward, reversed);
 	}
 }
