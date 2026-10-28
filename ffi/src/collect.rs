@@ -454,7 +454,8 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The types the exports implement a trait bounding `param` of `def_id` for, one of
-	/// the exports': each impl's in an export, whose type takes no type parameters.
+	/// the exports': each impl's in an export, whose type takes no type parameters and is
+	/// `()`, a primitive, `String`, or an exported type.
 	fn implementors(&self, def_id: DefId, param: Ty<'tcx>) -> Vec<Ty<'tcx>> {
 		let tcx = self.tcx;
 		let mut found = Vec::new();
@@ -467,7 +468,17 @@ impl<'tcx> Collector<'tcx> {
 			}
 			for imp in tcx.all_impls(bound.def_id()) {
 				let ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
-				if !self.exported(imp.krate) || ty.has_non_region_param() {
+				let inner = ty.peel_refs();
+				let named = inner.is_primitive()
+					|| inner.is_unit()
+					|| match inner.kind() {
+						ty::Adt(adt, _) => {
+							tcx.lang_items().string() == Some(adt.did())
+								|| self.items.iter().any(|(item, _)| *item == adt.did())
+						}
+						_ => false,
+					};
+				if !self.exported(imp.krate) || ty.has_non_region_param() || !named {
 					continue;
 				}
 				let ty = ty::fold_regions(tcx, ty, |_, _| tcx.lifetimes.re_static);
@@ -1093,6 +1104,10 @@ impl<'tcx> Collector<'tcx> {
 			}
 			let span = tcx.def_span(field.did);
 			let ty = field.ty(tcx, site.args).skip_norm_wip();
+			// An instance's field of `()`, such as a default extension, holds nothing to read.
+			if ty.is_unit() {
+				continue;
+			}
 			// Read through `&self`, so returned as a copy, as a borrowed return is.
 			let read = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty);
 			match self.naming(|| self.ty(read, Pos::Return).map_err(|why| vec![why])) {
