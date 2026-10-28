@@ -43,7 +43,7 @@ export function map$Option_Box_dyn_Part_u32_take(self: Part.Part | undefined, _:
 	return self.take$Part();
 }
 
-export function map$Option_Guard_u32_iterated_closure16(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
+export function map$Option_Guard_u32_folded_closure100(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -102,6 +102,13 @@ export function map$Option_u32_u32_discarded_closure16(self: rt.u32 | undefined,
 		return _0;
 	}
 	return _0;
+}
+
+export function map$Option_usize_Guard_usize_u32_folded_closure103(self: [rt.usize, Guard.Guard] | undefined, f: (a0: [rt.usize, Guard.Guard]) => [rt.usize, rt.u32]): [rt.usize, rt.u32] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function mapOr$Option_Arc_dyn_Part_u32_shared_closure4(self: rt.Arc<Part.Part> | undefined, default_: rt.u32, f: (a0: rt.Arc<Part.Part>) => rt.u32): rt.u32 {

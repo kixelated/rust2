@@ -47,15 +47,6 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// A closure that owns a value that drops, which `count`'s `fold` drops before the items
-/// `map` holds, where dropping `map` drops it after.
-pub fn owning_closure(v: Vec<Noisy>) -> usize {
-	let n = Noisy(1);
-	// Through a reference, it owns `n` whole rather than a copy of its field.
-	let f = move |x: Noisy| x.0 + (&n).0;
-	v.into_iter().map(f).count()
-}
-
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
 pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
 	let mut sum = 0;
@@ -223,11 +214,6 @@ impl std::iter::FusedIterator for Fused {}
 
 pub fn fused() -> usize {
 	Fused.fuse().count()
-}
-
-/// A panic in `fold` drops the `Vec` `flatten` took mid-way before the rest, as `next` does not.
-pub fn flattened(v: Vec<Vec<Noisy>>) -> usize {
-	v.into_iter().flatten().fold(0, |n, _| n + 1)
 }
 
 /// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.

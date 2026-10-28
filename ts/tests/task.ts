@@ -54,6 +54,8 @@ export interface Fixture<V> {
 		edited(log: Log, id: number, at: number): void;
 		dyns(log: Log, id: number, arg: number): void;
 		cells(log: Log, id: number, at: number): void;
+		folded(log: Log, id: number, arg: number): void;
+		rfolded(log: Log, id: number, arg: number): void;
 		locks(log: Log, id: number, at: number): void;
 	};
 	futures: {
@@ -292,6 +294,8 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 	],
 	["dyns", (r, arg) => r.f.drops.dyns(r.log, 1000 * r.exec.tasks.length, arg)],
 	["cells", (r, arg) => r.f.drops.cells(r.log, 1000 * r.exec.tasks.length, arg)],
+	["folded", (r, arg) => r.f.drops.folded(r.log, 1000 * r.exec.tasks.length, arg)],
+	["rfolded", (r, arg) => r.f.drops.rfolded(r.log, 1000 * r.exec.tasks.length, arg)],
 	["locks", (r, arg) => r.f.drops.locks(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
@@ -381,6 +385,9 @@ export const cases: Uint8Array[] = [
 	...Array.from({ length: 12 }, (_, arg) => script(["dyns", arg])),
 	// What one-time cells drop, for every argument, which picks the scenario.
 	...Array.from({ length: 256 }, (_, at) => script(["cells", at])),
+	// Each scenario of adaptors' closures that drop, folded either way, panicking at each item or none.
+	...Array.from({ length: 256 }, (_, arg) => script(["folded", arg])),
+	...Array.from({ length: 72 }, (_, arg) => script(["rfolded", arg])),
 	// What a mutex's guard does as it drops, for every argument, which picks the scenario;
 	// then two panics in one script, the second of which must poison as the first did.
 	...Array.from({ length: 16 }, (_, at) => script(["locks", at])),
