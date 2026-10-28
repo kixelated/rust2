@@ -139,21 +139,13 @@ pub fn render(api: &Api, collected: &Report, top: bool, clashes: &[Clash], at: &
 			false => format!("[crates.{}]\n", collected.package),
 		};
 		let _ = writeln!(out, "```toml\n{table}exclude = [");
-		// An instance is left out by not naming it.
-		let (instances, items): (Vec<&Refusal>, Vec<&Refusal>) = collected.refusals.iter().partition(|r| r.named);
-		let mut paths: Vec<&str> = items.iter().map(|r| r.path.as_str()).collect();
+		let mut paths: Vec<&str> = collected.refusals.iter().map(|r| r.path.as_str()).collect();
 		paths.sort();
 		paths.dedup();
 		for path in paths {
 			let _ = writeln!(out, "    \"{path}\",");
 		}
 		let _ = writeln!(out, "]\n```");
-		if !instances.is_empty() {
-			let _ = writeln!(out, "\nand names none of these in `instances`:\n");
-			for refusal in instances {
-				let _ = writeln!(out, "- `{}`", refusal.path);
-			}
-		}
 	}
 	// A clash names each claimant by its Rust path, which starts with its crate's name.
 	let claims = |what: &str| what.contains(&format!("`{}::", collected.krate));
