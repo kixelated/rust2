@@ -200,26 +200,40 @@ fun script() {
 	val size = area.size()
 	println("area ${size.width} ${size.height} ${area.pixels()}")
 
-	val pair = Pair(2u, 5u)
+	// Generic types, each at the instances it infers, named by their arguments.
+	val pair = PairU32(2u, 5u)
 	val swapped = pair.swap()
 	println("pair ${swapped.left} ${swapped.right} sum ${pair.sum()} ${pair.debug()} ${pair == swapped}")
-	println("even ${pair.even()} ${Pair(7u, 7u).even()}")
-	val sized = SizePair(Size(1u, 2u), 3u)
+	println("even ${pair.even()} ${PairU32(7u, 7u).even()}")
+	val sized = tag(Size(1u, 2u), 3u)
 	val flipped = sized.swap()
 	println("sized ${flipped.left} ${flipped.right.width} ${flipped.debug()}")
-	val beside = Pair(258u, 9u).beside(sized.left)
+	val beside = PairU32(258u, 9u).besideSize(sized.left)
 	println("beside ${beside.left} ${beside.debug()}")
-	val stack = Counters.new()
+	// At its default, named as the type itself.
+	val stack = Stack.new()
 	for ((i, n) in listOf("a", "b").withIndex()) {
 		stack.push(Counter.new(n, i.toULong() + 1u))
 	}
 	val top = stack.pop()!!.get()
 	println("stack ${stack.depth()} Some($top) ${stack.pop() != null} ${stack.pop() == null}")
+	// Generic functions and methods, at each implementation of the trait bounding them, by
+	// reference, which leaves Kotlin its handle.
 	val fromPoint = Counter.seededPoint("p", Point(-3, 4))
 	val fromSize = Counter.seededSize("s", Size(5u, 6u))
+	val fromCounter = Counter.seededCounter("c", fromPoint)
+	val fromPolar = Counter.seededPolarPoint("q", PolarPoint(1u, 2u))
 	println(
-		"seeded ${fromPoint.get()} ${fromSize.get()} past ${stack.depthPastPoint(Point(1, 2))} seeds ${seeds(Size(2u, 3u))}",
+		"seeded ${fromPoint.get()} ${fromSize.get()} ${fromCounter.get()} ${fromPolar.get()} " +
+			"past ${stack.depthPastPoint(Point(1, 2))} seeds ${seedsPointSize(Size(2u, 3u))}",
 	)
+
+	// A trait implemented for `Point` and `&Point` apart: one instance.
+	println("weigh ${weighPoint(Point(-1, 2))}")
+	// Instances that name each other, and one made only by an impl of it.
+	println("cross ${cross(LeftRightU8(RightU8(1u)), RightLeftU8(LeftU8(2u)))} outer ${OuterInnerU8.new(4u).get()}")
+	// A bound that outlives the call takes a value, and an instance only a constant names.
+	println("kept ${keptPoint(Point(1, -2))} boxed ${BOXED.value}")
 
 	// Its Drop runs when Kotlin closes the handle, not before.
 	val token = Token.new(7u)
@@ -231,7 +245,7 @@ fun script() {
 	val retry = Retry.new(5u)
 	val limit = retry.limitSetting
 	println("retry ${if (limit != null) 1 else 0} ${limit ?: 0u} ${retry.limit()} ${retry.delay()}")
-	println("slot ${ByteSlot.new(200u).value()}")
+	println("slot ${SlotU8.new(200u).value()}")
 }
 
 fun check(ok: Boolean, what: String) {

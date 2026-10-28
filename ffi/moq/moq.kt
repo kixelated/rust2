@@ -146,9 +146,9 @@ fun main() {
 	var wakes = 0
 	val waiter = Waiter.new(Waker { wakes++ })
 	driver.poll(now(), waiter)
-	// A client publishes the origin through moq-net's generic `with_publisher`, which a
-	// consumer moves into.
-	Client.new().withPublisher(origin.consume()).close()
+	// A client publishes the origin through moq-net's generic `with_publisher`, at each
+	// type that implements its bound, by reference, so Kotlin keeps its handle.
+	Client.new().withPublisherProducer(origin).close()
 	val before = wakes
 	origin.close()
 	// The last owner's close wakes the driver, which then finishes, cleanly.
@@ -177,11 +177,12 @@ fun main() {
 	}
 
 	// A binary track the catalog lists, published through moq-mux's generic
-	// `binary_snapshot` at the config Kotlin builds.
+	// `binary_snapshot` at the config Kotlin builds, by a catalog at moq-mux's untyped
+	// extension, each instance named by the last segment of each argument.
 	val publisher = BroadcastInfo.new().produce()
-	val extra = CatalogConfig.default().withCatalog(HangCatalog.default())
-	val catalog = CatalogProducer.new(publisher, extra)
-	val snapshot = catalog.binarySnapshot(publisher.createTrack("state", null), BinaryConfig.default())
+	val extra = CatalogConfig.default().withCatalogExtra(HangCatalogExtra.default())
+	val catalog = CatalogProducerExtra.new(publisher, extra)
+	val snapshot = catalog.binarySnapshotConfig(publisher.createTrack("state", null), BinaryConfig.default())
 	expect(snapshot.name() == "state", "a snapshot has its track's name")
 	snapshot.update("latest")
 	var listed = 0
