@@ -384,7 +384,7 @@ export const cases: Uint8Array[] = [
 	// kio's API across crates: `Waiter::poll_future`, then a `Pending` of a `Task` polling
 	// a `Poll<Poll<_>>`, whose even value waits for the next, or for the close that drops
 	// it; and cancelled while it waits.
-	script(["open", 0], ["watch", 0], ["run", 0], ["send", 3], ["run", 0], ["send", 4], ["run", 0], ["send", 5], ["run", 0], ["close", 0], ["run", 0]),
+	script(["open", 0], ["watch", 0], ["run", 0], ["send", 3], ["run", 0], ["send", 4], ["run", 0], ["send", 7], ["run", 0], ["close", 0], ["run", 0]),
 	script(["open", 0], ["watch", 0], ["run", 0], ["send", 1], ["run", 0], ["send", 2], ["run", 0], ["close", 0], ["run", 0]),
 	script(["open", 0], ["watch", 0], ["watch", 0], ["run", 0], ["send", 6], ["step", 0], ["send", 8], ["drop", 1], ["run", 0], ["drop", 0]),
 	// Each scenario of values std holds that drop, panicking at each point or none.

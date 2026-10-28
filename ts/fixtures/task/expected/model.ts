@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
-import { unwrapOr$Option_u64 } from "./core/option.ts";
-import { isReady$Poll_unit, isPending$Poll_Option_u64 } from "./core/task/poll.ts";
+import { unwrapOr$Option_u64, map$Option_u64_Result_u64_u64_streamed_closure0_closure0 } from "./core/option.ts";
+import { map$Poll_Option_u64_Option_Result_u64_u64_streamed_closure0, map$Poll_u64_Option_u64_Some, isReady$Poll_unit, isPending$Poll_Option_u64 } from "./core/task/poll.ts";
 import { wait$watch_closure0_closure0_Option_u64, closedFuture, recvFuture } from "./kio.ts";
 import type * as Closed from "./kio.Closed.ts";
 import * as Consumer from "./kio.Consumer.ts";
@@ -481,14 +481,58 @@ export class watchFuture {
 }
 
 /**
+ * `polled` as a stream's `poll_next` returns it, erring on a value of 3 modulo 4, then
+ * back through `?`, which continues with its `Pending` and `Ready(None)`.
+ */
+export function streamed(polled: rt.Poll<rt.u64 | undefined>): rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> {
+	const _3: rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> = rt.pollOptionBranch(map$Poll_Option_u64_Option_Result_u64_u64_streamed_closure0(polled, (value: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> | undefined => {
+		return map$Option_u64_Result_u64_u64_streamed_closure0_closure0(value, (value2: rt.u64): rt.Result<rt.u64, rt.u64> => {
+			if (!(rt.u64Rem(value2, 4) === 3)) {
+				return rt.Ok(value2);
+			}
+			return rt.Err(value2);
+		});
+	}), rt.Pending, undefined);
+	if (_3.ok) {
+		return rt.Ok(_3.value);
+	}
+	return _3;
+}
+
+/**
  * The value at `index`, or `None` once the channel closed without it, as moq's
  * `poll_group` reads its cache: kio's `Consumer::poll` with a closure pending itself, a
  * `Poll<Poll<_>>`, outside until the value arrives, and inside while it is even and the
  * one after it hasn't: then it waits on the channel, and the close drops it.
  */
 export function at(rx: Consumer.Consumer, index: rt.usize, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	let res2!: rt.Poll<rt.u64 | undefined>;
-	const res: rt.Poll<rt.Result<rt.Poll<rt.u64 | undefined>, Closed.Closed>> = Consumer.poll$at_closure0_Poll_Option_u64(rx, waiter, (queue: rt.u64[]): rt.Poll<rt.u64 | undefined> | rt.OuterPending => {
+	let res!: rt.Poll<rt.u64 | undefined>;
+	const _5: rt.Result<rt.Poll<rt.u64> | rt.OuterPending, Closed.Closed> = held(rx, index, waiter);
+	if (_5.ok) {
+		if (_5.value !== rt.OuterPending) {
+			res = map$Poll_u64_Option_u64_Some(_5.value, (a0: rt.u64): rt.u64 | undefined => {
+				return a0;
+			});
+		} else {
+			res = rt.Pending as rt.Poll<rt.u64 | undefined>;
+		}
+	} else {
+		res = undefined as rt.Poll<rt.u64 | undefined>;
+	}
+	if (isPending$Poll_Option_u64(res)) {
+		if (isReady$Poll_unit(Consumer.pollClosed(rx, waiter))) {
+			return undefined;
+		}
+	}
+	return res;
+}
+
+/**
+ * [`at`]'s poll, through `?` on what kio's `Consumer::poll` returns, which continues with
+ * its `Pending`.
+ */
+export function held(rx: Consumer.Consumer, index: rt.usize, waiter: Waiter.Waiter): rt.Result<rt.Poll<rt.u64> | rt.OuterPending, Closed.Closed> {
+	const _4: rt.Result<rt.Poll<rt.u64> | rt.OuterPending, Closed.Closed> = rt.pollBranch(Consumer.poll$held_closure0_Poll_u64(rx, waiter, (queue: rt.u64[]): rt.Poll<rt.u64> | rt.OuterPending => {
 		const _3: rt.u64 | undefined = rt.sliceGet(queue, index);
 		if (_3 === undefined) {
 			return rt.OuterPending;
@@ -499,22 +543,11 @@ export function at(rx: Consumer.Consumer, index: rt.usize, waiter: Waiter.Waiter
 			}
 		}
 		return _3;
-	});
-	if (res !== rt.Pending) {
-		if (res.ok) {
-			res2 = res.value;
-		} else {
-			res2 = undefined as rt.Poll<rt.u64 | undefined>;
-		}
-	} else {
-		res2 = rt.Pending as rt.Poll<rt.u64 | undefined>;
+	}), rt.OuterPending);
+	if (_4.ok) {
+		return rt.Ok(_4.value);
 	}
-	if (isPending$Poll_Option_u64(res2)) {
-		if (isReady$Poll_unit(Consumer.pollClosed(rx, waiter))) {
-			return undefined;
-		}
-	}
-	return res2;
+	return rt.Err({});
 }
 
 /**
@@ -1872,7 +1905,7 @@ export function turns(log: Log.Log, count: rt.u32): void {
 	let _4!: Guard.Guard;
 	let kept!: Guard.Guard;
 	let pinned!: Guard.Guard;
-	let held!: Guard.Guard;
+	let held_!: Guard.Guard;
 	let _34!: Guard.Guard;
 	let boxed!: Guard.Guard;
 	let stacked!: Guard.Guard[] | undefined;
@@ -1894,9 +1927,9 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		pinned = Guard.new(rt.u32Add(count, 40), Log.clone$Clone(log));
 		unwind = 152;
 		Guard.note(pinned, "pinned");
-		held = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
+		held_ = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
 		unwind = 151;
-		Guard.note(held, "borrowed");
+		Guard.note(held_, "borrowed");
 		_34 = Guard.new(rt.u32Add(count, 60), Log.clone$Clone(log));
 		unwind = 150;
 		Guard.note(_34, "extended");
@@ -1992,7 +2025,7 @@ export function turns(log: Log.Log, count: rt.u32): void {
 		unwind = 151;
 		rt.drop(_34);
 		unwind = 152;
-		rt.drop(held);
+		rt.drop(held_);
 		unwind = 153;
 		rt.drop(pinned);
 		unwind = 156;
@@ -2066,7 +2099,7 @@ export function turns(log: Log.Log, count: rt.u32): void {
 							}
 							rt.drop(_34);
 						}
-						rt.drop(held);
+						rt.drop(held_);
 					}
 					rt.drop(pinned);
 				}

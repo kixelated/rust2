@@ -44,9 +44,9 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
  * `f` of every value sent so far, once it is ready, or the error once the channel
  * closed and `f` is not, registering `waiter` otherwise.
  */
-export function poll$at_closure0_Poll_Option_u64(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.u64 | undefined> | rt.OuterPending): rt.Poll<rt.Result<rt.Poll<rt.u64 | undefined>, Closed.Closed>> {
+export function poll$held_closure0_Poll_u64(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.u64> | rt.OuterPending): rt.Poll<rt.Result<rt.Poll<rt.u64>, Closed.Closed>> {
 	const state: rt.Mutex<State.State> = self.state.value;
-	const _8: rt.Poll<rt.u64 | undefined> | rt.OuterPending = f(state.value.queue);
+	const _8: rt.Poll<rt.u64> | rt.OuterPending = f(state.value.queue);
 	if (_8 !== rt.OuterPending) {
 		return rt.Ok(_8);
 	}

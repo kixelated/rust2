@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import type * as Consumer from "./kio.Consumer.ts";
 import type * as Waiter from "./kio.Waiter.ts";
-import { at } from "./model.ts";
+import { streamed, at } from "./model.ts";
 
 /** The value at `index` of a channel, read by [`at`]. */
 export class Watch {
@@ -20,8 +20,16 @@ export class Watch {
 	}
 }
 
+/**
+ * What [`at`] reads, through [`streamed`]: a value of 3 modulo 4 errs, and is
+ * watched as ten times itself.
+ */
 export function poll$Task(self: Watch, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	return at(self.rx, self.index, waiter);
+	const _3: rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> = streamed(at(self.rx, self.index, waiter));
+	if (_3.ok) {
+		return _3.value;
+	}
+	return rt.u64Mul(_3.error, 10);
 }
 
 //# sourceMappingURL=model.Watch.ts.map

@@ -152,9 +152,21 @@ struct Watch {
 impl kio::Task for Watch {
 	type Output = Option<u64>;
 
+	/// What [`at`] reads, through [`streamed`]: a value of 3 modulo 4 errs, and is
+	/// watched as ten times itself.
 	fn poll(&mut self, waiter: &Waiter) -> Poll<Option<u64>> {
-		at(&self.rx, self.index, waiter)
+		match streamed(at(&self.rx, self.index, waiter)) {
+			Ok(polled) => polled,
+			Err(value) => Poll::Ready(Some(value * 10)),
+		}
 	}
+}
+
+/// `polled` as a stream's `poll_next` returns it, erring on a value of 3 modulo 4, then
+/// back through `?`, which continues with its `Pending` and `Ready(None)`.
+fn streamed(polled: Poll<Option<u64>>) -> Result<Poll<Option<u64>>, u64> {
+	let item = polled.map(|value| value.map(|value| if value % 4 == 3 { Err(value) } else { Ok(value) }));
+	Ok(item?)
 }
 
 /// The value at `index`, or `None` once the channel closed without it, as moq's
@@ -162,20 +174,26 @@ impl kio::Task for Watch {
 /// `Poll<Poll<_>>`, outside until the value arrives, and inside while it is even and the
 /// one after it hasn't: then it waits on the channel, and the close drops it.
 fn at(rx: &Consumer, index: usize, waiter: &Waiter) -> Poll<Option<u64>> {
-	let res = rx.poll(waiter, |queue| match queue.get(index) {
-		None => Poll::Pending,
-		Some(value) if value % 2 == 0 && queue.len() == index + 1 => Poll::Ready(Poll::Pending),
-		Some(value) => Poll::Ready(Poll::Ready(Some(*value))),
-	});
-	let res = match res {
-		Poll::Ready(Ok(res)) => res,
-		Poll::Ready(Err(Closed)) => Poll::Ready(None),
-		Poll::Pending => Poll::Pending,
+	let res = match held(rx, index, waiter) {
+		Ok(Poll::Ready(res)) => res.map(Some),
+		Ok(Poll::Pending) => Poll::Pending,
+		Err(Closed) => Poll::Ready(None),
 	};
 	if res.is_pending() && rx.poll_closed(waiter).is_ready() {
 		return Poll::Ready(None);
 	}
 	res
+}
+
+/// [`at`]'s poll, through `?` on what kio's `Consumer::poll` returns, which continues with
+/// its `Pending`.
+fn held(rx: &Consumer, index: usize, waiter: &Waiter) -> Result<Poll<Poll<u64>>, Closed> {
+	let polled = rx.poll(waiter, |queue| match queue.get(index) {
+		None => Poll::Pending,
+		Some(value) if value % 2 == 0 && queue.len() == index + 1 => Poll::Ready(Poll::Pending),
+		Some(value) => Poll::Ready(Poll::Ready(*value)),
+	})?;
+	Ok(polled)
 }
 
 /// One value read through the captures only an async block makes: a borrow, which
