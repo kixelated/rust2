@@ -420,10 +420,11 @@ import * as Channel from "./model.Channel.ts";
 import * as Guard from "./model.Guard.ts";
 import {{ blocks, drain, sum }} from "./model.ts";
 import * as drops from "./drops.ts";
+import * as futures from "./futures.ts";
 import {{ harness }} from {harness:?};
 
 export {{ cases }} from {harness:?};
-const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops }};
+const fixture = {{ Pending: rt.Pending, u64: {{ of: rt.u64Of }}, Log, Channel, Guard, sum, drain, blocks, drops, futures }};
 const script = harness(fixture);
 export const run = (input: rt.ByteSlice) => script(rt.byteSliceView(input));
 export const unwind = harness(fixture, true);
