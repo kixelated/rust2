@@ -1012,7 +1012,7 @@ pub fn control_flow_field<'tcx>(
 		(Flow::Result, false) => base,
 		(Flow::Other, false) => base.member("error"),
 		(Flow::Option, true) => base,
-		(Flow::Option, false) => fx.b.t.none(continued(ty)),
+		(Flow::Option, false) => Expr::undefined(),
 	}
 }
 
