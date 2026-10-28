@@ -12,8 +12,9 @@ unsupported type `dyn std::ops::Fn(u8) -> u8` at fixtures/reject/src/lib.rs:11:1
 unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:28:4
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:32:2
 `Option<std::option::Option<u8>>` is not supported: its `None` and `Some` would both be `undefined` at fixtures/reject/src/lib.rs:32:42
-unsupported call to `std::mem::size_of_val::<Noisy>` at fixtures/reject/src/lib.rs:44:18
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:46:1
+unsupported call to `std::mem::size_of_val::<Noisy>` at fixtures/reject/src/lib.rs:44:29
+passing `{closure@fixtures/reject/src/lib.rs:44:10: 44:23}`, a closure that owns a value that drops, to `Iterator::map`, which is not supported yet at fixtures/reject/src/lib.rs:45:11
+dropping `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:44:10: 44:23}>`, which is not supported yet at fixtures/reject/src/lib.rs:45:18
 `into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet at fixtures/reject/src/lib.rs:51:13
 a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:59:10: 59:18}` at fixtures/reject/src/lib.rs:60:2
 a precision, as in `{:.2}`, is not supported at fixtures/reject/src/lib.rs:67:3
@@ -58,30 +59,28 @@ comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/r
 `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:309:6
 unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:359:4
 a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:364:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:407:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:409:27
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:408:30
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:414:2
-`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:418:18
-unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:419:2
-constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:425:53
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:397:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:399:27
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:398:30
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:404:2
+`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:408:18
+unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:409:2
+constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:415:53
 unsupported call to `core::str::<impl str>::split::<[char; 2]>` at fixtures/reject/src/lib.rs:370:4
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:397:18
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:399:15
-dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src/lib.rs:399:48: 399:56}>>`, which is not supported yet at fixtures/reject/src/lib.rs:399:79
-dropping a closure that owns a value that drops, which is not supported yet at fixtures/reject/src/lib.rs:400:13
-dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:400:32: 400:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:400:62
-an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:401:13
-unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:433:2
-`core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:439:21
-`std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:446:15
-a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:456:12
-unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:463:2
+passing `{closure@fixtures/reject/src/lib.rs:380:28: 380:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:380:13
+passing `{closure@fixtures/reject/src/lib.rs:381:15: 381:24}`, a closure that owns a value that drops, to `Iterator::any`, which is not supported yet at fixtures/reject/src/lib.rs:381:11
+passing `{closure@fixtures/reject/src/lib.rs:389:48: 389:56}`, a closure that owns a value that drops, to `successors::successors`, which is not supported yet at fixtures/reject/src/lib.rs:389:15
+dropping `std::iter::Take<std::iter::Successors<u8, {closure@fixtures/reject/src/lib.rs:389:48: 389:56}>>`, which is not supported yet at fixtures/reject/src/lib.rs:389:79
+passing `{closure@fixtures/reject/src/lib.rs:390:32: 390:39}`, a closure that owns a value that drops, to `from_fn::from_fn`, which is not supported yet at fixtures/reject/src/lib.rs:390:13
+dropping `std::iter::Take<std::iter::FromFn<{closure@fixtures/reject/src/lib.rs:390:32: 390:39}>>`, which is not supported yet at fixtures/reject/src/lib.rs:390:62
+an iterator that owns `Noisy`, which drops, which is not supported yet at fixtures/reject/src/lib.rs:391:13
+unsupported call to `<std::time::Duration as std::ops::AddAssign>::add_assign` at fixtures/reject/src/lib.rs:423:2
+`core::slice::<impl [T]>::last_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:429:21
+`std::collections::hash_map::Entry::<'a, K, V, A>::and_modify` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:436:15
+a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:446:12
+unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:453:2
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:152:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:172:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:206:2
 an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:226:1
 `Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:317:9
-dropping a closure that owns a value that drops, which is not supported yet, in `std::option::Option::<T>::map` at fixtures/reject/src/lib.rs:378:12
-dropping a closure that owns a value that drops, which is not supported yet, in `std::result::Result::<T, E>::map_err` at fixtures/reject/src/lib.rs:382:12
-dropping a closure that owns a value that drops, which is not supported yet, in `std::result::Result::<T, E>::and_then` at fixtures/reject/src/lib.rs:386:12

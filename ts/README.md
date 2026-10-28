@@ -84,7 +84,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
-| closure | an arrow function |
+| closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
@@ -421,8 +421,9 @@ to hand-written TS ([bindings](#bindings)).
 
 ## Not yet
 
-These fail translation: floats, statics, async closures, values that drop in a closure dropped without a call that
-takes it or in an iterator ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
+These fail translation: floats, statics, async closures, a closure that owns a value
+that drops given to std's iterators or collections, and values that drop in some
+iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
 a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and

@@ -48,7 +48,7 @@ roots = [
     "cow_bytes",
     "cow_made",
     "split_chars",
-    "discarded_closure",
+    "called_closure",
     "owning_lazy",
     "duration_assign",
     "last_bumped",

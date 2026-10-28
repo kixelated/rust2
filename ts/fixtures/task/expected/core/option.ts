@@ -35,6 +35,42 @@ export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64):
 	return self;
 }
 
+export function map$Option_u32_u32_blasted_closure3(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
+	let _0!: rt.u32 | undefined;
+	let _8: boolean = false;
+	_8 = true;
+	if (self === undefined) {
+		_0 = undefined;
+	} else {
+		const x: rt.u32 = self;
+		_8 = false;
+		_0 = f(x);
+	}
+	if (_8) {
+		rt.drop(f);
+		return _0;
+	}
+	return _0;
+}
+
+export function map$Option_u32_u32_discarded_closure16(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
+	let _0!: rt.u32 | undefined;
+	let _8: boolean = false;
+	_8 = true;
+	if (self === undefined) {
+		_0 = undefined;
+	} else {
+		const x: rt.u32 = self;
+		_8 = false;
+		_0 = rt.callOnce(f, x);
+	}
+	if (_8) {
+		rt.drop(f);
+		return _0;
+	}
+	return _0;
+}
+
 export function mapOr$Option_Guard_u32_drained_closure4(self: Guard.Guard | undefined, default_: rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
@@ -85,6 +121,24 @@ export function mapOr$Option_u32_Guard_options_closure2(self: rt.u32 | undefined
 		}
 		throw e;
 	}
+}
+
+export function mapOr$Option_u32_u32_discarded_closure12(self: rt.u32 | undefined, default_: rt.u32, f: (a0: rt.u32) => rt.u32): rt.u32 {
+	let _0!: rt.u32;
+	let _8: boolean = false;
+	_8 = true;
+	if (self === undefined) {
+		_0 = default_;
+	} else {
+		const t: rt.u32 = self;
+		_8 = false;
+		_0 = f(t);
+	}
+	if (_8) {
+		rt.drop(f);
+		return _0;
+	}
+	return _0;
 }
 
 export function okOr$Option_Guard_Guard(self: Guard.Guard | undefined, err: Guard.Guard): rt.Result<Guard.Guard, Guard.Guard> {

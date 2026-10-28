@@ -475,6 +475,62 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	})
 }
 
+/// The first closure `call` calls that owns a value that drops, of those its mapping does
+/// not drop where std would: not in `discarded`, the types it may drop by their index among
+/// the call's type arguments. A closure that `Fn` or `FnMut` call, given to one that calls
+/// it through `FnOnce`, becomes `rt.once` of it, which drops it after the call, as rustc's
+/// shim does.
+fn called_closures<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	discarded: Option<&[usize]>,
+	args: &mut [Expr],
+) -> Option<Ty<'tcx>> {
+	let tcx = b.t.tcx;
+	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
+	let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
+	let bounds = tcx.param_env(call.def_id).caller_bounds();
+	for (i, input) in inputs.into_iter().enumerate() {
+		let ty::Param(param) = *input.kind() else {
+			continue;
+		};
+		let ty = call.args[param.index as usize].expect_ty();
+		let ty::Closure(_, closure) = ty.kind() else {
+			continue;
+		};
+		// The trait it is called by: `Fn`, then `FnMut`, whichever it is bound by, or else `FnOnce`.
+		let Some(bound) = bounds
+			.clone()
+			.filter_map(|p| p.as_trait_clause())
+			.filter(|t| t.self_ty().skip_binder() == input)
+			.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
+			.min_by_key(|kind| match kind {
+				ty::ClosureKind::Fn => 0,
+				ty::ClosureKind::FnMut => 1,
+				ty::ClosureKind::FnOnce => 2,
+			})
+		else {
+			continue;
+		};
+		if !b.t.drops(ty) {
+			continue;
+		}
+		let index = call.args[..param.index as usize]
+			.iter()
+			.filter(|a| a.as_type().is_some())
+			.count();
+		if !discarded.is_some_and(|d| d.contains(&index)) {
+			return Some(ty);
+		}
+		if bound == ty::ClosureKind::FnOnce && closure.as_closure().kind() != ty::ClosureKind::FnOnce && i < args.len()
+		{
+			let f = std::mem::replace(&mut args[i], Expr::undefined());
+			args[i] = Expr::rt("once", vec![f]);
+		}
+	}
+	None
+}
+
 /// The first type `call` takes by value that drops.
 fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = b.t.tcx;
@@ -534,6 +590,32 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		return None;
 	}
 	let (owner, name) = key(tcx, call.def_id)?;
+	let discarded = discards(&owner, &name);
+	let mut args = args;
+	let leaked = called_closures(b, call, discarded, &mut args);
+	let e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
+	if let Some(ty) = leaked {
+		return Some(b.err(
+			call.span,
+			format!(
+				"passing `{ty}`, a closure that owns a value that drops, to `{owner}::{name}`, which is not supported yet"
+			),
+		));
+	}
+	Some(e)
+}
+
+/// The mapping of a call of std's `owner::name`, which may discard what `discarded` says.
+fn mapping<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	owner: String,
+	name: String,
+	discarded: Option<&'static [usize]>,
+	args: Vec<Expr>,
+	out: &mut Vec<Stmt>,
+) -> Option<Expr> {
+	let tcx = b.t.tcx;
 	let span = call.span;
 	let gargs = call.args;
 	let args = match super::task::call(b, call, &owner, &name, args) {
@@ -548,7 +630,6 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		Ok(e) => return e,
 		Err(args) => args,
 	};
-	let discarded = discards(&owner, &name);
 	let dropping = match discarded {
 		Some(_) => None,
 		None => dropping_operand(b, call),

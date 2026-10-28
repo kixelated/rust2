@@ -209,17 +209,6 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 		.ok()
 }
 
-/// Refuse `closure`, which an iterator owns, if it owns a value that drops: its captures
-/// live in an arrow function's scope, where nothing outside can drop them.
-fn closure_no_drops<'tcx>(b: &mut Body<'_, '_, 'tcx>, closure: Ty<'tcx>, span: Span) {
-	if b.t.drops(closure) {
-		b.t.err(
-			span,
-			"dropping a closure that owns a value that drops, which is not supported yet",
-		);
-	}
-}
-
 /// Refuse iterating `ty`, an iterator, if a binding stands in for it: it is no `rt.Iter`,
 /// which std's adaptors and `for` take every iterator but the crate's own for.
 fn not_bound<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
@@ -280,11 +269,9 @@ pub fn call<'tcx>(
 			return Some(Expr::rt("iterOnce", tail(args, vec![dropper])));
 		}
 		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
-		// Each owns its closure, `F`, which the runtime's never drops.
-		["iter", "sources", "from_fn", "from_fn"] => {
-			closure_no_drops(b, targ(1)?, span);
-			return Some(Expr::rt("iterFromFn", args));
-		}
+		// A closure that owns a value that drops is refused as any std mapping refuses one
+		// it calls but never drops.
+		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
 		["iter", "sources", "successors", "successors"] => {
 			// `rt.iterSuccessors` would leave the item it holds next undropped.
 			let item = targ(0)?;
@@ -294,7 +281,6 @@ pub fn call<'tcx>(
 					format!("an iterator that owns `{item}`, which drops, which is not supported yet"),
 				);
 			}
-			closure_no_drops(b, targ(1)?, span);
 			return Some(Expr::rt("iterSuccessors", args));
 		}
 		_ => {}

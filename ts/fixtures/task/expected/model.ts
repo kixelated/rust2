@@ -1405,8 +1405,10 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part2, f)];
 		Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
 		const captured = guard(1100);
-		const part3 = ((): rt.u32 => {
+		const part3 = rt.closure((): rt.u32 => {
 			return Guard.finish(captured, "closure");
+		}, (): void => {
+			rt.drop(captured);
 		})();
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 		Log.note(log, rt.fmtFormat(["closed ", args10[0]]));

@@ -2363,7 +2363,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::SwitchInt { discr, targets } => self.switch(discr, targets, span, out),
 			TerminatorKind::Drop { place, target, .. } => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-				if self.b.t.drops(ty) {
+				// An `FnOnce` body drops its closure whole, which is what it captured.
+				if let Env::Closure(captures) = &self.env
+					&& place.local.as_u32() == 1
+					&& place.projection.is_empty()
+					&& matches!(ty.kind(), ty::Closure(..))
+				{
+					let mut glue = self.b.t.closure_glue(ty, &captures.clone(), span);
+					// In a block of its own, whose variable no other drop's can clash with.
+					if glue.iter().any(|s| matches!(s.kind, StmtKind::Decl { .. })) {
+						glue = vec![
+							StmtKind::Block {
+								label: None,
+								body: glue,
+							}
+							.at(None),
+						];
+					}
+					self.emit(glue, None, false, out);
+				} else if self.b.t.drops(ty) {
 					let mut pre = Vec::new();
 					let value = self.place_expr(*place, span, &mut pre);
 					let dropped = match place.as_local().is_some_and(|l| self.stepped.contains(&l)) {

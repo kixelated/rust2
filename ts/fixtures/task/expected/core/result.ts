@@ -33,11 +33,62 @@ export function err$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.Guard>
 	return _0;
 }
 
+export function map$Result_u32_u32_u32_discarded_closure4(self: rt.Result<rt.u32, rt.u32>, op: (a0: rt.u32) => rt.u32): rt.Result<rt.u32, rt.u32> {
+	let _0!: rt.Result<rt.u32, rt.u32>;
+	let _9: boolean = false;
+	_9 = true;
+	if (self.ok) {
+		const t: rt.u32 = self.value;
+		_9 = false;
+		_0 = rt.Ok(op(t));
+	} else {
+		_0 = self;
+	}
+	if (_9) {
+		rt.drop(op);
+		return _0;
+	}
+	return _0;
+}
+
 export function mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10(self: rt.Result<Guard.Guard, Guard.Guard>, default_: (a0: Guard.Guard) => rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
 	if (self.ok) {
 		return f(self.value);
 	}
 	return default_(self.error);
+}
+
+export function mapErr$Result_u32_u32_u32_discarded_closure6(self: rt.Result<rt.u32, rt.u32>, op: (a0: rt.u32) => rt.u32): rt.Result<rt.u32, rt.u32> {
+	let _0!: rt.Result<rt.u32, rt.u32>;
+	let _9: boolean = false;
+	_9 = true;
+	if (self.ok) {
+		_0 = self;
+	} else {
+		const e: rt.u32 = self.error;
+		_9 = false;
+		_0 = rt.Err(op(e));
+	}
+	if (_9) {
+		rt.drop(op);
+		return _0;
+	}
+	return _0;
+}
+
+export function inspectErr$Result_u32_u32_discarded_closure10(self: rt.Result<rt.u32, rt.u32>, f: (a0: rt.u32) => void): rt.Result<rt.u32, rt.u32> {
+	let _8: boolean = false;
+	_8 = true;
+	if (!self.ok) {
+		_8 = false;
+		f(self.error);
+	}
+	const _0: rt.Result<rt.u32, rt.u32> = self;
+	if (_8) {
+		rt.drop(f);
+		return _0;
+	}
+	return _0;
 }
 
 export function inspectErr$Result_u8_Key_tripped_closure6(self: rt.Result<rt.u8, Key.Key>, f: (a0: Key.Key) => void): rt.Result<rt.u8, Key.Key> {
@@ -68,6 +119,24 @@ export function andThen$Result_Guard_Guard_Guard_options_closure8(self: rt.Resul
 		return op(self.value);
 	}
 	return self;
+}
+
+export function andThen$Result_u32_u32_u32_discarded_closure8(self: rt.Result<rt.u32, rt.u32>, op: (a0: rt.u32) => rt.Result<rt.u32, rt.u32>): rt.Result<rt.u32, rt.u32> {
+	let _0!: rt.Result<rt.u32, rt.u32>;
+	let _8: boolean = false;
+	_8 = true;
+	if (self.ok) {
+		const t: rt.u32 = self.value;
+		_8 = false;
+		_0 = op(t);
+	} else {
+		_0 = self;
+	}
+	if (_8) {
+		rt.drop(op);
+		return _0;
+	}
+	return _0;
 }
 
 export function unwrapOr$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.Guard>, default_: Guard.Guard): Guard.Guard {
