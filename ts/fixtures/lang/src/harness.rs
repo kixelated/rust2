@@ -82,6 +82,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("utf8::decodes", utf8::decodes),
 		("floats::floats", floats::floats),
 		("atomics::atomics", atomics::atomics),
+		("keys::overrides", keys::overrides),
 	]
 }
 
