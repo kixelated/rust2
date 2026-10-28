@@ -2,7 +2,7 @@ package = "bind-fixture"
 roots = ["harness::run"]
 
 [bind]
-"blob::Blob" = "bind/blob.ts"
+"buf::Blob" = "bind/blob.ts"
 "raw::checksum" = "bind/checksum.ts"
 "raw::skip" = "bind/skip.ts"
 "raw::Tally" = { file = "bind/tally.ts", drop = true }

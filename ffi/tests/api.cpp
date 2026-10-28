@@ -187,6 +187,10 @@ int script() {
 		return counter.edited() && counter.get() == 6;
 	});
 	std::printf("edit %s %llu\n", yes(edited), ull(registry.first().get()));
+	// A setter moves an object in, as assignment does.
+	registry.set_first(api::counter::new_("second", 3));
+	std::printf("set first %llu ", ull(registry.first().get()));
+	print("", registry.first().name(), "\n");
 	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
 	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
 
@@ -246,6 +250,15 @@ int script() {
 		print("payload ", message.payload(), "\n");
 		print("stamp ", message.stamp()->debug(), "\n");
 		std::printf("sent %s\n", yes(message.sent()));
+		// Setters assign in place: the bytes are copied in, and a `Copy` handle copied.
+		api::stamp reset = api::stamp::from_millis(4000);
+		message.set_stamp(&reset);
+		message.set_payload("edited");
+		print("payload ", message.payload(), "\n");
+		print("stamp ", message.stamp()->debug(), "\n");
+		std::printf("secs %llu\n", ull(reset.secs()));
+		message.set_stamp(nullptr);
+		std::printf("stamp %s\n", yes(message.stamp().has_value()));
 	}
 
 	std::uint8_t levels[] = {1, 2, 3, 4};
@@ -396,6 +409,9 @@ int script() {
 	api::retry retry = api::retry::new_(5u);
 	std::optional<std::uint32_t> limit = retry.limit_setting();
 	std::printf("retry %d %u %u %u\n", limit.has_value(), limit.value_or(0), retry.limit(), retry.delay());
+	// The renamed field's setter, named as its getter.
+	retry.set_limit_setting(std::nullopt);
+	std::printf("retry %u\n", retry.limit());
 	std::printf("slot %u\n", api::slot_u8::new_(200).value());
 
 	// Foreign types: a URL parsed from text, socket addresses, OS paths, and `Vec`s.

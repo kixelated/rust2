@@ -264,6 +264,24 @@ impl Limit {
 	pub fn max(&self) -> u32 {
 		self.max.max(1)
 	}
+
+	/// The name of `max`'s setter too.
+	pub fn set_max(&mut self, max: u32) {
+		self.max = max;
+	}
+}
+
+/// A field holding a `'static` borrow, which a setter cannot take from C's borrow for
+/// the call.
+#[non_exhaustive]
+pub struct Tag {
+	pub label: &'static str,
+}
+
+impl Tag {
+	pub fn new() -> Self {
+		Self { label: "tag" }
+	}
 }
 
 /// A closure kept past the call, as a `'static` bound lets it be.

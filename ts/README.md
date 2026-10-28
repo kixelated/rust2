@@ -98,8 +98,8 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
-| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`; `rt.Mutex`, its own guard, which a lock gives as `Ok`: a panic aborts, as wasm32's does, so nothing poisons it |
-| `PoisonError<T>` | the `T` it holds |
+| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`, of no `Arc` once made by `Weak::new`; `rt.Mutex`, its own guard, which a lock gives as `Ok` and the guard's drop unlocks: locking it again while held panics and `try_lock` gives `WouldBlock`, as wasm32's do, and a panic aborts, so nothing poisons it and `thread::panicking` is `false` |
+| `PoisonError<T>`, `TryLockError<T>` | the `T` it holds; `rt.TryLockError<T>`, tagged as `Bound` is |
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
 | `AtomicU32` and the others of `bool` and integers | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
@@ -303,6 +303,9 @@ of them:
 ## Bindings
 
 A binding stands in for what the subset refuses, such as `unsafe` code or a boxed future.
+Its path goes from the crate root, or else from a crate it depends on by the name the crate
+gives it, as `buf::Blob` for `buf = { package = "blob" }`. A crate it reaches only through
+another goes by its own name, where one crate of that name is built.
 Its file, relative to `ts.toml`, is copied to the same path in the output, beside the
 runtime. It imports `rt.ts` as the output's modules do, `../rt.ts` from `bind/blob.ts`,
 and may import the translated modules and npm packages too. Callers import it whole, as a
@@ -576,7 +579,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `rand::rng()` reads the fixture's own getrandom backend on wasm32. It checks `Bytes`'s
   slices and panics, how each is made and printed, that no event evaluates a field, and
   that each random value is in its range, every value of a small range drawn.
-- `bind` binds `blob::Blob`, a dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
+- `bind` binds `buf::Blob`, a renamed dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
   pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
   the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.

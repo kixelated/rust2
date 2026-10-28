@@ -21,11 +21,7 @@ Found by the census on 2026-10-28, after
 - `SocketAddrV4` and `SocketAddrV6` share `<prefix>_socket_addr`, with `v6` fixed by the
   type: one passed in of the other family aborts, as an IPv4 address with IPv6 bytes does.
   Kotlin keeps `java.net.InetSocketAddress`. They refuse moq-tokio's
-  `listen::Config::preferred_v4` and `preferred_v6`.
+  `listen::Config::preferred_v4` and `preferred_v6`, fields C sets once they map.
 - Report the census before and after.
 
 Public API: the C names the exporter emits.
-
-## Related
-
-- [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - `preferred_v4` and `preferred_v6` are fields C sets

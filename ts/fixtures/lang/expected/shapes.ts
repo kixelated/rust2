@@ -292,9 +292,10 @@ export function unwritten(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Adds one to what `slot` holds. */
 export function bump(slot: rt.Mutex<rt.u8>): void {
-	const held: rt.Mutex<rt.u8> = slot;
+	const held: rt.Mutex<rt.u8> = rt.mutexLock(slot);
 	const _4: rt.u8 = rt.u8WrappingAdd(held.value, 1);
 	held.value = _4;
+	rt.mutexUnlock(held);
 }
 
 /**
@@ -393,8 +394,12 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 		flow = rt.Err(arc);
 	}
 	rt.byteVecPush(out, sameArc(flow, arc));
-	rt.byteVecPush(out, slot.value);
-	rt.byteVecPush(out, other.value);
+	const _143: rt.Mutex<rt.u8> = rt.mutexLock(slot);
+	rt.byteVecPush(out, _143.value);
+	rt.mutexUnlock(_143);
+	const _150: rt.Mutex<rt.u8> = rt.mutexLock(other);
+	rt.byteVecPush(out, _150.value);
+	rt.mutexUnlock(_150);
 	const source: Held.Held = { at: copy$Point(Point.new(a as rt.i32, 0)) };
 	const kept: Held.Held = hold(copy$Point(source.at));
 	source.at.x = 9;
@@ -2253,7 +2258,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const slot: rt.Mutex<rt.u8 | undefined> = new rt.Mutex(undefined as rt.u8 | undefined);
 	for (const x2 of rt.byteSliceView(data)) {
-		const held: rt.Mutex<rt.u8 | undefined> = slot;
+		const held: rt.Mutex<rt.u8 | undefined> = rt.mutexLock(slot);
 		const _133: rt.u8 | undefined = held.value;
 		b16: {
 			if (_133 !== undefined) {
@@ -2267,8 +2272,11 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (!_132) {
 			held.value = x2;
 		}
+		rt.mutexUnlock(held);
 	}
-	rt.byteVecPush(out, unwrapOr$Option_u8(slot.value, 252));
+	const _148: rt.Mutex<rt.u8 | undefined> = rt.mutexLock(slot);
+	rt.byteVecPush(out, unwrapOr$Option_u8(_148.value, 252));
+	rt.mutexUnlock(_148);
 }
 
 //# sourceMappingURL=shapes.ts.map

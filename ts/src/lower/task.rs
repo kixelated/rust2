@@ -151,7 +151,7 @@ pub fn call<'tcx>(
 		}
 		("Waker", "noop") => Expr::Rt("NOOP_WAKER".into()),
 		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
-		("Arc", "downgrade") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
+		("Arc", "downgrade") | ("Weak", "new") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
 		("Arc", "strong_count") => first(args).member("strong"),
 		// Two `Arc`s of trait objects are views of the `Arc`s they were made from.
 		("Arc", "ptr_eq") if self_ty.is_some_and(Ty::is_trait) => Expr::rt("arcPtrEq", args),
@@ -180,7 +180,8 @@ pub fn call<'tcx>(
 		},
 		("Mutex", "new") => Expr::New(Box::new(Expr::Rt("Mutex".into())), args),
 		// The mutex is its own guard, and a panic aborts, so nothing poisons it.
-		("Mutex", "lock") => Expr::result(true, first(args)),
+		("Mutex", "lock") => Expr::result(true, Expr::rt("mutexLock", args)),
+		("Mutex", "try_lock") => Expr::rt("mutexTryLock", args),
 		("Mutex", "get_mut") => Expr::result(true, first(args).member("value")),
 		// A `PoisonError` is what it holds.
 		("PoisonError", "into_inner" | "get_ref" | "get_mut") => first(args),
@@ -195,6 +196,14 @@ pub fn call<'tcx>(
 			Expr::New(Box::new(Expr::Rt(once_class(b, cell).into())), args)
 		}
 		("atomic", "fence" | "compiler_fence") => Expr::rt("fence", args),
+		// A panic aborts, so no thread is ever unwinding from one.
+		(_, "panicking")
+			if library::std_path(tcx, call.def_id)
+				.first()
+				.is_some_and(|m| m == "thread") =>
+		{
+			Expr::lit("false")
+		}
 		("Waker", "wake_by_ref") => first(args).member("wakeByRef").call(vec![]),
 		("Waker", "wake") => first(args).member("wake").call(vec![]),
 		("Waker", "will_wake") => {

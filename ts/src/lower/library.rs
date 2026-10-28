@@ -14,7 +14,7 @@ use super::Translator;
 use super::body::Body;
 use super::fmt;
 use super::num::{self, Int, Operand};
-use crate::ts::{Expr, Stmt};
+use crate::ts::{Expr, Stmt, StmtKind};
 
 /// A type with a representation of its own: std's, or a well-known crate's that
 /// [`super::stock`] maps.
@@ -57,6 +57,8 @@ pub enum Std {
 	MutexGuard,
 	/// What it holds, a lock's guard or value.
 	PoisonError,
+	/// `rt.TryLockError<T>`, tagged as `Bound` is.
+	TryLockError,
 	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
 	Atomic,
 	/// `rt.AtomicOrdering`: its discriminant.
@@ -189,6 +191,7 @@ impl Std {
 			"TryFromIntError" => return Some(Self::TryFromIntError),
 			"TryFromFloatSecsError" => return Some(Self::TryFromFloatSecsError),
 			"PoisonError" => return Some(Self::PoisonError),
+			"TryLockError" => return Some(Self::TryLockError),
 			_ => {}
 		}
 		match std_path(tcx, did)
@@ -307,9 +310,9 @@ pub fn wrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	}
 }
 
-/// A `Bound` of type `ty`, an `rt.RangeBound`: its variant, by name, and the value it holds, if
-/// any.
-pub fn bound(variant: &str, value: Option<Expr>, ty: crate::ts::Type) -> Expr {
+/// A `Bound` or a `TryLockError` of type `ty`, tagged as the crate's own enums are: its
+/// variant, by name, and the value it holds, if any.
+pub fn tagged(variant: &str, value: Option<Expr>, ty: crate::ts::Type) -> Expr {
 	let mut props = vec![(crate::ts::Key::Name("tag".into()), Expr::Str(variant.into()))];
 	props.extend(value.map(|v| (crate::ts::Key::Name("_0".into()), v)));
 	Expr::As(Box::new(Expr::Object(props)), ty)
@@ -1032,7 +1035,7 @@ fn mapping<'tcx>(
 				_ => return None,
 			}
 		}
-		("Default", "default") => default_value(b, targ(gargs, 0))?,
+		("Default", "default") => default_value(b, targ(gargs, 0), span, out)?,
 
 		// Options, whose other combinators lower from core's MIR.
 		("Option", "unwrap" | "expect") => rt2(args, "option", &name),
@@ -1120,7 +1123,7 @@ fn mapping<'tcx>(
 				}
 				_ => return None,
 			};
-			bound(variant, field.map(|f| r.member(f)), ts)
+			tagged(variant, field.map(|f| r.member(f)), ts)
 		}
 
 		// Slices, whose byte functions take an `rt.ByteSlice`.
@@ -1698,10 +1701,34 @@ impl MethodCall for Expr {
 	}
 }
 
-/// `Default::default()` for a standard type.
-pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Expr> {
+/// `Default::default()` for a standard type, of its parts' defaults where it has parts.
+pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	let part = |b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, out: &mut Vec<Stmt>| {
+		let f = super::collections::trait_fn(tcx, "Default", "default");
+		b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out)
+	};
 	Some(match ty.kind() {
+		ty::Tuple(parts) if parts.is_empty() => Expr::undefined(),
+		ty::Tuple(parts) => Expr::Array(parts.iter().map(|t| part(b, t, out)).collect()),
+		ty::Array(elem, n) => {
+			let n = n.try_to_target_usize(tcx)?;
+			match elem.kind() {
+				ty::Uint(ty::UintTy::U8) => return Some(Expr::rt("bytes", vec![Expr::lit(n.to_string())])),
+				// Whatever its element, which needn't have a default.
+				_ if n == 0 => return Some(Expr::Array(Vec::new())),
+				_ => {}
+			}
+			// Each element its own, as an atomic must be.
+			let mut body = Vec::new();
+			let item = part(b, *elem, &mut body);
+			body.push(StmtKind::Return(Some(item.typed())).at(None));
+			let item_ty = b.t.ty(*elem, span);
+			Expr::ident("Array").member("from").call(vec![
+				Expr::Object(vec![(crate::ts::Key::Name("length".into()), Expr::lit(n.to_string()))]),
+				Expr::Arrow(Vec::new(), item_ty, body),
+			])
+		}
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
 		_ if super::float::is(ty) => super::float::lit(0.0),
@@ -1726,9 +1753,13 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 			Std::Duration => super::time::zero(),
 			Std::Atomic => Expr::New(
 				Box::new(Expr::Rt("Atomic".into())),
-				vec![default_value(b, args.type_at(0))?],
+				vec![default_value(b, args.type_at(0), span, out)?],
 			),
 			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
+			Std::Box => part(b, args.type_at(0), out),
+			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
+			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),
+			Std::Weak => Expr::New(Box::new(Expr::Rt("Weak".into())), Vec::new()),
 			_ => return None,
 		},
 		_ => return None,

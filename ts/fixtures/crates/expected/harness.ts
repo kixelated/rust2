@@ -33,8 +33,10 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const _late: Guard.Guard = Guard.new(254, log);
 	rt.drop(held);
 	rt.drop(_late);
-	const _54: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(log.value.value)));
+	const _58: rt.Mutex<rt.ByteVec> = rt.mutexLock(log.value);
+	const _54: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_58.value)));
 	rt.iterExtendBytes(out, _54);
+	rt.mutexUnlock(_58);
 	const iter: Countdown.Countdown = Countdown.new(rt.min(input.length, 4) & 0xff);
 	while (true) {
 		const _68: rt.u8 | rt.Done = Countdown.next$Iterator(iter);

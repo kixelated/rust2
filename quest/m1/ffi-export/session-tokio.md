@@ -37,5 +37,4 @@ Public API: the C names moq's bindings get.
 ## Required
 
 - [Bump the moq pin past the fallback runtime](/quest/m1/moq-pin.md) - C reaches moq-tokio's fallback runtime
-- [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in the session config
 

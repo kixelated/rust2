@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A binding's path names a dependency the package renames (`foo = { package = "bar" }`)
+  as the package does, `foo::Item`, no longer by its crate name, `bar::Item`.
 - A panic aborts, as on wasm32: the output throws `rt.Panic` without running any cleanup,
   so nothing drops as it unwinds, and what the translation held is undefined after one.
   A caller that catches `rt.Panic` must not use the translation's values again.
