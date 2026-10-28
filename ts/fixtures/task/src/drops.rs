@@ -22,6 +22,7 @@ macro_rules! list {
 }
 
 mod closures;
+mod folds;
 mod iters;
 
 /// A value of a type that drops, with no `[Symbol.dispose]` of its own.
@@ -797,6 +798,12 @@ fn grown(log: &Log, id: u32, at: u8, tree: bool) {
 		_ => drop(hashed.entry(fault(1, Fault::Trips)).or_insert(guard(1))),
 	}
 	log.note(format!("unreached"));
+}
+
+/// Run scenario `arg % 16` of what std's by-value consumers drop of adaptors that hold
+/// closures that drop, panicking as a closure reads item `arg / 16`, if any.
+pub fn folded(log: &Log, id: u32, arg: u8) {
+	folds::folded(log, id, arg);
 }
 
 /// What a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults drop, scenario

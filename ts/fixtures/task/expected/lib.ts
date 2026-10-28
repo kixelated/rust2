@@ -99,6 +99,10 @@ export function drop$Guard_u32(_1: [Guard.Guard, rt.u32]): void {
 	rt.drop(_1[0]);
 }
 
+export function drop$Guard_u64(_1: [Guard.Guard, rt.u64]): void {
+	rt.drop(_1[0]);
+}
+
 export function drop$Held(_1: Held.Held): void {
 	let unwind: number = 0;
 	try {
@@ -357,6 +361,10 @@ export function drop$u32_First(_1: [rt.u32, First.First]): void {
 }
 
 export function drop$u32_Guard(_1: [rt.u32, Guard.Guard]): void {
+	rt.drop(_1[1]);
+}
+
+export function drop$usize_Guard(_1: [rt.usize, Guard.Guard]): void {
 	rt.drop(_1[1]);
 }
 

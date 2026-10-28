@@ -50,6 +50,7 @@ export interface Fixture<V> {
 		run(log: Log, id: number, arg: number): void;
 		held(rx: Consumer, guard: Guard): Future<V>;
 		edited(log: Log, id: number, at: number): void;
+		folded(log: Log, id: number, arg: number): void;
 	};
 	futures: { helpers(rx: Consumer, guard: Guard): Future<V> };
 }
@@ -275,6 +276,7 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.futures.helpers(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
+	["folded", (r, arg) => r.f.drops.folded(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
 /**
@@ -353,4 +355,6 @@ export const cases: Uint8Array[] = [
 	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
 	...Array.from({ length: 8 }, (_, at) => script(["edited", at])),
+	// Each scenario of adaptors' closures that drop, folded, panicking at each item or none.
+	...Array.from({ length: 256 }, (_, arg) => script(["folded", arg])),
 ];

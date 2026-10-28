@@ -127,6 +127,9 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(futures::helpers(channels[c].consumer(), guard));
 			}
 		}),
+		("folded", |log, exec, _, arg| {
+			drops::folded(log, 1000 * exec.len() as u32, arg)
+		}),
 	]
 }
 
