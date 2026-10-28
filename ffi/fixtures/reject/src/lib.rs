@@ -264,6 +264,24 @@ impl Limit {
 	pub fn max(&self) -> u32 {
 		self.max.max(1)
 	}
+
+	/// The name of `max`'s setter too.
+	pub fn set_max(&mut self, max: u32) {
+		self.max = max;
+	}
+}
+
+/// A field holding a `'static` borrow, which a setter cannot take from C's borrow for
+/// the call.
+#[non_exhaustive]
+pub struct Tag {
+	pub label: &'static str,
+}
+
+impl Tag {
+	pub fn new() -> Self {
+		Self { label: "tag" }
+	}
 }
 
 /// A closure kept past the call, as a `'static` bound lets it be.
@@ -291,4 +309,14 @@ pub fn both<F: Fn()>(a: F, b: F) {
 /// An object lent only for as long as it borrows, which a handle's `'static` outlives.
 pub fn read(f: impl FnOnce(&Text<'_>)) {
 	f(&Text(""))
+}
+
+/// Words C would lend inside an array, which C lends nothing inside.
+pub fn count_words(words: Vec<&str>) -> usize {
+	words.len()
+}
+
+/// Words C would lend inside an `Option` inside an array.
+pub fn count_some(words: Vec<Option<&str>>) -> usize {
+	words.iter().flatten().count()
 }

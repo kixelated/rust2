@@ -4,7 +4,8 @@
 
 A binding connects and accepts moq sessions with one call, as moq-ffi does today: the
 exported library runs moq-tokio's sockets and runtime inside, and the binding never drives
-a transport. Proven from C in `moq/moq.c` against a local relay or server.
+a transport. Proven from C in `moq/moq.c` against a local relay or server, including a
+server that binds port 0 and reads its address back.
 
 ## Plan
 
@@ -36,6 +37,4 @@ Public API: the C names moq's bindings get.
 ## Required
 
 - [Bump the moq pin past the fallback runtime](/quest/m1/moq-pin.md) - C reaches moq-tokio's fallback runtime
-- [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in the session config
-- [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI
 

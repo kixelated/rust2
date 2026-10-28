@@ -5,12 +5,20 @@ import { map$Option_Arc_Made_u64_get_closure0 } from "./core/option.ts";
 import type * as Made from "./defaults.Made.ts";
 
 export function default$Default(): Slot {
-	return { weak: new rt.Weak() };
+	return new Slot({ weak: new rt.Weak() });
 }
 
 /** A placeholder that upgrades once it points at something. */
-export interface Slot {
+export class Slot {
 	weak: rt.Weak<Made.Made>;
+
+	constructor(fields: { weak: rt.Weak<Made.Made> }) {
+		this.weak = fields.weak;
+	}
+
+	[Symbol.dispose](): void {
+		rt.drop(this.weak);
+	}
 }
 
 export function get(self: Slot): rt.u64 | undefined {

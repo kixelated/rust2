@@ -116,6 +116,9 @@ fn main() {
 		counter.edited() && counter.get() == 6
 	});
 	println!("edit {edited} {}", registry.first.get());
+	// A setter moves an object in, as assignment does.
+	registry.first = Counter::new("second", 3);
+	println!("set first {} {}", registry.first.get(), registry.first.name());
 	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
 	println!("offset {}", api_lib::offset(|| 7, 3));
 
@@ -156,10 +159,19 @@ fn main() {
 	println!("secs {}", stamp.secs());
 	println!("later {}", Stamp::from_millis(3000).later(stamp));
 	println!("secs {}", stamp.secs());
-	let message = Message::new(Some(stamp), Bytes::from_static(b"body"));
+	let mut message = Message::new(Some(stamp), Bytes::from_static(b"body"));
 	println!("payload {}", String::from_utf8_lossy(&message.payload));
 	println!("stamp {:?}", message.stamp.unwrap());
 	println!("sent {}", message.sent());
+	// Setters assign in place: the bytes are copied in, and a `Copy` handle copied.
+	let reset = Stamp::from_millis(4000);
+	message.stamp = Some(reset);
+	message.payload = Bytes::from_static(b"edited");
+	println!("payload {}", String::from_utf8_lossy(&message.payload));
+	println!("stamp {:?}", message.stamp.unwrap());
+	println!("secs {}", reset.secs());
+	message.stamp = None;
+	println!("stamp {}", message.stamp.is_some());
 
 	println!("kept {}", api_lib::emit(Print, vec![1, 2, 3, 4]));
 	let logger = Logger::new(Box::new(Print));
@@ -293,7 +305,7 @@ fn main() {
 	drop(token);
 	println!("dropped {}", api_lib::dropped());
 
-	let retry = api_lib::Retry::new(Some(5));
+	let mut retry = api_lib::Retry::new(Some(5));
 	let limit = retry.limit;
 	println!(
 		"retry {} {} {} {}",
@@ -302,5 +314,60 @@ fn main() {
 		retry.limit(),
 		retry.delay()
 	);
+	// The renamed field's setter, named as its getter.
+	retry.limit = None;
+	println!("retry {}", retry.limit());
 	println!("slot {}", api_lib::Slot::<u8>::new(200).value());
+
+	// Foreign types: a URL parsed from text, socket addresses, OS paths, and `Vec`s.
+	let base = url::Url::parse("https://example.com/a/b").unwrap();
+	println!("url {base} host {:?}", api_lib::host(&base));
+	match api_lib::resolve(base.clone(), "c?d") {
+		Ok(url) => println!("resolve {url} {}", url == base),
+		Err(err) => println!("resolve err {err}"),
+	}
+	match url::Url::parse("no scheme") {
+		Ok(url) => println!("parse {url}"),
+		Err(err) => println!("parse err {err}"),
+	}
+	let v4: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
+	let v6: std::net::SocketAddr = "[::1%3]:443".parse().unwrap();
+	println!("ports {:?}", api_lib::ports(vec![v4, v6]));
+	let peer = api_lib::Peer {
+		addr: v6,
+		names: vec!["a".to_string(), "b".to_string()],
+	}
+	.next("c");
+	println!("peer {peer:?} {:?}", peer.aliases());
+	let file = api_lib::file(std::path::Path::new("dir"), "f");
+	println!("file {}", file.as_os_str().as_encoded_bytes().escape_ascii());
+	let parents = api_lib::parents(vec![file, std::path::PathBuf::from("/")]);
+	let parents: Vec<String> = (parents.iter())
+		.map(|p| match p {
+			Some(p) => p.as_os_str().as_encoded_bytes().escape_ascii().to_string(),
+			None => "none".to_string(),
+		})
+		.collect();
+	println!("parents {}", parents.join(" "));
+	let words = api_lib::words(" one two  three ");
+	println!("words {} {words:?}", words.len());
+	println!(
+		"sentence {} {}",
+		api_lib::sentence(Some(words)),
+		api_lib::sentence(None)
+	);
+	println!("sentence {}|", api_lib::sentence(Some(Vec::new())));
+	println!("chunks {:?}", api_lib::chunks(b"abcde", 2));
+	let mut counters = api_lib::counters(vec!["x".to_string(), "y".to_string()]);
+	let names: Vec<String> = counters.iter().map(|c| format!("{} {}", c.name(), c.get())).collect();
+	println!("counters {}", names.join(", "));
+	let boxed = counters.split_off(1);
+	println!(
+		"worth {} {}",
+		api_lib::worth(Some(counters), Box::new(boxed)),
+		api_lib::worth(None, Box::default())
+	);
+	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
+	let site = api_lib::Site::new(base);
+	println!("site {} {}", site.home, site.home);
 }

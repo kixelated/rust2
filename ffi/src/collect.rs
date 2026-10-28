@@ -36,6 +36,9 @@ pub struct Why {
 	pub note: Option<(Span, String)>,
 }
 
+/// The construct of an instance inference missed: a bug in the exporter, not the crate.
+pub const NOT_INFERRED: &str = "instance not inferred";
+
 fn why(construct: &'static str, detail: impl Into<String>) -> Why {
 	Why {
 		construct,
@@ -156,6 +159,8 @@ struct Collector<'tcx> {
 	/// implementation or a lent closure, with the type each takes.
 	impls: std::cell::RefCell<Vec<(Ty<'tcx>, Type)>>,
 	bytes: Option<DefId>,
+	/// `url::Url`, when no export is the `url` crate, and the object it exports as.
+	url: Option<(DefId, usize)>,
 	/// `std::ops::Bound`, and `std::ops::RangeBounds`, which names it.
 	bound: Option<DefId>,
 	range_bounds: Option<DefId>,
@@ -166,16 +171,15 @@ struct Collector<'tcx> {
 
 /// Collect the exported crates' API, leaving out what each one's `exclude` names.
 pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
-	let bytes = tcx
-		.crates(())
-		.iter()
-		.find(|&&krate| tcx.crate_name(krate).as_str() == "bytes")
-		.and_then(|&krate| {
-			tcx.module_children(krate.as_def_id())
-				.iter()
-				.find(|child| child.ident.as_str() == "Bytes")
-				.and_then(|child| child.res.opt_def_id())
-		});
+	// A type at a crate's root, by the crate's name and its own.
+	let root = |krate: &str, name: &str| {
+		let krate = *tcx.crates(()).iter().find(|&&k| tcx.crate_name(k).as_str() == krate)?;
+		(tcx.module_children(krate.as_def_id()).iter())
+			.find(|child| child.ident.as_str() == name)
+			.and_then(|child| child.res.opt_def_id())
+	};
+	let bytes = root("bytes", "Bytes");
+	let url = root("url", "Url").filter(|url| !crates.iter().any(|c| c.krate == url.krate));
 	let range_bounds = tcx.get_diagnostic_item(rustc_span::Symbol::intern("RangeBounds"));
 	// `RangeBounds::start_bound` returns a `Bound`, which has no diagnostic item of its own.
 	let bound = range_bounds.and_then(|tr| {
@@ -214,6 +218,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 			left_out: Default::default(),
 			impls: Default::default(),
 			bytes,
+			url: url.map(|url| (url, 0)),
 			bound,
 			range_bounds,
 			orphans: orphans.clone(),
@@ -230,6 +235,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 		c.infer();
 		c.declare();
 		c.define();
+		c.prune();
 		c
 	};
 	// Refusing an object no export returns refuses what takes it, which may leave another
@@ -867,6 +873,46 @@ impl<'tcx> Collector<'tcx> {
 				}
 			}
 		}
+		// After every declared object, so `prune` can drop it if no export names it. Until
+		// here, it maps only to decide what does, never to an index kept.
+		if let Some((url, index)) = &mut self.url {
+			*index = self.api.objects.len();
+			let span = tcx.def_span(*url);
+			let ty = Type::Object(*index);
+			let path = |rest: &[&str]| -> Path { ["url", "Url"].iter().chain(rest).map(|s| s.to_string()).collect() };
+			self.api.objects.push(Object {
+				path: path(&[]),
+				args: Vec::new(),
+				span,
+				docs: "`url::Url`: a URL, made by parsing its text.".to_string(),
+				sync: true,
+				copy: false,
+				lifetimes: 0,
+				methods: vec![Function {
+					path: path(&["parse"]),
+					span,
+					docs: "Parse an absolute URL, failing with why it is not one.".to_string(),
+					receiver: None,
+					params: vec![Param {
+						name: "input".to_string(),
+						ty: Type::Ref(Mutability::Not, Box::new(Type::Str)),
+					}],
+					ok: ty,
+					err: Some(Type::String),
+					future: false,
+					eager: false,
+					access: Access::Parse,
+					instance: None,
+				}],
+				traits: Traits {
+					clone: true,
+					eq: true,
+					display: true,
+					debug: true,
+					default: false,
+				},
+			});
+		}
 	}
 
 	/// How a type or trait is exported: a struct whose fields are all `pub`, or an enum,
@@ -1183,7 +1229,7 @@ impl<'tcx> Collector<'tcx> {
 					Some(Decl::Object(index)) => {
 						let (mut methods, traits) = self.methods(&site);
 						if kind == DefKind::Struct {
-							methods.splice(0..0, self.getters(&site));
+							methods.splice(0..0, self.accessors(&site));
 						}
 						let object = &mut self.api.objects[index];
 						object.args = args;
@@ -1196,10 +1242,37 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// A getter for each `pub` field of a struct exported as an object, returning a copy.
-	fn getters(&mut self, site: &Site<'tcx>) -> Vec<Function> {
+	/// Drop `url::Url`'s object if no export names it, so a crate that only builds with
+	/// `url` exports none of it.
+	fn prune(&mut self) {
+		let Some((_, url)) = self.url else {
+			return;
+		};
+		let api = &self.api;
+		let signature = |f: &Function| {
+			(f.params.iter().map(|p| &p.ty))
+				.chain([&f.ok])
+				.chain(&f.err)
+				.any(|ty| names(ty, url))
+		};
+		let fields = |fields: &[Field]| fields.iter().any(|f| names(&f.ty, url));
+		let used = api.functions.iter().any(signature)
+			|| (api.records.iter()).any(|r| fields(&r.fields) || r.methods.iter().any(signature))
+			|| (api.enums.iter())
+				.any(|e| e.variants.iter().any(|v| fields(&v.fields)) || e.methods.iter().any(signature))
+			|| (api.objects.iter().enumerate()).any(|(i, o)| i != url && o.methods.iter().any(signature))
+			|| (api.callbacks.iter()).any(|c| c.methods.iter().any(signature));
+		if !used {
+			assert_eq!(url, api.objects.len() - 1, "url::Url is the last object");
+			self.api.objects.pop();
+		}
+	}
+
+	/// A getter and a setter for each `pub` field of a struct exported as an object: the
+	/// getter returns a copy, and the setter assigns in place, as `x.field = value` does.
+	fn accessors(&mut self, site: &Site<'tcx>) -> Vec<Function> {
 		let tcx = self.tcx;
-		let mut getters = Vec::new();
+		let mut accessors = Vec::new();
 		let self_ty = self.site_ty(site);
 		for field in &tcx.adt_def(site.key.def_id).non_enum_variant().fields {
 			if !field.vis.is_public() {
@@ -1230,26 +1303,60 @@ impl<'tcx> Collector<'tcx> {
 			if ty.is_unit() {
 				continue;
 			}
-			// Read through `&self`, so returned as a copy, as a borrowed return is.
+			// Read through `&self`, so returned as a copy, as a borrowed return is, and
+			// written with a value C gives up, as an owned parameter is.
 			let read = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty);
-			match self.ty(read, Pos::Return) {
-				Ok(ty) => getters.push(Function {
-					path: [&site.path[..], &[name]].concat(),
-					span,
-					docs: docs(tcx, field.did),
-					receiver: Some(Receiver::Ref),
-					params: Vec::new(),
-					ok: ty,
-					err: None,
-					future: false,
-					eager: false,
-					access: Access::Field { shared },
-					instance: None,
-				}),
-				Err(why) => self.refuse(if shared { &key } else { &shown }, "field", span, vec![why]),
+			let mapped = {
+				let get = self.ty(read, Pos::Return);
+				// A handle outlives every call, so a reference it holds is `'static`, which
+				// C's borrow for the call is not.
+				let set = match self.ty(ty, Pos::Param) {
+					Ok(set) if matches!(set, Type::Ref(..)) || lends_inside(&set) => {
+						Err(why("'static borrow", ty.to_string()))
+					}
+					set => set,
+				};
+				match (get, set) {
+					(Ok(get), Ok(set)) => Ok((get, set)),
+					(get, set) => {
+						let mut whys: Vec<Why> = get.err().into_iter().collect();
+						// A type neither way maps is one reason, not two.
+						let new = set.err().filter(|set| {
+							!whys
+								.iter()
+								.any(|get| get.construct == set.construct && get.detail == set.detail)
+						});
+						whys.extend(new);
+						Err(whys)
+					}
+				}
+			};
+			match mapped {
+				Ok((get, set)) => {
+					let accessor = |receiver, params, ok, set| Function {
+						path: [&site.path[..], std::slice::from_ref(&name)].concat(),
+						span,
+						docs: docs(tcx, field.did),
+						receiver: Some(receiver),
+						params,
+						ok,
+						err: None,
+						future: false,
+						eager: false,
+						access: Access::Field { shared, set },
+						instance: None,
+					};
+					accessors.push(accessor(Receiver::Ref, Vec::new(), get, false));
+					let value = Param {
+						name: "value".to_string(),
+						ty: set,
+					};
+					accessors.push(accessor(Receiver::Mut, vec![value], Type::Unit, true));
+				}
+				Err(why) => self.refuse(if shared { &key } else { &shown }, "field", span, why),
 			}
 		}
-		getters
+		accessors
 	}
 
 	/// A type's inherent `pub` methods, from each impl that applies to it, and the std
@@ -2242,8 +2349,9 @@ impl<'tcx> Collector<'tcx> {
 		let tcx = self.tcx;
 		ty.walk().filter_map(|arg| arg.as_type()).any(|ty| match ty.kind() {
 			ty::Adt(adt, args) => {
-				matches!(self.decl(adt.did(), args), Some(Decl::Object(_)))
-					&& !implements(tcx, ty, adt.did(), sym::Copy)
+				let object = matches!(self.decl(adt.did(), args), Some(Decl::Object(_)))
+					|| self.url.is_some_and(|(url, _)| url == adt.did());
+				object && !implements(tcx, ty, adt.did(), sym::Copy)
 			}
 			_ => false,
 		})
@@ -2366,6 +2474,9 @@ impl<'tcx> Collector<'tcx> {
 			ty::Ref(_, inner, m) => {
 				let inner_ty = match inner.kind() {
 					ty::Str => Type::Str,
+					ty::Adt(adt, _) if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Path"), adt.did()) => {
+						Type::Path
+					}
 					ty::Slice(elem) if *elem == tcx.types.u8 => Type::Slice,
 					ty::Slice(elem) => return Err(why("slice", elem.to_string())),
 					ty::Dynamic(..) => return Err(why("trait object", inner.to_string())),
@@ -2383,7 +2494,7 @@ impl<'tcx> Collector<'tcx> {
 				};
 				match (&inner_ty, pos, mutability) {
 					// Returned as a clone: a handle in it is a new handle to its clone.
-					(Type::Str | Type::Slice, Pos::Return | Pos::Returned, _) => {}
+					(Type::Str | Type::Slice | Type::Path, Pos::Return | Pos::Returned, _) => {}
 					(_, Pos::Return | Pos::Returned, _) if !self.is_clone(*inner) => {
 						return Err(why("borrowed return that is not Clone", inner.to_string()));
 					}
@@ -2404,14 +2515,34 @@ impl<'tcx> Collector<'tcx> {
 				if tcx.lang_items().string() == Some(did) {
 					Type::String
 				} else if tcx.is_diagnostic_item(sym::Vec, did) {
-					match args.type_at(0) == tcx.types.u8 {
-						true => Type::Vec,
-						false => return Err(why("Vec", args.type_at(0).to_string())),
+					let elem = args.type_at(0);
+					if elem == tcx.types.u8 {
+						Type::Vec
+					} else {
+						let inner = self.ty(elem, pos.inner())?;
+						// C lends nothing inside an array, and an element lowered back into
+						// one is a clone of what Rust lent.
+						if borrows(&inner) && !matches!(pos, Pos::Return | Pos::Returned) {
+							return Err(why("Vec of references", elem.to_string()));
+						}
+						Type::List(Box::new(inner))
 					}
 				} else if Some(did) == self.bytes {
 					Type::Bytes
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Duration"), did) {
 					Type::Duration
+				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("PathBuf"), did) {
+					Type::PathBuf
+				} else if tcx.crate_name(did.krate) == sym::core && tcx.item_name(did).as_str() == "SocketAddr" {
+					Type::SocketAddr
+				} else if let Some((url, i)) = self.url
+					&& did == url
+				{
+					// A value holds only values, and handles it can copy.
+					match pos {
+						Pos::Field => return Err(why("object in a value", "url::Url")),
+						_ => Type::Object(i),
+					}
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Waker"), did) {
 					match pos {
 						Pos::Param => Type::Waker,
@@ -2476,9 +2607,9 @@ impl<'tcx> Collector<'tcx> {
 								return Err(why("type parameter", name));
 							}
 							// Inference admits or rejects each instance a signature names, so one
-							// it did not is a gap in inference, which the census counts.
+							// it did not is a gap in inference, which even a census fails on.
 							if key.args.is_some() && self.items.iter().any(|(item, _)| *item == did) {
-								let mut why = why("instance not inferred", name);
+								let mut why = why(NOT_INFERRED, name);
 								let note =
 									format!("`{}` exports only at the instances it infers", strip_args(tcx, did));
 								why.note = Some((tcx.def_span(did), note));
@@ -2549,9 +2680,9 @@ enum Pos {
 /// copied by it if kept.
 fn foreign_arg(ty: &Type) -> bool {
 	match ty {
-		Type::Bool | Type::Int(_) | Type::F32 | Type::F64 | Type::Char | Type::Duration => true,
-		Type::String | Type::Vec | Type::Bytes => true,
-		Type::Ref(Mutability::Not, inner) => matches!(**inner, Type::Str | Type::Slice),
+		Type::Bool | Type::Int(_) | Type::F32 | Type::F64 | Type::Char | Type::Duration | Type::SocketAddr => true,
+		Type::String | Type::Vec | Type::Bytes | Type::PathBuf => true,
+		Type::Ref(Mutability::Not, inner) => matches!(**inner, Type::Str | Type::Slice | Type::Path),
 		Type::Option(inner) => foreign_arg(inner),
 		_ => false,
 	}
@@ -2575,7 +2706,9 @@ fn buildable(api: &Api, ty: &Type, held: &[bool]) -> bool {
 fn returns(api: &Api, ty: &Type, objects: &mut Vec<usize>) {
 	match ty {
 		Type::Object(i) => objects.push(*i),
-		Type::Ref(_, inner) | Type::Box(inner) | Type::Option(inner) => returns(api, inner, objects),
+		Type::Ref(_, inner) | Type::Box(inner) | Type::Option(inner) | Type::List(inner) => {
+			returns(api, inner, objects)
+		}
 		Type::Tuple(elements) => elements.iter().for_each(|ty| returns(api, ty, objects)),
 		Type::Record(i) => api.records[*i].fields.iter().for_each(|f| returns(api, &f.ty, objects)),
 		Type::Enum(i) => api.enums[*i]
@@ -2584,6 +2717,26 @@ fn returns(api: &Api, ty: &Type, objects: &mut Vec<usize>) {
 			.flat_map(|v| &v.fields)
 			.for_each(|f| returns(api, &f.ty, objects)),
 		_ => {}
+	}
+}
+
+/// Whether `ty` names the object `i`.
+fn names(ty: &Type, i: usize) -> bool {
+	match ty {
+		Type::Object(o) => *o == i,
+		Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) | Type::List(inner) => names(inner, i),
+		Type::Tuple(elements) => elements.iter().any(|ty| names(ty, i)),
+		Type::Closure(params, ret) => params.iter().chain([&**ret]).any(|ty| names(ty, i)),
+		_ => false,
+	}
+}
+
+/// Whether `ty` is or holds a reference.
+fn borrows(ty: &Type) -> bool {
+	match ty {
+		Type::Ref(..) => true,
+		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => borrows(inner),
+		_ => false,
 	}
 }
 

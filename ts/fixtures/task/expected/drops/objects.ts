@@ -142,6 +142,7 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
 	Log.note(log, rt.fmtFormat(["future ", args12[0]]));
 	rt.drop(other);
+	rt.drop(weak);
 }
 
 export class sharedFuture {

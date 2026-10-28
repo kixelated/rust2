@@ -91,6 +91,31 @@ static bool move_lent(void *data, api_counter *counter) {
 	return false;
 }
 
+/* Bytes as Rust's `escape_ascii` prints those of a path. */
+static void print_escaped(const char *before, api_buf buf, const char *after) {
+	printf("%s", before);
+	for (size_t i = 0; i < buf.len; i++) {
+		uint8_t b = buf.ptr[i];
+		if (b >= 0x20 && b < 0x7f && b != '\\' && b != '\'' && b != '"') {
+			putchar(b);
+		} else {
+			printf("\\x%02x", b);
+		}
+	}
+	printf("%s", after);
+	api_buf_free(buf);
+}
+
+/* A socket address, as Rust's Display prints the ones the script makes. */
+static void print_addr(api_socket_addr addr) {
+	if (!addr.v6) {
+		printf("%u.%u.%u.%u:%u", addr.ip[0], addr.ip[1], addr.ip[2], addr.ip[3], addr.port);
+		return;
+	}
+	/* Only the loopback, `::1`. */
+	printf("[::%u%%%u]:%u", addr.ip[15], addr.scope_id, addr.port);
+}
+
 /* A bound, as Rust's Debug prints it. */
 static void print_bound(api_bound_u64 bound) {
 	switch (bound.kind) {
@@ -211,6 +236,14 @@ static int script(void) {
 	first = api_registry_first(registry);
 	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
 	api_counter_free(first);
+	/* A setter moves an object in, as assignment does, leaving the handle to be freed. */
+	api_counter *second = api_counter_new(str("second"), 3);
+	api_registry_set_first(registry, second);
+	api_counter_free(second);
+	first = api_registry_first(registry);
+	printf("set first %llu ", (unsigned long long)api_counter_get(first));
+	print("", api_counter_name(first), "\n");
+	api_counter_free(first);
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
 	printf("offset %u\n", api_offset(seven, NULL, 3));
 	api_registry_free(registry);
@@ -289,6 +322,18 @@ static int script(void) {
 	print("stamp ", api_stamp_debug(read), "\n");
 	api_stamp_free(read);
 	printf("sent %s\n", api_message_sent(message) ? "true" : "false");
+	/* Setters assign in place: the bytes are copied in, and a `Copy` handle copied. */
+	api_stamp *reset = api_stamp_from_millis(4000);
+	api_message_set_stamp(message, reset);
+	api_message_set_payload(message, str("edited"));
+	print("payload ", api_message_payload(message), "\n");
+	read = api_message_stamp(message);
+	print("stamp ", api_stamp_debug(read), "\n");
+	api_stamp_free(read);
+	printf("secs %llu\n", (unsigned long long)api_stamp_secs(reset));
+	api_stamp_free(reset);
+	api_message_set_stamp(message, NULL);
+	printf("stamp %s\n", api_message_stamp(message) != NULL ? "true" : "false");
 	api_message_free(message);
 
 	static const api_log_vtable print_log = {.free = log_free, .log = log_line};
@@ -450,10 +495,171 @@ static int script(void) {
 	api_retry *retry = api_retry_new((api_option_u32){.some = true, .value = 5});
 	api_option_u32 limit = api_retry_limit_setting(retry);
 	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
+	/* The renamed field's setter, named as its getter. */
+	api_retry_set_limit_setting(retry, (api_option_u32){0});
+	printf("retry %u\n", api_retry_limit(retry));
 	api_retry_free(retry);
 	api_slot_u8 *slot = api_slot_u8_new(200);
 	printf("slot %u\n", api_slot_u8_value(slot));
 	api_slot_u8_free(slot);
+	/* Foreign types: a URL parsed from text, socket addresses, OS paths, and `Vec`s. */
+	api_url *base;
+	api_buf parse_err;
+	if (!api_url_parse(str("https://example.com/a/b"), &base, &parse_err)) {
+		return 1;
+	}
+	print("url ", api_url_to_string(base), " host ");
+	api_buf host = api_host(base);
+	if (host.ptr != NULL) {
+		print("Some(\"", host, "\")\n");
+	} else {
+		printf("None\n");
+	}
+	api_url *resolved;
+	api_buf resolve_err;
+	api_url *base_clone = api_url_clone(base);
+	if (api_resolve(base_clone, str("c?d"), &resolved, &resolve_err)) {
+		print("resolve ", api_url_to_string(resolved), " ");
+		printf("%s\n", api_url_eq(resolved, base) ? "true" : "false");
+		api_url_free(resolved);
+	} else {
+		print("resolve err ", resolve_err, "\n");
+	}
+	api_url_free(base_clone);
+	api_url_free(base);
+	api_url *bad;
+	if (api_url_parse(str("no scheme"), &bad, &parse_err)) {
+		print("parse ", api_url_to_string(bad), "\n");
+		api_url_free(bad);
+	} else {
+		print("parse err ", parse_err, "\n");
+	}
+
+	api_socket_addr addrs[2] = {
+		{.ip = {127, 0, 0, 1}, .port = 8080},
+		{.ip = {[15] = 1}, .port = 443, .v6 = true, .scope_id = 3},
+	};
+	api_vec_u16 ports = api_ports((api_vec_socket_addr){.ptr = addrs, .len = 2});
+	printf("ports [%u, %u]\n", ports.ptr[0], ports.ptr[1]);
+	api_vec_u16_free(ports);
+	api_buf peer_names[] = {str("a"), str("b")};
+	api_peer peer_start = {.addr = addrs[1], .names = {.ptr = peer_names, .len = 2}};
+	api_peer peer = api_peer_next(&peer_start, str("c"));
+	printf("peer Peer { addr: ");
+	print_addr(peer.addr);
+	printf(", names: [");
+	for (size_t i = 0; i < peer.names.len; i++) {
+		printf("%s\"%.*s\"", i == 0 ? "" : ", ", (int)peer.names.ptr[i].len, (const char *)peer.names.ptr[i].ptr);
+	}
+	printf("] } [");
+	api_vec_string aliases = api_peer_aliases(&peer);
+	for (size_t i = 0; i < aliases.len; i++) {
+		printf("%s\"%.*s\"", i == 0 ? "" : ", ", (int)aliases.ptr[i].len, (const char *)aliases.ptr[i].ptr);
+	}
+	printf("]\n");
+	api_vec_string_free(aliases);
+	api_buf debug = api_peer_debug(&peer);
+	api_peer_free(&peer);
+	api_buf_free(debug);
+
+	/* A path's bytes as the OS holds them, which need not be UTF-8. */
+	api_buf stray = api_stray();
+	api_buf in_stray = api_file(stray, str("f"));
+	if (in_stray.len != 3 || memcmp(in_stray.ptr, "\xff/f", 3) != 0) {
+		return 1;
+	}
+	api_buf_free(stray);
+	api_buf_free(in_stray);
+	api_buf file = api_file(str("dir"), str("f"));
+	api_buf paths[] = {file, str("/")};
+	api_vec_option_path parents = api_parents((api_vec_path){.ptr = paths, .len = 2});
+	print_escaped("file ", file, "\n");
+	printf("parents");
+	for (size_t i = 0; i < parents.len; i++) {
+		if (parents.ptr[i].ptr != NULL) {
+			print_escaped(" ", parents.ptr[i], "");
+		} else {
+			printf(" none");
+		}
+	}
+	printf("\n");
+	/* Each element taken: the array alone is freed. */
+	parents.len = 0;
+	api_vec_option_path_free(parents);
+
+	api_vec_string words = api_words(str(" one two  three "));
+	printf("words %zu [", words.len);
+	for (size_t i = 0; i < words.len; i++) {
+		printf("%s\"%.*s\"", i == 0 ? "" : ", ", (int)words.ptr[i].len, (const char *)words.ptr[i].ptr);
+	}
+	printf("]\n");
+	print("sentence ", api_sentence(words), " ");
+	print("", api_sentence((api_vec_string){0}), "\n");
+	api_vec_string_free(words);
+	/* An empty array that is not None: its pointer is not null. */
+	api_buf no_words[1];
+	print("sentence ", api_sentence((api_vec_string){.ptr = no_words, .len = 0}), "|\n");
+
+	api_vec_bytes chunks = api_chunks(str("abcde"), 2);
+	printf("chunks [");
+	for (size_t i = 0; i < chunks.len; i++) {
+		printf("%s[", i == 0 ? "" : ", ");
+		for (size_t j = 0; j < chunks.ptr[i].len; j++) {
+			printf("%s%u", j == 0 ? "" : ", ", chunks.ptr[i].ptr[j]);
+		}
+		printf("]");
+	}
+	printf("]\n");
+	api_vec_bytes_free(chunks);
+
+	api_buf counter_names[] = {str("x"), str("y")};
+	api_vec_counter counters = api_counters((api_vec_string){.ptr = counter_names, .len = 2});
+	printf("counters");
+	for (size_t i = 0; i < counters.len; i++) {
+		print(i == 0 ? " " : ", ", api_counter_name(counters.ptr[i]), " ");
+		printf("%llu", (unsigned long long)api_counter_get(counters.ptr[i]));
+	}
+	printf("\n");
+	/* Each counter moves in, leaving its handle only to free. */
+	uint64_t worth = api_worth((api_vec_counter){.ptr = counters.ptr, .len = 1}, (api_vec_counter){.ptr = counters.ptr + 1, .len = 1});
+	uint64_t none = api_worth((api_vec_counter){0}, (api_vec_counter){.ptr = counters.ptr, .len = 0});
+	printf("worth %llu %llu\n", (unsigned long long)worth, (unsigned long long)none);
+	api_vec_counter_free(counters);
+
+	uint32_t row0[] = {1, 2};
+	uint32_t row2[] = {3};
+	api_vec_u32 rows[] = {{.ptr = row0, .len = 2}, {.ptr = row0, .len = 0}, {.ptr = row2, .len = 1}};
+	api_vec_u32 sums = api_sums((api_vec_vec_u32){.ptr = rows, .len = 3});
+	printf("sums [%u, %u, %u]\n", sums.ptr[0], sums.ptr[1], sums.ptr[2]);
+	api_vec_u32_free(sums);
+
+	api_url *home;
+	if (!api_url_parse(str("https://example.com/a/b"), &home, &parse_err)) {
+		return 1;
+	}
+	api_site *site = api_site_new(home);
+	api_url *home0 = api_site_home(site);
+	api_url *home1 = api_site_home(site);
+	print("site ", api_url_to_string(home0), " ");
+	print("", api_url_to_string(home1), "\n");
+	api_url_free(home0);
+	api_url_free(home1);
+	api_site_free(site);
+	api_url_free(home);
+
+	/* A returned `Vec<&Token>` holds clones, which its free drops. */
+	api_token *twice = api_token_new(9);
+	uint32_t before = api_dropped();
+	api_vec_token tokens = api_token_twice(twice);
+	if (tokens.len != 2 || api_token_id(tokens.ptr[1]) != 9) {
+		return 1;
+	}
+	api_vec_token_free(tokens);
+	if (api_dropped() != before + 2) {
+		return 1;
+	}
+	api_token_free(twice);
+
 	/* Each future dropped its waker once it finished, and Rust the one it was given. */
 	return drops == 5 ? 0 : 1;
 }
@@ -492,6 +698,13 @@ static int broken(const char *which) {
 		api_registry_edit(registry, NULL, NULL);
 	} else if (strcmp(which, "bound") == 0) {
 		api_count((api_bounds_u64){.start = {.kind = (api_bound)3}});
+	} else if (strcmp(which, "socket") == 0) {
+		api_socket_addr addr = {.ip = {127, 0, 0, 1, 1}};
+		api_ports((api_vec_socket_addr){.ptr = &addr, .len = 1});
+	} else if (strcmp(which, "array") == 0) {
+		api_vec_u16 ports = api_ports((api_vec_socket_addr){0});
+		ports.len = 1;
+		api_vec_u16_free(ports);
 	}
 	return 0;
 }

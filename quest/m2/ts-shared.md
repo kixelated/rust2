@@ -15,16 +15,16 @@ Decided with the maintainer on 2026-10-23: deterministic reference counts in
 `Weak::upgrade` fails and reads `weak_count`, so drop timing is observable.
 
 The async spike ([#16](https://github.com/kixelated/rust2/pull/16)) landed what its
-kio-shaped fixture needs, in `rt/task.ts`: `rt.Arc` counts strong references and
-drops its value with the last, `rt.Weak` upgrades while one is left, and `rt.Mutex`
-is its own guard, which a lock gives as `Ok`: the translator aborts on panic, as wasm32
-does, so nothing poisons a mutex. A guard's drop unlocks it, `try_lock` while held gives
-`WouldBlock`, and a re-entrant `lock` panics with wasm32's message. `rt.Atomic` holds
-a `bool` or an integer, and its operations check their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold their `Option<T>`, and
-a `OnceLock` initialized from within its own initialization panics as wasm32's does;
+kio-shaped fixture needs, in `rt/task.ts`: `rt.Arc`, an `Arc` or an `Rc`, counts
+strong and weak references and drops its value with the last strong one, `rt.Weak`
+upgrades while one is left, and `rt.Mutex` is its own guard, which a lock gives as
+`Ok`: the translator aborts on panic, as wasm32 does, so nothing poisons a mutex. A
+guard's drop unlocks it, `try_lock` while held gives `WouldBlock`, and a re-entrant
+`lock` panics with wasm32's message. `rt.Atomic` holds a `bool` or an integer, and its
+operations check their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold
+their `Option<T>`, and a `OnceLock` initialized from within its own initialization panics as wasm32's does;
 their `Clone`, `Debug`, `PartialEq`, `get_mut`, and `get_or_try_init` are still refused.
-Left: `Rc`, `weak_count` (a dropped `Weak` counts nothing yet; kio's `WaiterList`
-reads it), `Arc::new_cyclic` (moq-net's `resume`), `RwLock`, `Cell`, and `RefCell`.
+Left: `Arc::new_cyclic` (moq-net's `resume`), `RwLock`, `Cell`, and `RefCell`.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
 - Keep Rust's failure modes where they are defined: a `RefCell` double borrow
