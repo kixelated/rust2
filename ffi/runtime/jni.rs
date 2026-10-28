@@ -3,7 +3,8 @@
 //!
 //! A value Kotlin passes is a JNI scalar, a handle as a `long`, its bytes as a `byte[]`,
 //! or anything else encoded into a `byte[]`: little-endian, field by field, as the C
-//! struct holds it, with a buffer as its length (-1 for none) and its bytes.
+//! struct holds it, with a buffer as its length (-1 for none) and its bytes, and an array
+//! as its length (-1 for none) and its elements.
 
 use std::cell::Cell;
 use std::ffi::{CStr, c_void};
@@ -307,20 +308,24 @@ pub fn waker(env: *mut JNIEnv, waker: jobject) -> rt::Waker {
 	lend(node(env, waker))
 }
 
-/// Encoded values, read in the order they were written.
-pub struct Reader<'a>(&'a [u8]);
+/// Encoded values, read in the order they were written, with the arrays read, which the
+/// arrays' views point into until the reader drops.
+pub struct Reader<'a> {
+	bytes: &'a [u8],
+	arrays: Vec<Box<dyn std::any::Any>>,
+}
 
 impl<'a> Reader<'a> {
 	pub fn new(bytes: &'a [u8]) -> Self {
-		Self(bytes)
+		Self { bytes, arrays: Vec::new() }
 	}
 
 	fn take(&mut self, n: usize) -> &'a [u8] {
-		if self.0.len() < n {
+		if self.bytes.len() < n {
 			rt::fail("jni", "an encoded value is truncated");
 		}
-		let (head, rest) = self.0.split_at(n);
-		self.0 = rest;
+		let (head, rest) = self.bytes.split_at(n);
+		self.bytes = rest;
 		head
 	}
 
@@ -453,6 +458,61 @@ impl Wire for rt::Duration {
 	fn write(self, w: &mut Writer) {
 		w.put(self.secs);
 		w.put(self.nanos);
+	}
+}
+
+impl Wire for rt::SocketAddr {
+	fn read(r: &mut Reader<'_>) -> Self {
+		Self {
+			ip: std::array::from_fn(|_| r.get()),
+			port: r.get(),
+			v6: r.get(),
+			flowinfo: r.get(),
+			scope_id: r.get(),
+		}
+	}
+
+	fn write(self, w: &mut Writer) {
+		self.ip.into_iter().for_each(|b| w.put(b));
+		w.put(self.port);
+		w.put(self.v6);
+		w.put(self.flowinfo);
+		w.put(self.scope_id);
+	}
+}
+
+impl<T: Wire + Copy + 'static> Wire for rt::List<T> {
+	/// A view of the elements, as their length, or -1 for none, then each element, which
+	/// the reader keeps.
+	fn read(r: &mut Reader<'_>) -> Self {
+		let Ok(len) = usize::try_from(r.get::<i32>()) else {
+			return Self::NONE;
+		};
+		let items: Box<[T]> = (0..len).map(|_| r.get()).collect();
+		let list = Self {
+			ptr: items.as_ptr(),
+			len,
+			owner: std::ptr::null_mut(),
+		};
+		r.arrays.push(Box::new(items));
+		list
+	}
+
+	fn write(self, w: &mut Writer) {
+		if self.is_none() {
+			w.put(-1i32);
+			return;
+		}
+		let Ok(len) = i32::try_from(self.len) else {
+			rt::fail("jni", "an array is too long for a List")
+		};
+		w.put(len);
+		// SAFETY: an array Rust returned, whose elements move into the writer, so it is
+		// freed without them.
+		unsafe {
+			self.items("jni").iter().for_each(|&item| w.put(item));
+			Self { len: 0, ..self }.free("jni", |_| {});
+		}
 	}
 }
 
