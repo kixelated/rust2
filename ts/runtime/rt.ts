@@ -142,35 +142,29 @@ export const OK: Result<undefined, never> = /* @__PURE__ */ Object.freeze({ ok: 
 /** `Err(())`, shared as `OK` is. */
 export const ERR: Result<never, undefined> = /* @__PURE__ */ Object.freeze({ ok: false, error: undefined });
 
-/** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
-function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
-	try {
-		panicFmt([message, ": ", (f) => debug(value, f)]);
-	} catch (e) {
-		drop?.(value);
-		throw e;
-	}
+/** Panic with `message` and `value`'s `Debug`. */
+function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
+	panicFmt([message, ": ", (f) => debug(value, f)]);
 }
 
 // A function that may drop an operand std's would, rather than return it, takes what
-// drops it, and drops it where std's does: as it returns, after any closure it calls, or
-// as a panic in that closure unwinds.
+// drops it, and drops it where std's does: as it returns, or after any closure it calls.
 
-/** `unwrap`, which shows the error with `debug`, and drops it as the panic unwinds. */
-export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>, drop?: (error: E) => void): T {
-	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug, drop);
+/** `unwrap`, which shows the error with `debug`. */
+export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>): T {
+	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug);
 	return r.value;
 }
 
 /** `Result::expect`: the value, or a panic with `message` and the error's `Debug`. */
-export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>, drop?: (error: E) => void): T {
-	if (!r.ok) unwrapFailed(message, r.error, debug, drop);
+export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>): T {
+	if (!r.ok) unwrapFailed(message, r.error, debug);
 	return r.value;
 }
 
 /** `Result::unwrap_err`: the error, or a panic with the value's `Debug`. */
-export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (value: T) => void): E {
-	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug, drop);
+export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
+	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug);
 	return r.error;
 }
 
@@ -326,8 +320,7 @@ export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: 
  * stable merge sort over runs that insertion sorts first. The unstable sorts may order
  * equal elements either way and here keep them in order. It calls only `less`, never
  * JS's `sort`, which moves `undefined`, a `None`, to the end without comparing it, and
- * orders its calls differently in each engine. If `less` panics, the slice holds each
- * element once, in an order std leaves unspecified, as std's does.
+ * orders its calls differently in each engine.
  */
 export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 	const n = s.length;
@@ -337,15 +330,11 @@ export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 		for (let i = lo + 1; i < hi; i++) {
 			const x = s[i];
 			let j = i;
-			// Shifted elements leave a hole at `j`, which `x` fills if `less` panics.
-			try {
-				while (j > lo && less(x, s[j - 1])) {
-					s[j] = s[j - 1];
-					j--;
-				}
-			} finally {
-				s[j] = x;
+			while (j > lo && less(x, s[j - 1])) {
+				s[j] = s[j - 1];
+				j--;
 			}
+			s[j] = x;
 		}
 	}
 	if (n <= RUN) return;
@@ -356,79 +345,41 @@ export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 			const hi = Math.min(mid + width, n);
 			if (!less(s[mid], s[mid - 1])) continue;
 			// The left run moves aside, and the merge fills `s` from `lo`, never past the
-			// right run's next element. If `less` panics, what is left of the left run fills
-			// the gap.
+			// right run's next element.
 			left.length = 0;
 			for (let i = lo; i < mid; i++) left.push(s[i]);
 			let i = 0;
 			let j = mid;
 			let k = lo;
-			try {
-				// `k` moves only once `less` returns, so a panic leaves no slot written twice.
-				while (i < left.length && j < hi) {
-					s[k] = less(s[j], left[i]) ? s[j++] : left[i++];
-					k++;
-				}
-			} finally {
-				while (i < left.length) s[k++] = left[i++];
-			}
+			while (i < left.length && j < hi) s[k++] = less(s[j], left[i]) ? s[j++] : left[i++];
+			while (i < left.length) s[k++] = left[i++];
 		}
 	}
 }
 
 /**
  * `Vec::retain` and `retain_mut`: keeps each element `f` returns true for, in order, and
- * drops each other one once `f` rejects it. If `f` or a drop panics, what `f` kept and
- * what it had not yet seen stay, as std's do.
+ * drops each other one once `f` rejects it.
  */
 export function vecRetain<T>(v: T[], f: (item: T) => boolean, drop?: (item: T) => void): void {
-	const n = v.length;
-	let read = 0;
 	let write = 0;
-	try {
-		while (read < n) {
-			const item = v[read];
-			if (f(item)) {
-				v[write++] = item;
-				read++;
-			} else {
-				read++;
-				drop?.(item);
-			}
-		}
-	} finally {
-		v.copyWithin(write, read, n);
-		v.length = write + n - read;
+	for (let read = 0; read < v.length; read++) {
+		const item = v[read];
+		if (f(item)) v[write++] = item;
+		else drop?.(item);
 	}
+	v.length = write;
 }
 
-/**
- * `Vec::dedup_by`: drops each element `same(element, previous kept)` is true for, in order.
- * If `same` or a drop panics, what it kept and what it had not yet seen stay, as std's do.
- */
+/** `Vec::dedup_by`: drops each element `same(element, previous kept)` is true for, in order. */
 export function vecDedupBy<T>(v: T[], same: (a: T, b: T) => boolean, drop?: (item: T) => void): void {
-	const n = v.length;
-	let first = 1;
-	while (first < n && !same(v[first], v[first - 1])) first++;
-	if (first >= n) return;
-	let read = first + 1;
-	let write = first;
-	try {
-		drop?.(v[first]);
-		while (read < n) {
-			const item = v[read];
-			if (same(item, v[write - 1])) {
-				read++;
-				drop?.(item);
-			} else {
-				v[write++] = item;
-				read++;
-			}
-		}
-	} finally {
-		v.copyWithin(write, read, n);
-		v.length = write + n - read;
+	let write = 1;
+	for (let read = 1; read < v.length; read++) {
+		const item = v[read];
+		if (same(item, v[write - 1])) drop?.(item);
+		else v[write++] = item;
 	}
+	if (write < v.length) v.length = write;
 }
 
 /** `Vec::dedup_by_key`: as `vecDedupBy`, by `eq` of `key` of each element, then of the previous kept. */
@@ -436,15 +387,9 @@ export function vecDedupByKey<T, K>(v: T[], key: (item: T) => K, eq: (a: K, b: K
 	vecDedupBy(v, (a, b) => eq(key(a), key(b)), drop);
 }
 
-/** `Vec::insert`: `item` at `i`, with those from `i` on moved up. Past the end, it drops `item` and panics. */
-export function vecInsert<T>(v: T[], i: number, item: T, drop?: (item: T) => void): void {
-	if (i > v.length) {
-		try {
-			panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
-		} finally {
-			drop?.(item);
-		}
-	}
+/** `Vec::insert`: `item` at `i`, with those from `i` on moved up. */
+export function vecInsert<T>(v: T[], i: number, item: T): void {
+	if (i > v.length) panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
 	v.splice(i, 0, item);
 }
 
@@ -454,10 +399,7 @@ export function vecRemove<T>(v: T[], i: number): T {
 	return v.splice(i, 1)[0];
 }
 
-/**
- * `Vec::truncate`, and `clear` to 0: the first `len` elements, if there are more, and then
- * each other drops in order, the rest still if one panics.
- */
+/** `Vec::truncate`, and `clear` to 0: the first `len` elements, if there are more, and then each other drops in order. */
 export function vecTruncate<T>(v: T[], len: number, drop?: (item: T) => void): void {
 	if (len >= v.length) return;
 	const cut = v.splice(len);
@@ -473,44 +415,17 @@ export function vecSwapRemove<T>(v: T[], i: number): T {
 	return item;
 }
 
-/**
- * `Clone` of a `Vec`, and `to_vec`, by `clone` of each element in order. If one panics, the
- * clones made so far drop, in order, as std's do.
- */
-export function vecClone<T>(s: ArrayLike<T>, clone: (item: T) => T, drop?: (item: T) => void): T[] {
-	const out: T[] = [];
-	try {
-		for (let i = 0; i < s.length; i++) out.push(clone(s[i]));
-	} catch (e) {
-		if (drop !== undefined) for (const item of out) drop(item);
-		throw e;
-	}
-	return out;
-}
-
 /** `Vec::extend_from_slice`: a clone of each element of `s`, pushed in order, as far as they clone. */
 export function vecExtendFromSlice<T>(v: T[], s: ArrayLike<T>, clone?: (item: T) => T): void {
 	for (let i = 0; i < s.length; i++) v.push(clone === undefined ? s[i] : clone(s[i]));
 }
 
-/**
- * `Clone` of a tuple, by `clone` of each field in order, `undefined` for one whose value is
- * itself. If one panics, the clones made so far drop, the last first, by `drops`.
- */
-export function tupleClone<T extends readonly unknown[]>(
-	t: T,
-	clones: readonly (((value: never) => unknown) | undefined)[],
-	drops: readonly (((value: never) => void) | undefined)[],
-): T {
+/** `Clone` of a tuple, by `clone` of each field in order, `undefined` for one whose value is itself. */
+export function tupleClone<T extends readonly unknown[]>(t: T, clones: readonly (((value: never) => unknown) | undefined)[]): T {
 	const out: unknown[] = [];
-	try {
-		for (let i = 0; i < clones.length; i++) {
-			const clone = clones[i] as ((value: unknown) => unknown) | undefined;
-			out.push(clone === undefined ? t[i] : clone(t[i]));
-		}
-	} catch (e) {
-		for (let i = out.length - 1; i >= 0; i--) (drops[i] as ((value: unknown) => void) | undefined)?.(out[i]);
-		throw e;
+	for (let i = 0; i < clones.length; i++) {
+		const clone = clones[i] as ((value: unknown) => unknown) | undefined;
+		out.push(clone === undefined ? t[i] : clone(t[i]));
 	}
 	return out as unknown as T;
 }

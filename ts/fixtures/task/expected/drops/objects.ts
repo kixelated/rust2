@@ -20,137 +20,68 @@ export function id$Part_u32(self: rt.u32): rt.u32 {
 
 /** Boxed parts of each kind, panicking at point `at`, if any, or in a `Drop` at 5. */
 export function boxed(log: Log.Log, id: rt.u32, at: rt.u8): void {
-	let first!: Part.Part;
-	let parts!: Part.Part[];
-	let _20!: Guard.Guard;
-	let slot!: Part.Part;
-	let _85!: Held.Held;
-	let _99!: rt.u32;
-	let kept!: Part.Part | undefined;
-	let _166!: boolean;
-	let _167!: boolean;
-	let unwind: number = 0;
-	try {
-		_167 = false;
-		_166 = false;
-		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
-			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
-		};
-		const check: (a0: rt.u8) => void = (point: rt.u8): void => {
-			if (point === at) {
-				const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f), (f: rt.Formatter) => rt.u8Display(point, f)];
-				rt.panicFmt(["d", args14[0], " at ", args14[1]]);
-			}
-		};
-		const _10: Guard.Guard = guard(1);
-		unwind = 83;
-		_167 = true;
-		first = new Part.Guard(_10);
-		parts = [];
-		unwind = 86;
-		_166 = true;
-		_20 = guard(2);
-		unwind = 82;
-		const _23: Guard.Guard = guard(3);
-		unwind = 86;
-		const _17: Part.Part = new Part.Held({ tag: "Two", _0: _20, _1: _23 } as Held.Held);
-		parts.push(_17);
-		const _28: Part.Part = new Part.u32(7);
-		parts.push(_28);
-		const _32: Part.Part = new Part.Bomb(new Bomb.Bomb({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), blows: at === 5 }));
-		parts.push(_32);
-		const _41: Part.Part = new Part.Held({ tag: "One", _0: guard(5) } as Held.Held);
-		parts.push(_41);
-		rt.sliceSwap(parts, 2, 3);
-		check(1);
-		const part = rt.iterFold(rt.iterMap(rt.iterSlice(parts), (p: Part.Part): rt.u32 => {
-			return p.id$Part();
-		}), 0, (a0: rt.u32, a1: rt.u32): rt.u32 => {
-			return rt.u32WrappingAdd(a0, a1);
-		});
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-		Log.note(log, rt.fmtFormat(["ids ", args2[0]]));
-		const _69: Guard.Guard = guard(6);
-		unwind = 81;
-		slot = new Part.Guard(_69);
-		const part2 = slot.id$Part();
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
-		Log.note(log, rt.fmtFormat(["slot ", args4[0]]));
-		_85 = { tag: "Empty" } as Held.Held;
-		unwind = 40;
-		rt.drop(slot);
-		unwind = 81;
-		slot = new Part.Held(_85);
-		const part3 = slot.id$Part();
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
-		Log.note(log, rt.fmtFormat(["slot ", args6[0]]));
-		_99 = 7;
-		unwind = 49;
-		rt.drop(slot);
-		unwind = 81;
-		slot = new Part.u32(_99);
-		check(2);
-		_167 = false;
-		const part4 = first.take$Part();
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
-		Log.note(log, rt.fmtFormat(["took ", args8[0]]));
-		const part5 = map$Option_Box_dyn_Part_u32_take(parts.pop(), (a02: Part.Part): rt.u32 => {
-			return a02.take$Part();
-		});
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Debug)];
-		Log.note(log, rt.fmtFormat(["last ", args10[0]]));
-		const _130: Guard.Guard = guard(7);
-		unwind = 80;
-		kept = new Part.Guard(_130);
-		check(3);
-		_166 = false;
-		rt.dropAll(parts);
-		check(4);
-		const _148: rt.u32 = mapOr$Option_Box_dyn_Part_u32_boxed_closure3(kept, 0, (p2: Part.Part): rt.u32 => {
-			return p2.id$Part();
-		});
-		const _152: rt.u32 = slot.id$Part();
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_148, f), (f: rt.Formatter) => rt.u32Display(_152, f)];
-		Log.note(log, rt.fmtFormat(["kept ", args12[0], " ", args12[1]]));
-		unwind = 81;
-		rt.drop(kept);
-		unwind = 86;
-		rt.drop(slot);
-		_166 = false;
-		_167 = false;
-	} catch (e) {
-		b0: {
-			b1: {
-				if (unwind === 0) {
-					throw e;
-				}
-				if (unwind === 40) {
-					slot = new Part.Held(_85);
-				} else if (unwind === 49) {
-					slot = new Part.u32(_99);
-				} else if (unwind === 80) {
-					rt.drop(kept);
-				} else if (unwind !== 81) {
-					if (unwind === 82) {
-						rt.drop(_20);
-						break b1;
-					}
-					if (unwind === 83) {
-						break b0;
-					}
-					break b1;
-				}
-				rt.drop(slot);
-			}
-			if (_166) {
-				rt.dropAll(parts);
-			}
+	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
+	};
+	const check: (a0: rt.u8) => void = (point: rt.u8): void => {
+		if (point === at) {
+			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f), (f: rt.Formatter) => rt.u8Display(point, f)];
+			rt.panicFmt(["d", args14[0], " at ", args14[1]]);
 		}
-		if (_167) {
-			rt.drop(first);
-		}
-		throw e;
-	}
+	};
+	const first: Part.Part = new Part.Guard(guard(1));
+	const parts: Part.Part[] = [];
+	const _17: Part.Part = new Part.Held({ tag: "Two", _0: guard(2), _1: guard(3) } as Held.Held);
+	parts.push(_17);
+	const _28: Part.Part = new Part.u32(7);
+	parts.push(_28);
+	const _32: Part.Part = new Part.Bomb(new Bomb.Bomb({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), blows: at === 5 }));
+	parts.push(_32);
+	const _41: Part.Part = new Part.Held({ tag: "One", _0: guard(5) } as Held.Held);
+	parts.push(_41);
+	rt.sliceSwap(parts, 2, 3);
+	check(1);
+	const part = rt.iterFold(rt.iterMap(rt.iterSlice(parts), (p: Part.Part): rt.u32 => {
+		return p.id$Part();
+	}), 0, (a0: rt.u32, a1: rt.u32): rt.u32 => {
+		return rt.u32WrappingAdd(a0, a1);
+	});
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+	Log.note(log, rt.fmtFormat(["ids ", args2[0]]));
+	let slot: Part.Part = new Part.Guard(guard(6));
+	const part2 = slot.id$Part();
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
+	Log.note(log, rt.fmtFormat(["slot ", args4[0]]));
+	const _85: Held.Held = { tag: "Empty" };
+	rt.drop(slot);
+	slot = new Part.Held(_85);
+	const part3 = slot.id$Part();
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
+	Log.note(log, rt.fmtFormat(["slot ", args6[0]]));
+	const _99: rt.u32 = 7;
+	rt.drop(slot);
+	slot = new Part.u32(_99);
+	check(2);
+	const part4 = first.take$Part();
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
+	Log.note(log, rt.fmtFormat(["took ", args8[0]]));
+	const part5 = map$Option_Box_dyn_Part_u32_take(parts.pop(), (a02: Part.Part): rt.u32 => {
+		return a02.take$Part();
+	});
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Debug)];
+	Log.note(log, rt.fmtFormat(["last ", args10[0]]));
+	const kept: Part.Part | undefined = new Part.Guard(guard(7));
+	check(3);
+	rt.dropAll(parts);
+	check(4);
+	const _147: rt.u32 = mapOr$Option_Box_dyn_Part_u32_boxed_closure3(kept, 0, (p2: Part.Part): rt.u32 => {
+		return p2.id$Part();
+	});
+	const _151: rt.u32 = slot.id$Part();
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_147, f), (f: rt.Formatter) => rt.u32Display(_151, f)];
+	Log.note(log, rt.fmtFormat(["kept ", args12[0], " ", args12[1]]));
+	rt.drop(kept);
+	rt.drop(slot);
 }
 
 /**
@@ -158,233 +89,77 @@ export function boxed(log: Log.Log, id: rt.u32, at: rt.u8): void {
  * the last `Arc` of it runs, a trait object's, while others still drop.
  */
 export function shared(log: Log.Log, id: rt.u32, at: rt.u8): void {
-	let held!: rt.Arc<Held.Held>;
-	let _11!: Guard.Guard;
-	let first!: rt.Arc<Part.Part>;
-	let second!: rt.Arc<Part.Part>;
-	let kept!: rt.Arc<Guard.Guard>;
-	let bomb!: rt.Arc<Bomb.Bomb>;
-	let parts!: rt.Arc<Part.Part>[];
-	let _138!: rt.Arc<Part.Part> | undefined;
-	let future!: rt.Arc<rt.Future<rt.u32>>;
-	let other!: rt.Arc<rt.Future<rt.u32>>;
-	let _181!: boolean;
-	let _182!: boolean;
-	let _183!: boolean;
-	let _184!: boolean;
-	let _185!: boolean;
-	let _186!: boolean;
-	let _187!: boolean;
-	let _188!: boolean;
-	let unwind: number = 0;
-	try {
-		_188 = false;
-		_187 = false;
-		_186 = false;
-		_185 = false;
-		_184 = false;
-		_183 = false;
-		_182 = false;
-		_181 = false;
-		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
-			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
-		};
-		const check: (a0: rt.u8) => void = (point: rt.u8): void => {
-			if (point === at) {
-				const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f), (f: rt.Formatter) => rt.u8Display(point, f)];
-				rt.panicFmt(["d", args14[0], " at ", args14[1]]);
-			}
-		};
-		_11 = guard(1);
-		unwind = 88;
-		const _14: Guard.Guard = guard(2);
-		unwind = 0;
-		held = new rt.Arc({ tag: "Two", _0: _11, _1: _14 } as Held.Held);
-		unwind = 103;
-		_188 = true;
-		const _18: rt.Arc<Held.Held> = rt.arcClone(held);
-		unwind = 87;
-		_187 = true;
-		first = new rt.ArcDyn(_18, new Part.Held(_18.value));
-		const _21: rt.Arc<Held.Held> = rt.arcClone(held);
-		unwind = 100;
-		_186 = true;
-		second = new rt.ArcDyn(_21, new Part.Held(_21.value));
-		const _29: rt.u32 = first.value.id$Part();
-		const _33: rt.usize = held.strong;
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_29, f), (f: rt.Formatter) => rt.usizeDisplay(_33, f)];
-		Log.note(log, rt.fmtFormat(["held ", args2[0], " ", args2[1]]));
-		_188 = false;
-		rt.arcDrop(held, drop$Held);
-		check(1);
-		_187 = false;
-		rt.drop(first);
-		const part = second.strong;
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
-		Log.note(log, rt.fmtFormat(["count ", args4[0]]));
-		kept = new rt.Arc(guard(3));
-		unwind = 98;
-		_185 = true;
-		bomb = new rt.Arc(new Bomb.Bomb({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), blows: at === 5 }));
-		unwind = 96;
-		_184 = true;
-		parts = [];
-		unwind = 94;
-		_183 = true;
-		const _73: rt.Arc<Bomb.Bomb> = rt.arcClone(bomb);
-		parts.push(new rt.ArcDyn(_73, new Part.Bomb(_73.value)));
-		const _78: rt.Arc<Guard.Guard> = rt.arcClone(kept);
-		parts.push(new rt.ArcDyn(_78, new Part.Guard(_78.value)));
-		const _82: rt.Arc<Part.Part> = rt.arcClone(second);
-		parts.push(_82);
-		const _87: rt.Arc<rt.u32> = new rt.Arc(7);
-		parts.push(new rt.ArcDyn(_87, new Part.u32(_87.value)));
-		const weak: rt.Weak<Part.Part> = new rt.Weak(parts[rt.idx(parts, 1)]);
-		unwind = 86;
-		check(2);
-		_186 = false;
-		rt.drop(second);
-		const part2 = rt.iterFold(rt.iterMap(rt.iterSlice(parts), (p: rt.Arc<Part.Part>): rt.u32 => {
-			return p.value.id$Part();
-		}), 0, (a0: rt.u32, a1: rt.u32): rt.u32 => {
-			return rt.u32WrappingAdd(a0, a1);
-		});
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
-		Log.note(log, rt.fmtFormat(["ids ", args6[0]]));
-		_184 = false;
-		rt.drop(bomb);
-		_183 = false;
-		rt.dropAll(parts);
-		const part3 = mapOr$Option_Arc_dyn_Part_u32_shared_closure4(rt.weakUpgrade(weak), 0, (p2: rt.Arc<Part.Part>): rt.u32 => {
-			let unwind2: number = 0;
-			try {
-				unwind2 = 5;
-				const _03: rt.u32 = p2.value.id$Part();
-				unwind2 = 0;
-				rt.drop(p2);
-				return _03;
-			} catch (e2) {
-				if (unwind2 === 0) {
-					throw e2;
-				}
-				rt.drop(p2);
-				throw e2;
-			}
-		});
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
-		Log.note(log, rt.fmtFormat(["weak ", args8[0]]));
-		_185 = false;
-		rt.drop(kept);
-		_138 = rt.weakUpgrade(weak);
-		unwind = 85;
-		const part4 = _138 === undefined;
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
-		const _132: string = rt.fmtFormat(["gone ", args10[0]]);
-		unwind = 86;
-		rt.drop(_138);
-		Log.note(log, _132);
-		const _148: rt.Arc<rt.Future<rt.u32>> = new rt.Arc(new sharedFuture(guard(6)));
-		unwind = 84;
-		_182 = true;
-		future = new rt.ArcDyn(_148, _148.value);
-		other = rt.arcClone(future);
-		unwind = 91;
-		_181 = true;
-		check(3);
-		_182 = false;
-		rt.drop(future);
-		const part5 = other.strong;
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
-		Log.note(log, rt.fmtFormat(["future ", args12[0]]));
-		check(4);
-		_181 = false;
-		rt.drop(other);
-		_181 = false;
-		_182 = false;
-		_183 = false;
-		_184 = false;
-		_185 = false;
-		_186 = false;
-		_187 = false;
-		_188 = false;
-	} catch (e) {
-		b0: {
-			b1: {
-				b2: {
-					b3: {
-						b4: {
-							b5: {
-								b6: {
-									b7: {
-										if (unwind === 0) {
-											throw e;
-										}
-										if (unwind !== 84) {
-											if (unwind === 85) {
-												rt.drop(_138);
-												break b7;
-											}
-											if (unwind === 86) {
-												break b7;
-											}
-											if (unwind === 87) {
-												break b2;
-											}
-											if (unwind === 88) {
-												rt.drop(_11);
-												break b0;
-											}
-											if (unwind === 91) {
-												if (_181) {
-													rt.drop(other);
-												}
-											} else {
-												if (unwind === 94) {
-													break b6;
-												}
-												if (unwind === 96) {
-													break b5;
-												}
-												if (unwind === 98) {
-													break b4;
-												}
-												if (unwind === 100) {
-													break b3;
-												}
-												break b1;
-											}
-										}
-										if (_182) {
-											rt.drop(future);
-										}
-									}
-								}
-								if (_183) {
-									rt.dropAll(parts);
-								}
-							}
-							if (_184) {
-								rt.drop(bomb);
-							}
-						}
-						if (_185) {
-							rt.drop(kept);
-						}
-					}
-					if (_186) {
-						rt.drop(second);
-					}
-				}
-				if (_187) {
-					rt.drop(first);
-				}
-			}
-			if (_188) {
-				rt.arcDrop(held, drop$Held);
-			}
+	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
+	};
+	const check: (a0: rt.u8) => void = (point: rt.u8): void => {
+		if (point === at) {
+			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f), (f: rt.Formatter) => rt.u8Display(point, f)];
+			rt.panicFmt(["d", args14[0], " at ", args14[1]]);
 		}
-		throw e;
-	}
+	};
+	const held: rt.Arc<Held.Held> = new rt.Arc({ tag: "Two", _0: guard(1), _1: guard(2) } as Held.Held);
+	const _18: rt.Arc<Held.Held> = rt.arcClone(held);
+	const first: rt.Arc<Part.Part> = new rt.ArcDyn(_18, new Part.Held(_18.value));
+	const _21: rt.Arc<Held.Held> = rt.arcClone(held);
+	const second: rt.Arc<Part.Part> = new rt.ArcDyn(_21, new Part.Held(_21.value));
+	const _29: rt.u32 = first.value.id$Part();
+	const _33: rt.usize = held.strong;
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_29, f), (f: rt.Formatter) => rt.usizeDisplay(_33, f)];
+	Log.note(log, rt.fmtFormat(["held ", args2[0], " ", args2[1]]));
+	rt.arcDrop(held, drop$Held);
+	check(1);
+	rt.drop(first);
+	const part = second.strong;
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
+	Log.note(log, rt.fmtFormat(["count ", args4[0]]));
+	const kept: rt.Arc<Guard.Guard> = new rt.Arc(guard(3));
+	const bomb: rt.Arc<Bomb.Bomb> = new rt.Arc(new Bomb.Bomb({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), blows: at === 5 }));
+	const parts: rt.Arc<Part.Part>[] = [];
+	const _71: rt.Arc<Bomb.Bomb> = rt.arcClone(bomb);
+	parts.push(new rt.ArcDyn(_71, new Part.Bomb(_71.value)));
+	const _76: rt.Arc<Guard.Guard> = rt.arcClone(kept);
+	parts.push(new rt.ArcDyn(_76, new Part.Guard(_76.value)));
+	const _80: rt.Arc<Part.Part> = rt.arcClone(second);
+	parts.push(_80);
+	const _85: rt.Arc<rt.u32> = new rt.Arc(7);
+	parts.push(new rt.ArcDyn(_85, new Part.u32(_85.value)));
+	const weak: rt.Weak<Part.Part> = new rt.Weak(parts[rt.idx(parts, 1)]);
+	check(2);
+	rt.drop(second);
+	const part2 = rt.iterFold(rt.iterMap(rt.iterSlice(parts), (p: rt.Arc<Part.Part>): rt.u32 => {
+		return p.value.id$Part();
+	}), 0, (a0: rt.u32, a1: rt.u32): rt.u32 => {
+		return rt.u32WrappingAdd(a0, a1);
+	});
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
+	Log.note(log, rt.fmtFormat(["ids ", args6[0]]));
+	rt.drop(bomb);
+	rt.dropAll(parts);
+	const part3 = mapOr$Option_Arc_dyn_Part_u32_shared_closure4(rt.weakUpgrade(weak), 0, (p2: rt.Arc<Part.Part>): rt.u32 => {
+		const _03: rt.u32 = p2.value.id$Part();
+		rt.drop(p2);
+		return _03;
+	});
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
+	Log.note(log, rt.fmtFormat(["weak ", args8[0]]));
+	rt.drop(kept);
+	const _133: rt.Arc<Part.Part> | undefined = rt.weakUpgrade(weak);
+	const part4 = _133 === undefined;
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
+	const _127: string = rt.fmtFormat(["gone ", args10[0]]);
+	rt.drop(_133);
+	Log.note(log, _127);
+	const _143: rt.Arc<rt.Future<rt.u32>> = new rt.Arc(new sharedFuture(guard(6)));
+	const future: rt.Arc<rt.Future<rt.u32>> = new rt.ArcDyn(_143, _143.value);
+	const other: rt.Arc<rt.Future<rt.u32>> = rt.arcClone(future);
+	check(3);
+	rt.drop(future);
+	const part5 = other.strong;
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
+	Log.note(log, rt.fmtFormat(["future ", args12[0]]));
+	check(4);
+	rt.drop(other);
 }
 
 export class sharedFuture {
@@ -402,31 +177,13 @@ export class sharedFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 4;
-				const _4: rt.u32 = Guard.id(this.#captured);
-				unwind = 5;
-				rt.drop(this.#captured);
-				this.#state = 1;
-				return _4;
-			}
-			if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else {
-				rt.asyncFnResumedPanic();
-			}
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 4) {
-				rt.drop(this.#captured);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			const _4: rt.u32 = Guard.id(this.#captured);
+			rt.drop(this.#captured);
+			this.#state = 1;
+			return _4;
 		}
+		rt.asyncFnResumed();
 	}
 }
 

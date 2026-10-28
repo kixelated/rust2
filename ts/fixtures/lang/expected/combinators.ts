@@ -165,11 +165,11 @@ export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVe
 	});
 	const iter: rt.Iter<rt.Result<rt.ByteVec, string>> = rt.iterSlice([v, copy, grown]);
 	while (true) {
-		const _38: rt.Result<rt.ByteVec, string> | rt.Done = iter.next();
-		if (_38 === rt.DONE) {
+		const _36: rt.Result<rt.ByteVec, string> | rt.Done = iter.next();
+		if (_36 === rt.DONE) {
 			break;
 		}
-		const r: rt.Result<rt.ByteVec, string> = _38;
+		const r: rt.Result<rt.ByteVec, string> = _36;
 		if (r.ok) {
 			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(r.value));
 		} else {
@@ -203,11 +203,11 @@ export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVe
 		return a02 as rt.u16;
 	})), copy$Result_u32s_u16(wide), copy$Result_u32s_u16(matched)]);
 	while (true) {
-		const _81: rt.Result<rt.u32[], rt.u16> | rt.Done = iter2.next();
-		if (_81 === rt.DONE) {
+		const _79: rt.Result<rt.u32[], rt.u16> | rt.Done = iter2.next();
+		if (_79 === rt.DONE) {
 			break;
 		}
-		const r2: rt.Result<rt.u32[], rt.u16> = _81;
+		const r2: rt.Result<rt.u32[], rt.u16> = _79;
 		if (r2.ok) {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(r2.value[0] & 0xff, r2.value[1] & 0xff)));
 		} else {

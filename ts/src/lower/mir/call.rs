@@ -12,7 +12,7 @@ use super::{Fx, Slot};
 use crate::lower::fmt::{self, Piece};
 use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
-use crate::ts::{Expr, Stmt, StmtKind, Type};
+use crate::ts::{Expr, Stmt, StmtKind};
 
 /// What a `&mut` borrows: its path, and the place a store through the reference writes,
 /// unless the reference is refused.
@@ -1039,15 +1039,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Some(_) => {
 				// A `Vec`'s element is its storage's, a byte vector's in `data`.
 				let base = self.path(base, "slice", out);
-				let base_ty = self.b.t.ty(args[0].node.ty(&self.mir.local_decls, self.tcx), span);
-				self.spilled_as(&base, base_ty);
 				let i = self.operand(&args[1].node, span, out);
 				let i = self.path(i, "index", out);
-				let index = self.b.t.ty(index_ty, span);
-				self.spilled_as(&i, index);
 				let checked = Expr::rt("idx", vec![base.clone(), i]);
 				let checked = self.path(checked, "at", out);
-				self.spilled_as(&checked, Type::Builtin("number"));
 				let place = match container.kind() {
 					ty::Adt(..) if bytes => base.member("data").index(checked),
 					// An array's bytes come through a reference, which is a slice of them.

@@ -1224,43 +1224,25 @@ export function sent(stats: Stats.Stats, ord: rt.AtomicOrdering): rt.u64 {
 }
 
 export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let stats!: rt.Arc<Stats.Stats>;
-	let peer!: rt.Arc<Stats.Stats>;
 	let stats2!: rt.Arc<Stats.Stats>;
-	let unwind: number = 0;
-	try {
-		stats = new rt.Arc(Stats.default$Default());
-		unwind = 39;
-		peer = rt.arcClone(stats);
-		unwind = 38;
-		for (const b of rt.byteSliceView(data)) {
-			if (!((b & 1) === 0)) {
-				stats2 = peer;
-			} else {
-				stats2 = stats;
-			}
-			rt.atomicFetch(stats2.value.sent, rt.u64WrappingAdd, rt.u64Shl(b as rt.u64, 50), 0);
-			rt.atomicFetch(stats2.value.peers, rt.usizeWrappingSub, (b & 2) === 0 ? 1 : 0, 1);
-			rt.atomicStore(stats2.value.open, b > 128, 1);
-			rt.byteVecPush(out, rt.atomicLoad(stats2.value.open, 2) ? 1 : 0);
+	const stats: rt.Arc<Stats.Stats> = new rt.Arc(Stats.default$Default());
+	const peer: rt.Arc<Stats.Stats> = rt.arcClone(stats);
+	for (const b of rt.byteSliceView(data)) {
+		if (!((b & 1) === 0)) {
+			stats2 = peer;
+		} else {
+			stats2 = stats;
 		}
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(sent(peer.value, order(data.length & 0xff, [0, 2, 4])))));
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(rt.atomicLoad(peer.value.peers, 4))));
-		rt.byteVecPush(out, stats.strong & 0xff);
-		unwind = 39;
-		rt.drop(peer);
-		unwind = 0;
-		rt.drop(stats);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind === 38) {
-			rt.drop(peer);
-		}
-		rt.drop(stats);
-		throw e;
+		rt.atomicFetch(stats2.value.sent, rt.u64WrappingAdd, rt.u64Shl(b as rt.u64, 50), 0);
+		rt.atomicFetch(stats2.value.peers, rt.usizeWrappingSub, (b & 2) === 0 ? 1 : 0, 1);
+		rt.atomicStore(stats2.value.open, b > 128, 1);
+		rt.byteVecPush(out, rt.atomicLoad(stats2.value.open, 2) ? 1 : 0);
 	}
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(sent(peer.value, order(data.length & 0xff, [0, 2, 4])))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(rt.atomicLoad(peer.value.peers, 4))));
+	rt.byteVecPush(out, stats.strong & 0xff);
+	rt.drop(peer);
+	rt.drop(stats);
 }
 
 export function atomics(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {

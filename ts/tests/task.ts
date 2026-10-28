@@ -295,11 +295,8 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 	["rfolded", (r, arg) => r.f.drops.rfolded(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
-/**
- * The script runner, as `harness.rs` runs it natively. Where a panic unwinds, as on
- * the host, `unwind` logs a step's panic and goes on, as the native harness does.
- */
-export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) => Bytes {
+/** The script runner, as `harness.rs` runs it natively. */
+export function harness<V>(f: Fixture<V>): (input: Uint8Array) => Bytes {
 	return (input) => {
 		const log = f.Log.new();
 		const note = (event: string) => f.Log.note(log, event);
@@ -307,17 +304,7 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 		const r: Run<V> = { f, log, note, exec, channels: [] };
 		for (let i = 0; i < input.length; i += 2) {
 			const [, step] = steps[input[i] % steps.length];
-			const arg = input[i + 1] ?? 0;
-			if (!unwind) {
-				step(r, arg);
-				continue;
-			}
-			try {
-				step(r, arg);
-			} catch (err) {
-				if (!(err instanceof Error && err.name === "Panic")) throw err;
-				note(`panic ${err.message}`);
-			}
+			step(r, input[i + 1] ?? 0);
 		}
 		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
 		r.channels.forEach((channel, c) => {
@@ -356,8 +343,7 @@ export const cases: Uint8Array[] = [
 	// An async block's captures: one borrowed, one moved on one path only, and one moved
 	// but only borrowed, dropped when its block returns or is cancelled mid-await.
 	script(["open", 0], ["blocks", 0], ["blocks", 128], ["blocks", 0], ["run", 0], ["send", 5], ["step", 0], ["step", 0], ["drop", 2], ["run", 0]),
-	// A future that panics mid-loop holding guards: unwinding drops them, and a poll after
-	// panics again.
+	// A future that panics mid-loop holding guards.
 	script(["open", 0], ["sum", 0], ["sum", 0], ["run", 0], ["send", 99], ["step", 0], ["send", 4], ["run", 0], ["poll", 0], ["drop", 1]),
 	// Values std holds that drop, held across an await: returned, and cancelled.
 	script(["open", 0], ["held", 0], ["run", 0], ["send", 5], ["run", 0]),

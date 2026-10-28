@@ -17,17 +17,8 @@ export class Fused {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.drop(this.waker);
-			dropped = 1;
-			rt.drop(this.after);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.after);
-			}
-			throw e;
-		}
+		rt.drop(this.waker);
+		rt.drop(this.after);
 	}
 }
 

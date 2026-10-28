@@ -14,17 +14,8 @@ export class Holder<F> {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.drop(this.f);
-			dropped = 1;
-			rt.drop(this.guard);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.guard);
-			}
-			throw e;
-		}
+		rt.drop(this.f);
+		rt.drop(this.guard);
 	}
 }
 

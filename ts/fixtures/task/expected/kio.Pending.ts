@@ -15,17 +15,8 @@ export class Pending<F> {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.drop(this.poll);
-			dropped = 1;
-			rt.drop(this.park);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.park);
-			}
-			throw e;
-		}
+		rt.drop(this.poll);
+		rt.drop(this.park);
 	}
 }
 

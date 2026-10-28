@@ -15,17 +15,8 @@ export class CellProbe {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Drop(this);
-			dropped = 1;
-			rt.drop(this._1);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this._1);
-			}
-			throw e;
-		}
+		drop$Drop(this);
+		rt.drop(this._1);
 	}
 }
 
@@ -42,7 +33,7 @@ export function drop$Drop(self: CellProbe): void {
 		return Guard.new(id, captured);
 	}, (): void => {
 		rt.drop(captured);
-	}), rt.drop, rt.drop));
+	}), rt.drop));
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
 	const _30: string = rt.fmtFormat(["filled ", args4[0]]);
 	Guard.note(self._1, _30);

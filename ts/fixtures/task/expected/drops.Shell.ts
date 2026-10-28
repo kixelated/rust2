@@ -20,27 +20,10 @@ export class Shell {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Drop(this);
-			dropped = 1;
-			rt.drop(this.log);
-			dropped = 2;
-			rt.drop(this.first);
-			dropped = 3;
-			rt.drop(this.second);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.log);
-			}
-			if (dropped < 2) {
-				rt.drop(this.first);
-			}
-			if (dropped < 3) {
-				rt.drop(this.second);
-			}
-			throw e;
-		}
+		drop$Drop(this);
+		rt.drop(this.log);
+		rt.drop(this.first);
+		rt.drop(this.second);
 	}
 }
 

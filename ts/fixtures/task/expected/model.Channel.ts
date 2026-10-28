@@ -15,57 +15,17 @@ export class Channel {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.dropAll(this.producers);
-			dropped = 1;
-			rt.drop(this.consumer);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.consumer);
-			}
-			throw e;
-		}
+		rt.dropAll(this.producers);
+		rt.drop(this.consumer);
 	}
 }
 
 export function open(): Channel {
-	let producer!: Producer.Producer;
-	let consumer_!: Consumer.Consumer;
-	let producers!: Producer.Producer[];
-	let _10!: boolean;
-	let unwind: number = 0;
-	try {
-		_10 = false;
-		_10 = true;
-		producer = Producer.new();
-		unwind = 10;
-		consumer_ = Producer.consume(producer);
-		unwind = 7;
-		producers = [];
-		unwind = 6;
-		_10 = false;
-		producers.push(producer);
-		const _0: Channel = new Channel({ producers, consumer: consumer_ });
-		_10 = false;
-		return _0;
-	} catch (e) {
-		b0: {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 6) {
-				rt.dropAll(producers);
-			} else if (unwind !== 7) {
-				break b0;
-			}
-			rt.drop(consumer_);
-		}
-		if (_10) {
-			rt.drop(producer);
-		}
-		throw e;
-	}
+	const producer: Producer.Producer = Producer.new();
+	const consumer_: Consumer.Consumer = Producer.consume(producer);
+	const producers: Producer.Producer[] = [];
+	producers.push(producer);
+	return new Channel({ producers, consumer: consumer_ });
 }
 
 /** A consumer that reads every value from the first. */

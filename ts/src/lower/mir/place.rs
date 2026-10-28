@@ -508,21 +508,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 							let def = &adt.variant(variant).fields[field];
 							let name = crate::lower::field_name(def.name.as_str(), field.index());
-							// A cleanup block runs in a `catch`, outside the test that narrowed it.
-							let base = match self.in_cleanup.is_some() {
-								true => {
-									let ty::Adt(_, args) = ty.kind() else { unreachable!() };
-									let v = adt.variant(variant);
-									let mut fields =
-										vec![("tag".to_string(), crate::ts::Type::StrLit(v.name.to_string()))];
-									for (i, f) in v.fields.iter().enumerate() {
-										let field_ty = self.b.t.ty(f.ty(tcx, args).skip_norm_wip(), span);
-										fields.push((crate::lower::field_name(f.name.as_str(), i), field_ty));
-									}
-									Expr::As(Box::new(base), crate::ts::Type::Object(fields))
-								}
-								false => base,
-							};
 							base.member(name)
 						}
 					}
@@ -546,7 +531,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// place that could change.
 			Operand::Copy(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-				if changes_captures(ty) {
+				// Copy propagation copies a value that isn't `Copy` where it was moved.
+				if changes_captures(ty) && self.b.t.is_copy(ty) {
 					return self.err(span, "a copy of a closure that changes what it captured");
 				}
 				let value = self.place_expr(*place, span, out);
@@ -782,8 +768,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => return self.stable_path(target, false, span, out),
 		};
 		let held = self.held_now(Expr::ident(&reference), out);
-		let ty = self.decl_ty(place.local);
-		self.spilled_as(&held, ty);
 		let target = from_held(target, &held);
 		self.stable_path(target, true, span, out)
 	}
@@ -805,7 +789,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Expr::Index(object, i) => {
 				let object = base(self, *object);
 				let i = self.held_now(*i, out);
-				self.spilled_as(&i, crate::ts::Type::Builtin("number"));
 				Expr::Index(Box::new(object), Box::new(i))
 			}
 			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),

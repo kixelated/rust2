@@ -39,8 +39,6 @@ export class helpersFuture {
 	#pinned!: rt.Future<rt.u64>;
 	#pinned$2!: rt.Future<rt.u64 | undefined>;
 	#awaitee!: rt.Future<rt.Result<rt.u64, rt.u64>>;
-	#saved!: boolean;
-	#saved$2!: boolean;
 
 	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
 		this.#rx = rx;
@@ -48,292 +46,129 @@ export class helpersFuture {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 27;
-				rt.drop(this.#rx);
-				unwind = 0;
-				rt.drop(this.#guard);
-			} else if (this.#state === 3) {
-				unwind = 15;
-				rt.drop(this.#awaitee);
-				unwind = 18;
-				rt.drop(this.#pinned$2);
-				this.#saved = false;
-				this.#saved$2 = false;
-				unwind = 23;
-				rt.drop(this.#guard);
-				unwind = 0;
-				rt.drop(this.#rx);
-			}
-		} catch (e) {
-			b0: {
-				b1: {
-					if (unwind === 0) {
-						throw e;
-					}
-					if (unwind === 15) {
-						rt.drop(this.#pinned$2);
-					} else if (unwind !== 18) {
-						if (unwind === 23) {
-							break b1;
-						}
-						rt.drop(this.#guard);
-						break b0;
-					}
-					this.#saved = false;
-					this.#saved$2 = false;
-					rt.drop(this.#guard);
-				}
-				rt.drop(this.#rx);
-			}
-			throw e;
+		if (this.#state === 0) {
+			rt.drop(this.#rx);
+			rt.drop(this.#guard);
+		} else if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+			rt.drop(this.#pinned$2);
+			rt.drop(this.#guard);
+			rt.drop(this.#rx);
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _36!: rt.Waker;
-		let owned!: Guard.Guard;
 		let _77!: rt.u64;
-		let unwind: number = 0;
-		try {
-			let bb0: number = 0;
-			while (true) {
-				switch (bb0) {
-					case 0:
-						if (this.#state === 0) {
-							unwind = 64;
-							this.#saved$2 = false;
-							this.#saved = false;
-							const lent: Guard.Guard = Guard.new(rt.u32Add(Guard.id(this.#guard), 900), Log.clone$Clone(Guard.log(this.#guard)));
-							unwind = 68;
-							this.#saved$2 = true;
-							const captured = lent;
-							this.#lend = rt.closure((_23: rt.Context): rt.Poll<rt.u32> => {
-								return Guard.id(captured);
-							}, (): void => {
-								rt.drop(captured);
-							});
-							rt.drop(new rt.Arc(new rt.PollFn(this.#lend)));
-							Guard.note(this.#guard, "lent");
-							this.#saved$2 = false;
-							rt.drop(this.#lend);
-							if (!(rt.u32Rem(Guard.id(this.#guard), 8) === 7)) {
-								bb0 = 26;
-								continue;
-							}
-							_36 = new rt.ArcWaker(new rt.Arc(new Blast.Blast(Guard.new(rt.u32Add(Guard.id(this.#guard), 700), Log.clone$Clone(Guard.log(this.#guard))))), Blast.wake$Wake, (arc: rt.Arc<Blast.Blast>) => rt.drop(arc));
-							unwind = 62;
-							const _42: rt.u32 = rt.u32Add(Guard.id(this.#guard), 800);
-							unwind = 61;
-							const _38: Guard.Guard = Guard.new(_42, Log.clone$Clone(Guard.log(this.#guard)));
-							unwind = 68;
-							rt.drop(new Fused.Fused({ waker: _36, after: _38 }));
+		let bb0: number = 0;
+		while (true) {
+			switch (bb0) {
+				case 0:
+					if (this.#state === 0) {
+						const captured = Guard.new(rt.u32Add(Guard.id(this.#guard), 900), Log.clone$Clone(Guard.log(this.#guard)));
+						this.#lend = rt.closure((_23: rt.Context): rt.Poll<rt.u32> => {
+							return Guard.id(captured);
+						}, (): void => {
+							rt.drop(captured);
+						});
+						rt.drop(new rt.Arc(new rt.PollFn(this.#lend)));
+						Guard.note(this.#guard, "lent");
+						rt.drop(this.#lend);
+						if (!(rt.u32Rem(Guard.id(this.#guard), 8) === 7)) {
 							bb0 = 26;
 							continue;
 						}
-						if (this.#state === 1) {
-							rt.asyncFnResumed();
-						} else if (this.#state === 2) {
-							rt.asyncFnResumedPanic();
-						} else {
-							bb0 = 39;
-							continue;
-						}
-					case 26:
-						this.#total = 0;
-						bb0 = 27;
+						rt.drop(new Fused.Fused({ waker: new rt.ArcWaker(new rt.Arc(new Blast.Blast(Guard.new(rt.u32Add(Guard.id(this.#guard), 700), Log.clone$Clone(Guard.log(this.#guard))))), Blast.wake$Wake, (arc: rt.Arc<Blast.Blast>) => rt.drop(arc)), after: Guard.new(rt.u32Add(Guard.id(this.#guard), 800), Log.clone$Clone(Guard.log(this.#guard))) }));
+						bb0 = 26;
 						continue;
-					case 27:
-						unwind = 60;
-						owned = Guard.new(rt.u32Add(Guard.id(this.#guard), 500), Log.clone$Clone(Guard.log(this.#guard)));
-						unwind = 59;
-						this.#saved = true;
-						this.#pinned = rt.NEVER;
-						const never: rt.Future<rt.u64> = this.#pinned;
-						const _58: rt.Future<rt.u64 | undefined> = new recvFuture(this.#rx);
-						unwind = 58;
-						this.#pinned$2 = _58;
-						const next: rt.Future<rt.u64 | undefined> = this.#pinned$2;
-						this.#saved = false;
-						let captured2 = never;
-						let captured3 = undefined as rt.Waker | undefined;
-						const captured4 = owned;
-						let captured5 = next;
-						const captured6 = this.#total;
-						this.#awaitee = new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.Result<rt.u64, rt.u64>> => {
-							let _11!: rt.Waker | undefined;
-							let _152!: Log.Log;
-							let _81!: boolean;
-							let unwind2: number = 0;
-							try {
-								_81 = false;
-								const waiting: rt.Poll<rt.u64> = captured2.poll(rt.NOOP_WAKER);
-								if (captured3 === undefined) {
-									const _132: rt.Waker = cx;
-									const _16: Log.Log = Guard.log(captured4);
-									_81 = true;
-									_152 = Log.clone$Clone(_16);
-									unwind2 = 51;
-									const _18: rt.u32 = rt.u32Add(Guard.id(captured4), 100);
-									_81 = false;
-									const _122: rt.Waker = relayed(_132, _152, _18);
-									unwind2 = 15;
-									_81 = false;
-									_11 = _122;
-									rt.drop(captured3);
-									captured3 = _11;
-								}
-								unwind2 = 0;
-								const relay2: rt.Waker = rt.optionUnwrap(captured3);
-								const polled: rt.Poll<rt.u64 | undefined> = captured5.poll(relay2);
-								const _392: boolean = isPending$Poll_u64(waiting);
-								const _422: boolean = isReady$Poll_Option_u64(polled);
-								const _452: boolean = isPending$Poll_Option_u64(polled);
-								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_392, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_452, f)];
-								Guard.note(captured4, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
-								if (polled !== rt.Pending) {
-									if (polled !== undefined) {
-										if (polled === 99) {
-											const part = Guard.id(captured4);
-											const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-											rt.panicFmt(["g", args4[0], " poisoned"]);
-										} else if (rt.u64Rem(polled, 2) === 0) {
-											relay2.clone().wake();
-										}
-									}
-								}
-								return mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2(mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1(map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0(polled, (value3: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> => {
-									return okOr$Option_u64_u64(value3, captured6);
-								}), (value4: rt.u64): rt.u64 => {
-									return rt.u64Mul(value4, 2);
-								}), (total: rt.u64): rt.u64 => {
-									return rt.u64Add(total, 1);
-								});
-							} catch (e2) {
-								if (unwind2 === 0) {
-									throw e2;
-								}
-								if (unwind2 === 15) {
-									captured3 = _11;
-								} else if (_81) {
-									rt.drop(_152);
-								}
-								throw e2;
-							}
-						}, (): void => {
-							let dropped: number = 0;
-							try {
-								rt.drop(captured3);
-								dropped = 1;
-								rt.drop(captured4);
-							} catch (e) {
-								if (dropped < 1) {
-									rt.drop(captured4);
-								}
-								throw e;
-							}
-						}), rt.drop);
+					}
+					if (this.#state === 1) {
+						rt.asyncFnResumed();
+					} else {
 						bb0 = 39;
 						continue;
-					case 39:
-						unwind = 57;
-						const _65: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
-						if (_65 !== rt.Pending) {
-							unwind = 58;
-							const read: rt.Result<rt.u64, rt.u64> = _65;
-							rt.drop(this.#awaitee);
-							if (read.ok) {
-								if (read.value === 154) {
-									_77 = this.#total;
-									bb0 = 52;
-									continue;
+					}
+				case 26:
+					this.#total = 0;
+					bb0 = 27;
+					continue;
+				case 27:
+					const owned: Guard.Guard = Guard.new(rt.u32Add(Guard.id(this.#guard), 500), Log.clone$Clone(Guard.log(this.#guard)));
+					this.#pinned = rt.NEVER;
+					const never: rt.Future<rt.u64> = this.#pinned;
+					this.#pinned$2 = new recvFuture(this.#rx);
+					const next: rt.Future<rt.u64 | undefined> = this.#pinned$2;
+					let captured2 = never;
+					let captured3 = undefined as rt.Waker | undefined;
+					const captured4 = owned;
+					let captured5 = next;
+					const captured6 = this.#total;
+					this.#awaitee = new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.Result<rt.u64, rt.u64>> => {
+						const waiting: rt.Poll<rt.u64> = captured2.poll(rt.NOOP_WAKER);
+						if (captured3 === undefined) {
+							const _11: rt.Waker | undefined = relayed(cx, Log.clone$Clone(Guard.log(captured4)), rt.u32Add(Guard.id(captured4), 100));
+							rt.drop(captured3);
+							captured3 = _11;
+						}
+						const relay2: rt.Waker = rt.optionUnwrap(captured3);
+						const polled: rt.Poll<rt.u64 | undefined> = captured5.poll(relay2);
+						const _392: boolean = isPending$Poll_u64(waiting);
+						const _422: boolean = isReady$Poll_Option_u64(polled);
+						const _452: boolean = isPending$Poll_Option_u64(polled);
+						const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_392, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_452, f)];
+						Guard.note(captured4, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
+						if (polled !== rt.Pending) {
+							if (polled !== undefined) {
+								if (polled === 99) {
+									const part = Guard.id(captured4);
+									const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+									rt.panicFmt(["g", args4[0], " poisoned"]);
+								} else if (rt.u64Rem(polled, 2) === 0) {
+									relay2.clone().wake();
 								}
-								const _75: rt.u64 = rt.u64Add(this.#total, read.value);
-								unwind = 59;
-								this.#total = _75;
-								rt.drop(this.#pinned$2);
-								this.#saved = false;
-								bb0 = 27;
+							}
+						}
+						return mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2(mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1(map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0(polled, (value3: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> => {
+							return okOr$Option_u64_u64(value3, captured6);
+						}), (value4: rt.u64): rt.u64 => {
+							return rt.u64Mul(value4, 2);
+						}), (total: rt.u64): rt.u64 => {
+							return rt.u64Add(total, 1);
+						});
+					}, (): void => {
+						rt.drop(captured3);
+						rt.drop(captured4);
+					}), rt.drop);
+					bb0 = 39;
+					continue;
+				case 39:
+					const _65: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
+					if (_65 !== rt.Pending) {
+						const read: rt.Result<rt.u64, rt.u64> = _65;
+						rt.drop(this.#awaitee);
+						if (read.ok) {
+							if (read.value === 154) {
+								_77 = this.#total;
+								bb0 = 51;
 								continue;
 							}
-							_77 = read.error;
-							bb0 = 52;
+							this.#total = rt.u64Add(this.#total, read.value);
+							rt.drop(this.#pinned$2);
+							bb0 = 27;
 							continue;
 						}
-						this.#state = 3;
-						return rt.Pending;
-					case 52:
-						unwind = 59;
-						rt.drop(this.#pinned$2);
-						unwind = 65;
-						this.#saved = false;
-						this.#saved$2 = false;
-						rt.drop(this.#guard);
-						unwind = 69;
-						rt.drop(this.#rx);
-						this.#state = 1;
-						return _77;
-				}
-			}
-		} catch (e) {
-			b1: {
-				b2: {
-					b3: {
-						b4: {
-							b5: {
-								b6: {
-									if (unwind === 0) {
-										throw e;
-									}
-									if (unwind === 57) {
-										rt.drop(this.#awaitee);
-									} else if (unwind !== 58) {
-										if (unwind === 59) {
-											break b6;
-										}
-										if (unwind === 60) {
-											break b5;
-										}
-										if (unwind === 61) {
-											rt.drop(_36);
-											break b4;
-										}
-										if (unwind === 62) {
-											rt.drop(_36);
-											break b4;
-										}
-										if (unwind === 64) {
-											break b3;
-										}
-										if (unwind === 65) {
-											break b2;
-										}
-										if (unwind === 68) {
-											break b4;
-										}
-										break b1;
-									}
-									rt.drop(this.#pinned$2);
-								}
-								if (this.#saved) {
-									rt.drop(owned);
-								}
-							}
-							this.#saved = false;
-						}
-						if (this.#saved$2) {
-							rt.drop(this.#lend);
-						}
-						this.#saved$2 = false;
+						_77 = read.error;
+						bb0 = 51;
+						continue;
 					}
+					this.#state = 3;
+					return rt.Pending;
+				case 51:
+					rt.drop(this.#pinned$2);
 					rt.drop(this.#guard);
-				}
-				rt.drop(this.#rx);
+					rt.drop(this.#rx);
+					this.#state = 1;
+					return _77;
 			}
-			this.#state = 2;
-			throw e;
 		}
 	}
 }
@@ -343,49 +178,11 @@ export class helpersFuture {
  * even `id`, and `Wake`'s default otherwise.
  */
 export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
-	let _0!: rt.Waker;
-	let relay!: Relay.Relay;
-	let _5!: rt.Waker;
-	let _15!: boolean;
-	let _16!: boolean;
-	let unwind: number = 0;
-	try {
-		unwind = 15;
-		_16 = false;
-		_15 = false;
-		_16 = true;
-		_5 = task.clone();
-		unwind = 10;
-		_16 = false;
-		const _6: Guard.Guard = Guard.new(id, log);
-		unwind = 13;
-		_15 = true;
-		relay = new Relay.Relay({ task: _5, guard: _6 });
-		if (rt.u32Rem(id, 2) === 0) {
-			_15 = false;
-			_0 = new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake, (arc2: rt.Arc<Relay.Relay>) => rt.drop(arc2), Relay.wakeByRef$Wake);
-		} else {
-			_15 = false;
-			_0 = new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake, (arc: rt.Arc<Plain.Plain>) => rt.drop(arc));
-		}
-		_15 = false;
-		return _0;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind === 10) {
-			rt.drop(_5);
-		} else if (unwind === 13) {
-			if (_15) {
-				rt.drop(relay);
-			}
-		}
-		if (_16) {
-			rt.drop(log);
-		}
-		throw e;
+	const relay: Relay.Relay = new Relay.Relay({ task: task.clone(), guard: Guard.new(id, log) });
+	if (rt.u32Rem(id, 2) === 0) {
+		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake, (arc2: rt.Arc<Relay.Relay>) => rt.drop(arc2), Relay.wakeByRef$Wake);
 	}
+	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake, (arc: rt.Arc<Plain.Plain>) => rt.drop(arc));
 }
 
 /**
@@ -417,11 +214,6 @@ export class boxedFuture {
 	#awaitee$3!: Forward.Forward;
 	#saved!: boolean;
 	#saved$2!: boolean;
-	#saved$3!: boolean;
-	#saved$4!: boolean;
-	#saved$5!: boolean;
-	#saved$6!: boolean;
-	#saved$7!: boolean;
 
 	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
 		this.#rx = rx;
@@ -429,459 +221,181 @@ export class boxedFuture {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			b0: {
-				if (this.#state === 0) {
-					unwind = 66;
-					rt.drop(this.#rx);
-					unwind = 0;
-					rt.drop(this.#guard);
+		b0: {
+			if (this.#state === 0) {
+				rt.drop(this.#rx);
+				rt.drop(this.#guard);
+				return;
+			}
+			if (this.#state === 3) {
+				rt.drop(this.#awaitee);
+				break b0;
+			}
+			if (this.#state === 4) {
+				rt.drop(this.#awaitee$2);
+			} else if (this.#state !== 5) {
+				if (this.#state === 6) {
+					rt.drop(this.#awaitee$3);
+					rt.drop(this.#pinned);
+				} else {
 					return;
 				}
-				if (this.#state === 3) {
-					unwind = 51;
-					rt.drop(this.#awaitee);
-					break b0;
-				}
-				if (this.#state === 4) {
-					unwind = 44;
-					rt.drop(this.#awaitee$2);
-				} else if (this.#state !== 5) {
-					if (this.#state === 6) {
-						unwind = 34;
-						rt.drop(this.#awaitee$3);
-						unwind = 37;
-						rt.drop(this.#pinned);
-						this.#saved$3 = false;
-						this.#saved$4 = false;
-						this.#saved$5 = false;
-						this.#saved$6 = false;
-						this.#saved$7 = false;
-					} else {
-						return;
-					}
-				}
-				if (this.#saved) {
-					unwind = 48;
-					rt.drop(this.#lend);
-				}
-				this.#saved = false;
-				unwind = 50;
-				rt.drop(this.#log);
 			}
-			unwind = 54;
-			rt.drop(this.#guard);
-			if (this.#saved$2) {
-				unwind = 55;
-				rt.drop(this.#rx);
+			if (this.#saved) {
+				rt.drop(this.#lend);
 			}
-			this.#saved$2 = false;
-		} catch (e) {
-			b5: {
-				b6: {
-					b7: {
-						b8: {
-							b9: {
-								b10: {
-									b11: {
-										if (unwind === 0) {
-											throw e;
-										}
-										if (unwind === 34) {
-											rt.drop(this.#pinned);
-										} else if (unwind !== 37) {
-											if (unwind === 44) {
-												break b11;
-											}
-											if (unwind === 48) {
-												break b10;
-											}
-											if (unwind === 50) {
-												break b9;
-											}
-											if (unwind === 51) {
-												break b8;
-											}
-											if (unwind === 54) {
-												break b7;
-											}
-											if (unwind === 55) {
-												break b6;
-											}
-											rt.drop(this.#guard);
-											break b5;
-										}
-										this.#saved$3 = false;
-										this.#saved$4 = false;
-										this.#saved$5 = false;
-										this.#saved$6 = false;
-										this.#saved$7 = false;
-									}
-									if (this.#saved) {
-										rt.drop(this.#lend);
-									}
-								}
-								this.#saved = false;
-								rt.drop(this.#log);
-							}
-						}
-						rt.drop(this.#guard);
-					}
-					if (this.#saved$2) {
-						rt.drop(this.#rx);
-					}
-				}
-				this.#saved$2 = false;
-			}
-			throw e;
+			this.#saved = false;
+			rt.drop(this.#log);
 		}
+		rt.drop(this.#guard);
+		if (this.#saved$2) {
+			rt.drop(this.#rx);
+		}
+		this.#saved$2 = false;
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let block!: Guard.Guard;
-		let waiting!: Guard.Guard;
-		let ready!: Guard.Guard;
-		let _83!: Guard.Guard;
-		let _89!: Guard.Guard;
-		let next!: Consumer.Consumer;
-		let queue!: rt.Future<rt.u64>[];
-		let _106!: rt.Future<rt.u64>;
-		let _109!: rt.Future<rt.u64>;
-		let unwind: number = 0;
-		try {
-			b0: {
-				b1: {
-					b2: {
-						if (this.#state === 0) {
-							unwind = 112;
-							this.#saved$2 = false;
-							this.#saved = false;
-							this.#saved$7 = false;
-							this.#saved$6 = false;
-							this.#saved$5 = false;
-							this.#saved$4 = false;
-							this.#saved$3 = false;
-							this.#saved$2 = true;
-							this.#awaitee = new recvFuture(this.#rx);
-						} else if (this.#state === 1) {
-							rt.asyncFnResumed();
-						} else if (this.#state === 2) {
-							rt.asyncFnResumedPanic();
-						} else if (this.#state !== 3) {
-							if (this.#state === 4) {
-								break b2;
-							}
-							if (this.#state === 5) {
-								break b1;
-							}
-							break b0;
+		b0: {
+			b1: {
+				b2: {
+					if (this.#state === 0) {
+						this.#saved$2 = false;
+						this.#saved = false;
+						this.#saved$2 = true;
+						this.#awaitee = new recvFuture(this.#rx);
+					} else if (this.#state === 1) {
+						rt.asyncFnResumed();
+					} else if (this.#state !== 3) {
+						if (this.#state === 4) {
+							break b2;
 						}
-						unwind = 111;
-						const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-						if (_7 !== rt.Pending) {
-							unwind = 112;
-							const result: rt.u64 | undefined = _7;
-							rt.drop(this.#awaitee);
-							this.#first = unwrapOr$Option_u64(result, 0);
-							const arg = this.#first;
-							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
-							const _19: string = rt.fmtFormat(["first ", args2[0]]);
-							unwind = 110;
-							Guard.note(this.#guard, _19);
-							unwind = 112;
-							const _29: rt.u32 = Guard.id(this.#guard);
-							const _31: Log.Log = Log.clone$Clone(Guard.log(this.#guard));
-							unwind = 109;
-							this.#id = _29;
-							this.#log = _31;
-							const lent: Guard.Guard = Guard.new(rt.u32Add(this.#id, 900), Log.clone$Clone(this.#log));
-							unwind = 108;
-							const captured = lent;
-							this.#lend = new rt.PollFn(rt.closure((_22: rt.Context): rt.Poll<rt.u64> => {
-								Guard.note(captured, "lent");
-								return 4;
-							}, (): void => {
-								rt.drop(captured);
-							}), rt.drop);
-							unwind = 107;
-							this.#saved = true;
-							this.#awaitee$2 = new rt.DynFuture(this.#lend, rt.futurePoll);
-						} else {
-							this.#state = 3;
-							return rt.Pending;
+						if (this.#state === 5) {
+							break b1;
 						}
+						break b0;
 					}
-					unwind = 106;
-					const _45: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
-					if (_45 !== rt.Pending) {
-						unwind = 107;
-						this.#lent = _45;
-						rt.drop(this.#awaitee$2);
-						this.#awaitee$2 = this.#lend;
+					const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_7 !== rt.Pending) {
+						const result: rt.u64 | undefined = _7;
+						rt.drop(this.#awaitee);
+						this.#first = unwrapOr$Option_u64(result, 0);
+						const arg = this.#first;
+						const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+						const _17: string = rt.fmtFormat(["first ", args2[0]]);
+						Guard.note(this.#guard, _17);
+						const _28: [rt.u32, Log.Log] = [Guard.id(this.#guard), Log.clone$Clone(Guard.log(this.#guard))];
+						this.#id = _28[0];
+						this.#log = _28[1];
+						const captured = Guard.new(rt.u32Add(this.#id, 900), Log.clone$Clone(this.#log));
+						this.#lend = new rt.PollFn(rt.closure((_22: rt.Context): rt.Poll<rt.u64> => {
+							Guard.note(captured, "lent");
+							return 4;
+						}, (): void => {
+							rt.drop(captured);
+						}), rt.drop);
+						this.#saved = true;
+						this.#awaitee$2 = new rt.DynFuture(this.#lend, rt.futurePoll);
 					} else {
-						this.#state = 4;
+						this.#state = 3;
 						return rt.Pending;
 					}
 				}
-				unwind = 107;
-				const _55: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
-				if (_55 !== rt.Pending) {
-					this.#lent = rt.u64Add(this.#lent, _55);
-					const arg2 = this.#lent;
-					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg2, f)];
-					const _68: string = rt.fmtFormat(["lent ", args4[0]]);
-					unwind = 105;
-					Guard.note(this.#guard, _68);
-					unwind = 107;
-					this.#saved = false;
-					rt.drop(this.#lend);
-					_83 = Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log));
-					unwind = 104;
-					_89 = Guard.new(rt.u32Add(this.#id, 600), Log.clone$Clone(this.#log));
-					unwind = 103;
-					const _95: Guard.Guard = Guard.new(rt.u32Add(this.#id, 700), Log.clone$Clone(this.#log));
-					unwind = 99;
-					this.#saved$7 = true;
-					block = _83;
-					this.#saved$6 = true;
-					waiting = _89;
-					this.#saved$5 = true;
-					ready = _95;
-					next = Consumer.clone$Clone(this.#rx);
-					this.#saved$4 = true;
-					unwind = 97;
-					this.#saved$2 = false;
-					this.#saved$7 = false;
-					const _107: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
-					unwind = 96;
-					_106 = _107;
-					this.#saved$4 = false;
-					this.#saved$6 = false;
-					let captured2 = next;
-					const captured3 = waiting;
-					const _110: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
-						return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value: rt.u64 | undefined): rt.u64 => {
-							Guard.note(captured3, "waited");
-							return rt.u64Add(unwrapOr$Option_u64(value, 0), 2);
-						});
-					}, (): void => {
-						let dropped: number = 0;
-						try {
-							rt.drop(captured2);
-							dropped = 1;
-							rt.drop(captured3);
-						} catch (e) {
-							if (dropped < 1) {
-								rt.drop(captured3);
-							}
-							throw e;
-						}
-					}));
-					unwind = 95;
-					_109 = new rt.DynFuture(_110, Pending.poll$Future_boxed_closure0_closure3, rt.drop);
-					this.#saved$5 = false;
-					const captured4 = ready;
-					const _114: rt.Future<rt.u64> = new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
-						Guard.note(captured4, "ready");
-						return 3;
-					}, (): void => {
-						rt.drop(captured4);
-					}), rt.drop);
-					unwind = 98;
-					queue = [_106, _109, _114];
-					unwind = 94;
-					this.#saved$3 = true;
-					const captured5 = Guard.new(rt.u32Add(this.#id, 800), Log.clone$Clone(this.#log));
-					const _124: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = wait$boxed_closure0_closure5_u64(rt.closure((_24: Waiter.Waiter): rt.Poll<rt.u64> => {
-						return Guard.id(captured5) as rt.u64;
-					}, (): void => {
-						rt.drop(captured5);
-					}));
-					unwind = 93;
-					this.#pinned = _124;
-					const last: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = this.#pinned;
-					this.#saved$3 = false;
-					let captured6 = queue;
-					let captured7: rt.u64 = 0;
-					let captured8 = last;
-					this.#awaitee$3 = new Forward.Forward({ future: new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
-						let i: rt.usize = 0;
-						while (i < captured6.length) {
-							const _88: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured6[rt.idx(captured6, i)], cx);
-							if (_88 !== rt.Pending) {
-								captured7 = rt.u64Add(captured7, _88);
-								rt.drop(rt.vecSwapRemove(captured6, i));
-							} else {
-								i = rt.usizeAdd(i, 1);
-							}
-						}
-						if (!((captured6.length === 0))) {
-							return rt.Pending;
-						}
-						return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value3: rt.u64): rt.u64 => {
-							return rt.u64Add(captured7, value3);
-						});
-					}, (): void => {
-						rt.dropAll(captured6);
-					}), rt.drop) });
+				const _45: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
+				if (_45 !== rt.Pending) {
+					this.#lent = _45;
+					rt.drop(this.#awaitee$2);
+					this.#awaitee$2 = this.#lend;
 				} else {
-					this.#state = 5;
+					this.#state = 4;
 					return rt.Pending;
 				}
 			}
-			unwind = 92;
-			const _134: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$3, _2);
-			if (_134 !== rt.Pending) {
-				unwind = 93;
-				const total: rt.u64 = _134;
-				rt.drop(this.#awaitee$3);
-				const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(total, f)];
-				const _146: string = rt.fmtFormat(["boxed ", args6[0]]);
-				unwind = 91;
-				Guard.note(this.#guard, _146);
-				unwind = 94;
-				rt.drop(this.#pinned);
-				unwind = 112;
-				this.#saved$3 = false;
-				this.#saved$4 = false;
-				this.#saved$5 = false;
-				this.#saved$6 = false;
-				this.#saved$7 = false;
+			const _55: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
+			if (_55 !== rt.Pending) {
+				this.#lent = rt.u64Add(this.#lent, _55);
+				const arg2 = this.#lent;
+				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg2, f)];
+				const _66: string = rt.fmtFormat(["lent ", args4[0]]);
+				Guard.note(this.#guard, _66);
 				this.#saved = false;
-				rt.drop(this.#log);
-				unwind = 121;
-				rt.drop(this.#guard);
+				rt.drop(this.#lend);
+				const _82: [Guard.Guard, Guard.Guard, Guard.Guard] = [Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 600), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 700), Log.clone$Clone(this.#log))];
+				const block: Guard.Guard = _82[0];
+				const waiting: Guard.Guard = _82[1];
+				const ready: Guard.Guard = _82[2];
+				const next: Consumer.Consumer = Consumer.clone$Clone(this.#rx);
 				this.#saved$2 = false;
-				this.#state = 1;
-				return total;
-			}
-			this.#state = 6;
-			return rt.Pending;
-		} catch (e) {
-			b4: {
-				b5: {
-					b6: {
-						b7: {
-							b8: {
-								b9: {
-									b10: {
-										b11: {
-											b12: {
-												b13: {
-													b14: {
-														if (unwind === 0) {
-															throw e;
-														}
-														if (unwind === 91) {
-															break b12;
-														}
-														if (unwind === 92) {
-															rt.drop(this.#awaitee$3);
-															break b12;
-														}
-														if (unwind === 93) {
-															break b12;
-														}
-														if (unwind === 94) {
-															break b11;
-														}
-														if (unwind === 95) {
-															rt.drop(_109);
-															break b14;
-														}
-														if (unwind === 96) {
-															break b14;
-														}
-														if (unwind === 97) {
-															break b13;
-														}
-														if (unwind === 98) {
-															break b10;
-														}
-														if (unwind === 99) {
-															break b9;
-														}
-														if (unwind === 103) {
-															rt.drop(_89);
-														} else if (unwind !== 104) {
-															if (unwind === 105) {
-																break b8;
-															}
-															if (unwind === 106) {
-																rt.drop(this.#awaitee$2);
-																break b8;
-															}
-															if (unwind === 107) {
-																break b8;
-															}
-															if (unwind === 108) {
-																break b7;
-															}
-															if (unwind === 109) {
-																break b6;
-															}
-															if (unwind === 110) {
-																break b5;
-															}
-															if (unwind === 111) {
-																rt.drop(this.#awaitee);
-																break b5;
-															}
-															if (unwind === 112) {
-																break b5;
-															}
-															break b4;
-														}
-														rt.drop(_83);
-														break b8;
-													}
-													rt.drop(_106);
-												}
-												break b10;
-											}
-											rt.drop(this.#pinned);
-										}
-										if (this.#saved$3) {
-											rt.dropAll(queue);
-										}
-									}
-									this.#saved$3 = false;
-									if (this.#saved$4) {
-										rt.drop(next);
-									}
-								}
-								this.#saved$4 = false;
-								if (this.#saved$5) {
-									rt.drop(ready);
-								}
-								this.#saved$5 = false;
-								if (this.#saved$6) {
-									rt.drop(waiting);
-								}
-								this.#saved$6 = false;
-								if (this.#saved$7) {
-									rt.drop(block);
-								}
-								this.#saved$7 = false;
-							}
-							if (this.#saved) {
-								rt.drop(this.#lend);
-							}
+				const _105: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
+				let captured2 = next;
+				const captured3 = waiting;
+				const _108: rt.Future<rt.u64> = new rt.DynFuture(wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
+					return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value: rt.u64 | undefined): rt.u64 => {
+						Guard.note(captured3, "waited");
+						return rt.u64Add(unwrapOr$Option_u64(value, 0), 2);
+					});
+				}, (): void => {
+					rt.drop(captured2);
+					rt.drop(captured3);
+				})), Pending.poll$Future_boxed_closure0_closure3, rt.drop);
+				const captured4 = ready;
+				const queue: rt.Future<rt.u64>[] = [_105, _108, new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
+					Guard.note(captured4, "ready");
+					return 3;
+				}, (): void => {
+					rt.drop(captured4);
+				}), rt.drop)];
+				const captured5 = Guard.new(rt.u32Add(this.#id, 800), Log.clone$Clone(this.#log));
+				this.#pinned = wait$boxed_closure0_closure5_u64(rt.closure((_24: Waiter.Waiter): rt.Poll<rt.u64> => {
+					return Guard.id(captured5) as rt.u64;
+				}, (): void => {
+					rt.drop(captured5);
+				}));
+				const last: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = this.#pinned;
+				let captured6 = queue;
+				let captured7: rt.u64 = 0;
+				let captured8 = last;
+				this.#awaitee$3 = new Forward.Forward({ future: new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
+					let i: rt.usize = 0;
+					while (i < captured6.length) {
+						const _88: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured6[rt.idx(captured6, i)], cx);
+						if (_88 !== rt.Pending) {
+							captured7 = rt.u64Add(captured7, _88);
+							rt.drop(rt.vecSwapRemove(captured6, i));
+						} else {
+							i = rt.usizeAdd(i, 1);
 						}
-						this.#saved = false;
 					}
-					rt.drop(this.#log);
-				}
-				rt.drop(this.#guard);
+					if (!((captured6.length === 0))) {
+						return rt.Pending;
+					}
+					return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value3: rt.u64): rt.u64 => {
+						return rt.u64Add(captured7, value3);
+					});
+				}, (): void => {
+					rt.dropAll(captured6);
+				}), rt.drop) });
+			} else {
+				this.#state = 5;
+				return rt.Pending;
 			}
-			if (this.#saved$2) {
-				rt.drop(this.#rx);
-			}
-			this.#saved$2 = false;
-			this.#state = 2;
-			throw e;
 		}
+		const _133: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$3, _2);
+		if (_133 !== rt.Pending) {
+			const total: rt.u64 = _133;
+			rt.drop(this.#awaitee$3);
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(total, f)];
+			const _143: string = rt.fmtFormat(["boxed ", args6[0]]);
+			Guard.note(this.#guard, _143);
+			rt.drop(this.#pinned);
+			this.#saved = false;
+			rt.drop(this.#log);
+			rt.drop(this.#guard);
+			this.#saved$2 = false;
+			this.#state = 1;
+			return total;
+		}
+		this.#state = 6;
+		return rt.Pending;
 	}
 }
 
@@ -897,97 +411,43 @@ export class boxedFuture$2 {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 17;
-				rt.drop(this.#rx);
-				unwind = 0;
-				rt.drop(this.#block);
-			} else if (this.#state === 3) {
-				unwind = 8;
-				rt.drop(this.#awaitee);
-				unwind = 12;
-				rt.drop(this.#rx);
-				unwind = 0;
-				rt.drop(this.#block);
-			}
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 8) {
-				rt.drop(this.#rx);
-				rt.drop(this.#block);
-			} else if (unwind === 12) {
-				rt.drop(this.#block);
-			} else {
-				rt.drop(this.#block);
-			}
-			throw e;
+		if (this.#state === 0) {
+			rt.drop(this.#rx);
+			rt.drop(this.#block);
+		} else if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+			rt.drop(this.#rx);
+			rt.drop(this.#block);
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 28;
-				this.#awaitee = new recvFuture(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 27;
-			const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_7 !== rt.Pending) {
-				unwind = 28;
-				const result: rt.u64 | undefined = _7;
-				rt.drop(this.#awaitee);
-				const value: rt.u64 = unwrapOr$Option_u64(result, 0);
-				if (!(value === 99)) {
-					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(value, f)];
-					const _30: string = rt.fmtFormat(["block ", args4[0]]);
-					unwind = 26;
-					Guard.note(this.#block, _30);
-					unwind = 28;
-					const _39: rt.u64 = rt.u64Add(value, 1);
-					unwind = 30;
-					rt.drop(this.#rx);
-					unwind = 29;
-					rt.drop(this.#block);
-					this.#state = 1;
-					return _39;
-				}
-				const part = Guard.id(this.#block);
-				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-				rt.panicFmt(["g", args2[0], " poisoned"]);
-			} else {
-				this.#state = 3;
-				return rt.Pending;
-			}
-		} catch (e) {
-			b1: {
-				if (unwind === 0) {
-					throw e;
-				}
-				if (unwind !== 26) {
-					if (unwind === 27) {
-						rt.drop(this.#awaitee);
-					} else if (unwind !== 28) {
-						if (unwind === 29) {
-							break b1;
-						}
-						rt.drop(this.#block);
-						break b1;
-					}
-				}
+		if (this.#state === 0) {
+			this.#awaitee = new recvFuture(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
+		}
+		const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_7 !== rt.Pending) {
+			const result: rt.u64 | undefined = _7;
+			rt.drop(this.#awaitee);
+			const value: rt.u64 = unwrapOr$Option_u64(result, 0);
+			if (!(value === 99)) {
+				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(value, f)];
+				const _28: string = rt.fmtFormat(["block ", args4[0]]);
+				Guard.note(this.#block, _28);
+				const _42: rt.u64 = rt.u64Add(value, 1);
 				rt.drop(this.#rx);
 				rt.drop(this.#block);
+				this.#state = 1;
+				return _42;
 			}
-			this.#state = 2;
-			throw e;
+			const part = Guard.id(this.#block);
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+			rt.panicFmt(["g", args2[0], " poisoned"]);
+		} else {
+			this.#state = 3;
+			return rt.Pending;
 		}
 	}
 }

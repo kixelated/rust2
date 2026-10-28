@@ -12,11 +12,11 @@ import type * as version_Version from "../lite/version.Version.ts";
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
 export function decodeSlice$Decode_Form(buf: rt.ByteSlice, version: Form.Form): rt.Result<[Versions, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(buf, version);
-	const _6: rt.Result<Versions, DecodeError.DecodeError> = decode$Decode_Form(r, version);
-	if (_6.ok) {
-		return rt.Ok([_6.value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
+	const _5: rt.Result<Versions, DecodeError.DecodeError> = decode$Decode_Form(r, version);
+	if (_5.ok) {
+		return rt.Ok([_5.value, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Versions, rt.usize]);
 	}
-	return _6;
+	return _5;
 }
 
 /** A list of versions in preferred order. */

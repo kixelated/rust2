@@ -14,33 +14,14 @@ export class Waiter {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.drop(this.waker);
-			dropped = 1;
-			rt.drop(this.shared);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.shared);
-			}
-			throw e;
-		}
+		rt.drop(this.waker);
+		rt.drop(this.shared);
 	}
 }
 
 function new_(waker: rt.Waker): Waiter {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
-		return new Waiter({ waker, shared });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(waker);
-		throw e;
-	}
+	const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
+	return new Waiter({ waker, shared });
 }
 
 /** Register with `list`, a no-op while the list still holds this waiter. */

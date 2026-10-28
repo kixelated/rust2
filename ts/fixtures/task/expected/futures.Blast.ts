@@ -12,17 +12,8 @@ export class Blast {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Drop(this);
-			dropped = 1;
-			rt.drop(this._0);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this._0);
-			}
-			throw e;
-		}
+		drop$Drop(this);
+		rt.drop(this._0);
 	}
 }
 

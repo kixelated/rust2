@@ -21,35 +21,8 @@ export function drop$Arc_Wrap_Pair_Held(value: rt.Arc<Wrap.Wrap<Pair.Pair<Held.H
 }
 
 export function drop$Arc_str_Arc_str(_1: [rt.Arc<string>, rt.Arc<string>]): void {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		rt.drop(_1[0]);
-		unwind = 0;
-		rt.drop(_1[1]);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1[1]);
-		throw e;
-	}
-}
-
-export function drop$Bomb_Guard(_1: [Bomb.Bomb, Guard.Guard]): void {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		rt.drop(_1[0]);
-		unwind = 0;
-		rt.drop(_1[1]);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1[1]);
-		throw e;
-	}
+	rt.drop(_1[0]);
+	rt.drop(_1[1]);
 }
 
 export function drop$ControlFlow_Guard_u32(_1: rt.Result<rt.u32, Guard.Guard>): void {
@@ -59,40 +32,14 @@ export function drop$ControlFlow_Guard_u32(_1: rt.Result<rt.u32, Guard.Guard>): 
 }
 
 export function drop$Guard_Entries_Bomb_Guard_Held(_1: [Guard.Guard, Entries.Entries<Bomb.Bomb, Guard.Guard>, Held.Held]): void {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		rt.drop(_1[0]);
-		unwind = 4;
-		rt.drop(_1[1]);
-		unwind = 0;
-		drop$Held(_1[2]);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 4) {
-			rt.drop(_1[1]);
-		}
-		drop$Held(_1[2]);
-		throw e;
-	}
+	rt.drop(_1[0]);
+	rt.drop(_1[1]);
+	drop$Held(_1[2]);
 }
 
 export function drop$Guard_Guard(_1: [Guard.Guard, Guard.Guard]): void {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		rt.drop(_1[0]);
-		unwind = 0;
-		rt.drop(_1[1]);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1[1]);
-		throw e;
-	}
+	rt.drop(_1[0]);
+	rt.drop(_1[1]);
 }
 
 export function drop$Guard_u32(_1: [Guard.Guard, rt.u32]): void {
@@ -104,55 +51,22 @@ export function drop$Guard_u64(_1: [Guard.Guard, rt.u64]): void {
 }
 
 export function drop$Held(_1: Held.Held): void {
-	let unwind: number = 0;
-	try {
-		if (_1.tag === "One") {
-			rt.drop(_1._0);
-		} else if (_1.tag === "Two") {
-			unwind = 5;
-			rt.drop(_1._0);
-			unwind = 0;
-			rt.drop(_1._1);
-		}
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop((_1 as { tag: "Two"; _0: Guard.Guard; _1: Guard.Guard })._1);
-		throw e;
+	if (_1.tag === "One") {
+		rt.drop(_1._0);
+	} else if (_1.tag === "Two") {
+		rt.drop(_1._0);
+		rt.drop(_1._1);
 	}
 }
 
 export function drop$Key_Guard(_1: [Key.Key, Guard.Guard]): void {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		rt.drop(_1[0]);
-		unwind = 0;
-		rt.drop(_1[1]);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1[1]);
-		throw e;
-	}
+	rt.drop(_1[0]);
+	rt.drop(_1[1]);
 }
 
 export function drop$Key_Key(_1: [Key.Key, Key.Key]): void {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		rt.drop(_1[0]);
-		unwind = 0;
-		rt.drop(_1[1]);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1[1]);
-		throw e;
-	}
+	rt.drop(_1[0]);
+	rt.drop(_1[1]);
 }
 
 export function drop$Mutex_Held(value: rt.Mutex<Held.Held>): void {
@@ -196,19 +110,8 @@ export function drop$Option_u32_Bomb(_1: [rt.u32, Bomb.Bomb] | undefined): void 
 }
 
 export function drop$Pair_Held(_1: Pair.Pair<Held.Held>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 4;
-		drop$Held(_1.first);
-		unwind = 0;
-		rt.drop(_1.second);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1.second);
-		throw e;
-	}
+	drop$Held(_1.first);
+	rt.drop(_1.second);
 }
 
 export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>): void {
@@ -278,108 +181,33 @@ export function drop$Vec_Guard(value: Guard.Guard[]): void {
 }
 
 export function drop$Wrap_Arc_Held(_1: Wrap.Wrap<rt.Arc<Held.Held>>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		Wrap.drop$Drop_Arc_Held(_1);
-		unwind = 4;
-		rt.drop(_1.log);
-		unwind = 0;
-		rt.arcDrop(_1.inner, drop$Held);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 4) {
-			rt.drop(_1.log);
-		}
-		rt.arcDrop(_1.inner, drop$Held);
-		throw e;
-	}
+	Wrap.drop$Drop_Arc_Held(_1);
+	rt.drop(_1.log);
+	rt.arcDrop(_1.inner, drop$Held);
 }
 
 export function drop$Wrap_Guard(_1: Wrap.Wrap<Guard.Guard>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		Wrap.drop$Drop_Guard(_1);
-		unwind = 4;
-		rt.drop(_1.log);
-		unwind = 0;
-		rt.drop(_1.inner);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 4) {
-			rt.drop(_1.log);
-		}
-		rt.drop(_1.inner);
-		throw e;
-	}
+	Wrap.drop$Drop_Guard(_1);
+	rt.drop(_1.log);
+	rt.drop(_1.inner);
 }
 
 export function drop$Wrap_Held(_1: Wrap.Wrap<Held.Held>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		Wrap.drop$Drop_Held(_1);
-		unwind = 4;
-		rt.drop(_1.log);
-		unwind = 0;
-		drop$Held(_1.inner);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 4) {
-			rt.drop(_1.log);
-		}
-		drop$Held(_1.inner);
-		throw e;
-	}
+	Wrap.drop$Drop_Held(_1);
+	rt.drop(_1.log);
+	drop$Held(_1.inner);
 }
 
 export function drop$Wrap_Pair_Held(_1: Wrap.Wrap<Pair.Pair<Held.Held>>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		Wrap.drop$Drop_Pair_Held(_1);
-		unwind = 4;
-		rt.drop(_1.log);
-		unwind = 0;
-		drop$Pair_Held(_1.inner);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 4) {
-			rt.drop(_1.log);
-		}
-		drop$Pair_Held(_1.inner);
-		throw e;
-	}
+	Wrap.drop$Drop_Pair_Held(_1);
+	rt.drop(_1.log);
+	drop$Pair_Held(_1.inner);
 }
 
 export function drop$Wrap_Vec_Wrap_Held(_1: Wrap.Wrap<Wrap.Wrap<Held.Held>[]>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		Wrap.drop$Drop_Vec_Wrap_Held(_1);
-		unwind = 4;
-		rt.drop(_1.log);
-		unwind = 0;
-		rt.dropAll(_1.inner, drop$Wrap_Held);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind !== 4) {
-			rt.drop(_1.log);
-		}
-		rt.dropAll(_1.inner, drop$Wrap_Held);
-		throw e;
-	}
+	Wrap.drop$Drop_Vec_Wrap_Held(_1);
+	rt.drop(_1.log);
+	rt.dropAll(_1.inner, drop$Wrap_Held);
 }
 
 export function drop$u32_Bomb(_1: [rt.u32, Bomb.Bomb]): void {

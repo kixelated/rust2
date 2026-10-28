@@ -8,36 +8,12 @@ import type * as Waiter from "./kio.Waiter.ts";
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$boxed_closure0_closure3_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64>;
-	let unwind: number = 0;
-	try {
-		unwind = 3;
-		_2 = poll;
-		return new Pending.Pending({ poll: _2, park: Park.default$Default() });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_2);
-		throw e;
-	}
+	return new Pending.Pending({ poll, park: Park.default$Default() });
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64>;
-	let unwind: number = 0;
-	try {
-		unwind = 3;
-		_2 = poll;
-		return new Pending.Pending({ poll: _2, park: Park.default$Default() });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_2);
-		throw e;
-	}
+	return new Pending.Pending({ poll, park: Park.default$Default() });
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
@@ -61,39 +37,22 @@ export class recvFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				const self: Consumer.Consumer = this.#self;
-				this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
-					return Consumer.pollRecv(self, waiter);
-				});
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
-			if (_7 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _7;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			const self: Consumer.Consumer = this.#self;
+			this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+				return Consumer.pollRecv(self, waiter);
+			});
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
+		if (_7 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _7;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 

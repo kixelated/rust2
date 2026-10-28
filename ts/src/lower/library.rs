@@ -536,10 +536,10 @@ pub struct Call<'tcx> {
 }
 
 /// What the mapping of `owner::name` may discard of the operands it takes by value, rather
-/// than move into its result or a closure, as it returns or as a panic unwinds it: the
-/// types, by their index among the call's type arguments, whose droppers its runtime
-/// function takes after its own arguments, as `unwrap_or` drops its fallback. `None` for
-/// any other mapping, which is refused an operand that drops. Iterators refuse their own.
+/// than move into its result or a closure, as it returns: the types, by their index among
+/// the call's type arguments, whose droppers its runtime function takes after its own
+/// arguments, as `unwrap_or` drops its fallback. `None` for any other mapping, which is
+/// refused an operand that drops. Iterators refuse their own.
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "unwrap" | "expect")
@@ -548,18 +548,15 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		| ("mem", "replace" | "take" | "swap")
 		| ("hint", "must_use")
 		| ("From", "from")
-		| ("Into", "into") => &[],
-		// `unwrap` and `expect` drop the error they panic with, and `unwrap_err` the value.
-		("Result", "unwrap" | "expect") => &[1],
-		("Result", "unwrap_err") => &[0],
+		| ("Into", "into")
+		// What a panic would drop, which aborts.
+		| ("Result", "unwrap" | "expect" | "unwrap_err")
+		| ("Vec", "insert") => &[],
 		// `Vec<T>` drops each element `retain` rejects, `dedup` removes, and `truncate` and
-		// `clear` cut, and what `insert` panics with.
-		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear" | "insert") => {
-			&[0]
-		}
-		// `get_or_init::<T, F>` drops its function uncalled if the cell is set or a
-		// `OnceLock` is initializing, and what it made if it set the cell itself.
-		("OnceCell" | "OnceLock", "get_or_init") => &[0, 1],
+		// `clear` cut.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
+		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
+		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		_ => return None,
 	})
 }
@@ -634,7 +631,7 @@ fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<
 struct Closures<'tcx> {
 	/// The first it would neither drop where std's does nor keep: refused.
 	leaked: Option<Ty<'tcx>>,
-	/// Those it drops as it returns or unwinds, having kept nothing of them, in the order
+	/// Those it drops as it returns, having kept nothing of them, in the order
 	/// their parameters are declared.
 	spent: Vec<Expr>,
 }
@@ -1005,13 +1002,8 @@ fn mapping<'tcx>(
 					return vec_clone(b, value, args.type_at(0), span);
 				}
 				ty::Tuple(tys) if !(b.t.is_copy(ty) && clone_copies(b.t, ty)) => {
-					let mut clones = Vec::new();
-					let mut drops = Vec::new();
-					for t in tys.iter() {
-						clones.push(super::collections::clone_fn(b, t, span));
-						drops.push(b.t.drop_fn(t, span).unwrap_or_else(Expr::undefined));
-					}
-					Expr::rt("tupleClone", vec![value, Expr::Array(clones), Expr::Array(drops)])
+					let clones = tys.iter().map(|t| super::collections::clone_fn(b, t, span)).collect();
+					Expr::rt("tupleClone", vec![value, Expr::Array(clones)])
 				}
 				// A box is what it holds, cloned.
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => {
@@ -1577,19 +1569,13 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 }
 
 /// A clone of `value`, a slice, array, or `Vec` of `elem` other than bytes, as a `Vec`: a
-/// copy of the array if each element's clone is itself or a copy, or else each element
-/// cloned, the clones dropping if one panics.
+/// copy of the array if each element's clone is itself, or else each element cloned.
 fn vec_clone<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, elem: Ty<'tcx>, span: Span) -> Option<Expr> {
 	let clone = super::collections::clone_fn(b, elem, span);
 	if matches!(&clone, Expr::Lit(l) if l == "undefined") {
 		return Some(value.method("slice", Vec::new()));
 	}
-	if b.t.is_copy(elem) && clone_copies(b.t, elem) {
-		return Some(value.method("map", vec![clone]));
-	}
-	let mut values = vec![value, clone];
-	values.extend(b.t.drop_fn(elem, span));
-	Some(Expr::rt("vecClone", values))
+	Some(value.method("map", vec![clone]))
 }
 
 /// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text, a

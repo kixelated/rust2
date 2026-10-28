@@ -14,22 +14,14 @@ export class Producer {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Drop(this);
-			dropped = 1;
-			rt.drop(this.state);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.state);
-			}
-			throw e;
-		}
+		drop$Drop(this);
+		rt.drop(this.state);
 	}
 }
 
 function new_(): Producer {
-	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: [], closed: false, producers: 1, waiters: WaiterList.new() })) });
+	const _2: rt.u64[] = [];
+	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() })) });
 }
 
 /** Queue `value` and wake every consumer, after releasing the lock. */

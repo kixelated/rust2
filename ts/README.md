@@ -7,14 +7,12 @@ rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
-`wasm32-unknown-unknown`, with std built from source for it, unwinding and with every
-function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
+`wasm32-unknown-unknown`, with std built from source for it with every function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
 would; the configured library is also translated, after type and borrow checking, starting from its roots and following
 what they reach. Every crate it depends on but std's translates with it as one program,
 as far as the roots reach: each compiles with every function's MIR, and its types and
 calls translate as the package's own do. They compile with `--cfg rust2_ts`, so a crate
-can give translation a safe twin of its `unsafe`, and otherwise with the panic strategy
-cargo gives them, so a panic drops nothing in a dependency's frames. Their `unsafe` is
+can give translation a safe twin of its `unsafe`. Their `unsafe` is
 refused where it is, as the package's is, unless a binding stands in for the item holding
 it. Only the writes of the dependencies' functions translation reaches decide what it
 copies, so it runs again when it reaches one it didn't read. A construct outside the subset is a compile error with its span, and
@@ -120,7 +118,10 @@ bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it g
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
-wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with.
+wraps silently. A panic throws `rt.Panic`, with the message native Rust panics with, and
+aborts as wasm32's does: it runs no cleanup, so what the translation held is undefined
+after one, as a wasm trap leaves it, and a caller that catches `rt.Panic` must not use it
+again.
 
 Each integer type is its own type to `tsc`, named as Rust's: `rt.u8` is a `number` with a
 type-only brand, so a `u16` where a `u8` goes fails the type check, while a plain
@@ -231,9 +232,7 @@ Its iterators are `rt.Iter`s, so std's adaptors run over them.
 
 A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`
 impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where drop
-elaboration put it. A panic unwinds: a function with cleanup to run catches `rt.Panic`,
-runs the cleanup blocks MIR has under `-C panic=unwind`, and throws it on, so what a
-panic drops matches native Rust's. A value without `[Symbol.dispose]` of its own, such as
+elaboration put it. A panic drops nothing. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
 function of its type's own (`drop$Held`). `bool`'s, `Option`'s, `Result`'s, and `Poll`'s
 methods lower from core's MIR, so they drop what core's do, where core's do. The runtime
@@ -241,12 +240,9 @@ functions for std's collections, `Arc`, and the std functions that may discard a
 (`OnceCell::get_or_init`, a map's `insert`) take what drops each value they may drop, and
 drop it where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
 map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
-what it skips or rejects, and a consumer that takes an iterator by value drops it, a
-panic included: through each `rt.Iter`'s own `fold` where std's folds, which drops each
-adaptor's closure as its fold ends, before what it wraps, as std's does. A `Drop` impl that
-panics leaves the rest to drop as Rust's does: a class's glue and the runtime's droppers
-go on to the rest of the value and its container, but a hash table leaks its other
-entries, as std's does.
+what it skips or rejects, and a consumer that takes an iterator by value drops it:
+through each `rt.Iter`'s own `fold` where std's folds, which drops each adaptor's closure
+as its fold ends, before what it wraps, as std's does.
 
 A trait object of the crate's own trait, behind `&`, `&mut`, `Box`, or `Arc`, is an object with
 a method for each function a call can dispatch to, its supertraits' included, named for
@@ -469,8 +465,7 @@ they need.
 - A slice's `sort` and `sort_unstable` are one stable merge sort of the runtime's own,
   calling only the comparator, as std permits of an unstable sort: JS's `sort` moves
   `undefined`, a `None`, to the end without comparing it, and each engine orders its
-  comparisons differently. A comparator that panics leaves each element once, in an
-  order std's sort would not match.
+  comparisons differently.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors would lower from std's own bodies, whose slice iterators are
   raw pointers, ES helpers lack most of them
@@ -478,8 +473,7 @@ they need.
   nothing per item. `just ts bench` measures chains of `map`, `filter`, `any`, `skip`,
   and `take` 1.4-8x faster than the same ES helpers in Node, Bun, and Chrome.
 - Bodies lower from MIR, not THIR: drops are where drop elaboration put them, exact by
-  construction, with no `finally` per scope or `undefined` left by a move, and a panic
-  runs the cleanup blocks `-C panic=unwind` MIR has, from a `catch`. Async bodies are
+  construction, with no `finally` per scope or `undefined` left by a move. Async bodies are
   the coroutine transform's state machines, a class each. Against the THIR lowering it
   replaced, MIR closes about 1,100 of the 1,400 drop refusals in moq-net's census, and
   runs `just ts bench`'s codec 2-6% faster at the geometric mean and the async handoff
@@ -490,9 +484,7 @@ they need.
   assigned once and read once fold back into the expression that reads them unless that
   would reorder an effect.
 - `Option`'s and `Result`'s combinators lower from core's own MIR rather than runtime
-  functions, each of which restated core's drops and unwinding by hand. The wasm32
-  sysroot aborts on panic, so its MIR has no cleanups: std builds from source with
-  `-C panic=unwind`, which took a cold check from 33 to 42 seconds. Each closure gets
+  functions, each of which restated core's drops by hand. Each closure gets
   its own instance, keeping call sites monomorphic, and instances that print the same are
   merged into one. An `Ok` rebuilt from a stable `Result`'s payload is that `Result`,
   without which Node ran the codec 1.31x slower. Against the runtime functions, the codec
@@ -576,10 +568,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   functions and std's future helpers, with wakers of the crate's `Wake` impls, beside
   values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
-  fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
-  also runs the scripts natively on the host (`examples/unwind.rs`), where a panic
-  unwinds, catching and logging each step's panic and going on, so what a panic drops
-  must match too.
+  fixture's native executor does. The logs must match byte for byte.
 - `stock` calls `bytes`, `rand`, and `tracing` with no config, against native Rust, whose
   `rand::rng()` reads the fixture's own getrandom backend on wasm32. It checks `Bytes`'s
   slices and panics, how each is made and printed, that no event evaluates a field, and
@@ -601,9 +590,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   and its expected census is `census.md`.
 
 `tests/spawn.ts` checks that `rt.spawn` yields to a timer after its 128-poll budget, and
-rejects when a future panics as it drops. `tests/retain.ts` panics in a collection's
-`retain` and `Vec::dedup_by` at each item, and `retain_unwinds` checks that each leaves and
-drops what std's does; a sort whose comparator panics must leave each item once.
+rejects when a future panics as it drops. `tests/retain.ts` runs a collection's `retain`
+and `Vec::dedup_by` over every keep mask of up to 6 items, and `retain` checks that each
+leaves and drops what std's does.
 
 ## Bench
 

@@ -13,11 +13,11 @@ import * as Version from "../lite/version.Version.ts";
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
 export function decodeSlice$Decode_Version(buf: rt.ByteSlice, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(buf, Form.from$From_Version(version));
-	const _6: rt.Result<Group, DecodeError.DecodeError> = decode$Decode_Version(r, version);
-	if (_6.ok) {
-		return rt.Ok([_6.value, rt.usizeSub(buf.length, Decoder.remaining(r))]);
+	const _5: rt.Result<Group, DecodeError.DecodeError> = decode$Decode_Version(r, version);
+	if (_5.ok) {
+		return rt.Ok([_5.value, rt.usizeSub(buf.length, Decoder.remaining(r))] as [Group, rt.usize]);
 	}
-	return _6;
+	return _5;
 }
 
 export interface Group {

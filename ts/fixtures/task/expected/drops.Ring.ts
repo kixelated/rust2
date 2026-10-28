@@ -18,34 +18,12 @@ export class Ring {
 }
 
 export function lent(self: Ring, index: rt.usize, bomb: Bomb.Bomb): void {
-	let _7!: Bomb.Bomb | undefined;
-	let _9!: boolean;
-	let unwind: number = 0;
-	try {
-		unwind = 8;
-		_9 = false;
-		_9 = true;
-		if (!(index < 2)) {
-			rt.panic("index out of bounds: the len is " + 2 + " but the index is " + index);
-		}
-		lend(rt.place(() => self.slots[index], (value) => self.slots[index] = value));
-		unwind = 5;
-		_9 = false;
-		_7 = bomb;
-		rt.drop(self.slots[index]);
-		self.slots[index] = _7;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind === 5) {
-			self.slots[index] = _7;
-		}
-		if (_9) {
-			rt.drop(bomb);
-		}
-		throw e;
+	if (!(index < 2)) {
+		rt.panic("index out of bounds: the len is " + 2 + " but the index is " + index);
 	}
+	lend(rt.place(() => self.slots[index], (value) => self.slots[index] = value));
+	rt.drop(self.slots[index]);
+	self.slots[index] = bomb;
 }
 
 //# sourceMappingURL=drops.Ring.ts.map

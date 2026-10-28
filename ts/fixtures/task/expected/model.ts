@@ -35,138 +35,71 @@ export class sumFuture {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 17;
-				rt.drop(this.#rx);
-				unwind = 0;
-				rt.drop(this.#guard);
-			} else if (this.#state === 3) {
-				unwind = 10;
-				rt.drop(this.#awaitee);
-				unwind = 12;
-				rt.drop(this.#inner);
-				unwind = 13;
-				rt.drop(this.#guard);
-				unwind = 0;
-				rt.drop(this.#rx);
-			}
-		} catch (e) {
-			b0: {
-				b1: {
-					if (unwind === 0) {
-						throw e;
-					}
-					if (unwind === 10) {
-						rt.drop(this.#inner);
-					} else if (unwind !== 12) {
-						if (unwind === 13) {
-							break b1;
-						}
-						rt.drop(this.#guard);
-						break b0;
-					}
-					rt.drop(this.#guard);
-				}
-				rt.drop(this.#rx);
-			}
-			throw e;
+		if (this.#state === 0) {
+			rt.drop(this.#rx);
+			rt.drop(this.#guard);
+		} else if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+			rt.drop(this.#inner);
+			rt.drop(this.#guard);
+			rt.drop(this.#rx);
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let unwind: number = 0;
-		try {
-			let bb0: number = 0;
-			while (true) {
-				switch (bb0) {
-					case 0:
-						if (this.#state === 0) {
-							unwind = 33;
-							this.#inner = Guard.new(rt.u32Add(this.#guard.id, 100), Log.clone$Clone(this.#guard.log));
-							this.#total = 0;
-							bb0 = 4;
-							continue;
-						}
-						if (this.#state === 1) {
-							rt.asyncFnResumed();
-						} else if (this.#state === 2) {
-							rt.asyncFnResumedPanic();
-						} else {
-							bb0 = 7;
-							continue;
-						}
-					case 4:
-						unwind = 32;
-						this.#awaitee = new recvFuture(this.#rx);
+		let bb0: number = 0;
+		while (true) {
+			switch (bb0) {
+				case 0:
+					if (this.#state === 0) {
+						this.#inner = Guard.new(rt.u32Add(this.#guard.id, 100), Log.clone$Clone(this.#guard.log));
+						this.#total = 0;
+						bb0 = 4;
+						continue;
+					}
+					if (this.#state === 1) {
+						rt.asyncFnResumed();
+					} else {
 						bb0 = 7;
 						continue;
-					case 7:
-						unwind = 31;
-						const _11: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-						if (_11 !== rt.Pending) {
-							unwind = 32;
-							const result: rt.u64 | undefined = _11;
-							rt.drop(this.#awaitee);
-							if (result !== undefined) {
-								const value: rt.u64 = result;
-								if (!(value !== 99)) {
-									const arg2 = this.#guard.id;
-									const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
-									rt.panicFmt(["g", args2[0], " poisoned"]);
-								} else {
-									const arg = this.#guard.id;
-									const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.u64Display(value, f)];
-									const _32: string = rt.fmtFormat(["g", args4[0], " got ", args4[1]]);
-									Log.note(this.#inner.log, _32);
-									this.#total = rt.u64Add(this.#total, value);
-									bb0 = 4;
-									continue;
-								}
+					}
+				case 4:
+					this.#awaitee = new recvFuture(this.#rx);
+					bb0 = 7;
+					continue;
+				case 7:
+					const _11: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_11 !== rt.Pending) {
+						const result: rt.u64 | undefined = _11;
+						rt.drop(this.#awaitee);
+						if (result !== undefined) {
+							const value: rt.u64 = result;
+							if (!(value !== 99)) {
+								const arg2 = this.#guard.id;
+								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f)];
+								rt.panicFmt(["g", args2[0], " poisoned"]);
 							} else {
-								unwind = 33;
-								const _47: rt.u64 = this.#total;
-								rt.drop(this.#inner);
-								unwind = 34;
-								rt.drop(this.#guard);
-								unwind = 35;
-								rt.drop(this.#rx);
-								this.#state = 1;
-								return _47;
+								const arg = this.#guard.id;
+								const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f), (f: rt.Formatter) => rt.u64Display(value, f)];
+								const _32: string = rt.fmtFormat(["g", args4[0], " got ", args4[1]]);
+								Log.note(this.#inner.log, _32);
+								this.#total = rt.u64Add(this.#total, value);
+								bb0 = 4;
+								continue;
 							}
 						} else {
-							this.#state = 3;
-							return rt.Pending;
+							const _47: rt.u64 = this.#total;
+							rt.drop(this.#inner);
+							rt.drop(this.#guard);
+							rt.drop(this.#rx);
+							this.#state = 1;
+							return _47;
 						}
-				}
-			}
-		} catch (e) {
-			b1: {
-				b2: {
-					b3: {
-						if (unwind === 0) {
-							throw e;
-						}
-						if (unwind === 31) {
-							rt.drop(this.#awaitee);
-						} else if (unwind !== 32) {
-							if (unwind === 33) {
-								break b3;
-							}
-							if (unwind === 34) {
-								break b2;
-							}
-							break b1;
-						}
-						rt.drop(this.#inner);
+					} else {
+						this.#state = 3;
+						return rt.Pending;
 					}
-					rt.drop(this.#guard);
-				}
-				rt.drop(this.#rx);
 			}
-			this.#state = 2;
-			throw e;
 		}
 	}
 }
@@ -209,9 +142,6 @@ export class blocksFuture {
 	#saved$4!: boolean;
 	#saved$5!: boolean;
 	#saved$6!: boolean;
-	#saved$7!: boolean;
-	#saved$8!: boolean;
-	#saved$9!: boolean;
 
 	constructor(rx: Consumer.Consumer, guard: Guard.Guard, moves: boolean) {
 		this.#rx = rx;
@@ -220,604 +150,247 @@ export class blocksFuture {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			b0: {
-				b1: {
-					b2: {
-						b3: {
-							b4: {
-								if (this.#state === 0) {
-									unwind = 96;
-									rt.drop(this.#rx);
-									unwind = 0;
-									rt.drop(this.#guard);
-									return;
-								}
-								if (this.#state === 3) {
-									unwind = 70;
-									rt.drop(this.#awaitee);
-									unwind = 71;
-									rt.drop(this.#saved);
-									this.#saved$9 = false;
-									break b0;
-								}
-								if (this.#state === 4) {
-									unwind = 65;
-									rt.drop(this.#awaitee$2);
-									unwind = 66;
-									rt.drop(this.#saved);
-									this.#saved$8 = false;
-									break b1;
-								}
-								if (this.#state === 5) {
-									unwind = 61;
-									rt.drop(this.#awaitee$3);
-									break b2;
-								}
-								if (this.#state === 6) {
-									unwind = 58;
-									rt.drop(this.#awaitee$3);
-									break b3;
-								}
-								if (this.#state === 7) {
-									unwind = 55;
-									rt.drop(this.#awaitee$3);
-									break b4;
-								}
-								if (this.#state === 8) {
-									unwind = 48;
-									rt.drop(this.#awaitee$3);
-								} else if (this.#state === 9) {
-									unwind = 45;
-									rt.drop(this.#awaitee$4);
-								} else {
-									return;
-								}
-								unwind = 51;
+		b0: {
+			b1: {
+				b2: {
+					b3: {
+						b4: {
+							if (this.#state === 0) {
+								rt.drop(this.#rx);
+								rt.drop(this.#guard);
+								return;
+							}
+							if (this.#state === 3) {
+								rt.drop(this.#awaitee);
 								rt.drop(this.#saved);
-								unwind = 53;
-								rt.drop(this.#nested);
+								break b0;
 							}
-						}
-					}
-					this.#saved$7 = false;
-				}
-				unwind = 69;
-				rt.dropAll(this.#slots);
-			}
-			if (this.#saved$4) {
-				unwind = 74;
-				rt.drop(this.#second);
-			}
-			this.#saved$4 = false;
-			if (this.#saved$5) {
-				unwind = 75;
-				rt.drop(this.#first);
-			}
-			this.#saved$5 = false;
-			if (this.#saved$3) {
-				unwind = 76;
-				rt.drop(this.#guard);
-			}
-			this.#saved$3 = false;
-			if (this.#saved$6) {
-				unwind = 77;
-				rt.drop(this.#rx);
-			}
-			this.#saved$6 = false;
-		} catch (e) {
-			b10: {
-				b11: {
-					b12: {
-						b13: {
-							b14: {
-								b15: {
-									b16: {
-										b17: {
-											b18: {
-												b19: {
-													b20: {
-														b21: {
-															b22: {
-																b23: {
-																	b24: {
-																		if (unwind === 0) {
-																			throw e;
-																		}
-																		if (unwind === 45) {
-																			break b23;
-																		}
-																		if (unwind === 48) {
-																			break b23;
-																		}
-																		if (unwind === 51) {
-																			break b22;
-																		}
-																		if (unwind === 53) {
-																			break b21;
-																		}
-																		if (unwind === 55) {
-																			break b20;
-																		}
-																		if (unwind === 58) {
-																			break b19;
-																		}
-																		if (unwind === 61) {
-																			break b18;
-																		}
-																		if (unwind === 65) {
-																			rt.drop(this.#saved);
-																			break b24;
-																		}
-																		if (unwind === 66) {
-																			break b24;
-																		}
-																		if (unwind === 69) {
-																			break b16;
-																		}
-																		if (unwind === 70) {
-																			rt.drop(this.#saved);
-																		} else if (unwind !== 71) {
-																			if (unwind === 74) {
-																				break b14;
-																			}
-																			if (unwind === 75) {
-																				break b13;
-																			}
-																			if (unwind === 76) {
-																				break b12;
-																			}
-																			if (unwind === 77) {
-																				break b11;
-																			}
-																			rt.drop(this.#guard);
-																			break b10;
-																		}
-																		this.#saved$9 = false;
-																		break b15;
-																	}
-																	this.#saved$8 = false;
-																	break b17;
-																}
-																rt.drop(this.#saved);
-															}
-															rt.drop(this.#nested);
-														}
-													}
-												}
-											}
-											this.#saved$7 = false;
-										}
-										rt.dropAll(this.#slots);
-									}
-								}
-								if (this.#saved$4) {
-									rt.drop(this.#second);
-								}
+							if (this.#state === 4) {
+								rt.drop(this.#awaitee$2);
+								rt.drop(this.#saved);
+								break b1;
 							}
-							this.#saved$4 = false;
-							if (this.#saved$5) {
-								rt.drop(this.#first);
+							if (this.#state === 5) {
+								rt.drop(this.#awaitee$3);
+								break b2;
 							}
+							if (this.#state === 6) {
+								rt.drop(this.#awaitee$3);
+								break b3;
+							}
+							if (this.#state === 7) {
+								rt.drop(this.#awaitee$3);
+								break b4;
+							}
+							if (this.#state === 8) {
+								rt.drop(this.#awaitee$3);
+							} else if (this.#state === 9) {
+								rt.drop(this.#awaitee$4);
+							} else {
+								return;
+							}
+							rt.drop(this.#saved);
+							rt.drop(this.#nested);
 						}
-						this.#saved$5 = false;
-						if (this.#saved$3) {
-							rt.drop(this.#guard);
-						}
-					}
-					this.#saved$3 = false;
-					if (this.#saved$6) {
-						rt.drop(this.#rx);
 					}
 				}
-				this.#saved$6 = false;
 			}
-			throw e;
+			rt.dropAll(this.#slots);
 		}
+		if (this.#saved$4) {
+			rt.drop(this.#second);
+		}
+		this.#saved$4 = false;
+		if (this.#saved$5) {
+			rt.drop(this.#first);
+		}
+		this.#saved$5 = false;
+		if (this.#saved$3) {
+			rt.drop(this.#guard);
+		}
+		this.#saved$3 = false;
+		if (this.#saved$6) {
+			rt.drop(this.#rx);
+		}
+		this.#saved$6 = false;
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
-		let _40!: Guard.Guard;
-		let result2!: rt.usize;
-		let seen!: rt.Future<rt.u32>;
-		let _167!: Inner.Inner | undefined;
-		let unwind: number = 0;
-		try {
-			b0: {
-				b1: {
-					b2: {
-						b3: {
-							b4: {
-								b5: {
-									if (this.#state === 0) {
-										unwind = 165;
-										this.#saved$6 = false;
-										this.#saved$3 = false;
-										this.#saved$5 = false;
-										this.#saved$4 = false;
-										this.#saved$9 = false;
-										this.#saved$8 = false;
-										this.#saved$7 = false;
-										this.#saved$6 = true;
-										this.#saved$3 = true;
-										this.#first = Guard.new(rt.u32Add(this.#guard.id, 200), Log.clone$Clone(this.#guard.log));
-										unwind = 164;
-										this.#saved$5 = true;
-										this.#second = Guard.new(rt.u32Add(this.#guard.id, 300), Log.clone$Clone(this.#guard.log));
-										unwind = 175;
-										this.#saved$4 = true;
-										rt.drop(new blocksFuture$2(this.#first));
-										turns(this.#guard.log, rt.u32Rem(this.#guard.id, 5));
-										temporaries(this.#guard.log, this.#guard.id);
-										unwind = 163;
-										this.#saved = Guard.new(rt.u32Add(this.#guard.id, 900), Log.clone$Clone(this.#guard.log));
-										unwind = 161;
-										this.#saved$9 = true;
-										this.#awaitee = new recvFuture(this.#rx);
-									} else if (this.#state === 1) {
-										rt.asyncFnResumed();
-									} else if (this.#state === 2) {
-										rt.asyncFnResumedPanic();
-									} else if (this.#state !== 3) {
-										if (this.#state === 4) {
-											break b5;
-										}
-										if (this.#state === 5) {
-											break b4;
-										}
-										if (this.#state === 6) {
-											break b3;
-										}
-										if (this.#state === 7) {
-											break b2;
-										}
-										if (this.#state === 8) {
-											break b1;
-										}
-										break b0;
+		b0: {
+			b1: {
+				b2: {
+					b3: {
+						b4: {
+							b5: {
+								if (this.#state === 0) {
+									this.#saved$6 = false;
+									this.#saved$3 = false;
+									this.#saved$5 = false;
+									this.#saved$4 = false;
+									this.#saved$6 = true;
+									this.#saved$3 = true;
+									this.#first = Guard.new(rt.u32Add(this.#guard.id, 200), Log.clone$Clone(this.#guard.log));
+									this.#saved$5 = true;
+									this.#second = Guard.new(rt.u32Add(this.#guard.id, 300), Log.clone$Clone(this.#guard.log));
+									this.#saved$4 = true;
+									rt.drop(new blocksFuture$2(this.#first));
+									turns(this.#guard.log, rt.u32Rem(this.#guard.id, 5));
+									temporaries(this.#guard.log, this.#guard.id);
+									this.#saved = Guard.new(rt.u32Add(this.#guard.id, 900), Log.clone$Clone(this.#guard.log));
+									this.#awaitee = new recvFuture(this.#rx);
+								} else if (this.#state === 1) {
+									rt.asyncFnResumed();
+								} else if (this.#state !== 3) {
+									if (this.#state === 4) {
+										break b5;
 									}
-									unwind = 158;
-									const _32: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-									if (_32 !== rt.Pending) {
-										unwind = 159;
-										const result: rt.u64 | undefined = _32;
-										rt.drop(this.#awaitee);
-										this.#saved$9 = false;
-										this.#waited = consume(this.#saved, result);
-										unwind = 175;
-										this.#saved$9 = false;
-										_40 = Guard.new(rt.u32Add(this.#guard.id, 910), Log.clone$Clone(this.#guard.log));
-										unwind = 157;
-										const _46: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 920), Log.clone$Clone(this.#guard.log));
-										unwind = 155;
-										this.#slots = [_40, _46];
-										this.#saved = Guard.new(rt.u32Add(this.#guard.id, 930), Log.clone$Clone(this.#guard.log));
-										unwind = 153;
-										this.#saved$8 = true;
-										this.#awaitee$2 = new slotFuture(this.#rx, this.#slots.length);
-									} else {
-										this.#state = 3;
-										return rt.Pending;
+									if (this.#state === 5) {
+										break b4;
 									}
+									if (this.#state === 6) {
+										break b3;
+									}
+									if (this.#state === 7) {
+										break b2;
+									}
+									if (this.#state === 8) {
+										break b1;
+									}
+									break b0;
 								}
-								unwind = 151;
-								const _63: rt.Poll<rt.usize> = this.#awaitee$2.poll(_2);
-								if (_63 !== rt.Pending) {
-									unwind = 172;
-									result2 = _63;
-									rt.drop(this.#awaitee$2);
-									if (!(result2 < 2)) {
-										rt.panic("index out of bounds: the len is " + 2 + " but the index is " + result2);
-									}
-									unwind = 44;
-									rt.drop(this.#slots[result2]);
-									unwind = 156;
-									this.#saved$8 = false;
-									this.#slots[result2] = this.#saved;
-									this.#saved$8 = false;
-									const arg = this.#waited;
-									const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
-									const _78: string = rt.fmtFormat(["slot after ", args2[0]]);
-									unwind = 150;
-									Guard.note(this.#slots[0], _78);
-									unwind = 170;
-									this.#tally = { n: this.#guard.id };
-									this.#saved$7 = true;
-									seen = new blocksFuture$3(copy$Tally(this.#tally));
-									this.#tally.n = rt.u32Add(this.#tally.n, 1000);
-									this.#saved = this.#guard;
-									this.#saved$2 = this.#tally.n;
-									this.#saved$7 = false;
-									this.#awaitee$3 = seen;
+								const _32: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+								if (_32 !== rt.Pending) {
+									const result: rt.u64 | undefined = _32;
+									rt.drop(this.#awaitee);
+									this.#waited = consume(this.#saved, result);
+									this.#slots = [Guard.new(rt.u32Add(this.#guard.id, 910), Log.clone$Clone(this.#guard.log)), Guard.new(rt.u32Add(this.#guard.id, 920), Log.clone$Clone(this.#guard.log))];
+									this.#saved = Guard.new(rt.u32Add(this.#guard.id, 930), Log.clone$Clone(this.#guard.log));
+									this.#awaitee$2 = new slotFuture(this.#rx, this.#slots.length);
 								} else {
-									this.#state = 4;
+									this.#state = 3;
 									return rt.Pending;
 								}
 							}
-							unwind = 148;
-							const _101: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-							if (_101 !== rt.Pending) {
-								unwind = 170;
-								const _98: rt.u32 = _101;
-								rt.drop(this.#awaitee$3);
-								const arg2 = this.#saved$2;
-								const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_98, f)];
-								const _93: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
-								unwind = 147;
-								Guard.note(this.#saved, _93);
-								unwind = 170;
-								this.#mark = { n: 1 };
-								this.#awaitee$3 = new blocksFuture$4(this.#mark);
+							const _63: rt.Poll<rt.usize> = this.#awaitee$2.poll(_2);
+							if (_63 !== rt.Pending) {
+								const result2: rt.usize = _63;
+								rt.drop(this.#awaitee$2);
+								if (!(result2 < 2)) {
+									rt.panic("index out of bounds: the len is " + 2 + " but the index is " + result2);
+								}
+								rt.drop(this.#slots[result2]);
+								this.#slots[result2] = this.#saved;
+								const arg = this.#waited;
+								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+								const _76: string = rt.fmtFormat(["slot after ", args2[0]]);
+								Guard.note(this.#slots[0], _76);
+								this.#tally = { n: this.#guard.id };
+								const seen: rt.Future<rt.u32> = new blocksFuture$3(copy$Tally(this.#tally));
+								this.#tally.n = rt.u32Add(this.#tally.n, 1000);
+								this.#saved = this.#guard;
+								this.#saved$2 = this.#tally.n;
+								this.#awaitee$3 = seen;
 							} else {
-								this.#state = 5;
+								this.#state = 4;
 								return rt.Pending;
 							}
 						}
-						unwind = 146;
-						const _117: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-						if (_117 !== rt.Pending) {
-							unwind = 170;
-							this.#saved$2 = _117;
+						const _100: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+						if (_100 !== rt.Pending) {
+							const _98: rt.u32 = _100;
 							rt.drop(this.#awaitee$3);
-							const arg3 = this.#saved$2;
-							const _136: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg3, f);
-							const arg4 = this.#mark.n;
-							const args6: rt.Fmt[] = [_136, (f: rt.Formatter) => rt.u32Display(arg4, f)];
-							const _129: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
-							unwind = 145;
-							Guard.note(this.#guard, _129);
-							unwind = 170;
-							this.#count = this.#guard.id;
-							this.#awaitee$3 = new blocksFuture$5(rt.place(() => this.#count, (value) => this.#count = value));
+							const arg2 = this.#saved$2;
+							const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.u32Display(_98, f)];
+							const _91: string = rt.fmtFormat(["tally ", args4[0], " then ", args4[1]]);
+							Guard.note(this.#saved, _91);
+							this.#mark = { n: 1 };
+							this.#awaitee$3 = new blocksFuture$4(this.#mark);
 						} else {
-							this.#state = 6;
+							this.#state = 5;
 							return rt.Pending;
 						}
 					}
-					unwind = 144;
-					const _143: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-					if (_143 !== rt.Pending) {
-						unwind = 170;
-						this.#counted = _143;
+					const _116: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+					if (_116 !== rt.Pending) {
+						this.#saved$2 = _116;
 						rt.drop(this.#awaitee$3);
-						const arg5 = this.#counted;
-						const _162: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg5, f);
-						const arg6 = this.#count;
-						const args8: rt.Fmt[] = [_162, (f: rt.Formatter) => rt.u32Display(arg6, f)];
-						const _155: string = rt.fmtFormat(["count ", args8[0], " ", args8[1]]);
-						unwind = 143;
-						Guard.note(this.#guard, _155);
-						unwind = 142;
-						_167 = undefined;
-						const _168: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 800), Log.clone$Clone(this.#guard.log));
-						unwind = 170;
-						const _175: Outer.Outer = new Outer.Outer({ inner: _167, guard: _168 });
-						unwind = 141;
-						this.#nested = new Inner.Inner({ outer: _175 });
-						const third: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 400), Log.clone$Clone(this.#guard.log));
-						if (!this.#moves) {
-							this.#saved = third;
-						} else {
-							this.#saved = third;
-						}
-						unwind = 140;
-						Guard.note(this.#saved, "chosen");
-						this.#awaitee$3 = new blocksFuture$7(this.#guard.id);
+						const arg3 = this.#saved$2;
+						const _135: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg3, f);
+						const arg4 = this.#mark.n;
+						const args6: rt.Fmt[] = [_135, (f: rt.Formatter) => rt.u32Display(arg4, f)];
+						const _126: string = rt.fmtFormat(["mark ", args6[0], " ", args6[1]]);
+						Guard.note(this.#guard, _126);
+						this.#count = this.#guard.id;
+						this.#awaitee$3 = new blocksFuture$5(rt.place(() => this.#count, (value) => this.#count = value));
 					} else {
-						this.#state = 7;
+						this.#state = 6;
 						return rt.Pending;
 					}
 				}
-				unwind = 139;
-				const _188: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
-				if (_188 !== rt.Pending) {
-					unwind = 140;
-					this.#looped = _188;
+				const _142: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+				if (_142 !== rt.Pending) {
+					this.#counted = _142;
 					rt.drop(this.#awaitee$3);
-					const arg7 = this.#looped;
-					const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg7, f)];
-					const _200: string = rt.fmtFormat(["looped ", args10[0]]);
-					unwind = 138;
-					Guard.note(this.#saved, _200);
-					if (this.#moves) {
-						unwind = 140;
-						this.#saved$3 = false;
-						rt.drop(new blocksFuture$9(this.#guard));
+					const arg5 = this.#counted;
+					const _161: rt.Fmt = (f: rt.Formatter) => rt.u32Display(arg5, f);
+					const arg6 = this.#count;
+					const args8: rt.Fmt[] = [_161, (f: rt.Formatter) => rt.u32Display(arg6, f)];
+					const _152: string = rt.fmtFormat(["count ", args8[0], " ", args8[1]]);
+					Guard.note(this.#guard, _152);
+					this.#nested = new Inner.Inner({ outer: new Outer.Outer({ inner: undefined, guard: Guard.new(rt.u32Add(this.#guard.id, 800), Log.clone$Clone(this.#guard.log)) }) });
+					const third: Guard.Guard = Guard.new(rt.u32Add(this.#guard.id, 400), Log.clone$Clone(this.#guard.log));
+					if (!this.#moves) {
+						this.#saved = third;
+					} else {
+						this.#saved = third;
 					}
-					unwind = 140;
-					this.#saved$5 = false;
-					this.#saved$4 = false;
-					this.#saved$6 = false;
-					this.#awaitee$4 = new blocksFuture$10(this.#first, this.#second, this.#rx);
+					Guard.note(this.#saved, "chosen");
+					this.#awaitee$3 = new blocksFuture$7(this.#guard.id);
 				} else {
-					this.#state = 8;
+					this.#state = 7;
 					return rt.Pending;
 				}
 			}
-			unwind = 137;
-			const _214: rt.Poll<rt.u64> = this.#awaitee$4.poll(_2);
-			if (_214 !== rt.Pending) {
-				unwind = 140;
-				const result7: rt.u64 = _214;
-				rt.drop(this.#awaitee$4);
-				unwind = 141;
-				rt.drop(this.#saved);
-				unwind = 170;
-				rt.drop(this.#nested);
-				unwind = 175;
-				this.#saved$7 = false;
-				rt.dropAll(this.#slots);
+			const _187: rt.Poll<rt.u32> = this.#awaitee$3.poll(_2);
+			if (_187 !== rt.Pending) {
+				this.#looped = _187;
+				rt.drop(this.#awaitee$3);
+				const arg7 = this.#looped;
+				const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg7, f)];
+				const _197: string = rt.fmtFormat(["looped ", args10[0]]);
+				Guard.note(this.#saved, _197);
+				if (this.#moves) {
+					this.#saved$3 = false;
+					rt.drop(new blocksFuture$9(this.#guard));
+				}
+				this.#saved$5 = false;
 				this.#saved$4 = false;
-				this.#saved$5 = false;
-				if (this.#saved$3) {
-					unwind = 166;
-					rt.drop(this.#guard);
-				}
-				this.#saved$3 = false;
 				this.#saved$6 = false;
-				this.#state = 1;
-				return result7;
+				this.#awaitee$4 = new blocksFuture$10(this.#first, this.#second, this.#rx);
+			} else {
+				this.#state = 8;
+				return rt.Pending;
 			}
-			this.#state = 9;
-			return rt.Pending;
-		} catch (e) {
-			b10: {
-				b11: {
-					b12: {
-						b13: {
-							b14: {
-								b15: {
-									b16: {
-										b17: {
-											b18: {
-												if (unwind === 0) {
-													throw e;
-												}
-												if (unwind === 44) {
-													this.#saved$8 = false;
-													this.#slots[result2] = this.#saved;
-													break b15;
-												}
-												if (unwind === 137) {
-													rt.drop(this.#awaitee$4);
-													break b18;
-												}
-												if (unwind === 138) {
-													break b18;
-												}
-												if (unwind === 139) {
-													rt.drop(this.#awaitee$3);
-													break b18;
-												}
-												if (unwind === 140) {
-													break b18;
-												}
-												if (unwind === 141) {
-													break b17;
-												}
-												if (unwind === 142) {
-													rt.drop(_167);
-													break b16;
-												}
-												if (unwind === 143) {
-													break b16;
-												}
-												if (unwind === 144) {
-													rt.drop(this.#awaitee$3);
-													break b16;
-												}
-												if (unwind === 145) {
-													break b16;
-												}
-												if (unwind === 146) {
-													rt.drop(this.#awaitee$3);
-													break b16;
-												}
-												if (unwind === 147) {
-													break b16;
-												}
-												if (unwind === 148) {
-													rt.drop(this.#awaitee$3);
-													break b16;
-												}
-												if (unwind === 150) {
-													break b14;
-												}
-												if (unwind === 151) {
-													rt.drop(this.#awaitee$2);
-													break b15;
-												}
-												if (unwind === 153) {
-													rt.drop(this.#saved);
-													this.#saved$8 = false;
-													break b14;
-												}
-												if (unwind === 155) {
-													this.#saved$8 = false;
-													break b14;
-												}
-												if (unwind === 156) {
-													break b14;
-												}
-												if (unwind === 157) {
-													rt.drop(_40);
-													break b13;
-												}
-												if (unwind === 158) {
-													rt.drop(this.#awaitee);
-												} else if (unwind !== 159) {
-													if (unwind === 161) {
-														rt.drop(this.#saved);
-														this.#saved$9 = false;
-														break b13;
-													}
-													if (unwind === 163) {
-														this.#saved$9 = false;
-														break b13;
-													}
-													if (unwind === 164) {
-														break b12;
-													}
-													if (unwind === 165) {
-														break b11;
-													}
-													if (unwind === 166) {
-														break b10;
-													}
-													if (unwind === 170) {
-														break b16;
-													}
-													if (unwind === 172) {
-														break b15;
-													}
-													break b13;
-												}
-												if (this.#saved$9) {
-													rt.drop(this.#saved);
-												}
-												this.#saved$9 = false;
-												break b13;
-											}
-											rt.drop(this.#saved);
-										}
-										rt.drop(this.#nested);
-									}
-									if (this.#saved$7) {
-										rt.drop(seen);
-									}
-									this.#saved$7 = false;
-									break b14;
-								}
-								if (this.#saved$8) {
-									rt.drop(this.#saved);
-								}
-								this.#saved$8 = false;
-							}
-							rt.dropAll(this.#slots);
-						}
-						if (this.#saved$4) {
-							rt.drop(this.#second);
-						}
-					}
-					this.#saved$4 = false;
-					if (this.#saved$5) {
-						rt.drop(this.#first);
-					}
-				}
-				this.#saved$5 = false;
-				if (this.#saved$3) {
-					rt.drop(this.#guard);
-				}
+		}
+		const _213: rt.Poll<rt.u64> = this.#awaitee$4.poll(_2);
+		if (_213 !== rt.Pending) {
+			const result7: rt.u64 = _213;
+			rt.drop(this.#awaitee$4);
+			rt.drop(this.#saved);
+			rt.drop(this.#nested);
+			rt.dropAll(this.#slots);
+			this.#saved$4 = false;
+			this.#saved$5 = false;
+			if (this.#saved$3) {
+				rt.drop(this.#guard);
 			}
 			this.#saved$3 = false;
-			if (this.#saved$6) {
-				rt.drop(this.#rx);
-			}
 			this.#saved$6 = false;
-			this.#state = 2;
-			throw e;
+			this.#state = 1;
+			return result7;
 		}
+		this.#state = 9;
+		return rt.Pending;
 	}
 }
 
@@ -833,26 +406,12 @@ export class blocksFuture$2 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 3;
-				Guard.note(this.#first, "borrowed");
-				this.#state = 1;
-				return undefined;
-			}
-			if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else {
-				rt.asyncFnResumedPanic();
-			}
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			Guard.note(this.#first, "borrowed");
+			this.#state = 1;
+			return undefined;
 		}
+		rt.asyncFnResumed();
 	}
 }
 
@@ -868,26 +427,12 @@ export class blocksFuture$3 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 3;
-				const _0: rt.Poll<rt.u32> = read(this.#tally);
-				this.#state = 1;
-				return _0;
-			}
-			if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else {
-				rt.asyncFnResumedPanic();
-			}
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			const _0: rt.Poll<rt.u32> = read(this.#tally);
+			this.#state = 1;
+			return _0;
 		}
+		rt.asyncFnResumed();
 	}
 }
 
@@ -930,38 +475,21 @@ export class blocksFuture$5 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 13;
-				this.#count.v = rt.u32Add(this.#count.v, 1);
-				this.#awaitee = new blocksFuture$6();
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 12;
-			if (this.#awaitee.poll(_2) !== rt.Pending) {
-				unwind = 13;
-				rt.drop(this.#awaitee);
-				this.#count.v = rt.u32Add(this.#count.v, 1);
-				const _0: rt.Poll<rt.u32> = this.#count.v;
-				this.#state = 1;
-				return _0;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 12) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#count.v = rt.u32Add(this.#count.v, 1);
+			this.#awaitee = new blocksFuture$6();
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		if (this.#awaitee.poll(_2) !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#count.v = rt.u32Add(this.#count.v, 1);
+			const _0: rt.Poll<rt.u32> = this.#count.v;
+			this.#state = 1;
+			return _0;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -999,61 +527,44 @@ export class blocksFuture$7 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
-		let unwind: number = 0;
-		try {
-			let bb0: number = 0;
-			while (true) {
-				switch (bb0) {
-					case 0:
-						if (this.#state === 0) {
-							this.#total = 0;
-							this.#passes = 0;
-							bb0 = 1;
-							continue;
-						}
-						if (this.#state === 1) {
-							rt.asyncFnResumed();
-						} else if (this.#state === 2) {
-							rt.asyncFnResumedPanic();
-						} else {
-							bb0 = 5;
-							continue;
-						}
-					case 1:
-						if (!(this.#passes < 2)) {
-							const _0: rt.Poll<rt.u32> = this.#total;
-							this.#state = 1;
-							return _0;
-						}
-						unwind = 17;
-						this.#x = this.#base;
-						this.#x = rt.u32Add(this.#x, 1);
-						this.#awaitee = new blocksFuture$8();
+		let bb0: number = 0;
+		while (true) {
+			switch (bb0) {
+				case 0:
+					if (this.#state === 0) {
+						this.#total = 0;
+						this.#passes = 0;
+						bb0 = 1;
+						continue;
+					}
+					if (this.#state === 1) {
+						rt.asyncFnResumed();
+					} else {
 						bb0 = 5;
 						continue;
-					case 5:
-						unwind = 16;
-						if (this.#awaitee.poll(_2) !== rt.Pending) {
-							unwind = 17;
-							rt.drop(this.#awaitee);
-							this.#total = rt.u32Add(this.#total, this.#x);
-							this.#passes = rt.i32Add(this.#passes, 1);
-							bb0 = 1;
-							continue;
-						}
-						this.#state = 3;
-						return rt.Pending;
-				}
+					}
+				case 1:
+					if (!(this.#passes < 2)) {
+						const _0: rt.Poll<rt.u32> = this.#total;
+						this.#state = 1;
+						return _0;
+					}
+					this.#x = this.#base;
+					this.#x = rt.u32Add(this.#x, 1);
+					this.#awaitee = new blocksFuture$8();
+					bb0 = 5;
+					continue;
+				case 5:
+					if (this.#awaitee.poll(_2) !== rt.Pending) {
+						rt.drop(this.#awaitee);
+						this.#total = rt.u32Add(this.#total, this.#x);
+						this.#passes = rt.i32Add(this.#passes, 1);
+						bb0 = 1;
+						continue;
+					}
+					this.#state = 3;
+					return rt.Pending;
 			}
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 16) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
 		}
 	}
 }
@@ -1088,31 +599,13 @@ export class blocksFuture$9 {
 	}
 
 	poll(_2: rt.Context): rt.Poll<undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 4;
-				Guard.note(this.#guard, "moved");
-				unwind = 5;
-				rt.drop(this.#guard);
-				this.#state = 1;
-				return undefined;
-			}
-			if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else {
-				rt.asyncFnResumedPanic();
-			}
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 4) {
-				rt.drop(this.#guard);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			Guard.note(this.#guard, "moved");
+			rt.drop(this.#guard);
+			this.#state = 1;
+			return undefined;
 		}
+		rt.asyncFnResumed();
 	}
 }
 
@@ -1131,141 +624,47 @@ export class blocksFuture$10 {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 22;
-				rt.drop(this.#first);
-				unwind = 21;
-				rt.drop(this.#second);
-				unwind = 0;
-				rt.drop(this.#rx);
-			} else if (this.#state === 3) {
-				unwind = 8;
-				rt.drop(this.#awaitee);
-				unwind = 10;
-				rt.drop(this.#held);
-				unwind = 14;
-				rt.drop(this.#first);
-				unwind = 13;
-				rt.drop(this.#second);
-				unwind = 0;
-				rt.drop(this.#rx);
-			}
-		} catch (e) {
-			b0: {
-				b1: {
-					b2: {
-						if (unwind === 0) {
-							throw e;
-						}
-						if (unwind === 8) {
-							rt.drop(this.#held);
-							break b1;
-						}
-						if (unwind === 10) {
-							break b1;
-						}
-						if (unwind === 13) {
-							break b2;
-						}
-						if (unwind === 14) {
-							rt.drop(this.#second);
-							break b2;
-						}
-						if (unwind !== 21) {
-							rt.drop(this.#second);
-						}
-						rt.drop(this.#rx);
-						break b0;
-					}
-					rt.drop(this.#rx);
-					break b0;
-				}
-				rt.drop(this.#first);
-				rt.drop(this.#second);
-				rt.drop(this.#rx);
-			}
-			throw e;
+		if (this.#state === 0) {
+			rt.drop(this.#first);
+			rt.drop(this.#second);
+			rt.drop(this.#rx);
+		} else if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+			rt.drop(this.#held);
+			rt.drop(this.#first);
+			rt.drop(this.#second);
+			rt.drop(this.#rx);
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
 		let _27!: rt.u64;
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 30;
-				Guard.note(this.#first, "reads");
-				Guard.note(this.#second, "reads");
-				this.#held = Guard.new(rt.u32Add(this.#second.id, 100), Log.clone$Clone(this.#second.log));
-				unwind = 21;
-				this.#awaitee = new recvFuture(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 20;
-			const _17: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_17 !== rt.Pending) {
-				unwind = 21;
-				const result: rt.u64 | undefined = _17;
-				rt.drop(this.#awaitee);
-				if (result === undefined) {
-					_27 = 0;
-				} else {
-					_27 = result;
-				}
-				unwind = 30;
-				rt.drop(this.#held);
-				unwind = 24;
-				rt.drop(this.#first);
-				unwind = 23;
-				rt.drop(this.#second);
-				unwind = 22;
-				rt.drop(this.#rx);
-				this.#state = 1;
-				return _27;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			b2: {
-				b3: {
-					b4: {
-						if (unwind === 0) {
-							throw e;
-						}
-						if (unwind === 20) {
-							rt.drop(this.#awaitee);
-							break b4;
-						}
-						if (unwind === 21) {
-							break b4;
-						}
-						if (unwind === 22) {
-							break b2;
-						}
-						if (unwind !== 23) {
-							if (unwind === 24) {
-								rt.drop(this.#second);
-							} else {
-								break b3;
-							}
-						}
-						rt.drop(this.#rx);
-						break b2;
-					}
-					rt.drop(this.#held);
-				}
-				rt.drop(this.#first);
-				rt.drop(this.#second);
-				rt.drop(this.#rx);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			Guard.note(this.#first, "reads");
+			Guard.note(this.#second, "reads");
+			this.#held = Guard.new(rt.u32Add(this.#second.id, 100), Log.clone$Clone(this.#second.log));
+			this.#awaitee = new recvFuture(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _17: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_17 !== rt.Pending) {
+			const result: rt.u64 | undefined = _17;
+			rt.drop(this.#awaitee);
+			if (result === undefined) {
+				_27 = 0;
+			} else {
+				_27 = result;
+			}
+			rt.drop(this.#held);
+			rt.drop(this.#first);
+			rt.drop(this.#second);
+			rt.drop(this.#rx);
+			this.#state = 1;
+			return _27;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -1293,42 +692,25 @@ export class slotFuture {
 
 	poll(_2: rt.Context): rt.Poll<rt.usize> {
 		let _19!: rt.usize;
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 16;
-				this.#awaitee = new recvFuture(this.#_constructor);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 15;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 16;
-				const result: rt.u64 | undefined = _6;
-				rt.drop(this.#awaitee);
-				if (result === undefined) {
-					_19 = 0;
-				} else {
-					_19 = rt.usizeRem(rt.u64Low(result), this.#eval);
-				}
-				this.#state = 1;
-				return _19;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 15) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new recvFuture(this.#_constructor);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			const result: rt.u64 | undefined = _6;
+			rt.drop(this.#awaitee);
+			if (result === undefined) {
+				_19 = 0;
+			} else {
+				_19 = rt.usizeRem(rt.u64Low(result), this.#eval);
+			}
+			this.#state = 1;
+			return _19;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -1340,163 +722,77 @@ export class slotFuture {
  * call, and an iterator's after its loop.
  */
 export function temporaries(log: Log.Log, id: rt.u32): void {
-	let _11!: Guard.Guard;
 	let matched!: rt.i32;
-	let _24!: Guard.Guard | undefined;
-	let _39!: Guard.Guard;
-	let _57!: Guard.Guard;
-	let head!: Guard.Guard;
-	let rest!: Guard.Guard[];
-	let _70!: Guard.Guard;
-	let _73!: Guard.Guard;
-	let iter!: Countdown.Countdown;
-	let unwind: number = 0;
-	try {
-		const guard: (a0: rt.u32) => Guard.Guard = (n2: rt.u32): Guard.Guard => {
-			return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
-		};
-		_11 = guard(1000);
-		unwind = 83;
-		const arg = _11.id;
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
-		const _7: string = rt.fmtFormat(["temporary ", args2[0]]);
-		unwind = 0;
-		rt.drop(_11);
-		Log.note(log, _7);
-		const _19: Guard.Guard | undefined = guard(1010);
-		if (_19 === undefined) {
-			matched = 0;
-		} else {
-			matched = 1;
-		}
-		rt.drop(_19);
-		_24 = guard(1020);
-		if (_24 === undefined) {
-			unwind = 82;
-			Log.note(log, rt.fmtFormat(["unmatched"]));
-			unwind = 0;
-			rt.drop(_24);
-		} else {
-			rt.drop(_24);
-		}
-		_39 = guard(1030);
-		unwind = 81;
-		const arg2 = _39.id;
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.i32Display(matched, f)];
-		const _35: string = rt.fmtFormat(["boxed temporary ", args4[0], " ", args4[1]]);
-		unwind = 0;
-		rt.drop(_39);
-		Log.note(log, _35);
-		_57 = guard(1040);
-		unwind = 80;
-		const _60: Guard.Guard = guard(1050);
-		unwind = 0;
-		const part = first([_57, _60] as [Guard.Guard, Guard.Guard]);
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-		Log.note(log, rt.fmtFormat(["skipped ", args6[0]]));
-		_70 = guard(1060);
-		unwind = 79;
-		_73 = guard(1070);
-		unwind = 78;
-		const _76: Guard.Guard = guard(1080);
-		unwind = 76;
-		const _69: Guard.Guard[] = [_70, _73, _76];
-		head = _69[0];
-		rest = _69.slice(1, 3);
-		Guard.note(head, "head");
-		Guard.note(rest[1], "rest");
-		rt.drop(guard(1090));
-		const part2 = ([] as Guard.Guard[]).length;
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part2, f)];
-		Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
-		const captured = guard(1100);
-		const part3 = rt.closure((): rt.u32 => {
-			return Guard.finish(captured, "closure");
-		}, (): void => {
-			rt.drop(captured);
-		})();
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
-		Log.note(log, rt.fmtFormat(["closed ", args10[0]]));
-		let sum_: rt.u32 = 0;
-		iter = new Countdown.Countdown({ left: 2, guard: guard(1110) });
-		while (true) {
-			unwind = 75;
-			const _126: rt.u32 | rt.Done = Countdown.next$Iterator(iter);
-			if (_126 === rt.DONE) {
-				break;
-			}
-			sum_ = rt.u32Add(sum_, _126);
-		}
-		unwind = 76;
-		rt.drop(iter);
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(sum_, f)];
-		Log.note(log, rt.fmtFormat(["counted ", args12[0]]));
-		unwind = 77;
-		rt.dropAll(rest);
-		unwind = 0;
-		rt.drop(head);
-	} catch (e) {
-		b4: {
-			b5: {
-				b6: {
-					if (unwind === 0) {
-						throw e;
-					}
-					if (unwind === 75) {
-						rt.drop(iter);
-						break b6;
-					}
-					if (unwind === 76) {
-						break b6;
-					}
-					if (unwind === 77) {
-						break b5;
-					}
-					if (unwind === 78) {
-						rt.drop(_73);
-					} else if (unwind !== 79) {
-						if (unwind === 80) {
-							rt.drop(_57);
-							break b4;
-						}
-						if (unwind === 81) {
-							rt.drop(_39);
-							break b4;
-						}
-						if (unwind === 82) {
-							rt.drop(_24);
-							break b4;
-						}
-						rt.drop(_11);
-						break b4;
-					}
-					rt.drop(_70);
-					break b4;
-				}
-				rt.dropAll(rest);
-			}
-			rt.drop(head);
-		}
-		throw e;
+	const guard: (a0: rt.u32) => Guard.Guard = (n2: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
+	};
+	const _11: Guard.Guard = guard(1000);
+	const arg = _11.id;
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
+	const _7: string = rt.fmtFormat(["temporary ", args2[0]]);
+	rt.drop(_11);
+	Log.note(log, _7);
+	const _19: Guard.Guard | undefined = guard(1010);
+	if (_19 === undefined) {
+		matched = 0;
+	} else {
+		matched = 1;
 	}
+	rt.drop(_19);
+	const _24: Guard.Guard | undefined = guard(1020);
+	if (_24 === undefined) {
+		Log.note(log, rt.fmtFormat(["unmatched"]));
+		rt.drop(_24);
+	} else {
+		rt.drop(_24);
+	}
+	const _39: Guard.Guard = guard(1030);
+	const arg2 = _39.id;
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg2, f), (f: rt.Formatter) => rt.i32Display(matched, f)];
+	const _35: string = rt.fmtFormat(["boxed temporary ", args4[0], " ", args4[1]]);
+	rt.drop(_39);
+	Log.note(log, _35);
+	const part = first([guard(1040), guard(1050)] as [Guard.Guard, Guard.Guard]);
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+	Log.note(log, rt.fmtFormat(["skipped ", args6[0]]));
+	const _69: Guard.Guard[] = [guard(1060), guard(1070), guard(1080)];
+	const head: Guard.Guard = _69[0];
+	const rest: Guard.Guard[] = _69.slice(1, 3);
+	Guard.note(head, "head");
+	Guard.note(rest[1], "rest");
+	rt.drop(guard(1090));
+	const part2 = ([] as Guard.Guard[]).length;
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part2, f)];
+	Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
+	const captured = guard(1100);
+	const part3 = rt.closure((): rt.u32 => {
+		return Guard.finish(captured, "closure");
+	}, (): void => {
+		rt.drop(captured);
+	})();
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
+	Log.note(log, rt.fmtFormat(["closed ", args10[0]]));
+	let sum_: rt.u32 = 0;
+	const iter: Countdown.Countdown = new Countdown.Countdown({ left: 2, guard: guard(1110) });
+	while (true) {
+		const _126: rt.u32 | rt.Done = Countdown.next$Iterator(iter);
+		if (_126 === rt.DONE) {
+			break;
+		}
+		sum_ = rt.u32Add(sum_, _126);
+	}
+	rt.drop(iter);
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(sum_, f)];
+	Log.note(log, rt.fmtFormat(["counted ", args12[0]]));
+	rt.dropAll(rest);
+	rt.drop(head);
 }
 
 /** The id of the first guard, which it drops; the second drops as the call returns. */
 export function first(_1: [Guard.Guard, Guard.Guard]): rt.u32 {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		const _0: rt.u32 = Guard.finish(_1[0], "first");
-		unwind = 0;
-		rt.drop(_1[1]);
-		return _0;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_1[1]);
-		throw e;
-	}
+	const _0: rt.u32 = Guard.finish(_1[0], "first");
+	rt.drop(_1[1]);
+	return _0;
 }
 
 export function read(t: Tally.Tally): rt.u32 {
@@ -1522,214 +818,93 @@ export function pick(log: Log.Log, i: rt.usize): rt.usize {
  * `ControlFlow` that may hold a guard, which rustc's glue drops.
  */
 export function turns(log: Log.Log, count: rt.u32): void {
-	let pair!: Guard.Guard[];
-	let _4!: Guard.Guard;
-	let kept!: Guard.Guard;
-	let pinned!: Guard.Guard;
-	let held!: Guard.Guard;
-	let _34!: Guard.Guard;
-	let boxed!: Guard.Guard;
 	let stacked!: Guard.Guard[] | undefined;
-	let _112!: Guard.Guard;
 	let failed!: rt.Result<rt.u32, Guard.Guard>;
 	let flow!: rt.Result<rt.u32, Guard.Guard>;
-	let spares!: Guard.Guard[];
-	let _171!: Guard.Guard;
 	let turn!: Guard.Guard;
-	let unwind: number = 0;
-	try {
-		_4 = Guard.new(rt.u32Add(count, 10), Log.clone$Clone(log));
-		unwind = 154;
-		const _8: Guard.Guard = Guard.new(rt.u32Add(count, 20), Log.clone$Clone(log));
-		unwind = 153;
-		pair = [_4, _8];
-		kept = pair[0];
-		Guard.note(kept, "kept");
-		pinned = Guard.new(rt.u32Add(count, 40), Log.clone$Clone(log));
-		unwind = 152;
-		Guard.note(pinned, "pinned");
-		held = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
-		unwind = 151;
-		Guard.note(held, "borrowed");
-		_34 = Guard.new(rt.u32Add(count, 60), Log.clone$Clone(log));
-		unwind = 150;
-		Guard.note(_34, "extended");
-		const _42: Guard.Guard = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
-		const scoped: rt.u32 = _42.id;
-		rt.drop(_42);
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(scoped, f)];
-		Log.note(log, rt.fmtFormat(["after ", args2[0]]));
-		boxed = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
-		unwind = 149;
-		const once: rt.u32 = boxed.id;
-		const _70: rt.Fmt = (f: rt.Formatter) => rt.u32Display(once, f);
-		const arg = boxed.id;
-		const args4: rt.Fmt[] = [_70, (f: rt.Formatter) => rt.u32Display(arg, f)];
-		Log.note(log, rt.fmtFormat(["boxed ", args4[0], " ", args4[1]]));
-		const part = Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing");
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-		Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
-		const part2 = Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing");
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
-		Log.note(log, rt.fmtFormat(["unboxed ", args8[0]]));
-		if (rt.u32Rem(count, 2) === 0) {
-			_112 = Guard.new(rt.u32Add(count, 130), Log.clone$Clone(log));
-			unwind = 148;
-			const _116: Guard.Guard = Guard.new(rt.u32Add(count, 140), Log.clone$Clone(log));
-			unwind = 149;
-			stacked = [_112, _116];
-		} else {
-			stacked = undefined;
-		}
-		unwind = 147;
-		const part3 = stacked !== undefined;
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
-		Log.note(log, rt.fmtFormat(["stacked ", args10[0]]));
-		if (rt.u32Rem(count, 2) === 0) {
-			failed = rt.Err(Guard.new(rt.u32Add(count, 150), Log.clone$Clone(log)));
-		} else {
-			failed = rt.Ok(count);
-		}
-		unwind = 146;
-		const part4 = !failed.ok;
-		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
-		Log.note(log, rt.fmtFormat(["failed ", args12[0]]));
-		if (rt.u32Rem(count, 3) === 0) {
-			flow = rt.Err(Guard.new(rt.u32Add(count, 160), Log.clone$Clone(log)));
-		} else {
-			flow = rt.Ok(count);
-		}
-		unwind = 145;
-		const part5 = !flow.ok;
-		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
-		Log.note(log, rt.fmtFormat(["flow ", args14[0]]));
-		_171 = Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log));
-		unwind = 144;
-		const _175: Guard.Guard = Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log));
-		unwind = 143;
-		spares = [_171, _175];
-		const _179: rt.usize = pick(log, rt.usizeRem(count as rt.usize, 2));
-		if (!(_179 < 2)) {
-			rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _179);
-		}
-		if (count === 0) {
-			Log.note(log, rt.fmtFormat(["no turns"]));
-		} else if (!(count < 4)) {
-			Log.note(log, rt.fmtFormat(["many turns"]));
-		} else {
-			let left: rt.u32 = count;
-			while (true) {
-				turn = Guard.new(left, Log.clone$Clone(log));
-				if (!(left === 1)) {
-					unwind = 142;
-					Guard.note(turn, "turn");
-					const _199: rt.u32 = rt.u32Sub(left, 1);
-					unwind = 143;
-					left = _199;
-					rt.drop(turn);
-				} else {
-					break;
-				}
-			}
-			rt.drop(turn);
-		}
-		unwind = 145;
-		rt.dropAll(spares);
-		unwind = 146;
-		drop$ControlFlow_Guard_u32(flow);
-		unwind = 147;
-		drop$Result_u32_Guard(failed);
-		unwind = 149;
-		rt.dropAll(stacked);
-		unwind = 150;
-		rt.drop(boxed);
-		unwind = 151;
-		rt.drop(_34);
-		unwind = 152;
-		rt.drop(held);
-		unwind = 153;
-		rt.drop(pinned);
-		unwind = 156;
-		rt.drop(kept);
-		unwind = 0;
-		rt.dropAll(pair.slice(1, 2));
-	} catch (e) {
-		b6: {
-			b7: {
-				b8: {
-					b9: {
-						b10: {
-							b11: {
-								b12: {
-									b13: {
-										b14: {
-											b15: {
-												if (unwind === 0) {
-													throw e;
-												}
-												if (unwind === 142) {
-													rt.drop(turn);
-												} else if (unwind !== 143) {
-													if (unwind === 144) {
-														rt.drop(_171);
-														break b15;
-													}
-													if (unwind === 145) {
-														break b15;
-													}
-													if (unwind === 146) {
-														break b14;
-													}
-													if (unwind === 147) {
-														break b13;
-													}
-													if (unwind === 148) {
-														rt.drop(_112);
-														break b12;
-													}
-													if (unwind === 149) {
-														break b12;
-													}
-													if (unwind === 150) {
-														break b11;
-													}
-													if (unwind === 151) {
-														break b10;
-													}
-													if (unwind === 152) {
-														break b9;
-													}
-													if (unwind === 153) {
-														break b8;
-													}
-													if (unwind === 154) {
-														rt.drop(_4);
-														break b6;
-													}
-													break b7;
-												}
-												rt.dropAll(spares);
-											}
-											drop$ControlFlow_Guard_u32(flow);
-										}
-										drop$Result_u32_Guard(failed);
-									}
-									rt.dropAll(stacked);
-								}
-								rt.drop(boxed);
-							}
-							rt.drop(_34);
-						}
-						rt.drop(held);
-					}
-					rt.drop(pinned);
-				}
-				rt.drop(kept);
-			}
-			rt.dropAll(pair.slice(1, 2));
-		}
-		throw e;
+	const pair: Guard.Guard[] = [Guard.new(rt.u32Add(count, 10), Log.clone$Clone(log)), Guard.new(rt.u32Add(count, 20), Log.clone$Clone(log))];
+	const kept: Guard.Guard = pair[0];
+	Guard.note(kept, "kept");
+	const pinned: Guard.Guard = Guard.new(rt.u32Add(count, 40), Log.clone$Clone(log));
+	Guard.note(pinned, "pinned");
+	const held: Guard.Guard = Guard.new(rt.u32Add(count, 50), Log.clone$Clone(log));
+	Guard.note(held, "borrowed");
+	const _34: Guard.Guard = Guard.new(rt.u32Add(count, 60), Log.clone$Clone(log));
+	Guard.note(_34, "extended");
+	const _42: Guard.Guard = Guard.new(rt.u32Add(count, 90), Log.clone$Clone(log));
+	const scoped: rt.u32 = _42.id;
+	rt.drop(_42);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(scoped, f)];
+	Log.note(log, rt.fmtFormat(["after ", args2[0]]));
+	const boxed: Guard.Guard = Guard.new(rt.u32Add(count, 100), Log.clone$Clone(log));
+	const once: rt.u32 = boxed.id;
+	const _70: rt.Fmt = (f: rt.Formatter) => rt.u32Display(once, f);
+	const arg = boxed.id;
+	const args4: rt.Fmt[] = [_70, (f: rt.Formatter) => rt.u32Display(arg, f)];
+	Log.note(log, rt.fmtFormat(["boxed ", args4[0], " ", args4[1]]));
+	const part = Guard.finish(Guard.new(rt.u32Add(count, 110), Log.clone$Clone(log)), "finishing");
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+	Log.note(log, rt.fmtFormat(["finished ", args6[0]]));
+	const part2 = Guard.unbox(Guard.new(rt.u32Add(count, 120), Log.clone$Clone(log)), "unboxing");
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
+	Log.note(log, rt.fmtFormat(["unboxed ", args8[0]]));
+	if (rt.u32Rem(count, 2) === 0) {
+		stacked = [Guard.new(rt.u32Add(count, 130), Log.clone$Clone(log)), Guard.new(rt.u32Add(count, 140), Log.clone$Clone(log))];
+	} else {
+		stacked = undefined;
 	}
+	const part3 = stacked !== undefined;
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
+	Log.note(log, rt.fmtFormat(["stacked ", args10[0]]));
+	if (rt.u32Rem(count, 2) === 0) {
+		failed = rt.Err(Guard.new(rt.u32Add(count, 150), Log.clone$Clone(log)));
+	} else {
+		failed = rt.Ok(count);
+	}
+	const part4 = !failed.ok;
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
+	Log.note(log, rt.fmtFormat(["failed ", args12[0]]));
+	if (rt.u32Rem(count, 3) === 0) {
+		flow = rt.Err(Guard.new(rt.u32Add(count, 160), Log.clone$Clone(log)));
+	} else {
+		flow = rt.Ok(count);
+	}
+	const part5 = !flow.ok;
+	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
+	Log.note(log, rt.fmtFormat(["flow ", args14[0]]));
+	const spares: Guard.Guard[] = [Guard.new(rt.u32Add(count, 70), Log.clone$Clone(log)), Guard.new(rt.u32Add(count, 80), Log.clone$Clone(log))];
+	const _179: rt.usize = pick(log, rt.usizeRem(count as rt.usize, 2));
+	if (!(_179 < 2)) {
+		rt.panic("index out of bounds: the len is " + 2 + " but the index is " + _179);
+	}
+	if (count === 0) {
+		Log.note(log, rt.fmtFormat(["no turns"]));
+	} else if (!(count < 4)) {
+		Log.note(log, rt.fmtFormat(["many turns"]));
+	} else {
+		let left: rt.u32 = count;
+		while (true) {
+			turn = Guard.new(left, Log.clone$Clone(log));
+			if (!(left === 1)) {
+				Guard.note(turn, "turn");
+				left = rt.u32Sub(left, 1);
+				rt.drop(turn);
+			} else {
+				break;
+			}
+		}
+		rt.drop(turn);
+	}
+	rt.dropAll(spares);
+	drop$ControlFlow_Guard_u32(flow);
+	drop$Result_u32_Guard(failed);
+	rt.dropAll(stacked);
+	rt.drop(boxed);
+	rt.drop(_34);
+	rt.drop(held);
+	rt.drop(pinned);
+	rt.drop(kept);
+	rt.dropAll(pair.slice(1, 2));
 }
 
 /**
@@ -1753,148 +928,102 @@ export class drainFuture {
 	}
 
 	[Symbol.dispose](): void {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				rt.drop(this.#rx);
-				return;
-			}
-			if (this.#state === 3) {
-				unwind = 19;
-				rt.drop(this.#awaitee);
-			} else if (this.#state === 4) {
-				unwind = 17;
-				rt.drop(this.#awaitee);
-			} else if (this.#state === 5) {
-				unwind = 15;
-				rt.drop(this.#awaitee);
-			} else {
-				return;
-			}
-			unwind = 0;
+		if (this.#state === 0) {
 			rt.drop(this.#rx);
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			rt.drop(this.#rx);
-			throw e;
+			return;
 		}
+		if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+		} else if (this.#state === 4) {
+			rt.drop(this.#awaitee);
+		} else if (this.#state === 5) {
+			rt.drop(this.#awaitee);
+		} else {
+			return;
+		}
+		rt.drop(this.#rx);
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
 		let next!: rt.u64 | undefined;
-		let unwind: number = 0;
-		try {
-			let bb0: number = 0;
-			while (true) {
-				switch (bb0) {
-					case 0:
-						if (this.#state === 0) {
-							this.#total = 0;
-							bb0 = 1;
-							continue;
-						}
-						if (this.#state === 1) {
-							rt.asyncFnResumed();
-						} else if (this.#state === 2) {
-							rt.asyncFnResumedPanic();
-						} else {
-							if (this.#state === 3) {
-								bb0 = 7;
-								continue;
-							}
-							if (this.#state === 4) {
-								bb0 = 15;
-								continue;
-							}
-							bb0 = 22;
-							continue;
-						}
-					case 1:
-						if (this.#depth === 1) {
-							unwind = 36;
-							this.#awaitee = new recvFuture(this.#rx);
+		let bb0: number = 0;
+		while (true) {
+			switch (bb0) {
+				case 0:
+					if (this.#state === 0) {
+						this.#total = 0;
+						bb0 = 1;
+						continue;
+					}
+					if (this.#state === 1) {
+						rt.asyncFnResumed();
+					} else {
+						if (this.#state === 3) {
 							bb0 = 7;
 							continue;
 						}
-						if (this.#depth === 4) {
-							unwind = 36;
-							this.#awaitee = new level3Future(this.#rx);
+						if (this.#state === 4) {
 							bb0 = 15;
 							continue;
 						}
-						unwind = 36;
-						this.#awaitee = new level15Future(this.#rx);
 						bb0 = 22;
 						continue;
-					case 22:
-						unwind = 33;
-						const _29: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-						if (_29 !== rt.Pending) {
-							unwind = 36;
-							next = _29;
-							rt.drop(this.#awaitee);
-							bb0 = 27;
-							continue;
-						}
-						this.#state = 5;
-						return rt.Pending;
-					case 15:
-						unwind = 34;
-						const _18: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-						if (_18 !== rt.Pending) {
-							unwind = 36;
-							next = _18;
-							rt.drop(this.#awaitee);
-							bb0 = 27;
-							continue;
-						}
-						this.#state = 4;
-						return rt.Pending;
-					case 7:
-						unwind = 35;
-						const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-						if (_7 !== rt.Pending) {
-							unwind = 36;
-							next = _7;
-							rt.drop(this.#awaitee);
-							bb0 = 27;
-							continue;
-						}
-						this.#state = 3;
-						return rt.Pending;
-					case 27:
-						if (next === undefined) {
-							unwind = 37;
-							const _40: rt.u64 = this.#total;
-							rt.drop(this.#rx);
-							this.#state = 1;
-							return _40;
-						}
-						this.#total = rt.u64Add(this.#total, next);
-						bb0 = 1;
+					}
+				case 1:
+					if (this.#depth === 1) {
+						this.#awaitee = new recvFuture(this.#rx);
+						bb0 = 7;
 						continue;
-				}
+					}
+					if (this.#depth === 4) {
+						this.#awaitee = new level3Future(this.#rx);
+						bb0 = 15;
+						continue;
+					}
+					this.#awaitee = new level15Future(this.#rx);
+					bb0 = 22;
+					continue;
+				case 22:
+					const _29: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_29 !== rt.Pending) {
+						next = _29;
+						rt.drop(this.#awaitee);
+						bb0 = 27;
+						continue;
+					}
+					this.#state = 5;
+					return rt.Pending;
+				case 15:
+					const _18: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_18 !== rt.Pending) {
+						next = _18;
+						rt.drop(this.#awaitee);
+						bb0 = 27;
+						continue;
+					}
+					this.#state = 4;
+					return rt.Pending;
+				case 7:
+					const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_7 !== rt.Pending) {
+						next = _7;
+						rt.drop(this.#awaitee);
+						bb0 = 27;
+						continue;
+					}
+					this.#state = 3;
+					return rt.Pending;
+				case 27:
+					if (next === undefined) {
+						const _40: rt.u64 = this.#total;
+						rt.drop(this.#rx);
+						this.#state = 1;
+						return _40;
+					}
+					this.#total = rt.u64Add(this.#total, next);
+					bb0 = 1;
+					continue;
 			}
-		} catch (e) {
-			b1: {
-				if (unwind === 0) {
-					throw e;
-				}
-				if (unwind === 33) {
-					rt.drop(this.#awaitee);
-				} else if (unwind === 34) {
-					rt.drop(this.#awaitee);
-				} else if (unwind === 35) {
-					rt.drop(this.#awaitee);
-				} else if (unwind !== 36) {
-					break b1;
-				}
-				rt.drop(this.#rx);
-			}
-			this.#state = 2;
-			throw e;
 		}
 	}
 }
@@ -1915,36 +1044,19 @@ export class level1Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new recvFuture(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new recvFuture(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -1964,36 +1076,19 @@ export class level10Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level9Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level9Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2013,36 +1108,19 @@ export class level11Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level10Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level10Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2062,36 +1140,19 @@ export class level12Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level11Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level11Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2111,36 +1172,19 @@ export class level13Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level12Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level12Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2160,36 +1204,19 @@ export class level14Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level13Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level13Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2209,36 +1236,19 @@ export class level15Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level14Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level14Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2258,36 +1268,19 @@ export class level2Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level1Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level1Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2307,36 +1300,19 @@ export class level3Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level2Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level2Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2356,36 +1332,19 @@ export class level4Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level3Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level3Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2405,36 +1364,19 @@ export class level5Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level4Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level4Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2454,36 +1396,19 @@ export class level6Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level5Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level5Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2503,36 +1428,19 @@ export class level7Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level6Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level6Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2552,36 +1460,19 @@ export class level8Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level7Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level7Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 
@@ -2601,36 +1492,19 @@ export class level9Future {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				this.#awaitee = new level8Future(this.#rx);
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-			if (_6 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _6;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			this.#awaitee = new level8Future(this.#rx);
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+		if (_6 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _6;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 

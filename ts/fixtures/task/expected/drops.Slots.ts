@@ -17,34 +17,9 @@ export class Slots {
 }
 
 export function put(self: Slots, index: rt.usize, bomb: Bomb.Bomb): void {
-	let at!: number;
-	let _4!: Bomb.Bomb | undefined;
-	let _7!: boolean;
-	let unwind: number = 0;
-	try {
-		unwind = 7;
-		_7 = false;
-		_7 = true;
-		_4 = bomb;
-		at = rt.idx(self._0, index);
-		unwind = 4;
-		rt.drop(self._0[at]);
-		_7 = false;
-		self._0[at] = _4;
-		_7 = false;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		if (unwind === 4) {
-			_7 = false;
-			self._0[at] = _4;
-		}
-		if (_7) {
-			rt.drop(_4);
-		}
-		throw e;
-	}
+	const at = rt.idx(self._0, index);
+	rt.drop(self._0[at]);
+	self._0[at] = bomb;
 }
 
 //# sourceMappingURL=drops.Slots.ts.map

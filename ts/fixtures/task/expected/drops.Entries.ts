@@ -15,17 +15,8 @@ export class Entries<K, V> {
 
 	[Symbol.dispose](): void {
 		rt.dropAll(this._0, (value: [K, V]): void => {
-			let dropped: number = 0;
-			try {
-				rt.drop(value[0]);
-				dropped = 1;
-				rt.drop(value[1]);
-			} catch (e) {
-				if (dropped < 1) {
-					rt.drop(value[1]);
-				}
-				throw e;
-			}
+			rt.drop(value[0]);
+			rt.drop(value[1]);
 		});
 	}
 }
