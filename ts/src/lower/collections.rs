@@ -249,8 +249,9 @@ fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Opti
 	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
 }
 
-/// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map holds that JS
-/// copies, which its mapping returns as an `rt.Place`: `get_mut`, and an entry's.
+/// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map or an atomic
+/// holds that JS copies, which its mapping returns as an `rt.Place`: `get_mut`, and an
+/// entry's. An atomic is that place itself.
 pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let Some(std) = library::inherent_std(tcx, call.def_id) else {
@@ -258,20 +259,24 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	};
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
-	let methods: &[&str] = match std {
-		Std::HashMap | Std::BTreeMap => &["get_mut"],
-		Std::Entry if is_vacant(b, coll) => &["insert"],
-		Std::Entry => &[
-			"or_insert",
-			"or_insert_with",
-			"or_insert_with_key",
-			"or_default",
-			"get_mut",
-			"into_mut",
-		],
+	let (methods, value): (&[&str], usize) = match std {
+		Std::HashMap | Std::BTreeMap => (&["get_mut"], 1),
+		Std::Entry if is_vacant(b, coll) => (&["insert"], 1),
+		Std::Entry => (
+			&[
+				"or_insert",
+				"or_insert_with",
+				"or_insert_with_key",
+				"or_default",
+				"get_mut",
+				"into_mut",
+			],
+			1,
+		),
+		Std::Atomic => (&["get_mut"], 0),
 		_ => return false,
 	};
-	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, 1))
+	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, value))
 }
 
 /// The type an inherent method's impl is of, such as `HashMap<K, V, RandomState>`.

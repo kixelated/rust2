@@ -54,6 +54,10 @@ pub enum Std {
 	MutexGuard,
 	/// What a `Mutex` can't be locked with on one thread: never.
 	PoisonError,
+	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
+	Atomic,
+	/// `rt.AtomicOrdering`: its discriminant.
+	AtomicOrdering,
 	/// `rt.Waker`.
 	Waker,
 	/// `rt.Context`: its waker.
@@ -128,6 +132,7 @@ impl Std {
 			(sym::ArcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
+			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
 			(rustc_span::Symbol::intern("HashMap"), Self::HashMap),
 			(rustc_span::Symbol::intern("HashSet"), Self::HashSet),
@@ -180,6 +185,7 @@ impl Std {
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
+			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
 			| [
@@ -1410,6 +1416,10 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<E
 			Std::String => Expr::Str(String::new()),
 			Std::Cow if string(tcx, ty) => Expr::Str(String::new()),
 			Std::Duration => super::time::zero(),
+			Std::Atomic => Expr::New(
+				Box::new(Expr::Rt("Atomic".into())),
+				vec![default_value(b, args.type_at(0))?],
+			),
 			_ => return None,
 		},
 		_ => return None,

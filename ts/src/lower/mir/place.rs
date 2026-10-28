@@ -895,6 +895,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Ordering) => scrut
 						.clone()
 						.binary("===", crate::lower::collections::ordering_variant(index)),
+					Some(Std::AtomicOrdering) => {
+						scrut.clone().binary("===", crate::lower::task::atomic_ordering(index))
+					}
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
 			}

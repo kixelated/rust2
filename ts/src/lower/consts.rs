@@ -124,6 +124,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
+						(Std::AtomicOrdering, _) => super::task::atomic_ordering(variant),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
