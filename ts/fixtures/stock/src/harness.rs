@@ -31,16 +31,18 @@ fn slices(data: &[u8], out: &mut Vec<u8>) {
 		return;
 	};
 	let bytes = Bytes::copy_from_slice(rest);
-	// One past `usize::MAX`, which `a..=b` can't end at.
+	// One past `usize::MAX`, which an inclusive range can't end at.
 	let past = *b == 0xff;
 	let (a, b) = (*a as usize % (rest.len() + 2), *b as usize % (rest.len() + 2));
-	let part = match kind % 5 {
+	let part = match kind % 6 {
 		0 => bytes.slice(a..b),
 		1 => bytes.slice(a..),
 		2 => bytes.slice(..b),
 		3 => bytes.slice(..),
-		_ if past => bytes.slice(a..=usize::MAX),
-		_ => bytes.slice(a..=b),
+		4 if past => bytes.slice(a..=usize::MAX),
+		4 => bytes.slice(a..=b),
+		_ if past => bytes.slice(..=usize::MAX),
+		_ => bytes.slice(..=b),
 	};
 	out.push(part.len() as u8);
 	out.push(part.is_empty() as u8);

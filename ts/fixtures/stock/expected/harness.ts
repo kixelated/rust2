@@ -35,7 +35,7 @@ export function slices(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _14: [rt.usize, rt.usize] = [rt.usizeRem(data.data[data.start + 1] as rt.usize, rt.usizeAdd(data.length - 3, 2)), rt.usizeRem(data.data[data.start + 2] as rt.usize, rt.usizeAdd(data.length - 3, 2))];
 		const a: rt.usize = _14[0];
 		const b: rt.usize = _14[1];
-		const _30: rt.u8 = rt.u8Rem(data.data[data.start], 5);
+		const _30: rt.u8 = rt.u8Rem(data.data[data.start], 6);
 		if (_30 === 0) {
 			part = rt.bytesSlice(bytes, a, b);
 		} else if (_30 === 1) {
@@ -44,12 +44,18 @@ export function slices(data: rt.ByteSlice, out: rt.ByteVec): void {
 			part = rt.bytesSlice(bytes, 0, b);
 		} else if (_30 === 3) {
 			part = rt.bytesSlice(bytes, 0);
+		} else if (_30 === 4) {
+			if (!past) {
+				const _41: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+				part = rt.bytesSliceInclusive(bytes, _41);
+			} else {
+				const _39: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, 4294967295, rt.usizeStep);
+				part = rt.bytesSliceInclusive(bytes, _39);
+			}
 		} else if (!past) {
-			const _41: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
-			part = rt.bytesSliceInclusive(bytes, _41);
+			part = rt.bytesSliceToInclusive(bytes, b);
 		} else {
-			const _39: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, 4294967295, rt.usizeStep);
-			part = rt.bytesSliceInclusive(bytes, _39);
+			part = rt.bytesSliceToInclusive(bytes, 4294967295);
 		}
 		rt.byteVecPush(out, part.length & 0xff);
 		rt.byteVecPush(out, part.length === 0 ? 1 : 0);

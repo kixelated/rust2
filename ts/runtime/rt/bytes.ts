@@ -31,6 +31,12 @@ export function bytesSliceInclusive(b: Bytes, range: RangeInclusive<usize>): Byt
 	return bytesSlice(b, range.lo, (range.hi + 1) as usize);
 }
 
+/** `Bytes::slice` of `..=end`, which can't end past `usize::MAX`. */
+export function bytesSliceToInclusive(b: Bytes, end: usize): Bytes {
+	if (end === 0xffffffff) panic("out of range");
+	return bytesSlice(b, 0 as usize, (end + 1) as usize);
+}
+
 /** `Debug`: a byte string literal, `b"\x00ab"`, written a piece at a time as `bytes` does. */
 export function bytesDebug(b: Bytes, f: Formatter): FmtResult {
 	let r = fmtWriteStr(f, 'b"');

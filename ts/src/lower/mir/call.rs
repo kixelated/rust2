@@ -581,6 +581,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					false,
 				)
 			}
+			("Bytes", "slice")
+				if bytes
+					&& let ty::Adt(adt, _) = targ(0)?.kind()
+					&& Std::of(tcx, adt.did()) == Some(Std::RangeToInclusive) =>
+			{
+				let end = self.range_fields(&args[1].node, *adt, span, out).pop()?;
+				let b = self.operand(&args[0].node, span, out);
+				done(Expr::rt("bytesSliceToInclusive", vec![b, end]), false)
+			}
 			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
 			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
 				let s = self.operand(&args[0].node, span, out);
@@ -1099,24 +1108,32 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			"Range" | "RangeTo" | "RangeFrom" => {}
 			_ => return None,
 		}
-		let fields: Vec<Expr> = match self.take_parts(op) {
-			Some(parts) => parts,
-			None => {
-				let range = self.operand(op, span, out);
-				let range = self.path(range, "range", out);
-				adt.non_enum_variant()
-					.fields
-					.iter()
-					.map(|f| range.clone().member(f.name.as_str()))
-					.collect()
-			}
-		};
-		let mut fields = fields.into_iter();
+		let mut fields = self.range_fields(op, *adt, span, out).into_iter();
 		match name.as_str() {
 			"Range" => Some((fields.next()?, Some(fields.next()?))),
 			"RangeTo" => Some((Expr::lit("0"), fields.next())),
 			_ => Some((fields.next()?, None)),
 		}
+	}
+
+	/// A std range's fields, in declaration order, read where the range is made if it is.
+	fn range_fields(
+		&mut self,
+		op: &Operand<'tcx>,
+		adt: ty::AdtDef<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<Expr> {
+		if let Some(parts) = self.take_parts(op) {
+			return parts;
+		}
+		let range = self.operand(op, span, out);
+		let range = self.path(range, "range", out);
+		adt.non_enum_variant()
+			.fields
+			.iter()
+			.map(|f| range.clone().member(f.name.as_str()))
+			.collect()
 	}
 
 	/// What a `DebugList` iterates, as an iterable JS value, which drops nothing it reads.
