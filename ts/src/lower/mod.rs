@@ -217,7 +217,6 @@ pub struct Translator<'a, 'tcx> {
 /// The crates that translate as one program: the package, and every crate it depends on
 /// but std's. What the roots reach of them translates; any function of std's is its
 /// mapping, a binding, or refused.
-#[derive(Default)]
 pub struct Crates(rustc_data_structures::fx::FxHashSet<CrateNum>);
 
 impl Crates {
@@ -415,7 +414,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			{
 				self.err(
 					tcx.def_span(def_id),
-					format!("module `{}` would share its files with the crate of its name", child.ident),
+					format!(
+						"module `{}` would share its files with the crate of its name",
+						child.ident
+					),
 				);
 			}
 		}
@@ -1462,7 +1464,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let tcx = self.tcx;
 		let def_id = instance.def_id();
 		// Without unwinding, std's MIR has none of the cleanups a panic runs.
-		if !def_id.is_local()
+		if !self.crates.translates(def_id)
 			&& tcx.required_panic_strategy(def_id.krate) == Some(rustc_target::spec::PanicStrategy::Abort)
 		{
 			self.err(

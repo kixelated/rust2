@@ -77,8 +77,23 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 		return None;
 	}
 	let body = tcx.optimized_mir(def_id).clone();
-	let mut body =
-		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
+	let mut body = match instance.try_instantiate_mir_and_normalize_erasing_regions(
+		tcx,
+		t.typing_env_pub(),
+		EarlyBinder::bind(tcx, body),
+	) {
+		Ok(body) => body,
+		Err(err) => {
+			t.err(
+				span,
+				format!(
+					"`{instance}` names `{}`, which does not normalize",
+					err.get_type_for_failure()
+				),
+			);
+			return None;
+		}
+	};
 	vec::literals(tcx, &mut body);
 	if !t.crates.translates(def_id)
 		&& let Some(why) = std_refused(tcx, &body)

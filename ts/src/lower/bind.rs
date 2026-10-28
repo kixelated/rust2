@@ -141,7 +141,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		let bodies = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id()).chain(self.read.iter().copied());
+		let bodies = tcx
+			.mir_keys(())
+			.iter()
+			.map(|def_id| def_id.to_def_id())
+			.chain(self.read.iter().copied());
 		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| self.own(def_id));
 	}
 

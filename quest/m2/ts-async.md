@@ -26,8 +26,8 @@ What moq-net still needs, by its census from MIR at the pinned revision:
   boundary, per the [model](/quest/m2/ts-model/README.md)).
 - Async closures.
 - kio's own API, reached across crates (`Pending`, `Consumer::poll`,
-  `Waiter::poll_future`, `Tasks`), translates through
-  `ts.toml`'s `dependencies`, and kio's `RawWaker` vtable and
+  `Waiter::poll_future`, `Tasks`), translates from source as a
+  [dependency](/ts/README.md), and kio's `RawWaker` vtable and
   `Box<dyn Future>` tasks are [bindings](/ts/README.md#bindings).
 
 The model itself (its census of 2026-10-27) needs only `Poll`'s helpers and

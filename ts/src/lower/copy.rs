@@ -233,7 +233,12 @@ impl<'tcx> Writes<'tcx> {
 		let mut queue: Vec<DefId> = bodies.into_iter().collect();
 		let mut seen = FxHashSet::default();
 		while let Some(def_id) = queue.pop() {
-			if !seen.insert(def_id) || !tcx.def_kind(def_id).is_fn_like() || !own(def_id) {
+			// One without MIR, such as an import, is refused where it is reached.
+			if !seen.insert(def_id)
+				|| !tcx.def_kind(def_id).is_fn_like()
+				|| !own(def_id)
+				|| !tcx.is_mir_available(def_id)
+			{
 				continue;
 			}
 			let body = tcx.optimized_mir(def_id);
