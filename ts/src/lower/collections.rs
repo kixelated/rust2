@@ -58,7 +58,7 @@ pub fn call<'tcx>(
 				return Ok(Some(f.call(args)));
 			}
 			// `Ord`'s defaults, of a std type or the crate's, which compare by `PartialOrd`'s `<`,
-			// `<=`, and `>`, and so by `partial_cmp` while those are the defaults.
+			// `<=`, and `>`.
 			("Ord", "max" | "min" | "clamp", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
 				let local = matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
@@ -66,11 +66,8 @@ pub fn call<'tcx>(
 					return Err(args);
 				}
 				let tests: &[&str] = if name == "clamp" { &["le", "lt", "gt"] } else { &["lt"] };
-				if let Some(test) = tests.iter().find(|test| own_test(b, t, test)) {
-					return Ok(Some(b.err(span, own_test_err(t, test))));
-				}
 				let mut values = args;
-				values.push(cmp_fn(b, t, true, span));
+				values.extend(tests.iter().map(|test| test_fn(b, t, test, span)));
 				// What drops the operands it does not return.
 				let Some(droppers) = b.t.droppers(self_ty, span) else {
 					return Ok(Some(Expr::undefined()));
@@ -91,7 +88,7 @@ pub fn call<'tcx>(
 					return Err(args);
 				}
 				if own_test(b, t, name) {
-					return Ok(Some(b.err(span, own_test_err(t, name))));
+					return Ok(Some(test_fn(b, t, name, span).call(args)));
 				}
 				let order = cmp_fn(b, t, true, span).call(args);
 				let test = match name {
@@ -280,8 +277,9 @@ fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Opti
 	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
 }
 
-/// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map holds that JS
-/// copies, which its mapping returns as an `rt.Place`: `get_mut`, and an entry's.
+/// Whether `call` returns a `&mut`, or an `Option` of one, to a value a map or an atomic
+/// holds that JS copies, which its mapping returns as an `rt.Place`: `get_mut`, and an
+/// entry's. An atomic is that place itself.
 pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let Some(std) = library::inherent_std(tcx, call.def_id) else {
@@ -289,20 +287,24 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	};
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
-	let methods: &[&str] = match std {
-		Std::HashMap | Std::BTreeMap => &["get_mut"],
-		Std::Entry if is_vacant(b, coll) => &["insert"],
-		Std::Entry => &[
-			"or_insert",
-			"or_insert_with",
-			"or_insert_with_key",
-			"or_default",
-			"get_mut",
-			"into_mut",
-		],
+	let (methods, value): (&[&str], usize) = match std {
+		Std::HashMap | Std::BTreeMap => (&["get_mut"], 1),
+		Std::Entry if is_vacant(b, coll) => (&["insert"], 1),
+		Std::Entry => (
+			&[
+				"or_insert",
+				"or_insert_with",
+				"or_insert_with_key",
+				"or_default",
+				"get_mut",
+				"into_mut",
+			],
+			1,
+		),
+		Std::Atomic => (&["get_mut"], 0),
 		_ => return false,
 	};
-	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, 1))
+	methods.contains(&name.as_str()) && b.t.needs_place(arg(coll, value))
 }
 
 /// The type an inherent method's impl is of, such as `HashMap<K, V, RandomState>`.
@@ -525,7 +527,7 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 /// Whether `ty`'s `PartialOrd::{test}`, `lt` or another of its tests, reaches the crate's
 /// own `test` of a type it holds, which `partial_cmp` stands for only while that is the
 /// default: through a tuple's last element, `Arc`s, and `Reverse`s.
-pub fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
+fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
@@ -542,9 +544,37 @@ pub fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool 
 	}
 }
 
-/// The refusal of a comparison that reaches the crate's own `test` of `ty`.
-pub fn own_test_err(ty: Ty<'_>, test: &str) -> String {
-	format!("comparing `{ty}` through its own `PartialOrd::{test}`, which is not supported yet")
+/// `PartialOrd::{test}` of `ty` as a function, `lt` or another of its tests: the crate's own
+/// where `ty` reaches it, or else by `partial_cmp`, as the trait's defaults test it.
+pub fn test_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str, span: Span) -> Expr {
+	let tcx = b.t.tcx;
+	let ty = peel(b, ty);
+	if !own_test(b, ty, test) {
+		let by = match test {
+			"lt" => "cmpLt",
+			"le" => "cmpLe",
+			"gt" => "cmpGt",
+			_ => "cmpGe",
+		};
+		return Expr::rt(by, vec![cmp_fn(b, ty, true, span)]);
+	}
+	match ty.kind() {
+		// The fields before the last chain by `partial_cmp`, which no crate's type overrides.
+		ty::Tuple(tys) if let Some((&last, init)) = tys.split_last() => {
+			let cmps = init.iter().map(|&t| cmp_fn(b, t, true, span)).collect();
+			let order = if matches!(test, "lt" | "le") { "-1" } else { "1" };
+			let last = test_fn(b, last, test, span);
+			Expr::rt("testTuple", vec![Expr::Array(cmps), last, Expr::lit(order)])
+		}
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![test_fn(b, inner, test, span)]),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
+			Expr::rt("cmpReverse", vec![test_fn(b, inner, test, span)])
+		}
+		_ => {
+			let f = trait_fn(tcx, "PartialOrd", test);
+			b.fn_value(f, tcx.mk_args(&[ty.into(), ty.into()]), span)
+		}
+	}
 }
 
 /// Whether `ty`'s `PartialEq` is derived, so it compares as JS compares its tags.

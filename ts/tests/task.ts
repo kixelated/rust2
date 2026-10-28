@@ -53,7 +53,10 @@ export interface Fixture<V> {
 		folded(log: Log, id: number, arg: number): void;
 		rfolded(log: Log, id: number, arg: number): void;
 	};
-	futures: { helpers(rx: Consumer, guard: Guard): Future<V> };
+	futures: {
+		helpers(rx: Consumer, guard: Guard): Future<V>;
+		boxed(rx: Consumer, guard: Guard): Future<V>;
+	};
 }
 
 /** What every waker of one task points at. */
@@ -277,6 +280,13 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.futures.helpers(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
+	[
+		"boxed",
+		(r, arg) => {
+			const c = pick(r.channels.length, arg);
+			if (c !== undefined) r.exec.spawn(r.f.futures.boxed(r.f.Channel.consumer(r.channels[c]), guard(r)));
+		},
+	],
 	["folded", (r, arg) => r.f.drops.folded(r.log, 1000 * r.exec.tasks.length, arg)],
 	["rfolded", (r, arg) => r.f.drops.rfolded(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
@@ -353,6 +363,12 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 77], ["run", 0]),
 	script(["open", 0], ["helpers", 0], ["helpers", 1], ["run", 0], ["send", 4], ["step", 0], ["drop", 1], ["drop", 0]),
 	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 99], ["run", 0], ["poll", 0]),
+	// Boxed futures: a boxed `recv` and a boxed borrow awaited, then a queue of `dyn
+	// Future`s polled through a boxed `poll_fn`, returning, cancelled with the futures the
+	// queue still holds, and panicking inside one.
+	script(["open", 0], ["boxed", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 6], ["step", 0], ["send", 7], ["run", 0]),
+	script(["open", 0], ["boxed", 0], ["boxed", 1], ["run", 0], ["send", 4], ["run", 0], ["drop", 1], ["send", 5], ["step", 0], ["drop", 0]),
+	script(["open", 0], ["boxed", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 99], ["run", 0], ["poll", 0], ["drop", 0]),
 	// Each scenario of values std holds that drop, panicking at each point or none.
 	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.

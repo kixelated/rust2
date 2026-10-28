@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a
+  `partial_cmp`, and `rt.ordClamp` takes `le`, `lt`, and `gt`; `rt.cmpLt` makes one from a
+  `partial_cmp`. `rt.sliceSortBy` takes only an `Ord::cmp`-like comparator: sort by an
+  `lt` with `rt.sliceSort`.
+- A trait object in a function's suffix is named for its trait and the types it binds:
+  `show$dynstdfmtDebug` is `show$dyn_Debug`, and `poll$dyn_Future_u64` is a
+  `dyn Future<Output = u64>`'s.
 - A runtime consumer that takes an iterator by value is told whether it drops rather than
   given `rt.drop`: `iterFold`, `iterForEach`, `iterSum`, `iterProduct`, `iterMax`,
   `iterMin`, `iterMaxByKey`, `iterMinByKey`, and `durationSum` take `true`, and

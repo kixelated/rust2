@@ -127,6 +127,12 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(futures::helpers(channels[c].consumer(), guard));
 			}
 		}),
+		("boxed", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(futures::boxed(channels[c].consumer(), guard));
+			}
+		}),
 		("folded", |log, exec, _, arg| {
 			drops::folded(log, 1000 * exec.len() as u32, arg)
 		}),

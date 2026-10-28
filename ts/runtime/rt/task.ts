@@ -1,10 +1,10 @@
-// Ownership and async, for rust2-ts output: what Rust's `Drop`, `Arc`, `Mutex`, and
-// futures do that plain JS does not. `rt.ts` re-exports all of it.
+// Ownership and async, for rust2-ts output: what Rust's `Drop`, `Arc`, `Mutex`, atomics,
+// and futures do that plain JS does not. `rt.ts` re-exports all of it.
 //
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. `None` is `undefined`, which drops as nothing.
 
-import { Panic } from "../rt.ts";
+import { Err, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
 
 // Drops
 
@@ -134,6 +134,104 @@ export class Mutex<T> implements Disposable {
 	}
 }
 
+// Atomics, which one thread never races: each operation reads and writes as it would
+// alone, and an ordering it can't take panics as std's does.
+
+/** `atomic::Ordering`: its discriminant, 0 to 4 for `Relaxed`, `Release`, `Acquire`, `AcqRel`, and `SeqCst`. */
+export type AtomicOrdering = number;
+
+/** `Atomic<T>` of a `bool` or an integer: the place that holds it. */
+export class Atomic<T> implements Place<T> {
+	v: T;
+
+	constructor(v: T) {
+		this.v = v;
+	}
+}
+
+/** `Atomic::load`. */
+export function atomicLoad<T>(atomic: Atomic<T>, order: AtomicOrdering): T {
+	if (order === 1) panic("there is no such thing as a release load");
+	if (order === 3) panic("there is no such thing as an acquire-release load");
+	return atomic.v;
+}
+
+/** `Atomic::store`. */
+export function atomicStore<T>(atomic: Atomic<T>, value: T, order: AtomicOrdering): void {
+	if (order === 2) panic("there is no such thing as an acquire store");
+	if (order === 3) panic("there is no such thing as an acquire-release store");
+	atomic.v = value;
+}
+
+/** `Atomic::swap`, which any ordering can do. */
+export function atomicSwap<T>(atomic: Atomic<T>, value: T, _order: AtomicOrdering): T {
+	const old = atomic.v;
+	atomic.v = value;
+	return old;
+}
+
+/** A read-modify-write such as `Atomic::fetch_add`: the value becomes `f(old, value)`, and `old` returns. */
+export function atomicFetch<T, U>(atomic: Atomic<T>, f: (old: T, value: U) => T, value: U, _order: AtomicOrdering): T {
+	const old = atomic.v;
+	atomic.v = f(old, value);
+	return old;
+}
+
+/**
+ * `Atomic::compare_exchange`, and `compare_exchange_weak`, which never fails spuriously
+ * on one thread. `eq` compares a wide integer, and `===` anything else.
+ */
+export function atomicCompareExchange<T>(
+	atomic: Atomic<T>,
+	current: T,
+	next: T,
+	_success: AtomicOrdering,
+	failure: AtomicOrdering,
+	eq?: (a: T, b: T) => boolean,
+): Result<T, T> {
+	if (failure === 3) panic("there is no such thing as an acquire-release failure ordering");
+	if (failure === 1) panic("there is no such thing as a release failure ordering");
+	const old = atomic.v;
+	if (eq === undefined ? old !== current : !eq(old, current)) return Err(old);
+	atomic.v = next;
+	return Ok(old);
+}
+
+/**
+ * `Atomic::try_update`: `f` of the value it loads, compare-exchanged unless `None`, and
+ * again if `f` itself changed the atomic. `eq` is as `atomicCompareExchange`'s.
+ */
+export function atomicTryUpdate<T>(
+	atomic: Atomic<T>,
+	set: AtomicOrdering,
+	fetch: AtomicOrdering,
+	f: (value: T) => T | undefined,
+	eq?: (a: T, b: T) => boolean,
+): Result<T, T> {
+	let prev = atomicLoad(atomic, fetch);
+	for (let next = f(prev); next !== undefined; next = f(prev)) {
+		const result = atomicCompareExchange(atomic, prev, next, set, fetch, eq);
+		if (result.ok) return result;
+		prev = result.error;
+	}
+	return Err(prev);
+}
+
+/** `Atomic::update`: `f` of the value it loads, compare-exchanged until it holds. */
+export function atomicUpdate<T>(atomic: Atomic<T>, set: AtomicOrdering, fetch: AtomicOrdering, f: (value: T) => T, eq?: (a: T, b: T) => boolean): T {
+	let prev = atomicLoad(atomic, fetch);
+	for (;;) {
+		const result = atomicCompareExchange(atomic, prev, f(prev), set, fetch, eq);
+		if (result.ok) return result.value;
+		prev = result.error;
+	}
+}
+
+/** `atomic::fence` and `compiler_fence`, which order nothing on one thread. */
+export function fence(order: AtomicOrdering): void {
+	if (order === 0) panic("there is no such thing as a relaxed fence");
+}
+
 // Futures
 
 /** `Poll::Pending`; `Poll::Ready(v)` is `v` itself. */
@@ -243,6 +341,35 @@ export class PollFn<T> implements Future<T> {
 	[Symbol.dispose](): void {
 		this.#drop?.(this.#f);
 	}
+}
+
+/**
+ * A `dyn Future` of a type whose `Future` impl is a function: each poll calls `poll` on
+ * `value`, which drops with it by `drop`, if it drops at all: a borrowed one does not.
+ */
+export class DynFuture<S, T> implements Future<T> {
+	readonly #value: S;
+	readonly #poll: (value: S, cx: Context) => Poll<T>;
+	readonly #drop: ((value: S) => void) | undefined;
+
+	constructor(value: S, poll: (value: S, cx: Context) => Poll<T>, drop?: (value: S) => void) {
+		this.#value = value;
+		this.#poll = poll;
+		this.#drop = drop;
+	}
+
+	poll(cx: Context): Poll<T> {
+		return this.#poll(this.#value, cx);
+	}
+
+	[Symbol.dispose](): void {
+		this.#drop?.(this.#value);
+	}
+}
+
+/** `future.poll(cx)`: the `poll` of an `rt.DynFuture` over a future it borrows. */
+export function futurePoll<T>(future: Future<T>, cx: Context): Poll<T> {
+	return future.poll(cx);
 }
 
 /** `future::Pending`: never ready, and drops as nothing. */

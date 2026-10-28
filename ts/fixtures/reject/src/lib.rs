@@ -348,27 +348,6 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
-/// translation calls `partial_cmp`.
-#[derive(PartialEq, Eq, Ord)]
-pub struct Lopsided(u8);
-
-impl PartialOrd for Lopsided {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.0.cmp(&other.0))
-	}
-
-	fn lt(&self, other: &Self) -> bool {
-		self.0 > other.0
-	}
-}
-
-pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
-	v.sort();
-	let wins = (1, &a) < (2, &b);
-	wins && a.max(b).0 > 0
-}
-
 /// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
 /// element.
 #[derive(PartialEq, Eq)]
@@ -487,4 +466,20 @@ pub fn fma(a: f64) -> f64 {
 /// Float formatting is not translated yet.
 pub fn float_printed(a: f64) -> String {
 	format!("{a}")
+}
+
+/// An `Arc` around a future of the crate's: a `dyn Future` behind it would need the `Arc`'s
+/// own count around an `rt.Future`.
+pub fn shared_future() -> std::sync::Arc<dyn std::future::Future<Output = u8>> {
+	std::sync::Arc::new(Ready(1))
+}
+
+pub struct Ready(u8);
+
+impl std::future::Future for Ready {
+	type Output = u8;
+
+	fn poll(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<u8> {
+		std::task::Poll::Ready(self.0)
+	}
 }
