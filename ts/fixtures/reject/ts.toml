@@ -2,7 +2,6 @@ package = "reject-fixture"
 roots = [
     "float",
     "dynamic",
-    "increment",
     "nested",
     "sorted",
     "iterators",
@@ -53,8 +52,6 @@ roots = [
     "called_closure",
     "pattern_closure",
     "parts_summed",
-    "last_bumped",
-    "modified",
     "ok_passed",
     "places_equal",
     "fma",

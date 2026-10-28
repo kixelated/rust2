@@ -18,8 +18,8 @@
 // of iterator has its own, the `owned` functions follow it, dispatching on the kind, so a
 // bundle that never drops an item carries none of it.
 
-import { ByteVec, byteVecPush, Err, type None, Ok, panic, type RangeBound, type Result } from "../rt.ts";
-import { BTreeIter, HashIter } from "./collections.ts";
+import { ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result } from "../rt.ts";
+import { AtIndex, BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropAll, dropRange } from "./task.ts";
 
@@ -152,6 +152,11 @@ export function iterFromOption<T>(option: T | undefined | None, none?: None): T 
 /** `slice::Iter`, and with what drops each item, what iterating a `Vec` or array by value makes. */
 export function iterSlice<T>(s: ArrayLike<T>, drop?: Drop<T>): Iter<T> {
 	return new SliceIter(s, drop);
+}
+
+/** `slice::IterMut` of elements JS copies: the place of each. */
+export function iterSliceMut<T>(s: { [i: number]: T; length: number }): Iter<Place<T>> {
+	return new SliceMutIter(s);
 }
 
 /** `Option::iter`, and with what drops its item, `option::IntoIter`. */
@@ -950,6 +955,43 @@ class SliceIter<T> extends Iter<T> implements Disposable {
 		const step = Math.min(n, this.back - this.front);
 		this.back -= step;
 		if (drop !== undefined) dropRange(this.s, drop, this.back, this.back + step);
+		return n - step;
+	}
+}
+
+/** The places of a slice's elements, from both ends. */
+class SliceMutIter<T> extends Iter<Place<T>> {
+	private readonly s: { [i: number]: T; length: number };
+	private front = 0;
+	private back: number;
+
+	constructor(s: { [i: number]: T; length: number }) {
+		super();
+		this.s = s;
+		this.back = s.length;
+	}
+
+	next(): Place<T> | Done {
+		return this.front < this.back ? new AtIndex(this.s, this.front++) : DONE;
+	}
+
+	override nextBack(): Place<T> | Done {
+		return this.front < this.back ? new AtIndex(this.s, --this.back) : DONE;
+	}
+
+	override len(): number {
+		return this.back - this.front;
+	}
+
+	override advanceBy(n: number): number {
+		const step = Math.min(n, this.back - this.front);
+		this.front += step;
+		return n - step;
+	}
+
+	override advanceBackBy(n: number): number {
+		const step = Math.min(n, this.back - this.front);
+		this.back -= step;
 		return n - step;
 	}
 }
