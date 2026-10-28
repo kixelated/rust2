@@ -207,15 +207,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				// A future, as the `rt.Future` a `dyn Future` is.
 				PointerCoercion::Unsize
-					if let Some(part) = unsized_to(from, to)
-						&& self.b.t.dyn_future(part.to).is_some() =>
+					if unsized_to(from, to).is_some_and(|part| self.b.t.dyn_future(part).is_some()) =>
 				{
 					let value = self.operand(op, span, out);
-					self.b.dyn_future(part.from, value, part.borrowed, span)
+					self.b.dyn_future(from, to, value, span)
 				}
 				PointerCoercion::Unsize if self.b.trait_object(to) => self.err(span, format!("a coercion to `{to}`")),
 				// An array's bytes, as a slice of all of it: a reference to them is one already.
-				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(|u| super::place::byte_slice(u.to)) => {
+				PointerCoercion::Unsize if unsized_to(from, to).is_some_and(super::place::byte_slice) => {
 					match to.builtin_deref(true) {
 						Some(pointee) if super::place::byte_slice(pointee) => {
 							let value = self.operand(op, span, out);
@@ -665,28 +664,12 @@ pub(super) fn context_like<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> boo
 	}
 }
 
-/// The part of a type that unsizing makes unsized, such as `[T]` from `[T; N]`.
-struct Unsized<'tcx> {
-	/// What it was.
-	from: Ty<'tcx>,
-	/// What it is.
-	to: Ty<'tcx>,
-	/// Whether it is behind a reference, which doesn't own it.
-	borrowed: bool,
-}
-
-/// The part of `to` that unsizing `from` makes unsized.
-fn unsized_to<'tcx>(from: Ty<'tcx>, to: Ty<'tcx>) -> Option<Unsized<'tcx>> {
+/// The part of `to` that unsizing `from` makes unsized, such as `[T]` from `[T; N]`.
+fn unsized_to<'tcx>(from: Ty<'tcx>, to: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	match (from.kind(), to.kind()) {
 		_ if from == to => None,
-		(ty::Array(..), ty::Slice(_)) | (_, ty::Dynamic(..)) => Some(Unsized {
-			from,
-			to,
-			borrowed: false,
-		}),
-		(ty::Ref(_, a, _) | ty::RawPtr(a, _), ty::Ref(_, b, _) | ty::RawPtr(b, _)) => {
-			unsized_to(*a, *b).map(|u| Unsized { borrowed: true, ..u })
-		}
+		(ty::Array(..), ty::Slice(_)) | (_, ty::Dynamic(..)) => Some(to),
+		(ty::Ref(_, a, _) | ty::RawPtr(a, _), ty::Ref(_, b, _) | ty::RawPtr(b, _)) => unsized_to(*a, *b),
 		(ty::Adt(a, a_args), ty::Adt(b, b_args)) if a.did() == b.did() => {
 			a_args.types().zip(b_args.types()).find_map(|(a, b)| unsized_to(a, b))
 		}

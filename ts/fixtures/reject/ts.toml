@@ -21,6 +21,7 @@ roots = [
     "replace_shared",
     "nested_poll",
     "pending_output",
+    "shared_future",
     "replace_pinned",
     "replace_guard",
     "cycled",

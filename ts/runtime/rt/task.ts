@@ -269,6 +269,11 @@ export class DynFuture<S, T> implements Future<T> {
 	}
 }
 
+/** `future.poll(cx)`: the `poll` of an `rt.DynFuture` over a future it borrows. */
+export function futurePoll<T>(future: Future<T>, cx: Context): Poll<T> {
+	return future.poll(cx);
+}
+
 /** `future::Pending`: never ready, and drops as nothing. */
 class Never implements Future<never> {
 	poll(): Poll<never> {

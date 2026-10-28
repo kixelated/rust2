@@ -2,13 +2,13 @@
 
 import * as rt from "./rt.ts";
 import { unwrapOr$Option_u64, okOr$Option_u64_u64 } from "./core/option.ts";
-import { map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0, map$Poll_Option_u64_u64_boxed_closure0_closure2_closure0, map$Poll_u64_u64_boxed_closure0_closure0_closure0, isReady$Poll_Option_u64, isPending$Poll_Option_u64, isPending$Poll_u64, mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1, mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2 } from "./core/task/poll.ts";
+import { map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure1_closure0, map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0, map$Poll_u64_u64_boxed_closure0_closure1_closure0, isReady$Poll_Option_u64, isPending$Poll_Option_u64, isPending$Poll_u64, mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure1, mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure1_closure2 } from "./core/task/poll.ts";
 import * as Blast from "./futures.Blast.ts";
 import * as Forward from "./futures.Forward.ts";
 import * as Fused from "./futures.Fused.ts";
 import * as Plain from "./futures.Plain.ts";
 import * as Relay from "./futures.Relay.ts";
-import { wait$boxed_closure0_closure2_u64, wait$boxed_closure0_closure4_u64, recvFuture } from "./kio.ts";
+import { wait$boxed_closure0_closure3_u64, wait$boxed_closure0_closure5_u64, recvFuture } from "./kio.ts";
 import * as Consumer from "./kio.Consumer.ts";
 import * as Pending from "./kio.Pending.ts";
 import type * as Waiter from "./kio.Waiter.ts";
@@ -385,7 +385,8 @@ export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
 }
 
 /**
- * Boxed futures over a channel: `Box::pin` of an async fn, awaited, then a queue of
+ * Boxed futures over a channel: `Box::pin` of an async fn, awaited, and of a `&mut` to a
+ * `poll_fn`, whose box drops without dropping it, then a queue of
  * `Pin<Box<dyn Future>>`s of an async block, kio's `Pending`, a struct of the crate's,
  * and a `poll_fn`, each owning a guard. A `poll_fn` boxed in a [`Forward`] polls the
  * queue in turn through [`poll_unsized`], as moq's tasks do through kio's
@@ -403,15 +404,20 @@ export class boxedFuture {
 	#guard: Guard.Guard;
 	#first!: rt.u64;
 	#awaitee!: rt.Future<rt.u64 | undefined>;
+	#id!: rt.u32;
 	#log!: Log.Log;
+	#lend!: rt.Future<rt.u64>;
+	#lent!: rt.u64;
+	#awaitee$2!: rt.Future<rt.u64>;
 	#pinned!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>>;
-	#awaitee$2!: Forward.Forward;
+	#awaitee$3!: Forward.Forward;
 	#saved!: boolean;
 	#saved$2!: boolean;
 	#saved$3!: boolean;
 	#saved$4!: boolean;
 	#saved$5!: boolean;
 	#saved$6!: boolean;
+	#saved$7!: boolean;
 
 	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
 		this.#rx = rx;
@@ -421,75 +427,103 @@ export class boxedFuture {
 	[Symbol.dispose](): void {
 		let unwind: number = 0;
 		try {
-			if (this.#state === 0) {
-				unwind = 48;
-				rt.drop(this.#rx);
-				unwind = 0;
-				rt.drop(this.#guard);
-				return;
-			}
-			if (this.#state === 3) {
-				unwind = 37;
-				rt.drop(this.#awaitee);
-			} else if (this.#state === 4) {
-				unwind = 25;
-				rt.drop(this.#awaitee$2);
-				unwind = 28;
-				rt.drop(this.#pinned);
-				this.#saved$2 = false;
-				this.#saved$3 = false;
-				this.#saved$4 = false;
-				this.#saved$5 = false;
-				this.#saved$6 = false;
-				unwind = 36;
+			b0: {
+				if (this.#state === 0) {
+					unwind = 66;
+					rt.drop(this.#rx);
+					unwind = 0;
+					rt.drop(this.#guard);
+					return;
+				}
+				if (this.#state === 3) {
+					unwind = 51;
+					rt.drop(this.#awaitee);
+					break b0;
+				}
+				if (this.#state === 4) {
+					unwind = 44;
+					rt.drop(this.#awaitee$2);
+				} else if (this.#state !== 5) {
+					if (this.#state === 6) {
+						unwind = 34;
+						rt.drop(this.#awaitee$3);
+						unwind = 37;
+						rt.drop(this.#pinned);
+						this.#saved$3 = false;
+						this.#saved$4 = false;
+						this.#saved$5 = false;
+						this.#saved$6 = false;
+						this.#saved$7 = false;
+					} else {
+						return;
+					}
+				}
+				if (this.#saved) {
+					unwind = 48;
+					rt.drop(this.#lend);
+				}
+				this.#saved = false;
+				unwind = 50;
 				rt.drop(this.#log);
-			} else {
-				return;
 			}
-			unwind = 40;
+			unwind = 54;
 			rt.drop(this.#guard);
-			if (this.#saved) {
+			if (this.#saved$2) {
 				unwind = 0;
 				rt.drop(this.#rx);
 			}
-			this.#saved = false;
+			this.#saved$2 = false;
 		} catch (e) {
-			b2: {
-				b3: {
-					b4: {
-						b5: {
-							if (unwind === 0) {
-								throw e;
+			b5: {
+				b6: {
+					b7: {
+						b8: {
+							b9: {
+								b10: {
+									if (unwind === 0) {
+										throw e;
+									}
+									if (unwind === 34) {
+										rt.drop(this.#pinned);
+									} else if (unwind !== 37) {
+										if (unwind === 44) {
+											break b10;
+										}
+										if (unwind === 48) {
+											break b9;
+										}
+										if (unwind === 50) {
+											break b8;
+										}
+										if (unwind === 51) {
+											break b7;
+										}
+										if (unwind === 54) {
+											break b6;
+										}
+										rt.drop(this.#guard);
+										break b5;
+									}
+									this.#saved$3 = false;
+									this.#saved$4 = false;
+									this.#saved$5 = false;
+									this.#saved$6 = false;
+									this.#saved$7 = false;
+								}
+								if (this.#saved) {
+									rt.drop(this.#lend);
+								}
 							}
-							if (unwind === 25) {
-								rt.drop(this.#pinned);
-							} else if (unwind !== 28) {
-								if (unwind === 36) {
-									break b5;
-								}
-								if (unwind === 37) {
-									break b4;
-								}
-								if (unwind === 40) {
-									break b3;
-								}
-								rt.drop(this.#guard);
-								break b2;
-							}
-							this.#saved$2 = false;
-							this.#saved$3 = false;
-							this.#saved$4 = false;
-							this.#saved$5 = false;
-							this.#saved$6 = false;
+							this.#saved = false;
 							rt.drop(this.#log);
 						}
 					}
 					rt.drop(this.#guard);
 				}
-				if (this.#saved) {
+				if (this.#saved$2) {
 					rt.drop(this.#rx);
 				}
-				this.#saved = false;
+				this.#saved$2 = false;
 			}
 			throw e;
 		}
@@ -499,271 +533,343 @@ export class boxedFuture {
 		let block!: Guard.Guard;
 		let waiting!: Guard.Guard;
 		let ready!: Guard.Guard;
-		let _39!: Guard.Guard;
-		let _44!: Guard.Guard;
+		let _83!: Guard.Guard;
+		let _89!: Guard.Guard;
 		let next!: Consumer.Consumer;
 		let queue!: rt.Future<rt.u64>[];
-		let _59!: rt.Future<rt.u64>;
-		let _62!: rt.Future<rt.u64>;
+		let _106!: rt.Future<rt.u64>;
+		let _109!: rt.Future<rt.u64>;
 		let unwind: number = 0;
 		try {
 			b0: {
-				if (this.#state === 0) {
-					unwind = 81;
-					this.#saved = false;
-					this.#saved$6 = false;
-					this.#saved$5 = false;
-					this.#saved$4 = false;
-					this.#saved$3 = false;
-					this.#saved$2 = false;
-					this.#saved = true;
-					this.#awaitee = new recvFuture(this.#rx);
-				} else if (this.#state === 1) {
-					rt.asyncFnResumed();
-				} else if (this.#state === 2) {
-					rt.asyncFnResumedPanic();
-				} else if (this.#state !== 3) {
-					break b0;
+				b1: {
+					b2: {
+						if (this.#state === 0) {
+							unwind = 112;
+							this.#saved$2 = false;
+							this.#saved = false;
+							this.#saved$7 = false;
+							this.#saved$6 = false;
+							this.#saved$5 = false;
+							this.#saved$4 = false;
+							this.#saved$3 = false;
+							this.#saved$2 = true;
+							this.#awaitee = new recvFuture(this.#rx);
+						} else if (this.#state === 1) {
+							rt.asyncFnResumed();
+						} else if (this.#state === 2) {
+							rt.asyncFnResumedPanic();
+						} else if (this.#state !== 3) {
+							if (this.#state === 4) {
+								break b2;
+							}
+							if (this.#state === 5) {
+								break b1;
+							}
+							break b0;
+						}
+						unwind = 111;
+						const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+						if (_7 !== rt.Pending) {
+							unwind = 112;
+							const result: rt.u64 | undefined = _7;
+							rt.drop(this.#awaitee);
+							this.#first = unwrapOr$Option_u64(result, 0);
+							const arg = this.#first;
+							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+							const _19: string = rt.fmtFormat(["first ", args2[0]]);
+							unwind = 110;
+							Guard.note(this.#guard, _19);
+							unwind = 112;
+							const _29: rt.u32 = Guard.id(this.#guard);
+							const _31: Log.Log = Log.clone$Clone(Guard.log(this.#guard));
+							unwind = 109;
+							this.#id = _29;
+							this.#log = _31;
+							const lent: Guard.Guard = Guard.new(rt.u32Add(this.#id, 900), Log.clone$Clone(this.#log));
+							unwind = 108;
+							const captured = lent;
+							this.#lend = new rt.PollFn(rt.closure((_22: rt.Context): rt.Poll<rt.u64> => {
+								Guard.note(captured, "lent");
+								return 4;
+							}, (): void => {
+								rt.drop(captured);
+							}), rt.drop);
+							unwind = 107;
+							this.#saved = true;
+							this.#awaitee$2 = new rt.DynFuture(this.#lend, rt.futurePoll);
+						} else {
+							this.#state = 3;
+							return rt.Pending;
+						}
+					}
+					unwind = 106;
+					const _45: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
+					if (_45 !== rt.Pending) {
+						unwind = 107;
+						this.#lent = _45;
+						rt.drop(this.#awaitee$2);
+						this.#awaitee$2 = this.#lend;
+					} else {
+						this.#state = 4;
+						return rt.Pending;
+					}
 				}
-				unwind = 80;
-				const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-				if (_7 !== rt.Pending) {
-					unwind = 81;
-					const result: rt.u64 | undefined = _7;
-					rt.drop(this.#awaitee);
-					this.#first = unwrapOr$Option_u64(result, 0);
-					const arg = this.#first;
-					const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
-					const _19: string = rt.fmtFormat(["first ", args2[0]]);
-					unwind = 79;
-					Guard.note(this.#guard, _19);
-					unwind = 81;
-					const _30: rt.u32 = Guard.id(this.#guard);
-					const _32: Log.Log = Log.clone$Clone(Guard.log(this.#guard));
-					unwind = 78;
-					const id: rt.u32 = _30;
-					this.#log = _32;
-					_39 = Guard.new(rt.u32Add(id, 500), Log.clone$Clone(this.#log));
-					unwind = 77;
-					_44 = Guard.new(rt.u32Add(id, 600), Log.clone$Clone(this.#log));
-					unwind = 76;
-					const _49: Guard.Guard = Guard.new(rt.u32Add(id, 700), Log.clone$Clone(this.#log));
-					unwind = 72;
-					this.#saved$6 = true;
-					block = _39;
-					this.#saved$5 = true;
-					waiting = _44;
-					this.#saved$4 = true;
-					ready = _49;
-					next = Consumer.clone$Clone(this.#rx);
-					this.#saved$3 = true;
-					unwind = 70;
+				unwind = 107;
+				const _55: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
+				if (_55 !== rt.Pending) {
+					this.#lent = rt.u64Add(this.#lent, _55);
+					const arg2 = this.#lent;
+					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg2, f)];
+					const _68: string = rt.fmtFormat(["lent ", args4[0]]);
+					unwind = 105;
+					Guard.note(this.#guard, _68);
+					unwind = 107;
 					this.#saved = false;
+					rt.drop(this.#lend);
+					_83 = Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log));
+					unwind = 104;
+					_89 = Guard.new(rt.u32Add(this.#id, 600), Log.clone$Clone(this.#log));
+					unwind = 103;
+					const _95: Guard.Guard = Guard.new(rt.u32Add(this.#id, 700), Log.clone$Clone(this.#log));
+					unwind = 99;
+					this.#saved$7 = true;
+					block = _83;
+					this.#saved$6 = true;
+					waiting = _89;
+					this.#saved$5 = true;
+					ready = _95;
+					next = Consumer.clone$Clone(this.#rx);
+					this.#saved$4 = true;
+					unwind = 97;
+					this.#saved$2 = false;
+					this.#saved$7 = false;
+					const _107: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
+					unwind = 96;
+					_106 = _107;
+					this.#saved$4 = false;
 					this.#saved$6 = false;
-					const _60: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
-					unwind = 69;
-					_59 = _60;
-					this.#saved$3 = false;
-					this.#saved$5 = false;
-					let captured = next;
-					const captured2 = waiting;
-					const _63: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = wait$boxed_closure0_closure2_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
-						return map$Poll_Option_u64_u64_boxed_closure0_closure2_closure0(Consumer.pollRecv(captured, waiter), (value: rt.u64 | undefined): rt.u64 => {
-							Guard.note(captured2, "waited");
+					let captured2 = next;
+					const captured3 = waiting;
+					const _110: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
+						return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value: rt.u64 | undefined): rt.u64 => {
+							Guard.note(captured3, "waited");
 							return rt.u64Add(unwrapOr$Option_u64(value, 0), 2);
 						});
 					}, (): void => {
 						let dropped: number = 0;
 						try {
-							rt.drop(captured);
-							dropped = 1;
 							rt.drop(captured2);
+							dropped = 1;
+							rt.drop(captured3);
 						} catch (e) {
 							if (dropped < 1) {
-								rt.drop(captured2);
+								rt.drop(captured3);
 							}
 							throw e;
 						}
 					}));
-					unwind = 68;
-					_62 = new rt.DynFuture(_63, Pending.poll$Future_boxed_closure0_closure2, rt.drop);
-					this.#saved$4 = false;
-					const captured3 = ready;
-					const _67: rt.Future<rt.u64> = new rt.PollFn(rt.closure((_22: rt.Context): rt.Poll<rt.u64> => {
-						Guard.note(captured3, "ready");
+					unwind = 95;
+					_109 = new rt.DynFuture(_110, Pending.poll$Future_boxed_closure0_closure3, rt.drop);
+					this.#saved$5 = false;
+					const captured4 = ready;
+					const _114: rt.Future<rt.u64> = new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
+						Guard.note(captured4, "ready");
 						return 3;
 					}, (): void => {
-						rt.drop(captured3);
-					}), rt.drop);
-					unwind = 71;
-					queue = [_59, _62, _67];
-					unwind = 67;
-					this.#saved$2 = true;
-					const captured4 = Guard.new(rt.u32Add(id, 800), Log.clone$Clone(this.#log));
-					const _76: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = wait$boxed_closure0_closure4_u64(rt.closure((_23: Waiter.Waiter): rt.Poll<rt.u64> => {
-						return Guard.id(captured4) as rt.u64;
-					}, (): void => {
 						rt.drop(captured4);
+					}), rt.drop);
+					unwind = 98;
+					queue = [_106, _109, _114];
+					unwind = 94;
+					this.#saved$3 = true;
+					const captured5 = Guard.new(rt.u32Add(this.#id, 800), Log.clone$Clone(this.#log));
+					const _124: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = wait$boxed_closure0_closure5_u64(rt.closure((_24: Waiter.Waiter): rt.Poll<rt.u64> => {
+						return Guard.id(captured5) as rt.u64;
+					}, (): void => {
+						rt.drop(captured5);
 					}));
-					unwind = 66;
-					this.#pinned = _76;
+					unwind = 93;
+					this.#pinned = _124;
 					const last: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = this.#pinned;
-					this.#saved$2 = false;
-					let captured5 = queue;
-					let captured6: rt.u64 = 0;
-					let captured7 = last;
-					this.#awaitee$2 = new Forward.Forward({ future: new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
+					this.#saved$3 = false;
+					let captured6 = queue;
+					let captured7: rt.u64 = 0;
+					let captured8 = last;
+					this.#awaitee$3 = new Forward.Forward({ future: new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
 						let i: rt.usize = 0;
-						while (i < captured5.length) {
-							const _84: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured5[rt.idx(captured5, i)], cx);
-							if (_84 !== rt.Pending) {
-								captured6 = rt.u64Add(captured6, _84);
-								rt.drop(rt.vecSwapRemove(captured5, i));
+						while (i < captured6.length) {
+							const _88: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured6[rt.idx(captured6, i)], cx);
+							if (_88 !== rt.Pending) {
+								captured7 = rt.u64Add(captured7, _88);
+								rt.drop(rt.vecSwapRemove(captured6, i));
 							} else {
 								i = rt.usizeAdd(i, 1);
 							}
 						}
-						if (!((captured5.length === 0))) {
+						if (!((captured6.length === 0))) {
 							return rt.Pending;
 						}
-						return map$Poll_u64_u64_boxed_closure0_closure0_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured7, Pending.poll$Future_boxed_closure0_closure4), cx), (value3: rt.u64): rt.u64 => {
-							return rt.u64Add(captured6, value3);
+						return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value3: rt.u64): rt.u64 => {
+							return rt.u64Add(captured7, value3);
 						});
 					}, (): void => {
-						rt.dropAll(captured5);
+						rt.dropAll(captured6);
 					}), rt.drop) });
 				} else {
-					this.#state = 3;
+					this.#state = 5;
 					return rt.Pending;
 				}
 			}
-			unwind = 65;
-			const _86: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$2, _2);
-			if (_86 !== rt.Pending) {
-				unwind = 66;
-				const total: rt.u64 = _86;
-				rt.drop(this.#awaitee$2);
-				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(total, f)];
-				const _98: string = rt.fmtFormat(["boxed ", args4[0]]);
-				unwind = 64;
-				Guard.note(this.#guard, _98);
-				unwind = 67;
+			unwind = 92;
+			const _134: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$3, _2);
+			if (_134 !== rt.Pending) {
+				unwind = 93;
+				const total: rt.u64 = _134;
+				rt.drop(this.#awaitee$3);
+				const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(total, f)];
+				const _146: string = rt.fmtFormat(["boxed ", args6[0]]);
+				unwind = 91;
+				Guard.note(this.#guard, _146);
+				unwind = 94;
 				rt.drop(this.#pinned);
-				unwind = 81;
-				this.#saved$2 = false;
+				unwind = 112;
 				this.#saved$3 = false;
 				this.#saved$4 = false;
 				this.#saved$5 = false;
 				this.#saved$6 = false;
-				rt.drop(this.#log);
-				unwind = 89;
-				rt.drop(this.#guard);
+				this.#saved$7 = false;
 				this.#saved = false;
+				rt.drop(this.#log);
+				unwind = 121;
+				rt.drop(this.#guard);
+				this.#saved$2 = false;
 				this.#state = 1;
 				return total;
 			}
-			this.#state = 4;
+			this.#state = 6;
 			return rt.Pending;
 		} catch (e) {
-			b2: {
-				b3: {
-					b4: {
-						b5: {
-							b6: {
-								b7: {
-									b8: {
-										b9: {
-											b10: {
-												if (unwind === 0) {
-													throw e;
-												}
-												if (unwind === 64) {
-													break b8;
-												}
-												if (unwind === 65) {
-													rt.drop(this.#awaitee$2);
-													break b8;
-												}
-												if (unwind === 66) {
-													break b8;
-												}
-												if (unwind === 67) {
-													break b7;
-												}
-												if (unwind === 68) {
-													rt.drop(_62);
-													break b10;
-												}
-												if (unwind === 69) {
-													break b10;
-												}
-												if (unwind === 70) {
-													break b9;
-												}
-												if (unwind === 71) {
-													break b6;
-												}
-												if (unwind === 72) {
-													break b5;
-												}
-												if (unwind === 76) {
-													rt.drop(_44);
-												} else if (unwind !== 77) {
-													if (unwind === 78) {
-														break b4;
+			b4: {
+				b5: {
+					b6: {
+						b7: {
+							b8: {
+								b9: {
+									b10: {
+										b11: {
+											b12: {
+												b13: {
+													b14: {
+														if (unwind === 0) {
+															throw e;
+														}
+														if (unwind === 91) {
+															break b12;
+														}
+														if (unwind === 92) {
+															rt.drop(this.#awaitee$3);
+															break b12;
+														}
+														if (unwind === 93) {
+															break b12;
+														}
+														if (unwind === 94) {
+															break b11;
+														}
+														if (unwind === 95) {
+															rt.drop(_109);
+															break b14;
+														}
+														if (unwind === 96) {
+															break b14;
+														}
+														if (unwind === 97) {
+															break b13;
+														}
+														if (unwind === 98) {
+															break b10;
+														}
+														if (unwind === 99) {
+															break b9;
+														}
+														if (unwind === 103) {
+															rt.drop(_89);
+														} else if (unwind !== 104) {
+															if (unwind === 105) {
+																break b8;
+															}
+															if (unwind === 106) {
+																rt.drop(this.#awaitee$2);
+																break b8;
+															}
+															if (unwind === 107) {
+																break b8;
+															}
+															if (unwind === 108) {
+																break b7;
+															}
+															if (unwind === 109) {
+																break b6;
+															}
+															if (unwind === 110) {
+																break b5;
+															}
+															if (unwind === 111) {
+																rt.drop(this.#awaitee);
+																break b5;
+															}
+															if (unwind === 112) {
+																break b5;
+															}
+															break b4;
+														}
+														rt.drop(_83);
+														break b8;
 													}
-													if (unwind === 79) {
-														break b3;
-													}
-													if (unwind === 80) {
-														rt.drop(this.#awaitee);
-														break b3;
-													}
-													if (unwind === 81) {
-														break b3;
-													}
-													break b2;
+													rt.drop(_106);
 												}
-												rt.drop(_39);
-												break b4;
+												break b10;
 											}
-											rt.drop(_59);
+											rt.drop(this.#pinned);
 										}
-										break b6;
+										if (this.#saved$3) {
+											rt.dropAll(queue);
+										}
 									}
-									rt.drop(this.#pinned);
+									this.#saved$3 = false;
+									if (this.#saved$4) {
+										rt.drop(next);
+									}
 								}
-								if (this.#saved$2) {
-									rt.dropAll(queue);
+								this.#saved$4 = false;
+								if (this.#saved$5) {
+									rt.drop(ready);
 								}
+								this.#saved$5 = false;
+								if (this.#saved$6) {
+									rt.drop(waiting);
+								}
+								this.#saved$6 = false;
+								if (this.#saved$7) {
+									rt.drop(block);
+								}
+								this.#saved$7 = false;
 							}
-							this.#saved$2 = false;
-							if (this.#saved$3) {
-								rt.drop(next);
+							if (this.#saved) {
+								rt.drop(this.#lend);
 							}
 						}
-						this.#saved$3 = false;
-						if (this.#saved$4) {
-							rt.drop(ready);
-						}
-						this.#saved$4 = false;
-						if (this.#saved$5) {
-							rt.drop(waiting);
-						}
-						this.#saved$5 = false;
-						if (this.#saved$6) {
-							rt.drop(block);
-						}
-						this.#saved$6 = false;
+						this.#saved = false;
 					}
 					rt.drop(this.#log);
 				}
 				rt.drop(this.#guard);
 			}
-			if (this.#saved) {
+			if (this.#saved$2) {
 				rt.drop(this.#rx);
 			}
-			this.#saved = false;
+			this.#saved$2 = false;
 			this.#state = 2;
 			throw e;
 		}

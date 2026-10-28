@@ -29,12 +29,12 @@ export class Pending<F> {
 	}
 }
 
-export function poll$Future_boxed_closure0_closure2(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>>, cx: rt.Context): rt.Poll<rt.u64> {
+export function poll$Future_boxed_closure0_closure3(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>>, cx: rt.Context): rt.Poll<rt.u64> {
 	const this_: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = self;
 	return this_.poll(Park.hold(this_.park, cx));
 }
 
-export function poll$Future_boxed_closure0_closure4(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>>, cx: rt.Context): rt.Poll<rt.u64> {
+export function poll$Future_boxed_closure0_closure5(self: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>>, cx: rt.Context): rt.Poll<rt.u64> {
 	const this_: Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = self;
 	return this_.poll(Park.hold(this_.park, cx));
 }

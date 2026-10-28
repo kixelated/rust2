@@ -38,21 +38,57 @@ impl<'tcx> Translator<'_, 'tcx> {
 }
 
 impl<'tcx> Body<'_, '_, 'tcx> {
-	/// `value`, a `from` that is a future, as the `rt.Future` a `dyn Future` is: itself if
-	/// it is one already, and else an `rt.DynFuture` over its `Future` impl, which drops it
-	/// with itself unless `borrowed`.
-	pub fn dyn_future(&mut self, from: Ty<'tcx>, value: Expr, borrowed: bool, span: Span) -> Expr {
+	/// `value`, a `from` coerced to `to`, which points at a `dyn Future` through
+	/// references, boxes, and pins, whose JS value is what they point at.
+	pub fn dyn_future(&mut self, from: Ty<'tcx>, to: Ty<'tcx>, value: Expr, span: Span) -> Expr {
 		let tcx = self.t.tcx;
-		match from.kind() {
-			ty::Dynamic(..) | ty::Coroutine(..) => return value,
+		let (mut pointee, mut target, mut borrowed) = (from, to, false);
+		while !matches!(target.kind(), ty::Dynamic(..)) {
+			(pointee, target) = match (pointee.kind(), target.kind()) {
+				(ty::Ref(_, a, _), ty::Ref(_, b, _)) => {
+					borrowed = true;
+					(*a, *b)
+				}
+				(ty::Adt(a, a_args), ty::Adt(b, b_args))
+					if a.did() == b.did() && matches!(Std::of(tcx, a.did()), Some(Std::Box | Std::Pin)) =>
+				{
+					(a_args.type_at(0), b_args.type_at(0))
+				}
+				// Another pointer, such as an `Arc`, is a value of its own around the future.
+				_ => return self.err(span, format!("a coercion to `{to}`")),
+			};
+		}
+		// What drops `to` drops the future, unless it was borrowed.
+		let dropped = self.t.drops(to);
+		self.future_object(pointee, value, borrowed, dropped, span)
+	}
+
+	/// `value`, a `from` that is a future, as an `rt.Future`: itself if it is one already,
+	/// and else an `rt.DynFuture` over its `Future` impl, which drops it with itself unless
+	/// `borrowed`. A borrowed one that is `dropped` must not drop what it borrows.
+	fn future_object(&mut self, from: Ty<'tcx>, value: Expr, borrowed: bool, dropped: bool, span: Span) -> Expr {
+		let tcx = self.t.tcx;
+		let object = match from.kind() {
+			ty::Dynamic(..) | ty::Coroutine(..) => true,
 			// What a reference or a box points at, which its JS value is.
-			ty::Ref(_, inner, _) => return self.dyn_future(*inner, value, true, span),
+			ty::Ref(_, inner, _) => return self.future_object(*inner, value, true, dropped, span),
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				Some(Std::PollFn | Std::Pending) => return value,
-				Some(Std::Box | Std::Pin) => return self.dyn_future(args.type_at(0), value, borrowed, span),
-				_ => {}
+				Some(Std::PollFn | Std::Pending) => true,
+				Some(Std::Box | Std::Pin) => {
+					return self.future_object(args.type_at(0), value, borrowed, dropped, span);
+				}
+				_ => false,
 			},
-			_ => {}
+			_ => false,
+		};
+		if object {
+			return match borrowed && dropped {
+				true => Expr::New(
+					Box::new(Expr::Rt("DynFuture".into())),
+					vec![value, Expr::Rt("futurePoll".into())],
+				),
+				false => value,
+			};
 		}
 		// What `Future::poll` takes would be an `rt.Place`, which the box doesn't have.
 		if self.t.needs_place(from) {

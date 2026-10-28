@@ -135,7 +135,8 @@ impl Drop for Blast {
 /// A boxed future, as moq's `MaybeSendBox` is.
 type Boxed<'a> = Pin<Box<dyn Future<Output = u64> + 'a>>;
 
-/// Boxed futures over a channel: `Box::pin` of an async fn, awaited, then a queue of
+/// Boxed futures over a channel: `Box::pin` of an async fn, awaited, and of a `&mut` to a
+/// `poll_fn`, whose box drops without dropping it, then a queue of
 /// `Pin<Box<dyn Future>>`s of an async block, kio's `Pending`, a struct of the crate's,
 /// and a `poll_fn`, each owning a guard. A `poll_fn` boxed in a [`Forward`] polls the
 /// queue in turn through [`poll_unsized`], as moq's tasks do through kio's
@@ -146,6 +147,15 @@ pub async fn boxed(mut rx: Consumer, guard: Guard) -> u64 {
 	let first = Box::pin(rx.recv()).await.unwrap_or(0);
 	guard.note(&format!("first {first}"));
 	let (id, log) = (guard.id(), guard.log().clone());
+	let lent = Guard::new(id + 900, log.clone());
+	let mut lend = future::poll_fn(move |_| {
+		lent.note("lent");
+		Poll::Ready(4)
+	});
+	let erased: Boxed<'_> = Box::pin(&mut lend);
+	let lent = erased.await + (&mut lend).await;
+	guard.note(&format!("lent {lent}"));
+	drop(lend);
 	let (block, waiting, ready) = (
 		Guard::new(id + 500, log.clone()),
 		Guard::new(id + 600, log.clone()),
