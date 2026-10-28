@@ -191,7 +191,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tcx = self.tcx;
 		let from = op.ty(&self.mir.local_decls, tcx);
 		match kind {
-			CastKind::IntToInt => {
+			CastKind::IntToInt | CastKind::IntToFloat | CastKind::FloatToInt | CastKind::FloatToFloat => {
 				let value = self.operand(op, span, out);
 				let operand = num::Operand {
 					expr: value,
