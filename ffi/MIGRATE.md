@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Each `pub` field of an object exports a setter, `<type>_set_<field>`, so a method
+  named `set_<field>` on the same type, such as `Limit::set_max` beside `pub max`,
+  clashes with it: give the method another name with a `rename`.
 - In `exclude` and `rename`, a path that a field shares with a method or constant of its
   type, such as `Backoff::initial`, names only the method, as in rustdoc. Name the field
   `field@Backoff::initial`: an `exclude` that left out both now needs both entries.
