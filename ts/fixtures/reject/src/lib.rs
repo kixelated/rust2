@@ -420,6 +420,11 @@ pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
 	Some(a) == Some(b)
 }
 
+/// An owner that drops, which would drop with the last clone of the `Bytes`.
+pub fn owned_bytes(owner: std::sync::Arc<[u8]>) -> usize {
+	bytes::Bytes::from_owner(owner).len()
+}
+
 pub struct Part(pub u64);
 
 impl std::iter::Sum<Part> for std::time::Duration {

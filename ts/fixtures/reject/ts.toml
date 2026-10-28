@@ -51,6 +51,7 @@ roots = [
     "parts_summed",
     "ok_passed",
     "places_equal",
+    "owned_bytes",
     "fma",
     "float_printed",
     "weak_object",
