@@ -475,22 +475,37 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	})
 }
 
-/// The first closure `call` calls that owns a value that drops, of those its mapping does
-/// not drop where std would: not in `discarded`, the types it may drop by their index among
-/// the call's type arguments. A closure that `Fn` or `FnMut` call, given to one that calls
-/// it through `FnOnce`, becomes `rt.once` of it, which drops it after the call, as rustc's
-/// shim does.
+/// What a std function does with the closures it calls that own a value that drops.
+#[derive(Default)]
+struct Closures<'tcx> {
+	/// The first it would neither drop where std's does nor keep: refused.
+	leaked: Option<Ty<'tcx>>,
+	/// Those it drops as it returns or unwinds, having kept nothing of them, in the order
+	/// their parameters are declared.
+	spent: Vec<Expr>,
+}
+
+/// The closures `call` calls that own a value that drops, by what its mapping does with
+/// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
+/// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
+/// drops is ordered against it; dropped where `discarded` says, by the type's index among
+/// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
+/// one that calls it through `FnOnce`, becomes `rt.once` of it, which drops it after the
+/// call, as rustc's shim does.
 fn called_closures<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
 	discarded: Option<&[usize]>,
 	args: &mut [Expr],
-) -> Option<Ty<'tcx>> {
+) -> Closures<'tcx> {
 	let tcx = b.t.tcx;
+	let mut closures = Closures::default();
 	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
-	let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let inputs = sig.inputs().to_vec();
+	let output = sig.output();
 	let bounds = tcx.param_env(call.def_id).caller_bounds();
-	for (i, input) in inputs.into_iter().enumerate() {
+	for (i, &input) in inputs.iter().enumerate() {
 		let ty::Param(param) = *input.kind() else {
 			continue;
 		};
@@ -515,12 +530,30 @@ fn called_closures<'tcx>(
 		if !b.t.drops(ty) {
 			continue;
 		}
+		let mentions = |t: Ty<'tcx>| t.walk().any(|a| a.as_type() == Some(input));
+		if mentions(output) {
+			let held = matches!(output.kind(), ty::Adt(adt, args)
+				if super::iter::holds_closure(tcx, adt.did()) && args.types().any(|a| a == input));
+			if !held {
+				closures.leaked = closures.leaked.or(Some(ty));
+			}
+			continue;
+		}
+		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
+		if bound != ty::ClosureKind::FnOnce && !kept && i < args.len() {
+			match dropping_operand(b, call) {
+				None => closures.spent.push(args[i].clone()),
+				Some(_) => closures.leaked = closures.leaked.or(Some(ty)),
+			}
+			continue;
+		}
 		let index = call.args[..param.index as usize]
 			.iter()
 			.filter(|a| a.as_type().is_some())
 			.count();
 		if !discarded.is_some_and(|d| d.contains(&index)) {
-			return Some(ty);
+			closures.leaked = closures.leaked.or(Some(ty));
+			continue;
 		}
 		if bound == ty::ClosureKind::FnOnce && closure.as_closure().kind() != ty::ClosureKind::FnOnce && i < args.len()
 		{
@@ -528,10 +561,11 @@ fn called_closures<'tcx>(
 			args[i] = Expr::rt("once", vec![f]);
 		}
 	}
-	None
+	closures
 }
 
-/// The first type `call` takes by value that drops.
+/// The first type `call` takes by value that drops, but for a closure, which
+/// `called_closures` decides.
 fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = b.t.tcx;
 	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
@@ -546,7 +580,9 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 				.unwrap_or(ty)
 		})
 		.collect();
-	inputs.into_iter().find(|&ty| b.t.drops(ty))
+	inputs
+		.into_iter()
+		.find(|&ty| !matches!(ty.kind(), ty::Closure(..)) && b.t.drops(ty))
 }
 
 /// `owner::name` for a standard library function.
@@ -592,15 +628,19 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	let (owner, name) = key(tcx, call.def_id)?;
 	let discarded = discards(&owner, &name);
 	let mut args = args;
-	let leaked = called_closures(b, call, discarded, &mut args);
-	let e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
-	if let Some(ty) = leaked {
+	let closures = called_closures(b, call, discarded, &mut args);
+	let mut e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
+	if let Some(ty) = closures.leaked {
 		return Some(b.err(
 			call.span,
 			format!(
 				"passing `{ty}`, a closure that owns a value that drops, to `{owner}::{name}`, which is not supported yet"
 			),
 		));
+	}
+	// The last parameter drops first, as a function's do.
+	for f in closures.spent.into_iter().rev() {
+		e = Expr::rt("dropAfter", vec![f, Expr::Lambda(Vec::new(), Box::new(e))]);
 	}
 	Some(e)
 }

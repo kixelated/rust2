@@ -38,11 +38,13 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// A closure that owns a value that drops, which `map` would hold but never drop.
-pub fn owning_closure(v: &[u8]) -> usize {
+/// A closure that owns a value that drops, which `count`'s `fold` drops before the items
+/// `map` holds, where dropping `map` drops it after.
+pub fn owning_closure(v: Vec<Noisy>) -> usize {
 	let n = Noisy(1);
-	let f = move |x: &u8| *x + std::mem::size_of_val(&n) as u8;
-	v.iter().map(f).count()
+	// Through a reference, it owns `n` whole rather than a copy of its field.
+	let f = move |x: Noisy| x.0 + (&n).0;
+	v.into_iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -370,26 +372,17 @@ pub fn split_chars(s: &str) -> usize {
 	s.split(['a', 'b']).count()
 }
 
-/// Closures that own a value that drops, which `any` and `or_insert_with` would call but
-/// never drop.
-pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {
-	fn id(n: &Noisy) -> u8 {
-		n.0
-	}
+/// Closures that own a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there, and which `for_each` drops before the items it doesn't reach.
+pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
 	let (a, b) = (Noisy(1), Noisy(2));
 	m.entry(1).or_insert_with(move || b);
-	v.iter().any(move |&x| x == id(&a))
+	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
-/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
-/// `successors` does the item it holds next.
+/// `successors` holds the item it yields next, which `rt.iterSuccessors` would not drop.
 pub fn owning_lazy() -> usize {
-	let (b, c) = (Noisy(2), Noisy(3));
-	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
-	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
-	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
-	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
-	walked + made + held
+	std::iter::successors(Some(Noisy(4)), |_| None).count()
 }
 
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.

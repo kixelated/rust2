@@ -422,8 +422,9 @@ to hand-written TS ([bindings](#bindings)).
 ## Not yet
 
 These fail translation: floats, statics, async closures, a closure that owns a value
-that drops given to std's iterators or collections, and values that drop in some
-iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
+that drops given to a std function that drops it beside another value that drops, as
+`for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
+values that drop in some iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
 a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and

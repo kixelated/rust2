@@ -19,15 +19,21 @@ blocks of `-C panic=unwind` MIR, which a function runs from a `catch`. A value w
 type after its own arguments (`drop_fn` and `droppers` in `drop.rs`), and a consumer
 that takes an iterator by value takes `rt.drop` for it. A closure that owns a value that
 drops carries `[Symbol.dispose]` (`rt.closure`), and one that `Fn` or `FnMut` call drops
-after a call through `FnOnce` (`rt.callOnce`, and `rt.once` for std's). The task
-fixture's `drops.rs`, `drops/iters.rs`, and `drops/closures.rs` check these against
-native Rust, natively unwinding too.
+after a call through `FnOnce` (`rt.callOnce`, and `rt.once` for std's). Given to std, an
+iterator adaptor holds it and drops it after its iterator, as std's fields do
+(`iter::holds_closure`), and a function that calls it by `Fn` or `FnMut`, keeps nothing
+of it, and takes nothing else that drops by value drops it as it returns or unwinds
+(`rt.dropAfter`). The task fixture's `drops.rs`, `drops/iters.rs`, and
+`drops/closures.rs` check these against native Rust, natively unwinding too.
 
 Nothing that drops fails translation in the census at the pinned moq revision. Refused
 with none in the census, each where std's order is one JS's can't follow yet:
-a closure that owns a value that drops, given to std's iterators or a collection's
-methods, which hold or call it (an adaptor drops it after its iterator, as std's fields
-do, and each consumer where its `fold` path does);
+a consumer that std folds, of an iterator holding a closure that drops beside anything
+else that drops (std's `fold` drops an adaptor's closure as its own ends, before the
+source, where dropping the adaptor drops it after), and a closure that owns a value that
+drops given to a function that takes another value that drops by value, such as
+`for_each` of items that drop, or that keeps it outside an adaptor, or that calls it
+through `FnOnce` other than where `discards` in `library.rs` says (`or_insert_with`);
 `into_keys` and `into_values` of a hash map whose other half drops (`fold` drops it
 after the half it yields, `next` before); `zip` of two `TrustedRandomAccess` iterators
 of items that drop; a `flatten` whose inner iterator holds items once ended, or that a

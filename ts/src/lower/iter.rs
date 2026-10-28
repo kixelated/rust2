@@ -563,6 +563,24 @@ fn std_iter_path(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> Option<Vec<String>> {
 	Some(library::std_path(tcx, adt.did())).filter(|p| !p.is_empty())
 }
 
+/// Whether std's iterator `did` holds a closure that its `rt.Iter` drops after the iterator
+/// it wraps, as std's fields order them.
+pub(super) fn holds_closure(tcx: ty::TyCtxt<'_>, did: DefId) -> bool {
+	let path = library::std_path(tcx, did);
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+	matches!(
+		path.as_slice(),
+		[
+			"iter",
+			"adapters",
+			_,
+			"Map" | "Filter" | "FilterMap" | "SkipWhile" | "TakeWhile" | "MapWhile" | "Inspect"
+		] | ["iter", "adapters", "flatten", "FlatMap"]
+			| ["iter", "sources", "from_fn", "FromFn"]
+			| ["iter", "sources", "successors", "Successors"]
+	)
+}
+
 /// Refuse a `flatten` or `flat_map` of `inner` iterators that drop and may hold what drops
 /// once they end: std's `try_fold` drops each such one only as it reads the next, where
 /// `next` drops it as it ends. What std's collections' and `Option`'s `into_iter` make
@@ -595,9 +613,21 @@ fn flattens<'tcx>(b: &mut Body<'_, '_, 'tcx>, inner: Ty<'tcx>, span: Span) {
 
 /// Refuse std's `name` folding `ty` through a `flatten` or `flat_map` whose source and
 /// iterators both drop: a panic in `fold` drops the iterator it took before the source,
-/// as a panic in `next` does not.
+/// as a panic in `next` does not. Refuse it too where `ty` holds a closure that drops and
+/// anything else that does: `fold` drops an adaptor's closure as its own ends, before the
+/// rest of it, where dropping the adaptor drops it after.
 pub(super) fn folds<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, name: &str, span: Span) {
 	let tcx = b.t.tcx;
+	let mut closures = 0;
+	if (held(b.t, ty, &mut closures) && closures > 0) || closures > 1 {
+		b.t.err(
+			span,
+			format!(
+				"`{name}` of `{ty}`, which folds a closure that drops beside what else drops, which is not supported yet"
+			),
+		);
+		return;
+	}
 	let flattens: Vec<Ty<'tcx>> = ty
 		.walk()
 		.filter_map(|arg| arg.as_type())
@@ -631,6 +661,34 @@ pub(super) fn folds<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, name: &str, 
 			);
 			return;
 		}
+	}
+}
+
+/// Whether `ty`, which an iterator holds, drops other than through a closure, counting
+/// each closure that drops in `closures`: through what an adaptor holds, which is all it
+/// drops, but for what owns items, which drops them itself.
+fn held<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, closures: &mut usize) -> bool {
+	let tcx = t.tcx;
+	match ty.kind() {
+		ty::Closure(..) => {
+			*closures += usize::from(t.drops(ty));
+			false
+		}
+		ty::Tuple(tys) => tys.iter().fold(false, |any, ty| held(t, ty, closures) | any),
+		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Option) => held(t, args.type_at(0), closures),
+		ty::Adt(adt, args) if t.std_iter(ty) && !adt.has_dtor(tcx) => {
+			let env = t.typing_env_pub();
+			let mut drops = false;
+			for field in adt.all_fields() {
+				let field = ty::EarlyBinder::bind(tcx, tcx.type_of(field.did).instantiate_identity().skip_norm_wip());
+				let ty = tcx
+					.try_instantiate_and_normalize_erasing_regions(args, env, field)
+					.unwrap_or_else(|_| field.instantiate(tcx, args).skip_norm_wip());
+				drops |= held(t, ty, closures);
+			}
+			drops
+		}
+		_ => t.drops(ty),
 	}
 }
 

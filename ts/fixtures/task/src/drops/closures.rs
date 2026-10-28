@@ -1,5 +1,8 @@
 //! What a closure drops of the values it owns: where it goes out of scope, where std
-//! discards it uncalled, and where a call consumes it, a panic included.
+//! discards it uncalled, where a call consumes it, and where std's iterators and
+//! collections are done with it, a panic included.
+
+use std::collections::{BTreeMap, VecDeque};
 
 use super::Bomb;
 use crate::log::Log;
@@ -175,6 +178,116 @@ pub(super) fn discarded(log: &Log, id: u32, at: u8) {
 			inner(n)
 		})
 	));
+	check(7);
+}
+
+/// What std's iterators and collections drop of a closure that owns a guard: an adaptor
+/// after the iterator it wraps, and a call that keeps nothing of it as it returns, with
+/// what each drops of its own before it, panicking at point `at`, if any, some inside a
+/// closure.
+pub(super) fn iterated(log: &Log, id: u32, at: u8) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let check = |point: u8| {
+		if point == at {
+			panic!("d{id} at {point}");
+		}
+	};
+	// Adaptors, read in part and dropped, or ended by a `for`.
+	let a = guard(1);
+	let mut mapped = list![guard(2), guard(3), guard(4)].into_iter().map(move |g| {
+		if g.id() == id + 3 {
+			check(1);
+		}
+		g.id() + a.id()
+	});
+	log.note(format!("map {:?} {:?}", mapped.next(), mapped.next()));
+	drop(mapped);
+	let b = guard(5);
+	for g in list![guard(6), guard(7), guard(8)]
+		.into_iter()
+		.filter(move |g| g.id() != b.id() + 1)
+	{
+		log.note(format!("filter {}", g.id()));
+		if g.id() == id + 7 {
+			break;
+		}
+	}
+	let (c, d, e) = (guard(9), guard(10), guard(11));
+	let mut chained = list![guard(12), guard(13), guard(14), guard(15)]
+		.into_iter()
+		.skip_while(move |g| g.id() < c.id() + 4)
+		.take_while(move |g| g.id() < d.id() + 5)
+		.inspect(move |g| {
+			if g.id() == id + 14 {
+				check(2);
+			}
+			log.note(format!("inspect {} {}", g.id(), e.id()));
+		});
+	log.note(format!("chained {:?}", chained.next().map(|g| g.id())));
+	log.note(format!("chained {:?}", chained.next().map(|g| g.id())));
+	drop(chained);
+	let (f, g) = (guard(16), guard(17));
+	let mut flat = list![1u32, 2, 3]
+		.into_iter()
+		.filter_map(move |n| (n != 2).then_some(n + f.id()))
+		.flat_map(move |n| list![n, n + g.id()]);
+	log.note(format!("flat {:?}", flat.next()));
+	check(3);
+	drop(flat);
+	let h = guard(18);
+	let whiles: Vec<u32> = [1u32, 2, 3]
+		.iter()
+		.map_while(move |&n| (n < 3).then_some(n + h.id()))
+		.collect();
+	log.note(format!("map_while {whiles:?}"));
+	// Lazy sources, which hold their closure.
+	let (i, j) = (guard(19), guard(20));
+	let made = std::iter::from_fn(move || {
+		check(4);
+		Some(i.id())
+	})
+	.take(2)
+	.count();
+	let walked: u32 = std::iter::successors(Some(1u32), move |&n| (n < 3).then_some(n + 1 + j.id() - j.id())).sum();
+	log.note(format!("lazy {made} {walked}"));
+	// Consumers that borrow the iterator, which drop the closure as they return.
+	let items = list![guard(21), guard(22), guard(23)];
+	let (k, l, m) = (guard(24), guard(25), guard(26));
+	let any = items.iter().any(move |g| {
+		if g.id() == id + 22 {
+			check(5);
+		}
+		g.id() == k.id()
+	});
+	let found = items.iter().find(move |g| g.id() == l.id() - 3).map(|g| g.id());
+	let at_pos = items.iter().position(move |g| g.id() + 2 == m.id());
+	log.note(format!("found {any} {found:?} {at_pos:?}"));
+	// One that drops nothing else by value, folded.
+	let n = guard(27);
+	let sum: u32 = [1u32, 2, 3].iter().map(move |&x| x + n.id()).sum();
+	let o = guard(28);
+	[1u32, 2]
+		.iter()
+		.for_each(move |&x| log.note(format!("each {}", x + o.id())));
+	log.note(format!("sum {sum}"));
+	// What `retain` drops of its own before the closure.
+	let mut map = BTreeMap::new();
+	for (k, n) in [(1u32, 29), (2, 30), (3, 31)] {
+		map.insert(k, guard(n));
+	}
+	let p = guard(32);
+	map.retain(move |&k, _| {
+		if k == 2 {
+			check(6);
+		}
+		k + p.id() != id + 34
+	});
+	let mut queue = VecDeque::new();
+	queue.push_back(guard(33));
+	queue.push_back(guard(34));
+	let q = guard(35);
+	queue.retain(move |g| g.id() + 2 != q.id());
+	log.note(format!("retained {} {}", map.len(), queue.len()));
 	check(7);
 }
 
