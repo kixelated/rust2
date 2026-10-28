@@ -105,6 +105,11 @@ function arcRoot(arc: Arc<unknown>): Arc<unknown> {
 	return arc instanceof ArcDyn ? arc.arc : arc;
 }
 
+/** `Arc::downcast` of an `Arc<dyn Any>`: the `Arc` it was made from, if its object is a `class`. */
+export function arcDowncast<T, U>(arc: Arc<U>, class_: abstract new (...args: never[]) => unknown): Result<Arc<T>, Arc<U>> {
+	return arc instanceof ArcDyn && arc.value instanceof class_ ? Ok(arc.arc as Arc<T>) : Err(arc);
+}
+
 /**
  * Drop `arc`, whose value has no `[Symbol.dispose]` that drops it: the last one drops it
  * by `f`, or not at all without one, as a borrow.

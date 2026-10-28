@@ -2,7 +2,9 @@
 //! struct's, an enum's glue, or nothing for a number, where the box goes out of scope,
 //! is replaced, or is consumed by `self: Box<Self>`. An `Arc<dyn Trait>`
 //! drops it with the last `Arc` of it, of the trait object or of the type it was made of.
+//! A `dyn Any` drops the same, and one downcast drops as the type it was made of.
 
+use std::any::Any;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -124,4 +126,38 @@ pub(super) fn shared(log: &Log, id: u32) {
 	drop(future);
 	log.note(format!("future {}", Arc::strong_count(&other)));
 	drop(other);
+}
+
+/// Boxed and shared values as `dyn Any`: each drops what it was made of, as is or downcast,
+/// and an `Arc` held only for its drop drops it with its last clone.
+pub(super) fn anys(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let mut boxes: Vec<Box<dyn Any>> = Vec::new();
+	boxes.push(Box::new(guard(1)));
+	boxes.push(Box::new(Held::Two(guard(2), guard(3))));
+	boxes.push(Box::new(7u32));
+	boxes.push(Box::new(guard(4)));
+	let last = boxes.pop().map(|b| b.downcast::<Guard>());
+	log.note(format!("last {:?}", last.as_ref().map(|g| g.as_ref().map(|g| g.id()).is_ok())));
+	drop(last);
+	// A miss gives the box back, which still drops what it holds.
+	let held = boxes.remove(1).downcast::<Guard>();
+	log.note(format!("held {}", held.is_err()));
+	let mut slot: Box<dyn Any> = Box::new(guard(5));
+	slot = Box::new(Held::Empty);
+	log.note(format!("slot {}", slot.is::<Held>()));
+	drop(held);
+	drop(boxes);
+	// A guard held for its drop alone, as moq holds its permits.
+	let hold: Arc<dyn Any + Send + Sync> = Arc::new((guard(6), guard(7)));
+	let clones = [hold.clone(), hold.clone()];
+	drop(hold);
+	log.note(format!("clones {}", Arc::strong_count(&clones[0])));
+	let [a, b] = clones;
+	let typed = a.downcast::<(Guard, Guard)>().ok();
+	log.note(format!("typed {:?}", typed.as_ref().map(|t| (t.0.id(), Arc::strong_count(t)))));
+	drop(typed);
+	log.note("dropped".into());
+	drop(b);
+	log.note(format!("slot {}", slot.downcast_ref::<Held>().is_some()));
 }

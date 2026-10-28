@@ -771,6 +771,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
+			ty::Dynamic(preds, ..) => format!("dyn {}", tcx.item_name(preds.principal_def_id()?)),
 			_ => return None,
 		};
 		return Some((owner, name));
@@ -833,6 +834,10 @@ fn mapping<'tcx>(
 	let span = call.span;
 	let gargs = call.args;
 	let args = match super::task::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let args = match super::dynamic::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};

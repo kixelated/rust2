@@ -91,6 +91,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("locks::locks", |_, data, out| locks::locks(data, out)),
 		("locks::relock", |_, data, out| locks::relock(data, out)),
 		("defaults::defaults", |_, data, out| defaults::defaults(data, out)),
+		("dyns::anys", |_, data, out| dyns::anys(data, out)),
 	]
 }
 
