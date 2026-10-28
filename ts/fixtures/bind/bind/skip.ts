@@ -2,6 +2,6 @@
 
 import type * as rt from "../rt.ts";
 
-export function skip(bytes: rt.ByteSlice, at: rt.Place<rt.usize>): void {
+export function skip(bytes: rt.ByteSlice, at: rt.Place<rt.usize>): undefined {
 	while (at.v < bytes.length && bytes.data[bytes.start + at.v] === 0) at.v++;
 }

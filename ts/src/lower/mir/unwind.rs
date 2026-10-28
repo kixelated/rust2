@@ -31,7 +31,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let mir = self.mir;
 		let mut visible = FxHashSet::default();
 		for data in mir.basic_blocks.iter() {
-			if data.is_cleanup {
+			if data.is_cleanup || !self.can_panic(data.terminator()) {
 				continue;
 			}
 			if let Some(UnwindAction::Cleanup(entry)) = data.terminator().unwind()
@@ -63,11 +63,13 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				continue;
 			}
 			let data = &mir.basic_blocks[bb];
-			if data
-				.statements
-				.iter()
-				.any(|s| matches!(s.kind, StatementKind::SetDiscriminant { .. }))
-			{
+			// What it stores through a reference outlives the frame, as a value dropped in
+			// place is replaced.
+			if data.statements.iter().any(|s| match &s.kind {
+				StatementKind::SetDiscriminant { .. } => true,
+				StatementKind::Assign(assign) => assign.0.is_indirect(),
+				_ => false,
+			}) {
 				return true;
 			}
 			let term = data.terminator();
@@ -89,20 +91,12 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Before a block whose terminator can panic: point the cleanup variable at what it
 	/// unwinds to, if that changed.
 	pub(super) fn set_unwind(&mut self, term: &mir::Terminator<'tcx>, out: &mut Vec<Stmt>) {
+		if !self.can_panic(term) {
+			return;
+		}
 		let Some(unwind) = &self.unwind else {
 			return;
 		};
-		let can_panic = match &term.kind {
-			TerminatorKind::Call { .. } | TerminatorKind::Assert { .. } => true,
-			TerminatorKind::Drop { place, .. } => {
-				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-				self.b.t.drops(ty)
-			}
-			_ => false,
-		};
-		if !can_panic {
-			return;
-		}
 		let target = match term.unwind() {
 			Some(UnwindAction::Cleanup(entry)) if unwind.visible.contains(entry) => entry.as_usize() + 1,
 			_ => 0,
@@ -116,6 +110,18 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		self.emit_barrier(stmt, out);
 		if let Some(unwind) = &mut self.unwind {
 			unwind.known = Some(target);
+		}
+	}
+
+	/// Whether `term` can panic in JS: a drop only of a value that does something there.
+	fn can_panic(&mut self, term: &mir::Terminator<'tcx>) -> bool {
+		match &term.kind {
+			TerminatorKind::Call { .. } | TerminatorKind::Assert { .. } => true,
+			TerminatorKind::Drop { place, .. } => {
+				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+				self.b.t.drops(ty)
+			}
+			_ => false,
 		}
 	}
 

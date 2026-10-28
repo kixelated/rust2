@@ -1,5 +1,8 @@
 //! What a closure drops of the values it owns: where it goes out of scope, where std
-//! discards it uncalled, and where a call consumes it, a panic included.
+//! discards it uncalled, where a call consumes it, and where std's iterators and
+//! collections are done with it, a panic included.
+
+use std::collections::{BTreeMap, VecDeque};
 
 use super::Bomb;
 use crate::log::Log;
@@ -176,6 +179,148 @@ pub(super) fn discarded(log: &Log, id: u32, at: u8) {
 		})
 	));
 	check(7);
+}
+
+/// What std's iterators and collections drop of a closure that owns a guard: an adaptor
+/// after the iterator it wraps, and a call that keeps nothing of it as it returns, with
+/// what each drops of its own before it, panicking at point `at`, if any, some inside a
+/// closure.
+pub(super) fn iterated(log: &Log, id: u32, at: u8) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let check = |point: u8| {
+		if point == at {
+			panic!("d{id} at {point}");
+		}
+	};
+	// Adaptors, read in part and dropped, or ended by a `for`.
+	let a = guard(1);
+	let mut mapped = list![guard(2), guard(3), guard(4)].into_iter().map(move |g| {
+		if g.id() == id + 3 {
+			check(1);
+		}
+		g.id() + a.id()
+	});
+	log.note(format!("map {:?} {:?}", mapped.next(), mapped.next()));
+	drop(mapped);
+	let b = guard(5);
+	for g in list![guard(6), guard(7), guard(8)]
+		.into_iter()
+		.filter(move |g| g.id() != b.id() + 1)
+	{
+		log.note(format!("filter {}", g.id()));
+		if g.id() == id + 7 {
+			break;
+		}
+	}
+	let (c, d, e) = (guard(9), guard(10), guard(11));
+	let mut chained = list![guard(12), guard(13), guard(14), guard(15)]
+		.into_iter()
+		.skip_while(move |g| g.id() < c.id() + 4)
+		.take_while(move |g| g.id() < d.id() + 5)
+		.inspect(move |g| {
+			if g.id() == id + 14 {
+				check(2);
+			}
+			log.note(format!("inspect {} {}", g.id(), e.id()));
+		});
+	log.note(format!("chained {:?}", chained.next().map(|g| g.id())));
+	log.note(format!("chained {:?}", chained.next().map(|g| g.id())));
+	drop(chained);
+	let (f, g) = (guard(16), guard(17));
+	let mut flat = list![1u32, 2, 3]
+		.into_iter()
+		.filter_map(move |n| (n != 2).then_some(n + f.id()))
+		.flat_map(move |n| list![n, n + g.id()]);
+	log.note(format!("flat {:?}", flat.next()));
+	check(3);
+	drop(flat);
+	// Ended, it keeps its closure, since the source it maps is fused.
+	let w = guard(47);
+	let mut ended = [1u32].iter().flat_map(move |&n| [n, w.id()]);
+	while ended.next().is_some() {}
+	log.note(format!("flat_map ended"));
+	drop(ended);
+	let h = guard(18);
+	let whiles: Vec<u32> = [1u32, 2, 3]
+		.iter()
+		.map_while(move |&n| (n < 3).then_some(n + h.id()))
+		.collect();
+	log.note(format!("map_while {whiles:?}"));
+	// Lazy sources, which hold their closure.
+	let (i, j) = (guard(19), guard(20));
+	let made = std::iter::from_fn(move || {
+		check(4);
+		Some(i.id())
+	})
+	.take(2)
+	.count();
+	let walked: u32 = std::iter::successors(Some(1u32), move |&n| (n < 3).then_some(n + 1 + j.id() - j.id())).sum();
+	// One of guards, which holds the next, made by a closure that owns one and may panic,
+	// and drops the one it holds before its closure.
+	let s = guard(43);
+	let mut chain = std::iter::successors(Some(guard(40)), move |g| {
+		if g.id() == id + 41 {
+			check(8);
+		}
+		(g.id() + 1 < s.id()).then(|| Guard::new(g.id() + 1, log.clone()))
+	});
+	log.note(format!("lazy {made} {walked} {:?}", chain.next().map(|g| g.id())));
+	log.note(format!("successor {:?}", chain.next().map(|g| g.id())));
+	drop(chain);
+	// Consumers that borrow the iterator, which drop the closure as they return.
+	let items = list![guard(21), guard(22), guard(23)];
+	let (k, l, m) = (guard(24), guard(25), guard(26));
+	let any = items.iter().any(move |g| {
+		if g.id() == id + 22 {
+			check(5);
+		}
+		g.id() == k.id()
+	});
+	let found = items.iter().find(move |g| g.id() == l.id() - 3).map(|g| g.id());
+	let at_pos = items.iter().position(move |g| g.id() + 2 == m.id());
+	log.note(format!("found {any} {found:?} {at_pos:?}"));
+	// One that drops nothing else by value, folded.
+	let n = guard(27);
+	let sum: u32 = [1u32, 2, 3].iter().map(move |&x| x + n.id()).sum();
+	let o = guard(28);
+	[1u32, 2]
+		.iter()
+		.for_each(move |&x| log.note(format!("each {}", x + o.id())));
+	log.note(format!("sum {sum}"));
+	// Consumers that count or end an adaptor through what it wraps, which drop its closure
+	// once.
+	let (t, u, v) = (guard(44), guard(45), guard(46));
+	let peeked = [1u32, 2].iter().map(move |&x| x + t.id()).peekable().count();
+	let skipped = [1u32, 2, 3].iter().map(move |&x| x + u.id()).skip(1).count();
+	let last = [1u32, 2].iter().map(move |&x| x + v.id()).skip(1).last();
+	log.note(format!("counted {peeked} {skipped} {last:?}"));
+	// Items made as it goes, which it drops but for the best, before its key's closure.
+	let r = guard(36);
+	let best = [1u32, 2, 3].iter().map(|&n| guard(36 + n)).max_by_key(move |g| {
+		if g.id() == id + 38 {
+			check(7);
+		}
+		g.id() % 2 + r.id()
+	});
+	log.note(format!("best {:?}", best.map(|g| g.id())));
+	// What `retain` drops of its own before the closure.
+	let mut map = BTreeMap::new();
+	for (k, n) in [(1u32, 29), (2, 30), (3, 31)] {
+		map.insert(k, guard(n));
+	}
+	let p = guard(32);
+	map.retain(move |&k, _| {
+		if k == 2 {
+			check(6);
+		}
+		k + p.id() != id + 34
+	});
+	let mut queue = VecDeque::new();
+	queue.push_back(guard(33));
+	queue.push_back(guard(34));
+	let q = guard(35);
+	queue.retain(move |g| g.id() + 2 != q.id());
+	log.note(format!("retained {} {}", map.len(), queue.len()));
 }
 
 /// What drops of a closure's captures when one's `Drop` panics: the rest still drop, in

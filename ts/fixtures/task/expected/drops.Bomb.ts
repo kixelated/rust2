@@ -42,4 +42,15 @@ export function drop$Drop(self: Bomb): void {
 	}
 }
 
+export function id$Part(self: Bomb): rt.u32 {
+	return self.id;
+}
+
+/** Consumes the box, dropping it on return. */
+export function take$Part(self: Bomb): rt.u32 {
+	const id: rt.u32 = self.id;
+	rt.drop(self);
+	return rt.u32WrappingMul(id, 2);
+}
+
 //# sourceMappingURL=drops.Bomb.ts.map
