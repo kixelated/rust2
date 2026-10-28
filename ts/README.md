@@ -10,7 +10,11 @@ It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
 `wasm32-unknown-unknown`, with std built from source for it, unwinding and with every
 function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
 would; the configured library is also translated, after type and borrow checking, starting from its roots and following
-what they reach. A construct outside the subset is a compile error with its span, and
+what they reach. The dependencies the config names translate with it as one program:
+cargo compiles each with every function's MIR, and their types and calls translate as
+the package's own do. The package and those dependencies compile with `--cfg rust2_ts`,
+so a crate can give translation a safe twin of its `unsafe`. Their `unsafe` is refused
+where it is, as the package's is, unless a binding stands in for the item holding it. A construct outside the subset is a compile error with its span, and
 then nothing is written. A type without a JS value is refused where a value of it is made
 or received, such as a parameter, a field, or a call, rather than again at each variable
 holding one; any variable or temporary that holds a type whose JS value is ambiguous, such
@@ -19,6 +23,9 @@ as `Option<()>`, is refused at its own span.
 ```toml
 # ts.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
 package = "moq-net"
+# Packages it depends on whose libraries translate with it. Any other crate's function is
+# std's mapping, a binding, or refused.
+dependencies = ["kio", "moq-clock"]
 # Paths from the crate root: a function, or a type with its non-generic methods and its
 # impls of the crate's own traits, blanket ones included.
 roots = ["coding::Decoder", "lite::Group"]
@@ -50,8 +57,9 @@ what they are, since each instance decides that. A census succeeds whatever it f
 translation still fails on any refusal.
 
 `just ts census` runs it at the pinned moq revision, into `target/census`, on moq-net
-whole (`moq/net.toml`), on its model's public types with their boundaries bound
-(`moq/model.toml`), and on kio, and the nightly job publishes their tables.
+whole (`moq/net.toml`), on its model's public types with their boundaries bound and the
+crates they call translated with them (`moq/model.toml`), and on kio, and the nightly job
+publishes their tables.
 
 ## Output
 
@@ -63,7 +71,10 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s
 in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
 `rt/task.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s and `Result`'s combinators, goes in a module under its crate's name, as
-`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`.
+`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
+under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
+functions that the package's types make, so a module of the package's named for a
+translated crate is refused.
 
 | Rust | TypeScript |
 | --- | --- |
@@ -492,6 +503,13 @@ built natively for wasm32 and run beside its translation on the same inputs by
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
   the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.
   `refused.toml` holds bindings the config can't make, with the errors in `refused.txt`.
+- `crates` translates with `crates/dep`, which writes into a `Copy` type only the package
+  copies, ranks the package's type in a generic function, drops, and reads through a raw
+  pointer behind a safe twin under `rust2_ts` and in a function `bind/last.ts` stands in
+  for. Its differential test runs them against native Rust. `refused.toml` drops the
+  binding, `unknown.toml` names a package it doesn't depend on, and its `shared` feature
+  adds a module of the dependency's name, with the errors in `refused.txt`, `unknown.txt`,
+  and `shared.txt`.
 - `reject` holds constructs outside the subset; its expected errors are `expected.txt`,
   and its expected census is `census.md`.
 

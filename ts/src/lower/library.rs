@@ -367,7 +367,7 @@ pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool
 		ty::Array(elem, _) => clone_copies(t, *elem),
 		// A binding's `Clone` is its own.
 		ty::Adt(adt, _) if t.bound_drops(adt.did()).is_some() => false,
-		ty::Adt(adt, args) if !adt.did().is_local() => args.types().all(|arg| clone_copies(t, arg)),
+		ty::Adt(adt, args) if !t.crates.translates(adt.did()) => args.types().all(|arg| clone_copies(t, arg)),
 		ty::Adt(adt, args) => {
 			let Some(clone) = tcx.lang_items().clone_fn() else {
 				return false;

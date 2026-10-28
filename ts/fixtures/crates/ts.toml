@@ -1,0 +1,6 @@
+package = "crates-fixture"
+dependencies = ["crates-dep"]
+roots = ["harness::run"]
+
+[bind]
+"crates_dep::last" = "bind/last.ts"

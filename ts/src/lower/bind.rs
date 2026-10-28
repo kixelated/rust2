@@ -141,7 +141,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		self.writes = super::copy::Writes::of_crate(tcx, &|def_id| self.bound(def_id));
+		self.writes = super::copy::Writes::of_crate(tcx, &self.crates.bodies(tcx), &|def_id| self.own(def_id));
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate
@@ -196,9 +196,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		(adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some()).then_some(adt.did())
 	}
 
-	/// Whether `def_id` is the crate's own, which it translates, rather than bound.
+	/// Whether `def_id` is of a crate that translates, rather than bound.
 	pub fn own(&self, def_id: DefId) -> bool {
-		def_id.is_local() && !self.bindings.items.contains_key(&def_id)
+		self.crates.translates(def_id) && !self.bindings.items.contains_key(&def_id)
 	}
 
 	/// Why `def_id`, which isn't [`own`](Self::own), isn't the crate's to translate.

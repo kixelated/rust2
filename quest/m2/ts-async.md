@@ -27,7 +27,7 @@ What moq-net still needs, by its census from MIR at the pinned revision:
 - Async closures.
 - kio's own API, reached across crates (`Pending`, `Consumer::poll`,
   `Waiter::poll_future`, `Tasks`), translates through
-  [safe dependencies](/quest/m2/ts-model/crates.md), and kio's `RawWaker` vtable and
+  `ts.toml`'s `dependencies`, and kio's `RawWaker` vtable and
   `Box<dyn Future>` tasks are [bindings](/ts/README.md#bindings).
 
 The model itself (its census of 2026-10-27) needs only `Poll`'s helpers and

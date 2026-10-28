@@ -23,7 +23,7 @@ mod time;
 use std::collections::VecDeque;
 
 use rustc_hir::def::DefKind;
-use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::def_id::{CrateNum, DefId, LocalDefId};
 use rustc_middle::ty::{
 	self, AdtDef, EarlyBinder, GenericArgsRef, Instance, InstanceKind, Ty, TyCtxt, TypeVisitableExt, TypingEnv,
 };
@@ -78,9 +78,18 @@ pub fn census<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Census> {
 	for (span, message) in t.refusals.take().unwrap_or_default() {
 		let (file, line, col, ..) = sm.span_to_location_info(span.source_callsite());
 		let file = file.map_or_else(String::new, |file| {
-			file.name
+			let file = file
+				.name
 				.display(rustc_span::RemapPathScopeComponents::DIAGNOSTICS)
-				.to_string()
+				.to_string();
+			// A crate from a registry by its version, wherever cargo keeps it.
+			match file
+				.split_once("/registry/src/")
+				.and_then(|(_, rest)| rest.split_once('/'))
+			{
+				Some((_index, path)) => path.to_string(),
+				None => file,
+			}
 		});
 		let refusal = Refusal {
 			file,
@@ -158,6 +167,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 pub struct Translator<'a, 'tcx> {
 	pub tcx: TyCtxt<'tcx>,
 	config: &'a Config,
+	/// The crates whose bodies translate.
+	pub crates: Crates,
 	pub program: Program,
 	instances: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, SymId>,
 	queue: VecDeque<(Instance<'tcx>, SymId)>,
@@ -196,7 +207,81 @@ pub struct Translator<'a, 'tcx> {
 	bindings: bind::Bindings<'tcx>,
 }
 
-/// A local struct or enum, and how it is represented.
+/// The crates that translate as one program: the package, and the dependencies its config
+/// names. Any other crate's function is std's mapping, a binding, or refused.
+#[derive(Default)]
+pub struct Crates(rustc_data_structures::fx::FxHashSet<CrateNum>);
+
+impl Crates {
+	/// The dependencies `config` names, or `None` after reporting why they can't translate.
+	fn new(tcx: TyCtxt<'_>, config: &Config) -> Option<Self> {
+		let mut crates = Self::default();
+		for package in &config.dependencies {
+			// A library is named for its package unless its manifest says otherwise.
+			let name = package.replace('-', "_");
+			let found: Vec<CrateNum> = tcx
+				.crates(())
+				.iter()
+				.copied()
+				.filter(|&krate| tcx.crate_name(krate).as_str() == name)
+				.collect();
+			let why = match found[..] {
+				[] => "is no library the package depends on",
+				[_, _, ..] => "is more than one version of a library, whose items would share their paths",
+				[krate] => {
+					crates.0.insert(krate);
+					continue;
+				}
+			};
+			tcx.dcx().err(format!("rust2-ts: `{package}` in `dependencies` {why}"));
+			return None;
+		}
+		// Another crate's modules go under its name, which a module of the package's own
+		// at its root would share.
+		let shares = |name: &str| {
+			["core", "alloc", "std"].contains(&name)
+				|| crates.0.iter().any(|&krate| tcx.crate_name(krate).as_str() == name)
+		};
+		for child in tcx.module_children_local(rustc_hir::def_id::CRATE_DEF_ID) {
+			if let rustc_hir::def::Res::Def(DefKind::Mod, def_id) = child.res
+				&& def_id.is_local()
+				&& shares(child.ident.as_str())
+			{
+				tcx.dcx().span_err(
+					tcx.def_span(def_id),
+					format!(
+						"rust2-ts: module `{}` would share its files with the crate of its name",
+						child.ident
+					),
+				);
+				return None;
+			}
+		}
+		Some(crates)
+	}
+
+	/// Whether `def_id`'s crate translates.
+	pub fn translates(&self, def_id: DefId) -> bool {
+		def_id.is_local() || self.0.contains(&def_id.krate)
+	}
+
+	/// Every function, closure, and coroutine body of the crates that translate.
+	pub fn bodies<'tcx>(&self, tcx: TyCtxt<'tcx>) -> Vec<DefId> {
+		let mut bodies: Vec<DefId> = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id()).collect();
+		// Another crate's items are numbered from zero, and it lists none of its bodies.
+		let cstore = rustc_metadata::creader::CStore::from_tcx(tcx);
+		for &krate in &self.0 {
+			let items = (0..cstore.num_def_ids_untracked(krate)).map(|index| DefId {
+				krate,
+				index: rustc_hir::def_id::DefIndex::from_usize(index),
+			});
+			bodies.extend(items.filter(|&def_id| tcx.def_kind(def_id).is_fn_like() && tcx.is_mir_available(def_id)));
+		}
+		bodies
+	}
+}
+
+/// A translated struct or enum, and how it is represented.
 #[derive(Clone)]
 pub struct Adt {
 	pub sym: SymId,
@@ -242,6 +327,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(Self {
 			tcx,
 			config,
+			crates: Crates::new(tcx, config)?,
 			program: Program::default(),
 			instances: Default::default(),
 			queue: VecDeque::new(),
@@ -521,7 +607,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return sym;
 		}
 		let base = camel(tcx.item_name(def_id).as_str());
-		// A function of a local type sits in the type's own module, escaped only where it is
+		// A function of a translated type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.
 		let (module, base) = match self.owner(instance) {
 			Some(ty) => (self.program.syms[ty].module.clone(), base),
@@ -547,7 +633,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// The symbol of an instance a call at `span` reaches, noting where the crate first
 	/// reached one of std's.
 	pub fn callee(&mut self, instance: Instance<'tcx>, span: Span) -> SymId {
-		if !instance.def_id().is_local() {
+		if !self.crates.translates(instance.def_id()) {
 			let site = self.site.map_or(span, |(site, _)| site);
 			self.sites.entry(instance).or_insert(site);
 		}
@@ -563,13 +649,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		self.tcx.trait_of_assoc(def_id).map(|_| instance.args.type_at(0))
 	}
 
-	/// The local type an associated function's impl or trait is for, if any.
+	/// The translated type an associated function's impl or trait is for, if any.
 	fn owner(&mut self, instance: Instance<'tcx>) -> Option<SymId> {
 		let self_ty = self.self_ty(instance)?.peel_refs();
 		let ty::Adt(adt, _) = self_ty.kind() else {
 			return None;
 		};
-		if !adt.did().is_local() {
+		if !self.crates.translates(adt.did()) {
 			return None;
 		}
 		let span = self.tcx.def_span(instance.def_id());
@@ -604,7 +690,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		// other self type, such as `u64`'s in a trait impl, is spelled out.
 		if let Some(self_ty) = self.self_ty(instance) {
 			match self_ty.peel_refs().kind() {
-				ty::Adt(adt, args) if adt.did().is_local() => parts.extend(args.types().map(|t| short_name(tcx, t))),
+				ty::Adt(adt, args) if self.crates.translates(adt.did()) => {
+					parts.extend(args.types().map(|t| short_name(tcx, t)))
+				}
 				_ => parts.push(short_name(tcx, self_ty)),
 			}
 		}
@@ -716,7 +804,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	pub fn lowers(&self, instance: Instance<'tcx>) -> bool {
 		match instance.def {
 			InstanceKind::Item(did) => {
-				self.bound_module(instance).is_none() && (did.is_local() || library::from_mir(self, instance))
+				self.bound_module(instance).is_none()
+					&& (self.crates.translates(did) || library::from_mir(self, instance))
 			}
 			_ => false,
 		}
@@ -739,7 +828,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// A local struct or enum, translating its definition the first time.
+	/// A translated struct or enum, translating its definition the first time.
 	pub fn adt(&mut self, adt: AdtDef<'tcx>, span: Span) -> Adt {
 		if let Some(info) = self.adts.get(&adt.did()) {
 			return info.clone();
@@ -1250,12 +1339,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			};
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
-		if !adt.did().is_local()
+		if !self.crates.translates(adt.did())
 			&& let Some(item) = self.iter_item(Ty::new_adt(tcx, adt, args))
 		{
 			return Type::Rt("Iter", vec![self.ty(item, span)]);
 		}
-		if !adt.did().is_local() {
+		if !self.crates.translates(adt.did()) {
 			self.unrepresented(
 				span,
 				format!("unsupported type `{}` from another crate", tcx.def_path_str(adt.did())),
@@ -1322,12 +1411,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			self.err(span, format!("`{}` is from another crate", tcx.def_path_str(def_id)));
 			return;
 		}
-		let site = (!def_id.is_local()).then(|| (self.sites.get(&instance).copied().unwrap_or(span), def_id));
+		let std = !self.crates.translates(def_id);
+		let site = std.then(|| (self.sites.get(&instance).copied().unwrap_or(span), def_id));
 		let outer = std::mem::replace(&mut self.site, site);
 		let function = self.lower_function(instance, sym, span);
 		self.site = outer;
 		if let Some(function) = function {
-			if !def_id.is_local() {
+			if std {
 				self.program.std.insert(sym);
 			}
 			self.program.items.push(Item::Function(function));
@@ -1362,10 +1452,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// The doc comment on an item, as written.
 	fn doc(&self, def_id: DefId) -> Option<String> {
-		let local = def_id.as_local()?;
+		if !self.crates.translates(def_id) {
+			return None;
+		}
+		#[expect(deprecated, reason = "doc comments are no parsed attribute")]
 		let lines: Vec<String> = self
 			.tcx
-			.hir_attrs(self.tcx.local_def_id_to_hir_id(local))
+			.get_all_attrs(def_id)
 			.iter()
 			.filter_map(|attr| attr.doc_str())
 			.map(|doc| doc.to_string())

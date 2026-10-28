@@ -165,6 +165,7 @@ const VERBATIM: &[&str] = &[
 	"break",
 	"collect",
 	"copy_nonoverlapping",
+	"dependencies",
 	"flatten",
 	"fold",
 	"for",

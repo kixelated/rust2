@@ -11,20 +11,24 @@ use rustc_middle::ty::TyCtxt;
 use crate::config::{self, Config};
 use crate::{lower, program};
 
+/// What rustc compiles each crate that translates with: the package here, and the
+/// dependencies it names through cargo's profile, which cargo's fingerprint sees.
+///
+/// MIR without the checks of undefined behavior that debug builds add around raw
+/// pointers, such as a box's: JS has no pointers to check. And with the cleanups a panic
+/// unwinds through, which wasm32's default of aborting leaves out: a JS caller can catch
+/// a panic and go on. And with every call where the source has it, as a release build's
+/// inlining would not keep it, since a call is what a binding or a std function's
+/// translation stands in for. And with `rust2_ts` set, so a crate can give translation
+/// a safe twin of its `unsafe`.
+pub const FLAGS: &[&str] = &["-Zub-checks=no", "-Cpanic=unwind", "-Zinline-mir=no", "--cfg=rust2_ts"];
+
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
 pub fn run(args: Vec<String>) -> ExitCode {
 	rust2_driver::rustc::run("rust2-ts", args, |args| {
 		let job = Translate::for_args(args)?;
-		// MIR without the checks of undefined behavior that debug builds add around raw
-		// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
-		// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
-		// can catch a panic and go on. And with every call where the source has it, as a
-		// release build's inlining would not keep it, since a call is what a binding or a
-		// std function's translation stands in for.
 		if job.is_some() {
-			args.push("-Zub-checks=no".into());
-			args.push("-Cpanic=unwind".into());
-			args.push("-Zinline-mir=no".into());
+			args.extend(FLAGS.iter().map(|flag| flag.to_string()));
 		}
 		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})

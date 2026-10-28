@@ -1,6 +1,8 @@
 # moq-net's model, for the census: its public types, with what the subset refuses for good
 # bound. moq writes the binding files; a census reads none.
 package = "moq-net"
+# The workspace crates its model calls, and rangemap, which translate with it.
+dependencies = ["kio", "moq-clock", "moq-pattern", "rangemap"]
 roots = [
     "model::origin::Producer",
     "model::origin::Consumer",

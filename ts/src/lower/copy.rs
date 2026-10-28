@@ -206,7 +206,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 }
 
-/// The types the crate's code writes into in place: through a projection, as `p.x = 1`
+/// The types the translated crates' code writes into in place: through a projection, as `p.x = 1`
 /// writes into `p`; through a reference or a box, as `*r = v` does into what `r` points
 /// at; or by anything code it doesn't read can do with a mutable reference or pointer to
 /// one, which counts as a write: one a parameter of a std function the crate names takes,
@@ -225,13 +225,13 @@ pub struct Writes<'tcx> {
 }
 
 impl<'tcx> Writes<'tcx> {
-	/// The writes of every function, closure, and coroutine body in the crate but those
-	/// `bound` says a binding stands in for, which count as code it doesn't read.
-	pub fn of_crate(tcx: TyCtxt<'tcx>, bound: &dyn Fn(DefId) -> bool) -> Self {
+	/// The writes of every function, closure, and coroutine body of `bodies` that `own`
+	/// says translates: a binding stands in for any other, which counts as code it doesn't
+	/// read.
+	pub fn of_crate(tcx: TyCtxt<'tcx>, bodies: &[DefId], own: &dyn Fn(DefId) -> bool) -> Self {
 		let mut writes = Writes::default();
-		for &def_id in tcx.mir_keys(()) {
-			let def_id = def_id.to_def_id();
-			if !tcx.def_kind(def_id).is_fn_like() || bound(def_id) {
+		for &def_id in bodies {
+			if !tcx.def_kind(def_id).is_fn_like() || !own(def_id) {
 				continue;
 			}
 			let body = tcx.optimized_mir(def_id);
@@ -240,7 +240,7 @@ impl<'tcx> Writes<'tcx> {
 				body,
 				def_id,
 				writes: &mut writes,
-				bound,
+				own,
 			}
 			.visit_body(body);
 		}
@@ -364,7 +364,7 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	body: &'m mir::Body<'tcx>,
 	def_id: DefId,
 	writes: &'w mut Writes<'tcx>,
-	bound: &'w dyn Fn(DefId) -> bool,
+	own: &'w dyn Fn(DefId) -> bool,
 }
 
 impl<'tcx> BodyWrites<'_, '_, 'tcx> {
@@ -394,13 +394,13 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 		}
 	}
 
-	/// Whether the function item `def_id` with `args` is the crate's own, whose body is
+	/// Whether the function item `def_id` with `args` translates, whose body is
 	/// read, rather than std's or a trait method only an instance resolves.
 	fn crate_fn(&self, def_id: DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
 		let env = ty::TypingEnv::post_analysis(self.tcx, self.def_id);
 		matches!(
 			ty::Instance::try_resolve(self.tcx, env, def_id, args),
-			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if did.is_local() && !(self.bound)(did))
+			Ok(Some(instance)) if matches!(instance.def, ty::InstanceKind::Item(did) if (self.own)(did))
 		)
 	}
 }

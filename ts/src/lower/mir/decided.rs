@@ -22,9 +22,11 @@ use rustc_middle::mir::{
 };
 use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 
+use crate::lower::Crates;
+
 /// Fold each switch in `body` that an enclosing switch decided.
-pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, body: &mut mir::Body<'tcx>) {
-	let flow = Flow::new(tcx, body);
+pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates, body: &mut mir::Body<'tcx>) {
+	let flow = Flow::new(tcx, crates, body);
 	let entry = flow.solve(body);
 	let mut folded = false;
 	for bb in body.basic_blocks.indices() {
@@ -159,8 +161,8 @@ impl<'tcx> Narrowing<'tcx> {
 }
 
 /// Where `body`'s tests and payload reads must see a place's whole type.
-pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Narrowing<'tcx> {
-	let mut flow = Flow::new(tcx, body);
+pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates, body: &mir::Body<'tcx>) -> Narrowing<'tcx> {
+	let mut flow = Flow::new(tcx, crates, body);
 	// A widened test narrows nothing, which can leave a later test to widen too.
 	loop {
 		let mut seen = Narrowing::default();
@@ -182,8 +184,9 @@ pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Narrowing<'
 type Decided = (usize, Vec<(u128, BasicBlock)>, BasicBlock);
 
 /// What a body's places are, for the dataflow.
-struct Flow<'tcx> {
+struct Flow<'c, 'tcx> {
 	tcx: TyCtxt<'tcx>,
+	crates: &'c Crates,
 	/// Each reference local whose one write is an assignment, as the place it borrows or
 	/// the place behind the reference it copies.
 	borrows: IndexVec<Local, Option<Place<'tcx>>>,
@@ -198,8 +201,8 @@ struct Flow<'tcx> {
 	widened: FxHashSet<BasicBlock>,
 }
 
-impl<'tcx> Flow<'tcx> {
-	fn new(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Self {
+impl<'c, 'tcx> Flow<'c, 'tcx> {
+	fn new(tcx: TyCtxt<'tcx>, crates: &'c Crates, body: &mir::Body<'tcx>) -> Self {
 		let n = body.local_decls.len();
 		let mut writes = Writes(IndexVec::from_elem_n(0, n));
 		writes.visit_body(body);
@@ -254,6 +257,7 @@ impl<'tcx> Flow<'tcx> {
 		}
 		let mut flow = Self {
 			tcx,
+			crates,
 			borrows,
 			kept,
 			escaped: IndexVec::from_elem_n(false, n),
@@ -344,7 +348,7 @@ impl<'tcx> Flow<'tcx> {
 	/// is reached through a pointer it holds.
 	fn lent(&self, body: &mir::Body<'tcx>, place: Place<'tcx>) -> Option<impl Fn(Place<'tcx>) -> bool + use<'tcx>> {
 		let ty = place.ty(&body.local_decls, self.tcx).ty;
-		if !lends(self.tcx, ty) {
+		if !lends(self.tcx, self.crates, ty) {
 			return None;
 		}
 		let base = self.canon(place);
@@ -374,7 +378,7 @@ impl<'tcx> Flow<'tcx> {
 		destination.as_local().is_some_and(|local| self.conditions[local])
 			&& !matches!(
 				Instance::try_resolve(self.tcx, body.typing_env(self.tcx), def, args),
-				Ok(Some(instance)) if instance.def_id().is_local()
+				Ok(Some(instance)) if self.crates.translates(instance.def_id())
 			)
 	}
 
@@ -719,7 +723,7 @@ fn union(a: &[u128], b: &[u128]) -> Vec<u128> {
 
 /// Whether a value of `ty` can change what it points at: it is or holds a `&mut` or a
 /// `*mut`, or hides what it holds.
-fn lends<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+fn lends<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates, ty: Ty<'tcx>) -> bool {
 	let mut seen = FxHashSet::default();
 	let mut stack = vec![ty];
 	while let Some(ty) = stack.pop() {
@@ -730,7 +734,7 @@ fn lends<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 				| ty::Dynamic(..)
 				| ty::Alias(..)
 				| ty::Param(_) => return true,
-				ty::Adt(adt, args) if adt.did().is_local() && seen.insert(t) => {
+				ty::Adt(adt, args) if crates.translates(adt.did()) && seen.insert(t) => {
 					stack.extend(adt.all_fields().map(|field| field.ty(tcx, args).skip_norm_wip()));
 				}
 				_ => {}

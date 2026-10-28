@@ -14,7 +14,7 @@ and panics, proven by differential tests against native Rust: compound assignmen
 Decided with the maintainer on 2026-10-27: rust2 aims to support all of std, so generic
 gaps are planned without a moq consumer. Nothing in moq-net, moq-clock, or kio uses these
 on a `Duration` itself today; moq-clock's `Instant += Duration` is its own `AddAssign`,
-which translates from source with [crates](/quest/m2/ts-model/crates.md).
+which translates from source as a [dependency](/ts/README.md).
 
 - `rt.Duration` is immutable, so compound assignment assigns a new value to the place, as
   `String::push` does for a JS string.
