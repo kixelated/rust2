@@ -54,11 +54,13 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// A closure that owns a value that drops, which `map` would hold but never drop.
-pub fn owning_closure(v: &[u8]) -> usize {
+/// A closure that owns a value that drops, which `count`'s `fold` drops before the items
+/// `map` holds, where dropping `map` drops it after.
+pub fn owning_closure(v: Vec<Noisy>) -> usize {
 	let n = Noisy(1);
-	let f = move |x: &u8| *x + std::mem::size_of_val(&n) as u8;
-	v.iter().map(f).count()
+	// Through a reference, it owns `n` whole rather than a copy of its field.
+	let f = move |x: Noisy| x.0 + (&n).0;
+	v.into_iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -277,11 +279,6 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// Struct update syntax on a one-sided range reads its base's field, which is not supported.
-pub fn one_sided(data: &[u8], to: std::ops::RangeTo<usize>, from: std::ops::RangeFrom<usize>) -> usize {
-	data[std::ops::RangeTo { ..to }].len() + data[std::ops::RangeFrom { ..from }].len()
-}
-
 /// `get`'s `None` and `Some(&None)` would both be `undefined`.
 pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
 	map.get(&1).is_some()
@@ -365,32 +362,61 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `str` pattern of several chars, where only a `char`, a `&str`, and a predicate are
-/// supported.
-pub fn split_chars(s: &str) -> usize {
-	s.split(['a', 'b']).count()
+/// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
+/// translation calls `partial_cmp`.
+#[derive(PartialEq, Eq, Ord)]
+pub struct Lopsided(u8);
+
+impl PartialOrd for Lopsided {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.0.cmp(&other.0))
+	}
+
+	fn lt(&self, other: &Self) -> bool {
+		self.0 > other.0
+	}
 }
 
-/// Closures that own a value that drops, which `any` and `or_insert_with` would call but
-/// never drop.
-pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {
-	fn id(n: &Noisy) -> u8 {
-		n.0
+pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
+	v.sort();
+	let wins = (1, &a) < (2, &b);
+	wins && a.max(b).0 > 0
+}
+
+/// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
+/// element.
+#[derive(PartialEq, Eq)]
+pub struct Batched(u8);
+
+impl std::hash::Hash for Batched {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
 	}
+
+	fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H) {
+		state.write_usize(data.len());
+	}
+}
+
+pub fn batched(v: Vec<Batched>) -> usize {
+	let mut set = std::collections::HashSet::new();
+	set.insert(v);
+	set.len()
+}
+
+/// Closures that own a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there, and which `for_each` drops before the items it doesn't reach.
+pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
 	let (a, b) = (Noisy(1), Noisy(2));
 	m.entry(1).or_insert_with(move || b);
-	v.iter().any(move |&x| x == id(&a))
+	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
-/// Each drops its closure, and the `Noisy` it owns, when it is done with it, as
-/// `successors` does the item it holds next.
-pub fn owning_lazy() -> usize {
-	let (b, c) = (Noisy(2), Noisy(3));
-	// Through a reference, each owns its `Noisy` whole rather than a copy of its field.
-	let walked = std::iter::successors(Some(0u8), move |_| Some((&b).0)).take(2).count();
-	let made = std::iter::from_fn(move || Some((&c).0)).take(2).count();
-	let held = std::iter::successors(Some(Noisy(4)), |_| None).count();
-	walked + made + held
+/// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
+/// call but never drop.
+pub fn pattern_closure(s: &str) -> bool {
+	let n = Noisy(1);
+	s.contains(move |c: char| c as u8 == (&n).0)
 }
 
 /// A `Cow<str>` is a JS string, which keeps no variant to match on or ask about.

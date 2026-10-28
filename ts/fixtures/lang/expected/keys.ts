@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Hop, copy$Horizon, copy$u8_Horizon } from "./lib.ts";
-import { unwrapOr$Option_u16, unwrapOr$Option_u64, unwrapOr$Option_u8, map$Option_Hop_u64_defaults_closure0, map$Option_Hop_u64_u64_options_closure0, map$Option_Way_bool_defaults_closure2, map$Option_u8_Side_side, mapOr$Option_Hop_u64_options_closure2, mapOr$Option_Ordering_u8_order } from "./core/option.ts";
+import { unwrapOr$Option_NonZero_u64, unwrapOr$Option_u16, unwrapOr$Option_u8, map$Option_Hop_u64_defaults_closure0, map$Option_Hop_u64_u64_options_closure0, map$Option_Way_bool_defaults_closure2, map$Option_u8_Side_side, mapOr$Option_Hop_u64_options_closure2, mapOr$Option_Ordering_u8_order } from "./core/option.ts";
 import * as Hop from "./keys.Hop.ts";
 import * as Horizon from "./keys.Horizon.ts";
 import * as Liar from "./keys.Liar.ts";
@@ -495,9 +495,9 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const a: Hop.Hop | undefined = _27[0];
 			const b: Hop.Hop | undefined = _27[1];
 			rt.byteVecPush(out, (rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) | (((!rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) << 1) & 0xff) | ((order(rt.cmpOption(Hop.cmp$Ord)(a, b)) << 2) & 0xff));
-			const _56: Hop.Hop | undefined = rt.ordMax(a, b, rt.cmpOption(Hop.cmp$Ord));
+			const _56: Hop.Hop | undefined = rt.ordMax(a, b, rt.cmpOption(Hop.partialCmp$PartialOrd));
 			const _53: rt.u8 = rt.eqOption(Hop.eq$PartialEq)(_56, b) ? 1 : 0;
-			const _62: Hop.Hop | undefined = rt.ordMin(a, b, rt.cmpOption(Hop.cmp$Ord));
+			const _62: Hop.Hop | undefined = rt.ordMin(a, b, rt.cmpOption(Hop.partialCmp$PartialOrd));
 			rt.byteVecPush(out, _53 | (((rt.eqOption(Hop.eq$PartialEq)(_62, a) ? 1 : 0) << 1) & 0xff));
 			rt.byteVecPush(out, rt.u64Eq(hashOf$Option_Hop(a), hashOf$Option_Hop(b)) ? 1 : 0);
 			const _75: [rt.u8 | undefined, rt.u8 | undefined] = [small(c), small(d)];
@@ -850,10 +850,9 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 			_132.v = (_132.v << 4) & 0xffff;
 		}
 		const _139: Hop.Hop = { _0: rt.u64Rem(b as rt.u64, 3) };
-		const p: rt.Place<[rt.u8, rt.u8]> = rt.entryOrInsertMut(rt.entry(pairs, _139), [0, 0] as [rt.u8, rt.u8]);
-		const _144: rt.u8 = rt.u8WrappingAdd(p.v[0], b);
-		p.v[0] = _144;
-		p.v[1] = p.v[1] ^ p.v[0];
+		const p: [rt.u8, rt.u8] = rt.entryOrInsert(rt.entry(pairs, _139), [0, 0] as [rt.u8, rt.u8]);
+		p[0] = rt.u8WrappingAdd(p[0], b);
+		p[1] = p[1] ^ p[0];
 	}
 	const tree: rt.BTreeMap<rt.u16, rt.u16> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u16, rt.u16>;
 	const _150: rt.usize = rt.usizeMul(data.length, 4);
@@ -914,7 +913,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = 7;
 	while ((_257 = iterStart2++) < iterEnd2) {
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_u64(rt.hashGet(wide, _257), 0))));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(unwrapOr$Option_NonZero_u64(rt.hashGet(wide, _257), 0))));
 	}
 	const iter6: rt.Range<rt.u64> = new rt.Range(0, 6, rt.u64Step);
 	while (true) {
