@@ -8,6 +8,7 @@ import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
+import type * as Lopsided from "./keys.Lopsided.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -198,6 +199,10 @@ export function copy$u8s(v: Uint8Array): Uint8Array {
 
 export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
 	return [v[0], v[1]];
+}
+
+export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
+	rt.drop(_1[1]);
 }
 
 //# sourceMappingURL=lib.ts.map

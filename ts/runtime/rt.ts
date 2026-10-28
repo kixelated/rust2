@@ -328,27 +328,25 @@ export function sliceSwap<T>(s: T[], a: number, b: number): void {
 	s[b] = x;
 }
 
+/** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
+export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering): void {
+	sliceSort(s, (a, b) => cmp(a, b) === -1);
+}
+
+/** `sort_by_key` and `sort_unstable_by_key`: by `lt` of each element's `key`, as `sliceSort` sorts. */
+export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: K) => boolean): void {
+	sliceSort(s, (a, b) => lt(key(a), key(b)));
+}
+
 /**
- * `sort` and `sort_by`, and the unstable sorts, which may order equal elements either way
- * and here keep them in order: stable, by `cmp`, which moves an element before another
- * only if it orders `Less`, as std's sorts test `lt`. If `cmp` panics, the slice holds each
+ * `sort` and `sort_unstable`, by `less`, the elements' `lt`, which std's sorts test: a
+ * stable merge sort over runs that insertion sorts first. The unstable sorts may order
+ * equal elements either way and here keep them in order. It calls only `less`, never
+ * JS's `sort`, which moves `undefined`, a `None`, to the end without comparing it, and
+ * orders its calls differently in each engine. If `less` panics, the slice holds each
  * element once, in an order std leaves unspecified, as std's does.
  */
-export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering | undefined): void {
-	sort(s, (a, b) => cmp(a, b) === -1);
-}
-
-/** `sort_by_key` and `sort_unstable_by_key`: by `cmp` of each element's `key`, as `sliceSortBy` sorts. */
-export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, cmp: (a: K, b: K) => Ordering | undefined): void {
-	sort(s, (a, b) => cmp(key(a), key(b)) === -1);
-}
-
-/**
- * A stable merge sort of `s` by `less`, over runs that insertion sorts first. It calls only
- * `less`, never JS's `sort`, which moves `undefined`, a `None`, to the end without
- * comparing it, and orders its calls differently in each engine.
- */
-function sort<T>(s: T[], less: (a: T, b: T) => boolean): void {
+export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 	const n = s.length;
 	const RUN = 16;
 	for (let lo = 0; lo < n; lo += RUN) {

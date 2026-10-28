@@ -355,27 +355,6 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
-/// translation calls `partial_cmp`.
-#[derive(PartialEq, Eq, Ord)]
-pub struct Lopsided(u8);
-
-impl PartialOrd for Lopsided {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.0.cmp(&other.0))
-	}
-
-	fn lt(&self, other: &Self) -> bool {
-		self.0 > other.0
-	}
-}
-
-pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
-	v.sort();
-	let wins = (1, &a) < (2, &b);
-	wins && a.max(b).0 > 0
-}
-
 /// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
 /// element.
 #[derive(PartialEq, Eq)]

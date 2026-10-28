@@ -360,7 +360,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, rt.cmpReverse(rt.cmp)(x2, y) & 0xff);
 		rt.byteVecPush(out, rt.cmpReverse(rt.cmp)(x2, y) === -1 ? 1 : 0);
 		rt.byteVecPush(out, rt.cmpReverse(rt.cmpOption(rt.cmp))(x2, undefined) === 1 ? 1 : 0);
-		rt.byteVecPush(out, rt.ordMax(x2, y, rt.cmpReverse(rt.cmp)));
+		rt.byteVecPush(out, rt.ordMax(x2, y, rt.cmpLt(rt.cmpReverse(rt.cmp))));
 		const order = rt.cmpTuple([rt.cmpReverse(rt.cmp), rt.cmp])([x2, y] as [rt.u8, rt.u8], [y, x2] as [rt.u8, rt.u8]);
 		rt.byteVecPush(out, order !== undefined && order <= 0 ? 1 : 0);
 		const _302: rt.Iter<[rt.u8, rt.usize]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): [rt.u8, rt.usize] => {
@@ -380,7 +380,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		}));
 		rt.sliceSortByKey(ranked, (_25: [rt.u8, rt.usize]): [rt.u8, rt.usize] => {
 			return [rt.u8Rem(_25[0], 4), _25[1]] as [rt.u8, rt.usize];
-		}, rt.cmpTuple([rt.cmpReverse(rt.cmp), rt.cmp]));
+		}, rt.cmpLt(rt.cmpTuple([rt.cmpReverse(rt.cmp), rt.cmp])));
 		for (const _328 of ranked) {
 			const d: rt.u8 = _328[0];
 			const i2: rt.usize = _328[1];
