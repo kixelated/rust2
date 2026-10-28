@@ -55,3 +55,8 @@ export function randRangeInclusive<T extends number | Limbs>(range: RangeInclusi
 	if (l > h) panic("cannot sample empty range");
 	return intFromBig(l + below(h - l + 1n), bits, signed);
 }
+
+/** `random_range(..=hi)` of an unsigned integer type of `bits`, which is never empty. */
+export function randRangeToInclusive(hi: number | Limbs, bits: number): number | Limbs {
+	return intFromBig(below(intToBig(hi) + 1n), bits, false);
+}

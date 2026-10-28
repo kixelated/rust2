@@ -132,7 +132,7 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b: rt.u8 = data.data[data.start + 2];
 		rt.randRng();
 		b1: {
-			const _10: rt.u8 = rt.u8Rem(kind, 9);
+			const _10: rt.u8 = rt.u8Rem(kind, 10);
 			if (_10 === 0) {
 				const range4 = new rt.Range(a, b);
 				const x: rt.u8 = rt.randRange(range4.start, range4.end, 8, false) as rt.u8;
@@ -203,10 +203,17 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 				}
 			} else if (_10 === 7) {
 				inRange = ((rt.randRange(0, { end: b }.end, 8, false) as rt.u8)) < b;
+			} else if (_10 === 8) {
+				const hi4: rt.u64 = rt.u64Sub({ hi: 0xffffffff, lo: 0xffffffff } as rt.u64, a as rt.u64);
+				if (!(((rt.randRangeToInclusive({ end: b, inclusive: true }.end, 8) as rt.u8)) <= b)) {
+					inRange = false;
+				} else {
+					inRange = rt.u64Le(rt.randRangeToInclusive({ end: hi4, inclusive: true }.end, 64) as rt.u64, hi4);
+				}
 			} else {
-				const _107: [rt.u64, rt.i16] = [rt.randInt(64, false) as rt.u64, rt.randInt(16, true) as rt.i16];
-				const x7: rt.u64 = _107[0];
-				const y: rt.i16 = _107[1];
+				const _117: [rt.u64, rt.i16] = [rt.randInt(64, false) as rt.u64, rt.randInt(16, true) as rt.i16];
+				const x7: rt.u64 = _117[0];
+				const y: rt.i16 = _117[1];
 				rt.randRng();
 				const flag: boolean = rt.randBool();
 				if (rt.u64Eq(x7, x7)) {

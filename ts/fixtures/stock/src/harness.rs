@@ -128,7 +128,7 @@ fn random(data: &[u8], out: &mut Vec<u8>) {
 		return;
 	};
 	let mut rng = rand::rng();
-	let in_range = match kind % 9 {
+	let in_range = match kind % 10 {
 		0 => {
 			let x = rng.random_range(a..b);
 			a <= x && x < b
@@ -167,6 +167,11 @@ fn random(data: &[u8], out: &mut Vec<u8>) {
 			lo <= x && x <= hi
 		}
 		7 => rng.random_range(..b) < b,
+		8 => {
+			// Up to each type's maximum, as `b` of 255 is.
+			let hi = u64::MAX - u64::from(a);
+			rng.random_range(..=b) <= b && rng.random_range(..=hi) <= hi
+		}
 		_ => {
 			let (x, y): (u64, i16) = (rng.random(), rng.random());
 			let flag: bool = rand::rng().random();

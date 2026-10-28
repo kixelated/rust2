@@ -178,6 +178,8 @@ fn rand<'tcx>(
 				}
 				Std::RangeTo => Expr::rt("randRange", vec![int.lit(0), range.member("end"), bits, signed]),
 				Std::RangeInclusive => Expr::rt("randRangeInclusive", vec![range, bits, signed]),
+				// `rand` samples `..=b` only of unsigned integers.
+				Std::RangeToInclusive => Expr::rt("randRangeToInclusive", vec![range.member("end"), bits]),
 				_ => return None,
 			};
 			Expr::As(Box::new(value), int.ty())
