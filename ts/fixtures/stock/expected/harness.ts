@@ -3,20 +3,21 @@
 import * as rt from "./rt.ts";
 import * as Owner from "./harness.Owner.ts";
 
+/**
+ * Each case, which the first byte picks modulo their count, so a case added at the end
+ * moves no other.
+ */
+export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> {
+	return [slices, made, events, random];
+}
+
 /** Run one case. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
-		const _8: rt.u8 = rt.u8Rem(input.data[input.start], 4);
-		if (_8 === 0) {
-			slices(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 1) {
-			made(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else if (_8 === 2) {
-			events(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		} else {
-			random(new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
-		}
+		const op: rt.u8 = input.data[input.start];
+		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = cases();
+		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}
 	return out;
