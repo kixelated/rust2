@@ -718,6 +718,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("Try", "branch") => {
 				let value = self.operand(&args[0].node, span, out);
+				// A `Poll`'s `Pending` and `Ready(None)` are no `rt.Result`: they continue.
+				if let Some(poll) = targ(0)
+					&& let (Some(Std::Poll), ty::Adt(_, poll_args)) = (self.b.t.std_of(poll), poll.kind())
+				{
+					let inner = poll_args.type_at(0);
+					let ty::Adt(_, inner_args) = inner.kind() else {
+						unreachable!("Try for a Poll of a Result or an Option of one")
+					};
+					let value = match self.b.t.std_of(inner) {
+						Some(Std::Option) => {
+							let ty::Adt(_, result_args) = inner_args.type_at(0).kind() else {
+								unreachable!("Try for a Poll of an Option of a Result")
+							};
+							let ok = result_args.type_at(0);
+							let pending = self.b.t.pending(Ty::new_option(self.tcx, ok));
+							Expr::rt("pollOptionBranch", vec![value, pending, self.b.t.none(ok)])
+						}
+						_ => Expr::rt("pollBranch", vec![value, self.b.t.pending(inner_args.type_at(0))]),
+					};
+					return done(value, false);
+				}
 				// A `next`'s item or `rt.DONE` branches as itself.
 				if let Some(local) = dest.as_local()
 					&& self.next_results.contains(&local)
@@ -732,12 +753,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let to = targ(0)?;
 				let residual = targ(1)?;
 				let value = self.operand(&args[0].node, span, out);
-				// What a `Result` residual goes into: a `Result`, or one that is ready, which
-				// is the same value.
+				// What a `Result` residual goes into: a `Result`, or one that is ready, and some,
+				// which is the same value.
 				let result = match (self.b.t.std_of(to), to.kind()) {
 					(Some(Std::Result), _) => Some(to),
 					(Some(Std::Poll), ty::Adt(_, poll_args)) => {
-						let inner = poll_args.type_at(0);
+						let mut inner = poll_args.type_at(0);
+						if let (Some(Std::Option), ty::Adt(_, option_args)) = (self.b.t.std_of(inner), inner.kind()) {
+							inner = option_args.type_at(0);
+						}
 						(self.b.t.std_of(inner) == Some(Std::Result)).then_some(inner)
 					}
 					_ => None,

@@ -101,8 +101,8 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 	*dst = src;
 }
 
-/// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
-pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
+/// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.
+pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<std::task::Poll<u8>>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
 }
 
@@ -505,4 +505,28 @@ pub struct Tail<T: ?Sized> {
 pub fn tail_read(t: &Tail<u8>) -> u8 {
 	let r: &Tail<dyn Reading> = t;
 	r.value.read()
+}
+
+/// A generic type's `Poll<T>` is `rt.Poll<T>`, which can't hold `rt.OuterPending`, the
+/// `Pending` of a `Poll<Poll<u8>>`.
+pub struct Waiting<T> {
+	pub poll: std::task::Poll<T>,
+}
+
+pub fn generic_pending(poll: std::task::Poll<std::task::Poll<u8>>) -> bool {
+	Waiting { poll }.poll.is_pending()
+}
+
+/// A copy of a closure that rebinds a shared reference it captured: each Rust copy has
+/// its own, where JS would share one binding.
+pub fn rebound_reference(a: &u32, b: &u32) -> (u32, u32) {
+	let mut r = a;
+	let c = move || {
+		let old = *r;
+		r = b;
+		old
+	};
+	let mut x = c;
+	let mut y = c;
+	(x(), y())
 }

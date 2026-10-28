@@ -59,5 +59,7 @@ roots = [
     "first_of",
     "tail_read",
     "missing",
+    "generic_pending",
+    "rebound_reference",
 ]
 printable = ["Meters"]

@@ -282,12 +282,13 @@ pub enum ObjectKind {
 
 /// The JS values a type's own can be that `Option` and `Poll` erase to: `None` is
 /// `undefined`, or `rt.None` where `Some` can already be `undefined`, and `Pending` is
-/// `rt.Pending`.
+/// `rt.Pending`, or `rt.OuterPending` where `Ready` can already be `rt.Pending`.
 #[derive(Clone, Copy, Default)]
 pub struct Erased {
 	pub undefined: bool,
 	pub none: bool,
 	pub pending: bool,
+	pub outer_pending: bool,
 	/// A type parameter's value, which each instance decides.
 	pub param: bool,
 }
@@ -302,6 +303,18 @@ impl Erased {
 				undefined: true,
 				..self
 			},
+		}
+	}
+
+	/// What a `Poll` of a type erased so erases to: its `Pending` is `rt.Pending`, or
+	/// `rt.OuterPending` where `Ready` can already be `rt.Pending`.
+	fn poll(self) -> Self {
+		match self.pending {
+			true => Self {
+				outer_pending: true,
+				..self
+			},
+			false => Self { pending: true, ..self },
 		}
 	}
 }
@@ -1209,10 +1222,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 			ty::Adt(adt, args) => self.adt_ty(*adt, args, span),
 			ty::Pat(base, _) => self.ty(*base, span),
-			ty::Coroutine(_, args) => Type::Rt("Future", vec![self.ty(args.as_coroutine().return_ty(), span)]),
-			ty::Dynamic(..) if let Some(output) = self.dyn_future(ty) => {
-				Type::Rt("Future", vec![self.ty(output, span)])
-			}
+			ty::Coroutine(_, args) => self.future_ty(args.as_coroutine().return_ty(), span),
+			ty::Dynamic(..) if let Some(output) = self.dyn_future(ty) => self.future_ty(output, span),
 			// `&dyn Debug` and `&dyn Display` are values ready to write.
 			ty::Dynamic(preds, ..)
 				if preds
@@ -1283,9 +1294,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 			library::Std::Poll => {
 				let inner = args.type_at(0);
-				self.erases_to(inner)
-					.pending
-					.then(|| format!("`Poll<{inner}>` is not supported: it would be pending two ways with one value"))
+				let erased = self.erases_to(inner);
+				(erased.pending && erased.outer_pending).then(|| {
+					format!(
+						"`Poll<{inner}>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending`"
+					)
+				})
 			}
 			library::Std::ControlFlow if library::Flow::of(self.tcx, args) == library::Flow::Option => {
 				let erased = self.erases_to(args.type_at(1));
@@ -1388,12 +1402,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {
 						self.err(span, msg);
 					}
-					Type::Rt("Poll", vec![self.ty(args.type_at(0), span)])
+					self.poll_ty(args.type_at(0), span)
 				}
 				library::Std::Pin => self.ty(args.type_at(0), span),
 				library::Std::PollFn | library::Std::Pending => {
 					let output = self.future_output(Ty::new_adt(tcx, adt, args), span);
-					Type::Rt("Future", vec![self.ty(output, span)])
+					self.future_ty(output, span)
 				}
 				library::Std::Range => Type::Rt("Range", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeInclusive => Type::Rt("RangeInclusive", vec![self.ty(args.type_at(0), span)]),
@@ -1469,7 +1483,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return Type::Builtin("unknown");
 		}
 		let info = self.adt(adt, span);
-		if let Some(msg) = self.generic_none(adt, args) {
+		if let Some(msg) = self.generic_erasure(adt, args) {
 			self.err(span, msg);
 		}
 		let args = args.types().map(|t| self.ty(t, span)).collect();
@@ -1477,35 +1491,50 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	/// Why an instance of the crate's generic `adt` with `args` can't hold its fields' values,
-	/// if it can't: an `Option` over a type parameter that its definition types `T |
-	/// undefined`, whose `None` this instance's `T` makes `rt.None`.
-	fn generic_none(&self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>) -> Option<String> {
+	/// if it can't: an `Option` or a `Poll` over a type parameter that its definition types
+	/// `T | undefined` or `rt.Poll<T>`, whose `None` or `Pending` this instance's `T` makes
+	/// `rt.None` or `rt.OuterPending`.
+	fn generic_erasure(&self, adt: AdtDef<'tcx>, args: GenericArgsRef<'tcx>) -> Option<String> {
 		let tcx = self.tcx;
-		if !args.types().any(|t| self.erases_to(t).undefined) {
+		if !args.types().any(|t| {
+			let erased = self.erases_to(t);
+			erased.undefined || erased.pending
+		}) {
 			return None;
 		}
 		adt.all_fields().find_map(|field| {
 			let generic = tcx.type_of(field.did).instantiate_identity().skip_norm_wip();
 			generic.walk().filter_map(|arg| arg.as_type()).find_map(|part| {
-				let ty::Adt(option, option_args) = part.kind() else {
+				let ty::Adt(wrapper, wrapper_args) = part.kind() else {
 					return None;
 				};
-				if library::Std::of(tcx, option.did()) != Some(library::Std::Option) {
+				let std = library::Std::of(tcx, wrapper.did());
+				if !matches!(std, Some(library::Std::Option | library::Std::Poll)) {
 					return None;
 				}
-				let inner = option_args.type_at(0);
+				let inner = wrapper_args.type_at(0);
 				let erased = self.erases_to(inner);
-				if !erased.param || erased.undefined {
-					return None;
-				}
 				let instance = ty::EarlyBinder::bind(tcx, inner).instantiate(tcx, args).skip_norm_wip();
-				self.erases_to(instance).undefined.then(|| {
-					let ty = Ty::new_adt(tcx, adt, args);
-					format!(
-						"`{ty}` is not supported: its field `{}` is `Option<{inner}>`, typed `{inner} | undefined`, whose `None` would be `rt.None` as `Option<{instance}>`",
-						field.name
-					)
-				})
+				let ty = Ty::new_adt(tcx, adt, args);
+				match std {
+					Some(library::Std::Option) if erased.param && !erased.undefined => {
+						self.erases_to(instance).undefined.then(|| {
+							format!(
+								"`{ty}` is not supported: its field `{}` is `Option<{inner}>`, typed `{inner} | undefined`, whose `None` would be `rt.None` as `Option<{instance}>`",
+								field.name
+							)
+						})
+					}
+					Some(library::Std::Poll) if erased.param && !erased.pending => {
+						self.erases_to(instance).pending.then(|| {
+							format!(
+								"`{ty}` is not supported: its field `{}` is `Poll<{inner}>`, typed `rt.Poll<{inner}>`, whose `Pending` would be `rt.OuterPending` as `Poll<{instance}>`",
+								field.name
+							)
+						})
+					}
+					_ => None,
+				}
 			})
 		})
 	}
@@ -1529,6 +1558,37 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			false => Type::Builtin("undefined"),
 		};
 		Type::Union(vec![self.ty(inner, span), none])
+	}
+
+	/// The TypeScript type of a future of `output`, an `rt.Future`, whose `poll` returns
+	/// `rt.Pending` as its own `Pending`, so an `output` that can already be one is refused.
+	fn future_ty(&mut self, output: Ty<'tcx>, span: Span) -> Type {
+		if self.erases_to(output).pending {
+			self.unrepresented(
+				span,
+				format!("a future of `{output}`, which can be `rt.Pending`, as the future's own `Pending` is"),
+			);
+		}
+		Type::Rt("Future", vec![self.ty(output, span)])
+	}
+
+	/// The TypeScript type of a `Poll<inner>`: `rt.Poll<T>`, or `T | rt.OuterPending` where
+	/// `T` can already be `rt.Pending`.
+	fn poll_ty(&mut self, inner: Ty<'tcx>, span: Span) -> Type {
+		let ready = self.ty(inner, span);
+		match self.erases_to(inner).pending {
+			true => Type::Union(vec![ready, Type::Rt("OuterPending", vec![])]),
+			false => Type::Rt("Poll", vec![ready]),
+		}
+	}
+
+	/// The JS value of `Pending` in a `Poll<inner>`: `rt.Pending`, or `rt.OuterPending`
+	/// where `inner` can already be `rt.Pending`.
+	pub fn pending(&self, inner: Ty<'tcx>) -> ts::Expr {
+		match self.erases_to(inner).pending {
+			true => ts::Expr::Rt("OuterPending".into()),
+			false => ts::Expr::Rt("Pending".into()),
+		}
 	}
 
 	/// The JS value of `None` in an `Option<inner>`, and of `Break` in a `ControlFlow`
@@ -1564,10 +1624,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					self.erases_to(args.type_at(0))
 				}
 				Some(library::Std::Option) => self.erases_to(args.type_at(0)).option(),
-				Some(library::Std::Poll) => Erased {
-					pending: true,
-					..self.erases_to(args.type_at(0))
-				},
+				Some(library::Std::Poll) => self.erases_to(args.type_at(0)).poll(),
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
 					self.erases_to(args.type_at(1)).option()
 				}
