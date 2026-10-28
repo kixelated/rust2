@@ -35,6 +35,5 @@ Public API: the C names moq's bindings get.
 
 ## Required
 
-- [Setters for an object's pub fields](/quest/m1/ffi-export/field-setters.md) - C fills in the session config
 - [Session config's foreign types](/quest/m1/ffi-export/foreign-types.md) - `Url`, `SocketAddr`, `PathBuf`, and `Vec<String>` cross the C ABI
 

@@ -9,6 +9,7 @@ import { chunks } from "./chunks.ts";
 import { hashMaps, sets, btreeMaps, deques, vecs, stores } from "./collections.ts";
 import { combinators } from "./combinators.ts";
 import { cows } from "./cows.ts";
+import { defaults } from "./defaults.ts";
 import { durations } from "./durations.ts";
 import { dyns, shared } from "./dyns.ts";
 import { edits } from "./edits.ts";
@@ -18,7 +19,7 @@ import { methods } from "./generics.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert } from "./ints.ts";
 import { adaptors, consumers, skips, ranked, ranges, options, own, values } from "./iters.ts";
 import { keys, overrides } from "./keys.ts";
-import { locks } from "./locks.ts";
+import { locks, relock } from "./locks.ts";
 import { nested } from "./nested.ts";
 import { refs } from "./refs.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
@@ -84,6 +85,10 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		shared(data24, out25);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::ranked", ranked] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["captures::captures", captures] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["locks::locks", (_235: rt.u8, data25: rt.ByteSlice, out26: rt.ByteVec): void => {
 		locks(data25, out26);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["locks::relock", (_236: rt.u8, data26: rt.ByteSlice, out27: rt.ByteVec): void => {
+		relock(data26, out27);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["defaults::defaults", (_237: rt.u8, data27: rt.ByteSlice, out28: rt.ByteVec): void => {
+		defaults(data27, out28);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }
 

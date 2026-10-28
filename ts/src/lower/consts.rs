@@ -135,9 +135,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
 						(Std::AtomicOrdering, _) => super::task::atomic_ordering(variant),
-						(Std::Bound, _) => {
+						(Std::Bound | Std::TryLockError, _) => {
 							let ts_ty = self.t.ty(ty, span);
-							super::library::bound(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
+							super::library::tagged(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
 						}
 						(Std::RangeTo | Std::RangeToInclusive, _) => {
 							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)

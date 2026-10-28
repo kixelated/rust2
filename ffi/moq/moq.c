@@ -1,7 +1,8 @@
 /* moq's exported C API against the real library: a broadcast's track, published and
  * subscribed to in one process, with every read polled as a future, and an origin.
  * moq-pattern, moq-clock, moq-tokio, hang, and moq-mux export into the same library, and
- * each names the others' types, and the catalog is lent to C for a call.
+ * each names the others' types, the catalog is lent to C for a call, and a session's
+ * config is filled in field by field.
  *
  * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
  * again after the write that wakes it. */
@@ -35,16 +36,20 @@ static int is(moq_buf buf, const char *s) {
 	return same;
 }
 
-/* The catalog `mutate` lends for its call, which lists the binary track: counts it in
- * data. */
-static void reads_catalog(void *data, moq_hang_catalog_extra *catalog) {
-	moq_buf json;
-	moq_hang_error *hang_err = NULL;
-	CHECK(moq_hang_catalog_extra_to_json(catalog, &json, &hang_err));
-	if (json.len > 0 && json.ptr[0] == '{') {
+/* Moves the stats track in data into the lent catalog, in place. */
+static void sets_stats(void *data, moq_hang_catalog_extra *catalog) {
+	moq_hang_catalog_extra_set_stats(catalog, data);
+}
+
+/* Whether the lent catalog lists its stats track as `stats`: counts it in data. */
+static void lists_stats(void *data, moq_hang_catalog_extra *catalog) {
+	moq_catalog_stats *stats = moq_hang_catalog_extra_stats(catalog);
+	moq_catalog_stats *want = moq_catalog_stats_new(str("stats"));
+	if (stats != NULL && moq_catalog_stats_eq(stats, want)) {
 		(*(int *)data)++;
 	}
-	moq_buf_free(json);
+	moq_catalog_stats_free(want);
+	moq_catalog_stats_free(stats);
 }
 
 static int wakes = 0;
@@ -273,7 +278,7 @@ int main(void) {
 
 	/* A catalog at moq-mux's untyped extension, from the config C builds, whose generic
 	 * `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
-	 * the catalog to C. */
+	 * the catalog to C, which sets its fields in place. */
 	moq_broadcast_info *listed = moq_broadcast_info_new();
 	moq_broadcast_producer *publisher = moq_broadcast_info_produce(listed);
 	moq_broadcast_info_free(listed);
@@ -286,9 +291,13 @@ int main(void) {
 	CHECK(moq_catalog_producer_extra_new(publisher, extra, &catalog, &mux_err));
 	moq_catalog_config_extra_free(extra);
 	CHECK(!moq_catalog_producer_extra_is_claimed_binary_config(catalog, str("state")));
-	int read_catalog = 0;
-	CHECK(moq_catalog_producer_extra_mutate(catalog, reads_catalog, &read_catalog, &mux_err));
-	CHECK(read_catalog == 1);
+	/* A field of the lent catalog, set in place: the next call reads it. */
+	moq_catalog_stats *stats = moq_catalog_stats_new(str("stats"));
+	CHECK(moq_catalog_producer_extra_mutate(catalog, sets_stats, stats, &mux_err));
+	moq_catalog_stats_free(stats);
+	int listed_stats = 0;
+	CHECK(moq_catalog_producer_extra_mutate(catalog, lists_stats, &listed_stats, &mux_err));
+	CHECK(listed_stats == 1);
 	moq_catalog_producer_extra_free(catalog);
 	moq_broadcast_producer_free(publisher);
 
@@ -308,6 +317,23 @@ int main(void) {
 	moq_connect_error unauthorized = MOQ_CONNECT_ERROR_UNAUTHORIZED;
 	CHECK(moq_connect_error_is_auth(&unauthorized));
 	CHECK(is(moq_connect_error_to_string(&unauthorized), "unauthorized"));
+
+	/* A session's config, filled in as Rust assigns it, and a nested field by getting a copy,
+	 * editing it, and setting it back. */
+	moq_connect_config *connect = moq_connect_config_default();
+	moq_tls_connect *tls = moq_connect_config_tls(connect);
+	moq_tls_connect_set_insecure(tls, (moq_option_bool){.some = true, .value = true});
+	moq_tls_connect_set_host_name(tls, str("relay.example"));
+	moq_connect_config_set_tls(connect, tls);
+	moq_tls_connect_free(tls);
+	moq_connect_config_set_implementation(connect, str("moq.c"));
+	tls = moq_connect_config_tls(connect);
+	moq_option_bool insecure = moq_tls_connect_insecure(tls);
+	CHECK(insecure.some && insecure.value);
+	CHECK(is(moq_tls_connect_host_name(tls), "relay.example"));
+	moq_tls_connect_free(tls);
+	CHECK(is(moq_connect_config_implementation(connect), "moq.c"));
+	moq_connect_config_free(connect);
 
 	/* A backoff's fields are settings left unset, and the methods of their names resolve them. */
 	moq_backoff *backoff = moq_backoff_default();

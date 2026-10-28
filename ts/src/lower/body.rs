@@ -193,9 +193,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
 				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(library::Std::Reverse, _) => values.pop().unwrap(),
-				(library::Std::Bound, _) => {
+				(library::Std::Bound | library::Std::TryLockError, _) => {
 					let ts_ty = self.t.ty(Ty::new_adt(tcx, adt, gargs), span);
-					library::bound(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
+					library::tagged(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
 				}
 				_ => self.err(span, format!("constructing `{}`", tcx.def_path_str(adt_id))),
 			};

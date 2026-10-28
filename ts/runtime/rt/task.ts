@@ -119,11 +119,20 @@ export function arcClone<T>(arc: Arc<T>): Arc<T> {
 	return arc;
 }
 
-/** `Weak<T>`, which nothing observes dropping. */
+/** What a `Weak` that never upgrades points at, as `Weak::new`'s does: no strong count. */
+const DANGLING: Arc<never> = /* @__PURE__ */ dangling();
+
+function dangling(): Arc<never> {
+	const arc = new Arc<never>(undefined as never);
+	arc.strong = 0;
+	return arc;
+}
+
+/** `Weak<T>`, which nothing observes dropping: of `arc`, or else dangling. */
 export class Weak<T> {
 	readonly arc: Arc<T>;
 
-	constructor(arc: Arc<T>) {
+	constructor(arc: Arc<T> = DANGLING) {
 		this.arc = arc;
 	}
 }
@@ -140,10 +149,11 @@ export function weakClone<T>(weak: Weak<T>): Weak<T> {
 
 /**
  * `Mutex<T>`, which a single thread never contends, and its guard: a lock is the mutex
- * itself, and an unlock is nothing. A panic aborts, so nothing poisons it.
+ * itself, `locked` until the guard drops. A panic aborts, so nothing poisons it.
  */
 export class Mutex<T> implements Disposable {
 	value: T;
+	locked = false;
 
 	constructor(value: T) {
 		this.value = value;
@@ -152,6 +162,30 @@ export class Mutex<T> implements Disposable {
 	[Symbol.dispose](): void {
 		drop(this.value);
 	}
+}
+
+/** `TryLockError<T>`, tagged as the crate's own enums are; a panic aborts, so it is never `Poisoned`. */
+export type TryLockError<T> = { readonly tag: "Poisoned"; readonly _0: T } | { readonly tag: "WouldBlock" };
+
+const WOULD_BLOCK: Result<never, TryLockError<never>> = /* @__PURE__ */ Err({ tag: "WouldBlock" });
+
+/** `Mutex::lock`: its guard, which is the mutex. Locking it again while held panics, as wasm32's does. */
+export function mutexLock<T>(mutex: Mutex<T>): Mutex<T> {
+	if (mutex.locked) panic("assertion `left == right` failed: cannot recursively acquire mutex\n  left: true\n right: false");
+	mutex.locked = true;
+	return mutex;
+}
+
+/** `Mutex::try_lock`: its guard, or `WouldBlock` while another guard holds it. */
+export function mutexTryLock<T>(mutex: Mutex<T>): Result<Mutex<T>, TryLockError<Mutex<T>>> {
+	if (mutex.locked) return WOULD_BLOCK;
+	mutex.locked = true;
+	return Ok(mutex);
+}
+
+/** A `MutexGuard`'s drop. */
+export function mutexUnlock<T>(mutex: Mutex<T>): void {
+	mutex.locked = false;
 }
 
 // Atomics, which one thread never races: each operation reads and writes as it would

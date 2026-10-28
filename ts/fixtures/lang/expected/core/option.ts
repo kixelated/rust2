@@ -5,6 +5,7 @@ import { copy$u8s_u8s } from "../lib.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
+import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
 import type * as Tilt from "../iters.Tilt.ts";
@@ -124,6 +125,13 @@ export function unwrapOrElse$Option_u8_options_closure9(self: rt.u8 | undefined,
 	return self;
 }
 
+export function unwrapOrDefault$Option_Option_u64_Made(self: [rt.u64 | undefined, Made.Made] | undefined): [rt.u64 | undefined, Made.Made] {
+	if (self === undefined) {
+		return [undefined, Made.default$Default()];
+	}
+	return self;
+}
+
 export function unwrapOrDefault$Option_String(self: string | undefined): string {
 	if (self === undefined) {
 		return "";
@@ -143,6 +151,13 @@ export function unwrapOrDefault$Option_u8(self: rt.u8 | undefined): rt.u8 {
 		return 0;
 	}
 	return self;
+}
+
+export function map$Option_Arc_Made_u64_get_closure0(self: rt.Arc<Made.Made> | undefined, f: (a0: rt.Arc<Made.Made>) => rt.u64): rt.u64 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$Option_Arc_dyn_Shape_u32_shared_closure0(self: rt.Arc<Shape.Shape> | undefined, f: (a0: rt.Arc<Shape.Shape>) => rt.u32): rt.u32 | undefined {

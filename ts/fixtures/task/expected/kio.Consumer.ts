@@ -26,18 +26,23 @@ export class Consumer {
 
 /** The next value, or `None` once the channel closed and every value was read. */
 export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
-	const state: rt.Mutex<State.State> = self.state.value;
+	let _0!: rt.Poll<rt.u64 | undefined>;
+	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	if (!(self.next < state.value.queue.length)) {
 		if (!state.value.closed) {
 			Waiter.register(waiter, state.value.waiters);
+			rt.mutexUnlock(state);
 			return rt.Pending;
 		}
-		return undefined;
+		_0 = undefined;
+	} else {
+		const _16: State.State = state.value;
+		const value: rt.u64 = _16.queue[rt.idx(_16.queue, self.next)];
+		self.next = rt.usizeAdd(self.next, 1);
+		_0 = value;
 	}
-	const _16: State.State = state.value;
-	const value: rt.u64 = _16.queue[rt.idx(_16.queue, self.next)];
-	self.next = rt.usizeAdd(self.next, 1);
-	return value;
+	rt.mutexUnlock(state);
+	return _0;
 }
 
 /**
@@ -45,16 +50,21 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
  * closed and `f` is not, registering `waiter` otherwise.
  */
 export function poll$held_closure0_Poll_u64(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.u64> | rt.OuterPending): rt.Poll<rt.Result<rt.Poll<rt.u64>, Closed.Closed>> {
-	const state: rt.Mutex<State.State> = self.state.value;
+	let _0!: rt.Poll<rt.Result<rt.Poll<rt.u64>, Closed.Closed>>;
+	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	const _8: rt.Poll<rt.u64> | rt.OuterPending = f(state.value.queue);
 	if (_8 !== rt.OuterPending) {
-		return rt.Ok(_8);
+		_0 = rt.Ok(_8);
+	} else {
+		if (!state.value.closed) {
+			Waiter.register(waiter, state.value.waiters);
+			rt.mutexUnlock(state);
+			return rt.Pending;
+		}
+		_0 = rt.Err({});
 	}
-	if (!state.value.closed) {
-		Waiter.register(waiter, state.value.waiters);
-		return rt.Pending;
-	}
-	return rt.Err({});
+	rt.mutexUnlock(state);
+	return _0;
 }
 
 /**
@@ -62,25 +72,32 @@ export function poll$held_closure0_Poll_u64(self: Consumer, waiter: Waiter.Waite
  * closed and `f` is not, registering `waiter` otherwise.
  */
 export function poll$watch_closure0_closure1_usize(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.usize>): rt.Poll<rt.Result<rt.usize, Closed.Closed>> {
-	const state: rt.Mutex<State.State> = self.state.value;
+	let _0!: rt.Poll<rt.Result<rt.usize, Closed.Closed>>;
+	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	const _8: rt.Poll<rt.usize> = f(state.value.queue);
 	if (_8 !== rt.Pending) {
-		return rt.Ok(_8);
+		_0 = rt.Ok(_8);
+	} else {
+		if (!state.value.closed) {
+			Waiter.register(waiter, state.value.waiters);
+			rt.mutexUnlock(state);
+			return rt.Pending;
+		}
+		_0 = rt.Err({});
 	}
-	if (!state.value.closed) {
-		Waiter.register(waiter, state.value.waiters);
-		return rt.Pending;
-	}
-	return rt.Err({});
+	rt.mutexUnlock(state);
+	return _0;
 }
 
 /** Ready once the channel closed, registering `waiter` until then. */
 export function pollClosed(self: Consumer, waiter: Waiter.Waiter): rt.Poll<undefined> {
-	const state: rt.Mutex<State.State> = self.state.value;
+	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	if (!state.value.closed) {
 		Waiter.register(waiter, state.value.waiters);
+		rt.mutexUnlock(state);
 		return rt.Pending;
 	}
+	rt.mutexUnlock(state);
 	return undefined;
 }
 

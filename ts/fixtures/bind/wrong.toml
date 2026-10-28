@@ -4,7 +4,7 @@ package = "bind-fixture"
 roots = ["harness::run", "harness::held"]
 
 [bind]
-"blob::Blob" = "wrong/blob.ts"
+"buf::Blob" = "wrong/blob.ts"
 "raw::checksum" = "bind/checksum.ts"
 "raw::skip" = "wrong/skip.ts"
 "raw::Tally" = { file = "wrong/tally.ts", drop = true }

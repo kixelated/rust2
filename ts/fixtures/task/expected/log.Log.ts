@@ -26,23 +26,27 @@ function new_(): Log {
 
 /** Append one event. */
 export function note(self: Log, event: string): void {
-	self._0.value.value.push(event);
+	const _6: rt.Mutex<string[]> = rt.mutexLock(self._0.value);
+	_6.value.push(event);
+	rt.mutexUnlock(_6);
 }
 
 /** Every event so far, one per line. */
 export function text(self: Log): rt.ByteVec {
-	const events: rt.Mutex<string[]> = self._0.value;
+	const events: rt.Mutex<string[]> = rt.mutexLock(self._0.value);
 	const out: rt.ByteVec = new rt.ByteVec();
 	const iter: rt.Iter<string> = rt.iterSlice(events.value);
 	while (true) {
 		const _13: string | rt.Done = iter.next();
 		if (_13 === rt.DONE) {
-			return out;
+			break;
 		}
 		const _19: rt.ByteSlice = rt.stringAsBytes(_13);
 		rt.byteVecExtendFromSlice(out, _19);
 		rt.byteVecPush(out, 10);
 	}
+	rt.mutexUnlock(events);
+	return out;
 }
 
 export { new_ as new };
