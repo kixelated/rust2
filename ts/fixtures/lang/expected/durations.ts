@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Window } from "./lib.ts";
+import type * as Twice from "./durations.Twice.ts";
 import * as Window from "./durations.Window.ts";
 import { put } from "./fmt.ts";
 
@@ -44,6 +45,11 @@ export function putOpt(out: rt.ByteVec, d: rt.Duration | undefined): void {
 		rt.byteVecPush(out, 1);
 		putDuration(out, d2);
 	}
+}
+
+export function addAssign$AddAssign_Twice_Duration(self: rt.Place<rt.Duration>, by: Twice.Twice): void {
+	self.v = rt.durationAdd(self.v, by._0);
+	self.v = rt.durationAdd(self.v, by._0);
 }
 
 /** `-=` through a `&mut`, which is an `rt.Place`. */
@@ -166,6 +172,10 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		putDuration(out, v[1]);
 		shrink(rt.place(() => v[0], (value) => v[0] = value), b);
 		putDuration(out, v[0]);
+		let d3: rt.Duration = a;
+		const _262: Twice.Twice = { _0: b };
+		addAssign$AddAssign_Twice_Duration(rt.place(() => d3, (value2) => d3 = value2), _262);
+		putDuration(out, d3);
 	} else if (_24 === 11) {
 		let c3: rt.Duration = a;
 		c3 = rt.durationMul(c3, n);
@@ -183,35 +193,35 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		putDuration(out, rt.durationFromHours(units2));
 		putDuration(out, rt.durationFromNanosU128(rt.u128FromBeBytes(wide)));
 	} else if (_24 === 13) {
-		const _296: rt.Duration = rt.durationNew(0, rt.u32Rem(n, 1000000000));
-		const parts: rt.Duration[] = [a, b, _296];
+		const _302: rt.Duration = rt.durationNew(0, rt.u32Rem(n, 1000000000));
+		const parts: rt.Duration[] = [a, b, _302];
 		putDuration(out, rt.durationSum(rt.iterSlice(parts)));
 		putDuration(out, rt.durationSum(rt.iterSlice([b, a])));
-		putDuration(out, rt.durationSum(rt.iterFilter(rt.iterSlice(parts), (d4: rt.Duration): boolean => {
-			return !rt.durationIsZero(d4);
+		putDuration(out, rt.durationSum(rt.iterFilter(rt.iterSlice(parts), (d5: rt.Duration): boolean => {
+			return !rt.durationIsZero(d5);
 		})));
 	} else {
 		const iter4: rt.Iter<rt.Duration> = rt.iterSlice([{ secs: 0, nanos: 0 }, { secs: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, nanos: 999999999 }, { secs: 0, nanos: 999 }]);
 		while (true) {
-			const _317: rt.Duration | rt.Done = iter4.next();
-			if (_317 === rt.DONE) {
+			const _323: rt.Duration | rt.Done = iter4.next();
+			if (_323 === rt.DONE) {
 				break;
 			}
-			putDuration(out, _317);
+			putDuration(out, _323);
 		}
 		putDuration(out, { secs: 1, nanos: 500000000 });
 		putDuration(out, { secs: 0, nanos: 0 });
 		putOpt(out, rt.durationCheckedAdd({ secs: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, nanos: 999999999 }, rt.durationFromNanos(1)));
-		const _329: rt.Duration | undefined = rt.thenSome(rt.durationCmp(b, { secs: 1, nanos: 500000000 }) === 1, b);
-		const w2: Window.Window = { start: a, len: _329 };
-		const _338: Window.Window = Window.default$Default();
-		rt.byteVecPush(out, Window.eq$PartialEq(w2, _338) ? 1 : 0);
+		const _335: rt.Duration | undefined = rt.thenSome(rt.durationCmp(b, { secs: 1, nanos: 500000000 }) === 1, b);
+		const w2: Window.Window = { start: a, len: _335 };
+		const _344: Window.Window = Window.default$Default();
+		rt.byteVecPush(out, Window.eq$PartialEq(w2, _344) ? 1 : 0);
 		rt.byteVecPush(out, Window.cmp$Ord(w2, { start: b, len: undefined }) < 0 ? 1 : 0);
-		const _350: Window.Window = copy$Window(Window.default$Default());
-		const _348: rt.Iter<Window.Window> = rt.iterSlice([copy$Window(w2), copy$Window(w2), _350]);
-		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Window.hash$Hash_DefaultHasher, Window.eq$PartialEq)) as rt.HashSet<Window.Window>, _348)) & 0xff);
-		const _363: Window.Window = Window.default$Default();
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => Window.fmt$Debug(w2, f), (f: rt.Formatter) => Window.fmt$Debug(_363, f)];
+		const _356: Window.Window = copy$Window(Window.default$Default());
+		const _354: rt.Iter<Window.Window> = rt.iterSlice([copy$Window(w2), copy$Window(w2), _356]);
+		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Window.hash$Hash_DefaultHasher, Window.eq$PartialEq)) as rt.HashSet<Window.Window>, _354)) & 0xff);
+		const _369: Window.Window = Window.default$Default();
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => Window.fmt$Debug(w2, f), (f: rt.Formatter) => Window.fmt$Debug(_369, f)];
 		put(out, rt.fmtFormat([args4[0], "|", rt.fmtSpec({ alternate: true }, args4[1])]));
 	}
 }

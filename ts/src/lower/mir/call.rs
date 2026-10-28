@@ -445,8 +445,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				done(Expr::undefined(), false)
 			}
 			// A `Duration` never changes once made, so what the `&mut` borrows gets a new one.
+			// std's impls take a `Duration` or a `u32`: another is the crate's.
 			("AddAssign" | "SubAssign" | "MulAssign" | "DivAssign", _)
-				if targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::Duration)) =>
+				if targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::Duration))
+					&& targ(1).is_some_and(|t| match owner.as_str() {
+						"AddAssign" | "SubAssign" => self.b.t.std_of(t) == Some(Std::Duration),
+						_ => t == tcx.types.u32,
+					}) =>
 			{
 				let f = match owner.as_str() {
 					"AddAssign" => "durationAdd",

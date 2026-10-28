@@ -50,6 +50,16 @@ fn put_opt(out: &mut Vec<u8>, d: Option<Duration>) {
 	}
 }
 
+/// The crate's own `+=` onto a `Duration`, which adds twice.
+struct Twice(Duration);
+
+impl std::ops::AddAssign<Twice> for Duration {
+	fn add_assign(&mut self, by: Twice) {
+		*self += by.0;
+		*self += by.0;
+	}
+}
+
 /// `-=` through a `&mut`, which is an `rt.Place`.
 fn shrink(d: &mut Duration, by: Duration) {
 	*d -= by;
@@ -143,7 +153,8 @@ pub fn durations(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 		10 => {
 			// `+=` and `-=` on a local, a field, what an `Option`'s `&mut` borrows, an
-			// element, and through a `&mut`, each panicking as `+` and `-` do.
+			// element, and through a `&mut`, each panicking as `+` and `-` do, and the
+			// crate's own `+=`.
 			let mut c = a;
 			c += b;
 			put_duration(out, c);
@@ -159,6 +170,9 @@ pub fn durations(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			put_duration(out, v[1]);
 			shrink(&mut v[0], b);
 			put_duration(out, v[0]);
+			let mut d = a;
+			d += Twice(b);
+			put_duration(out, d);
 		}
 		11 => {
 			// `*=` and `/=` by a `u32`, the last by zero panicking.
