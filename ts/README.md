@@ -60,7 +60,7 @@ and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
-in `rt/str.ts`, collections in `rt/collections.ts`, ownership and async in
+in `rt/str.ts`, collections in `rt/collections.ts`, ownership, atomics, and async in
 `rt/task.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s and `Result`'s combinators, goes in a module under its crate's name, as
 `core/option.ts` holds `map$Option_u64_u64_rescale_closure0`.
