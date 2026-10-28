@@ -197,7 +197,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _162: Guard.Guard = guard(16);
 		v3.push(_162);
 		unwind = 327;
-		rest = rt.ownedTake(rt.ownedSkip(rt.iterSlice(v3, rt.drop), 1, rt.drop), 3, rt.drop);
+		rest = rt.iterTake(rt.iterSkip(rt.iterSlice(v3, rt.drop), 1, rt.drop), 3, rt.drop);
 		unwind = 356;
 		_610 = true;
 		const part4 = mapOr$Option_Guard_u32_drained_closure4(rt.iterToOption(rest.next()), 0, (g5: Guard.Guard): rt.u32 => {
@@ -295,7 +295,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_607 = false;
 		_275 = rt.iterRev(_276);
 		unwind = 318;
-		nth = rt.ownedNth(_275, 1, rt.drop);
+		nth = rt.iterNth(_275, 1, rt.drop);
 		unwind = 348;
 		_606 = true;
 		rt.drop(_275);
@@ -408,7 +408,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		const _418: Guard.Guard = guard(38);
 		v12.push(_418);
 		unwind = 314;
-		const _427: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedLast(rt.ownedStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop, rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
+		const _427: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedLast(rt.iterStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop, rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
 			let unwind6: number = 0;
 			try {
 				unwind6 = 4;
@@ -515,18 +515,18 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				throw e9;
 			}
 		};
-		_501 = rt.ownedSkip(rt.iterSlice(five(44), rt.drop), 2, rt.drop);
+		_501 = rt.iterSkip(rt.iterSlice(five(44), rt.drop), 2, rt.drop);
 		unwind = 307;
-		_499 = rt.ownedNthBack(_501, 3, rt.drop);
+		_499 = rt.iterNthBack(_501, 3, rt.drop);
 		unwind = 306;
 		const skipped: boolean = _499 !== undefined;
 		unwind = 307;
 		rt.drop(_499);
 		unwind = 344;
 		rt.drop(_501);
-		_509 = rt.ownedStepBy(rt.iterSlice(five(49), rt.drop), 2, rt.drop);
+		_509 = rt.iterStepBy(rt.iterSlice(five(49), rt.drop), 2, rt.drop);
 		unwind = 305;
-		const stepped: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNthBack(_509, 1, rt.drop), 0, (g16: Guard.Guard): rt.u32 => {
+		const stepped: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterNthBack(_509, 1, rt.drop), 0, (g16: Guard.Guard): rt.u32 => {
 			let unwind10: number = 0;
 			try {
 				unwind10 = 4;
@@ -544,7 +544,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		});
 		unwind = 344;
 		rt.drop(_509);
-		_518 = rt.iterRev(rt.ownedTake(rt.iterSlice(five(59), rt.drop), 3, rt.drop));
+		_518 = rt.iterRev(rt.iterTake(rt.iterSlice(five(59), rt.drop), 3, rt.drop));
 		unwind = 342;
 		_603 = true;
 		const _524: Guard.Guard[] = [];
@@ -552,7 +552,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_517 = rt.iterChain(_518, rt.iterSlice(_524, rt.drop));
 		unwind = 304;
 		_603 = false;
-		const taken: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNth(_517, 1, rt.drop), 0, (g17: Guard.Guard): rt.u32 => {
+		const taken: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterNth(_517, 1, rt.drop), 0, (g17: Guard.Guard): rt.u32 => {
 			let unwind11: number = 0;
 			try {
 				unwind11 = 4;
@@ -570,7 +570,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		});
 		unwind = 344;
 		rt.drop(_517);
-		_529 = rt.iterRev(rt.ownedSkip(rt.iterSlice(five(64), rt.drop), 2, rt.drop));
+		_529 = rt.iterRev(rt.iterSkip(rt.iterSlice(five(64), rt.drop), 2, rt.drop));
 		unwind = 340;
 		_602 = true;
 		const _535: Guard.Guard[] = [];
@@ -578,7 +578,7 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		_528 = rt.iterChain(_529, rt.iterSlice(_535, rt.drop));
 		unwind = 303;
 		_602 = false;
-		const passed: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNth(_528, 2, rt.drop), 0, (g18: Guard.Guard): rt.u32 => {
+		const passed: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterNth(_528, 2, rt.drop), 0, (g18: Guard.Guard): rt.u32 => {
 			let unwind12: number = 0;
 			try {
 				unwind12 = 4;
@@ -596,9 +596,9 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		});
 		unwind = 344;
 		rt.drop(_528);
-		_539 = rt.ownedStepBy(rt.iterRev(rt.iterSlice(five(69), rt.drop)), 2, rt.drop);
+		_539 = rt.iterStepBy(rt.iterRev(rt.iterSlice(five(69), rt.drop)), 2, rt.drop);
 		unwind = 302;
-		const strode: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.ownedNth(_539, 2, rt.drop), 0, (g19: Guard.Guard): rt.u32 => {
+		const strode: rt.u32 = mapOr$Option_Guard_u32_drained_closure4(rt.iterNth(_539, 2, rt.drop), 0, (g19: Guard.Guard): rt.u32 => {
 			let unwind13: number = 0;
 			try {
 				unwind13 = 4;
@@ -616,8 +616,8 @@ export function looped(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		});
 		unwind = 344;
 		rt.drop(_539);
-		const counted: rt.usize = rt.ownedCount(rt.ownedTake(rt.iterRev(rt.iterSlice(five(74), rt.drop)), 3, rt.drop), rt.drop, rt.drop);
-		const far: boolean = rt.iterToOption(rt.iterStepBy(new rt.Range(0, 10), 4294967295).nthBackItem(4294967295)) === undefined;
+		const counted: rt.usize = rt.ownedCount(rt.iterTake(rt.iterRev(rt.iterSlice(five(74), rt.drop)), 3, rt.drop), rt.drop, rt.drop);
+		const far: boolean = rt.iterNthBack(rt.iterStepBy(new rt.Range(0, 10), 4294967295), 4294967295) === undefined;
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(skipped, f), (f: rt.Formatter) => rt.u32Display(stepped, f), (f: rt.Formatter) => rt.u32Display(taken, f), (f: rt.Formatter) => rt.u32Display(passed, f), (f: rt.Formatter) => rt.u32Display(strode, f), (f: rt.Formatter) => rt.usizeDisplay(counted, f), (f: rt.Formatter) => rt.fmtBool(far, f)];
 		Log.note(log, rt.fmtFormat(["back ", args24[0], " ", args24[1], " ", args24[2], " ", args24[3], " ", args24[4], " ", args24[5], " ", args24[6]]));
 		unwind = 346;
@@ -2266,11 +2266,11 @@ export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _46: Bomb.Bomb = bomb(3, false);
 			v2.push(_46);
 			unwind = 0;
-			it2 = rt.ownedSkip(rt.iterSlice(v2, rt.drop), 1, rt.drop);
+			it2 = rt.iterSkip(rt.iterSlice(v2, rt.drop), 1, rt.drop);
 			unwind = 114;
 			_after = bomb(4, false);
 			unwind = 113;
-			rt.drop(rt.ownedNth(it2, 4294967295, rt.drop));
+			rt.drop(rt.iterNth(it2, 4294967295, rt.drop));
 			unwind = 114;
 			rt.drop(_after);
 			unwind = 0;
@@ -2343,7 +2343,7 @@ export function bombed(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _153: Bomb.Bomb = bomb(3, false);
 			v5.push(_153);
 			unwind = 0;
-			rt.ownedCount(rt.ownedTake(rt.iterSlice(v5, rt.drop), 2, rt.drop), rt.drop, rt.drop);
+			rt.ownedCount(rt.iterTake(rt.iterSlice(v5, rt.drop), 2, rt.drop), rt.drop, rt.drop);
 		} else {
 			v6 = [];
 			unwind = 108;
@@ -2540,7 +2540,7 @@ export function spent(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			const _64: First.First = first(2);
 			v.push(_64);
 			unwind = 114;
-			rt.ownedCount(rt.ownedSkip(rt.iterSlice(v, rt.drop), 1, rt.drop), rt.drop, rt.drop);
+			rt.ownedCount(rt.iterSkip(rt.iterSlice(v, rt.drop), 1, rt.drop), rt.drop, rt.drop);
 		} else if (at === 3) {
 			unwind = 114;
 			v2 = [];
