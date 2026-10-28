@@ -216,6 +216,14 @@ pub fn shell() -> Shell<(u32,)> {
 	}
 }
 
+/// A const generic function whose bound names an instance nothing else does: refused at
+/// its const parameter, before any candidate for the other is mapped.
+pub struct Probe<T>(T);
+
+pub fn probe<const N: usize>(x: impl Into<Probe<u8>>) {
+	let _ = x;
+}
+
 /// An instance the config excludes.
 pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0

@@ -1649,7 +1649,6 @@ impl<'tcx> Collector<'tcx> {
 		let tcx = self.tcx;
 		let generics = tcx.generics_of(def_id);
 		let identity = ty::GenericArgs::identity_for_item(tcx, def_id);
-		let mut errs = Vec::new();
 		let mut args: Vec<ty::GenericArg<'tcx>> = identity.to_vec();
 		let count = generics.parent_count;
 		if let Some(parent) = parent {
@@ -1662,7 +1661,8 @@ impl<'tcx> Collector<'tcx> {
 			match arg.kind() {
 				_ if i < count => {}
 				GenericArgKind::Lifetime(_) => {}
-				GenericArgKind::Const(_) => errs.push(why("const generic", "")),
+				// The first refusal ends it, before any later parameter's candidates are mapped.
+				GenericArgKind::Const(_) => return Err(vec![why("const generic", "")]),
 				GenericArgKind::Type(param) if self.lent(def_id, param) => kept.push(param),
 				GenericArgKind::Type(param) => match self.choose(def_id, param, &base) {
 					// Typing takes a later type only where an earlier one's export is refused.
@@ -1681,16 +1681,13 @@ impl<'tcx> Collector<'tcx> {
 						if self.inferring && self.foreign(def_id, param).is_some() {
 							each.push(param);
 						}
-						match each[..] {
-							[] => errs.push(why),
-							_ => several.push((i, each)),
+						if each.is_empty() {
+							return Err(vec![why]);
 						}
+						several.push((i, each));
 					}
 				},
 			}
-		}
-		if !errs.is_empty() {
-			return Err(errs);
 		}
 		let mut choices = vec![(args, Vec::new())];
 		for (i, each) in several {
@@ -2478,9 +2475,14 @@ impl<'tcx> Collector<'tcx> {
 							if args.has_non_region_param() {
 								return Err(why("type parameter", name));
 							}
-							// Inference admits or rejects each instance a signature names.
+							// Inference admits or rejects each instance a signature names, so one
+							// it did not is a gap in inference, which the census counts.
 							if key.args.is_some() && self.items.iter().any(|(item, _)| *item == did) {
-								unreachable!("inference missed the instance `{name}`");
+								let mut why = why("instance not inferred", name);
+								let note =
+									format!("`{}` exports only at the instances it infers", strip_args(tcx, did));
+								why.note = Some((tcx.def_span(did), note));
+								return Err(why);
 							}
 							return Err(why("type not reachable from the crate root", name));
 						}
