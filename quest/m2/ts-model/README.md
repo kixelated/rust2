@@ -38,7 +38,7 @@ Decided with the maintainer on 2026-10-27, from a census of the model's 22 publi
 - Each child measures this target by the census of `ts/moq/model.toml`, rooted at those
   types with the boundaries bound, which nightly reports beside the whole crate.
 - The end-to-end work stays here: the model's roots, its differential harness, and the
-  `frames.ts` workload.
+  `frames.ts` workload. moq writes the binding files `model.toml` names, in its own tree.
 
 Public API: the translator's output for moq-net's model.
 
@@ -50,4 +50,6 @@ Public API: the translator's output for moq-net's model.
 - [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
 - [Options of values that can be undefined](/quest/m2/ts-model/nested-option.md) - `Option<Option<T>>` and `Option<()>` keep `None` apart from `Some(None)`
 - [Floats](/quest/m2/ts-model/floats.md) - `f64` translates, so `Bandwidth::scaled` and `Duration::mul_f64` do
+- [Std's mutable references to values JS copies](/quest/m2/ts-model/std-places.md) - `as_mut`, `get_or_insert`, `iter_mut`, and the rest give an `rt.Place`
+- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - the std calls the census still refuses
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures
