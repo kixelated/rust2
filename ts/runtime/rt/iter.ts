@@ -101,6 +101,29 @@ abstract class Adaptor<S, T> extends Iter<T> implements Disposable {
 	}
 }
 
+/**
+ * An adaptor of `inner` that calls `f`, which drops after it, as std's fields do, once:
+ * a consumer may drop `inner` before dropping the adaptor that holds it.
+ */
+abstract class Calling<S, T, F> extends Adaptor<S, T> {
+	protected readonly f: F;
+	private dropped = false;
+
+	constructor(inner: Iter<S>, f: F) {
+		super(inner);
+		this.f = f;
+	}
+
+	override [Symbol.dispose](): void {
+		if (this.dropped) return;
+		this.dropped = true;
+		both(
+			() => dispose(this.inner),
+			() => dispose(this.f),
+		);
+	}
+}
+
 /** Run `a`, then `b` even if `a` panics, as glue drops each field after one panics. */
 function both(a: () => void, b: () => void): void {
 	try {
@@ -148,22 +171,17 @@ export function iterEmpty<T>(): Iter<T> {
 	return new OptionIter<T>(undefined, false);
 }
 
-/** `iter::from_fn`, whose closure returns an `Option`. */
+/** `iter::from_fn`, whose closure returns an `Option`, and drops with it. */
 export function iterFromFn<T>(f: () => T | undefined): Iter<T> {
-	return new FromNext(f, (f) => iterFromOption(f()));
+	return new FromNext(f, (f) => iterFromOption(f()), dispose);
 }
 
-/** `iter::successors`: `first`, then `succ` of each item, called as that item is yielded. */
-export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined): Iter<T> {
-	let next = first;
-	return iterFromFn(() => {
-		const item = next;
-		if (item === undefined) return undefined;
-		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
-		next = undefined;
-		next = succ(item);
-		return item;
-	});
+/**
+ * `iter::successors`: `first`, then `succ` of each item, called as that item is yielded.
+ * The item it holds next drops by `drop`, and then `succ`, as std's fields drop.
+ */
+export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>): Iter<T> {
+	return new SuccessorsIter(first, succ, drop);
 }
 
 /** An `impl Iterator` of the translated crate, which `next` calls the `next` of, and `drop` drops. */
@@ -383,7 +401,7 @@ function rfindItem<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>): T |
 }
 
 /** `f(item)`, dropping `item` by `drop` if it panics. */
-function test<T>(f: (item: T) => boolean, item: T, drop: Drop<T>): boolean {
+function test<T, R>(f: (item: T) => R, item: T, drop: Drop<T>): R {
 	try {
 		return f(item);
 	} catch (e) {
@@ -996,6 +1014,44 @@ class FromNext<S, T> extends Iter<T> implements Disposable {
 	}
 }
 
+/** `Successors`, holding the item it yields next, which drops once, as `Calling` does. */
+class SuccessorsIter<T> extends Iter<T> implements Disposable {
+	private item: T | undefined;
+	private readonly succ: (item: T) => T | undefined;
+	private readonly drop: Drop<T> | undefined;
+	private dropped = false;
+
+	constructor(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>) {
+		super();
+		this.item = first;
+		this.succ = succ;
+		this.drop = drop;
+	}
+
+	next(): T | Done {
+		const item = this.item;
+		if (item === undefined) return DONE;
+		// Taken before `succ` runs, so a panic in it leaves the iterator done, as std's.
+		this.item = undefined;
+		if (this.drop === undefined) this.item = this.succ(item);
+		else this.item = test(this.succ, item, this.drop);
+		return item;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.dropped) return;
+		this.dropped = true;
+		const item = this.item;
+		this.item = undefined;
+		both(
+			() => {
+				if (item !== undefined) this.drop?.(item);
+			},
+			() => dispose(this.succ),
+		);
+	}
+}
+
 /**
  * An iterator borrowed by `&mut`, which forwards only what std's `impl Iterator for &mut
  * I` does, and which dropping drops nothing.
@@ -1037,12 +1093,10 @@ class Borrowed<T> extends Iter<T> {
 	}
 }
 
-class MapIter<T, U> extends Adaptor<T, U> {
-	readonly f: (item: T) => U;
+class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 	}
 
 	next(): U | Done {
@@ -1076,13 +1130,11 @@ class CopiedIter<R, T> extends MapIter<R, T> {
 	}
 }
 
-class FilterIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => boolean;
+class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 	private readonly drop: Drop<T> | undefined;
 
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -1095,12 +1147,10 @@ class FilterIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class FilterMapIter<T, U> extends Adaptor<T, U> {
-	private readonly f: (item: T) => U | undefined;
+class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U | undefined) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 	}
 
 	next(): U | Done {
@@ -1527,14 +1577,12 @@ class TakeIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class SkipWhileIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => boolean;
+class SkipWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 	private readonly drop: Drop<T> | undefined;
 	private flag = false;
 
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -1553,14 +1601,12 @@ class SkipWhileIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class TakeWhileIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => boolean;
+class TakeWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 	private readonly drop: Drop<T> | undefined;
 	private flag = false;
 
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 
@@ -1576,12 +1622,10 @@ class TakeWhileIter<T> extends Adaptor<T, T> {
 }
 
 /** `MapWhile`, which reads on after `f` returns `None` if called again, as std's does. */
-class MapWhileIter<T, U> extends Adaptor<T, U> {
-	private readonly f: (item: T) => U | undefined;
+class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U | undefined) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 	}
 
 	next(): U | Done {
@@ -1668,13 +1712,11 @@ class StepByIter<T> extends Adaptor<T, T> {
 	}
 }
 
-class InspectIter<T> extends Adaptor<T, T> {
-	private readonly f: (item: T) => void;
+class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 	private readonly drop: Drop<T> | undefined;
 
 	constructor(inner: Iter<T>, f: (item: T) => void, drop?: Drop<T>) {
-		super(inner);
-		this.f = f;
+		super(inner, f);
 		this.drop = drop;
 	}
 

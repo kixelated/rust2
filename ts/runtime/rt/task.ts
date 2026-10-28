@@ -52,6 +52,18 @@ export function callOnce<A extends unknown[], R>(f: (...args: A) => R, ...args: 
 	}
 }
 
+/**
+ * `call()`, then `f` drops, a panic included: a std function that calls `f` and keeps
+ * nothing of it drops it as it returns.
+ */
+export function dropAfter<R>(f: unknown, call: () => R): R {
+	try {
+		return call();
+	} finally {
+		drop(f);
+	}
+}
+
 /** A closure that `Fn` or `FnMut` call, as one `FnOnce` calls: a call drops it after. */
 export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A) => R) & Disposable {
 	return closure((...args: A) => callOnce(f, ...args), () => drop(f));

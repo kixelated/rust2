@@ -896,7 +896,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// still held back.
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
 				let base = match container.kind() {
-					ty::Adt(..) => library::vec_view(base, container),
+					ty::Adt(..) => library::vec_view(base, elem_ty),
 					_ => base,
 				};
 				let base = self.path(base, "slice", out);

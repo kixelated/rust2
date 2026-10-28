@@ -80,7 +80,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// Whether `ty` is one of std's iterators, or a type they are built of, which an `rt.Iter`
 	/// stands for: it drops what it owns, of its fields or, with a `Drop` impl, its items.
-	fn std_iter(&self, ty: Ty<'tcx>) -> bool {
+	pub(super) fn std_iter(&self, ty: Ty<'tcx>) -> bool {
 		let ty::Adt(adt, _) = ty.kind() else {
 			return false;
 		};
@@ -120,11 +120,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Arc | Std::Mutex | Std::Option | Std::Box | Std::Pin | Std::Reverse) => {
 					self.disposable(args.type_at(0), span)
 				}
-				// An `rt.Iter` drops what it was given to, but not a closure's captures.
-				None | Some(Std::Peekable) if self.std_iter(ty) => !ty
-					.walk()
-					.filter_map(|arg| arg.as_type())
-					.any(|t| matches!(t.kind(), ty::Closure(..)) && self.drops(t)),
+				// An `rt.Iter` drops what it was given to.
+				None | Some(Std::Peekable) if self.std_iter(ty) => self.closures_held(ty),
 				Some(_) => false,
 				// A generic `Drop` impl has an instance per type, which one class's glue can't call.
 				None if adt.is_struct() && !self.generic_dtor(*adt) => {
@@ -141,6 +138,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Closure(..) | ty::Coroutine(..) | ty::Param(_) => true,
 			_ => false,
 		}
+	}
+
+	/// Whether each closure that drops in `ty`, one of std's iterators, is one an adaptor's
+	/// `rt.Iter` drops, as `iter::holds_closure` says.
+	fn closures_held(&mut self, ty: Ty<'tcx>) -> bool {
+		let ty::Adt(adt, args) = ty.kind() else {
+			return true;
+		};
+		let holds = super::iter::holds_closure(self.tcx, adt.did());
+		args.types().all(|t| match t.kind() {
+			ty::Closure(..) => holds || !self.drops(t),
+			_ => self.closures_held(t),
+		})
 	}
 
 	/// Whether dropping a `ty` may run a `Drop` impl of the crate's, which may panic: std's

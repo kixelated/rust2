@@ -64,10 +64,10 @@ pub struct Named<'a>(Text<'a>);
 /// order, the second after the first panics.
 pub struct Entries<K, V>(Vec<(K, V)>);
 
-/// Run scenario `arg % 23`, panicking at the point `arg / 23 % 8` names, if any: what
+/// Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
 /// every value std holds drops, where Rust drops it, and in Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
-	let at = arg / 23 % 8;
+	let at = arg / 23 % 11;
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let check = |point: u8| {
 		if point == at {
@@ -75,6 +75,7 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 		}
 	};
 	match arg % 23 {
+		22 => closures::iterated(log, id, at),
 		19 => closures::scoped(log, id, at),
 		20 => closures::discarded(log, id, at),
 		21 => closures::blasted(log, id, at),
@@ -93,7 +94,6 @@ pub fn run(log: &Log, id: u32, arg: u8) {
 		10 => tripped(log, id, at, false),
 		11 => grown(log, id, at, true),
 		12 => grown(log, id, at, false),
-		22 => edited(log, id, at),
 		0 => {
 			let held = list![Held::One(guard(1)), Held::Empty, Held::Two(guard(2), guard(3))];
 			check(1);
@@ -802,7 +802,7 @@ fn grown(log: &Log, id: u32, at: u8, tree: bool) {
 /// What a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults drop, scenario
 /// `at`'s alone, and what is left to drop when a closure, a clone, a drop, or an index
 /// panics partway.
-fn edited(log: &Log, id: u32, at: u8) {
+pub fn edited(log: &Log, id: u32, at: u8) {
 	let key = |n: u32| Key::new(id + n, log.clone());
 	let fault = |n: u32, fault: Fault| Key::faulty(id + n, log.clone(), fault);
 	let ids = |v: &[Key]| v.iter().map(|k| (k.id - id).to_string()).collect::<Vec<_>>().join(",");

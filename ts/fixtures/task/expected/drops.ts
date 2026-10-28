@@ -4,7 +4,7 @@ import * as rt from "./rt.ts";
 import { drop$Arc_Wrap_Pair_Held, drop$Arc_str_Arc_str, drop$Bomb_Guard, drop$Guard_Entries_Bomb_Guard_Held, drop$Held, drop$Key_Key, drop$Mutex_Held, drop$Option_Box_Held, drop$Option_Guard_Guard, drop$Option_Held, drop$Pair_Held, drop$Result_Guard_Guard, drop$Result_u8_Key, drop$Wrap_Arc_Held, drop$Wrap_Guard, drop$Wrap_Held, drop$Wrap_Pair_Held, drop$Wrap_Vec_Wrap_Held } from "./lib.ts";
 import { isSomeAnd$Option_Guard_options_closure7, unwrapOr$Option_Guard, unwrapOr$Option_u64, mapOr$Option_u32_Guard_options_closure2, okOr$Option_Guard_Guard, filter$Option_Guard_options_closure4, orElse$Option_Guard_options_closure6, zip$Option_Guard_Guard, clone$Clone_Option_Arc_Guard } from "./core/option.ts";
 import { ok$Result_Guard_Guard, err$Result_Guard_Guard, mapOrElse$Result_Guard_Guard_u32_options_closure9_options_closure10, inspectErr$Result_u8_Key_tripped_closure6, andThen$Result_Guard_Guard_Guard_options_closure8, unwrapOr$Result_Guard_Guard } from "./core/result.ts";
-import { scoped, discarded, blasted } from "./drops/closures.ts";
+import { scoped, discarded, iterated, blasted } from "./drops/closures.ts";
 import { looped, collected, drained, extended, bombed, spent } from "./drops/iters.ts";
 import * as Bomb from "./drops.Bomb.ts";
 import * as Entries from "./drops.Entries.ts";
@@ -22,7 +22,7 @@ import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
 
 /**
- * Run scenario `arg % 23`, panicking at the point `arg / 23 % 8` names, if any: what
+ * Run scenario `arg % 23`, panicking at the point `arg / 23 % 11` names, if any: what
  * every value std holds drops, where Rust drops it, and in Rust's order.
  */
 export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
@@ -85,7 +85,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		_380 = false;
 		_379 = false;
 		_378 = false;
-		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 23), 8);
+		const at: rt.u8 = rt.u8Rem(rt.u8Div(arg, 23), 11);
 		const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 			return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 		};
@@ -96,7 +96,9 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			}
 		};
 		const _13: rt.u8 = rt.u8Rem(arg, 23);
-		if (_13 === 19) {
+		if (_13 === 22) {
+			iterated(log, id, at);
+		} else if (_13 === 19) {
 			scoped(log, id, at);
 		} else if (_13 === 20) {
 			discarded(log, id, at);
@@ -132,8 +134,6 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			grown(log, id, at, true);
 		} else if (_13 === 12) {
 			grown(log, id, at, false);
-		} else if (_13 === 22) {
-			edited(log, id, at);
 		} else if (_13 === 0) {
 			v = [];
 			unwind = 220;

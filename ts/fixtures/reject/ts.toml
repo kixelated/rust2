@@ -50,7 +50,7 @@ roots = [
     "lopsided",
     "batched",
     "called_closure",
-    "owning_lazy",
+    "pattern_closure",
     "parts_summed",
     "last_bumped",
     "modified",

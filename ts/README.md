@@ -433,8 +433,9 @@ Until they translate, an item that needs one, such as a boxed future, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: floats ([Floats](/quest/m2/ts-model/floats.md)), statics, async closures, a closure that owns a value
-that drops given to std's iterators or collections, and values that drop in some
-iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
+that drops given to a std function that drops it beside another value that drops, as
+`for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
+values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
 a collection holding a type that can be `undefined`, as `()` and `Option` can, a std
 function without a mapping of its own that makes or reads an `Option` whose `None` is
 `rt.None`, as `find` over `Option`s does, an `Option` of an `Option` of `()` or another

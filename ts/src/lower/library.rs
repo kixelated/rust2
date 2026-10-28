@@ -589,22 +589,36 @@ fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<
 		.find(|&inner| t.erases_to(inner).undefined)
 }
 
-/// The first closure `call` calls that owns a value that drops, of those its mapping does
-/// not drop where std would: not in `discarded`, the types it may drop by their index among
-/// the call's type arguments. A closure that `Fn` or `FnMut` call, given to one that calls
-/// it through `FnOnce`, becomes `rt.once` of it, which drops it after the call, as rustc's
-/// shim does.
+/// What a std function does with the closures it calls that own a value that drops.
+#[derive(Default)]
+struct Closures<'tcx> {
+	/// The first it would neither drop where std's does nor keep: refused.
+	leaked: Option<Ty<'tcx>>,
+	/// Those it drops as it returns or unwinds, having kept nothing of them, in the order
+	/// their parameters are declared.
+	spent: Vec<Expr>,
+}
+
+/// The closures `call` calls that own a value that drops, by what its mapping does with
+/// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
+/// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
+/// drops is ordered against it; dropped where `discarded` says, by the type's index among
+/// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
+/// one that calls it through `FnOnce`, becomes `rt.once` of it, which drops it after the
+/// call, as rustc's shim does.
 fn called_closures<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
 	discarded: Option<&[usize]>,
 	args: &mut [Expr],
-) -> Option<Ty<'tcx>> {
+) -> Closures<'tcx> {
 	let tcx = b.t.tcx;
+	let mut closures = Closures::default();
 	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
-	let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
-	let bounds = tcx.param_env(call.def_id).caller_bounds();
-	for (i, input) in inputs.into_iter().enumerate() {
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let inputs = sig.inputs().to_vec();
+	let output = sig.output();
+	for (i, &input) in inputs.iter().enumerate() {
 		let ty::Param(param) = *input.kind() else {
 			continue;
 		};
@@ -612,21 +626,27 @@ fn called_closures<'tcx>(
 		let ty::Closure(_, closure) = ty.kind() else {
 			continue;
 		};
-		// The trait it is called by: `Fn`, then `FnMut`, whichever it is bound by, or else `FnOnce`.
-		let Some(bound) = bounds
-			.clone()
-			.filter_map(|p| p.as_trait_clause())
-			.filter(|t| t.self_ty().skip_binder() == input)
-			.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
-			.min_by_key(|kind| match kind {
-				ty::ClosureKind::Fn => 0,
-				ty::ClosureKind::FnMut => 1,
-				ty::ClosureKind::FnOnce => 2,
-			})
-		else {
+		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
 		if !b.t.drops(ty) {
+			continue;
+		}
+		let mentions = |t: Ty<'tcx>| t.walk().any(|a| a.as_type() == Some(input));
+		if mentions(output) {
+			let held = matches!(output.kind(), ty::Adt(adt, args)
+				if super::iter::holds_closure(tcx, adt.did()) && args.types().any(|a| a == input));
+			if !held {
+				closures.leaked = closures.leaked.or(Some(ty));
+			}
+			continue;
+		}
+		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
+		if bound != ty::ClosureKind::FnOnce && !kept && i < args.len() {
+			match dropping_operand(b, call) {
+				None => closures.spent.push(args[i].clone()),
+				Some(_) => closures.leaked = closures.leaked.or(Some(ty)),
+			}
 			continue;
 		}
 		let index = call.args[..param.index as usize]
@@ -634,7 +654,8 @@ fn called_closures<'tcx>(
 			.filter(|a| a.as_type().is_some())
 			.count();
 		if !discarded.is_some_and(|d| d.contains(&index)) {
-			return Some(ty);
+			closures.leaked = closures.leaked.or(Some(ty));
+			continue;
 		}
 		if bound == ty::ClosureKind::FnOnce && closure.as_closure().kind() != ty::ClosureKind::FnOnce && i < args.len()
 		{
@@ -642,12 +663,30 @@ fn called_closures<'tcx>(
 			args[i] = Expr::rt("once", vec![f]);
 		}
 	}
-	None
+	closures
 }
 
-/// The first type `call` takes by value that drops.
+/// The trait `def_id` calls its parameter of type `input` by: `Fn`, then `FnMut`,
+/// whichever it is bound by, or else `FnOnce`, or `None` if no function trait bounds it.
+fn called_by<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, input: Ty<'tcx>) -> Option<ty::ClosureKind> {
+	tcx.param_env(def_id)
+		.caller_bounds()
+		.filter_map(|p| p.as_trait_clause())
+		.filter(|t| t.self_ty().skip_binder() == input)
+		.filter_map(|t| tcx.fn_trait_kind_from_def_id(t.def_id()))
+		.min_by_key(|kind| match kind {
+			ty::ClosureKind::Fn => 0,
+			ty::ClosureKind::FnMut => 1,
+			ty::ClosureKind::FnOnce => 2,
+		})
+}
+
+/// The first type `call` takes by value that drops, but for a closure a function trait
+/// bounds, which `called_closures` decides.
 fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = b.t.tcx;
+	let generic = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
+	let generic = tcx.instantiate_bound_regions_with_erased(generic).inputs().to_vec();
 	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
 	let env = b.t.typing_env_pub();
 	// A census's call over type parameters may leave a projection unnormalized.
@@ -660,7 +699,14 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 				.unwrap_or(ty)
 		})
 		.collect();
-	inputs.into_iter().find(|&ty| b.t.drops(ty))
+	let called = |i: usize, ty: Ty<'tcx>| {
+		matches!(ty.kind(), ty::Closure(..)) && called_by(tcx, call.def_id, generic[i]).is_some()
+	};
+	inputs
+		.into_iter()
+		.enumerate()
+		.find(|&(i, ty)| !called(i, ty) && b.t.drops(ty))
+		.map(|(_, ty)| ty)
 }
 
 /// `owner::name` for a standard library function.
@@ -714,15 +760,19 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	}
 	let discarded = discards(&owner, &name);
 	let mut args = args;
-	let leaked = called_closures(b, call, discarded, &mut args);
-	let e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
-	if let Some(ty) = leaked {
+	let closures = called_closures(b, call, discarded, &mut args);
+	let mut e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
+	if let Some(ty) = closures.leaked {
 		return Some(b.err(
 			call.span,
 			format!(
 				"passing `{ty}`, a closure that owns a value that drops, to `{owner}::{name}`, which is not supported yet"
 			),
 		));
+	}
+	// The last parameter drops first, as a function's do.
+	for f in closures.spent.into_iter().rev() {
+		e = Expr::rt("dropAfter", vec![f, Expr::Lambda(Vec::new(), Box::new(e))]);
 	}
 	Some(e)
 }
@@ -1210,8 +1260,8 @@ fn mapping<'tcx>(
 			let ty = targ(gargs, 0);
 			let v = args.pop()?;
 			match ty.kind() {
-				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-					Some(Std::Vec) => vec_view(v, ty),
+				ty::Adt(adt, vargs) => match Std::of(tcx, adt.did()) {
+					Some(Std::Vec) => vec_view(v, vargs.type_at(0)),
 					Some(Std::String | Std::Box) => v,
 					Some(Std::Cow) if string(tcx, ty) => v,
 					_ => return None,
@@ -1529,12 +1579,8 @@ fn primitive(ty: Ty<'_>) -> bool {
 	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
 }
 
-/// A `Vec`'s elements as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
-pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
-	let elem = match ty.peel_refs().kind() {
-		ty::Adt(_, args) => args.type_at(0),
-		_ => ty,
-	};
+/// A `Vec` of `elem`s as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
+pub fn vec_view(v: Expr, elem: Ty<'_>) -> Expr {
 	match elem.kind() {
 		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecSlice", vec![v]),
 		_ => v,
