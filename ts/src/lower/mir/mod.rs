@@ -20,7 +20,6 @@ mod place;
 mod rvalue;
 mod scalar;
 mod step;
-mod unwind;
 mod vec;
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
@@ -77,16 +76,31 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 		return None;
 	}
 	let body = tcx.optimized_mir(def_id).clone();
-	let mut body =
-		instance.instantiate_mir_and_normalize_erasing_regions(tcx, t.typing_env_pub(), EarlyBinder::bind(tcx, body));
+	let mut body = match instance.try_instantiate_mir_and_normalize_erasing_regions(
+		tcx,
+		t.typing_env_pub(),
+		EarlyBinder::bind(tcx, body),
+	) {
+		Ok(body) => body,
+		Err(err) => {
+			t.err(
+				span,
+				format!(
+					"`{instance}` names `{}`, which does not normalize",
+					err.get_type_for_failure()
+				),
+			);
+			return None;
+		}
+	};
 	vec::literals(tcx, &mut body);
-	if !def_id.is_local()
+	if !t.crates.translates(def_id)
 		&& let Some(why) = std_refused(tcx, &body)
 	{
 		t.err(span, why);
 		return None;
 	}
-	decided::fold(tcx, &mut body);
+	decided::fold(tcx, &t.crates, &mut body);
 	Some(body)
 }
 
@@ -244,10 +258,6 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	arg_alone: IndexVec<Local, bool>,
 	/// Locals whose one read is as an argument to a call whose result could hold it.
 	arg_kept: IndexVec<Local, bool>,
-	/// The cleanups a panic runs, if any does something JS can see.
-	unwind: Option<unwind::Unwind>,
-	/// While the cleanups are lowered, the caught exception's name.
-	in_cleanup: Option<String>,
 	/// Where each left-out macro invocation in the body is written.
 	ignored_sites: Vec<Span>,
 	/// The operands of aggregates assigned once to locals nothing changes.
@@ -277,10 +287,6 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	noops: FxHashSet<(BasicBlock, usize)>,
 	/// The lengths a bounds check compares with, of the slices whose `rt.idx` it is.
 	idx_of: FxHashMap<Local, Place<'tcx>>,
-	/// Each block's predecessors, but itself.
-	preds: FxHashMap<BasicBlock, Vec<BasicBlock>>,
-	/// What the cleanup variable holds as each block lowered so far leaves.
-	unwind_out: FxHashMap<BasicBlock, Option<usize>>,
 	/// The halves a `|` joins into a `u64`, by the local of the shift that is its left side.
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
@@ -310,6 +316,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env, span: Span) -> Self {
 		let tcx = b.t.tcx;
 		let n = mir.local_decls.len();
+		let narrowing = decided::narrowing(tcx, &b.t.crates, mir);
 		let mut fx = Fx {
 			b,
 			mir,
@@ -339,8 +346,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			arg_use: IndexVec::from_elem_n(false, n),
 			arg_alone: IndexVec::from_elem_n(false, n),
 			arg_kept: IndexVec::from_elem_n(false, n),
-			unwind: None,
-			in_cleanup: None,
 			ignored_sites: Vec::new(),
 			var_parts: FxHashMap::default(),
 			next_results: FxHashSet::default(),
@@ -353,9 +358,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			stepped_vars: FxHashMap::default(),
 			stepped_into: FxHashMap::default(),
 			noops: FxHashSet::default(),
-			preds: FxHashMap::default(),
 			idx_of: FxHashMap::default(),
-			unwind_out: FxHashMap::default(),
 			halves: FxHashMap::default(),
 			joined: FxHashSet::default(),
 			switched: FxHashSet::default(),
@@ -364,7 +367,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			scalars: FxHashMap::default(),
 			steady: FxHashSet::default(),
 			scalar_binds: Vec::new(),
-			narrowing: decided::narrowing(tcx, mir),
+			narrowing,
 			at: mir::START_BLOCK.start_location(),
 		};
 		fx.analyze();
@@ -394,8 +397,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			{
 				self.unreachable.insert(bb);
 			}
+			// A left-out macro's code reads nothing, so a parameter only it reads is unused.
 			for (i, stmt) in data.statements.iter().enumerate() {
-				if self.noops.contains(&(bb, i)) {
+				if self.noops.contains(&(bb, i)) || self.in_ignored(stmt.source_info.span) {
 					continue;
 				}
 				match &stmt.kind {
@@ -434,6 +438,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			let term = data.terminator();
+			if !data.is_cleanup && self.in_ignored(term.source_info.span) {
+				continue;
+			}
 			match &term.kind {
 				TerminatorKind::SwitchInt { discr, .. } => self.operand_use(discr),
 				TerminatorKind::Return => {
@@ -618,7 +625,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut pure = IndexVec::from_elem_n(true, mir.local_decls.len());
 		for (bb, data) in mir.basic_blocks.iter_enumerated() {
 			for (i, stmt) in data.statements.iter().enumerate() {
-				if self.noops.contains(&(bb, i)) {
+				if self.noops.contains(&(bb, i)) || self.in_ignored(stmt.source_info.span) {
 					continue;
 				}
 				if let StatementKind::Assign(assign) = &stmt.kind
@@ -1404,7 +1411,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let n = self.mir.basic_blocks.len();
 		self.skip_ignored_macros();
-		self.plan_unwind();
 		let mut succs = vec![Vec::new(); n];
 		for (bb, data) in self.mir.basic_blocks.iter_enumerated() {
 			if data.is_cleanup {
@@ -1419,29 +1425,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.collect(),
 			};
 		}
-		// The predecessors that are reached, as blocks only gone past are not.
-		let mut reached = vec![false; n];
-		let mut stack = vec![0];
-		while let Some(bb) = stack.pop() {
-			if !std::mem::replace(&mut reached[bb], true) {
-				stack.extend(&succs[bb]);
-			}
-		}
-		let mut preds: Vec<Vec<usize>> = vec![Vec::new(); n];
-		for (from, tos) in succs.iter().enumerate().filter(|&(from, _)| reached[from]) {
-			for &to in tos {
-				preds[to].push(from);
-			}
-		}
-		for (to, from) in preds.iter().enumerate() {
-			let from = from.iter().filter(|&&f| f != to).map(|&f| BasicBlock::from_usize(f));
-			self.preds.insert(BasicBlock::from_usize(to), from.collect());
-		}
 		let graph = cfg::Graph { succs };
 		let mut labels = self.labels;
 		let body = cfg::structure(&graph, self, &mut labels);
 		self.labels = labels;
-		let body = self.catch(body);
 		let mut out = Vec::new();
 		for local in self.mir.local_decls.indices() {
 			// Parameters are declared by the signature.
@@ -1476,9 +1463,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out.extend(entry);
 		out.extend(body);
 		drop_self_assignments(&mut out);
-		let mut caught = Vec::new();
-		handler_reads(&out, &mut caught);
-		return_in_place(&mut out, &caught.into_iter().collect());
+		// A return folds in the value assigned only to a local: a closure's captures are
+		// read after it returns.
+		let returnable = (self.slots.iter())
+			.filter_map(|slot| match slot {
+				Slot::Var(name) => Some(name.clone()),
+				_ => None,
+			})
+			.collect();
+		return_in_place(&mut out, &returnable);
 		prune_unread(&mut out);
 		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
 			cfg::strip_return(&mut out);
@@ -2105,7 +2098,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					return;
 				}
-				if self.foldable(local) {
+				// An empty array takes its type from its declaration, as nothing in it says.
+				if self.foldable(local) && !matches!(step::peel(&value), Expr::Array(items) if items.is_empty()) {
 					// A borrow rereads the same by what it borrows, judged before what that
 					// reads that is held back folds into it; anything else only as a constant
 					// or a name that stays put.
@@ -2163,16 +2157,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn block(&mut self, bb: BasicBlock, out: &mut Vec<Stmt>) -> Exit {
 		let mir = self.mir;
 		let data = &mir.basic_blocks[bb];
-		// Entered with the cleanup every predecessor left with, once each is lowered.
-		if let Some(unwind) = &mut self.unwind
-			&& let Some(preds) = self.preds.get(&bb)
-			&& let Some((first, rest)) = preds.split_first()
-			&& let Some(&known) = self.unwind_out.get(first)
-			&& rest.iter().all(|p| self.unwind_out.get(p) == Some(&known))
-		{
-			unwind.known = known;
-		}
-		self.set_unwind(data.terminator(), out);
 		for (i, stmt) in data.statements.iter().enumerate() {
 			if !self.in_ignored(stmt.source_info.span) && !self.noops.contains(&(bb, i)) {
 				self.at = mir::Location {
@@ -2182,8 +2166,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.statement(stmt, out);
 			}
 		}
-		let known = self.unwind.as_ref().and_then(|u| u.known);
-		self.unwind_out.insert(bb, known);
 		if let Some(&to) = self.redirect.get(&bb) {
 			return Exit::Goto(to.as_usize());
 		}
@@ -2526,17 +2508,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.err(span, "a coroutine before its state transform");
 				Exit::End
 			}
-			TerminatorKind::UnwindResume | TerminatorKind::UnwindTerminate(_) => match self.in_cleanup.clone() {
-				Some(caught) => {
-					self.flush(out);
-					out.push(StmtKind::Throw(Expr::ident(caught)).at(None));
-					Exit::End
-				}
-				None => {
-					self.err(span, "unwinding outside cleanup");
-					Exit::End
-				}
-			},
+			TerminatorKind::UnwindResume | TerminatorKind::UnwindTerminate(_) => {
+				self.err(span, "unwinding, though a panic aborts");
+				Exit::End
+			}
 		}
 	}
 
@@ -2810,26 +2785,12 @@ impl cfg::Lower for Fx<'_, '_, '_, '_> {
 
 	fn flush(&mut self, out: &mut Vec<Stmt>) {
 		self.flush_pending(out);
-		// Control goes elsewhere, which other code may reach with another cleanup.
-		if let Some(unwind) = &mut self.unwind {
-			unwind.known = None;
-		}
 	}
 }
 
 impl Fx<'_, '_, '_, '_> {
 	fn flush(&mut self, out: &mut Vec<Stmt>) {
 		cfg::Lower::flush(self, out);
-	}
-
-	/// A block's statements and how it leaves, for the cleanups' lowering.
-	fn block_mapped(&mut self, bb: BasicBlock, out: &mut Vec<Stmt>) -> Exit {
-		self.block(bb, out)
-	}
-
-	/// Emit a statement every held-back value that can do anything runs before.
-	fn emit_barrier(&mut self, stmt: Stmt, out: &mut Vec<Stmt>) {
-		self.emit(vec![stmt], None, false, out);
 	}
 }
 
@@ -3008,8 +2969,6 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 }
 
-/// Whether `place` is part of its local's own value, rather than reached through a
-/// reference or pointer.
 /// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
 /// which TypeScript types as the whole union already.
 pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
@@ -3024,6 +2983,8 @@ pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
 	}
 }
 
+/// Whether `place` is part of its local's own value, rather than reached through a
+/// reference or pointer.
 pub(super) fn own(place: Place<'_>) -> bool {
 	place
 		.projection
@@ -3048,7 +3009,7 @@ enum Read {
 
 fn scan_stmt(stmt: &Stmt, reads: &mut Vec<Read>, lazy: bool) {
 	match &stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => scan(e, reads, lazy),
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => scan(e, reads, lazy),
 		StmtKind::Decl { init: Some(e), .. } => scan(e, reads, lazy),
 		StmtKind::If { cond, then, els } => {
 			scan(cond, reads, lazy);
@@ -3186,7 +3147,7 @@ fn reads_only(name: &str) -> bool {
 /// Replace the one read of `name` in `stmt` with `value`; whether it was there.
 fn subst_stmt(stmt: &mut Stmt, name: &str, value: &Expr) -> bool {
 	match &mut stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => subst(e, name, value),
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => subst(e, name, value),
 		StmtKind::Decl { init: Some(e), .. } => subst(e, name, value),
 		StmtKind::If { cond, .. } => subst(cond, name, value),
 		_ => false,
@@ -3202,7 +3163,21 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => false,
 		Expr::Array(items) => items.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Object(props) => props.iter_mut().any(|(_, e)| subst(e, name, value)),
-		Expr::Member(base, _) => subst(base, name, value),
+		Expr::Member(base, key) => {
+			if !subst(base, name, value) {
+				return false;
+			}
+			// The payload of a `Result` made here is what it was made of, which `tsc` reads
+			// where it can't narrow the `Result`.
+			if let (Expr::Call(f, args), ts::Key::Name(key)) = (step::peel(base), &*key)
+				&& let Expr::Rt(ctor) = step::peel(f)
+				&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
+				&& let [payload] = args.as_slice()
+			{
+				*e = payload.clone();
+			}
+			true
+		}
 		Expr::Index(base, index) => subst(base, name, value) || subst(index, name, value),
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			if !(subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value))) {
@@ -3214,6 +3189,20 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				&& matches!(ctor.as_str(), "Ok" | "Err")
 			{
 				*e = Expr::result(ctor == "Ok", arg.clone());
+			}
+			// An `Ok` made in place unwraps to its value, as a lock's does, unless what would
+			// show or replace an error has an effect.
+			if let Expr::Call(f, args) = &*e
+				&& let (Expr::Rt(unwrap), [result, rest @ ..]) = (&**f, args.as_slice())
+				&& matches!(unwrap.as_str(), "resultUnwrap" | "resultExpect" | "resultUnwrapOrElse")
+				&& let Expr::Call(ok, value) = result.unlocated()
+				&& matches!(&**ok, Expr::Rt(ok) if ok == "Ok")
+				&& let [value] = value.as_slice()
+				&& rest
+					.iter()
+					.all(|e| e.is_path() || matches!(e.unlocated(), Expr::Arrow(..) | Expr::Lambda(..)))
+			{
+				*e = value.clone();
 			}
 			true
 		}
@@ -3266,7 +3255,7 @@ fn prune_unread(stmts: &mut Vec<Stmt>) {
 fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 	let mut visit = |e: &Expr| reads_of(e, out);
 	match &stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => visit(e),
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => visit(e),
 		StmtKind::Decl { init: Some(e), .. } => visit(e),
 		StmtKind::If { cond, then, els } => {
 			visit(cond);
@@ -3287,7 +3276,6 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 			}
 			default.iter().for_each(|s| scan_reads(s, out));
 		}
-		StmtKind::Catch { body, handler, .. } => body.iter().chain(handler).for_each(|s| scan_reads(s, out)),
 		_ => {}
 	}
 }
@@ -3352,10 +3340,6 @@ fn strip_assignments(stmts: &mut Vec<Stmt>, unread: &FxHashSet<String>) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| strip_assignments(body, unread));
 				strip_assignments(default, unread);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				strip_assignments(body, unread);
-				strip_assignments(handler, unread);
 			}
 			_ => {}
 		}
@@ -3428,7 +3412,6 @@ fn place_declaration(stmts: &mut [Stmt], name: &str, ty: &Type, total: usize, mu
 	match &mut stmts[i].kind {
 		StmtKind::If { then, els, .. } => place(then) || place(els),
 		StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => place(body),
-		StmtKind::Catch { body, handler, .. } => place(body) || place(handler),
 		StmtKind::Switch { cases, default, .. } => cases.iter_mut().any(|(_, body)| place(body)) || place(default),
 		_ => false,
 	}
@@ -3467,9 +3450,7 @@ fn writes_of(e: &Expr, name: &str) -> usize {
 /// Call `f` on each expression the statement holds directly, and in its blocks.
 fn visit_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Expr)) {
 	match &stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) | StmtKind::Decl { init: Some(e), .. } => {
-			f(e)
-		}
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Decl { init: Some(e), .. } => f(e),
 		StmtKind::If { cond, then, els } => {
 			f(cond);
 			then.iter().chain(els).for_each(|s| visit_stmt(s, f));
@@ -3479,7 +3460,6 @@ fn visit_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Expr)) {
 			body.iter().for_each(|s| visit_stmt(s, f));
 		}
 		StmtKind::Block { body, .. } => body.iter().for_each(|s| visit_stmt(s, f)),
-		StmtKind::Catch { body, handler, .. } => body.iter().chain(handler).for_each(|s| visit_stmt(s, f)),
 		StmtKind::Switch {
 			disc, cases, default, ..
 		} => {
@@ -3552,9 +3532,11 @@ pub fn fold(e: Expr) -> Expr {
 				_ => None,
 			};
 			if let (Some(a), Some(b)) = (num(&l), num(&r)) {
-				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators.
+				// Integer arithmetic JS does exactly, in 32 bits for the bitwise operators. An
+				// `f64` literal is spelled with a point or an exponent, and its -0.0 is no integer.
+				let int = |e: &Expr| matches!(e, Expr::Lit(t) if !t.contains(['.', 'e']));
 				let small = |v: f64| v.fract() == 0.0 && v.abs() < 2f64.powi(31);
-				if small(a) && small(b) {
+				if int(&l) && int(&r) && small(a) && small(b) {
 					let (x, y) = (a as i64, b as i64);
 					let int = match op {
 						"<<" if (0..31).contains(&y) => Some((x as i32).wrapping_shl(y as u32) as i64),
@@ -3660,10 +3642,6 @@ fn drop_self_assignments(stmts: &mut Vec<Stmt>) {
 				cases.iter_mut().for_each(|(_, body)| drop_self_assignments(body));
 				drop_self_assignments(default);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				drop_self_assignments(body);
-				drop_self_assignments(handler);
-			}
 			_ => {}
 		}
 	}
@@ -3686,36 +3664,32 @@ fn same_path(a: &Expr, b: &Expr) -> bool {
 	}
 }
 
-/// Return values in place throughout `stmts`, given the names cleanups read.
-fn return_in_place(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) {
+/// Return values in place throughout `stmts`, given the names of the body's own locals.
+fn return_in_place(stmts: &mut Vec<Stmt>, returnable: &FxHashSet<String>) {
 	sink_return(stmts);
 	for stmt in stmts.iter_mut() {
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
-				return_in_place(then, caught);
-				return_in_place(els, caught);
+				return_in_place(then, returnable);
+				return_in_place(els, returnable);
 			}
 			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
-				return_in_place(body, caught)
+				return_in_place(body, returnable)
 			}
 			StmtKind::Switch { cases, default, .. } => {
-				cases.iter_mut().for_each(|(_, body)| return_in_place(body, caught));
-				return_in_place(default, caught);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				return_in_place(body, caught);
-				return_in_place(handler, caught);
+				cases.iter_mut().for_each(|(_, body)| return_in_place(body, returnable));
+				return_in_place(default, returnable);
 			}
 			_ => {}
 		}
 	}
-	while return_assigned(stmts, caught) {}
+	while return_assigned(stmts, returnable) {}
 }
 
 /// `x = v; ...; return x;` at the end of `stmts` as `...; return v;`, where moving `v`
 /// past the statements between changes nothing (there are none, or `v` is a constant or a
-/// name none of them assigns) and no cleanup reads `x`; whether it was.
-fn return_assigned(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) -> bool {
+/// name none of them assigns) and `x` is `returnable`; whether it was.
+fn return_assigned(stmts: &mut Vec<Stmt>, returnable: &FxHashSet<String>) -> bool {
 	let Some(Stmt {
 		kind: StmtKind::Return(Some(Expr::Ident(name))),
 		..
@@ -3723,9 +3697,7 @@ fn return_assigned(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) -> bool {
 	else {
 		return false;
 	};
-	// A cleanup reading it would run after its assignment, were the statements between to
-	// throw.
-	if caught.contains(name) {
+	if !returnable.contains(name) {
 		return false;
 	}
 	let name = name.clone();
@@ -3764,30 +3736,6 @@ fn return_assigned(stmts: &mut Vec<Stmt>, caught: &FxHashSet<String>) -> bool {
 	let last = stmts.last_mut().expect("the return");
 	last.kind = StmtKind::Return(Some(*value));
 	true
-}
-
-/// The names read in each catch handler in `stmts`.
-fn handler_reads(stmts: &[Stmt], out: &mut Vec<String>) {
-	for stmt in stmts {
-		match &stmt.kind {
-			StmtKind::If { then, els, .. } => {
-				handler_reads(then, out);
-				handler_reads(els, out);
-			}
-			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
-				handler_reads(body, out)
-			}
-			StmtKind::Switch { cases, default, .. } => {
-				cases.iter().for_each(|(_, body)| handler_reads(body, out));
-				handler_reads(default, out);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				handler_reads(body, out);
-				handler.iter().for_each(|s| scan_reads(s, out));
-			}
-			_ => {}
-		}
-	}
 }
 
 /// Move a `return x;` that follows an `if` or a labeled block into each way out of it, so
@@ -3848,10 +3796,6 @@ fn breaks_to_return(stmts: &mut [Stmt], label: &str, ret: &Stmt) {
 					.iter_mut()
 					.for_each(|(_, body)| breaks_to_return(body, label, ret));
 				breaks_to_return(default, label, ret);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				breaks_to_return(body, label, ret);
-				breaks_to_return(handler, label, ret);
 			}
 			_ => {}
 		}

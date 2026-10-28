@@ -9,6 +9,7 @@ use std::path::{Component, Path, PathBuf};
 
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CRATE_DEF_ID, DefId};
+use rustc_metadata::creader::CStore;
 use rustc_middle::ty::{self, Instance, InstanceKind, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
@@ -84,7 +85,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				DefKind::Struct | DefKind::Enum | DefKind::Union => {
 					if super::library::Std::of(tcx, def_id).is_some() {
-						fail(self, "std's type has a representation of its own".into());
+						fail(self, "the type has a representation of its own".into());
 						continue;
 					}
 					Kind::Type { drop: bind.drop }
@@ -141,11 +142,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		self.writes = super::copy::Writes::of_crate(tcx, &|def_id| self.bound(def_id));
+		let bodies = tcx
+			.mir_keys(())
+			.iter()
+			.map(|def_id| def_id.to_def_id())
+			.chain(self.read.iter().copied());
+		// A binding's code, a bound type's methods' included, is code it doesn't read.
+		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| {
+			self.crates.translates(def_id) && !self.bound(def_id)
+		});
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate
-	/// depends on, through modules and then a type's inherent functions.
+	/// depends on, through modules and then a type's inherent functions. A dependency goes
+	/// by the name the crate's source gives it, which a renamed one's isn't its own; a crate
+	/// reached only through another goes by its own name, where one crate of it is built.
 	fn resolve_bound(&self, path: &str) -> Option<DefId> {
 		let segments: Vec<&str> = path.split("::").collect();
 		if let Some(def_id) = resolve_in(self.tcx, CRATE_DEF_ID.to_def_id(), &segments) {
@@ -153,18 +164,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let (name, rest) = segments.split_first()?;
 		let tcx = self.tcx;
-		let named: Vec<_> = tcx
-			.crates(())
-			.iter()
-			.copied()
-			.filter(|&cnum| tcx.crate_name(cnum).as_str() == *name)
-			.collect();
-		// The one the crate names, where several versions are built.
-		let cnum = match named[..] {
-			[cnum] => cnum,
-			_ => *named
-				.iter()
-				.find(|&&cnum| tcx.extern_crate(cnum).is_some_and(|e| e.is_direct()))?,
+		let named = CStore::from_tcx(tcx).resolved_extern_crate(rustc_span::Symbol::intern(name));
+		let cnum = match named {
+			Some(cnum) => cnum,
+			None => {
+				let mut own = tcx.crates(()).iter().copied().filter(|&cnum| {
+					tcx.crate_name(cnum).as_str() == *name && !tcx.extern_crate(cnum).is_some_and(|e| e.is_direct())
+				});
+				match (own.next(), own.next()) {
+					(Some(cnum), None) => cnum,
+					_ => return None,
+				}
+			}
 		};
 		resolve_in(tcx, cnum.as_def_id(), rest)
 	}
@@ -196,9 +207,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		(adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some()).then_some(adt.did())
 	}
 
-	/// Whether `def_id` is the crate's own, which it translates, rather than bound.
+	/// Whether `def_id` is of a crate that translates, rather than bound.
 	pub fn own(&self, def_id: DefId) -> bool {
-		def_id.is_local() && !self.bindings.items.contains_key(&def_id)
+		self.crates.translates(def_id) && !self.bindings.items.contains_key(&def_id)
 	}
 
 	/// Why `def_id`, which isn't [`own`](Self::own), isn't the crate's to translate.
@@ -302,7 +313,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				tcx.fn_sig(def_id).instantiate(tcx, instance.args).skip_norm_wip(),
 			);
 			let sig = tcx.normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(sig));
-			let ty = self.fn_ty(sig.inputs(), sig.output(), span);
+			// `=> undefined` for `()`, not `fn_ty`'s `=> void`, which accepts any return value.
+			let params = sig.inputs().iter().map(|t| self.ty(*t, span)).collect();
+			let ty = Type::Func(params, Box::new(self.ty(sig.output(), span)));
 			let body = vec![StmtKind::Return(Some(Expr::Sym(sym))).at(None)];
 			let what = ty::print::with_no_trimmed_paths!(format!(
 				"the binding of `{instance}` in {}",
@@ -363,9 +376,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.program.bound.contains_key(module) {
 			let file = &self.bindings.files[module];
 			// A census writes nothing, so it reads no file.
-			let text = match &self.refusals {
-				Some(_) => Ok(String::new()),
-				None => std::fs::read_to_string(self.config.dir.join(&file.path)),
+			let text = match self.census {
+				true => Ok(String::new()),
+				false => std::fs::read_to_string(self.config.dir.join(&file.path)),
 			};
 			let (namespace, prefix) = (file.namespace.clone(), file.prefix.clone());
 			let source = self.config.dir.join(&file.path);

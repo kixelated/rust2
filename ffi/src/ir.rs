@@ -159,17 +159,19 @@ pub struct Function {
 	pub eager: bool,
 	/// What it reads: Rust's function, or a field or constant named as it is.
 	pub access: Access,
-	/// The instance the config names, if it is generic.
+	/// The instance it is, if a type parameter exports at several.
 	pub instance: Option<Instance>,
 }
 
-/// An instance of a generic function or method the config names.
+/// An instance of a generic function or method, at one of the types a type parameter
+/// exports at.
 pub struct Instance {
-	/// Its C name, without the prefix.
-	pub name: String,
 	/// The arguments of its declared type parameters, which the call names, as Rust
-	/// cannot infer one no argument names; its argument infers an `impl Trait` one.
-	pub args: Vec<Type>,
+	/// cannot infer one no argument names; its argument infers an `impl Trait` one, and
+	/// one left `None`, which takes a lent closure or a foreign implementation.
+	pub args: Vec<Option<Type>>,
+	/// The arguments that tell it from its other instances, which name it.
+	pub named: Vec<Type>,
 }
 
 /// What an exported function reads.
@@ -251,6 +253,9 @@ pub enum Type {
 	Object(usize),
 	/// A foreign implementation of a callback trait, in the form the parameter takes.
 	Callback(usize, Dyn),
+	/// A closure the callee calls only during the call, as a foreign function: what it
+	/// takes, then what it returns.
+	Closure(Vec<Type>, Box<Type>),
 	/// `std::ops::Range` of an integer.
 	Range(Int),
 	/// `std::ops::Bound` of an integer.

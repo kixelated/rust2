@@ -4,19 +4,12 @@
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
 #![feature(cow_is_borrowed)]
 
-pub fn float(a: f64) -> f64 {
+pub fn float(a: f32) -> f32 {
 	a * 2.0
 }
 
 pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
 	f(1)
-}
-
-/// Each element would be a copy, so the increments would be lost.
-pub fn increment(v: &mut [u32]) {
-	for x in v {
-		*x += 1;
-	}
 }
 
 /// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
@@ -52,15 +45,6 @@ pub struct Noisy(pub u8);
 
 impl Drop for Noisy {
 	fn drop(&mut self) {}
-}
-
-/// A closure that owns a value that drops, which `count`'s `fold` drops before the items
-/// `map` holds, where dropping `map` drops it after.
-pub fn owning_closure(v: Vec<Noisy>) -> usize {
-	let n = Noisy(1);
-	// Through a reference, it owns `n` whole rather than a copy of its field.
-	let f = move |x: Noisy| x.0 + (&n).0;
-	v.into_iter().map(f).count()
 }
 
 /// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
@@ -107,9 +91,9 @@ pub fn replaced(a: &mut Meters) -> Meters {
 
 pub struct Meters(pub u64);
 
-pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
+pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
-	(*t).into() as f64
+	(*t).into() as f32
 }
 
 /// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
@@ -117,8 +101,8 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 	*dst = src;
 }
 
-/// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
-pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
+/// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.
+pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<std::task::Poll<u8>>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
 }
 
@@ -230,11 +214,6 @@ impl std::iter::FusedIterator for Fused {}
 
 pub fn fused() -> usize {
 	Fused.fuse().count()
-}
-
-/// A panic in `fold` drops the `Vec` `flatten` took mid-way before the rest, as `next` does not.
-pub fn flattened(v: Vec<Vec<Noisy>>) -> usize {
-	v.into_iter().flatten().fold(0, |n, _| n + 1)
 }
 
 /// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
@@ -362,27 +341,6 @@ pub fn shared(b: std::sync::Arc<[u8; 2]>) -> std::sync::Arc<[u8]> {
 	b
 }
 
-/// A `<` of its own, which `sort`, `max`, and a tuple's `<` would call where the
-/// translation calls `partial_cmp`.
-#[derive(PartialEq, Eq, Ord)]
-pub struct Lopsided(u8);
-
-impl PartialOrd for Lopsided {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-		Some(self.0.cmp(&other.0))
-	}
-
-	fn lt(&self, other: &Self) -> bool {
-		self.0 > other.0
-	}
-}
-
-pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
-	v.sort();
-	let wins = (1, &a) < (2, &b);
-	wins && a.max(b).0 > 0
-}
-
 /// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
 /// element.
 #[derive(PartialEq, Eq)]
@@ -445,18 +403,6 @@ pub fn cow_made(a: &std::sync::Arc<u8>) -> usize {
 	std::sync::Arc::strong_count(a)
 }
 
-/// std makes a `&mut` to a value JS copies, which its mapping has as the value.
-pub fn last_bumped(v: &mut Vec<u32>) {
-	if let Some(x) = v.last_mut() {
-		*x += 1;
-	}
-}
-
-/// std hands the closure a `&mut` to a value JS copies, as `passed`'s is.
-pub fn modified(map: &mut std::collections::HashMap<u8, u32>) {
-	map.entry(1).and_modify(|v| *v += 1);
-}
-
 fn bumped(x: &mut u8) {
 	*x += 1;
 }
@@ -472,6 +418,11 @@ pub fn ok_passed(r: &mut Result<u8, u8>) {
 /// `Option`s holding `rt.Place`s, which std's runtime would compare as the Places.
 pub fn places_equal(a: &mut u32, b: &mut u32) -> bool {
 	Some(a) == Some(b)
+}
+
+/// An owner that drops, which would drop with the last clone of the `Bytes`.
+pub fn owned_bytes(owner: std::sync::Arc<[u8]>) -> usize {
+	bytes::Bytes::from_owner(owner).len()
 }
 
 pub struct Part(pub u64);
@@ -491,4 +442,98 @@ impl std::iter::Sum<Part> for u64 {
 /// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
 pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
 	(a.into_iter().sum(), b.into_iter().sum())
+}
+
+/// One rounding, which JS has no cheap form of.
+pub fn fma(a: f64) -> f64 {
+	a.mul_add(2.0, 1.0)
+}
+
+/// Float formatting is not translated yet.
+pub fn float_printed(a: f64) -> String {
+	format!("{a}")
+}
+
+pub trait Reading {
+	fn read(&self) -> u8;
+}
+
+impl Reading for u8 {
+	fn read(&self) -> u8 {
+		*self
+	}
+}
+
+/// A `Weak` of a trait object, which would need an object made of a value that may be
+/// gone.
+pub fn weak_object(n: std::sync::Weak<u8>) -> Option<u8> {
+	let r: std::sync::Weak<dyn Reading> = n;
+	r.upgrade().map(|r| r.read())
+}
+
+pub trait Scaled<T> {
+	fn scale(&self, by: T) -> T;
+}
+
+/// A trait object of a generic trait.
+pub fn generic_object(s: &dyn Scaled<u8>) -> u8 {
+	s.scale(2)
+}
+
+pub trait First {
+	fn first(&self) -> u8;
+}
+
+impl First for [u8; 4] {
+	fn first(&self) -> u8 {
+		self[0]
+	}
+}
+
+/// A trait object of a byte array, which a box holds as a `Uint8Array` and a reference as
+/// an `rt.ByteSlice`.
+pub fn first_of(n: u8) -> u8 {
+	let b: Box<dyn First> = Box::new([n, 8, 9, 10]);
+	b.first()
+}
+
+pub struct Tail<T: ?Sized> {
+	pub value: T,
+}
+
+/// A struct whose last field unsizes to a trait object.
+pub fn tail_read(t: &Tail<u8>) -> u8 {
+	let r: &Tail<dyn Reading> = t;
+	r.value.read()
+}
+
+/// A generic type's `Poll<T>` is `rt.Poll<T>`, which can't hold `rt.OuterPending`, the
+/// `Pending` of a `Poll<Poll<u8>>`.
+pub struct Waiting<T> {
+	pub poll: std::task::Poll<T>,
+}
+
+pub fn generic_pending(poll: std::task::Poll<std::task::Poll<u8>>) -> bool {
+	Waiting { poll }.poll.is_pending()
+}
+
+/// A copy of a closure that rebinds a shared reference it captured: each Rust copy has
+/// its own, where JS would share one binding.
+pub fn rebound_reference(a: &u32, b: &u32) -> (u32, u32) {
+	let mut r = a;
+	let c = move || {
+		let old = *r;
+		r = b;
+		old
+	};
+	let mut x = c;
+	let mut y = c;
+	(x(), y())
+}
+
+/// `get_mut` of a mutex of a number, whose `&mut` the mapping would copy.
+pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
+	let n = m.get_mut().unwrap();
+	*n += 1;
+	*n
 }

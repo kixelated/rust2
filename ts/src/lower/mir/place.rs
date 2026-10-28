@@ -5,9 +5,11 @@
 //! stays put reads as that place, which is how a `&mut` to a number changes the number.
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_data_structures::fx::FxHashSet;
 use rustc_middle::mir::interpret::{GlobalId, Scalar};
+use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, ProjectionElem};
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::{Env, Fx, Pending, Slot};
@@ -348,7 +350,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// discriminants. `tsc` narrows only what a switch tests.
 	fn as_variant(&mut self, base: Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
 		match ty.kind() {
-			ty::Adt(adt, _) if adt.did().is_local() => match self.variant_ty(ty, variant, span) {
+			ty::Adt(adt, _) if self.b.t.crates.translates(adt.did()) => match self.variant_ty(ty, variant, span) {
 				Some(variant) => Expr::As(Box::new(base), variant),
 				None => base,
 			},
@@ -453,17 +455,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero) => base,
+				Some(
+					Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero | Std::PoisonError,
+				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.
-				Some(Std::Bound) => {
+				Some(Std::Bound | Std::TryLockError) => {
 					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
-					let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
+					let variant = adt.variant(variant.unwrap_or(rustc_abi::FIRST_VARIANT));
+					let held = variant.fields[field].ty(tcx, args).skip_norm_wip();
 					let fields = vec![
-						(
-							"tag".to_string(),
-							crate::ts::Type::StrLit(adt.variant(variant).name.to_string()),
-						),
-						("_0".to_string(), self.b.t.ty(args.type_at(0), span)),
+						("tag".to_string(), crate::ts::Type::StrLit(variant.name.to_string())),
+						("_0".to_string(), self.b.t.ty(held, span)),
 					];
 					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")
 				}
@@ -508,21 +510,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 							let def = &adt.variant(variant).fields[field];
 							let name = crate::lower::field_name(def.name.as_str(), field.index());
-							// A cleanup block runs in a `catch`, outside the test that narrowed it.
-							let base = match self.in_cleanup.is_some() {
-								true => {
-									let ty::Adt(_, args) = ty.kind() else { unreachable!() };
-									let v = adt.variant(variant);
-									let mut fields =
-										vec![("tag".to_string(), crate::ts::Type::StrLit(v.name.to_string()))];
-									for (i, f) in v.fields.iter().enumerate() {
-										let field_ty = self.b.t.ty(f.ty(tcx, args).skip_norm_wip(), span);
-										fields.push((crate::lower::field_name(f.name.as_str(), i), field_ty));
-									}
-									Expr::As(Box::new(base), crate::ts::Type::Object(fields))
-								}
-								false => base,
-							};
 							base.member(name)
 						}
 					}
@@ -546,7 +533,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// place that could change.
 			Operand::Copy(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-				if changes_captures(ty) {
+				// Optimized MIR also copies what isn't `Copy`, where it is a move: copy
+				// propagation does in a body without cleanups.
+				if changes_captures(self.tcx, ty) && self.b.t.is_copy(ty) {
 					return self.err(span, "a copy of a closure that changes what it captured");
 				}
 				let value = self.place_expr(*place, span, out);
@@ -616,6 +605,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
 				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
+				// A tuple's array has a fixed length, so its parts copy over in place.
+				Some(ObjectKind::Array) if matches!(pointee.kind(), ty::Tuple(_)) => {
+					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
+				}
 				_ => None,
 			};
 			match (e, alias) {
@@ -759,24 +752,47 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 			}
 		}
-		self.stable_path(target, super::own(place), span, out)
+		if super::own(place) {
+			return self.stable_path(target, true, span, out);
+		}
+		// A field or element of what one reference points at: only the reference can change
+		// while the borrow lives.
+		let through_one = match place.projection.as_slice() {
+			[ProjectionElem::Deref, inner @ .., last] => {
+				!matches!(last, ProjectionElem::Deref)
+					&& inner
+						.iter()
+						.all(|e| matches!(e, ProjectionElem::Field(..) | ProjectionElem::Downcast(..)))
+			}
+			_ => false,
+		};
+		let reference = match &self.slots[place.local] {
+			Slot::Var(name) if through_one && starts_from(&target, name) => name.clone(),
+			_ => return self.stable_path(target, false, span, out),
+		};
+		let held = self.held_now(Expr::ident(&reference), out);
+		let target = from_held(target, &held);
+		self.stable_path(target, true, span, out)
 	}
 
 	/// `target`, a path, with the index it goes through held where it is now, and the
-	/// object too unless it is a local's `own` value, which can't change while borrowed.
-	pub(super) fn stable_path(&mut self, target: Expr, own: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
+	/// object too unless it is `fixed`, which can't change while borrowed.
+	pub(super) fn stable_path(&mut self, target: Expr, fixed: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		self.materialize(&target, out);
-		let mut base = |fx: &mut Self, e: Expr| match own {
+		let mut base = |fx: &mut Self, e: Expr| match fixed {
 			true => e,
 			false => fx.held_now(e, out),
 		};
 		match target {
-			Expr::Located(_, e) => self.stable_path(*e, own, span, out),
+			Expr::Located(_, e) => self.stable_path(*e, fixed, span, out),
+			// A payload `Option::insert` lends, read as its type.
+			Expr::As(e, ty) => Expr::As(Box::new(self.stable_path(*e, fixed, span, out)), ty),
 			Expr::Ident(_) | Expr::This => target,
 			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
 			Expr::Index(object, i) => {
 				let object = base(self, *object);
-				Expr::Index(Box::new(object), Box::new(self.held_now(*i, out)))
+				let i = self.held_now(*i, out);
+				Expr::Index(Box::new(object), Box::new(i))
 			}
 			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),
 		}
@@ -886,8 +902,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", self.b.t.none(args.type_at(0))),
 					},
 					Some(Std::Poll) => match index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
+						0 => scrut.clone().binary("!==", self.b.t.pending(args.type_at(0))),
+						_ => scrut.clone().binary("===", self.b.t.pending(args.type_at(0))),
 					},
 					Some(Std::Result) => match index.index() {
 						0 => scrut.clone().member("ok"),
@@ -908,7 +924,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Ordering) => scrut
 						.clone()
 						.binary("===", crate::lower::collections::ordering_variant(index)),
-					Some(Std::Bound) => scrut
+					Some(Std::AtomicOrdering) => {
+						scrut.clone().binary("===", crate::lower::task::atomic_ordering(index))
+					}
+					Some(Std::Bound | Std::TryLockError) => scrut
 						.clone()
 						.member("tag")
 						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
@@ -994,6 +1013,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ConstValue::Scalar(Scalar::Int(int)) => match ty.kind() {
 				ty::Bool => Expr::lit((int.to_bits_unchecked() != 0).to_string()),
 				ty::Char => Expr::lit(int.to_u32().to_string()),
+				_ if crate::lower::float::is(ty) => crate::lower::float::lit(f64::from_bits(int.to_u64())),
 				_ => match Int::of(ty) {
 					Some(i) => {
 						let size = rustc_abi::Size::from_bits(i.bits);
@@ -1206,19 +1226,64 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 	)
 }
 
-/// Whether `ty` holds an `FnMut` closure by value: a copy of its arrow function shares
-/// the variables it captured, which in Rust each copy has its own of.
-fn changes_captures(ty: Ty<'_>) -> bool {
+/// Whether `ty` holds an `FnMut` closure by value whose body writes a capture: a copy of
+/// its arrow function shares the variables it captured, which in Rust each copy has its
+/// own of. A closure is `FnMut` where its bound asks for one, even if it writes nothing,
+/// and a capture that holds no state, a fn item or a closure capturing nothing, changes
+/// nothing when written.
+fn changes_captures<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
-		ty::Closure(_, args) => {
+		ty::Closure(def_id, args) => {
 			let closure = args.as_closure();
-			closure.kind() == ty::ClosureKind::FnMut || closure.upvar_tys().iter().any(changes_captures)
+			let upvars = closure.upvar_tys();
+			let writes = closure.kind() == ty::ClosureKind::FnMut
+				&& (!tcx.is_mir_available(*def_id)
+					|| written_captures(tcx.optimized_mir(*def_id))
+						.into_iter()
+						.any(|field| upvars.get(field.index()).is_none_or(|t| !stateless(*t))));
+			writes || upvars.iter().any(|t| changes_captures(tcx, t))
 		}
-		ty::Tuple(tys) => tys.iter().any(changes_captures),
-		ty::Array(t, _) => changes_captures(*t),
-		ty::Adt(_, args) => args.types().any(changes_captures),
+		ty::Tuple(tys) => tys.iter().any(|t| changes_captures(tcx, t)),
+		ty::Array(t, _) => changes_captures(tcx, *t),
+		ty::Adt(_, args) => args.types().any(|t| changes_captures(tcx, t)),
 		_ => false,
 	}
+}
+
+/// Whether every value of `ty` is the same, so writing one changes nothing.
+fn stateless(ty: Ty<'_>) -> bool {
+	match ty.kind() {
+		ty::FnDef(..) => true,
+		ty::Closure(_, args) => args.as_closure().upvar_tys().is_empty(),
+		ty::Tuple(tys) => tys.is_empty(),
+		_ => false,
+	}
+}
+
+/// The captures a closure's body `mir` writes into, assigns, or borrows mutably, other than
+/// to drop them.
+fn written_captures(mir: &mir::Body<'_>) -> FxHashSet<FieldIdx> {
+	struct Written(FxHashSet<FieldIdx>);
+	impl<'tcx> Visitor<'tcx> for Written {
+		fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, _: mir::Location) {
+			if place.local.as_u32() != 1
+				|| !cx.is_mutating_use()
+				|| cx == PlaceContext::MutatingUse(MutatingUseContext::Drop)
+			{
+				return;
+			}
+			let projection = match place.projection.as_slice() {
+				[ProjectionElem::Deref, rest @ ..] => rest,
+				all => all,
+			};
+			if let [ProjectionElem::Field(field, _), ..] = projection {
+				self.0.insert(*field);
+			}
+		}
+	}
+	let mut written = Written(FxHashSet::default());
+	written.visit_body(mir);
+	written.0
 }
 
 /// Whether the JS object of a `ty` is shared or private, so that copying fields into it
@@ -1238,5 +1303,26 @@ fn shared<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		),
 		ty::Ref(..) | ty::Coroutine(..) => true,
 		_ => false,
+	}
+}
+
+/// Whether `path` reads through the variable `name` first.
+fn starts_from(path: &Expr, name: &str) -> bool {
+	match path {
+		Expr::Located(_, e) | Expr::Member(e, _) | Expr::Index(e, _) | Expr::As(e, _) => starts_from(e, name),
+		Expr::Ident(n) => n == name,
+		_ => false,
+	}
+}
+
+/// `path`, reading through `held` where it reads through the variable it starts from.
+fn from_held(path: Expr, held: &Expr) -> Expr {
+	let from = |e: Box<Expr>| Box::new(from_held(*e, held));
+	match path {
+		Expr::Located(loc, e) => Expr::Located(loc, from(e)),
+		Expr::Member(e, key) => Expr::Member(from(e), key),
+		Expr::Index(e, i) => Expr::Index(from(e), i),
+		Expr::As(e, ty) => Expr::As(from(e), ty),
+		_ => held.clone(),
 	}
 }

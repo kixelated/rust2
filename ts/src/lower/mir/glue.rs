@@ -38,7 +38,7 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 	t.drop_shims.insert(ty, sym);
 	let rustc = match ty.kind() {
 		ty::Tuple(_) => true,
-		ty::Adt(adt, _) => adt.is_enum() || adt.did().is_local(),
+		ty::Adt(adt, _) => adt.is_enum() || t.crates.translates(adt.did()),
 		_ => false,
 	};
 	// The shim takes a pointer, which is the value in JS.

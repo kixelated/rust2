@@ -52,7 +52,7 @@ macro_rules! ops {
 				}
 				None => out.push(0),
 			};
-			match op % 30 {
+			match op % 31 {
 				0 => put(out, a + b),
 				1 => put(out, a - b),
 				2 => put(out, a * b),
@@ -103,6 +103,7 @@ macro_rules! ops {
 						out.push(m as u8);
 					}
 				}
+				29 => out.extend_from_slice(&a.to_le_bytes()),
 				_ => {
 					// Compound assignment, with constants folded beside variables.
 					let mut x = a;
@@ -219,6 +220,10 @@ pub fn convert(data: &[u8], out: &mut Vec<u8>) {
 		Ok(v) => out.extend_from_slice(&v.to_be_bytes()),
 		Err(_) => out.push(0xfd),
 	}
+	let tripled: Result<u64, _> = (wide as u128 * 3).try_into();
+	out.extend_from_slice(&tripled.unwrap_or(u64::MAX).to_be_bytes());
+	let narrowed: Result<u16, _> = signed.try_into();
+	out.extend_from_slice(&narrowed.unwrap_or(0xffff).to_be_bytes());
 	let widened: u64 = u64::from(wide as u16);
 	let into: i64 = signed.into();
 	out.extend_from_slice(&widened.to_be_bytes());

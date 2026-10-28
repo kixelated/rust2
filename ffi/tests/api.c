@@ -43,6 +43,54 @@ static void log_free(void *data) {
 	printf("freed\n");
 }
 
+/* A lent closure: adds data's amount to the counter lent for the call. */
+static bool edit(void *data, api_counter *counter) {
+	api_counter_add(counter, *(const uint64_t *)data, NULL, NULL);
+	return api_counter_edited(counter) && api_counter_get(counter) == 6;
+}
+
+/* Lent closures borrowing their object shared: one `Sync`, one not. */
+static uint32_t seven(void *data) {
+	(void)data;
+	return 7;
+}
+
+/* A lent closure of an inferred instance's type. */
+static uint32_t triple(void *data, uint32_t side) {
+	(void)data;
+	return side * 3;
+}
+
+static uint64_t visit(void *data, const api_cursor *cursor) {
+	(void)data;
+	return api_cursor_at(cursor) * 2;
+}
+
+static uint32_t peek_tally(void *data, const api_tally *tally) {
+	(void)data;
+	return api_tally_bump(tally);
+}
+
+/* A lent closure, which Rust calls on another thread: keeps levels above data's. */
+static bool keep_line(void *data, uint8_t level, api_buf line) {
+	printf("filter %u %.*s\n", level, (int)line.len, (const char *)line.ptr);
+	return level > *(const uint8_t *)data;
+}
+
+/* Breaks a lent handle's contract: frees it, or moves its value out. */
+static bool free_lent(void *data, api_counter *counter) {
+	(void)data;
+	api_counter_free(counter);
+	return false;
+}
+
+static bool move_lent(void *data, api_counter *counter) {
+	(void)data;
+	api_label label = api_counter_into_label(counter, (api_option_point){0});
+	api_label_free(&label);
+	return false;
+}
+
 /* A bound, as Rust's Debug prints it. */
 static void print_bound(api_bound_u64 bound) {
 	switch (bound.kind) {
@@ -101,6 +149,9 @@ static int script(void) {
 	api_counter_free(c);
 	print("label ", api_label_debug(&label), "\n");
 	api_label_free(&label);
+	/* Empty text is not none: only a null pointer is. */
+	api_note empty = {.text = {.ptr = (const uint8_t *)"", .len = 0}};
+	printf("note %s %s\n", api_has_text(empty) ? "true" : "false", api_has_text((api_note){0}) ? "true" : "false");
 
 	/* A tuple returns through one out pointer per element. */
 	api_counter *whole = api_counter_new(str("s"), 7);
@@ -120,6 +171,12 @@ static int script(void) {
 	print("only ", api_counter_name(only), " ");
 	printf("%llu\n", (unsigned long long)api_counter_get(only));
 	api_counter_free(only);
+	uint8_t w8;
+	int16_t w16;
+	uint32_t w32;
+	uint64_t w64;
+	api_widths(98305, &w8, &w16, &w32, &w64);
+	printf("widths %u %d %u %llu\n", w8, w16, w32, (unsigned long long)w64);
 	uint64_t divisors[] = {2, 0};
 	for (int i = 0; i < 2; i++) {
 		uint64_t q, r;
@@ -149,6 +206,13 @@ static int script(void) {
 		   (unsigned long long)api_counter_get(last));
 	api_counter_free(lent);
 	api_counter_free(last);
+	uint64_t by = 5;
+	bool edited = api_registry_edit(registry, edit, &by);
+	first = api_registry_first(registry);
+	printf("edit %s %llu\n", edited ? "true" : "false", (unsigned long long)api_counter_get(first));
+	api_counter_free(first);
+	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
+	printf("offset %u\n", api_offset(seven, NULL, 3));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */
@@ -235,6 +299,8 @@ static int script(void) {
 	printf("write %s\n", api_logger_write(logger, str("hi")) ? "true" : "false");
 	api_logger_free(logger);
 	printf("dropped\n");
+	uint8_t threshold = 2;
+	printf("filtered %u\n", api_filter(lines, keep_line, &threshold));
 
 	api_channel *channel = api_channel_new();
 	api_waker waker = {.wake = wake, .drop = drop, .data = NULL};
@@ -295,6 +361,7 @@ static int script(void) {
 	uint32_t count = api_tally_bump(tally);
 	printf("tally %u %s\n", count, api_tally_eq(tally, tally) ? "true" : "false");
 	printf("both %u\n", api_bump_both(tally, tally));
+	printf("peek %u\n", api_peek(tally, peek_tally, NULL));
 	api_tally_free(tally);
 
 	/* Another export's types, which this export's function takes and returns. */
@@ -305,46 +372,73 @@ static int script(void) {
 	printf("area %u %u %llu\n", size.width, size.height, (unsigned long long)api_area_pixels(area));
 	api_area_free(area);
 
-	/* Generic types, each at the instances the config names under their own names. */
-	api_pair pair = {.left = 2, .right = 5};
-	api_pair swapped = api_pair_swap(&pair);
-	printf("pair %u %u sum %u ", swapped.left, swapped.right, api_pair_sum(&pair));
-	print("", api_pair_debug(&pair), " ");
-	printf("%s\n", api_pair_eq(&pair, &swapped) ? "true" : "false");
-	api_pair twins = {.left = 7, .right = 7};
-	printf("even %s %s\n", api_pair_even(&pair) ? "true" : "false", api_pair_even(&twins) ? "true" : "false");
-	api_size_pair sizes = {.left = {.width = 1, .height = 2}, .right = 3};
-	api_pair_size flipped = api_size_pair_swap(&sizes);
+	/* Generic types, each at the instances it infers, named by their arguments. */
+	api_pair_u32 pair = {.left = 2, .right = 5};
+	api_pair_u32 swapped = api_pair_u32_swap(&pair);
+	printf("pair %u %u sum %u ", swapped.left, swapped.right, api_pair_u32_sum(&pair));
+	print("", api_pair_u32_debug(&pair), " ");
+	printf("%s\n", api_pair_u32_eq(&pair, &swapped) ? "true" : "false");
+	api_pair_u32 twins = {.left = 7, .right = 7};
+	printf("even %s %s\n", api_pair_u32_even(&pair) ? "true" : "false",
+	       api_pair_u32_even(&twins) ? "true" : "false");
+	api_pair_size_u8 sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
+	api_pair_u8_size flipped = api_pair_size_u8_swap(&sizes);
 	printf("sized %u %u ", flipped.left, flipped.right.width);
-	print("", api_pair_size_debug(&flipped), "\n");
-	api_pair byte = {.left = 258, .right = 9};
-	api_pair_size beside = api_pair_beside(&byte, sizes.left);
+	print("", api_pair_u8_size_debug(&flipped), "\n");
+	api_pair_u32 byte = {.left = 258, .right = 9};
+	api_pair_u8_size beside = api_pair_u32_beside_size(&byte, sizes.left);
 	printf("beside %u ", beside.left);
-	print("", api_pair_size_debug(&beside), "\n");
-	api_counters *stack = api_counters_new();
+	print("", api_pair_u8_size_debug(&beside), "\n");
+	/* At its default, named as the type itself. */
+	api_stack *stack = api_stack_new();
 	const char *names[] = {"a", "b"};
 	for (int i = 0; i < 2; i++) {
 		api_counter *pushed = api_counter_new(str(names[i]), (uint64_t)i + 1);
-		api_counters_push(stack, pushed);
+		api_stack_push(stack, pushed);
 		api_counter_free(pushed);
 	}
-	api_counter *top = api_counters_pop(stack);
-	printf("stack %zu Some(%llu)", api_counters_depth(stack), (unsigned long long)api_counter_get(top));
+	api_counter *top = api_stack_pop(stack);
+	printf("stack %zu Some(%llu)", api_stack_depth(stack), (unsigned long long)api_counter_get(top));
 	api_counter_free(top);
-	api_counter *next = api_counters_pop(stack);
+	api_counter *next = api_stack_pop(stack);
 	printf(" %s", next != NULL ? "true" : "false");
 	api_counter_free(next);
-	printf(" %s\n", api_counters_pop(stack) == NULL ? "true" : "false");
-	/* Generic functions and methods, at each instance the config names, by its own name. */
+	printf(" %s\n", api_stack_pop(stack) == NULL ? "true" : "false");
+	/* Generic functions and methods, at each implementation of the trait bounding them, by
+	   reference, which leaves C its handle. */
 	api_counter *from_point = api_counter_seeded_point(str("p"), (api_point){.x = -3, .y = 4});
 	api_counter *from_size = api_counter_seeded_size(str("s"), (api_size){.width = 5, .height = 6});
-	printf("seeded %llu %llu past %llu seeds %llu\n", (unsigned long long)api_counter_get(from_point),
-	       (unsigned long long)api_counter_get(from_size),
-	       (unsigned long long)api_counters_depth_past_point(stack, (api_point){.x = 1, .y = 2}),
-	       (unsigned long long)api_seeds((api_size){.width = 2, .height = 3}));
+	api_counter *from_counter = api_counter_seeded_counter(str("c"), from_point);
+	/* Two instances whose arguments share a last segment: one takes its module too. */
+	api_counter *from_polar = api_counter_seeded_polar_point(str("q"), (api_polar_point){.turns = 1, .distance = 2});
+	printf("seeded %llu %llu %llu %llu past %llu seeds %llu\n", (unsigned long long)api_counter_get(from_point),
+	       (unsigned long long)api_counter_get(from_size), (unsigned long long)api_counter_get(from_counter),
+	       (unsigned long long)api_counter_get(from_polar),
+	       (unsigned long long)api_stack_depth_past_point(stack, (api_point){.x = 1, .y = 2}),
+	       (unsigned long long)api_seeds_point_size((api_size){.width = 2, .height = 3}));
 	api_counter_free(from_point);
 	api_counter_free(from_size);
-	api_counters_free(stack);
+	api_counter_free(from_counter);
+	api_counter_free(from_polar);
+	api_stack_free(stack);
+
+	/* A trait implemented for `Point` and `&Point` apart: one instance. */
+	printf("weigh %u\n", api_weigh_point((api_point){.x = -1, .y = 2}));
+	/* Instances that name each other, and one made only by an impl of it. */
+	api_outer_inner_u8 *outer = api_outer_inner_u8_new(4);
+	printf("cross %u outer %u\n",
+	       api_cross((api_left_right_u8){.value = {.value = 1}}, (api_right_left_u8){.value = {.value = 2}}),
+	       api_outer_inner_u8_get(outer));
+	api_outer_inner_u8_free(outer);
+	/* A bound that outlives the call takes a value, and an instance only a constant names. */
+	printf("kept %llu boxed %u\n", (unsigned long long)api_kept_point((api_point){.x = 1, .y = -2}), api_boxed().value);
+	/* Inferred instances taking a lent closure and a foreign implementation, and one only
+	 * its impl of a trait names. */
+	api_pair_u32 sides = {.left = 2, .right = 5};
+	printf("apply %u\n", api_apply_u32(sides, triple, NULL));
+	printf("report %u\n", api_report_u32(sides, (api_log){.vtable = &print_log}));
+	printf("wrapped %llu\n", (unsigned long long)api_kept_wrap_u32((api_wrap_u32){.value = 4}));
+	printf("keeps %u\n", api_keeps((api_log){.vtable = &print_log}).value);
 
 	/* Its Drop runs when C frees the handle, not before. */
 	api_token *token = api_token_new(7);
@@ -357,9 +451,9 @@ static int script(void) {
 	api_option_u32 limit = api_retry_limit_setting(retry);
 	printf("retry %d %u %u %u\n", limit.some, limit.value, api_retry_limit(retry), api_retry_delay(retry));
 	api_retry_free(retry);
-	api_byte_slot *slot = api_byte_slot_new(200);
-	printf("slot %u\n", api_byte_slot_value(slot));
-	api_byte_slot_free(slot);
+	api_slot_u8 *slot = api_slot_u8_new(200);
+	printf("slot %u\n", api_slot_u8_value(slot));
+	api_slot_u8_free(slot);
 	/* Each future dropped its waker once it finished, and Rust the one it was given. */
 	return drops == 5 ? 0 : 1;
 }
@@ -390,6 +484,12 @@ static int broken(const char *which) {
 		api_channel_recv_poll(recv, waker, &payload);
 	} else if (strcmp(which, "enum") == 0) {
 		api_greet(str("x"), (api_shape)2);
+	} else if (strcmp(which, "lent") == 0 || strcmp(which, "lent moved") == 0) {
+		api_registry *registry = api_registry_new(api_counter_new(str("c"), 0));
+		api_registry_edit(registry, strcmp(which, "lent") == 0 ? free_lent : move_lent, NULL);
+	} else if (strcmp(which, "null") == 0) {
+		api_registry *registry = api_registry_new(api_counter_new(str("c"), 0));
+		api_registry_edit(registry, NULL, NULL);
 	} else if (strcmp(which, "bound") == 0) {
 		api_count((api_bounds_u64){.start = {.kind = (api_bound)3}});
 	}

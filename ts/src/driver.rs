@@ -14,19 +14,7 @@ use crate::{lower, program};
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
 pub fn run(args: Vec<String>) -> ExitCode {
 	rust2_driver::rustc::run("rust2-ts", args, |args| {
-		let job = Translate::for_args(args)?;
-		// MIR without the checks of undefined behavior that debug builds add around raw
-		// pointers, such as a box's: JS has no pointers to check. And with the cleanups a
-		// panic unwinds through, which wasm32's default of aborting leaves out: a JS caller
-		// can catch a panic and go on. And with every call where the source has it, as a
-		// release build's inlining would not keep it, since a call is what a binding or a
-		// std function's translation stands in for.
-		if job.is_some() {
-			args.push("-Zub-checks=no".into());
-			args.push("-Cpanic=unwind".into());
-			args.push("-Zinline-mir=no".into());
-		}
-		Ok(job.map(|job| Box::new(job) as rust2_driver::rustc::Job))
+		Ok(Translate::for_args(args)?.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
 }
 

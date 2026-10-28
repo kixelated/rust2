@@ -1,0 +1,7 @@
+# The dependency's `unsafe` without the binding that stands in for it: `refused.txt` holds
+# the errors.
+package = "crates-fixture"
+roots = ["harness::run"]
+
+[bind]
+"crates_dep::Slots" = "bind/slots.ts"

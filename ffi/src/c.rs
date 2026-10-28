@@ -53,32 +53,8 @@ impl Header<'_> {
 		self.out.push('\n');
 	}
 
-	/// `ty` declaring `name`: a parameter, field, or, with an empty name, a type.
 	fn decl(&self, ty: &Ty, name: &str) -> String {
-		let space = |t: &str| match name.is_empty() {
-			true => t.to_string(),
-			false => format!("{t} {name}"),
-		};
-		match ty {
-			Ty::Void => space("void"),
-			Ty::Bool => space("bool"),
-			Ty::Int(int) => space(c_int(*int)),
-			Ty::F32 => space("float"),
-			Ty::F64 => space("double"),
-			Ty::Char => space("uint32_t"),
-			Ty::Buf => space(&self.abi.rt("buf")),
-			Ty::Duration => space(&self.abi.rt("duration")),
-			Ty::Struct(n) | Ty::Enum(n) => space(n),
-			Ty::Handle { name: n, constant } => match constant {
-				true => format!("const {n} *{name}"),
-				false => format!("{n} *{name}"),
-			},
-			Ty::Future(n) => format!("{n} *{name}"),
-			Ty::Waker => space(&self.abi.rt("waker")),
-			Ty::Poll => space(&self.abi.rt("poll")),
-			Ty::Out(inner) => self.decl(inner, &format!("*{name}")),
-			Ty::In(inner) => format!("const {}", self.decl(inner, &format!("*{name}"))),
-		}
+		decl(self.abi, ty, name)
 	}
 
 	fn prototype(&self, sig: &Sig) -> String {
@@ -384,6 +360,8 @@ impl Header<'_> {
 			.call
 			.params
 			.iter()
+			// A lent function's data follows it, and is no parameter of its own.
+			.filter(|(_, ty)| *ty != Ty::Data)
 			.zip(by_value)
 			.filter(|((_, ty), by_value)| *by_value && matches!(ty, Ty::Handle { constant: false, .. }))
 			.map(|((name, _), _)| format!("`{name}`"))
@@ -393,6 +371,24 @@ impl Header<'_> {
 				"\n\nMoves the value out of {}: free the handle after.",
 				moved.join(" and ")
 			));
+		}
+		for param in &function.params {
+			let Type::Closure(params, _) = &param.ty else {
+				continue;
+			};
+			let name = abi::escape(&param.name);
+			let at = (export.call.params.iter())
+				.position(|(n, _)| *n == name)
+				.expect("a C parameter for each");
+			let data = &export.call.params[at + 1].0;
+			docs.push_str(&format!(
+				"\n\nRust calls `{name}` with `{data}` only during the call, from any thread."
+			));
+			if params.iter().any(|p| matches!(p.base(), Type::Object(_))) {
+				docs.push_str(&format!(
+					"\nA handle it lends lives only for that call of `{name}`: free none, nor move out of one."
+				));
+			}
 		}
 		self.out.push_str(&comment(docs.trim(), ""));
 		if let Some((handle, poll, free)) = &export.future {
@@ -407,6 +403,41 @@ impl Header<'_> {
 		}
 		let call = self.prototype(&export.call);
 		self.line(call);
+	}
+}
+
+/// `ty` declaring `name`: a parameter, field, or, with an empty name, a type.
+pub fn decl(abi: &Abi<'_>, ty: &Ty, name: &str) -> String {
+	let space = |t: &str| match name.is_empty() {
+		true => t.to_string(),
+		false => format!("{t} {name}"),
+	};
+	match ty {
+		Ty::Void => space("void"),
+		Ty::Bool => space("bool"),
+		Ty::Int(int) => space(c_int(*int)),
+		Ty::F32 => space("float"),
+		Ty::F64 => space("double"),
+		Ty::Char => space("uint32_t"),
+		Ty::Buf => space(&abi.rt("buf")),
+		Ty::Duration => space(&abi.rt("duration")),
+		Ty::Struct(n) | Ty::Enum(n) => space(n),
+		Ty::Handle { name: n, constant } => match constant {
+			true => format!("const {n} *{name}"),
+			false => format!("{n} *{name}"),
+		},
+		Ty::Future(n) => format!("{n} *{name}"),
+		Ty::Waker => space(&abi.rt("waker")),
+		Ty::Poll => space(&abi.rt("poll")),
+		Ty::Out(inner) => decl(abi, inner, &format!("*{name}")),
+		Ty::In(inner) => format!("const {}", decl(abi, inner, &format!("*{name}"))),
+		Ty::Fn(params, ret) => {
+			let params: Vec<String> = std::iter::once("void *data".to_string())
+				.chain(params.iter().map(|p| decl(abi, p, "")))
+				.collect();
+			decl(abi, ret, &format!("(*{name})({})", params.join(", ")))
+		}
+		Ty::Data => format!("void *{name}"),
 	}
 }
 

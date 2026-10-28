@@ -466,10 +466,6 @@ pub fn simplify(stmts: &mut Vec<Stmt>) {
 				cases.iter_mut().for_each(|(_, body)| simplify(body));
 				simplify(default);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				simplify(body);
-				simplify(handler);
-			}
 			_ => {}
 		}
 	}
@@ -547,10 +543,6 @@ pub fn hoist_else(stmts: &mut Vec<Stmt>) {
 				cases.iter_mut().for_each(|(_, body)| hoist_else(body));
 				hoist_else(default);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				hoist_else(body);
-				hoist_else(handler);
-			}
 			_ => {}
 		}
 		i += 1;
@@ -591,10 +583,6 @@ fn adopt_labels(stmts: &mut [Stmt]) {
 				cases.iter_mut().for_each(|(_, body)| adopt_labels(body));
 				adopt_labels(default);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				adopt_labels(body);
-				adopt_labels(handler);
-			}
 			_ => {}
 		}
 	}
@@ -615,10 +603,6 @@ fn retarget(stmts: &mut [Stmt], from: &str, to: &str) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| retarget(body, from, to));
 				retarget(default, from, to);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				retarget(body, from, to);
-				retarget(handler, from, to);
 			}
 			_ => {}
 		}
@@ -656,10 +640,6 @@ fn rotate(stmts: &mut [Stmt]) {
 				cases.iter_mut().for_each(|(_, body)| rotate(body));
 				rotate(default);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				rotate(body);
-				rotate(handler);
-			}
 			_ => {}
 		}
 	}
@@ -684,10 +664,6 @@ fn unlabel(stmts: &mut [Stmt], innermost: Option<&str>, in_switch: bool) {
 			StmtKind::Switch { cases, default, .. } => {
 				cases.iter_mut().for_each(|(_, body)| unlabel(body, innermost, true));
 				unlabel(default, innermost, true);
-			}
-			StmtKind::Catch { body, handler, .. } => {
-				unlabel(body, innermost, in_switch);
-				unlabel(handler, innermost, in_switch);
 			}
 			_ => {}
 		}
@@ -719,8 +695,6 @@ fn strip_tail(stmts: &mut Vec<Stmt>, jump: &StmtKind) {
 			strip_tail(els, jump);
 		}
 		StmtKind::Block { body, .. } => strip_tail(body, jump),
-		// Falling off the `try` goes past its `catch`.
-		StmtKind::Catch { body, .. } => strip_tail(body, jump),
 		_ => {}
 	}
 }
@@ -748,7 +722,6 @@ fn targets(stmts: &[Stmt], label: &str) -> bool {
 		StmtKind::Block { body, .. } | StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } => {
 			targets(body, label)
 		}
-		StmtKind::Catch { body, handler, .. } => targets(body, label) || targets(handler, label),
 		StmtKind::Switch { cases, default, .. } => {
 			cases.iter().any(|(_, body)| targets(body, label)) || targets(default, label)
 		}

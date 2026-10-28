@@ -7,11 +7,15 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
-import type { Pending } from "./rt/task.ts";
+import { dropAll, type Pending } from "./rt/task.ts";
 
+import { AtIndex } from "./rt/collections.ts";
+export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
+export * from "./rt/float.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
+export * from "./rt/rand.ts";
 export * from "./rt/str.ts";
 export * from "./rt/task.ts";
 export * from "./rt/time.ts";
@@ -76,6 +80,16 @@ class Accessed<T> implements Place<T> {
 	}
 }
 
+/**
+ * The payload's place of the `Option` at `p`, whose `None` is `none`: `p` itself, as
+ * `Some(x)` is `x`, or `undefined` while it is `None`.
+ */
+export function optionAsMut<T>(p: Place<T | undefined>): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | None>, none: None): Place<T> | undefined;
+export function optionAsMut<T>(p: Place<T | undefined | None>, none?: None): Place<T> | undefined {
+	return p.v === none ? undefined : (p as Place<T>);
+}
+
 /** The place `get` reads and `set` writes. */
 export function place<T>(get: () => T, set: (value: T) => void): Place<T> {
 	return new Accessed(get, set);
@@ -128,35 +142,34 @@ export const OK: Result<undefined, never> = /* @__PURE__ */ Object.freeze({ ok: 
 /** `Err(())`, shared as `OK` is. */
 export const ERR: Result<never, undefined> = /* @__PURE__ */ Object.freeze({ ok: false, error: undefined });
 
-/** Panic with `message` and `value`'s `Debug`, and drop `value` as the panic unwinds. */
-function unwrapFailed<T>(message: string, value: T, debug: Debug<T>, drop?: (value: T) => void): never {
-	try {
-		panicFmt([message, ": ", (f) => debug(value, f)]);
-	} catch (e) {
-		drop?.(value);
-		throw e;
-	}
+/** Panic with `message` and `value`'s `Debug`. */
+function unwrapFailed<T>(message: string, value: T, debug: Debug<T>): never {
+	panicFmt([message, ": ", (f) => debug(value, f)]);
 }
 
 // A function that may drop an operand std's would, rather than return it, takes what
-// drops it, and drops it where std's does: as it returns, after any closure it calls, or
-// as a panic in that closure unwinds.
+// drops it, and drops it where std's does: as it returns, or after any closure it calls.
 
-/** `unwrap`, which shows the error with `debug`, and drops it as the panic unwinds. */
-export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>, drop?: (error: E) => void): T {
-	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug, drop);
+/** `unwrap`, which shows the error with `debug`. */
+export function resultUnwrap<T, E>(r: Result<T, E>, debug: Debug<E>): T {
+	if (!r.ok) unwrapFailed("called `Result::unwrap()` on an `Err` value", r.error, debug);
 	return r.value;
 }
 
 /** `Result::expect`: the value, or a panic with `message` and the error's `Debug`. */
-export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>, drop?: (error: E) => void): T {
-	if (!r.ok) unwrapFailed(message, r.error, debug, drop);
+export function resultExpect<T, E>(r: Result<T, E>, message: string, debug: Debug<E>): T {
+	if (!r.ok) unwrapFailed(message, r.error, debug);
 	return r.value;
 }
 
+/** `Result::unwrap_or_else`: the value, or what `f` makes of the error. */
+export function resultUnwrapOrElse<T, E>(r: Result<T, E>, f: (error: E) => T): T {
+	return r.ok ? r.value : f(r.error);
+}
+
 /** `Result::unwrap_err`: the error, or a panic with the value's `Debug`. */
-export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>, drop?: (value: T) => void): E {
-	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug, drop);
+export function resultUnwrapErr<T, E>(r: Result<T, E>, debug: Debug<T>): E {
+	if (r.ok) unwrapFailed("called `Result::unwrap_err()` on an `Ok` value", r.value, debug);
 	return r.error;
 }
 
@@ -183,25 +196,6 @@ export function optionExpect<T>(o: T | None, message: string, none: None): T;
 export function optionExpect<T>(o: T | undefined | None, message: string, none?: None): T {
 	if (o === none) panic(message);
 	return o as T;
-}
-
-/** `bool::then_some`: `value` if `cond`, which is evaluated either way, and else drops. */
-export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void): T | undefined;
-export function thenSome<T>(cond: boolean, value: T, drop: ((value: T) => void) | undefined, none: None): T | None;
-export function thenSome<T>(cond: boolean, value: T, drop?: (value: T) => void, none?: None): T | undefined | None {
-	if (cond) return value;
-	drop?.(value);
-	return none;
-}
-
-// Not `then`, which would make the module's namespace a thenable that `await` calls.
-/** `bool::then`: `f()` if `cond`, which is called only then, and else `f` drops. */
-export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void): T | undefined;
-export function boolThen<T>(cond: boolean, f: () => T, drop: ((f: () => T) => void) | undefined, none: None): T | None;
-export function boolThen<T>(cond: boolean, f: () => T, drop?: (f: () => T) => void, none?: None): T | undefined | None {
-	if (cond) return f();
-	drop?.(f);
-	return none;
 }
 
 // Slices: arrays, but for bytes, which are `ByteSlice`s.
@@ -283,9 +277,24 @@ export function sliceReverse<T>(s: T[]): void {
 	s.reverse();
 }
 
-/** `last` and `last_mut`: the last element, or `undefined` if empty. */
+/** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
 export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
 	return s.length === 0 ? undefined : s[s.length - 1];
+}
+
+/** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
+export function sliceGetMut<T>(s: { [i: number]: T; length: number }, index: number): Place<T> | undefined {
+	return index < s.length ? new AtIndex(s, index) : undefined;
+}
+
+/** `first_mut` of an element JS copies. */
+export function sliceFirstMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return sliceGetMut(s, 0);
+}
+
+/** `last_mut` of an element JS copies. */
+export function sliceLastMut<T>(s: { [i: number]: T; length: number }): Place<T> | undefined {
+	return s.length === 0 ? undefined : new AtIndex(s, s.length - 1);
 }
 
 /** `contains`, by `eq` of each element and then `x`, as std's `==` reads them. */
@@ -301,27 +310,24 @@ export function sliceSwap<T>(s: T[], a: number, b: number): void {
 	s[b] = x;
 }
 
-/**
- * `sort` and `sort_by`, and the unstable sorts, which may order equal elements either way
- * and here keep them in order: stable, by `cmp`, which moves an element before another
- * only if it orders `Less`, as std's sorts test `lt`. If `cmp` panics, the slice holds each
- * element once, in an order std leaves unspecified, as std's does.
- */
-export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering | undefined): void {
-	sort(s, (a, b) => cmp(a, b) === -1);
+/** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
+export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering): void {
+	sliceSort(s, (a, b) => cmp(a, b) === -1);
 }
 
-/** `sort_by_key` and `sort_unstable_by_key`: by `cmp` of each element's `key`, as `sliceSortBy` sorts. */
-export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, cmp: (a: K, b: K) => Ordering | undefined): void {
-	sort(s, (a, b) => cmp(key(a), key(b)) === -1);
+/** `sort_by_key` and `sort_unstable_by_key`: by `lt` of each element's `key`, as `sliceSort` sorts. */
+export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: K) => boolean): void {
+	sliceSort(s, (a, b) => lt(key(a), key(b)));
 }
 
 /**
- * A stable merge sort of `s` by `less`, over runs that insertion sorts first. It calls only
- * `less`, never JS's `sort`, which moves `undefined`, a `None`, to the end without
- * comparing it, and orders its calls differently in each engine.
+ * `sort` and `sort_unstable`, by `less`, the elements' `lt`, which std's sorts test: a
+ * stable merge sort over runs that insertion sorts first. The unstable sorts may order
+ * equal elements either way and here keep them in order. It calls only `less`, never
+ * JS's `sort`, which moves `undefined`, a `None`, to the end without comparing it, and
+ * orders its calls differently in each engine.
  */
-function sort<T>(s: T[], less: (a: T, b: T) => boolean): void {
+export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 	const n = s.length;
 	const RUN = 16;
 	for (let lo = 0; lo < n; lo += RUN) {
@@ -329,15 +335,11 @@ function sort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 		for (let i = lo + 1; i < hi; i++) {
 			const x = s[i];
 			let j = i;
-			// Shifted elements leave a hole at `j`, which `x` fills if `less` panics.
-			try {
-				while (j > lo && less(x, s[j - 1])) {
-					s[j] = s[j - 1];
-					j--;
-				}
-			} finally {
-				s[j] = x;
+			while (j > lo && less(x, s[j - 1])) {
+				s[j] = s[j - 1];
+				j--;
 			}
+			s[j] = x;
 		}
 	}
 	if (n <= RUN) return;
@@ -348,84 +350,65 @@ function sort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 			const hi = Math.min(mid + width, n);
 			if (!less(s[mid], s[mid - 1])) continue;
 			// The left run moves aside, and the merge fills `s` from `lo`, never past the
-			// right run's next element. If `less` panics, what is left of the left run fills
-			// the gap.
+			// right run's next element.
 			left.length = 0;
 			for (let i = lo; i < mid; i++) left.push(s[i]);
 			let i = 0;
 			let j = mid;
 			let k = lo;
-			try {
-				// `k` moves only once `less` returns, so a panic leaves no slot written twice.
-				while (i < left.length && j < hi) {
-					s[k] = less(s[j], left[i]) ? s[j++] : left[i++];
-					k++;
-				}
-			} finally {
-				while (i < left.length) s[k++] = left[i++];
-			}
+			while (i < left.length && j < hi) s[k++] = less(s[j], left[i]) ? s[j++] : left[i++];
+			while (i < left.length) s[k++] = left[i++];
 		}
 	}
 }
 
 /**
  * `Vec::retain` and `retain_mut`: keeps each element `f` returns true for, in order, and
- * drops each other one once `f` rejects it. If `f` or a drop panics, what `f` kept and
- * what it had not yet seen stay, as std's do.
+ * drops each other one once `f` rejects it.
  */
 export function vecRetain<T>(v: T[], f: (item: T) => boolean, drop?: (item: T) => void): void {
-	const n = v.length;
-	let read = 0;
 	let write = 0;
-	try {
-		while (read < n) {
-			const item = v[read];
-			if (f(item)) {
-				v[write++] = item;
-				read++;
-			} else {
-				read++;
-				drop?.(item);
-			}
-		}
-	} finally {
-		v.copyWithin(write, read, n);
-		v.length = write + n - read;
+	for (let read = 0; read < v.length; read++) {
+		const item = v[read];
+		if (f(item)) v[write++] = item;
+		else drop?.(item);
 	}
+	v.length = write;
 }
 
-/**
- * `Vec::dedup_by`: drops each element `same(element, previous kept)` is true for, in order.
- * If `same` or a drop panics, what it kept and what it had not yet seen stay, as std's do.
- */
+/** `Vec::dedup_by`: drops each element `same(element, previous kept)` is true for, in order. */
 export function vecDedupBy<T>(v: T[], same: (a: T, b: T) => boolean, drop?: (item: T) => void): void {
-	const n = v.length;
-	let first = 1;
-	while (first < n && !same(v[first], v[first - 1])) first++;
-	if (first >= n) return;
-	let read = first + 1;
-	let write = first;
-	try {
-		drop?.(v[first]);
-		while (read < n) {
-			const item = v[read];
-			if (same(item, v[write - 1])) {
-				read++;
-				drop?.(item);
-			} else {
-				v[write++] = item;
-				read++;
-			}
-		}
-	} finally {
-		v.copyWithin(write, read, n);
-		v.length = write + n - read;
+	let write = 1;
+	for (let read = 1; read < v.length; read++) {
+		const item = v[read];
+		if (same(item, v[write - 1])) drop?.(item);
+		else v[write++] = item;
 	}
+	if (write < v.length) v.length = write;
 }
 
 /** `Vec::dedup_by_key`: as `vecDedupBy`, by `eq` of `key` of each element, then of the previous kept. */
 export function vecDedupByKey<T, K>(v: T[], key: (item: T) => K, eq: (a: K, b: K) => boolean, drop?: (item: T) => void): void {
 	vecDedupBy(v, (a, b) => eq(key(a), key(b)), drop);
+}
+
+/** `Vec::insert`: `item` at `i`, with those from `i` on moved up. */
+export function vecInsert<T>(v: T[], i: number, item: T): void {
+	if (i > v.length) panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
+	v.splice(i, 0, item);
+}
+
+/** `Vec::remove`: the element at `i`, with those after it moved down. */
+export function vecRemove<T>(v: T[], i: number): T {
+	if (i >= v.length) panic(`removal index (is ${i}) should be < len (is ${v.length})`);
+	return v.splice(i, 1)[0];
+}
+
+/** `Vec::truncate`, and `clear` to 0: the first `len` elements, if there are more, and then each other drops in order. */
+export function vecTruncate<T>(v: T[], len: number, drop?: (item: T) => void): void {
+	if (len >= v.length) return;
+	const cut = v.splice(len);
+	if (drop !== undefined) dropAll(cut, drop);
 }
 
 /** `Vec::swap_remove`: the element at `i`, with the last moved into its place. */
@@ -437,44 +420,17 @@ export function vecSwapRemove<T>(v: T[], i: number): T {
 	return item;
 }
 
-/**
- * `Clone` of a `Vec`, and `to_vec`, by `clone` of each element in order. If one panics, the
- * clones made so far drop, in order, as std's do.
- */
-export function vecClone<T>(s: ArrayLike<T>, clone: (item: T) => T, drop?: (item: T) => void): T[] {
-	const out: T[] = [];
-	try {
-		for (let i = 0; i < s.length; i++) out.push(clone(s[i]));
-	} catch (e) {
-		if (drop !== undefined) for (const item of out) drop(item);
-		throw e;
-	}
-	return out;
-}
-
 /** `Vec::extend_from_slice`: a clone of each element of `s`, pushed in order, as far as they clone. */
 export function vecExtendFromSlice<T>(v: T[], s: ArrayLike<T>, clone?: (item: T) => T): void {
 	for (let i = 0; i < s.length; i++) v.push(clone === undefined ? s[i] : clone(s[i]));
 }
 
-/**
- * `Clone` of a tuple, by `clone` of each field in order, `undefined` for one whose value is
- * itself. If one panics, the clones made so far drop, the last first, by `drops`.
- */
-export function tupleClone<T extends readonly unknown[]>(
-	t: T,
-	clones: readonly (((value: never) => unknown) | undefined)[],
-	drops: readonly (((value: never) => void) | undefined)[],
-): T {
+/** `Clone` of a tuple, by `clone` of each field in order, `undefined` for one whose value is itself. */
+export function tupleClone<T extends readonly unknown[]>(t: T, clones: readonly (((value: never) => unknown) | undefined)[]): T {
 	const out: unknown[] = [];
-	try {
-		for (let i = 0; i < clones.length; i++) {
-			const clone = clones[i] as ((value: unknown) => unknown) | undefined;
-			out.push(clone === undefined ? t[i] : clone(t[i]));
-		}
-	} catch (e) {
-		for (let i = out.length - 1; i >= 0; i--) (drops[i] as ((value: unknown) => void) | undefined)?.(out[i]);
-		throw e;
+	for (let i = 0; i < clones.length; i++) {
+		const clone = clones[i] as ((value: unknown) => unknown) | undefined;
+		out.push(clone === undefined ? t[i] : clone(t[i]));
 	}
 	return out as unknown as T;
 }
@@ -718,6 +674,11 @@ export class FromUtf8Error {
 		this.bytes = bytes;
 		this.error = utf8Error(byteVecView(bytes));
 	}
+}
+
+/** `Clone` of a `FromUtf8Error`: its bytes, copied. */
+export function fromUtf8ErrorClone(e: FromUtf8Error): FromUtf8Error {
+	return new FromUtf8Error(byteVecFrom(byteVecView(e.bytes)));
 }
 
 /** Where `v`, which is not UTF-8, stops being so, and how many bytes are invalid there, as std reports it. */
@@ -1250,6 +1211,16 @@ export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 /** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
+}
+
+/** `Debug` of `PoisonError`. */
+export function fmtPoisonErrorDebug(_: unknown, f: Formatter): FmtResult {
+	return f.out.writeStr("PoisonError { .. }");
+}
+
+/** `Display` of `PoisonError`. */
+export function fmtPoisonErrorDisplay(_: unknown, f: Formatter): FmtResult {
+	return fmtPad(f, "poisoned lock: another task failed inside");
 }
 
 /** `Display` of `TryFromIntError`. */

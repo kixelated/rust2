@@ -58,7 +58,8 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => Either.fmt$Debug_u8_Point(either, f), (f: rt.Formatter) => Either.fmt$Debug_Point_u8(flipped, f), (f: rt.Formatter) => rt.fmtOption(_153, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtOption(_156, f, (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f))];
 		put(out, rt.fmtFormat([args8[0], " ", rt.fmtSpec({ alternate: true }, args8[1]), " ", args8[2], " ", args8[3]]));
 	}
-	const list: Wrap.Wrap<rt.u16[]> = new Wrap.Wrap({ value: [], count: 1 });
+	const _168: rt.u16[] = [];
+	const list: Wrap.Wrap<rt.u16[]> = new Wrap.Wrap({ value: _168, count: 1 });
 	const _171: rt.u16 = at(10) as rt.u16;
 	list.value.push(_171);
 	Wrap.bump$Vec_u16(list);

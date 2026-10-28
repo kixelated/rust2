@@ -3,8 +3,8 @@
 //! expression through a temporary: a place to replace (`mem::take`), a range to slice
 //! by, an array of bytes to read, `format_args!`'s parts, and `?`'s `ControlFlow`.
 
-use rustc_abi::VariantIdx;
-use rustc_middle::mir::{Operand, Place};
+use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_middle::mir::{Operand, Place, ProjectionElem};
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
@@ -340,6 +340,37 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return None;
 		}
 		let t = &*self.b.t;
+		// Mappings that lend an element JS copies as its place, as a map's `get_mut` does.
+		let lends = match library::key(tcx, def_id) {
+			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
+				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut") => true,
+				("IntoIterator", "into_iter") => gargs.types().next().is_some_and(|ty| {
+					ty.ref_mutability() == Some(ty::Mutability::Mut)
+						&& match ty.peel_refs().kind() {
+							ty::Slice(_) | ty::Array(..) => true,
+							_ => matches!(
+								t.std_of(ty.peel_refs()),
+								Some(Std::Vec | Std::Option | Std::HashMap | Std::BTreeMap | Std::VecDeque)
+							),
+						}
+				}),
+				_ => false,
+			},
+			None => false,
+		};
+		// Places held in what it is given, not one it is given, or that the iterator it adapts
+		// yields, were made where they came from, as are what it hands a closure of them.
+		let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
+		let adapts = tcx
+			.instantiate_bound_regions_with_erased(sig)
+			.inputs()
+			.iter()
+			.any(|&i| {
+				t.place_pointee(i).is_none() && t.has_place(i) || t.iter_item(i).is_some_and(|item| t.has_place(item))
+			});
+		if lends || adapts {
+			return None;
+		}
 		let handed = gargs.types().any(|ty| {
 			let sig = match ty.kind() {
 				ty::Closure(_, args) => args.as_closure().sig(),
@@ -374,6 +405,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		))
 	}
 
+	/// What `Default::default` makes of `ty`: a std type's value, or the call of the crate's impl.
+	fn default_of(&mut self, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		if let Some(default) = library::default_value(self.b, ty, span, out) {
+			return default;
+		}
+		let tcx = self.tcx;
+		let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
+		let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
+		self.path(default, "default", out)
+	}
+
 	/// A std call MIR needs lowered here: `Some(Some((value, effect)))`, or `Some(None)`
 	/// once it set the destination itself, or `None` for the library mappings.
 	fn intercept(
@@ -386,7 +428,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Option<Option<(Expr, bool)>> {
 		let tcx = self.tcx;
-		if library::std_path(tcx, def_id).is_empty() {
+		let bytes = library::inherent_std(tcx, def_id) == Some(Std::Bytes);
+		if library::std_path(tcx, def_id).is_empty() && !bytes {
 			return None;
 		}
 		// A box's own `Drop` frees its memory, once drop elaboration dropped or moved out
@@ -408,24 +451,24 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
 		match (owner.as_str(), name.as_str()) {
 			// Replacing what a `&mut` borrows.
-			// What `Default::default` makes, a std type's or the crate's, before the swap.
+			// What `Default::default` makes before the swap.
 			("mem", "take") => {
 				let ty = targ(0)?;
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let default = match library::default_value(self.b, ty) {
-					Some(default) => default,
-					None => {
-						let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
-						let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
-						self.path(default, "default", out)
-					}
-				};
+				let default = self.default_of(ty, span, out);
 				done(self.swap_out(place, ty, default, "taken", span, out), true)
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let value = self.operand(&args[1].node, span, out);
 				done(self.swap_out(place, targ(0)?, value, "old", span, out), true)
+			}
+			// `mem::replace(self, Some(value))`, and `Some(value)` is `value`.
+			("Option", "replace") => {
+				let ty = args[0].node.ty(&self.mir.local_decls, tcx).builtin_deref(true)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let value = self.operand(&args[1].node, span, out);
+				done(self.swap_out(place, ty, value, "old", span, out), true)
 			}
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span, out)?;
@@ -499,6 +542,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let option = dest.ty(&self.mir.local_decls, tcx).ty;
 				done(self.swap_out(place, option, none, "taken", span, out), true)
 			}
+			// The place of the payload, if any: `as_mut`'s, or what `iter_mut` yields.
+			("Option", "as_mut" | "iter_mut") if self.b.t.needs_place(targ(0)?) => {
+				let (target, payload) = self.payload_place(&args[0].node, targ(0)?, span, out)?;
+				let Some(payload) = payload else {
+					return done(target, true);
+				};
+				let none = target.clone().binary("===", self.b.t.none(targ(0)?));
+				let place = self.make_place(payload, target, span, out);
+				let lent = Expr::Cond(Box::new(none), Box::new(Expr::undefined()), Box::new(place));
+				match name.as_str() {
+					"as_mut" => done(lent, true),
+					_ => done(Expr::rt("iterOption", vec![lent]), true),
+				}
+			}
+			("Option", "get_or_insert" | "get_or_insert_with" | "get_or_insert_default" | "insert") => {
+				self.option_insert(&name, targ(0)?, args, dest, span, out)
+			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
 			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
@@ -521,6 +581,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.materialize(&place, out);
 				self.slots[local] = Slot::Alias(Some(place));
 				Some(None)
+			}
+			// A `Bytes`'s slice by a range's bounds, read where the range is made. Its bounds
+			// check panics, so it runs even if the slice goes unused.
+			("Bytes", "slice")
+				if bytes && let Some((start, end)) = self.range_bounds(&args[1].node, targ(0)?, span, out) =>
+			{
+				let b = self.operand(&args[0].node, span, out);
+				done(
+					Expr::rt("bytesSlice", std::iter::once(b).chain([start]).chain(end).collect()),
+					true,
+				)
+			}
+			("Bytes", "slice")
+				if bytes
+					&& let ty::Adt(adt, _) = targ(0)?.kind()
+					&& Std::of(tcx, adt.did()) == Some(Std::RangeToInclusive) =>
+			{
+				let end = self.range_fields(&args[1].node, *adt, span, out).pop()?;
+				let b = self.operand(&args[0].node, span, out);
+				done(Expr::rt("bytesSliceToInclusive", vec![b, end]), true)
 			}
 			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
 			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
@@ -642,6 +722,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("Try", "branch") => {
 				let value = self.operand(&args[0].node, span, out);
+				// A `Poll`'s `Pending` and `Ready(None)` are no `rt.Result`: they continue.
+				if let Some(poll) = targ(0)
+					&& let (Some(Std::Poll), ty::Adt(_, poll_args)) = (self.b.t.std_of(poll), poll.kind())
+				{
+					let inner = poll_args.type_at(0);
+					let ty::Adt(_, inner_args) = inner.kind() else {
+						unreachable!("Try for a Poll of a Result or an Option of one")
+					};
+					let value = match self.b.t.std_of(inner) {
+						Some(Std::Option) => {
+							let ty::Adt(_, result_args) = inner_args.type_at(0).kind() else {
+								unreachable!("Try for a Poll of an Option of a Result")
+							};
+							let ok = result_args.type_at(0);
+							let pending = self.b.t.pending(Ty::new_option(self.tcx, ok));
+							Expr::rt("pollOptionBranch", vec![value, pending, self.b.t.none(ok)])
+						}
+						_ => Expr::rt("pollBranch", vec![value, self.b.t.pending(inner_args.type_at(0))]),
+					};
+					return done(value, false);
+				}
 				// A `next`'s item or `rt.DONE` branches as itself.
 				if let Some(local) = dest.as_local()
 					&& self.next_results.contains(&local)
@@ -656,12 +757,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let to = targ(0)?;
 				let residual = targ(1)?;
 				let value = self.operand(&args[0].node, span, out);
-				// What a `Result` residual goes into: a `Result`, or one that is ready, which
-				// is the same value.
+				// What a `Result` residual goes into: a `Result`, or one that is ready, and some,
+				// which is the same value.
 				let result = match (self.b.t.std_of(to), to.kind()) {
 					(Some(Std::Result), _) => Some(to),
 					(Some(Std::Poll), ty::Adt(_, poll_args)) => {
-						let inner = poll_args.type_at(0);
+						let mut inner = poll_args.type_at(0);
+						if let (Some(Std::Option), ty::Adt(_, option_args)) = (self.b.t.std_of(inner), inner.kind()) {
+							inner = option_args.type_at(0);
+						}
 						(self.b.t.std_of(inner) == Some(Std::Result)).then_some(inner)
 					}
 					_ => None,
@@ -743,6 +847,112 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let err = self.err(span, format!("replacing the value behind a reference to `{pointee}`"));
 				Some((err, None))
 			}
+		}
+	}
+
+	/// The path of the `Option` a `&mut` operand borrows, and the place of its `Some`'s
+	/// payload, of type `payload`, unless the reference is refused.
+	fn payload_place(
+		&mut self,
+		op: &Operand<'tcx>,
+		payload: Ty<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Borrowed<'tcx>> {
+		let (target, place) = self.borrowed_place(op, span, out)?;
+		let elems = [
+			ProjectionElem::Downcast(None, VariantIdx::from_u32(1)),
+			ProjectionElem::Field(FieldIdx::ZERO, payload),
+		];
+		Some((target, place.map(|p| p.project_deeper(&elems, self.tcx))))
+	}
+
+	/// `get_or_insert`, `get_or_insert_with`, `get_or_insert_default`, or `insert` of the
+	/// `Option` a `&mut` borrows: the store, then the payload it lends, an alias of it where
+	/// the destination is read only as one.
+	fn option_insert(
+		&mut self,
+		name: &str,
+		payload_ty: Ty<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		dest: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Option<(Expr, bool)>> {
+		let tcx = self.tcx;
+		let (target, payload) = self.payload_place(&args[0].node, payload_ty, span, out)?;
+		let Some(payload) = payload else {
+			return Some(Some((target, true)));
+		};
+		let whole = tcx.mk_place_deref(args[0].node.place()?);
+		let option_ty = whole.ty(&self.mir.local_decls, tcx).ty;
+		// What it inserts, made before the `Option` is read, as Rust makes the argument.
+		let value = match name {
+			"get_or_insert" | "insert" => {
+				let value = self.operand(&args[1].node, span, out);
+				Some(self.path(value, "value", out))
+			}
+			_ => None,
+		};
+		if name == "insert" {
+			// What it replaced drops, as `*self = Some(value)` drops it.
+			let old = self.b.fresh("old");
+			let drop = self.b.t.drop_value(Expr::ident(&old), option_ty, span);
+			if drop.is_some() {
+				out.push(StmtKind::decl(false, old, None, Some(target.clone())).at(None));
+			}
+			out.extend(self.store(whole, value?, span));
+			out.extend(drop.map(|drop| StmtKind::Expr(drop).at(None)));
+		} else {
+			let mut then = Vec::new();
+			let mut els = Vec::new();
+			let value = match name {
+				"get_or_insert" => {
+					let value = value?;
+					if let Some(drop) = self.b.t.drop_value(value.clone(), payload_ty, span) {
+						els.push(StmtKind::Expr(drop).at(None));
+					}
+					value
+				}
+				"get_or_insert_default" => library::default_value(self.b, payload_ty, span, &mut then)?,
+				_ => {
+					let f_ty = args[1].node.ty(&self.mir.local_decls, tcx);
+					if let ty::FnDef(f, f_args) = *f_ty.kind() {
+						self.b.call_def(f, f_args.skip_binder(), Vec::new(), span, &mut then)
+					} else {
+						// A closure it doesn't call drops; one it calls drops as `FnOnce` does.
+						let f = self.operand(&args[1].node, span, out);
+						let f = self.path(f, "f", out);
+						if let Some(drop) = self.b.t.drop_value(f.clone(), f_ty, span) {
+							els.push(StmtKind::Expr(drop).at(None));
+						}
+						match f_ty.kind() {
+							ty::Closure(_, c)
+								if c.as_closure().kind() != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) =>
+							{
+								Expr::rt("callOnce", vec![f])
+							}
+							_ => f.call(Vec::new()),
+						}
+					}
+				}
+			};
+			then.extend(self.store(whole, value, span));
+			let cond = target.clone().binary("===", self.b.t.none(payload_ty));
+			out.push(StmtKind::If { cond, then, els }.at(None));
+		}
+		let read = Expr::As(Box::new(target.clone()), self.b.t.ty(payload_ty, span));
+		if let Some(local) = dest.as_local()
+			&& self.defs[local] == 1
+			&& matches!(self.slots[local], Slot::Var(_))
+		{
+			self.slots[local] = Slot::Alias(Some(read));
+			self.reborrows.insert(local, payload);
+			return Some(None);
+		}
+		match self.b.t.needs_place(payload_ty) {
+			true => Some(Some((self.make_place(payload, target, span, out), true))),
+			false => Some(Some((read, true))),
 		}
 	}
 
@@ -929,24 +1139,32 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			"Range" | "RangeTo" | "RangeFrom" => {}
 			_ => return None,
 		}
-		let fields: Vec<Expr> = match self.take_parts(op) {
-			Some(parts) => parts,
-			None => {
-				let range = self.operand(op, span, out);
-				let range = self.path(range, "range", out);
-				adt.non_enum_variant()
-					.fields
-					.iter()
-					.map(|f| range.clone().member(f.name.as_str()))
-					.collect()
-			}
-		};
-		let mut fields = fields.into_iter();
+		let mut fields = self.range_fields(op, *adt, span, out).into_iter();
 		match name.as_str() {
 			"Range" => Some((fields.next()?, Some(fields.next()?))),
 			"RangeTo" => Some((Expr::lit("0"), fields.next())),
 			_ => Some((fields.next()?, None)),
 		}
+	}
+
+	/// A std range's fields, in declaration order, read where the range is made if it is.
+	fn range_fields(
+		&mut self,
+		op: &Operand<'tcx>,
+		adt: ty::AdtDef<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<Expr> {
+		if let Some(parts) = self.take_parts(op) {
+			return parts;
+		}
+		let range = self.operand(op, span, out);
+		let range = self.path(range, "range", out);
+		adt.non_enum_variant()
+			.fields
+			.iter()
+			.map(|f| range.clone().member(f.name.as_str()))
+			.collect()
 	}
 
 	/// What a `DebugList` iterates, as an iterable JS value, which drops nothing it reads.

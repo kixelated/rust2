@@ -8,6 +8,8 @@ import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
+import type * as Lopsided from "./keys.Lopsided.ts";
+import type * as locks_Tally from "./locks.Tally.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -94,6 +96,18 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
 
+export function copy$Option_u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined] | undefined): [rt.u8, rt.u8 | undefined] | undefined {
+	return v === undefined ? v : copy$u8_Reverse_Option_u8(v);
+}
+
+export function copy$Option_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8] | undefined {
+	return v === undefined ? v : copy$u8_u8(v);
+}
+
+export function copy$Option_usize_u8(v: [rt.usize, rt.u8] | undefined): [rt.usize, rt.u8] | undefined {
+	return v === undefined ? v : copy$usize_u8(v);
+}
+
 export function copy$Point(v: Point.Point): Point.Point {
 	return { x: v.x, y: v.y };
 }
@@ -164,6 +178,10 @@ export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Ho
 	return [v[0], copy$Horizon(v[1])];
 }
 
+export function copy$u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] {
+	return [v[0], v[1]];
+}
+
 export function copy$u8_Tally(v: [rt.u8, Tally.Tally]): [rt.u8, Tally.Tally] {
 	return [v[0], copy$Tally(v[1])];
 }
@@ -194,6 +212,42 @@ export function copy$u8s(v: Uint8Array): Uint8Array {
 
 export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt.ByteSlice] {
 	return [v[0], v[1]];
+}
+
+export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
+	return [v[0], v[1]];
+}
+
+export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
+	if (_1.ok) {
+		rt.mutexUnlock(_1.value);
+	} else {
+		drop$TryLockError_MutexGuard_Tally(_1.error);
+	}
+}
+
+export function drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(_1: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>>): void {
+	if (_1.ok) {
+		rt.mutexUnlock(_1.value);
+	} else {
+		drop$TryLockError_MutexGuard_u32(_1.error);
+	}
+}
+
+export function drop$TryLockError_MutexGuard_Tally(_1: rt.TryLockError<rt.Mutex<locks_Tally.Tally>>): void {
+	if (_1.tag === "Poisoned") {
+		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<locks_Tally.Tally> })._0);
+	}
+}
+
+export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt.u32>>): void {
+	if (_1.tag === "Poisoned") {
+		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<rt.u32> })._0);
+	}
+}
+
+export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
+	rt.drop(_1[1]);
 }
 
 //# sourceMappingURL=lib.ts.map

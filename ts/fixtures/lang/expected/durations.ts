@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Window } from "./lib.ts";
+import { thenSome$bool_Duration } from "./core/bool.ts";
 import type * as Twice from "./durations.Twice.ts";
 import * as Window from "./durations.Window.ts";
 import { put } from "./fmt.ts";
@@ -124,8 +125,8 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			}
 			rt.byteVecPush(out, _144 ? 1 : 0);
 		}
-		putDuration(out, rt.ordMax(a, b, rt.durationCmp));
-		putDuration(out, rt.ordMin(a, b, rt.durationCmp));
+		putDuration(out, rt.ordMax(a, b, rt.cmpLt(rt.durationCmp)));
+		putDuration(out, rt.ordMin(a, b, rt.cmpLt(rt.durationCmp)));
 		const seen: rt.BTreeMap<rt.Duration, rt.u8> = rt.btreeNew(rt.durationCmp) as rt.BTreeMap<rt.Duration, rt.u8>;
 		const iter2: rt.Iter<[rt.usize, rt.Duration]> = rt.iterEnumerate(rt.iterSlice([a, b, { secs: 1, nanos: 500000000 }, a, { secs: 0, nanos: 0 }]));
 		while (true) {
@@ -176,7 +177,7 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		w.start = rt.durationSub(w.start, b);
 		putDuration(out, w.start);
 		if (w.len !== undefined) {
-			const _283: rt.Duration = rt.ordMin(a, b, rt.durationCmp);
+			const _283: rt.Duration = rt.ordMin(a, b, rt.cmpLt(rt.durationCmp));
 			w.len = rt.durationSub(w.len, _283);
 		}
 		putOpt(out, w.len);
@@ -225,7 +226,7 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		putDuration(out, { secs: 1, nanos: 500000000 });
 		putDuration(out, { secs: 0, nanos: 0 });
 		putOpt(out, rt.durationCheckedAdd({ secs: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, nanos: 999999999 }, rt.durationFromNanos(1)));
-		const _379: rt.Duration | undefined = rt.thenSome(rt.durationCmp(b, { secs: 1, nanos: 500000000 }) === 1, b);
+		const _379: rt.Duration | undefined = thenSome$bool_Duration(rt.durationCmp(b, { secs: 1, nanos: 500000000 }) === 1, b);
 		const w2: Window.Window = { start: a, len: _379 };
 		const _388: Window.Window = Window.default$Default();
 		rt.byteVecPush(out, Window.eq$PartialEq(w2, _388) ? 1 : 0);
