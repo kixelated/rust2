@@ -187,3 +187,8 @@ impl<T: Copy> Bounded<T> {
 		U::from(self.0)
 	}
 }
+
+/// A borrowed waker: one crosses only into Rust, which keeps it.
+pub fn lend(waker: &std::task::Waker) {
+	waker.wake_by_ref();
+}
