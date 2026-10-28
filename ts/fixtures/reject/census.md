@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 75
-- Function instances: 87
+- Refusals: 77
+- Function instances: 88
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -11,6 +11,7 @@
 | 11 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:382:2 |
 | 4 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:101:2 |
+| 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:257:14 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:85:2 |
 | 3 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
@@ -39,7 +40,6 @@
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:96:2 |
 | 1 | a coercion to `_` | fixtures/reject/src/lib.rs:341:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:80:2 |
-| 1 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:257:14 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:413:12 |
@@ -210,6 +210,14 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:116:2: an assignment through a reference to `std::pin::Pin<std::sync::Arc<u8>>`
 - fixtures/reject/src/lib.rs:121:2: an assignment through a reference to `std::sync::MutexGuard<'_, u8>`
 - fixtures/reject/src/lib.rs:234:2: an assignment through a reference to `std::pin::Pin<&mut Noisy>`
+
+</details>
+
+<details><summary>a copy of a closure that changes what it captured (3)</summary>
+
+- fixtures/reject/src/lib.rs:257:14: a copy of a closure that changes what it captured
+- fixtures/reject/src/lib.rs:529:14: a copy of a closure that changes what it captured
+- fixtures/reject/src/lib.rs:530:14: a copy of a closure that changes what it captured
 
 </details>
 
@@ -391,12 +399,6 @@ The type or module each refused type or path belongs to.
 <details><summary>a constant of type `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:80:2: a constant of type `&u8`
-
-</details>
-
-<details><summary>a copy of a closure that changes what it captured (1)</summary>
-
-- fixtures/reject/src/lib.rs:257:14: a copy of a closure that changes what it captured
 
 </details>
 

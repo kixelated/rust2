@@ -67,6 +67,8 @@ a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixt
 a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:496:26
 a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:506:30
 `Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:517:2
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:529:14
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:530:14
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:139:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:159:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:193:2

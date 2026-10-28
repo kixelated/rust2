@@ -516,3 +516,17 @@ pub struct Waiting<T> {
 pub fn generic_pending(poll: std::task::Poll<std::task::Poll<u8>>) -> bool {
 	Waiting { poll }.poll.is_pending()
 }
+
+/// A copy of a closure that rebinds a shared reference it captured: each Rust copy has
+/// its own, where JS would share one binding.
+pub fn rebound_reference(a: &u32, b: &u32) -> (u32, u32) {
+	let mut r = a;
+	let c = move || {
+		let old = *r;
+		r = b;
+		old
+	};
+	let mut x = c;
+	let mut y = c;
+	(x(), y())
+}
