@@ -124,8 +124,8 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			}
 			rt.byteVecPush(out, _144 ? 1 : 0);
 		}
-		putDuration(out, rt.ordMax(a, b, rt.durationCmp));
-		putDuration(out, rt.ordMin(a, b, rt.durationCmp));
+		putDuration(out, rt.ordMax(a, b, rt.cmpLt(rt.durationCmp)));
+		putDuration(out, rt.ordMin(a, b, rt.cmpLt(rt.durationCmp)));
 		const seen: rt.BTreeMap<rt.Duration, rt.u8> = rt.btreeNew(rt.durationCmp) as rt.BTreeMap<rt.Duration, rt.u8>;
 		const iter2: rt.Iter<[rt.usize, rt.Duration]> = rt.iterEnumerate(rt.iterSlice([a, b, { secs: 1, nanos: 500000000 }, a, { secs: 0, nanos: 0 }]));
 		while (true) {
@@ -176,7 +176,7 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		w.start = rt.durationSub(w.start, b);
 		putDuration(out, w.start);
 		if (w.len !== undefined) {
-			const _283: rt.Duration = rt.ordMin(a, b, rt.durationCmp);
+			const _283: rt.Duration = rt.ordMin(a, b, rt.cmpLt(rt.durationCmp));
 			w.len = rt.durationSub(w.len, _283);
 		}
 		putOpt(out, w.len);
