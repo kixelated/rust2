@@ -415,7 +415,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let (breaks, continues) = (args.type_at(0), args.type_at(1));
 				Some(match (Flow::of(tcx, args), variant.index()) {
 					(Flow::Option, 0) => self.b.t.ty(continues, span),
-					(Flow::Option, _) => crate::ts::Type::Builtin("undefined"),
+					(Flow::Option, _) => match self.b.t.erases_to(continues).undefined {
+						true => crate::ts::Type::Rt("None", vec![]),
+						false => crate::ts::Type::Builtin("undefined"),
+					},
 					(Flow::Result | Flow::Other, 0) => result(true, self.b.t.ty(continues, span)),
 					(Flow::Result, _) => self.b.t.ty(breaks, span),
 					(Flow::Other, _) => result(false, self.b.t.ty(breaks, span)),
@@ -844,7 +847,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					.field(info.state)
 					.binary("===", Expr::lit(value.to_string()))
 			}
-			ty::Adt(adt, _) if adt.is_enum() => {
+			ty::Adt(adt, args) if adt.is_enum() => {
 				let Some((index, _)) = adt.discriminants(tcx).find(|(_, d)| d.val == value) else {
 					return self.err(span, format!("no variant of `{ty}` has discriminant {value}"));
 				};
@@ -866,8 +869,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						}
 					}
 					Some(Std::Option) => match index.index() {
-						0 => scrut.clone().binary("===", Expr::undefined()),
-						_ => scrut.clone().binary("!==", Expr::undefined()),
+						0 => scrut.clone().binary("===", self.b.t.none(args.type_at(0))),
+						_ => scrut.clone().binary("!==", self.b.t.none(args.type_at(0))),
 					},
 					Some(Std::Poll) => match index.index() {
 						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),

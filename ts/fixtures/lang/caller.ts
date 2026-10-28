@@ -65,6 +65,6 @@ const utf8 = [
 	[0xe2, 0x82],
 	[0xc2],
 	[0x80, 0xf8, 0xff],
-].map((bytes) => Uint8Array.of(53, 0, ...bytes));
+].map((bytes) => Uint8Array.of(54, 0, ...bytes));
 
 export const cases: Uint8Array[] = [...loops, ...durations, ...utf8];
