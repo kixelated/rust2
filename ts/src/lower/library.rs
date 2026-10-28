@@ -546,8 +546,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `then_some::<T>` drops its value when false, and `then::<T, F>` its function.
 		("bool", "then_some") => &[0],
 		("bool", "then") => &[1],
-		// `get_or_init::<T, F>` drops its function if the cell is set, and what it made if
-		// it set the cell itself.
+		// `get_or_init::<T, F>` drops its function uncalled if the cell is set or a
+		// `OnceLock` is initializing, and what it made if it set the cell itself.
 		("OnceCell" | "OnceLock", "get_or_init") => &[0, 1],
 		_ => return None,
 	})

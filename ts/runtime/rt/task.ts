@@ -259,16 +259,24 @@ export class OnceLock<T, N extends None | undefined = undefined> extends OnceCel
 	running = false;
 }
 
-/** A `OnceLock` initialized from within its own initialization. */
-function recursive(cell: OnceCell<unknown, None | undefined>): void {
-	if (cell instanceof OnceLock && cell.running) panic("one-time initialization may not be performed recursively");
+/**
+ * A `OnceLock` initialized from within its own initialization panics, as wasm32's `Once`
+ * does, dropping `dropped`, what the call took, as it unwinds.
+ */
+function recursive(cell: OnceCell<unknown, None | undefined>, dropped: () => void): void {
+	if (!(cell instanceof OnceLock && cell.running)) return;
+	try {
+		panic("one-time initialization may not be performed recursively");
+	} finally {
+		dropped();
+	}
 }
 
 /** `OnceCell::set`: `Err(value)` back if it holds one already. */
-export function onceSet<T>(cell: OnceCell<T>, value: T): Result<undefined, T>;
-export function onceSet<T>(cell: OnceCell<T, None>, value: T, none: None): Result<undefined, T>;
-export function onceSet<T>(cell: OnceCell<T, None | undefined>, value: T, none?: None): Result<undefined, T> {
-	recursive(cell);
+export function onceSet<T>(cell: OnceCell<T>, value: T, dropValue?: (value: T) => void): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None>, value: T, dropValue: ((value: T) => void) | undefined, none: None): Result<undefined, T>;
+export function onceSet<T>(cell: OnceCell<T, None | undefined>, value: T, dropValue?: (value: T) => void, none?: None): Result<undefined, T> {
+	recursive(cell, () => dropValue?.(value));
 	if (cell.v !== none) return Err(value);
 	cell.v = value;
 	return Ok(undefined);
@@ -285,7 +293,7 @@ export function onceTake<T>(cell: OnceCell<T, None | undefined>, none?: None): T
 
 /**
  * `OnceCell::get_or_init`: what it holds, which `f` makes first if it holds nothing,
- * dropping `f` by `dropF` if not. A panic in `f` leaves it empty. A `OnceCell` that `f`
+ * dropping `f` by `dropF` if not, or if a `OnceLock` panics as `recursive` does. A panic in `f` leaves it empty. A `OnceCell` that `f`
  * sets itself drops what `f` made by `dropValue` and panics, as std's does. `f` of a
  * `()` returns `void`.
  */
@@ -308,7 +316,7 @@ export function onceGetOrInit<T>(
 		dropF?.(f);
 		return cell.v as T;
 	}
-	recursive(cell);
+	recursive(cell, () => dropF?.(f));
 	let value: T;
 	if (cell instanceof OnceLock) {
 		cell.running = true;

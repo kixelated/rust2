@@ -62,7 +62,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			cell = new rt.OnceCell(undefined);
 			unwind = 234;
 			const _19: Guard.Guard = guard(1);
-			_17 = rt.onceSet(cell, _19);
+			_17 = rt.onceSet(cell, _19, rt.drop);
 			unwind = 217;
 			const part13 = _17.ok;
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part13, f)];
@@ -71,7 +71,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			drop$Result_unit_Guard(_17);
 			Log.note(log, _11);
 			const _28: Guard.Guard = guard(2);
-			refused = rt.onceSet(cell, _28);
+			refused = rt.onceSet(cell, _28, rt.drop);
 			unwind = 232;
 			_411 = true;
 			const part14 = !refused.ok;
@@ -93,7 +93,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			lock = new rt.OnceLock({ tag: "Two", _0: _64, _1: _67 } as Held.Held);
 			unwind = 215;
 			const _72 = { tag: "One", _0: guard(5) } as Held.Held;
-			drop$Result_unit_Held(rt.onceSet(lock, _72));
+			drop$Result_unit_Held(rt.onceSet(lock, _72, drop$Held));
 			const part16 = lock.v !== undefined;
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part16, f)];
 			Log.note(log, rt.fmtFormat(["kept ", args8[0]]));
@@ -198,7 +198,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			rt.drop(_166);
 			Log.note(log, _160);
 			const _174: Guard.Guard = guard(22);
-			drop$Result_unit_Guard(rt.onceSet(cell3, _174));
+			drop$Result_unit_Guard(rt.onceSet(cell3, _174, rt.drop));
 			rt.drop(new rt.OnceLock(guard(23)).v);
 			_409 = false;
 			const part10 = mapOr$Option_Guard_u32_drained_closure4(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
@@ -231,7 +231,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 				let unwind4: number = 0;
 				try {
 					unwind4 = 8;
-					drop$Result_unit_Guard(rt.onceSet(cell4, captured5(32)));
+					drop$Result_unit_Guard(rt.onceSet(cell4, captured5(32), rt.drop));
 					Guard.note(captured6, "init");
 					const _05: Guard.Guard = captured5(33);
 					unwind4 = 0;
@@ -351,7 +351,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 		} else {
 			cell6 = new rt.OnceCell(rt.None);
 			unwind = 205;
-			_310 = rt.onceSet(cell6, undefined as Guard.Guard | undefined, rt.None);
+			_310 = rt.onceSet(cell6, undefined as Guard.Guard | undefined, rt.drop, rt.None);
 			unwind = 204;
 			const part = _310.ok;
 			const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part, f)];
@@ -360,7 +360,7 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			drop$Result_unit_Option_Guard(_310);
 			Log.note(log, _304);
 			const _327: Guard.Guard | undefined = guard(71);
-			_325 = rt.onceSet(cell6, _327, rt.None);
+			_325 = rt.onceSet(cell6, _327, rt.drop, rt.None);
 			unwind = 203;
 			const part2 = !_325.ok;
 			const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part2, f)];
@@ -370,10 +370,10 @@ export function run(log: Log.Log, id: rt.u32, at: rt.u8): void {
 			Log.note(log, _319);
 			const unit: rt.OnceLock<undefined, rt.None> = new rt.OnceLock(rt.None);
 			unwind = 202;
-			const part3 = rt.onceSet(unit, undefined, rt.None).ok;
+			const part3 = rt.onceSet(unit, undefined, undefined, rt.None).ok;
 			const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part3, f)];
 			Log.note(log, rt.fmtFormat(["unit ", args28[0]]));
-			const part4 = !rt.onceSet(unit, undefined, rt.None).ok;
+			const part4 = !rt.onceSet(unit, undefined, undefined, rt.None).ok;
 			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
 			Log.note(log, rt.fmtFormat(["again ", args30[0]]));
 			const part5 = cell6.v !== rt.None;

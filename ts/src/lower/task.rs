@@ -329,14 +329,19 @@ fn once<'tcx>(
 	let e = match name {
 		"new" => once_new(b, cell),
 		"get" | "into_inner" => first(args).member("v"),
-		"set" | "take" => Expr::rt(
-			match name {
-				"set" => "onceSet",
-				_ => "onceTake",
-			},
-			args.into_iter().chain(none).collect(),
-		),
-		// With what drops the value `f` made, and `f`, as `discards` says.
+		"take" => Expr::rt("onceTake", args.into_iter().chain(none).collect()),
+		// With what drops the value, which a recursive `OnceLock::set` drops as it panics.
+		"set" => {
+			let Some(mut droppers) = b.t.droppers([inner], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			if none.is_some() {
+				droppers.resize(1, Expr::undefined());
+			}
+			Expr::rt("onceSet", args.into_iter().chain(droppers).chain(none).collect())
+		}
+		// With what drops the value `f` made, and `f`, as `discards` says, which a recursive
+		// `OnceLock` init drops as it panics.
 		"get_or_init" => {
 			let Some(mut droppers) = b.t.droppers([inner, call.args.type_at(1)], call.span) else {
 				return Ok(Some(Expr::undefined()));
