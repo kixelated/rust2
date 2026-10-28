@@ -505,6 +505,7 @@ static DROPPED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new
 
 /// A token: every field is `pub`, but its `Drop` must run when C frees it, so it is an
 /// object rather than a record.
+#[derive(Clone)]
 pub struct Token {
 	pub id: u32,
 }
@@ -512,6 +513,11 @@ pub struct Token {
 impl Token {
 	pub fn new(id: u32) -> Self {
 		Self { id }
+	}
+
+	/// The token twice, borrowed: C gets a clone of each, which the array frees.
+	pub fn twice(&self) -> Vec<&Token> {
+		vec![self, self]
 	}
 }
 
@@ -908,4 +914,16 @@ pub fn counters(names: Vec<String>) -> Vec<Counter> {
 /// Each row's sum.
 pub fn sums(rows: Vec<Vec<u32>>) -> Vec<u32> {
 	rows.iter().map(|row| row.iter().sum()).collect()
+}
+
+/// A site: every field is `pub`, but a URL is a handle C cannot copy, so it is an object
+/// whose getter returns a clone.
+pub struct Site {
+	pub home: url::Url,
+}
+
+impl Site {
+	pub fn new(home: url::Url) -> Self {
+		Self { home }
+	}
 }

@@ -581,6 +581,33 @@ static int script(void) {
 	printf("sums [%u, %u, %u]\n", sums.ptr[0], sums.ptr[1], sums.ptr[2]);
 	api_vec_u32_free(sums);
 
+	api_url *home;
+	if (!api_url_parse(str("https://example.com/a/b"), &home, &parse_err)) {
+		return 1;
+	}
+	api_site *site = api_site_new(home);
+	api_url *home0 = api_site_home(site);
+	api_url *home1 = api_site_home(site);
+	print("site ", api_url_to_string(home0), " ");
+	print("", api_url_to_string(home1), "\n");
+	api_url_free(home0);
+	api_url_free(home1);
+	api_site_free(site);
+	api_url_free(home);
+
+	/* A returned `Vec<&Token>` holds clones, which its free drops. */
+	api_token *twice = api_token_new(9);
+	uint32_t before = api_dropped();
+	api_vec_token tokens = api_token_twice(twice);
+	if (tokens.len != 2 || api_token_id(tokens.ptr[1]) != 9) {
+		return 1;
+	}
+	api_vec_token_free(tokens);
+	if (api_dropped() != before + 2) {
+		return 1;
+	}
+	api_token_free(twice);
+
 	/* Each future dropped its waker once it finished, and Rust the one it was given. */
 	return drops == 5 ? 0 : 1;
 }

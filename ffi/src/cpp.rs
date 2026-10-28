@@ -123,6 +123,10 @@ impl<'a> Header<'a> {
 		}
 		match ty {
 			Type::Option(inner) if Abi::is_buf(inner) => format!("::std::optional<::{}::view>", self.ns),
+			// Moved out of, each handle as a handle taken by value is.
+			Type::Option(inner) if matches!(inner.base(), Type::List(elem) if moves(abi, elem)) => {
+				format!("::std::optional<{}>", self.items(inner.base()))
+			}
 			Type::Option(inner) if matches!(inner.base(), Type::List(_)) => {
 				format!("const ::std::optional<{}> &", self.items(inner.base()))
 			}

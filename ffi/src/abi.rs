@@ -73,6 +73,17 @@ pub struct Export {
 	pub future: Option<(String, Sig, Sig)>,
 }
 
+/// `ty` as a clone of each borrow it holds.
+fn owned(ty: &Type) -> Type {
+	match ty {
+		Type::Ref(_, inner) => owned(inner),
+		Type::Option(inner) => Type::Option(Box::new(owned(inner))),
+		Type::Box(inner) => Type::Box(Box::new(owned(inner))),
+		Type::List(inner) => Type::List(Box::new(owned(inner))),
+		ty => ty.clone(),
+	}
+}
+
 /// The suffix naming each instance of a generic item, by its arguments.
 type Suffixes = HashMap<Vec<Type>, String>;
 
@@ -390,15 +401,6 @@ impl<'a> Abi<'a> {
 	/// The C type of `ty` returned: a borrow is returned as a clone, so a handle in it is
 	/// the caller's own.
 	fn returned(&self, ty: &Type) -> Ty {
-		fn owned(ty: &Type) -> Type {
-			match ty {
-				Type::Ref(_, inner) => owned(inner),
-				Type::Option(inner) => Type::Option(Box::new(owned(inner))),
-				Type::Box(inner) => Type::Box(Box::new(owned(inner))),
-				Type::List(inner) => Type::List(Box::new(owned(inner))),
-				ty => ty.clone(),
-			}
-		}
 		self.ty(&owned(ty))
 	}
 
@@ -641,7 +643,8 @@ impl<'a> Abi<'a> {
 					stack.push(inner);
 				}
 				Type::List(inner) => {
-					lists.insert(self.list(inner), (**inner).clone());
+					// A returned `Vec<&T>` holds clones, which its free frees.
+					lists.insert(self.list(inner), owned(inner));
 					stack.push(inner);
 				}
 				Type::Ref(_, inner) | Type::Box(inner) => stack.push(inner),

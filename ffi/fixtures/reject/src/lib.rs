@@ -234,3 +234,8 @@ pub fn read(f: impl FnOnce(&Text<'_>)) {
 pub fn count_words(words: Vec<&str>) -> usize {
 	words.len()
 }
+
+/// Words C would lend inside an `Option` inside an array.
+pub fn count_some(words: Vec<Option<&str>>) -> usize {
+	words.iter().flatten().count()
+}

@@ -2179,8 +2179,9 @@ impl<'tcx> Collector<'tcx> {
 		let tcx = self.tcx;
 		ty.walk().filter_map(|arg| arg.as_type()).any(|ty| match ty.kind() {
 			ty::Adt(adt, args) => {
-				matches!(self.decl(adt.did(), args), Some(Decl::Object(_)))
-					&& !implements(tcx, ty, adt.did(), sym::Copy)
+				let object = matches!(self.decl(adt.did(), args), Some(Decl::Object(_)))
+					|| self.url.is_some_and(|(url, _)| url == adt.did());
+				object && !implements(tcx, ty, adt.did(), sym::Copy)
 			}
 			_ => false,
 		})
@@ -2352,7 +2353,7 @@ impl<'tcx> Collector<'tcx> {
 						let inner = self.ty(elem, pos.inner())?;
 						// C lends nothing inside an array, and an element lowered back into
 						// one is a clone of what Rust lent.
-						if matches!(inner, Type::Ref(..)) && !matches!(pos, Pos::Return | Pos::Returned) {
+						if borrows(&inner) && !matches!(pos, Pos::Return | Pos::Returned) {
 							return Err(why("Vec of references", elem.to_string()));
 						}
 						Type::List(Box::new(inner))
@@ -2368,7 +2369,11 @@ impl<'tcx> Collector<'tcx> {
 				} else if let Some((url, i)) = self.url
 					&& did == url
 				{
-					Type::Object(i)
+					// A value holds only values, and handles it can copy.
+					match pos {
+						Pos::Field => return Err(why("object in a value", "url::Url")),
+						_ => Type::Object(i),
+					}
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Waker"), did) {
 					match pos {
 						Pos::Param => Type::Waker,
@@ -2539,6 +2544,15 @@ fn names(ty: &Type, i: usize) -> bool {
 		Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) | Type::List(inner) => names(inner, i),
 		Type::Tuple(elements) => elements.iter().any(|ty| names(ty, i)),
 		Type::Closure(params, ret) => params.iter().chain([&**ret]).any(|ty| names(ty, i)),
+		_ => false,
+	}
+}
+
+/// Whether `ty` is or holds a reference.
+fn borrows(ty: &Type) -> bool {
+	match ty {
+		Type::Ref(..) => true,
+		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => borrows(inner),
 		_ => false,
 	}
 }

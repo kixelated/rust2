@@ -473,6 +473,23 @@ int script() {
 
 	auto sums = api::sums({{1, 2}, {}, {3}});
 	std::printf("sums [%u, %u, %u]\n", sums[0], sums[1], sums[2]);
+
+	api::site site = api::site::new_(base);
+	print("site ", site.home().to_string(), " ");
+	print("", site.home().to_string(), "\n");
+
+	// A returned `Vec<&Token>` holds clones, which the vector drops.
+	api::token twice = api::token::new_(9);
+	std::uint32_t before = api::dropped();
+	{
+		auto tokens = twice.twice();
+		if (tokens.size() != 2 || tokens[1].id() != 9) {
+			return 1;
+		}
+	}
+	if (api::dropped() != before + 2) {
+		return 1;
+	}
 	return 0;
 }
 
