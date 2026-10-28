@@ -6,6 +6,6 @@ roots = ["harness::run", "harness::held"]
 [bind]
 "bytes::Bytes" = "wrong/bytes.ts"
 "raw::checksum" = "bind/checksum.ts"
-"raw::skip" = "bind/skip.ts"
+"raw::skip" = "wrong/skip.ts"
 "raw::Tally" = { file = "wrong/tally.ts", drop = true }
 "raw::Held" = "wrong/held.ts"
