@@ -37,7 +37,6 @@ Every generator on the C ABI:
 
 - [Paths without a lifetime](/quest/m1/ffi-export/paths.md) - moq's owned `Path` exports, and its excludes go
 - [Instances the config can't name yet](/quest/m1/ffi-export/instance-keys.md) - `&T` keys, `IntoIterator` as a `Vec`, `serde_json::Value`, and `Catalog<()>`
-- [Closures lent for the call](/quest/m1/ffi-export/lent-closures.md) - a callback borrowed for one call, as `modify`'s `Guard` needs
 - [One library from several crates](/quest/m1/ffi-export/crates.md) - the C names the several-crate export still can't give
 - [Driving sessions and origins](/quest/m1/ffi-export/driving.md) - how a binding polls moq's `Driver`
 - [A contract symbol](/quest/m1/ffi-export/contract.md) - a header and a library from different builds refuse to mix
