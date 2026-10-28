@@ -47,6 +47,7 @@ roots = [
     "cow_bytes",
     "cow_made",
     "lopsided",
+    "batched",
     "called_closure",
     "owning_lazy",
     "duration_assign",

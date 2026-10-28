@@ -380,6 +380,27 @@ pub fn lopsided(v: &mut Vec<Lopsided>, a: Lopsided, b: Lopsided) -> bool {
 	wins && a.max(b).0 > 0
 }
 
+/// A `hash_slice` of its own, which a `Vec`'s `Hash` calls where the translation hashes each
+/// element.
+#[derive(PartialEq, Eq)]
+pub struct Batched(u8);
+
+impl std::hash::Hash for Batched {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
+	}
+
+	fn hash_slice<H: std::hash::Hasher>(data: &[Self], state: &mut H) {
+		state.write_usize(data.len());
+	}
+}
+
+pub fn batched(v: Vec<Batched>) -> usize {
+	let mut set = std::collections::HashSet::new();
+	set.insert(v);
+	set.len()
+}
+
 /// Closures that own a value that drops, which `any` and `or_insert_with` would call but
 /// never drop.
 pub fn called_closure(v: &[u8], m: &mut std::collections::HashMap<u8, Noisy>) -> bool {

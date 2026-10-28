@@ -61,7 +61,7 @@ pub fn call<'tcx>(
 			// `<=`, and `>`, and so by `partial_cmp` while those are the defaults.
 			("Ord", "max" | "min" | "clamp", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
-				let local = matches!(t.kind(), ty::Adt(adt, _) if adt.did().is_local());
+				let local = matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
 				if !(std_key(b, t) || local) || Int::of(t).is_some() {
 					return Err(args);
 				}
@@ -530,7 +530,7 @@ pub fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool 
 	match ty.kind() {
 		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
-		ty::Adt(adt, _) if adt.did().is_local() => {
+		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let f = trait_fn(tcx, "PartialOrd", test);
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -1135,7 +1135,14 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
-		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("hashSlice", vec![hash_fn(b, elem, hasher, span)]),
+		_ if let Some(elem) = elements_of(b, ty) => {
+			if own_hash_slice(b, elem, hasher) {
+				let msg =
+					format!("hashing `{ty}` through `{elem}`'s own `Hash::hash_slice`, which is not supported yet");
+				return b.err(span, msg);
+			}
+			Expr::rt("hashSlice", vec![hash_fn(b, elem, hasher, span)])
+		}
 		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
@@ -1143,6 +1150,22 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		_ if b.t.deferred(ty) => Expr::undefined(),
 		_ => b.err(span, format!("hashing `{ty}` as a key, which is not supported yet")),
 	}
+}
+
+/// Whether the crate's own `Hash` of `elem` overrides `hash_slice`, which a slice of it
+/// hashes through in place of each element's `hash`.
+fn own_hash_slice<'tcx>(b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>, hasher: Ty<'tcx>) -> bool {
+	let tcx = b.t.tcx;
+	let elem = peel(b, elem);
+	let ty::Adt(adt, _) = elem.kind() else {
+		return false;
+	};
+	let f = trait_fn(tcx, "Hash", "hash_slice");
+	b.t.own(adt.did())
+		&& Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[elem.into(), hasher.into()]))
+			.ok()
+			.flatten()
+			.is_some_and(|instance| instance.def_id() != f)
 }
 
 /// `Clone::clone` of `ty`, as a function, or `undefined` where it is the value itself.
