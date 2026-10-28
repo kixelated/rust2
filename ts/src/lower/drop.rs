@@ -60,7 +60,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					false => self.fields_drop(*adt, args, true),
 				},
 				Some(_) => false,
-				None if adt.did().is_local() => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
+				None if self.crates.translates(adt.did()) => adt.has_dtor(tcx) || self.fields_drop(*adt, args, true),
 				None => false,
 			},
 			ty::Tuple(tys) => tys.iter().any(|t| self.drops(t)),
@@ -185,7 +185,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 						|| self.iter_item(ty).is_some_and(|item| self.drop_panics(item, seen))
 				}
 				Some(_) => args.types().any(|t| self.drop_panics(t, seen)),
-				None if adt.did().is_local() => {
+				None if self.crates.translates(adt.did()) => {
 					let env = self.typing_env_pub();
 					adt.has_dtor(tcx)
 						|| adt.all_fields().any(|field| {
@@ -317,7 +317,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	fn drop_glue_call(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
 		let rustc = match ty.kind() {
 			ty::Tuple(_) => true,
-			ty::Adt(adt, _) => adt.is_enum() || adt.did().is_local(),
+			ty::Adt(adt, _) => adt.is_enum() || self.crates.translates(adt.did()),
 			_ => false,
 		};
 		if rustc && let Some(sym) = super::mir::glue::shim(self, ty, span) {
@@ -330,7 +330,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		// A census lowers a generic function over its type parameters, where only an
 		// instance can say what the glue is.
-		if rustc && self.refusals.is_some() && (ty.has_param() || ty.has_aliases()) {
+		if rustc && self.census && (ty.has_param() || ty.has_aliases()) {
 			return Some(Expr::rt("drop", vec![value]));
 		}
 		self.err(span, format!("dropping `{ty}`, which is not supported yet"));
