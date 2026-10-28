@@ -153,7 +153,8 @@ int main(void) {
 	root = moq_origin_producer_root(scoped);
 	CHECK(is(moq_path_as_str(root), "room"));
 	moq_path_free(root);
-	moq_path *absolute = moq_origin_producer_absolute(scoped, str("alice"));
+	moq_path *absolute = NULL;
+	CHECK(moq_origin_producer_absolute(scoped, str("alice"), &absolute, &err));
 	CHECK(is(moq_path_as_str(absolute), "room/alice"));
 	moq_path_free(absolute);
 	moq_patterns *allowed = moq_origin_producer_allowed(scoped);
@@ -161,7 +162,7 @@ int main(void) {
 	CHECK(!moq_patterns_matches(allowed, str("bob")));
 	moq_patterns_free(allowed);
 	moq_origin_consumer *reader = moq_origin_producer_consume(scoped);
-	absolute = moq_origin_consumer_absolute(reader, str("bob"));
+	CHECK(moq_origin_consumer_absolute(reader, str("bob"), &absolute, &err));
 	CHECK(is(moq_path_as_str(absolute), "room/bob"));
 	moq_path_free(absolute);
 	moq_origin_consumer_free(reader);
@@ -175,9 +176,28 @@ int main(void) {
 	moq_broadcast_info *stamped = moq_broadcast_producer_info(created);
 	moq_path *path = moq_broadcast_info_path(stamped);
 	CHECK(is(moq_path_as_str(path), "room/alice"));
-	moq_path *joined = moq_path_join(path, str("cam"));
+
+	/* Paths own their segments, so C builds them, and relative ones, from a string. */
+	moq_path *cam = NULL;
+	moq_path_too_long *too_long = NULL;
+	CHECK(moq_path_new(str("/cam/"), &cam, &too_long));
+	CHECK(is(moq_path_as_str(cam), "cam"));
+	moq_path *joined = NULL;
+	CHECK(moq_path_join(path, cam, &joined, &too_long));
 	CHECK(is(moq_path_as_str(joined), "room/alice/cam"));
+	moq_path *stripped = moq_path_strip_prefix(joined, path);
+	CHECK(stripped != NULL && moq_path_eq(stripped, cam));
+	moq_path_free(stripped);
+	CHECK(moq_path_strip_prefix(path, joined) == NULL);
+	moq_relative *up = NULL;
+	CHECK(moq_relative_new(str("../bob"), &up, &too_long));
+	moq_path *resolved = NULL;
+	CHECK(moq_path_resolve(joined, up, &resolved, &too_long));
+	CHECK(is(moq_path_as_str(resolved), "room/bob"));
+	moq_path_free(resolved);
+	moq_relative_free(up);
 	moq_path_free(joined);
+	moq_path_free(cam);
 	moq_path_free(path);
 	moq_broadcast_info_free(stamped);
 	moq_broadcast_producer_free(created);
