@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$u8s } from "./lib.ts";
-import { then$bool_Option_u64_Made_defaults_closure1 } from "./core/bool.ts";
+import { then$bool_Box_Made_default, then$bool_Option_u64_Made_defaults_closure1 } from "./core/bool.ts";
 import { unwrapOrDefault$Option_Option_u64_Made } from "./core/option.ts";
 import * as Bare from "./defaults.Bare.ts";
 import * as Made from "./defaults.Made.ts";
@@ -50,10 +50,12 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _137!: rt.Arc<Made.Made> | undefined;
 	let _142!: rt.Arc<Made.Made> | undefined;
 	let arc2!: rt.Arc<Made.Made>;
+	let cell!: rt.OnceCell<rt.Arc<Made.Made>>;
+	let shared2!: rt.Arc<Made.Made>;
 	let unwind: number = 0;
 	try {
 		for (const op of rt.byteSliceView(data)) {
-			const _10: rt.u8 = rt.u8Rem(op, 8);
+			const _10: rt.u8 = rt.u8Rem(op, 9);
 			if (_10 === 0) {
 				made$unit();
 				const pair: [rt.u64 | undefined, Made.Made] = [undefined, Made.default$Default()];
@@ -88,14 +90,14 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			} else if (_10 === 3) {
 				const boxed: Made.Made = Made.default$Default();
 				shared = made$Arc_Made();
-				unwind = 144;
+				unwind = 171;
 				again = rt.arcClone(shared);
-				unwind = 143;
+				unwind = 170;
 				const _76: Made.Made = shared.value;
 				const _79: rt.usize = again.strong;
 				const args8: rt.Fmt[] = [(f: rt.Formatter) => Made.fmt$Debug(boxed, f), (f: rt.Formatter) => Made.fmt$Debug(_76, f), (f: rt.Formatter) => rt.usizeDisplay(_79, f)];
 				s = rt.fmtFormat([args8[0], " ", args8[1], " ", args8[2]]);
-				unwind = 144;
+				unwind = 171;
 				rt.drop(again);
 				unwind = 0;
 				rt.drop(shared);
@@ -109,31 +111,31 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const empty: rt.Weak<Made.Made> = new rt.Weak();
 				const default_: rt.Weak<Made.Made> = made$Weak_Made();
 				arc = new rt.Arc(Made.default$Default());
-				unwind = 139;
+				unwind = 166;
 				const live: rt.Weak<Made.Made> = new rt.Weak(arc);
-				unwind = 138;
+				unwind = 165;
 				const copy: rt.Weak<Made.Made> = rt.weakClone(empty);
-				unwind = 137;
+				unwind = 164;
 				_117 = rt.weakUpgrade(empty);
-				unwind = 136;
+				unwind = 163;
 				const _115: boolean = _117 === undefined;
 				const _120: rt.usize = default_.arc.strong;
 				const _123: boolean = empty.arc === default_.arc;
 				const _127: boolean = empty.arc === copy.arc;
 				const _131: boolean = empty.arc === live.arc;
 				_137 = rt.weakUpgrade(copy);
-				unwind = 135;
+				unwind = 162;
 				const _135: boolean = _137 === undefined;
 				_142 = rt.weakUpgrade(live);
-				unwind = 134;
+				unwind = 161;
 				const _140: boolean = _142 !== undefined;
 				const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_115, f), (f: rt.Formatter) => rt.usizeDisplay(_120, f), (f: rt.Formatter) => rt.fmtBool(_123, f), (f: rt.Formatter) => rt.fmtBool(_127, f), (f: rt.Formatter) => rt.fmtBool(_131, f), (f: rt.Formatter) => rt.fmtBool(_135, f), (f: rt.Formatter) => rt.fmtBool(_140, f)];
 				const _111: string = rt.fmtFormat([args12[0], " ", args12[1], " ", args12[2], " ", args12[3], " ", args12[4], " ", args12[5], " ", args12[6]]);
-				unwind = 135;
+				unwind = 162;
 				rt.drop(_142);
-				unwind = 136;
+				unwind = 163;
 				rt.drop(_137);
-				unwind = 137;
+				unwind = 164;
 				rt.drop(_117);
 				s = _111;
 				unwind = 0;
@@ -142,7 +144,7 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 				const slot: Slot.Slot = Slot.default$Default();
 				const before: rt.u64 | undefined = Slot.get(slot);
 				arc2 = new rt.Arc({ n: op as rt.u64, tag: Made.default$Default().tag });
-				unwind = 132;
+				unwind = 159;
 				const _161: rt.Weak<Made.Made> = new rt.Weak(arc2);
 				slot.weak = _161;
 				const _167: rt.u64 | undefined = Slot.get(slot);
@@ -150,13 +152,52 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 				s = rt.fmtFormat([args14[0], " ", args14[1]]);
 				unwind = 0;
 				rt.drop(arc2);
+			} else if (_10 === 7) {
+				let boxed2: Made.Made | undefined = then$bool_Box_Made_default(rt.u8Rem(op, 3) === 0, (): Made.Made => {
+					return Made.default$Default();
+				});
+				const _179: rt.u64 = op as rt.u64;
+				if (boxed2 === undefined) {
+					boxed2 = Made.default$Default();
+				}
+				(boxed2 as Made.Made).n = rt.u64Add((boxed2 as Made.Made).n, _179);
+				let slots = undefined as Array<rt.u8 | undefined> | undefined;
+				const _184: rt.u8 | undefined = op;
+				if (slots === undefined) {
+					slots = Array.from({ length: 3 }, (): rt.u8 | undefined => {
+						return undefined;
+					});
+				}
+				unwind = 0;
+				const _187: rt.usize = rt.u8Rem(op, 3) as rt.usize;
+				if (!(_187 < 3)) {
+					rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _187);
+				}
+				(slots as Array<rt.u8 | undefined>)[_187] = _184;
+				cell = new rt.OnceCell(undefined);
+				unwind = 157;
+				shared2 = rt.arcClone(rt.onceGetOrInit(cell, (): rt.Arc<Made.Made> => {
+					return new rt.Arc(Made.default$Default());
+				}, rt.drop));
+				unwind = 156;
+				const _199: Made.Made = shared2.value;
+				const _202: rt.usize = shared2.strong;
+				const _207: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(boxed2, f, (value: Made.Made, f: rt.Formatter) => Made.fmt$Debug(value, f));
+				const _208: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(slots, f, (value: Array<rt.u8 | undefined>, f: rt.Formatter) => rt.fmtList(value, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug)));
+				const arg2 = _199.n;
+				const args16: rt.Fmt[] = [_207, _208, (f: rt.Formatter) => rt.u64Display(arg2, f), (f: rt.Formatter) => rt.usizeDisplay(_202, f)];
+				s = rt.fmtFormat([args16[0], " ", args16[1], " ", args16[2], " ", args16[3]]);
+				unwind = 157;
+				rt.drop(shared2);
+				unwind = 0;
+				rt.drop(cell);
 			} else {
 				const made2: Made.Made = made$Made();
-				const _180: rt.u64 = rt.u64Add(made2.n, op as rt.u64);
-				const _186: rt.Fmt = (f: rt.Formatter) => rt.u64Display(_180, f);
+				const _218: rt.u64 = rt.u64Add(made2.n, op as rt.u64);
+				const _224: rt.Fmt = (f: rt.Formatter) => rt.u64Display(_218, f);
 				const arg = made2.tag;
-				const args16: rt.Fmt[] = [_186, (f: rt.Formatter) => rt.fmtPad(f, arg)];
-				s = rt.fmtFormat([args16[0], " ", args16[1]]);
+				const args18: rt.Fmt[] = [_224, (f: rt.Formatter) => rt.fmtPad(f, arg)];
+				s = rt.fmtFormat([args18[0], " ", args18[1]]);
 			}
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 			rt.byteVecPush(out, 10);
@@ -168,45 +209,56 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 					b6: {
 						b7: {
 							b8: {
-								if (unwind === 0) {
-									throw e;
-								}
-								if (unwind === 132) {
-									rt.drop(arc2);
+								b9: {
+									if (unwind === 0) {
+										throw e;
+									}
+									if (unwind === 156) {
+										rt.drop(shared2);
+										break b4;
+									}
+									if (unwind === 157) {
+										break b4;
+									}
+									if (unwind === 159) {
+										rt.drop(arc2);
+										break b3;
+									}
+									if (unwind === 161) {
+										rt.drop(_142);
+										break b9;
+									}
+									if (unwind === 162) {
+										break b9;
+									}
+									if (unwind === 163) {
+										break b8;
+									}
+									if (unwind === 164) {
+										break b7;
+									}
+									if (unwind === 165) {
+										break b6;
+									}
+									if (unwind === 166) {
+										break b5;
+									}
+									if (unwind === 170) {
+										rt.drop(again);
+									}
+									rt.drop(shared);
 									break b3;
 								}
-								if (unwind === 134) {
-									rt.drop(_142);
-									break b8;
-								}
-								if (unwind === 135) {
-									break b8;
-								}
-								if (unwind === 136) {
-									break b7;
-								}
-								if (unwind === 137) {
-									break b6;
-								}
-								if (unwind === 138) {
-									break b5;
-								}
-								if (unwind === 139) {
-									break b4;
-								}
-								if (unwind === 143) {
-									rt.drop(again);
-								}
-								rt.drop(shared);
-								break b3;
+								rt.drop(_137);
 							}
-							rt.drop(_137);
+							rt.drop(_117);
 						}
-						rt.drop(_117);
 					}
 				}
+				rt.drop(arc);
+				break b3;
 			}
-			rt.drop(arc);
+			rt.drop(cell);
 		}
 		throw e;
 	}

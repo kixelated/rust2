@@ -1,7 +1,8 @@
 //! Values `Default` makes of std types from their parts' defaults: `()`, tuples, arrays,
 //! empty ones of any element, boxes, `Arc`s, and `Weak`s, which never upgrade, as
-//! `Weak::new`'s don't.
+//! `Weak::new`'s don't; called, filled in place, and passed as functions.
 
+use std::cell::OnceCell;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 
@@ -33,7 +34,7 @@ fn made<T: Default>() -> T {
 /// Each byte an operation, its value the operand; each puts what it read.
 pub fn defaults(data: &[u8], out: &mut Vec<u8>) {
 	for &op in data {
-		let s = match op % 8 {
+		let s = match op % 9 {
 			0 => {
 				let unit: () = made();
 				let pair: (Option<u64>, Made) = Default::default();
@@ -92,6 +93,16 @@ pub fn defaults(data: &[u8], out: &mut Vec<u8>) {
 				});
 				slot.weak = Arc::downgrade(&arc);
 				format!("{before:?} {:?}", slot.get())
+			}
+			// Filled in place, and passed as a function, as moq-net's are.
+			7 => {
+				let mut boxed: Option<Box<Made>> = (op % 3 == 0).then(Box::default);
+				boxed.get_or_insert_default().n += u64::from(op);
+				let mut slots: Option<[Option<u8>; 3]> = None;
+				slots.get_or_insert_default()[usize::from(op % 3)] = Some(op);
+				let cell: OnceCell<Arc<Made>> = OnceCell::new();
+				let shared = cell.get_or_init(Arc::default).clone();
+				format!("{boxed:?} {slots:?} {} {}", shared.n, Arc::strong_count(&shared))
 			}
 			_ => {
 				let made: Made = made();
