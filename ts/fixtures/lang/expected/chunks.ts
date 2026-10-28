@@ -197,7 +197,7 @@ export function chunks(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			_234.data[_234.start] = _234.data[_234.start + 1];
 		}
-		const copies: Uint8Array[] = rt.iterToArray(rt.iterMap(rt.iterMap(rt.iterSlice(pairs), rt.byteSliceFrom), rt.byteSliceToArray));
+		const copies: Uint8Array[] = rt.iterToArray(rt.iterCopied(rt.iterMap(rt.iterSlice(pairs), rt.byteSliceFrom), rt.byteSliceToArray));
 		rt.iterExtendBytes(out, rt.iterChain(rt.iterMap(rt.iterMap(rt.iterSlice(pairs), rt.byteSliceFrom), (p: rt.ByteSlice): rt.u8 => {
 			return p.data[p.start];
 		}), rt.iterMap(rt.iterMap(rt.iterSlice(copies), rt.byteSliceFrom), (p2: rt.ByteSlice): rt.u8 => {

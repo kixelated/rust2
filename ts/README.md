@@ -133,7 +133,8 @@ would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
 are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
-short-circuiting as std's are, and call their closures in the same order and as often.
+short-circuiting as std's are, and call their closures, and read what they wrap, in
+the same order and as often, a skip by `nth` included.
 An iterator over a slice, array, or `Vec`, or a small range, that only its `next` and
 moves read steps in place, as two variables: the array and an index into it, or the
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
@@ -413,13 +414,12 @@ they need.
   and async handoff bundles are within 25 bytes gzipped, and `just ts bench` measures
   them within the A/A route's spread in Node, Bun, Chrome, and Firefox.
 
-## Never
-
-Outside the subset for good: `unsafe` and raw pointers, and trait objects other than
-`&dyn Debug` and `&dyn Display`. A boundary that needs one, such as a boxed future, binds
-to hand-written TS ([bindings](#bindings)).
-
 ## Not yet
+
+`unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
+`&dyn Debug` and `&dyn Display` ([trait objects](/quest/m3/ts-dyn.md)), fail translation.
+Until they translate, an item that needs one, such as a boxed future, binds to
+hand-written TS ([bindings](#bindings)).
 
 These fail translation: floats, statics, async closures, a closure that owns a value
 that drops given to std's iterators or collections, and values that drop in some

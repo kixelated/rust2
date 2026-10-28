@@ -368,6 +368,13 @@ export function mapOr$Option_u8_usize_shares_closure1(self: rt.u8 | undefined, d
 	return f(self);
 }
 
+export function mapOr$Option_u8s_u8_skips_closure44(self: Uint8Array | undefined, default_: rt.u8, f: (a0: Uint8Array) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_u8s_u8s_u8_splits_closure0(self: [rt.ByteSlice, rt.ByteSlice] | undefined, default_: rt.u8, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
