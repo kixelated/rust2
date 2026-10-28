@@ -133,7 +133,9 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(futures::boxed(channels[c].consumer(), guard));
 			}
 		}),
-		("cells", |log, exec, _, arg| drops::cells(log, 1000 * exec.len() as u32, arg)),
+		("cells", |log, exec, _, arg| {
+			drops::cells(log, 1000 * exec.len() as u32, arg)
+		}),
 	]
 }
 

@@ -564,7 +564,10 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				"Option",
 				"is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter" | "iter_mut"
 			) | ("Iterator", "next")
-				| ("OnceCell" | "OnceLock", "get" | "set" | "get_or_init" | "take" | "into_inner")
+				| (
+					"OnceCell" | "OnceLock",
+					"get" | "set" | "get_or_init" | "take" | "into_inner"
+				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 		)
 }
