@@ -4,7 +4,7 @@
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
 #![feature(cow_is_borrowed)]
 
-pub fn float(a: f64) -> f64 {
+pub fn float(a: f32) -> f32 {
 	a * 2.0
 }
 
@@ -107,9 +107,9 @@ pub fn replaced(a: &mut Meters) -> Meters {
 
 pub struct Meters(pub u64);
 
-pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f64 {
+pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
-	(*t).into() as f64
+	(*t).into() as f32
 }
 
 /// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
@@ -491,4 +491,14 @@ impl std::iter::Sum<Part> for u64 {
 /// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
 pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
 	(a.into_iter().sum(), b.into_iter().sum())
+}
+
+/// One rounding, which JS has no cheap form of.
+pub fn fma(a: f64) -> f64 {
+	a.mul_add(2.0, 1.0)
+}
+
+/// Float formatting is not translated yet.
+pub fn float_printed(a: f64) -> String {
+	format!("{a}")
 }
