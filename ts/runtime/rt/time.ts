@@ -306,7 +306,7 @@ export function durationDiv(d: Duration, n: u32): Duration {
  * into them only when it would overflow and at the end, each overflow past `u64::MAX`
  * seconds a panic.
  */
-export function durationSum(it: Iter<Duration>, dropIt?: (it: Iter<Duration>) => void): Duration {
+export function durationSum(it: Iter<Duration>, drops = false): Duration {
 	const overflow = "sum over duration iterator should not overflow u64::MAX";
 	let secs = 0 as u64;
 	let nanos = 0 as u64;
@@ -323,7 +323,7 @@ export function durationSum(it: Iter<Duration>, dropIt?: (it: Iter<Duration>) =>
 				nanos = (u64Rem(nanos, NANOS_PER_SEC) as number) + d.nanos;
 			}
 		},
-		dropIt,
+		drops,
 	);
 	secs = u64CheckedAdd(secs, u64Div(nanos, NANOS_PER_SEC)) ?? panic(overflow);
 	return { secs, nanos: u64Rem(nanos, NANOS_PER_SEC) as number };

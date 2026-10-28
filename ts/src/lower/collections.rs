@@ -456,7 +456,8 @@ fn hash_extend<'tcx>(
 	span: Span,
 ) -> Expr {
 	let mut droppers = entry_droppers(b, coll, span);
-	droppers.push(super::iter::iter_dropper(b, iter, span));
+	// By `for_each`.
+	droppers.push(super::iter::iter_take(b, iter, true, span));
 	droppers.push(Expr::lit(if fresh && b.t.drops(coll) { "true" } else { "false" }));
 	let f = match b.t.std_of(coll) {
 		Some(Std::HashSet) => "hashExtendKeys",
@@ -693,7 +694,8 @@ fn btree<'tcx>(
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
 			let mut droppers = vec![Expr::lit("false")];
 			droppers.extend(entry_droppers(b, coll, span));
-			droppers.push(super::iter::iter_dropper(b, iter, span));
+			// By `for_each`.
+			droppers.push(super::iter::iter_take(b, iter, true, span));
 			let target = values.pop()?;
 			let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
 			Expr::rt(f, super::iter::tail(vec![target, source], droppers))
@@ -720,7 +722,9 @@ fn btree_collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, source: Expr,
 		if !set {
 			droppers.push(Expr::undefined());
 		}
-		droppers.push(super::iter::iter_dropper(b, iter, span));
+		// Into a `Vec` first.
+		let folds = super::iter::implements(b.t, iter, "TrustedLen");
+		droppers.push(super::iter::iter_take(b, iter, folds, span));
 		let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
 		return Expr::rt(f, super::iter::tail(vec![target, source], droppers));
 	}
@@ -849,8 +853,10 @@ fn deque<'tcx>(
 				"From" => deque_new(b, coll, span),
 				_ => values.pop()?,
 			};
-			let dropper = super::iter::iter_dropper(b, iter, span);
-			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], vec![dropper]))
+			// Of a `TrustedLen` iterator, by `for_each`.
+			let folds = super::iter::implements(b.t, iter, "TrustedLen");
+			let take = super::iter::iter_take(b, iter, folds, span);
+			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], vec![take]))
 		}
 		_ => return None,
 	};
@@ -869,8 +875,6 @@ fn extend_source<'tcx>(
 	// `Extend<A>::extend::<T>` and `From<T>::from`.
 	let ty = library::targ(call.args, if owner == "Extend" { 2 } else { 1 });
 	let iter = super::iter::iter_of(b.t, ty)?;
-	// Each but a `Vec`'s, by `for_each`.
-	super::iter::folds(b, iter, owner, call.span);
 	let Some(items) = super::iter::into_iter(b, ty, source, call.span) else {
 		return Some((
 			b.err(call.span, format!("`{owner}` from `{ty}`, which is not supported yet")),
@@ -1289,8 +1293,9 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from:
 			let target = deque_new(b, ty, span);
 			let item = arg(ty, 0);
 			if !b.t.drops(item) {
-				let dropper = super::iter::iter_dropper(b, from, span);
-				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], vec![dropper]))
+				let folds = super::iter::implements(b.t, from, "TrustedLen");
+				let take = super::iter::iter_take(b, from, folds, span);
+				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], vec![take]))
 			} else {
 				let items = super::iter::to_array(b, iter, from, item, span);
 				Expr::rt("dequeExtend", vec![target, Expr::rt("iterSlice", vec![items])])
