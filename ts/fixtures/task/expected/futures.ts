@@ -163,6 +163,7 @@ export class helpersFuture {
 						let captured5 = next;
 						const captured6 = this.#total;
 						this.#awaitee = new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.Result<rt.u64, rt.u64>> => {
+							let _11!: rt.Waker | undefined;
 							let _152!: Log.Log;
 							let _81!: boolean;
 							let unwind2: number = 0;
@@ -178,12 +179,13 @@ export class helpersFuture {
 									const _18: rt.u32 = rt.u32Add(Guard.id(captured4), 100);
 									_81 = false;
 									const _122: rt.Waker = relayed(_132, _152, _18);
-									unwind2 = 0;
+									unwind2 = 15;
 									_81 = false;
-									const _11: rt.Waker | undefined = _122;
+									_11 = _122;
 									rt.drop(captured3);
 									captured3 = _11;
 								}
+								unwind2 = 0;
 								const relay2: rt.Waker = rt.optionUnwrap(captured3);
 								const polled: rt.Poll<rt.u64 | undefined> = captured5.poll(relay2);
 								const _392: boolean = isPending$Poll_u64(waiting);
@@ -213,7 +215,9 @@ export class helpersFuture {
 								if (unwind2 === 0) {
 									throw e2;
 								}
-								if (_81) {
+								if (unwind2 === 15) {
+									captured3 = _11;
+								} else if (_81) {
 									rt.drop(_152);
 								}
 								throw e2;
@@ -469,7 +473,7 @@ export class boxedFuture {
 			unwind = 54;
 			rt.drop(this.#guard);
 			if (this.#saved$2) {
-				unwind = 0;
+				unwind = 55;
 				rt.drop(this.#rx);
 			}
 			this.#saved$2 = false;
@@ -480,48 +484,53 @@ export class boxedFuture {
 						b8: {
 							b9: {
 								b10: {
-									if (unwind === 0) {
-										throw e;
+									b11: {
+										if (unwind === 0) {
+											throw e;
+										}
+										if (unwind === 34) {
+											rt.drop(this.#pinned);
+										} else if (unwind !== 37) {
+											if (unwind === 44) {
+												break b11;
+											}
+											if (unwind === 48) {
+												break b10;
+											}
+											if (unwind === 50) {
+												break b9;
+											}
+											if (unwind === 51) {
+												break b8;
+											}
+											if (unwind === 54) {
+												break b7;
+											}
+											if (unwind === 55) {
+												break b6;
+											}
+											rt.drop(this.#guard);
+											break b5;
+										}
+										this.#saved$3 = false;
+										this.#saved$4 = false;
+										this.#saved$5 = false;
+										this.#saved$6 = false;
+										this.#saved$7 = false;
 									}
-									if (unwind === 34) {
-										rt.drop(this.#pinned);
-									} else if (unwind !== 37) {
-										if (unwind === 44) {
-											break b10;
-										}
-										if (unwind === 48) {
-											break b9;
-										}
-										if (unwind === 50) {
-											break b8;
-										}
-										if (unwind === 51) {
-											break b7;
-										}
-										if (unwind === 54) {
-											break b6;
-										}
-										rt.drop(this.#guard);
-										break b5;
+									if (this.#saved) {
+										rt.drop(this.#lend);
 									}
-									this.#saved$3 = false;
-									this.#saved$4 = false;
-									this.#saved$5 = false;
-									this.#saved$6 = false;
-									this.#saved$7 = false;
 								}
-								if (this.#saved) {
-									rt.drop(this.#lend);
-								}
+								this.#saved = false;
+								rt.drop(this.#log);
 							}
-							this.#saved = false;
-							rt.drop(this.#log);
 						}
+						rt.drop(this.#guard);
 					}
-					rt.drop(this.#guard);
-				}
-				if (this.#saved$2) {
-					rt.drop(this.#rx);
+					if (this.#saved$2) {
+						rt.drop(this.#rx);
+					}
 				}
 				this.#saved$2 = false;
 			}
