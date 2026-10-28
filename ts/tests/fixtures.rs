@@ -149,9 +149,8 @@ fn typecheck(out: &Path) {
 }
 
 /// Run the harness natively, as wasm32, and translated, on the same inputs: the
-/// translated side through `entry`, a module in `out`. `features` are the package's, and
-/// `extra` are `differential.ts`'s arguments after the case count.
-fn differential(package: &str, features: &[&str], out: &Path, entry: &str, cases: u32, extra: &[&str]) {
+/// translated side through `entry`, a module in `out`. `features` are the package's.
+fn differential(package: &str, features: &[&str], out: &Path, entry: &str, cases: u32) {
 	let target_dir = scratch().join("wasm");
 	let status = cargo()
 		.args([
@@ -180,7 +179,6 @@ fn differential(package: &str, features: &[&str], out: &Path, entry: &str, cases
 		.arg(&wasm)
 		.arg(out.join(entry))
 		.arg(cases.to_string())
-		.args(extra)
 		.output()
 		.expect("running node, which the dev shell provides");
 	let stdout = String::from_utf8_lossy(&output.stdout);
@@ -198,7 +196,7 @@ fn codec() {
 	snapshot("codec", &out);
 	std::fs::write(out.join("shake.ts"), SHAKE).unwrap();
 	typecheck(&out);
-	differential("codec-fixture", &[], &out, "harness.ts", 20_000, &[]);
+	differential("codec-fixture", &[], &out, "harness.ts", 20_000);
 	shake(&out);
 }
 
@@ -298,12 +296,12 @@ fn source_order() {
 /// impl of a method, renames nothing the old roots reach.
 #[test]
 fn stable_names() {
-	let roots = r#"roots = ["harness::run", "fmt::Fault"]"#;
+	let roots = r#"roots = ["harness::run", "harness::op", "fmt::Fault"]"#;
 	added_root(
 		"lang",
 		roots,
 		roots,
-		r#"roots = ["fmt::added", "harness::run", "fmt::Fault"]"#,
+		r#"roots = ["fmt::added", "harness::run", "harness::op", "fmt::Fault"]"#,
 	);
 }
 
@@ -371,7 +369,7 @@ fn lang_differential(out: &Path) {
 		std::fs::copy(manifest_dir().join("fixtures/lang").join(file), out.join(file)).unwrap();
 	}
 	typecheck(out);
-	differential("lang-fixture", &[], out, "caller.ts", 50_000, &["wide"]);
+	differential("lang-fixture", &[], out, "caller.ts", 50_000);
 }
 
 /// A copy that only one write in the crate keeps, of each kind: one per feature.
@@ -380,7 +378,7 @@ fn share() {
 	let out = translated("share");
 	snapshot("share", &out);
 	typecheck(&out);
-	differential("share-fixture", &[], &out, "harness.ts", 1_000, &[]);
+	differential("share-fixture", &[], &out, "harness.ts", 1_000);
 	let config = fixture("share").join("ts.toml");
 	for feature in ["call", "pointer"] {
 		let out = scratch().join("share").join(feature);
@@ -398,7 +396,7 @@ fn share() {
 			String::from_utf8_lossy(&output.stderr)
 		);
 		typecheck(&out);
-		differential("share-fixture", &[feature], &out, "harness.ts", 1_000, &[]);
+		differential("share-fixture", &[feature], &out, "harness.ts", 1_000);
 	}
 }
 
@@ -431,7 +429,7 @@ export const unwind = harness(fixture, true);
 	);
 	std::fs::write(out.join("caller.ts"), text).unwrap();
 	typecheck(out);
-	differential("task-fixture", &[], out, "caller.ts", 20_000, &[]);
+	differential("task-fixture", &[], out, "caller.ts", 20_000);
 	unwinding(out, "caller.ts", 5_000);
 }
 
@@ -487,7 +485,7 @@ fn bind() {
 	let out = translated("bind");
 	snapshot("bind", &out);
 	typecheck(&out);
-	differential("bind-fixture", &[], &out, "harness.ts", 1_000, &[]);
+	differential("bind-fixture", &[], &out, "harness.ts", 1_000);
 	for config in ["wrong", "refused"] {
 		let out = scratch().join("bind").join(config);
 		let toml = fixture("bind").join(format!("{config}.toml"));

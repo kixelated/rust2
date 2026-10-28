@@ -4,7 +4,7 @@
 // `harness::entry`, from the output directory.
 
 import * as Fault from "./fmt.Fault.ts";
-import { run as harness } from "./harness.ts";
+import { run as harness, op } from "./harness.ts";
 import * as rt from "./rt.ts";
 
 export function run(input: rt.ByteSlice): rt.ByteVec {
@@ -25,7 +25,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 }
 
 /** `shapes::loops` with each first byte that one of its cases of `!` takes, with one more byte and without. */
-const loops = [0xf1, 0xf3, 0xf4, 0xf5, 0xf6, 0xf9, 0xfa].flatMap((b) => [Uint8Array.of(16, 0, b), Uint8Array.of(16, 0, b, 1)]);
+const loops = [0xf1, 0xf3, 0xf4, 0xf5, 0xf6, 0xf9, 0xfa].flatMap((b) => [Uint8Array.of(op("shapes::loops"), 0, b), Uint8Array.of(op("shapes::loops"), 0, b, 1)]);
 
 /** A `Duration`'s bytes as `durations` takes them: its seconds, then its nanoseconds. */
 function duration(secs: bigint, nanos: number): number[] {
@@ -42,11 +42,88 @@ function duration(secs: bigint, nanos: number): number[] {
  */
 const edges = [0n, 1n, (1n << 53n) - 1n, 1n << 53n, (1n << 64n) - 1n].flatMap((secs) => [0, 1, 999_999_999].map((nanos) => duration(secs, nanos)));
 const factors = [0, 1, 3, 1000, 9_007_199, 1_000_000_000, 0xffffffff].map((n) => [n >>> 24, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff]);
+const durationsOp = op("durations::durations");
 const durations = [
 	...[0n, 1n, 1n << 32n, (1n << 53n) - 1n, 1n << 53n, (1n << 64n) - 2n, (1n << 64n) - 1n].flatMap((secs) =>
-		[0, 1, 999_999_999, 1_000_000_000, 0xffffffff].flatMap((nanos) => [0, 1].map((kind) => Uint8Array.of(47, kind, ...duration(secs, nanos)))),
+		[0, 1, 999_999_999, 1_000_000_000, 0xffffffff].flatMap((nanos) => [0, 1].map((kind) => Uint8Array.of(durationsOp, kind, ...duration(secs, nanos)))),
 	),
-	...edges.flatMap((a) => edges.flatMap((b) => factors.flatMap((n) => [2, 3, 4, 5, 6, 7, 8, 9].map((kind) => Uint8Array.of(47, kind, ...a, ...b, ...n))))),
+	...edges.flatMap((a) => edges.flatMap((b) => factors.flatMap((n) => [2, 3, 4, 5, 6, 7, 8, 9].map((kind) => Uint8Array.of(durationsOp, kind, ...a, ...b, ...n))))),
 ];
 
-export const cases: Uint8Array[] = [...loops, ...durations];
+/**
+ * The 64- and 128-bit cases over operands that random bytes rarely make: every pair of
+ * values next to a power of two.
+ */
+function wide(): Uint8Array[] {
+	const [u64, u128, i64, i128] = ["ints::u64_op", "ints::u128_op", "ints::i64_op", "ints::i128_op"].map(op);
+	const [neg, cast, convert, fmtInts] = ["ints::neg", "ints::cast", "ints::convert", "fmt::ints"].map(op);
+	const cases: Uint8Array[] = [];
+	// 2^k - 1, 2^k, and 2^k + 1 for each k where a limb, a safe number, or a sign ends,
+	// and values without that structure, whose quotients and remainders are not round.
+	const edges = new Set<bigint>([
+		1_000_000n,
+		0x9e3779b97f4a7c15n,
+		0x0123456789abcdefn,
+		0xfedcba9876543210n,
+		// Safe integers whose halves carry when multiplied, and a negative one.
+		0x1d3c5b7a9f8e6dn,
+		-0x1b2a3c4d5e6f71n & 0xffffffffffffffffn,
+	]);
+	for (const k of [0n, 1n, 16n, 21n, 31n, 32n, 33n, 52n, 53n, 54n, 63n, 64n]) {
+		for (const delta of [-1n, 0n, 1n]) edges.add(((1n << k) + delta) & 0xffffffffffffffffn);
+	}
+	// Small negative numbers, -2^32, and where negative safe numbers end, as signed values.
+	for (const k of [1n, 32n, 53n]) {
+		for (const delta of [-1n, 0n, 1n]) edges.add((-(1n << k) + delta) & 0xffffffffffffffffn);
+	}
+	const values = [...edges];
+	const be = (v: bigint) => {
+		const bytes = new Uint8Array(8);
+		new DataView(bytes.buffer).setBigUint64(0, v);
+		return [...bytes];
+	};
+	// Shift amounts in and past each limb, and past the width, which panics.
+	const shifts = [0, 1, 7, 31, 32, 33, 63, 64, 65, 95, 96, 127, 128, 200];
+	let i = 0;
+	for (const x of values) {
+		for (const y of values) {
+			// A 64-bit case's operands are `x` and `y`. A 128-bit case's are `x:y` and `u:v`,
+			// whose high halves are equal a third of the time, so the low half decides.
+			const u = i % 3 === 0 ? x : values[(i * 7) % values.length];
+			const v = values[(i * 13 + 5) % values.length];
+			const shift = shifts[i++ % shifts.length];
+			for (let kind = 0; kind < 25; kind++) {
+				for (const o of [u64, i64]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), shift));
+				for (const o of [u128, i128]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), ...be(u), ...be(v), shift));
+			}
+			// Negating an `i64` and an `i128`.
+			cases.push(Uint8Array.of(neg, 3, ...be(x)), Uint8Array.of(neg, 4, ...be(x), ...be(y)));
+			// `x * y` and `x.checked_mul(y)` at 128 bits, extended in each type's sign: a product
+			// of two numbers, past 2^53, multiplies their halves.
+			const signs = (v: bigint) => (v >> 63n === 1n ? 0xffffffffffffffffn : 0n);
+			for (const kind of [2, 13]) {
+				cases.push(Uint8Array.of(u128, kind, ...be(0n), ...be(x), ...be(0n), ...be(y)));
+				cases.push(Uint8Array.of(i128, kind, ...be(signs(x)), ...be(x), ...be(signs(y)), ...be(y)));
+			}
+			// `x:y / d` and `x:y % d` at 128 bits by a divisor below 2^32 in magnitude, which
+			// divides limbs by a number, extended in each type's sign: -1 overflows `i128::MIN`.
+			for (const d of [3n, 1_000_000n, 0xffffffffn, -1n, -0xffffffffn]) {
+				for (const kind of [3, 4]) {
+					for (const o of [u128, i128]) cases.push(Uint8Array.of(o, kind, ...be(x), ...be(y), ...be(signs(d & 0xffffffffffffffffn)), ...be(d & 0xffffffffffffffffn)));
+				}
+			}
+		}
+		// Conversions, and halves joined back.
+		cases.push(Uint8Array.of(convert, 0, ...be(x), ...be(x)));
+		for (const y of [0n, 1n, 1n << 32n, 1n << 63n, 0xffffffffffffffffn]) {
+			for (const from of [3, 4, 9, 10]) {
+				// A cast to every type, and every format spec.
+				for (let to = 0; to < 12; to++) cases.push(Uint8Array.of(cast, from, to, ...be(x), ...be(y)));
+				cases.push(Uint8Array.of(fmtInts, from, ...be(x), ...be(y)));
+			}
+		}
+	}
+	return cases;
+}
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...wide()];
