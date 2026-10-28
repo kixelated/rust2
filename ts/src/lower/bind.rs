@@ -84,7 +84,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				DefKind::Struct | DefKind::Enum | DefKind::Union => {
 					if super::library::Std::of(tcx, def_id).is_some() {
-						fail(self, "std's type has a representation of its own".into());
+						fail(self, "the type has a representation of its own".into());
 						continue;
 					}
 					Kind::Type { drop: bind.drop }
@@ -141,7 +141,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		self.writes = super::copy::Writes::of_crate(tcx, &|def_id| self.bound(def_id));
+		let bodies = tcx
+			.mir_keys(())
+			.iter()
+			.map(|def_id| def_id.to_def_id())
+			.chain(self.read.iter().copied());
+		// A binding's code, a bound type's methods' included, is code it doesn't read.
+		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| {
+			self.crates.translates(def_id) && !self.bound(def_id)
+		});
 	}
 
 	/// The item a binding's path names: from the crate root, or else from a crate the crate
@@ -196,9 +204,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		(adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some()).then_some(adt.did())
 	}
 
-	/// Whether `def_id` is the crate's own, which it translates, rather than bound.
+	/// Whether `def_id` is of a crate that translates, rather than bound.
 	pub fn own(&self, def_id: DefId) -> bool {
-		def_id.is_local() && !self.bindings.items.contains_key(&def_id)
+		self.crates.translates(def_id) && !self.bindings.items.contains_key(&def_id)
 	}
 
 	/// Why `def_id`, which isn't [`own`](Self::own), isn't the crate's to translate.
@@ -365,9 +373,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.program.bound.contains_key(module) {
 			let file = &self.bindings.files[module];
 			// A census writes nothing, so it reads no file.
-			let text = match &self.refusals {
-				Some(_) => Ok(String::new()),
-				None => std::fs::read_to_string(self.config.dir.join(&file.path)),
+			let text = match self.census {
+				true => Ok(String::new()),
+				false => std::fs::read_to_string(self.config.dir.join(&file.path)),
 			};
 			let (namespace, prefix) = (file.namespace.clone(), file.prefix.clone());
 			let source = self.config.dir.join(&file.path);

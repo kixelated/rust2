@@ -40,6 +40,17 @@ pub struct Label {
 	pub ttl: Option<Duration>,
 }
 
+/// A note whose text may be present but empty, which crosses as itself, not as none.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Note {
+	pub text: Option<String>,
+}
+
+/// Whether `note` has text, even empty.
+pub fn has_text(note: Note) -> bool {
+	note.text.is_some()
+}
+
 /// A plain enumeration.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Shape {
@@ -153,6 +164,11 @@ impl<'a> Counter {
 /// A tuple of one: its out pointer holds the counter, not the tuple.
 pub fn only(counter: Counter) -> (Counter,) {
 	(counter,)
+}
+
+/// `n` narrowed to each width, a tuple longer than any a language may name.
+pub fn widths(n: u64) -> (u8, i16, u32, u64) {
+	(n as u8, n as i16, n as u32, n)
 }
 
 /// The quotient and remainder, failing on a zero divisor.
@@ -352,6 +368,21 @@ impl Channel {
 			payload => Ok(payload),
 		}
 	}
+}
+
+/// `value`, on its second poll: the first wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one.
+pub async fn yielded(value: u32) -> u32 {
+	let mut woken = false;
+	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
+		true => Poll::Ready(()),
+		false => {
+			cx.waker().wake_by_ref();
+			Poll::Pending
+		}
+	})
+	.await;
+	value
 }
 
 /// A time: an object, since its field is private, but `Copy`, so passing it by value
@@ -566,8 +597,8 @@ pub fn describe(event: &Event) -> String {
 	format!("{event:?}")
 }
 
-/// Two values: a generic record, which exports at each instance the config names. Its
-/// second parameter defaults to its first, as an instance may leave it.
+/// Two values: a generic record, which exports at each instance it infers. Its second
+/// parameter defaults to its first, as an instance's name leaves it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pair<L, R = L> {
 	pub left: L,
@@ -592,14 +623,14 @@ impl<L: Copy, R: Copy> Pair<L, R> {
 	}
 }
 
-/// An impl of one instance, whose methods no other instance has.
+/// An impl of one instance, whose methods no other instance has, and which infers it.
 impl Pair<u32> {
 	pub fn sum(&self) -> u32 {
 		self.left + self.right
 	}
 
 	/// The left value as a byte, beside `right`: the one instance that names the result
-	/// fills the type parameter, with `dep_fixture::Size`.
+	/// fills the type parameter, with `dep_fixture::Size`, and names this instance.
 	pub fn beside<T: Copy>(&self, right: T) -> Pair<u8, T> {
 		Pair {
 			left: self.left as u8,
@@ -608,9 +639,15 @@ impl Pair<u32> {
 	}
 }
 
-/// A stack: a generic object, at an instance of objects, whose handles move in and out.
+/// A size tagged with a byte: a signature that names an instance, which infers it, and
+/// its `swap` the other way around.
+pub fn tag(size: Size, tag: u8) -> Pair<Size, u8> {
+	Pair { left: size, right: tag }
+}
+
+/// A stack: a generic object, at its default of objects, whose handles move in and out.
 #[derive(Debug, Default)]
-pub struct Stack<T> {
+pub struct Stack<T = Counter> {
 	items: Vec<T>,
 }
 
@@ -638,9 +675,99 @@ impl<T> Stack<T> {
 }
 
 /// What a [`Counter`] can start from: generic, so no foreign implementation takes it, and a
-/// parameter it bounds exports at each instance the config names.
+/// parameter it bounds exports at each type the exports implement it for, by reference,
+/// which also implements it, so C keeps its handle.
 pub trait Seed<T> {
 	fn seed(&self) -> T;
+}
+
+/// A weight, implemented for `Point` and for `&Point` apart, which both choose `&Point`:
+/// one instance of a parameter it bounds.
+impl Seed<u32> for Point {
+	fn seed(&self) -> u32 {
+		self.x.unsigned_abs() + self.y.unsigned_abs()
+	}
+}
+
+impl Seed<u32> for &Point {
+	fn seed(&self) -> u32 {
+		Seed::<u32>::seed(*self)
+	}
+}
+
+/// Two generic records whose instances name each other, as `Left<Right<u8>>` and
+/// `Right<Left<u8>>` do: each instance is named without the other's name.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Left<T> {
+	pub value: T,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Right<T> {
+	pub value: T,
+}
+
+/// The sum of what each holds inside.
+pub fn cross(left: Left<Right<u8>>, right: Right<Left<u8>>) -> u8 {
+	left.value.value + right.value.value
+}
+
+/// A handle made only by an impl of an instance holding another, which nothing else
+/// names: inferring the outer instance infers the inner one.
+pub struct Outer<T>(T);
+
+impl Outer<Inner<u8>> {
+	pub fn new(value: u8) -> Self {
+		Self(Inner { value })
+	}
+
+	pub fn get(&self) -> u8 {
+		self.0.value
+	}
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Inner<T> {
+	pub value: T,
+}
+
+/// `from`'s seed, which outlives the call, so a reference to a value C passes cannot be
+/// it: each instance takes its value.
+pub fn kept(from: impl Seed<u64> + 'static) -> u64 {
+	from.seed()
+}
+
+/// A generic record only a constant names, which infers its instance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Boxed<T> {
+	pub value: T,
+}
+
+pub const BOXED: Boxed<u16> = Boxed { value: 42 };
+
+/// Whether `log` kept a line, boxed: an instance only a function taking a foreign
+/// implementation names.
+pub fn keeps(log: impl Log) -> Boxed<u8> {
+	Boxed {
+		value: u8::from(log.log(2, "keeps")),
+	}
+}
+
+/// `from`'s weight.
+pub fn weigh(from: impl Seed<u32>) -> u32 {
+	from.seed()
+}
+
+impl<S: Seed<u64>> Seed<u64> for &S {
+	fn seed(&self) -> u64 {
+		(**self).seed()
+	}
+}
+
+impl Seed<u64> for Counter {
+	fn seed(&self) -> u64 {
+		self.value
+	}
 }
 
 impl Seed<u64> for Point {
@@ -655,8 +782,54 @@ impl Seed<u64> for Size {
 	}
 }
 
+/// Each side of `pair` through `f`, summed: a function inferred at each instance of
+/// `Pair` whose sides are alike, taking a lent closure of the inferred type.
+pub fn apply<T: Copy, F: Fn(T) -> u32>(pair: Pair<T>, f: F) -> u32 {
+	f(pair.left) + f(pair.right)
+}
+
+/// Each side of `pair` to `log`, returning how many it kept: inferred as `apply` is,
+/// taking a foreign implementation.
+pub fn report<T: Copy + fmt::Debug, L: Log>(pair: Pair<T>, log: L) -> u32 {
+	[pair.left, pair.right]
+		.iter()
+		.filter(|side| log.log(1, &format!("{side:?}")))
+		.count() as u32
+}
+
+/// A wrapped value, which only its impl of `Seed<u64>` at `Wrap<u32>` names: each
+/// function taking a seed infers that instance.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Wrap<T> {
+	pub value: T,
+}
+
+impl Seed<u64> for Wrap<u32> {
+	fn seed(&self) -> u64 {
+		u64::from(self.value) * 10
+	}
+}
+
+/// A second `Point`, whose last segment clashes with the crate root's: an instance named
+/// by it takes its module too, and one named by the other keeps the shorter name.
+pub mod polar {
+	/// A point by its angle in turns and its distance from the origin.
+	#[derive(Clone, Copy, Debug, PartialEq)]
+	pub struct Point {
+		pub turns: u8,
+		pub distance: u32,
+	}
+
+	impl super::Seed<u64> for Point {
+		fn seed(&self) -> u64 {
+			u64::from(self.turns) + u64::from(self.distance)
+		}
+	}
+}
+
 impl Counter {
-	/// A counter named `name` at `from`'s seed: an `impl Trait` argument, at two instances.
+	/// A counter named `name` at `from`'s seed: an `impl Trait` argument, at an instance
+	/// for each implementation.
 	pub fn seeded(name: &str, from: impl Seed<u64>) -> Counter {
 		Counter::new(name, from.seed())
 	}
@@ -695,4 +868,9 @@ impl Slot<u8> {
 	pub fn value(&self) -> u16 {
 		u16::from(self.value) * 2
 	}
+}
+
+/// A wide slot: a signature that names `Slot<u32>`, which infers it.
+pub fn wide(value: u32) -> Slot<u32> {
+	Slot::new(value)
 }

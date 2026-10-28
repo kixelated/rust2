@@ -71,16 +71,20 @@ pub struct Export {
 	pub future: Option<(String, Sig, Sig)>,
 }
 
+/// The suffix naming each instance of a generic item, by its arguments.
+type Suffixes = HashMap<Vec<Type>, String>;
+
 pub struct Abi<'a> {
 	pub api: &'a Api,
 	pub prefix: String,
 	/// C names for Rust paths, each starting with its crate's name, in place of the
 	/// rule's: an item's, and its methods' through it.
 	rename: &'a BTreeMap<String, String>,
-	/// Each instance's C name, without the prefix, which its members are named through.
-	instances: HashMap<Type, String>,
 	/// The renamed paths some name went through.
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
+	/// Each generic item's instances, by whether it is a function and its C name, with
+	/// the suffix that names each by its arguments.
+	suffixes: std::cell::RefCell<HashMap<(bool, String), Suffixes>>,
 	/// Each `Option<T>` struct by C name, with `T`.
 	pub options: BTreeMap<String, Type>,
 	/// Each range, bound, and pair of bounds struct by C name, with its type.
@@ -92,13 +96,13 @@ pub struct Abi<'a> {
 }
 
 impl<'a> Abi<'a> {
-	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>, instances: &[(Type, String)]) -> Self {
+	pub fn new(api: &'a Api, prefix: &str, rename: &'a BTreeMap<String, String>) -> Self {
 		let mut abi = Self {
 			api,
 			prefix: prefix.to_string(),
 			rename,
-			instances: instances.iter().cloned().collect(),
 			renamed: Default::default(),
+			suffixes: Default::default(),
 			options: BTreeMap::new(),
 			ranges: BTreeMap::new(),
 			names: HashMap::new(),
@@ -110,23 +114,28 @@ impl<'a> Abi<'a> {
 
 	/// The C name for a Rust path, which starts with its crate's name.
 	pub fn name(&self, path: &[String]) -> String {
-		let mut name = self.prefix.clone();
+		std::iter::once(self.prefix.clone())
+			.chain(self.segments(path))
+			.collect::<Vec<_>>()
+			.join("_")
+	}
+
+	/// The segments of a Rust path's C name after the prefix: a renamed part as one, then
+	/// each segment past it in snake case.
+	fn segments(&self, path: &[String]) -> Vec<String> {
+		let mut segments = Vec::new();
 		let mut rest = &path[1..];
 		for len in (2..=path.len()).rev() {
 			let key = path[..len].join("::");
 			if let Some(renamed) = self.rename.get(&key) {
 				self.renamed.borrow_mut().insert(key);
-				name.push('_');
-				name.push_str(renamed);
+				segments.push(renamed.clone());
 				rest = &path[len..];
 				break;
 			}
 		}
-		for segment in rest {
-			name.push('_');
-			name.push_str(&snake(segment));
-		}
-		name
+		segments.extend(rest.iter().map(|segment| snake(segment)));
+		segments
 	}
 
 	/// The config's renames that name nothing exported.
@@ -145,32 +154,84 @@ impl<'a> Abi<'a> {
 	}
 
 	pub fn record(&self, i: usize) -> String {
-		self.type_name(Type::Record(i), &self.api.records[i].path)
+		self.type_instance(&self.api.records[i].path, &self.api.records[i].args)
 	}
 
 	pub fn enumeration(&self, i: usize) -> String {
-		self.type_name(Type::Enum(i), &self.api.enums[i].path)
+		self.type_instance(&self.api.enums[i].path, &self.api.enums[i].args)
 	}
 
 	pub fn object(&self, i: usize) -> String {
-		self.type_name(Type::Object(i), &self.api.objects[i].path)
+		self.type_instance(&self.api.objects[i].path, &self.api.objects[i].args)
 	}
 
-	/// A type's C name: an instance's as the config names it, else its path's.
-	fn type_name(&self, ty: Type, path: &[String]) -> String {
-		match self.instances.get(&ty) {
-			Some(name) => format!("{}_{name}", self.prefix),
-			None => self.name(path),
+	/// The C name of the instance of the type at `path` at `args`, among the type's every
+	/// instance, whichever kind each is.
+	fn type_instance(&self, path: &[String], args: &[Type]) -> String {
+		let api = self.api;
+		self.instance(false, self.name(path), args, || {
+			let records = api.records.iter().map(|r| (&r.path, &r.args));
+			let enums = api.enums.iter().map(|e| (&e.path, &e.args));
+			let objects = api.objects.iter().map(|o| (&o.path, &o.args));
+			(records.chain(enums).chain(objects))
+				.filter(|(other, _)| other[..] == *path)
+				.map(|(_, args)| args.clone())
+				.collect()
+		})
+	}
+
+	/// An instance's C name: its generic item's, `name`, then the suffix naming `args`
+	/// apart from the arguments of the item's other instances, which `group` lists.
+	fn instance(&self, function: bool, name: String, args: &[Type], group: impl FnOnce() -> Vec<Vec<Type>>) -> String {
+		if args.is_empty() {
+			return name;
 		}
+		let key = (function, name);
+		if let Some(suffix) = self.suffixes.borrow().get(&key).and_then(|suffixes| suffixes.get(args)) {
+			return format!("{}_{suffix}", key.1);
+		}
+		let group = group();
+		let forms: Vec<Vec<Vec<String>>> = (group.iter())
+			.map(|args| args.iter().map(|arg| self.arg_forms(arg)).collect())
+			.collect();
+		let suffixes: Suffixes = group.into_iter().zip(shortest(&forms)).collect();
+		let suffix = suffixes[args].clone();
+		self.suffixes.borrow_mut().insert(key.clone(), suffixes);
+		format!("{}_{suffix}", key.1)
 	}
 
-	/// A function's C name: an instance's as the config names it, else a method's through
-	/// its type's, unless renamed itself. A field is renamed by `field@` and its path, or
-	/// by its path unless a method or constant takes it.
+	/// The names an instance's argument `ty` may take, shortest first: a type's path's
+	/// last segment, then its own arguments' names, lengthened in step until whole, then
+	/// its path's segments, one more at a time. They read only `ty` itself, never another
+	/// instance's name, so two items whose instances name each other, as `A<B<u8>>` and
+	/// `B<A<u8>>`, name each without the other.
+	fn arg_forms(&self, ty: &Type) -> Vec<String> {
+		let (path, args) = match ty {
+			Type::Record(i) => (&self.api.records[*i].path, &self.api.records[*i].args),
+			Type::Enum(i) => (&self.api.enums[*i].path, &self.api.enums[*i].args),
+			Type::Object(i) => (&self.api.objects[*i].path, &self.api.objects[*i].args),
+			Type::Ref(_, inner) | Type::Box(inner) => return self.arg_forms(inner),
+			ty => return vec![self.key(ty)],
+		};
+		let segments = self.segments(path);
+		let nested: Vec<Vec<String>> = args.iter().map(|arg| self.arg_forms(arg)).collect();
+		let steps = nested.iter().map(Vec::len).max().unwrap_or(1);
+		let form = |len: usize, step: usize| {
+			std::iter::once(segments[segments.len() - len..].join("_"))
+				.chain(nested.iter().map(|forms| forms[step.min(forms.len() - 1)].clone()))
+				.collect::<Vec<_>>()
+				.join("_")
+		};
+		let mut forms: Vec<String> = (0..steps).map(|step| form(1, step)).collect();
+		forms.extend((2..=segments.len()).map(|len| form(len, steps - 1)));
+		forms.dedup();
+		forms
+	}
+
+	/// A function's C name: a method's through its type's, unless renamed itself, then
+	/// each argument of the instance it is. A field is renamed by `field@` and its path,
+	/// or by its path unless a method or constant takes it.
 	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
-		if let Some(instance) = &function.instance {
-			return format!("{}_{}", self.prefix, instance.name);
-		}
 		let path = function.path.join("::");
 		let shared = match function.access {
 			Access::Field { shared } => {
@@ -183,14 +244,34 @@ impl<'a> Abi<'a> {
 			}
 			_ => false,
 		};
-		let owner = match owner {
-			Some(Ty::Struct(name) | Ty::Enum(name) | Ty::Handle { name, .. }) => name,
-			_ => return self.name(&function.path),
+		let name = match owner {
+			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. })
+				if shared || !self.rename.contains_key(&path) =>
+			{
+				format!("{owner}_{}", snake(function.name()))
+			}
+			_ => self.name(&function.path),
 		};
-		match !shared && self.rename.contains_key(&path) {
-			true => self.name(&function.path),
-			false => format!("{owner}_{}", snake(function.name())),
-		}
+		let Some(instance) = &function.instance else {
+			return name;
+		};
+		let owner = match owner {
+			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. }) => Some(owner.as_str()),
+			_ => None,
+		};
+		self.instance(true, name, &instance.named, || {
+			let api = self.api;
+			let records = (0..api.records.len()).map(|i| (Some(self.record(i)), &api.records[i].methods));
+			let enums = (0..api.enums.len()).map(|i| (Some(self.enumeration(i)), &api.enums[i].methods));
+			let objects = (0..api.objects.len()).map(|i| (Some(self.object(i)), &api.objects[i].methods));
+			let free = std::iter::once((None, &api.functions));
+			(records.chain(enums).chain(objects).chain(free))
+				.filter(|(other, _)| other.as_deref() == owner)
+				.flat_map(|(_, functions)| functions)
+				.filter(|other| other.path == function.path)
+				.filter_map(|other| other.instance.as_ref().map(|instance| instance.named.clone()))
+				.collect()
+		})
 	}
 
 	pub fn callback(&self, i: usize) -> String {
@@ -212,11 +293,13 @@ impl<'a> Abi<'a> {
 		format!("{}_{}", self.prefix, self.key(ty))
 	}
 
-	/// A type's name within the prefix, for naming the structs built from it.
+	/// A type's name within the prefix, for naming the structs and instances built from it.
 	fn key(&self, ty: &Type) -> String {
 		let strip = |name: String| name[self.prefix.len() + 1..].to_string();
 		match ty {
+			Type::Unit => "unit".to_string(),
 			Type::Bool => "bool".to_string(),
+			Type::String => "string".to_string(),
 			Type::Int(int) => int.rust().to_string(),
 			Type::F32 => "f32".to_string(),
 			Type::F64 => "f64".to_string(),
@@ -224,6 +307,7 @@ impl<'a> Abi<'a> {
 			Type::Duration => "duration".to_string(),
 			Type::Record(i) => strip(self.record(*i)),
 			Type::Enum(i) => strip(self.enumeration(*i)),
+			Type::Object(i) => strip(self.object(*i)),
 			Type::Range(int) => format!("range_{}", int.rust()),
 			Type::Bound(int) => format!("bound_{}", int.rust()),
 			Type::Bounds(int) => format!("bounds_{}", int.rust()),
@@ -417,7 +501,12 @@ impl<'a> Abi<'a> {
 			.map(|r| r.span)
 			.or_else(|| api.objects.first().map(|o| o.span))
 			.unwrap_or(rustc_span::DUMMY_SP);
-		for runtime in ["contract", "buf", "buf_free", "duration", "waker", "poll"] {
+		// C's runtime, then what C++'s adds in the namespace its types share, and Kotlin's
+		// in its package.
+		for runtime in [
+			"contract", "buf", "buf_free", "duration", "waker", "poll", "view", "result", "task", "future", "poll_t",
+			"detail", "native",
+		] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}
 		for constant in ["CONTRACT", "POLL_PENDING", "POLL_READY", "POLL_ERROR"] {
@@ -449,7 +538,8 @@ impl<'a> Abi<'a> {
 			let plain = e.plain();
 			if !plain {
 				self.claim(format!("{name}_tag"), what.clone(), e.span);
-				for variant in e.variants.iter().filter(|v| !v.fields.is_empty()) {
+				// Each variant's payload, which C++ names even when it has no fields.
+				for variant in &e.variants {
 					self.claim(format!("{name}_{}", snake(&variant.name)), what.clone(), e.span);
 				}
 			}
@@ -576,6 +666,43 @@ impl<'a> Abi<'a> {
 	}
 }
 
+/// The suffix naming each of a generic item's instances, given the names each of its
+/// arguments may take, shortest first: each argument's shortest, lengthened by one at a
+/// time only where two instances' suffixes are alike while their arguments differ there.
+/// Each suffix depends on the whole group, not its order, so an instance added later can
+/// lengthen another's name. Instances alike at every length keep their clash, which
+/// claiming their C names reports.
+fn shortest(group: &[Vec<Vec<String>>]) -> Vec<String> {
+	let mut lens: Vec<Vec<usize>> = group.iter().map(|args| vec![1; args.len()]).collect();
+	loop {
+		let names: Vec<String> = (group.iter().zip(&lens))
+			.map(|(args, lens)| {
+				(args.iter().zip(lens))
+					.map(|(forms, &len)| forms[len - 1].as_str())
+					.collect::<Vec<_>>()
+					.join("_")
+			})
+			.collect();
+		let mut grow = std::collections::BTreeSet::new();
+		for (a, b) in (0..group.len()).flat_map(|a| (0..group.len()).map(move |b| (a, b))) {
+			if a == b || names[a] != names[b] {
+				continue;
+			}
+			for (j, forms) in group[a].iter().enumerate() {
+				if group[b].get(j) != Some(forms) && lens[a][j] < forms.len() {
+					grow.insert((a, j));
+				}
+			}
+		}
+		if grow.is_empty() {
+			return names;
+		}
+		for (a, j) in grow {
+			lens[a][j] += 1;
+		}
+	}
+}
+
 /// A Rust identifier in snake case: `TrackProducer` is `track_producer`, and a name
 /// already in snake case stays as it is.
 pub fn snake(name: &str) -> String {
@@ -601,13 +728,108 @@ pub fn snake(name: &str) -> String {
 	out
 }
 
-/// A name that C would read as a keyword, with `_` appended.
+/// A name that C or C++, which includes the header, would read as a keyword, with `_`
+/// prepended.
 pub fn escape(name: &str) -> String {
 	const KEYWORDS: &[&str] = &[
-		"auto", "bool", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum",
-		"extern", "false", "float", "for", "goto", "if", "inline", "int", "long", "register", "restrict", "return",
-		"short", "signed", "sizeof", "static", "struct", "switch", "true", "typedef", "union", "unsigned", "void",
-		"volatile", "while", "out", "err", "future", "waker", "data",
+		"auto",
+		"bool",
+		"break",
+		"case",
+		"char",
+		"const",
+		"continue",
+		"default",
+		"do",
+		"double",
+		"else",
+		"enum",
+		"extern",
+		"false",
+		"float",
+		"for",
+		"goto",
+		"if",
+		"inline",
+		"int",
+		"long",
+		"register",
+		"restrict",
+		"return",
+		"short",
+		"signed",
+		"sizeof",
+		"static",
+		"struct",
+		"switch",
+		"true",
+		"typedef",
+		"union",
+		"unsigned",
+		"void",
+		"volatile",
+		"while",
+		"out",
+		"err",
+		"future",
+		"waker",
+		"data",
+		"alignas",
+		"alignof",
+		"and",
+		"and_eq",
+		"asm",
+		"bitand",
+		"bitor",
+		"catch",
+		"char8_t",
+		"char16_t",
+		"char32_t",
+		"class",
+		"compl",
+		"concept",
+		"consteval",
+		"constexpr",
+		"constinit",
+		"const_cast",
+		"co_await",
+		"co_return",
+		"co_yield",
+		"decltype",
+		"delete",
+		"dynamic_cast",
+		"explicit",
+		"export",
+		"friend",
+		"mutable",
+		"namespace",
+		"new",
+		"noexcept",
+		"not",
+		"not_eq",
+		"nullptr",
+		"operator",
+		"or",
+		"or_eq",
+		"private",
+		"protected",
+		"public",
+		"reinterpret_cast",
+		"requires",
+		"static_assert",
+		"static_cast",
+		"template",
+		"this",
+		"thread_local",
+		"throw",
+		"try",
+		"typeid",
+		"typename",
+		"using",
+		"virtual",
+		"wchar_t",
+		"xor",
+		"xor_eq",
 	];
 	// `out0`, `out1`, ... are a returned tuple's.
 	let out = name
@@ -625,5 +847,53 @@ pub fn dyn_wrap(form: Dyn, expr: &str) -> String {
 		Dyn::Impl => expr.to_string(),
 		Dyn::Box => format!("::std::boxed::Box::new({expr})"),
 		Dyn::Arc => format!("::std::sync::Arc::new({expr})"),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::shortest;
+
+	/// Each instance's arguments, each by its path's segments, whose forms are their
+	/// suffixes, shortest first.
+	fn group(instances: &[&[&[&str]]]) -> Vec<Vec<Vec<String>>> {
+		(instances.iter())
+			.map(|args| {
+				(args.iter())
+					.map(|segments| {
+						(1..=segments.len())
+							.map(|len| segments[segments.len() - len..].join("_"))
+							.collect()
+					})
+					.collect()
+			})
+			.collect()
+	}
+
+	#[test]
+	fn lengthens_only_where_instances_clash() {
+		// Only the clashing arguments lengthen, a segment a round, until they differ.
+		let names = shortest(&group(&[
+			&[&["a", "x", "foo"], &["u8"]],
+			&[&["b", "x", "foo"], &["u8"]],
+			&[&["foo"], &["u16"]],
+			&[&["c", "bar"], &["u8"]],
+		]));
+		assert_eq!(names, ["a_x_foo_u8", "b_x_foo_u8", "foo_u16", "bar_u8"]);
+		// One with no more segments keeps its name while the other lengthens.
+		assert_eq!(
+			shortest(&group(&[&[&["foo"]], &[&["polar", "foo"]]])),
+			["foo", "polar_foo"]
+		);
+	}
+
+	#[test]
+	fn names_apart_from_order() {
+		let instances: [&[&[&str]]; 3] = [&[&["x", "foo"]], &[&["y", "foo"]], &[&["bar"]]];
+		let forward = shortest(&group(&instances));
+		let mut reversed = shortest(&group(&[instances[2], instances[1], instances[0]]));
+		reversed.reverse();
+		assert_eq!(forward, ["x_foo", "y_foo", "bar"]);
+		assert_eq!(forward, reversed);
 	}
 }

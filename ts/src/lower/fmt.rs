@@ -286,6 +286,8 @@ pub fn std_impl<'tcx>(
 			}
 			(Std::Arguments, Trait::Display | Trait::Debug) => rt("arguments", vec![value, f]),
 			(Std::FmtError, Trait::Debug) => rt("errorDebug", vec![value, f]),
+			(Std::PoisonError, Trait::Debug) => rt("poisonErrorDebug", vec![value, f]),
+			(Std::PoisonError, Trait::Display) => rt("poisonErrorDisplay", vec![value, f]),
 			(Std::FmtError, Trait::Display) => rt("errorDisplay", vec![value, f]),
 			(Std::TryFromIntError, Trait::Debug) => rt("tryFromIntErrorDebug", vec![value, f]),
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
@@ -296,6 +298,7 @@ pub fn std_impl<'tcx>(
 			(Std::Utf8Error, Trait::Debug) => rt("utf8ErrorDebug", vec![value, f]),
 			(Std::Utf8Error, Trait::Display) => rt("utf8ErrorDisplay", vec![value, f]),
 			(Std::Duration, Trait::Debug) => Expr::rt("durationDebug", vec![value, f]),
+			(Std::Bytes, Trait::Debug) => Expr::rt("bytesDebug", vec![value, f]),
 			_ => return None,
 		},
 		_ => return None,

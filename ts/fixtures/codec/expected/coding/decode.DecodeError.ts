@@ -3,6 +3,7 @@
 import * as rt from "../rt.ts";
 import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 import * as SessionError from "../lib.SessionError.ts";
+import { asDisplay$AsDisplay_usize } from "../thiserror/display.ts";
 
 export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
@@ -35,8 +36,8 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 		return rt.fmtWriteStr(__formatter, "expected end");
 	}
 	if (self.tag === "MessageTooLarge") {
-		const _26: rt.usize = self.size;
-		const _28: rt.usize = self.max;
+		const _26: rt.usize = asDisplay$AsDisplay_usize(self.size);
+		const _28: rt.usize = asDisplay$AsDisplay_usize(self.max);
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_26, f), (f: rt.Formatter) => rt.usizeDisplay(_28, f)];
 		return rt.fmtWriteFmt(__formatter, ["message too large: ", args4[0], " bytes exceeds ", args4[1], " byte limit"]);
 	}

@@ -77,24 +77,23 @@ pub fn check_impl(t: &mut Translator<'_, '_>, next_fn: DefId) {
 	let ty::Adt(adt, _) = tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() else {
 		return;
 	};
-	for (&tr, impls) in tcx.all_local_trait_impls(()) {
-		let path = library::std_path(tcx, tr);
-		let Some(name) = path.last().filter(|n| {
+	// Only the type's crate can implement std's traits for it.
+	for &other in tcx.trait_impls_in_crate(adt.did().krate) {
+		let self_ty = tcx.type_of(other).instantiate_identity().skip_norm_wip();
+		if !matches!(self_ty.kind(), ty::Adt(other, _) if other.did() == adt.did()) {
+			continue;
+		}
+		let path = library::std_path(tcx, tcx.impl_trait_id(other));
+		if let Some(name) = path.last().filter(|n| {
 			matches!(
 				n.as_str(),
 				"DoubleEndedIterator" | "ExactSizeIterator" | "FusedIterator"
 			)
-		}) else {
-			continue;
-		};
-		for other in impls {
-			let self_ty = tcx.type_of(other.to_def_id()).instantiate_identity().skip_norm_wip();
-			if matches!(self_ty.kind(), ty::Adt(other, _) if other.did() == adt.did()) {
-				t.err(
-					tcx.def_span(other.to_def_id()),
-					format!("an iterator of the crate implementing `{name}`, which is not supported yet"),
-				);
-			}
+		}) {
+			t.err(
+				tcx.def_span(other),
+				format!("an iterator of the crate implementing `{name}`, which is not supported yet"),
+			);
 		}
 	}
 }
@@ -379,11 +378,10 @@ pub fn call<'tcx>(
 	};
 	let camel = super::camel(name);
 	match name {
-		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "any" | "all" | "find_map" | "position" => {
-			method(&camel, rest)
-		}
+		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "inspect" | "any" | "all" | "find_map"
+		| "position" => method(&camel, rest),
 		// What each drops: an item it skips or rejects, or one it peeked.
-		"filter" | "skip_while" | "take_while" | "inspect" | "peekable" | "skip" | "take" | "step_by" => {
+		"filter" | "skip_while" | "take_while" | "peekable" | "skip" | "take" | "step_by" => {
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, vec![dropper]))
 		}
@@ -395,7 +393,7 @@ pub fn call<'tcx>(
 			let dropper = b.t.dropper(item, span);
 			owned(b, name, dropper)
 		}
-		"for_each" => {
+		"for_each" | "fold" => {
 			let drops = iter_drops(b, self_ty, span);
 			method(&camel, tail(rest, vec![drops]))
 		}
@@ -427,11 +425,6 @@ pub fn call<'tcx>(
 			let drops = iter_drops(b, self_ty, span);
 			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
 		}
-		// `fold::<B, F>`, whose accumulator drops if reading an item panics.
-		"fold" => {
-			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(targ(1)?, span)];
-			method(name, tail(rest, droppers))
-		}
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
 		"nth" => {
@@ -445,10 +438,22 @@ pub fn call<'tcx>(
 			};
 			method(&camel, tail(rest, droppers))
 		}
-		// Not of places, which the runtime would compare as the objects they are.
-		"max" | "min" if primitive(item.peel_refs()) && !b.t.has_place(item) => {
+		// By the items' `Ord::max` or `min`, or the keys', which test `<` of the next and the
+		// best. Not of places, which the runtime would compare as the objects they are.
+		"max" | "min" | "max_by_key" | "min_by_key"
+			if !b.t.has_place(if name.ends_with("_by_key") { targ(1)? } else { item }) =>
+		{
+			let by_key = name.ends_with("_by_key");
+			let key = if by_key { targ(1)? } else { item };
+			if by_key && b.t.drops(key) {
+				return Some(b.err(
+					span,
+					format!("`{name}` by `{key}`, which drops, which is not supported yet"),
+				));
+			}
 			// A `BTreeMap`'s `into_keys` reads the one end and drops the rest with it.
-			if std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
+			if !by_key
+				&& std_iter_path(tcx, self_ty).is_some_and(|p| p == ["collections", "btree", "map", "IntoKeys"])
 				&& b.t.drops(self_ty)
 			{
 				return Some(b.err(
@@ -456,12 +461,31 @@ pub fn call<'tcx>(
 					format!("`{name}` of `{self_ty}`, which drops its values, which is not supported yet"),
 				));
 			}
-			let drops = iter_drops(b, self_ty, span);
-			method(name, tail(rest, vec![drops]))
-		}
-		"max_by_key" | "min_by_key" if primitive(targ(1)?) => {
+			// A B-tree's iterators read an end, comparing nothing.
+			if !by_key && btree_end(tcx, self_ty, name) {
+				let end = match name {
+					"max" => recv.member("nextBack").call(Vec::new()),
+					_ => recv.member("next").call(Vec::new()),
+				};
+				return Some(Expr::rt(
+					"iterToOption",
+					[end].into_iter().chain(b.t.none_arg(item)).collect(),
+				));
+			}
+			if !by_key && own_ord(b.t, key.peel_refs(), name) {
+				return Some(b.err(
+					span,
+					format!("`{name}` of `{key}` through its own `Ord::{name}`, which is not supported yet"),
+				));
+			}
+			let lt = super::collections::test_fn(b, key, "lt", span);
 			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(item, span)];
-			method(&camel, tail(rest, droppers))
+			method(&camel, tail([rest, vec![lt]].concat(), droppers))
+		}
+		"rposition" => method(&camel, rest),
+		"rfind" => {
+			let dropper = b.t.dropper(item, span);
+			method(&camel, tail(rest, vec![dropper]))
 		}
 		"chain" => {
 			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
@@ -681,11 +705,6 @@ fn core_trait(tcx: ty::TyCtxt<'_>, name: &str) -> Option<DefId> {
 		.find(|&tr| tcx.item_name(tr).as_str() == name)
 }
 
-/// Whether `ty` compares in JS as Rust's `Ord` does: an integer, a `bool`, or a `char`.
-fn primitive(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_))
-}
-
 /// `iter.collect::<ty>()` of `item`s, from an iterator of type `from`, which it drops.
 fn collect<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
@@ -731,13 +750,13 @@ fn collect<'tcx>(
 				name: "values".into(),
 				ty: Some(Type::Rt("Iter", vec![value_ty])),
 			};
-			let (collect, mut droppers) = match std {
-				Std::Result => ("iterCollectResult", vec![b.t.dropper(args.type_at(1), span)]),
-				_ => ("iterCollectOption", Vec::new()),
+			let collect = match std {
+				Std::Result => "iterCollectResult",
+				_ => "iterCollectOption",
 			};
-			droppers.insert(0, b.t.dropper(args.type_at(0), span));
+			let dropper = b.t.dropper(args.type_at(0), span);
 			let args = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
-			Some(Expr::rt(collect, tail(args, droppers)))
+			Some(Expr::rt(collect, tail(args, vec![dropper])))
 		}
 		_ => super::collections::collect(b, ty, iter, from, span),
 	}
@@ -776,7 +795,9 @@ fn drops_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> boo
 }
 
 /// `rt.iterToArray` of `iter`, an iterator of type `from`, collected into a `Vec<elem>` as
-/// std's does: in place of the `Vec` its items come from, where it can.
+/// std's does: by `next` where it collects in place of the `Vec` its items come from, by
+/// `try_fold`, which drops the closures the iterator holds only with it, where its own
+/// `fold` drops them first.
 pub(super) fn to_array<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	iter: Expr,
@@ -784,40 +805,14 @@ pub(super) fn to_array<'tcx>(
 	elem: Ty<'tcx>,
 	span: Span,
 ) -> Expr {
-	let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
-	let drop_elem = b.t.dropper(elem, span);
-	let in_place = (!undefined(&take) || !undefined(&drop_elem)) && in_place(b.t, from, elem);
-	if in_place && let Some(zip) = zip_holding(b, from) {
-		return b.err(
-			span,
-			format!("a `collect` in place of `{zip}`, whose second iterator drops, which is not supported yet"),
-		);
-	}
-	let take = match in_place {
-		true => Expr::Str("place".into()),
-		false => take,
-	};
-	Expr::rt("iterToArray", tail(vec![iter], vec![take, drop_elem]))
-}
-
-/// A `Zip` in `ty` whose second iterator drops, which std's `collect` in place drops after
-/// what it collected, where `rt.iterToArray` drops the whole iterator before.
-fn zip_holding<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	let tcx = b.t.tcx;
-	let zips: Vec<Ty<'tcx>> = ty
-		.walk()
-		.filter_map(|arg| arg.as_type())
-		.filter(|&t| std_iter_path(tcx, t).is_some_and(|p| p == ["iter", "adapters", "zip", "Zip"]))
-		.collect();
-	zips.into_iter().find(|t| match t.kind() {
-		ty::Adt(_, args) => b.t.drops(args.type_at(1)),
-		_ => false,
-	})
+	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
+	let take = iter_take(b, from, folds, span);
+	Expr::rt("iterToArray", tail(vec![iter], vec![take]))
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place
 /// of the `Vec` its items come from, as its adaptors let it where each item's layout leaves
-/// room: then a panic drops what it collected before the rest of the source.
+/// room.
 fn in_place<'tcx>(t: &Translator<'_, 'tcx>, iter: Ty<'tcx>, elem: Ty<'tcx>) -> bool {
 	let tcx = t.tcx;
 	let env = t.typing_env_pub();
@@ -868,4 +863,43 @@ fn in_place<'tcx>(t: &Translator<'_, 'tcx>, iter: Ty<'tcx>, elem: Ty<'tcx>) -> b
 		&& merge > 0
 		&& expand > 0
 		&& u128::from(from.size.bytes()) * merge >= u128::from(to.size.bytes()) * expand
+}
+
+/// Whether `ty`, the crate's own type, has its own `Ord::max` or `min`, by `name`, which
+/// `Iterator::max` or `min` calls.
+fn own_ord<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
+	let tcx = t.tcx;
+	if !matches!(ty.kind(), ty::Adt(adt, _) if t.own(adt.did())) {
+		return false;
+	}
+	let f = super::collections::trait_fn(tcx, "Ord", name);
+	Instance::try_resolve(tcx, t.typing_env_pub(), f, tcx.mk_args(&[ty.into()]))
+		.ok()
+		.flatten()
+		.is_some_and(|instance| instance.def_id() != f)
+}
+
+/// Whether std's iterator `ty` has its own `min` or `max`, by `name`, which reads its first
+/// or last item, as a B-tree's do.
+fn btree_end(tcx: ty::TyCtxt<'_>, ty: Ty<'_>, name: &str) -> bool {
+	let Some(path) = std_iter_path(tcx, ty) else {
+		return false;
+	};
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+	match path[..] {
+		[
+			"collections",
+			"btree",
+			"map",
+			"Iter" | "IterMut" | "Keys" | "Range" | "RangeMut" | "IntoKeys",
+		]
+		| ["collections", "btree", "set", "Iter" | "Range"] => true,
+		[
+			"collections",
+			"btree",
+			"set",
+			"Difference" | "SymmetricDifference" | "Intersection" | "Union",
+		] => name == "min",
+		_ => false,
+	}
 }

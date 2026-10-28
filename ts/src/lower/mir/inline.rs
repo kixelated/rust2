@@ -37,10 +37,6 @@ fn list(stmts: &mut Vec<Stmt>, names: &FxHashMap<String, usize>, shared: &FxHash
 				cases.iter_mut().for_each(|(_, body)| list(body, names, shared));
 				list(default, names, shared);
 			}
-			StmtKind::Catch { body, handler, .. } => {
-				list(body, names, shared);
-				list(handler, names, shared);
-			}
 			_ => {}
 		}
 	}
@@ -106,7 +102,7 @@ impl Does {
 /// array, or a block's first statement's.
 fn eager(stmt: &Stmt) -> Option<&Expr> {
 	match &stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => Some(e),
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => Some(e),
 		StmtKind::Decl { init: Some(e), .. } | StmtKind::If { cond: e, .. } | StmtKind::ForOf { iter: e, .. } => {
 			Some(e)
 		}
@@ -117,7 +113,7 @@ fn eager(stmt: &Stmt) -> Option<&Expr> {
 
 fn eager_mut(stmt: &mut Stmt) -> Option<&mut Expr> {
 	match &mut stmt.kind {
-		StmtKind::Expr(e) | StmtKind::Return(Some(e)) | StmtKind::Throw(e) => Some(e),
+		StmtKind::Expr(e) | StmtKind::Return(Some(e)) => Some(e),
 		StmtKind::Decl { init: Some(e), .. } | StmtKind::If { cond: e, .. } | StmtKind::ForOf { iter: e, .. } => {
 			Some(e)
 		}

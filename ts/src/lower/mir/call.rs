@@ -12,7 +12,7 @@ use super::{Fx, Slot};
 use crate::lower::fmt::{self, Piece};
 use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
-use crate::ts::{Expr, Stmt, StmtKind, Type};
+use crate::ts::{Expr, Stmt, StmtKind};
 
 /// What a `&mut` borrows: its path, and the place a store through the reference writes,
 /// unless the reference is refused.
@@ -405,6 +405,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		))
 	}
 
+	/// What `Default::default` makes of `ty`: a std type's value, an `Arc` or a `Mutex` of
+	/// what it makes of theirs, or the call of the crate's impl.
+	fn default_of(&mut self, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		if let Some(default) = library::default_value(self.b, ty) {
+			return default;
+		}
+		if let ty::Adt(_, args) = ty.kind()
+			&& let Some(class @ (Std::Arc | Std::Mutex)) = self.b.t.std_of(ty)
+		{
+			let value = self.default_of(args.type_at(0), span, out);
+			let class = if class == Std::Arc { "Arc" } else { "Mutex" };
+			return Expr::New(Box::new(Expr::Rt(class.into())), vec![value]);
+		}
+		let tcx = self.tcx;
+		let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
+		let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
+		self.path(default, "default", out)
+	}
+
 	/// A std call MIR needs lowered here: `Some(Some((value, effect)))`, or `Some(None)`
 	/// once it set the destination itself, or `None` for the library mappings.
 	fn intercept(
@@ -417,7 +436,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Option<Option<(Expr, bool)>> {
 		let tcx = self.tcx;
-		if library::std_path(tcx, def_id).is_empty() {
+		let bytes = library::inherent_std(tcx, def_id) == Some(Std::Bytes);
+		if library::std_path(tcx, def_id).is_empty() && !bytes {
 			return None;
 		}
 		// A box's own `Drop` frees its memory, once drop elaboration dropped or moved out
@@ -439,24 +459,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
 		match (owner.as_str(), name.as_str()) {
 			// Replacing what a `&mut` borrows.
-			// What `Default::default` makes, a std type's or the crate's, before the swap.
+			// What `Default::default` makes before the swap.
 			("mem", "take") => {
 				let ty = targ(0)?;
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let default = match library::default_value(self.b, ty) {
-					Some(default) => default,
-					None => {
-						let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
-						let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
-						self.path(default, "default", out)
-					}
-				};
+				let default = self.default_of(ty, span, out);
 				done(self.swap_out(place, ty, default, "taken", span, out), true)
+			}
+			("Default", "default") if matches!(self.b.t.std_of(targ(0)?), Some(Std::Arc | Std::Mutex)) => {
+				done(self.default_of(targ(0)?, span, out), true)
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let value = self.operand(&args[1].node, span, out);
 				done(self.swap_out(place, targ(0)?, value, "old", span, out), true)
+			}
+			// `mem::replace(self, Some(value))`, and `Some(value)` is `value`.
+			("Option", "replace") => {
+				let ty = args[0].node.ty(&self.mir.local_decls, tcx).builtin_deref(true)?;
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let value = self.operand(&args[1].node, span, out);
+				done(self.swap_out(place, ty, value, "old", span, out), true)
 			}
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span, out)?;
@@ -569,6 +592,26 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.materialize(&place, out);
 				self.slots[local] = Slot::Alias(Some(place));
 				Some(None)
+			}
+			// A `Bytes`'s slice by a range's bounds, read where the range is made. Its bounds
+			// check panics, so it runs even if the slice goes unused.
+			("Bytes", "slice")
+				if bytes && let Some((start, end)) = self.range_bounds(&args[1].node, targ(0)?, span, out) =>
+			{
+				let b = self.operand(&args[0].node, span, out);
+				done(
+					Expr::rt("bytesSlice", std::iter::once(b).chain([start]).chain(end).collect()),
+					true,
+				)
+			}
+			("Bytes", "slice")
+				if bytes
+					&& let ty::Adt(adt, _) = targ(0)?.kind()
+					&& Std::of(tcx, adt.did()) == Some(Std::RangeToInclusive) =>
+			{
+				let end = self.range_fields(&args[1].node, *adt, span, out).pop()?;
+				let b = self.operand(&args[0].node, span, out);
+				done(Expr::rt("bytesSliceToInclusive", vec![b, end]), true)
 			}
 			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
 			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
@@ -690,6 +733,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("Try", "branch") => {
 				let value = self.operand(&args[0].node, span, out);
+				// A `Poll`'s `Pending` and `Ready(None)` are no `rt.Result`: they continue.
+				if let Some(poll) = targ(0)
+					&& let (Some(Std::Poll), ty::Adt(_, poll_args)) = (self.b.t.std_of(poll), poll.kind())
+				{
+					let inner = poll_args.type_at(0);
+					let ty::Adt(_, inner_args) = inner.kind() else {
+						unreachable!("Try for a Poll of a Result or an Option of one")
+					};
+					let value = match self.b.t.std_of(inner) {
+						Some(Std::Option) => {
+							let ty::Adt(_, result_args) = inner_args.type_at(0).kind() else {
+								unreachable!("Try for a Poll of an Option of a Result")
+							};
+							let ok = result_args.type_at(0);
+							let pending = self.b.t.pending(Ty::new_option(self.tcx, ok));
+							Expr::rt("pollOptionBranch", vec![value, pending, self.b.t.none(ok)])
+						}
+						_ => Expr::rt("pollBranch", vec![value, self.b.t.pending(inner_args.type_at(0))]),
+					};
+					return done(value, false);
+				}
 				// A `next`'s item or `rt.DONE` branches as itself.
 				if let Some(local) = dest.as_local()
 					&& self.next_results.contains(&local)
@@ -704,12 +768,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let to = targ(0)?;
 				let residual = targ(1)?;
 				let value = self.operand(&args[0].node, span, out);
-				// What a `Result` residual goes into: a `Result`, or one that is ready, which
-				// is the same value.
+				// What a `Result` residual goes into: a `Result`, or one that is ready, and some,
+				// which is the same value.
 				let result = match (self.b.t.std_of(to), to.kind()) {
 					(Some(Std::Result), _) => Some(to),
 					(Some(Std::Poll), ty::Adt(_, poll_args)) => {
-						let inner = poll_args.type_at(0);
+						let mut inner = poll_args.type_at(0);
+						if let (Some(Std::Option), ty::Adt(_, option_args)) = (self.b.t.std_of(inner), inner.kind()) {
+							inner = option_args.type_at(0);
+						}
 						(self.b.t.std_of(inner) == Some(Std::Result)).then_some(inner)
 					}
 					_ => None,
@@ -1011,15 +1078,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Some(_) => {
 				// A `Vec`'s element is its storage's, a byte vector's in `data`.
 				let base = self.path(base, "slice", out);
-				let base_ty = self.b.t.ty(args[0].node.ty(&self.mir.local_decls, self.tcx), span);
-				self.spilled_as(&base, base_ty);
 				let i = self.operand(&args[1].node, span, out);
 				let i = self.path(i, "index", out);
-				let index = self.b.t.ty(index_ty, span);
-				self.spilled_as(&i, index);
 				let checked = Expr::rt("idx", vec![base.clone(), i]);
 				let checked = self.path(checked, "at", out);
-				self.spilled_as(&checked, Type::Builtin("number"));
 				let place = match container.kind() {
 					ty::Adt(..) if bytes => base.member("data").index(checked),
 					// An array's bytes come through a reference, which is a slice of them.
@@ -1088,24 +1150,32 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			"Range" | "RangeTo" | "RangeFrom" => {}
 			_ => return None,
 		}
-		let fields: Vec<Expr> = match self.take_parts(op) {
-			Some(parts) => parts,
-			None => {
-				let range = self.operand(op, span, out);
-				let range = self.path(range, "range", out);
-				adt.non_enum_variant()
-					.fields
-					.iter()
-					.map(|f| range.clone().member(f.name.as_str()))
-					.collect()
-			}
-		};
-		let mut fields = fields.into_iter();
+		let mut fields = self.range_fields(op, *adt, span, out).into_iter();
 		match name.as_str() {
 			"Range" => Some((fields.next()?, Some(fields.next()?))),
 			"RangeTo" => Some((Expr::lit("0"), fields.next())),
 			_ => Some((fields.next()?, None)),
 		}
+	}
+
+	/// A std range's fields, in declaration order, read where the range is made if it is.
+	fn range_fields(
+		&mut self,
+		op: &Operand<'tcx>,
+		adt: ty::AdtDef<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Vec<Expr> {
+		if let Some(parts) = self.take_parts(op) {
+			return parts;
+		}
+		let range = self.operand(op, span, out);
+		let range = self.path(range, "range", out);
+		adt.non_enum_variant()
+			.fields
+			.iter()
+			.map(|f| range.clone().member(f.name.as_str()))
+			.collect()
 	}
 
 	/// What a `DebugList` iterates, as an iterable JS value, which drops nothing it reads.

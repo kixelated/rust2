@@ -51,12 +51,16 @@ roots = [
     "parts_summed",
     "ok_passed",
     "places_equal",
+    "owned_bytes",
     "fma",
     "float_printed",
     "weak_object",
     "generic_object",
     "first_of",
     "tail_read",
+    "mutex_number",
     "missing",
+    "generic_pending",
+    "rebound_reference",
 ]
 printable = ["Meters"]

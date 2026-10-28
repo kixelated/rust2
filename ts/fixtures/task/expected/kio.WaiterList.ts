@@ -6,12 +6,12 @@ import type * as Waiter from "./kio.Waiter.ts";
 /** Wakers waiting for one event, held weakly. */
 export interface WaiterList {
 	entries: rt.Weak<rt.Waker>[];
-	/** Where the next registration looks for a dead slot to reuse. */
 	cursor: rt.usize;
 }
 
 function new_(): WaiterList {
-	return { entries: [], cursor: 0 };
+	const _1: rt.Weak<rt.Waker>[] = [];
+	return { entries: _1, cursor: 0 };
 }
 
 export function register(self: WaiterList, waiter: Waiter.Waiter): void {
@@ -58,28 +58,16 @@ export function take(self: WaiterList): WaiterList {
 
 /** Wake every live waiter, draining the list. */
 export function wake(self: WaiterList): void {
-	let waker!: rt.Arc<rt.Waker>;
-	let unwind: number = 0;
-	try {
-		self.cursor = 0;
-		const taken = self.entries;
-		self.entries = [];
-		for (const _6 of taken) {
-			const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(_6);
-			if (_10 !== undefined) {
-				unwind = 15;
-				waker = _10;
-				waker.value.wakeByRef();
-				unwind = 0;
-				rt.drop(waker);
-			}
+	self.cursor = 0;
+	const taken = self.entries;
+	self.entries = [];
+	for (const _6 of taken) {
+		const _10: rt.Arc<rt.Waker> | undefined = rt.weakUpgrade(_6);
+		if (_10 !== undefined) {
+			const waker: rt.Arc<rt.Waker> = _10;
+			waker.value.wakeByRef();
+			rt.drop(waker);
 		}
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(waker);
-		throw e;
 	}
 }
 

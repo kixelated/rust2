@@ -1,7 +1,7 @@
 // The task fixture's harness on the translation: a deterministic FIFO executor and the
 // script runner of `fixtures/task/src/exec.rs` and `harness.rs`, step for step, logging
 // the same events through the translated `Log`. `differential.ts` requires the two logs
-// to match byte for byte, panics included.
+// to match byte for byte, or both runs to panic with the same message.
 
 /** A waker, as the translation calls it. */
 interface Waker extends Disposable {
@@ -46,12 +46,13 @@ export interface Fixture<V> {
 	sum(rx: Consumer, guard: Guard): Future<V>;
 	drain(rx: Consumer, depth: number): Future<V>;
 	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<V>;
+	watch(rx: Consumer, guard: Guard): Future<V>;
 	drops: {
 		run(log: Log, id: number, arg: number): void;
 		held(rx: Consumer, guard: Guard): Future<V>;
-		edited(log: Log, id: number, at: number): void;
+		edited(log: Log, id: number, arg: number): void;
 		dyns(log: Log, id: number, arg: number): void;
-		cells(log: Log, id: number, at: number): void;
+		cells(log: Log, id: number, arg: number): void;
 		folded(log: Log, id: number, arg: number): void;
 		rfolded(log: Log, id: number, arg: number): void;
 	};
@@ -274,7 +275,7 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.drops.held(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
-	["edited", (r, arg) => r.f.drops.edited(r.log, 1000 * r.exec.tasks.length, arg % 8)],
+	["edited", (r, arg) => r.f.drops.edited(r.log, 1000 * r.exec.tasks.length, arg)],
 	[
 		"helpers",
 		(r, arg) => {
@@ -293,13 +294,17 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 	["cells", (r, arg) => r.f.drops.cells(r.log, 1000 * r.exec.tasks.length, arg)],
 	["folded", (r, arg) => r.f.drops.folded(r.log, 1000 * r.exec.tasks.length, arg)],
 	["rfolded", (r, arg) => r.f.drops.rfolded(r.log, 1000 * r.exec.tasks.length, arg)],
+	[
+		"watch",
+		(r, arg) => {
+			const c = pick(r.channels.length, arg);
+			if (c !== undefined) r.exec.spawn(r.f.watch(r.f.Channel.consumer(r.channels[c]), guard(r)));
+		},
+	],
 ];
 
-/**
- * The script runner, as `harness.rs` runs it natively. Where a panic unwinds, as on
- * the host, `unwind` logs a step's panic and goes on, as the native harness does.
- */
-export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) => Bytes {
+/** The script runner, as `harness.rs` runs it natively. */
+export function harness<V>(f: Fixture<V>): (input: Uint8Array) => Bytes {
 	return (input) => {
 		const log = f.Log.new();
 		const note = (event: string) => f.Log.note(log, event);
@@ -307,17 +312,7 @@ export function harness<V>(f: Fixture<V>, unwind = false): (input: Uint8Array) =
 		const r: Run<V> = { f, log, note, exec, channels: [] };
 		for (let i = 0; i < input.length; i += 2) {
 			const [, step] = steps[input[i] % steps.length];
-			const arg = input[i + 1] ?? 0;
-			if (!unwind) {
-				step(r, arg);
-				continue;
-			}
-			try {
-				step(r, arg);
-			} catch (err) {
-				if (!(err instanceof Error && err.name === "Panic")) throw err;
-				note(`panic ${err.message}`);
-			}
+			step(r, input[i + 1] ?? 0);
 		}
 		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
 		r.channels.forEach((channel, c) => {
@@ -356,32 +351,35 @@ export const cases: Uint8Array[] = [
 	// An async block's captures: one borrowed, one moved on one path only, and one moved
 	// but only borrowed, dropped when its block returns or is cancelled mid-await.
 	script(["open", 0], ["blocks", 0], ["blocks", 128], ["blocks", 0], ["run", 0], ["send", 5], ["step", 0], ["step", 0], ["drop", 2], ["run", 0]),
-	// A future that panics mid-loop holding guards: unwinding drops them, and a poll after
-	// panics again.
-	script(["open", 0], ["sum", 0], ["sum", 0], ["run", 0], ["send", 99], ["step", 0], ["send", 4], ["run", 0], ["poll", 0], ["drop", 1]),
+	// A value of 99 fails `sum`'s `assert!`.
+	script(["open", 0], ["sum", 0], ["run", 0], ["send", 99], ["run", 0]),
 	// Values std holds that drop, held across an await: returned, and cancelled.
 	script(["open", 0], ["held", 0], ["run", 0], ["send", 5], ["run", 0]),
 	script(["open", 0], ["held", 0], ["held", 1], ["run", 0], ["drop", 1], ["drop", 0]),
-	// std's helpers: a `poll_fn` over a pinned `recv` and `future::pending`, returning,
-	// cancelled with the guard it owns, and panicking inside it.
+	// std's helpers: a `poll_fn` over a pinned `recv` and `future::pending`, returning, and
+	// cancelled with the guard it owns.
 	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 77], ["run", 0]),
 	script(["open", 0], ["helpers", 0], ["helpers", 1], ["run", 0], ["send", 4], ["step", 0], ["drop", 1], ["drop", 0]),
-	script(["open", 0], ["helpers", 0], ["run", 0], ["send", 99], ["run", 0], ["poll", 0]),
 	// Boxed futures: a boxed `recv` and a boxed borrow awaited, then a queue of `dyn
-	// Future`s polled through a boxed `poll_fn`, returning, cancelled with the futures the
-	// queue still holds, and panicking inside one.
+	// Future`s polled through a boxed `poll_fn`, returning, and cancelled with the futures
+	// the queue still holds.
 	script(["open", 0], ["boxed", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 6], ["step", 0], ["send", 7], ["run", 0]),
 	script(["open", 0], ["boxed", 0], ["boxed", 1], ["run", 0], ["send", 4], ["run", 0], ["drop", 1], ["send", 5], ["step", 0], ["drop", 0]),
-	script(["open", 0], ["boxed", 0], ["run", 0], ["send", 5], ["run", 0], ["send", 99], ["run", 0], ["poll", 0], ["drop", 0]),
-	// Each scenario of values std holds that drop, panicking at each point or none.
-	...Array.from({ length: 253 }, (_, arg) => script(["drops", arg])),
-	// Each of a `Vec`'s edits, its and a tuple's `clone`, and `Ord`'s defaults, panicking at each point or none.
-	...Array.from({ length: 8 }, (_, at) => script(["edited", at])),
-	// What boxed and shared trait objects drop, panicking at each point, in a `Drop`, or none.
-	...Array.from({ length: 12 }, (_, arg) => script(["dyns", arg])),
-	// What one-time cells drop, for every argument, which picks the scenario.
-	...Array.from({ length: 256 }, (_, at) => script(["cells", at])),
-	// Each scenario of adaptors' closures that drop, folded either way, panicking at each item or none.
-	...Array.from({ length: 256 }, (_, arg) => script(["folded", arg])),
-	...Array.from({ length: 72 }, (_, arg) => script(["rfolded", arg])),
+	// kio's API across crates: `Waiter::poll_future`, then a `Pending` of a `Task` polling
+	// a `Poll<Poll<_>>`, whose even value waits for the next, or for the close that drops
+	// it; and cancelled while it waits.
+	script(["open", 0], ["watch", 0], ["run", 0], ["send", 3], ["run", 0], ["send", 4], ["run", 0], ["send", 7], ["run", 0], ["close", 0], ["run", 0]),
+	script(["open", 0], ["watch", 0], ["run", 0], ["send", 1], ["run", 0], ["send", 2], ["run", 0], ["close", 0], ["run", 0]),
+	script(["open", 0], ["watch", 0], ["watch", 0], ["run", 0], ["send", 6], ["step", 0], ["send", 8], ["drop", 1], ["run", 0], ["drop", 0]),
+	// Each scenario of values std holds that drop.
+	...Array.from({ length: 15 }, (_, arg) => script(["drops", arg])),
+	// Each of a `Vec`'s edits, its, a tuple's, and a box's `clone`, and `Ord`'s defaults.
+	...Array.from({ length: 9 }, (_, arg) => script(["edited", arg])),
+	// What boxed and shared trait objects drop.
+	...Array.from({ length: 2 }, (_, arg) => script(["dyns", arg])),
+	// What one-time cells drop.
+	...Array.from({ length: 6 }, (_, arg) => script(["cells", arg])),
+	// Each scenario of adaptors' closures that drop, folded either way.
+	...Array.from({ length: 31 }, (_, arg) => script(["folded", arg])),
+	...Array.from({ length: 9 }, (_, arg) => script(["rfolded", arg])),
 ];

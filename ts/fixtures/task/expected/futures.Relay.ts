@@ -14,35 +14,15 @@ export class Relay {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.drop(this.task);
-			dropped = 1;
-			rt.drop(this.guard);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.guard);
-			}
-			throw e;
-		}
+		rt.drop(this.task);
+		rt.drop(this.guard);
 	}
 }
 
 export function wake$Wake(self: rt.Arc<Relay>): void {
-	let unwind: number = 0;
-	try {
-		unwind = 7;
-		Guard.note(self.value.guard, "relay wake");
-		self.value.task.wakeByRef();
-		unwind = 0;
-		rt.drop(self);
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(self);
-		throw e;
-	}
+	Guard.note(self.value.guard, "relay wake");
+	self.value.task.wakeByRef();
+	rt.drop(self);
 }
 
 export function wakeByRef$Wake(self: rt.Arc<Relay>): void {

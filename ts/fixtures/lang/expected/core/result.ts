@@ -177,6 +177,13 @@ export function unwrapOr$Result_isize_isize(self: rt.Result<rt.isize, rt.isize>,
 	return default_;
 }
 
+export function unwrapOr$Result_u16_TryFromIntError(self: rt.Result<rt.u16, rt.TryFromIntError>, default_: rt.u16): rt.u16 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
 export function unwrapOr$Result_u16_u16(self: rt.Result<rt.u16, rt.u16>, default_: rt.u16): rt.u16 {
 	if (self.ok) {
 		return self.value;
@@ -185,6 +192,13 @@ export function unwrapOr$Result_u16_u16(self: rt.Result<rt.u16, rt.u16>, default
 }
 
 export function unwrapOr$Result_u32_u32(self: rt.Result<rt.u32, rt.u32>, default_: rt.u32): rt.u32 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$Result_u64_TryFromIntError(self: rt.Result<rt.u64, rt.TryFromIntError>, default_: rt.u64): rt.u64 {
 	if (self.ok) {
 		return self.value;
 	}

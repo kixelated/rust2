@@ -24,9 +24,11 @@ mod census;
 mod cli;
 mod collect;
 mod config;
+mod cpp;
 mod driver;
 mod glue;
 mod ir;
+mod kotlin;
 
 use std::process::ExitCode;
 

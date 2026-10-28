@@ -1,9 +1,13 @@
 //! What the harness spawns and drives: a consumer loop holding guards across its awaits,
 //! the same loop under a stack of async functions, and the channels they read.
 
+use std::future::Future;
 use std::ops::ControlFlow;
+use std::pin::{Pin, pin};
+use std::task::Poll;
 
-use crate::kio::{Consumer, Producer};
+use kio::{Closed, Consumer, Producer, Waiter};
+
 use crate::log::Log;
 
 /// A channel's open producers, and a consumer to clone for each task.
@@ -102,17 +106,94 @@ impl Drop for Guard {
 }
 
 /// Every value until the channel closes, summed, holding a guard of its own across
-/// each await beside the one it was given. It panics on 99.
+/// each await beside the one it was given. A value of 99 fails an `assert!`.
 pub async fn sum(mut rx: Consumer, guard: Guard) -> u64 {
 	let inner = Guard::new(guard.id + 100, guard.log.clone());
 	let mut total = 0;
 	while let Some(value) = rx.recv().await {
-		// A poisoned value panics with every guard live, which unwinding drops.
 		assert!(value != 99, "g{} poisoned", guard.id);
 		inner.log.note(format!("g{} got {value}", guard.id));
 		total += value;
 	}
 	total
+}
+
+/// Every value until the channel closes, summed, read as moq reads kio's channels: the
+/// first by `Waiter::poll_future` of a pinned `recv` as a `dyn Future`, under
+/// `kio::wait`, then each by a `Task` of the crate's that a `Pending` drives, reached
+/// through its `DerefMut` between awaits, which polls with [`at`].
+pub async fn watch(mut rx: Consumer, guard: Guard) -> u64 {
+	let first = {
+		let mut next = pin!(rx.recv());
+		let mut next: Pin<&mut dyn Future<Output = Option<u64>>> = next.as_mut();
+		kio::wait(|waiter| waiter.poll_future(next.as_mut())).await
+	};
+	guard.note(&format!("first {first:?}"));
+	let mut pending = kio::Pending::new(Watch { rx, index: 1 });
+	let mut total = first.unwrap_or(0);
+	while let Some(value) = (&mut pending).await {
+		guard.note(&format!("watched {value}"));
+		total += value;
+		pending.index += 1;
+	}
+	let watch = pending.into_inner();
+	watch.rx.closed().await;
+	let sent = watch.rx.wait(|queue| Poll::Ready(queue.len())).await;
+	guard.note(&format!("watched to {} of {sent:?}", watch.index));
+	total
+}
+
+/// The value at `index` of a channel, read by [`at`].
+struct Watch {
+	rx: Consumer,
+	index: usize,
+}
+
+impl kio::Task for Watch {
+	type Output = Option<u64>;
+
+	/// What [`at`] reads, through [`streamed`]: a value of 3 modulo 4 errs, and is
+	/// watched as ten times itself.
+	fn poll(&mut self, waiter: &Waiter) -> Poll<Option<u64>> {
+		match streamed(at(&self.rx, self.index, waiter)) {
+			Ok(polled) => polled,
+			Err(value) => Poll::Ready(Some(value * 10)),
+		}
+	}
+}
+
+/// `polled` as a stream's `poll_next` returns it, erring on a value of 3 modulo 4, then
+/// back through `?`, which continues with its `Pending` and `Ready(None)`.
+fn streamed(polled: Poll<Option<u64>>) -> Result<Poll<Option<u64>>, u64> {
+	let item = polled.map(|value| value.map(|value| if value % 4 == 3 { Err(value) } else { Ok(value) }));
+	Ok(item?)
+}
+
+/// The value at `index`, or `None` once the channel closed without it, as moq's
+/// `poll_group` reads its cache: kio's `Consumer::poll` with a closure pending itself, a
+/// `Poll<Poll<_>>`, outside until the value arrives, and inside while it is even and the
+/// one after it hasn't: then it waits on the channel, and the close drops it.
+fn at(rx: &Consumer, index: usize, waiter: &Waiter) -> Poll<Option<u64>> {
+	let res = match held(rx, index, waiter) {
+		Ok(Poll::Ready(res)) => res.map(Some),
+		Ok(Poll::Pending) => Poll::Pending,
+		Err(Closed) => Poll::Ready(None),
+	};
+	if res.is_pending() && rx.poll_closed(waiter).is_ready() {
+		return Poll::Ready(None);
+	}
+	res
+}
+
+/// [`at`]'s poll, through `?` on what kio's `Consumer::poll` returns, which continues with
+/// its `Pending`.
+fn held(rx: &Consumer, index: usize, waiter: &Waiter) -> Result<Poll<Poll<u64>>, Closed> {
+	let polled = rx.poll(waiter, |queue| match queue.get(index) {
+		None => Poll::Pending,
+		Some(value) if value % 2 == 0 && queue.len() == index + 1 => Poll::Ready(Poll::Pending),
+		Some(value) => Poll::Ready(Poll::Ready(*value)),
+	})?;
+	Ok(polled)
 }
 
 /// One value read through the captures only an async block makes: a borrow, which

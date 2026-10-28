@@ -179,10 +179,14 @@ pub fn call<'tcx>(
 			_ => return Err(args),
 		},
 		("Mutex", "new") => Expr::New(Box::new(Expr::Rt("Mutex".into())), args),
-		// The mutex is its own guard, and a lock never fails on one thread.
-		("Mutex", "lock") => first(args),
-		("Result", "unwrap" | "expect") if call.args.types().nth(1).and_then(std_of) == Some(Std::PoisonError) => {
-			first(args)
+		// The mutex is its own guard, and a panic aborts, so nothing poisons it.
+		("Mutex", "lock") => Expr::result(true, first(args)),
+		("Mutex", "get_mut") => Expr::result(true, first(args).member("value")),
+		// A `PoisonError` is what it holds.
+		("PoisonError", "into_inner" | "get_ref" | "get_mut") => first(args),
+		// Mapped rather than lowered from core's MIR, so one of a lock unwraps its guard in place.
+		("Result", "unwrap_or_else") if call.args.types().nth(1).and_then(std_of) == Some(Std::PoisonError) => {
+			Expr::rt("resultUnwrapOrElse", args)
 		}
 		("Atomic", _) => return atomic(b, call, name, args),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
@@ -336,24 +340,14 @@ fn once<'tcx>(
 		"new" => once_new(b, cell),
 		"get" | "into_inner" => first(args).member("v"),
 		"take" => Expr::rt("onceTake", args.into_iter().chain(none).collect()),
-		// With what drops the value, which a recursive `OnceLock::set` drops as it panics.
-		"set" => {
-			let Some(mut droppers) = b.t.droppers([inner], call.span) else {
+		"set" => Expr::rt("onceSet", args.into_iter().chain(none).collect()),
+		// With what drops `f`, as `discards` says, uncalled if the cell is set.
+		"get_or_init" => {
+			let Some(mut droppers) = b.t.droppers([call.args.type_at(1)], call.span) else {
 				return Ok(Some(Expr::undefined()));
 			};
 			if none.is_some() {
 				droppers.resize(1, Expr::undefined());
-			}
-			Expr::rt("onceSet", args.into_iter().chain(droppers).chain(none).collect())
-		}
-		// With what drops the value `f` made, and `f`, as `discards` says, which a recursive
-		// `OnceLock` init drops as it panics.
-		"get_or_init" => {
-			let Some(mut droppers) = b.t.droppers([inner, call.args.type_at(1)], call.span) else {
-				return Ok(Some(Expr::undefined()));
-			};
-			if none.is_some() {
-				droppers.resize(2, Expr::undefined());
 			}
 			Expr::rt("onceGetOrInit", args.into_iter().chain(droppers).chain(none).collect())
 		}

@@ -3,12 +3,10 @@ name: Check
 permissions:
   contents: read
 
+# Not on a push to main: main only fast-forwards to a tree land.yml already checked.
 on:
   pull_request:
-  merge_group:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 # Cancel in-flight runs when a new commit lands on the same ref.
 concurrency:

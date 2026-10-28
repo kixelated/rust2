@@ -7,7 +7,8 @@ use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
-use crate::kio::{self, Consumer};
+use kio::Consumer;
+
 use crate::log::Log;
 use crate::model::Guard;
 
@@ -17,22 +18,14 @@ use crate::model::Guard;
 /// wakes; and `Poll`'s methods on what each poll returns. `recv` wakes the task through
 /// a relay, a waker the `poll_fn` makes on its first poll from an `Arc` of a `Wake` impl,
 /// which an even value also wakes by value, and which logs its own drop. It stops at a
-/// value of 77, and panics on 99 inside the `poll_fn`. First, a `poll_fn` of a borrowed
-/// function drops in an `Arc` without dropping the function, and for one guard in eight,
-/// a waker whose last drop panics goes before a guard that unwinding still drops.
+/// value of 77. First, a `poll_fn` of a borrowed function drops in an `Arc` without
+/// dropping the function.
 pub async fn helpers(mut rx: Consumer, guard: Guard) -> u64 {
 	let lent = Guard::new(guard.id() + 900, guard.log().clone());
 	let mut lend = move |_: &mut Context<'_>| Poll::Ready(lent.id());
 	drop(Arc::new(future::poll_fn(&mut lend)));
 	guard.note("lent");
 	drop(lend);
-	if guard.id() % 8 == 7 {
-		let blast = Blast(Guard::new(guard.id() + 700, guard.log().clone()));
-		drop(Fused {
-			waker: Waker::from(Arc::new(blast)),
-			after: Guard::new(guard.id() + 800, guard.log().clone()),
-		});
-	}
 	let mut total = 0;
 	loop {
 		let owned = Guard::new(guard.id() + 500, guard.log().clone());
@@ -52,10 +45,10 @@ pub async fn helpers(mut rx: Consumer, guard: Guard) -> u64 {
 				polled.is_ready(),
 				polled.is_pending()
 			));
-			match polled {
-				Poll::Ready(Some(99)) => panic!("g{} poisoned", owned.id()),
-				Poll::Ready(Some(value)) if value % 2 == 0 => relay.clone().wake(),
-				_ => {}
+			if let Poll::Ready(Some(value)) = polled
+				&& value % 2 == 0
+			{
+				relay.clone().wake();
 			}
 			polled
 				.map(|value| value.ok_or(total))
@@ -112,26 +105,6 @@ impl Wake for Plain {
 	}
 }
 
-/// A waker, then a guard: glue that drops the waker first must still drop the guard when
-/// the waker's drop panics.
-struct Fused {
-	waker: Waker,
-	after: Guard,
-}
-
-/// Panics as its last waker drops, after which its guard drops.
-struct Blast(Guard);
-
-impl Wake for Blast {
-	fn wake(self: Arc<Self>) {}
-}
-
-impl Drop for Blast {
-	fn drop(&mut self) {
-		panic!("g{} blew", self.0.id());
-	}
-}
-
 /// A boxed future, as moq's `MaybeSendBox` is.
 type Boxed<'a> = Pin<Box<dyn Future<Output = u64> + 'a>>;
 
@@ -142,7 +115,7 @@ type Boxed<'a> = Pin<Box<dyn Future<Output = u64> + 'a>>;
 /// queue in turn through [`poll_unsized`], as moq's tasks do through kio's
 /// `Waiter::poll_future`, dropping each future as it is ready, and a pinned `&mut dyn
 /// Future` of the crate's struct last. A cancel drops the futures the queue still holds,
-/// in order, and the async block panics on 99.
+/// in order.
 pub async fn boxed(mut rx: Consumer, guard: Guard) -> u64 {
 	let first = Box::pin(rx.recv()).await.unwrap_or(0);
 	guard.note(&format!("first {first}"));
@@ -165,9 +138,6 @@ pub async fn boxed(mut rx: Consumer, guard: Guard) -> u64 {
 	let mut queue: Vec<Boxed> = vec![
 		Box::pin(async move {
 			let value = rx.recv().await.unwrap_or(0);
-			if value == 99 {
-				panic!("g{} poisoned", block.id());
-			}
 			block.note(&format!("block {value}"));
 			value + 1
 		}),

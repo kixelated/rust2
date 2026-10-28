@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- A panic aborts, as on wasm32: the output throws `rt.Panic` without running any cleanup,
+  so nothing drops as it unwinds, and what the translation held is undefined after one.
+  A caller that catches `rt.Panic` must not use the translation's values again.
+- Runtime functions lost the droppers only a panic used: `rt.resultUnwrap`,
+  `rt.resultExpect`, `rt.resultUnwrapErr`, `rt.vecInsert`, `rt.tupleClone`, `rt.onceSet`,
+  `rt.onceGetOrInit`, `rt.hashInsert`, `rt.btreeInsert`, `rt.entryOrInsertWith`,
+  `rt.entryOrInsertWithMut`, `rt.iterInspect`, `rt.iterFold`, and `rt.iterCollectResult`
+  take one fewer, `hashExtend` and `hashExtendKeys` no longer take `fresh`, an `rt.Iter`'s
+  `fold` and `rfold` no longer take `dropAcc`, `iterToArray` no longer takes `"place"`,
+  and `rt.vecClone` is gone: clone an array with `map`.
+- `Mutex::lock`'s result is an `rt.Result` of the guard, always `Ok`, rather than the
+  guard itself.
 - `tsc` checks a binding of a function returning `()` against `=> undefined`, not
   `=> void`: type its export `: undefined`.
 - `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a
@@ -19,12 +31,21 @@
   `hashExtendKeys`, `btreeExtend`, and `btreeExtendKeys` take an `rt.Take`, `"next"` or
   `"fold"`, for how std's reads it; `iterToArray` takes `"place"` where its `inPlace` was
   `true`.
+- The runtime's `iterMax`, `iterMin`, `iterMaxByKey`, and `iterMinByKey` take a
+  `PartialOrd::lt` after the iterator and any key function, for items or keys of any type:
+  `rt.iterMax(it, rt.cmpLt(rt.cmp))`.
 - `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
   `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
+- `ts.toml` no longer takes `ignore-macros`: `tracing`'s events are left out without it,
+  and no other macro is. Delete the key.
+- `bytes::Bytes` and `rand::rngs::ThreadRng` can't be bound: translation maps them, a
+  `Bytes` as an `rt.ByteSlice`. Delete their `[bind]` entries and the files they name.
 - The runtime no longer exports `ownedNth`, `ownedNthBack`, `ownedSkip`, `ownedTake`, or
   `ownedStepBy`: `iterNth`, `iterNthBack`, `iterSkip`, `iterTake`, and `iterStepBy` take
   what drops an item last. `rt.Iter`'s `nthItem` and `nthBackItem` are `nth` and
   `nthBack`, which return `rt.DONE` past the end.
+- `bool::then` and `then_some` lower from core's MIR into `core/bool.ts`, so the runtime
+  no longer exports `boolThen` or `thenSome`.
 - Translation builds std from source for `wasm32-unknown-unknown`, so the toolchain needs
   its `rust-src` component, as the flake's has, and the first run compiles std.
 - `Option`'s and `Result`'s combinators lower from core's MIR into `core/option.ts` and

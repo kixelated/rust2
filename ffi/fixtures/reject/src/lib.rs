@@ -145,7 +145,7 @@ pub fn measure(size: dep::Size) -> dep::Area {
 	dep::Area::new(size)
 }
 
-/// A generic type the config names at `u32` alone.
+/// A generic type, which exports at the instances its exports name.
 pub struct Cell<T>(T);
 
 impl<T> Cell<T> {
@@ -154,39 +154,96 @@ impl<T> Cell<T> {
 	}
 }
 
-/// An instance the config does not name.
-pub fn unnamed(cell: Cell<u8>) -> u8 {
+impl Cell<u8> {
+	/// An instance holding an instance of its own type, which could name ever deeper ones.
+	pub fn nest(self) -> Cell<Cell<u8>> {
+		Cell(self)
+	}
+}
+
+/// Two generic types whose methods each wrap the other's instance in their own: inferring
+/// from `Ping<u8>` names `Pong<Ping<u8>>`, whose `ping` names `Ping<Pong<Ping<u8>>>`, which
+/// holds a `Ping` inside a `Ping` and ends inference there.
+pub struct Ping<T>(T);
+
+pub struct Pong<T>(T);
+
+impl<T> Ping<T> {
+	pub fn pong(self) -> Pong<Ping<T>> {
+		Pong(self)
+	}
+}
+
+impl<T> Pong<T> {
+	pub fn ping(self) -> Ping<Pong<T>> {
+		Ping(self)
+	}
+}
+
+pub fn ping(value: u8) -> Ping<u8> {
+	Ping(value)
+}
+
+/// A generic type whose method wraps its argument in a tuple: `Grow<(u32,)>` is refused,
+/// as a tuple is no type argument, so inference names nothing through its `grow`.
+pub struct Grow<T>(T);
+
+impl<T> Grow<T> {
+	pub fn grow(self) -> Grow<(T,)> {
+		Grow((self.0,))
+	}
+}
+
+pub fn grow(value: u32) -> Grow<u32> {
+	Grow(value)
+}
+
+/// A record whose instance at a tuple is refused before its fields map, so `Core<u8>`,
+/// which only those fields name, is neither inferred nor needed.
+pub struct Shell<T> {
+	pub core: Core<u8>,
+	pub tag: T,
+}
+
+pub struct Core<T> {
+	pub value: T,
+}
+
+pub fn shell() -> Shell<(u32,)> {
+	Shell {
+		core: Core { value: 1 },
+		tag: (2,),
+	}
+}
+
+/// A const generic function whose bound names an instance nothing else does: refused at
+/// its const parameter, before any candidate for the other is mapped.
+pub struct Probe<T>(T);
+
+pub fn probe<const N: usize>(x: impl Into<Probe<u8>>) {
+	let _ = x;
+}
+
+/// An instance the config excludes.
+pub fn excluded_cell(cell: Cell<u16>) -> u16 {
 	cell.0
 }
 
-/// A type parameter both instances of `Cell` could fill.
-pub fn fill<T: Copy>(value: T) -> Cell<T> {
-	Cell(value)
+/// An instance whose type argument is no value or handle, so it cannot name it.
+pub fn listed(cell: Cell<Vec<String>>) -> usize {
+	cell.0.len()
 }
 
-/// A generic type whose bound the config's instance does not meet.
-pub struct Bounded<T: Copy>(pub T);
+/// A const-generic type, whose const argument the IR cannot carry.
+pub struct Fixed<const N: usize>(pub u8);
 
-/// A generic type whose default argument is a type no instance key can spell.
-pub struct Holder<T = Option<u32>> {
-	pub value: T,
+/// An instance of it, which a signature names.
+pub fn fixed() -> Fixed<2> {
+	Fixed(2)
 }
 
 /// Another crate's item that is no export, so nothing names it.
 pub use std::collections::HashSet;
-
-/// A generic function whose bound one of the config's instances does not meet, and whose
-/// type parameter others misname.
-pub fn copied<T: Copy>(value: T) -> T {
-	value
-}
-
-impl<T: Copy> Bounded<T> {
-	/// A generic method of a type that exports at no instance, so nothing reaches it.
-	pub fn get<U: From<T>>(&self) -> U {
-		U::from(self.0)
-	}
-}
 
 /// A borrowed waker: one crosses only into Rust, which keeps it.
 pub fn lend(waker: &std::task::Waker) {
