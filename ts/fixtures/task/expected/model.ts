@@ -3,8 +3,12 @@
 import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
 import { unwrapOr$Option_u64 } from "./core/option.ts";
-import { recvFuture } from "./kio.ts";
-import type * as Consumer from "./kio.Consumer.ts";
+import { isReady$Poll_Result_unit_Closed, isPending$Poll_Option_u64 } from "./core/task/poll.ts";
+import { wait$watch_closure0_closure0_Option_u64, recvFuture } from "./kio.ts";
+import type * as Closed from "./kio.Closed.ts";
+import * as Consumer from "./kio.Consumer.ts";
+import * as Pending from "./kio.Pending.ts";
+import * as Waiter from "./kio.Waiter.ts";
 import * as Log from "./log.Log.ts";
 import * as Countdown from "./model.Countdown.ts";
 import * as Guard from "./model.Guard.ts";
@@ -12,6 +16,7 @@ import * as Inner from "./model.Inner.ts";
 import type * as Mark from "./model.Mark.ts";
 import * as Outer from "./model.Outer.ts";
 import type * as Tally from "./model.Tally.ts";
+import * as Watch from "./model.Watch.ts";
 
 /**
  * Every value until the channel closes, summed, holding a guard of its own across
@@ -169,6 +174,301 @@ export class sumFuture {
 			throw e;
 		}
 	}
+}
+
+/**
+ * Every value until the channel closes, summed, read as moq reads kio's channels: the
+ * first by `Waiter::poll_future` of a pinned `recv` as a `dyn Future`, under
+ * `kio::wait`, then each by a `Task` of the crate's that a `Pending` drives, reached
+ * through its `DerefMut` between awaits, which polls with [`at`].
+ */
+export function watch(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
+	return new watchFuture(rx, guard);
+}
+
+export class watchFuture {
+	#state: number = 0;
+	#rx: Consumer.Consumer;
+	#guard: Guard.Guard;
+	#first!: rt.u64 | undefined;
+	#next!: rt.Future<rt.u64 | undefined>;
+	#pinned!: rt.Future<rt.u64 | undefined>;
+	#next$2!: rt.Future<rt.u64 | undefined>;
+	#awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
+	#pending!: Pending.Pending<Watch.Watch>;
+	#total!: rt.u64;
+	#awaitee$2!: Pending.Pending<Watch.Watch>;
+	#saved!: boolean;
+	#saved$2!: boolean;
+
+	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
+		this.#rx = rx;
+		this.#guard = guard;
+	}
+
+	[Symbol.dispose](): void {
+		let unwind: number = 0;
+		try {
+			if (this.#state === 0) {
+				unwind = 28;
+				rt.drop(this.#rx);
+				unwind = 0;
+				rt.drop(this.#guard);
+				return;
+			}
+			if (this.#state === 3) {
+				unwind = 16;
+				rt.drop(this.#awaitee);
+				unwind = 18;
+				rt.drop(this.#pinned);
+			} else if (this.#state === 4) {
+				unwind = 15;
+				rt.drop(this.#pending);
+				this.#saved$2 = false;
+			} else {
+				return;
+			}
+			unwind = 20;
+			rt.drop(this.#guard);
+			if (this.#saved) {
+				unwind = 21;
+				rt.drop(this.#rx);
+			}
+			this.#saved = false;
+		} catch (e) {
+			b2: {
+				b3: {
+					b4: {
+						if (unwind === 0) {
+							throw e;
+						}
+						if (unwind === 15) {
+							this.#saved$2 = false;
+						} else if (unwind === 16) {
+							rt.drop(this.#pinned);
+						} else if (unwind !== 18) {
+							if (unwind === 20) {
+								break b4;
+							}
+							if (unwind === 21) {
+								break b3;
+							}
+							rt.drop(this.#guard);
+							break b2;
+						}
+						rt.drop(this.#guard);
+					}
+					if (this.#saved) {
+						rt.drop(this.#rx);
+					}
+				}
+				this.#saved = false;
+			}
+			throw e;
+		}
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let watch_!: Watch.Watch;
+		let unwind: number = 0;
+		try {
+			let bb0: number = 0;
+			while (true) {
+				switch (bb0) {
+					case 0:
+						if (this.#state === 0) {
+							unwind = 59;
+							this.#saved = false;
+							this.#saved$2 = false;
+							this.#saved = true;
+							const _3: rt.Future<rt.u64 | undefined> = new recvFuture(this.#rx);
+							unwind = 58;
+							this.#pinned = _3;
+							this.#next = this.#pinned;
+							this.#next$2 = this.#next;
+							this.#awaitee = wait$watch_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+								return Waiter.pollFuture$dyn_Future_Option_u64(waiter, this.#next$2);
+							});
+							bb0 = 6;
+							continue;
+						}
+						if (this.#state === 1) {
+							rt.asyncFnResumed();
+						} else if (this.#state === 2) {
+							rt.asyncFnResumedPanic();
+						} else {
+							if (this.#state === 3) {
+								bb0 = 6;
+								continue;
+							}
+							bb0 = 24;
+							continue;
+						}
+					case 6:
+						unwind = 57;
+						const _12: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_watch_closure0_closure0(this.#awaitee, _2);
+						if (_12 !== rt.Pending) {
+							unwind = 58;
+							this.#first = _12;
+							rt.drop(this.#awaitee);
+							unwind = 59;
+							rt.drop(this.#pinned);
+							const arg = this.#first;
+							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(arg, f, rt.u64Debug)];
+							const _24: string = rt.fmtFormat(["first ", args2[0]]);
+							unwind = 56;
+							Guard.note(this.#guard, _24);
+							unwind = 55;
+							this.#saved = false;
+							this.#pending = Pending.new$Watch(new Watch.Watch({ rx: this.#rx, index: 1 }));
+							unwind = 62;
+							this.#saved$2 = true;
+							this.#total = unwrapOr$Option_u64(this.#first, 0);
+							bb0 = 22;
+							continue;
+						}
+						this.#state = 3;
+						return rt.Pending;
+					case 22:
+						unwind = 62;
+						this.#awaitee$2 = this.#pending;
+						bb0 = 24;
+						continue;
+					case 24:
+						unwind = 62;
+						const _38: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_Watch(this.#awaitee$2, _2);
+						if (_38 !== rt.Pending) {
+							const result2: rt.u64 | undefined = _38;
+							if (result2 !== undefined) {
+								const value: rt.u64 = result2;
+								const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(value, f)];
+								const _52: string = rt.fmtFormat(["watched ", args4[0]]);
+								unwind = 54;
+								Guard.note(this.#guard, _52);
+								unwind = 62;
+								this.#total = rt.u64Add(this.#total, value);
+								const _62: Watch.Watch = Pending.derefMut$DerefMut_Watch(this.#pending);
+								_62.index = rt.usizeAdd(_62.index, 1);
+								bb0 = 22;
+								continue;
+							}
+							this.#saved$2 = false;
+							watch_ = Pending.intoInner$Watch(this.#pending);
+							unwind = 53;
+							const arg2 = watch_.index;
+							const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg2, f)];
+							const _71: string = rt.fmtFormat(["watched to ", args6[0]]);
+							unwind = 52;
+							Guard.note(this.#guard, _71);
+							unwind = 62;
+							const _83: rt.u64 = this.#total;
+							rt.drop(watch_);
+							unwind = 64;
+							this.#saved$2 = false;
+							rt.drop(this.#guard);
+							this.#saved = false;
+							this.#state = 1;
+							return _83;
+						}
+						this.#state = 4;
+						return rt.Pending;
+				}
+			}
+		} catch (e) {
+			b1: {
+				b2: {
+					b3: {
+						b4: {
+							b5: {
+								if (unwind === 0) {
+									throw e;
+								}
+								if (unwind === 52) {
+									break b5;
+								}
+								if (unwind === 53) {
+									break b5;
+								}
+								if (unwind === 54) {
+									break b4;
+								}
+								if (unwind === 55) {
+									break b3;
+								}
+								if (unwind === 56) {
+									break b2;
+								}
+								if (unwind === 57) {
+									rt.drop(this.#awaitee);
+								} else if (unwind !== 58) {
+									if (unwind === 59) {
+										break b2;
+									}
+									if (unwind === 62) {
+										break b4;
+									}
+									break b1;
+								}
+								rt.drop(this.#pinned);
+								break b2;
+							}
+							rt.drop(watch_);
+						}
+						if (this.#saved$2) {
+							rt.drop(this.#pending);
+						}
+					}
+					this.#saved$2 = false;
+				}
+				rt.drop(this.#guard);
+			}
+			if (this.#saved) {
+				rt.drop(this.#rx);
+			}
+			this.#saved = false;
+			this.#state = 2;
+			throw e;
+		}
+	}
+}
+
+/**
+ * The value at `index`, or `None` once the channel closed without it, as moq's
+ * `poll_group` reads its cache: kio's `Consumer::poll` with a closure pending itself, a
+ * `Poll<Poll<_>>`, outside until the value arrives, and inside while it is even and the
+ * one after it hasn't: then it waits on the channel, and the close drops it.
+ */
+export function at(rx: Consumer.Consumer, index: rt.usize, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
+	let res2!: rt.Poll<rt.u64 | undefined>;
+	const res: rt.Poll<rt.Result<rt.Poll<rt.u64 | undefined>, Closed.Closed>> = Consumer.poll$at_closure0_Poll_Option_u64(rx, waiter, (queue: rt.u64[]): rt.Poll<rt.u64 | undefined> | rt.OuterPending => {
+		const _3: rt.u64 | undefined = rt.sliceGet(queue, index);
+		if (_3 === undefined) {
+			return rt.OuterPending;
+		}
+		if (rt.u64Rem(_3, 2) === 0) {
+			if (queue.length === rt.usizeAdd(index, 1)) {
+				return rt.Pending;
+			}
+		}
+		return _3;
+	});
+	if (res !== rt.Pending) {
+		if (res.ok) {
+			res2 = res.value;
+		} else {
+			res2 = undefined as rt.Poll<rt.u64 | undefined>;
+		}
+	} else {
+		res2 = rt.Pending as rt.Poll<rt.u64 | undefined>;
+	}
+	if (isPending$Poll_Option_u64(res2)) {
+		if (isReady$Poll_Result_unit_Closed(Consumer.poll$at_closure1_unit(rx, waiter, (_2: rt.u64[]): rt.Poll<undefined> => {
+			return rt.Pending;
+		}))) {
+			return undefined;
+		}
+	}
+	return res2;
 }
 
 /**

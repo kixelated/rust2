@@ -380,6 +380,12 @@ export const Pending: unique symbol = /* @__PURE__ */ Symbol("Pending");
 /** `Poll<T>`. */
 export type Poll<T> = T | typeof Pending;
 
+/** `Poll::Pending` of a `Poll` whose `Ready` can already be `Pending`, as `Poll<Poll<T>>`'s is. */
+export const OuterPending: unique symbol = /* @__PURE__ */ Symbol("OuterPending");
+
+/** The type of `OuterPending`. */
+export type OuterPending = typeof OuterPending;
+
 /** `Waker`: what an executor hands a future to wake its task. */
 export interface Waker extends Disposable {
 	wake(): void;

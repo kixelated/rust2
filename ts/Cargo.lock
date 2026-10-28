@@ -256,6 +256,13 @@ dependencies = [
 [[package]]
 name = "task-fixture"
 version = "0.0.0"
+dependencies = [
+ "task-kio",
+]
+
+[[package]]
+name = "task-kio"
+version = "0.0.0"
 
 [[package]]
 name = "thiserror"

@@ -546,7 +546,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// place that could change.
 			Operand::Copy(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-				if changes_captures(ty) {
+				// Optimized MIR also copies what isn't `Copy`, where it is a move: copy
+				// propagation does in a body without cleanups, as a dependency's are.
+				if changes_captures(ty) && self.b.t.is_copy(ty) {
 					return self.err(span, "a copy of a closure that changes what it captured");
 				}
 				let value = self.place_expr(*place, span, out);
@@ -916,8 +918,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", self.b.t.none(args.type_at(0))),
 					},
 					Some(Std::Poll) => match index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
+						0 => scrut.clone().binary("!==", self.b.t.pending(args.type_at(0))),
+						_ => scrut.clone().binary("===", self.b.t.pending(args.type_at(0))),
 					},
 					Some(Std::Result) => match index.index() {
 						0 => scrut.clone().member("ok"),

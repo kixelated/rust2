@@ -2,47 +2,43 @@
 
 import * as rt from "./rt.ts";
 import * as Consumer from "./kio.Consumer.ts";
-import * as Park from "./kio.Park.ts";
 import * as Pending from "./kio.Pending.ts";
 import type * as Waiter from "./kio.Waiter.ts";
 
+export function poll$Task_boxed_closure0_closure3(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64>, waiter: Waiter.Waiter): rt.Poll<rt.u64> {
+	return self(waiter);
+}
+
+export function poll$Task_boxed_closure0_closure5(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64>, waiter: Waiter.Waiter): rt.Poll<rt.u64> {
+	return self(waiter);
+}
+
+export function poll$Task_recv_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
+	return self(waiter);
+}
+
+export function poll$Task_watch_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
+	return self(waiter);
+}
+
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$boxed_closure0_closure3_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64>;
-	let unwind: number = 0;
-	try {
-		unwind = 3;
-		_2 = poll;
-		return new Pending.Pending({ poll: _2, park: Park.default$Default() });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_2);
-		throw e;
-	}
+	return Pending.new$boxed_closure0_closure3(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	let _2!: (a0: Waiter.Waiter) => rt.Poll<rt.u64>;
-	let unwind: number = 0;
-	try {
-		unwind = 3;
-		_2 = poll;
-		return new Pending.Pending({ poll: _2, park: Park.default$Default() });
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		rt.drop(_2);
-		throw e;
-	}
+	return Pending.new$boxed_closure0_closure5(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return new Pending.Pending({ poll, park: Park.default$Default() });
+	return Pending.new$recv_closure0_closure0(poll);
+}
+
+/** A future from a poll function that receives a [`Waiter`]. */
+export function wait$watch_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
+	return Pending.new$watch_closure0_closure0(poll);
 }
 
 export class recvFuture {
@@ -61,39 +57,22 @@ export class recvFuture {
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
-		let unwind: number = 0;
-		try {
-			if (this.#state === 0) {
-				unwind = 12;
-				const self: Consumer.Consumer = this.#self;
-				this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
-					return Consumer.pollRecv(self, waiter);
-				});
-			} else if (this.#state === 1) {
-				rt.asyncFnResumed();
-			} else if (this.#state === 2) {
-				rt.asyncFnResumedPanic();
-			}
-			unwind = 11;
-			const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
-			if (_7 !== rt.Pending) {
-				unwind = 12;
-				rt.drop(this.#awaitee);
-				this.#state = 1;
-				return _7;
-			}
-			this.#state = 3;
-			return rt.Pending;
-		} catch (e) {
-			if (unwind === 0) {
-				throw e;
-			}
-			if (unwind === 11) {
-				rt.drop(this.#awaitee);
-			}
-			this.#state = 2;
-			throw e;
+		if (this.#state === 0) {
+			const self: Consumer.Consumer = this.#self;
+			this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+				return Consumer.pollRecv(self, waiter);
+			});
+		} else if (this.#state === 1) {
+			rt.asyncFnResumed();
 		}
+		const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
+		if (_7 !== rt.Pending) {
+			rt.drop(this.#awaitee);
+			this.#state = 1;
+			return _7;
+		}
+		this.#state = 3;
+		return rt.Pending;
 	}
 }
 

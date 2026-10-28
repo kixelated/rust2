@@ -18,6 +18,7 @@ roots = [
     "generic",
     "replace_shared",
     "nested_poll",
+    "generic_pending",
     "pending_output",
     "replace_pinned",
     "replace_guard",

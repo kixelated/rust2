@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
-use crate::kio::Consumer;
+use kio::Consumer;
 use crate::log::Log;
 use crate::model::Guard;
 

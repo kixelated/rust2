@@ -106,7 +106,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
 | `AtomicU32` and the others of `bool` and integers | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
-| `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`, refused if `T` can already be pending; `rt.Waker`, which is also the context |
+| `Poll<T>`, `Waker`, `Context` | `T \| typeof rt.Pending`; `T \| rt.OuterPending` where `T` can already be pending, as `Poll<Poll<u8>>` can, so `Ready(Pending)` keeps apart from `Pending`; `rt.Waker`, which is also the context |
 | `pin!(x)`, `poll_fn(f)`, `future::pending()` | `x`; `rt.PollFn`, which drops `f` with itself; `rt.NEVER` |
 | `Box::pin(x)`, `dyn Future<Output = T>` | `x`; `rt.Future<T>`: an `async` body or std's future as it is, and another future as an `rt.DynFuture` over its `poll`, which drops it with itself unless borrowed |
 
@@ -481,7 +481,7 @@ they need.
 `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
 hand-written TS ([bindings](#bindings)).
 
-These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a closure that owns a value
+These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
@@ -547,9 +547,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `lang`'s other writes into the same type would hide a write the analysis misses: a
   byte array overwritten whole through a type parameter, or, under its features, by std
   called directly or through a pointer a generic function calls.
-- `task` trims moq's kio to a channel of `Arc`ed state, waiters, and wakers, under async
-  functions and std's future helpers, with wakers of the crate's `Wake` impls, beside
-  values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
+- `task` trims moq's kio to a dependency of its own, `kio`, reached across crates as moq-net
+  reaches kio: a channel of `Arc`ed state, waiters, and wakers, kio's `Task`, `Pending`, and
+  `Waiter::poll_future`, and a `Consumer::poll` whose closure is itself pending, a
+  `Poll<Poll<_>>`. Async functions and std's future helpers run over it, with wakers of
+  the crate's `Wake` impls, beside values that drop inside std's types. Its caller is hand-written TS (`tests/task.ts`): a FIFO executor that runs a
   script of spawns, sends, polls, and drops, and logs every poll, wake, and drop, as the
   fixture's native executor does. The logs must match byte for byte. `tests/unwind.ts`
   also runs the scripts natively on the host (`examples/unwind.rs`), where a panic

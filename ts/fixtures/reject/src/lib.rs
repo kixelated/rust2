@@ -101,9 +101,19 @@ pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
 	*dst = src;
 }
 
-/// `Ready(Some(Pending))` would be `rt.Pending`, as the outer `Pending` is.
-pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<u8>>>) -> bool {
+/// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.
+pub fn nested_poll(p: std::task::Poll<Option<std::task::Poll<std::task::Poll<u8>>>>) -> bool {
 	matches!(p, std::task::Poll::Pending)
+}
+
+/// A generic type's `Poll<T>` is `rt.Poll<T>`, which can't hold `rt.OuterPending`, the
+/// `Pending` of a `Poll<Poll<u8>>`.
+pub struct Waiting<T> {
+	pub poll: std::task::Poll<T>,
+}
+
+pub fn generic_pending(poll: std::task::Poll<std::task::Poll<u8>>) -> bool {
+	Waiting { poll }.poll.is_pending()
 }
 
 /// A future's `Ready(Pending)` would be `rt.Pending`, as its own pending is.
