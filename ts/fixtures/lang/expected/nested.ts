@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { thenSome$bool_u8, thenSome$bool_unit, then$bool_Option_u8_iters_closure2 } from "./core/bool.ts";
-import { unwrapOr$Option_u8, map$Option_Option_u8_Option_u8_made_closure0, map$Option_u8_Option_u8_made_closure1_closure0, map$Option_u8_u8_elements_closure8, map$Option_unit_Option_u8_made_closure3, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_unit_u8_made_closure4, andThen$Option_Option_u8_Option_u8_made_closure1, filter$Option_Option_u8_made_closure2, or$Option_Option_u8, xor$Option_Option_u8, flatten$Option_Option_u8 } from "./core/option.ts";
+import { unwrapOr$Option_u8, map$Option_Option_u8_Option_u8_made_closure0, map$Option_u8_Option_u8_made_closure1_closure0, map$Option_u8_u8_elements_closure8, map$Option_unit_Option_u8_made_closure3, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_unit_u8_made_closure4, andThen$Option_Option_u8_Option_u8_made_closure1, filter$Option_Option_u8_made_closure2, or$Option_Option_u8, xor$Option_Option_u8, flatten$Option_Option_u8 } from "./core/option.ts";
 import * as Halves from "./nested.Halves.ts";
 import type * as Slot from "./nested.Slot.ts";
 import * as Tagged from "./nested.Tagged.ts";
@@ -214,7 +214,7 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_64 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, mapOr$Option_u8_u8_elements_closure3(_64, 225, (x: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_btree_maps_closure5(_64, 225, (x: rt.u8): rt.u8 => {
 			return x;
 		}));
 	}
