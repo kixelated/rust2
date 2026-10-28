@@ -22,7 +22,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let (op, kind) = (*op, *kind);
-	match op % 54 {
+	match op % 56 {
 		0 => ints::u8_op(kind, data, &mut out),
 		1 => ints::u16_op(kind, data, &mut out),
 		2 => ints::u32_op(kind, data, &mut out),
@@ -84,8 +84,10 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		48 => combinators::combinators(kind, data, &mut out),
 		49 => splits::splits(kind, data, &mut out),
 		50 => refs::refs(data, &mut out),
-		51 => iters::skips(kind, data, &mut out),
-		52 => wrappers::wrappers(kind, data, &mut out),
+		51 => fmt::counts(data, &mut out),
+		52 => fmt::rounding(&mut out),
+		53 => iters::skips(kind, data, &mut out),
+		54 => wrappers::wrappers(kind, data, &mut out),
 		_ => edits::edits(kind, data, &mut out),
 	}
 	out

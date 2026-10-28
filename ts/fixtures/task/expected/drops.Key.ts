@@ -115,7 +115,7 @@ export function clone$Clone(self: Key): Key {
 }
 
 export function fmt$Debug(self: Key, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Key"), (f: rt.Formatter) => rt.u32Display(self.id, f)));
+	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, "Key"), (f: rt.Formatter) => rt.u32Debug(self.id, f)));
 }
 
 export { new_ as new };

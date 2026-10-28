@@ -398,7 +398,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			putU64(out, n2);
 			const _360: rt.u64 = unwrapOr$Option_NonZero_u64(rt.nonZero(b), n2);
 			const _357: boolean = rt.u64Eq(n2, _360);
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.fmtBool(_357, f)];
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.u64Debug(n2, f), (f: rt.Formatter) => rt.fmtBool(_357, f)];
 			put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]]));
 			rt.byteVecPush(out, rt.u64Gt(n2, { _0: 1 }._0) ? 1 : 0);
 			rt.byteVecPush(out, rt.cmp(n2, { _0: 1000 }._0) & 0xff);
