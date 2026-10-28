@@ -252,9 +252,10 @@ const shared = [[], [1], [0, 0], [255, 255, 0, 1, 2, 3, 4, 5], [7, 0xff, 255, 25
 
 /**
  * `locks` scripts: writes through guards and reads, `get_mut`, a guard held while others
- * lock and unlock, and a second lock while it is held, which panics.
+ * lock and unlock, a mutex replaced through a reference, and a second lock while a guard
+ * is held, which panics.
  */
-const locks = [[0, 1, 6, 7, 2, 8, 3, 9, 3, 0, 1], [4, 5, 4, 5, 1], [4, 2, 3, 9, 1], [4, 0], [4, 4], [4]].map(
+const locks = [[0, 1, 7, 8, 2, 9, 3, 10, 3, 0, 1], [4, 5, 4, 5, 1], [4, 2, 3, 10, 1], [2, 6, 2, 13, 6], [4, 0], [4, 4], [4]].map(
 	(bytes) => Uint8Array.of(op("locks::locks"), 0, ...bytes),
 );
 

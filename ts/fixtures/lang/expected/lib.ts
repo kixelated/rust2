@@ -201,6 +201,14 @@ export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt
 	return [v[0], v[1]];
 }
 
+export function drop$Result_MutexGuard_Vec_u8_PoisonError_MutexGuard_Vec_u8(_1: rt.Result<rt.Mutex<rt.ByteVec>, rt.Mutex<rt.ByteVec>>): void {
+	if (_1.ok) {
+		rt.mutexUnlock(_1.value);
+	} else {
+		rt.drop(_1.error);
+	}
+}
+
 export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
 	rt.drop(_1[1]);
 }

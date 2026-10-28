@@ -165,7 +165,7 @@ export class Mutex<T> implements Disposable {
 	held: 0 | 1 | 2 = 0;
 	poisoned = false;
 	/** `Ok` of its guard, which every lock that isn't poisoned returns rather than make one. */
-	ok: Result<Mutex<T>, Mutex<T>> | undefined;
+	ok: { readonly ok: true; readonly value: Mutex<T> } | undefined;
 
 	constructor(value: T) {
 		this.value = value;
@@ -186,8 +186,9 @@ export function mutexLock<T>(m: Mutex<T>): Result<Mutex<T>, Mutex<T>> {
 	if (m.held !== 0) panic("assertion `left == right` failed: cannot recursively acquire mutex\n  left: true\n right: false");
 	m.held = panicking() ? 2 : 1;
 	if (m.poisoned) return Err(m);
-	// Frozen, as nothing can change it: a guard can't be assigned through a reference.
-	m.ok ??= Object.freeze(Ok(m));
+	// Frozen, as nothing can change it: a guard can't be assigned through a reference. A
+	// mutex replaced in place by another, through `Object.assign`, has the other's.
+	if (m.ok?.value !== m) m.ok = Object.freeze({ ok: true, value: m });
 	return m.ok;
 }
 
