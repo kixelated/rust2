@@ -135,7 +135,7 @@ export function readThrough(a: rt.Place<rt.u32>, b: rt.Place<rt.u32>, out: rt.By
 	rt.byteVecPush(out, a.v === b.v ? 1 : 0);
 	rt.byteVecPush(out, a.v < b.v ? 1 : 0);
 	rt.byteVecPush(out, rt.cmp(a.v, b.v) & 0xff);
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(a.v, f), (f: rt.Formatter) => rt.u32Display(b.v, f)];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(a.v, f), (f: rt.Formatter) => rt.u32Debug(b.v, f)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], "|", args2[1]])));
 }
 

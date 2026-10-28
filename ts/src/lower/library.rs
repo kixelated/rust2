@@ -1037,7 +1037,7 @@ fn mapping<'tcx>(
 				None => Expr::rt("fmtFormat", vec![parts]),
 			}
 		}
-		("Display" | "Debug" | "LowerHex" | "UpperHex", "fmt") => {
+		("Display" | "Debug" | "LowerHex" | "UpperHex" | "Octal" | "Binary" | "LowerExp" | "UpperExp", "fmt") => {
 			let tr = fmt::Trait::of(tcx, tcx.trait_of_assoc(call.def_id)?)?;
 			let [value, f] = <[Expr; 2]>::try_from(args).ok()?;
 			fmt::std_impl(b, tr, targ(gargs, 0), value, f, span, out)?
