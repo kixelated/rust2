@@ -305,9 +305,10 @@ takes by value or by `&`, or share with a clone what a `&mut` changes, and an in
 returns is in its Rust type's range.
 
 Once the output is written, `tsc` 7.0 or later, from `PATH`, checks each export against the
-translated signature of every instance translation calls, and each bound type's value. A
-missing or mismatched binding fails the translation at the Rust item's span, and the
-output is removed. Only the binding files translation reaches are copied, so one imports
+translated signature of every instance translation calls, and each bound type's value. One
+returning `()` is checked against `=> undefined`, not `=> void`, which accepts any value,
+so its export is typed `: undefined`. A missing or mismatched binding fails the
+translation at the Rust item's span, and the output is removed. Only the binding files translation reaches are copied, so one imports
 another only where translation reaches both. A binding inside the output is refused, since
 a translation replaces it.
 
