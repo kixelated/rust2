@@ -1012,8 +1012,8 @@ fn mapping<'tcx>(
 			let ty = targ(gargs, 0);
 			let v = args.pop()?;
 			match ty.kind() {
-				ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-					Some(Std::Vec) => vec_view(v, ty),
+				ty::Adt(adt, vargs) => match Std::of(tcx, adt.did()) {
+					Some(Std::Vec) => vec_view(v, vargs.type_at(0)),
 					Some(Std::String | Std::Box) => v,
 					Some(Std::Cow) if string(tcx, ty) => v,
 					_ => return None,
@@ -1298,12 +1298,8 @@ fn primitive(ty: Ty<'_>) -> bool {
 	matches!(ty.kind(), ty::Bool | ty::Int(_) | ty::Uint(_) | ty::Char)
 }
 
-/// A `Vec`'s elements as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
-pub fn vec_view(v: Expr, ty: Ty<'_>) -> Expr {
-	let elem = match ty.peel_refs().kind() {
-		ty::Adt(_, args) => args.type_at(0),
-		_ => ty,
-	};
+/// A `Vec` of `elem`s as a slice: an `rt.ByteSlice` of a byte vector, or the array itself.
+pub fn vec_view(v: Expr, elem: Ty<'_>) -> Expr {
 	match elem.kind() {
 		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecSlice", vec![v]),
 		_ => v,
