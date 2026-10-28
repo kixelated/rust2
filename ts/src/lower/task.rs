@@ -1,13 +1,13 @@
 //! The standard library's ownership and async types, as `rt/task.ts` gives them: `Arc`,
 //! `Weak`, `Mutex`, `Waker`, `Context`, `Poll`, `Pin`, and std's futures.
 
-use rustc_middle::ty::{self, Ty};
-use rustc_span::Span;
+use rustc_middle::ty::{self, Instance, Ty};
+use rustc_span::{Span, Symbol};
 
 use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
-use crate::ts::Expr;
+use crate::ts::{Expr, Param};
 
 impl<'tcx> Translator<'_, 'tcx> {
 	/// `Future::Output` of `ty`, a future.
@@ -19,7 +19,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 				.ok()
 		});
 		output.unwrap_or_else(|| {
-			self.err(span, format!("`{ty}` has no `Future::Output`"));
+			self.err(span, format!("`{ty}` is not a future"));
 			tcx.types.unit
 		})
 	}
@@ -53,6 +53,15 @@ pub fn call<'tcx>(
 		{
 			Expr::New(Box::new(Expr::Rt("Arc".into())), args)
 		}
+		// A waker over the crate's `Wake` impl.
+		("From", "from")
+			if let [_, from] = call.args.as_slice()
+				&& self_std == Some(Std::Waker)
+				&& std_of(from.expect_ty()) == Some(Std::Arc) =>
+		{
+			arc_waker(b, from.expect_ty(), first(args), call.span)
+		}
+		("Waker", "noop") => Expr::Rt("NOOP_WAKER".into()),
 		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
 		("Arc", "downgrade") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
 		("Arc", "strong_count") => first(args).member("strong"),
@@ -111,6 +120,42 @@ pub fn call<'tcx>(
 		_ => return Err(args),
 	};
 	Ok(Some(e))
+}
+
+/// `Waker::from(arc)`, an `Arc<W>`: an `rt.ArcWaker` over `W`'s `Wake::wake`, what drops
+/// the `Arc`, and `W`'s own `wake_by_ref` if it overrides the default.
+fn arc_waker<'tcx>(b: &mut Body<'_, '_, 'tcx>, arc: Ty<'tcx>, value: Expr, span: Span) -> Expr {
+	let tcx = b.t.tcx;
+	let ty::Adt(_, arc_args) = arc.kind() else {
+		unreachable!("an `Arc` is a struct")
+	};
+	let wake_trait = tcx
+		.get_diagnostic_item(Symbol::intern("Wake"))
+		.expect("`From<Arc<W>>` for `Waker` bounds `W` by `Wake`");
+	let items = tcx.associated_items(wake_trait);
+	let item = |name: &str| {
+		items
+			.filter_by_name_unhygienic(Symbol::intern(name))
+			.next()
+			.expect("a `Wake` method")
+			.def_id
+	};
+	let (wake, by_ref) = (item("wake"), item("wake_by_ref"));
+	let w = tcx.mk_args(&[arc_args.type_at(0).into()]);
+	let arc_param = b.fresh("arc");
+	let dropped = b.t.drop_value(Expr::ident(arc_param.clone()), arc, span);
+	let param = Param {
+		name: arc_param,
+		ty: Some(b.t.ty(arc, span)),
+	};
+	let drop = Expr::Lambda(vec![param], Box::new(dropped.unwrap_or_else(Expr::undefined)));
+	let mut args = vec![value, b.fn_value(wake, w, span), drop];
+	if let Ok(Some(instance)) = Instance::try_resolve(tcx, b.t.typing_env_pub(), by_ref, w)
+		&& instance.def_id() != by_ref
+	{
+		args.push(b.fn_value(by_ref, w, span));
+	}
+	Expr::New(Box::new(Expr::Rt("ArcWaker".into())), args)
 }
 
 fn first(args: Vec<Expr>) -> Expr {

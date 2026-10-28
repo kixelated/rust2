@@ -3,6 +3,8 @@
 import * as rt from "./rt.ts";
 import { okOr$Option_u64_u64 } from "./core/option.ts";
 import { map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure0_closure0, isReady$Poll_Option_u64, isPending$Poll_Option_u64, isPending$Poll_u64, mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1, mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure2 } from "./core/task/poll.ts";
+import * as Plain from "./futures.Plain.ts";
+import * as Relay from "./futures.Relay.ts";
 import { recvFuture } from "./kio.ts";
 import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
@@ -11,9 +13,11 @@ import * as Guard from "./model.Guard.ts";
 /**
  * Every value until the channel closes, summed through std's helpers: a pinned `recv`
  * polled by hand from a `poll_fn` that owns a guard, which a cancel drops with the
- * `poll_fn`; a pinned `future::pending` polled first, which never wakes; and `Poll`'s
- * methods on what each poll returns. It stops at a value of 77, and panics on 99 inside
- * the `poll_fn`.
+ * `poll_fn`; a pinned `future::pending` polled first with `Waker::noop`, which never
+ * wakes; and `Poll`'s methods on what each poll returns. `recv` wakes the task through
+ * a relay, a waker the `poll_fn` makes on its first poll from an `Arc` of a `Wake` impl,
+ * which an even value also wakes by value, and which logs its own drop. It stops at a
+ * value of 77, and panics on 99 inside the `poll_fn`.
  */
 export function helpers(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
 	return new helpersFuture(rx, guard);
@@ -38,16 +42,16 @@ export class helpersFuture {
 		let unwind: number = 0;
 		try {
 			if (this.#state === 0) {
-				unwind = 19;
+				unwind = 21;
 				rt.drop(this.#rx);
 				unwind = 0;
 				rt.drop(this.#guard);
 			} else if (this.#state === 3) {
-				unwind = 11;
+				unwind = 12;
 				rt.drop(this.#awaitee);
-				unwind = 13;
-				rt.drop(this.#pinned$2);
 				unwind = 15;
+				rt.drop(this.#pinned$2);
+				unwind = 17;
 				this.#saved = false;
 				rt.drop(this.#guard);
 				unwind = 0;
@@ -59,10 +63,10 @@ export class helpersFuture {
 					if (unwind === 0) {
 						throw e;
 					}
-					if (unwind === 11) {
+					if (unwind === 12) {
 						rt.drop(this.#pinned$2);
-					} else if (unwind !== 13) {
-						if (unwind === 15) {
+					} else if (unwind !== 15) {
+						if (unwind === 17) {
 							break b1;
 						}
 						rt.drop(this.#guard);
@@ -79,7 +83,7 @@ export class helpersFuture {
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
 		let owned!: Guard.Guard;
-		let _33!: rt.u64;
+		let _34!: rt.u64;
 		let unwind: number = 0;
 		try {
 			let bb0: number = 0;
@@ -112,61 +116,95 @@ export class helpersFuture {
 						this.#pinned$2 = _15;
 						const next: rt.Future<rt.u64 | undefined> = this.#pinned$2;
 						this.#saved = false;
-						const captured = never;
-						const captured2 = next;
+						let captured = never;
+						let captured2 = undefined as rt.Waker | undefined;
 						const captured3 = owned;
-						const captured4 = this.#total;
+						let captured4 = next;
+						const captured5 = this.#total;
 						this.#awaitee = new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.Result<rt.u64, rt.u64>> => {
-							const waiting: rt.Poll<rt.u64> = captured.poll(cx);
-							const polled: rt.Poll<rt.u64 | undefined> = captured2.poll(cx);
-							const _182: boolean = isPending$Poll_u64(waiting);
-							const _212: boolean = isReady$Poll_Option_u64(polled);
-							const _242: boolean = isPending$Poll_Option_u64(polled);
-							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_182, f), (f: rt.Formatter) => rt.fmtBool(_212, f), (f: rt.Formatter) => rt.fmtBool(_242, f)];
-							Guard.note(captured3, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
-							if (polled !== rt.Pending) {
-								if (polled !== undefined) {
-									if (polled === 99) {
-										const part = Guard.id(captured3);
-										const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
-										rt.panicFmt(["g", args4[0], " poisoned"]);
+							let _152!: Log.Log;
+							let _81!: boolean;
+							let unwind2: number = 0;
+							try {
+								_81 = false;
+								const waiting: rt.Poll<rt.u64> = captured.poll(rt.NOOP_WAKER);
+								if (captured2 === undefined) {
+									const _132: rt.Waker = cx;
+									const _16: Log.Log = Guard.log(captured3);
+									_81 = true;
+									_152 = Log.clone$Clone(_16);
+									unwind2 = 51;
+									const _18: rt.u32 = rt.u32Add(Guard.id(captured3), 100);
+									_81 = false;
+									const _122: rt.Waker = relayed(_132, _152, _18);
+									unwind2 = 0;
+									_81 = false;
+									const _11: rt.Waker | undefined = _122;
+									rt.drop(captured2);
+									captured2 = _11;
+								}
+								const relay2: rt.Waker = rt.optionUnwrap(captured2);
+								const polled: rt.Poll<rt.u64 | undefined> = captured4.poll(relay2);
+								const _39: boolean = isPending$Poll_u64(waiting);
+								const _422: boolean = isReady$Poll_Option_u64(polled);
+								const _45: boolean = isPending$Poll_Option_u64(polled);
+								const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_39, f), (f: rt.Formatter) => rt.fmtBool(_422, f), (f: rt.Formatter) => rt.fmtBool(_45, f)];
+								Guard.note(captured3, rt.fmtFormat(["pending ", args2[0], " ready ", args2[1], " pending ", args2[2]]));
+								if (polled !== rt.Pending) {
+									if (polled !== undefined) {
+										if (polled === 99) {
+											const part = Guard.id(captured3);
+											const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+											rt.panicFmt(["g", args4[0], " poisoned"]);
+										} else if (rt.u64Rem(polled, 2) === 0) {
+											relay2.clone().wake();
+										}
 									}
 								}
+								return mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure2(mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1(map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure0_closure0(polled, (value3: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> => {
+									return okOr$Option_u64_u64(value3, captured5);
+								}), (value4: rt.u64): rt.u64 => {
+									return rt.u64Mul(value4, 2);
+								}), (total: rt.u64): rt.u64 => {
+									return rt.u64Add(total, 1);
+								});
+							} catch (e2) {
+								if (unwind2 === 0) {
+									throw e2;
+								}
+								if (_81) {
+									rt.drop(_152);
+								}
+								throw e2;
 							}
-							return mapErr$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure2(mapOk$Poll_Result_u64_u64_u64_helpers_closure0_closure0_closure1(map$Poll_Option_u64_Result_u64_u64_helpers_closure0_closure0_closure0(polled, (value2: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> => {
-								return okOr$Option_u64_u64(value2, captured4);
-							}), (value3: rt.u64): rt.u64 => {
-								return rt.u64Mul(value3, 2);
-							}), (total: rt.u64): rt.u64 => {
-								return rt.u64Add(total, 1);
-							});
 						}, (): void => {
+							rt.drop(captured2);
 							rt.drop(captured3);
 						}));
 						bb0 = 13;
 						continue;
 					case 13:
 						unwind = 31;
-						const _21: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
-						if (_21 !== rt.Pending) {
+						const _22: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
+						if (_22 !== rt.Pending) {
 							unwind = 32;
-							const read: rt.Result<rt.u64, rt.u64> = _21;
+							const read: rt.Result<rt.u64, rt.u64> = _22;
 							rt.drop(this.#awaitee);
 							if (read.ok) {
 								if (read.value === 154) {
-									_33 = this.#total;
+									_34 = this.#total;
 									bb0 = 26;
 									continue;
 								}
-								const _31: rt.u64 = rt.u64Add(this.#total, read.value);
+								const _32: rt.u64 = rt.u64Add(this.#total, read.value);
 								unwind = 33;
-								this.#total = _31;
+								this.#total = _32;
 								rt.drop(this.#pinned$2);
 								this.#saved = false;
 								bb0 = 1;
 								continue;
 							}
-							_33 = read.error;
+							_34 = read.error;
 							bb0 = 26;
 							continue;
 						}
@@ -181,7 +219,7 @@ export class helpersFuture {
 						unwind = 37;
 						rt.drop(this.#rx);
 						this.#state = 1;
-						return _33;
+						return _34;
 				}
 			}
 		} catch (e) {
@@ -220,6 +258,56 @@ export class helpersFuture {
 			this.#state = 2;
 			throw e;
 		}
+	}
+}
+
+/**
+ * A waker relaying to `task`, through a `Wake` impl with its own `wake_by_ref` for an
+ * even `id`, and `Wake`'s default otherwise.
+ */
+export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
+	let _0!: rt.Waker;
+	let relay!: Relay.Relay;
+	let _5!: rt.Waker;
+	let _15!: boolean;
+	let _16!: boolean;
+	let unwind: number = 0;
+	try {
+		unwind = 15;
+		_16 = false;
+		_15 = false;
+		_16 = true;
+		_5 = task.clone();
+		unwind = 10;
+		_16 = false;
+		const _6: Guard.Guard = Guard.new(id, log);
+		unwind = 13;
+		_15 = true;
+		relay = new Relay.Relay({ task: _5, guard: _6 });
+		if (rt.u32Rem(id, 2) === 0) {
+			_15 = false;
+			_0 = new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake, (arc2: rt.Arc<Relay.Relay>) => rt.drop(arc2), Relay.wakeByRef$Wake);
+		} else {
+			_15 = false;
+			_0 = new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake, (arc: rt.Arc<Plain.Plain>) => rt.drop(arc));
+		}
+		_15 = false;
+		return _0;
+	} catch (e) {
+		if (unwind === 0) {
+			throw e;
+		}
+		if (unwind === 10) {
+			rt.drop(_5);
+		} else if (unwind === 13) {
+			if (_15) {
+				rt.drop(relay);
+			}
+		}
+		if (_16) {
+			rt.drop(log);
+		}
+		throw e;
 	}
 }
 

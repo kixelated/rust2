@@ -938,7 +938,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
 				(!self.is_copy(ty)).then_some(ObjectKind::Class)
 			}
-			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
+			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
 				Some(library::Std::Vec) => Some(ObjectKind::Vec),
 				Some(
 					library::Std::Formatter
@@ -951,6 +951,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::MutexGuard
 					| library::Std::Waker
 					| library::Std::Context
+					| library::Std::Pin
 					| library::Std::PollFn
 					| library::Std::Pending
 					| library::Std::Range
@@ -964,11 +965,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Entry
 					| library::Std::Hasher,
 				) => Some(ObjectKind::Class),
-				// A pinned reference is the object or `rt.Place` it is; what `pin!` pins is itself.
-				Some(library::Std::Pin) => match args.type_at(0) {
-					inner if inner.is_ref() => Some(ObjectKind::Class),
-					inner => self.object_kind(inner),
-				},
 				Some(_) => None,
 				None if adt.is_struct() => Some(ObjectKind::Class),
 				None => None,
