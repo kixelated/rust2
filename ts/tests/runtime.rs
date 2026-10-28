@@ -25,7 +25,7 @@ fn nan_payloads() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
-/// A recursive `OnceLock` init drops what it took as it panics, which `once.ts` checks.
+/// A recursive `OnceLock` init panics with std's message, which `once.ts` checks.
 #[test]
 fn once_recursive() {
 	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("once.ts");
@@ -148,13 +148,12 @@ impl<T: Copy> Drop for Logged<'_, T> {
 	}
 }
 
-/// A `retain` whose predicate panics leaves a B-tree, a deque, and a `Vec` as std's do,
-/// and a `dedup_by` whose test panics leaves a `Vec`, each dropping what std's drops,
-/// which `retain.ts` prints for every keep mask of up to 6 items and each item to panic on.
+/// `retain` leaves a B-tree, a deque, and a `Vec` as std's do, and `dedup_by` a `Vec`,
+/// each dropping what std's drops, which `retain.ts` prints for every keep mask of up to
+/// 6 items.
 #[test]
-fn retain_unwinds() {
+fn retain() {
 	use std::collections::{BTreeMap, VecDeque};
-	use std::panic::{AssertUnwindSafe, catch_unwind};
 
 	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 		.join("tests")
@@ -166,67 +165,54 @@ fn retain_unwinds() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 	let got = String::from_utf8(output.stdout).unwrap();
 
-	let hook = std::panic::take_hook();
-	std::panic::set_hook(Box::new(|_| {}));
 	let mut want = String::new();
 	for n in 0..=6u32 {
 		for mask in 0..1u32 << n {
-			for p in 0..=n {
-				let keep = |i: u32| {
-					assert!(i != p);
-					(mask >> i) & 1 == 1
-				};
-				let mut tree: BTreeMap<u32, u32> = (0..n).map(|i| (i, i * 10)).collect();
-				let _ = catch_unwind(AssertUnwindSafe(|| tree.retain(|&k, _| keep(k))));
-				let mut deque = VecDeque::new();
-				for i in (0..n / 2).rev() {
-					deque.push_front(i);
-				}
-				deque.extend(n / 2..n);
-				let _ = catch_unwind(AssertUnwindSafe(|| deque.retain(|&i| keep(i))));
-				let dropped = std::cell::RefCell::new(Vec::new());
-				let mut vec: Vec<Logged<u32>> = (0..n).map(|i| Logged(i, &dropped)).collect();
-				let _ = catch_unwind(AssertUnwindSafe(|| vec.retain(|i| keep(i.0))));
-				let vec: Vec<u32> = vec.iter().map(|i| i.0).collect();
-				let dropped = std::mem::take(&mut *dropped.borrow_mut());
-				// A run ends at each item the mask clears, and `same` panics comparing `p`.
-				let deduped = std::cell::RefCell::new(Vec::new());
-				let mut run = 0;
-				let mut runs: Vec<Logged<(u32, u32)>> = (0..n)
-					.map(|i| {
-						if (mask >> i) & 1 == 0 {
-							run += 1;
-						}
-						Logged((i, run), &deduped)
-					})
-					.collect();
-				let _ = catch_unwind(AssertUnwindSafe(|| {
-					runs.dedup_by(|a, b| {
-						assert!(a.0.0 != p);
-						a.0.1 == b.0.1
-					})
-				}));
-				let ran: Vec<u32> = runs.iter().map(|r| r.0.0).collect();
-				let deduped: Vec<u32> = std::mem::take(&mut *deduped.borrow_mut())
-					.into_iter()
-					.map(|r| r.0)
-					.collect();
-				let entries: Vec<String> = tree.iter().map(|(k, v)| format!("{k},{v}")).collect();
-				let items: Vec<String> = deque.iter().map(u32::to_string).collect();
-				let join = |v: &[u32]| v.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
-				want += &format!(
-					"{n} {mask} {p} btree {} deque {} vec {} dropped {} dedup {} dropped {}\n",
-					entries.join(";"),
-					items.join(","),
-					join(&vec),
-					join(&dropped),
-					join(&ran),
-					join(&deduped),
-				);
+			let keep = |i: u32| (mask >> i) & 1 == 1;
+			let mut tree: BTreeMap<u32, u32> = (0..n).map(|i| (i, i * 10)).collect();
+			tree.retain(|&k, _| keep(k));
+			let mut deque = VecDeque::new();
+			for i in (0..n / 2).rev() {
+				deque.push_front(i);
 			}
+			deque.extend(n / 2..n);
+			deque.retain(|&i| keep(i));
+			let dropped = std::cell::RefCell::new(Vec::new());
+			let mut vec: Vec<Logged<u32>> = (0..n).map(|i| Logged(i, &dropped)).collect();
+			vec.retain(|i| keep(i.0));
+			let vec: Vec<u32> = vec.iter().map(|i| i.0).collect();
+			let dropped = std::mem::take(&mut *dropped.borrow_mut());
+			// A run ends at each item the mask clears.
+			let deduped = std::cell::RefCell::new(Vec::new());
+			let mut run = 0;
+			let mut runs: Vec<Logged<(u32, u32)>> = (0..n)
+				.map(|i| {
+					if !keep(i) {
+						run += 1;
+					}
+					Logged((i, run), &deduped)
+				})
+				.collect();
+			runs.dedup_by(|a, b| a.0.1 == b.0.1);
+			let ran: Vec<u32> = runs.iter().map(|r| r.0.0).collect();
+			let deduped: Vec<u32> = std::mem::take(&mut *deduped.borrow_mut())
+				.into_iter()
+				.map(|r| r.0)
+				.collect();
+			let entries: Vec<String> = tree.iter().map(|(k, v)| format!("{k},{v}")).collect();
+			let items: Vec<String> = deque.iter().map(u32::to_string).collect();
+			let join = |v: &[u32]| v.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+			want += &format!(
+				"{n} {mask} btree {} deque {} vec {} dropped {} dedup {} dropped {}\n",
+				entries.join(";"),
+				items.join(","),
+				join(&vec),
+				join(&dropped),
+				join(&ran),
+				join(&deduped),
+			);
 		}
 	}
-	std::panic::set_hook(hook);
 	for (got, want) in got.lines().zip(want.lines()) {
 		assert_eq!(got, want);
 	}

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- A panic aborts, as on wasm32: the output throws `rt.Panic` without running any cleanup,
+  so nothing drops as it unwinds, and what the translation held is undefined after one.
+  A caller that catches `rt.Panic` must not use the translation's values again.
+- Runtime functions lost the droppers only a panic used: `rt.resultUnwrap`,
+  `rt.resultExpect`, `rt.resultUnwrapErr`, `rt.vecInsert`, `rt.tupleClone`, `rt.onceSet`,
+  `rt.onceGetOrInit`, `rt.hashInsert`, `rt.btreeInsert`, `rt.entryOrInsertWith`,
+  `rt.entryOrInsertWithMut`, `rt.iterInspect`, `rt.iterFold`, and `rt.iterCollectResult`
+  take one fewer, `hashExtend` and `hashExtendKeys` no longer take `fresh`, an `rt.Iter`'s
+  `fold` and `rfold` no longer take `dropAcc`, `iterToArray` no longer takes `"place"`,
+  and `rt.vecClone` is gone: clone an array with `map`.
 - `Mutex::lock`'s result is an `rt.Result` of the guard, always `Ok`, rather than the
   guard itself.
 - `tsc` checks a binding of a function returning `()` against `=> undefined`, not

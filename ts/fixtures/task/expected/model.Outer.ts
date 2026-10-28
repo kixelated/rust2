@@ -18,17 +18,8 @@ export class Outer {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			rt.drop(this.inner);
-			dropped = 1;
-			rt.drop(this.guard);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.guard);
-			}
-			throw e;
-		}
+		rt.drop(this.inner);
+		rt.drop(this.guard);
 	}
 }
 

@@ -22,20 +22,9 @@ export function isSome(self: Held): boolean {
 
 /** Consumes the box, dropping it on return. */
 export function take$Part(self: Held): rt.u32 {
-	let unwind: number = 0;
-	try {
-		unwind = 5;
-		const _0: rt.u32 = rt.u32WrappingAdd(id$Part(self), 1);
-		unwind = 0;
-		drop$Held(self);
-		return _0;
-	} catch (e) {
-		if (unwind === 0) {
-			throw e;
-		}
-		drop$Held(self);
-		throw e;
-	}
+	const _0: rt.u32 = rt.u32WrappingAdd(id$Part(self), 1);
+	drop$Held(self);
+	return _0;
 }
 
 export function id$Part(self: Held): rt.u32 {

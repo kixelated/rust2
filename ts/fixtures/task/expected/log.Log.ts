@@ -20,7 +20,8 @@ export class Log {
 }
 
 function new_(): Log {
-	return new Log(new rt.Arc(new rt.Mutex([])));
+	const _3: string[] = [];
+	return new Log(new rt.Arc(new rt.Mutex(_3)));
 }
 
 /** Append one event. */

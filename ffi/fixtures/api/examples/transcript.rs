@@ -91,6 +91,8 @@ fn main() {
 	);
 	let (only,) = api_lib::only(Counter::new("o", 3));
 	println!("only {} {}", only.name(), only.get());
+	let (a, b, c, d) = api_lib::widths(98305);
+	println!("widths {a} {b} {c} {d}");
 	for b in [2, 0] {
 		match api_lib::divide(7, b) {
 			Ok((q, r)) => println!("divide {q} {r}"),
@@ -280,6 +282,11 @@ fn main() {
 		api_lib::kept(Point { x: 1, y: -2 }),
 		api_lib::BOXED.value
 	);
+	let sides = Pair { left: 2u32, right: 5 };
+	println!("apply {}", api_lib::apply(sides, |side| side * 3));
+	println!("report {}", api_lib::report(sides, Print));
+	println!("wrapped {}", api_lib::kept(api_lib::Wrap { value: 4u32 }));
+	println!("keeps {}", api_lib::keeps(Print).value);
 
 	let token = api_lib::Token::new(7);
 	println!("token {} dropped {}", token.id, api_lib::dropped());

@@ -526,21 +526,11 @@ impl<'a> Abi<'a> {
 			.map(|r| r.span)
 			.or_else(|| api.objects.first().map(|o| o.span))
 			.unwrap_or(rustc_span::DUMMY_SP);
-		// C's runtime, then what C++'s adds in the namespace its types share.
+		// C's runtime, then what C++'s adds in the namespace its types share, and Kotlin's
+		// in its package.
 		for runtime in [
-			"contract",
-			"buf",
-			"buf_free",
-			"duration",
-			"socket_addr",
-			"waker",
-			"poll",
-			"view",
-			"result",
-			"task",
-			"future",
-			"poll_t",
-			"detail",
+			"contract", "buf", "buf_free", "duration", "socket_addr", "waker", "poll", "view", "result", "task", "future", "poll_t",
+			"detail", "native",
 		] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}

@@ -167,8 +167,9 @@ pub struct Function {
 /// exports at.
 pub struct Instance {
 	/// The arguments of its declared type parameters, which the call names, as Rust
-	/// cannot infer one no argument names; its argument infers an `impl Trait` one.
-	pub args: Vec<Type>,
+	/// cannot infer one no argument names; its argument infers an `impl Trait` one, and
+	/// one left `None`, which takes a lent closure or a foreign implementation.
+	pub args: Vec<Option<Type>>,
 	/// The arguments that tell it from its other instances, which name it.
 	pub named: Vec<Type>,
 }

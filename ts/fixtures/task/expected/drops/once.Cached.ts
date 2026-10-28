@@ -16,17 +16,8 @@ export class Cached {
 	}
 
 	[Symbol.dispose](): void {
-		let dropped: number = 0;
-		try {
-			drop$Option_Held(this.sweep.v);
-			dropped = 1;
-			rt.drop(this.guard);
-		} catch (e) {
-			if (dropped < 1) {
-				rt.drop(this.guard);
-			}
-			throw e;
-		}
+		drop$Option_Held(this.sweep.v);
+		rt.drop(this.guard);
 	}
 }
 

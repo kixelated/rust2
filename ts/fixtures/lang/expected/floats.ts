@@ -238,7 +238,8 @@ export function floats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const v2: rt.f64[] = [a, b, 0.5];
 		putF64(out, rt.iterSum(rt.iterSlice(v2), rt.f64Add, -0.0));
 		putF64(out, rt.iterProduct(rt.iterSlice(v2), rt.f64Mul, 1.0));
-		putF64(out, rt.iterSum(rt.iterSlice([]), rt.f64Add, -0.0));
+		const _403: rt.f64[] = [];
+		putF64(out, rt.iterSum(rt.iterSlice(_403), rt.f64Add, -0.0));
 		putF64(out, rt.iterSum(rt.iterSlice([-0.0, -0.0]), rt.f64Add, -0.0));
 		putF64(out, 0.0);
 		const g: Gauge.Gauge = { level: a, peak: b };

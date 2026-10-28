@@ -19,9 +19,9 @@ hang's `Catalog<()>`. What remains is two type mappings.
 
 - `IntoIterator` as a `Vec` needs a `Vec` of records to map first.
 - `serde_json::Value` crosses the C ABI as something every generator can read; decide
-  its shape (JSON text is the obvious one) when the quest starts. Today the `T: Serialize`
-  parameter is refused as a generic parameter, though `String` meets its bound: find out
-  why first.
+  its shape (JSON text is the obvious one) when the quest starts. The `T: Serialize`
+  parameter now takes `String` by the choice rules, which serializes one JSON string
+  rather than a document; moq's config excludes both methods until then.
 - Report moq-ffi's coverage and the census before and after.
 
 Public API: the C names and types these methods export with.

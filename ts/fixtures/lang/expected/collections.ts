@@ -1029,21 +1029,22 @@ export function vecs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return o2._0;
 	}));
 	const grown: rt.ByteVec = rt.byteVecFrom(rt.byteVecView(bytes));
-	const _169: rt.ByteSlice = rt.byteVecSlice(grown);
-	rt.idx(_169, 0);
-	_169.data[_169.start] = _169.data[_169.start] ^ 255;
+	const _167: rt.ByteSlice = rt.byteVecSlice(grown);
+	rt.idx(_167, 0);
+	_167.data[_167.start] = _167.data[_167.start] ^ 255;
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(grown));
-	const iterS2: rt.ByteVec[] = [bytes, rt.byteVecOf(b, n)];
-	for (const _187 of iterS2) {
-		rt.byteVecPush(out, _187.length & 0xff);
-		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_187));
+	const _178: rt.ByteVec = rt.byteVecOf(b, n);
+	const iterS2: rt.ByteVec[] = [bytes, _178];
+	for (const _183 of iterS2) {
+		rt.byteVecPush(out, _183.length & 0xff);
+		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_183));
 	}
 	const wrapped: Wrap.Wrap<rt.u8>[] = rt.vecFromElem(new Wrap.Wrap({ value: a, count: b }), n, copy$Wrap_u8);
 	if (n > 0) {
-		const _199: Wrap.Wrap<rt.u8>[] = wrapped;
-		const _201: rt.usize = rt.usizeSub(n, 1);
-		rt.idx(_199, _201);
-		_199[_201].count = _199[_201].count ^ 255;
+		const _195: Wrap.Wrap<rt.u8>[] = wrapped;
+		const _197: rt.usize = rt.usizeSub(n, 1);
+		rt.idx(_195, _197);
+		_195[_197].count = _195[_197].count ^ 255;
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(wrapped), (w2: Wrap.Wrap<rt.u8>): rt.u8 => {
 		return w2.value ^ w2.count;

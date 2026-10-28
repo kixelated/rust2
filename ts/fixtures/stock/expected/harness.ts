@@ -87,29 +87,22 @@ export function made(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
 		const skip: rt.u8 = data.data[data.start];
 		const rest: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + 1, data.length - 1);
-		const _8: rt.ByteSlice = rt.byteVecSlice(rt.byteSliceToByteVec(rest));
-		const _10: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255));
-		const _13: rt.ByteSlice = rt.stringAsBytes("string");
-		const _15: rt.ByteSlice = rt.stringAsBytes("text");
-		const _16: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0);
-		const _19: rt.ByteSlice = rt.bytesNew();
-		const _20: rt.ByteSlice = Owner.asRef$AsRef_u8s({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize });
+		const made_: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$AsRef_u8s({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
 		const source: rt.ByteVec = rt.byteSliceToByteVec(rest);
 		const copied: rt.ByteSlice = rt.bytesCopyFromSlice(rt.byteVecSlice(source));
 		rt.byteVecClear(source);
 		rt.byteVecPush(source, 0);
-		const made_: rt.ByteSlice[] = [_8, _10, _13, _15, _16, _19, _20];
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(copied, f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 		const iter: rt.Iter<rt.ByteSlice> = rt.iterSlice(made_);
 		while (true) {
-			const _47: rt.ByteSlice | rt.Done = iter.next();
-			if (_47 === rt.DONE) {
+			const _46: rt.ByteSlice | rt.Done = iter.next();
+			if (_46 === rt.DONE) {
 				break;
 			}
-			const bytes: rt.ByteSlice = _47;
-			const _59: rt.usize = bytes.length;
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(bytes, f), (f: rt.Formatter) => rt.usizeDisplay(_59, f)];
+			const bytes: rt.ByteSlice = _46;
+			const _58: rt.usize = bytes.length;
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(bytes, f), (f: rt.Formatter) => rt.usizeDisplay(_58, f)];
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0], " ", args4[1], "\n"])));
 		}
 	}

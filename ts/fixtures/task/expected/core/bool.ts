@@ -27,14 +27,14 @@ export function thenSome$bool_u32(self: boolean, t: rt.u32): rt.u32 | undefined 
 	return t;
 }
 
-export function then$bool_Guard_folded_closure55_closure0(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
+export function then$bool_Guard_folded_closure50_closure0(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return f();
 }
 
-export function then$bool_u32_discarded_closure14(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+export function then$bool_u32_discarded_closure13(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _5: boolean = false;
 	_5 = true;
@@ -51,7 +51,7 @@ export function then$bool_u32_discarded_closure14(self: boolean, f: () => rt.u32
 	return _0;
 }
 
-export function then$bool_u32_discarded_closure18(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+export function then$bool_u32_discarded_closure17(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _5: boolean = false;
 	_5 = true;
@@ -68,7 +68,7 @@ export function then$bool_u32_discarded_closure18(self: boolean, f: () => rt.u32
 	return _0;
 }
 
-export function then$bool_u32_folded_closure48_closure0(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+export function then$bool_u32_folded_closure43_closure0(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	if (!self) {
 		return undefined;
 	}

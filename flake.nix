@@ -179,7 +179,8 @@
               ${pkgs.lib.concatMapStringsSep "\n" (bin: "ln -s ${uniffi}/bin/${bin} $out/bin/") bins}
             '';
 
-          # Kotlin's generated async code needs coroutines on the classpath; nixpkgs has no jar.
+          # Kotlin's generated async code, UniFFI's and rust2-ffi's, needs coroutines on the
+          # classpath; nixpkgs has no jar.
           kotlinx-coroutines = pkgs.fetchurl {
             url = "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-coroutines-core-jvm/1.10.2/kotlinx-coroutines-core-jvm-1.10.2.jar";
             hash = "sha256-XKF1s43zMf1kFVs1zYyuElH6nuNpcJs21C4KKIzM4/0=";
@@ -270,8 +271,11 @@
               typescript
               bun
               esbuild
+              # rust2-ffi's tests compile its generated Kotlin and run it on the JVM.
+              kotlin
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
+            KOTLINX_COROUTINES = "${kotlinx-coroutines}";
           };
           # `just ts bench` adds Chrome and Firefox as engines, and wasm-bindgen for moq-wasm's
           # package, which must match the moq revision's or fails. Apart for their size.
