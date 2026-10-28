@@ -536,6 +536,11 @@ impl Waker {
 	fn same(&self, other: &Self) -> bool {
 		self.wake.map(|f| f as usize) == other.wake.map(|f| f as usize) && self.data == other.data
 	}
+
+	/// The Rust waker around it, which calls `drop` once its last clone drops.
+	pub fn lift(self) -> std::task::Waker {
+		std::task::Waker::from(Arc::new(Foreign(self)))
+	}
 }
 
 struct Foreign(Waker);
@@ -612,7 +617,7 @@ impl Future {
 			fail(what, "a future is polled after it finished");
 		};
 		if !this.waker.as_ref().is_some_and(|(last, _)| last.same(&waker)) {
-			this.waker = Some((waker, std::task::Waker::from(Arc::new(Foreign(waker)))));
+			this.waker = Some((waker, waker.lift()));
 		}
 		let (_, rust) = this.waker.as_ref().expect("set above");
 		let mut cx = Context::from_waker(rust);
