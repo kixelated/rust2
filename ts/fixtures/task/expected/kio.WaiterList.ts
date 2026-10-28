@@ -6,7 +6,6 @@ import type * as Waiter from "./kio.Waiter.ts";
 /** Wakers waiting for one event, held weakly. */
 export interface WaiterList {
 	entries: rt.Weak<rt.Waker>[];
-	/** Where the next registration looks for a dead slot to reuse. */
 	cursor: rt.usize;
 }
 

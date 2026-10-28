@@ -695,7 +695,6 @@ fn strip_tail(stmts: &mut Vec<Stmt>, jump: &StmtKind) {
 			strip_tail(els, jump);
 		}
 		StmtKind::Block { body, .. } => strip_tail(body, jump),
-		// Falling off the `try` goes past its `catch`.
 		_ => {}
 	}
 }

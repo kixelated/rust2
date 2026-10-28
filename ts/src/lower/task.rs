@@ -179,10 +179,14 @@ pub fn call<'tcx>(
 			_ => return Err(args),
 		},
 		("Mutex", "new") => Expr::New(Box::new(Expr::Rt("Mutex".into())), args),
-		// The mutex is its own guard, and a lock never fails on one thread.
-		("Mutex", "lock") => first(args),
-		("Result", "unwrap" | "expect") if call.args.types().nth(1).and_then(std_of) == Some(Std::PoisonError) => {
-			first(args)
+		// The mutex is its own guard, and a panic aborts, so nothing poisons it.
+		("Mutex", "lock") => Expr::result(true, first(args)),
+		("Mutex", "get_mut") => Expr::result(true, first(args).member("value")),
+		// A `PoisonError` is what it holds.
+		("PoisonError", "into_inner" | "get_ref" | "get_mut") => first(args),
+		// Mapped rather than lowered from core's MIR, so one of a lock unwraps its guard in place.
+		("Result", "unwrap_or_else") if call.args.types().nth(1).and_then(std_of) == Some(Std::PoisonError) => {
+			Expr::rt("resultUnwrapOrElse", args)
 		}
 		("Atomic", _) => return atomic(b, call, name, args),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),

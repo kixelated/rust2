@@ -405,6 +405,25 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		))
 	}
 
+	/// What `Default::default` makes of `ty`: a std type's value, an `Arc` or a `Mutex` of
+	/// what it makes of theirs, or the call of the crate's impl.
+	fn default_of(&mut self, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+		if let Some(default) = library::default_value(self.b, ty) {
+			return default;
+		}
+		if let ty::Adt(_, args) = ty.kind()
+			&& let Some(class @ (Std::Arc | Std::Mutex)) = self.b.t.std_of(ty)
+		{
+			let value = self.default_of(args.type_at(0), span, out);
+			let class = if class == Std::Arc { "Arc" } else { "Mutex" };
+			return Expr::New(Box::new(Expr::Rt(class.into())), vec![value]);
+		}
+		let tcx = self.tcx;
+		let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
+		let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
+		self.path(default, "default", out)
+	}
+
 	/// A std call MIR needs lowered here: `Some(Some((value, effect)))`, or `Some(None)`
 	/// once it set the destination itself, or `None` for the library mappings.
 	fn intercept(
@@ -440,19 +459,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
 		match (owner.as_str(), name.as_str()) {
 			// Replacing what a `&mut` borrows.
-			// What `Default::default` makes, a std type's or the crate's, before the swap.
+			// What `Default::default` makes before the swap.
 			("mem", "take") => {
 				let ty = targ(0)?;
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let default = match library::default_value(self.b, ty) {
-					Some(default) => default,
-					None => {
-						let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
-						let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
-						self.path(default, "default", out)
-					}
-				};
+				let default = self.default_of(ty, span, out);
 				done(self.swap_out(place, ty, default, "taken", span, out), true)
+			}
+			("Default", "default") if matches!(self.b.t.std_of(targ(0)?), Some(Std::Arc | Std::Mutex)) => {
+				done(self.default_of(targ(0)?, span, out), true)
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
@@ -718,6 +733,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("Try", "branch") => {
 				let value = self.operand(&args[0].node, span, out);
+				// A `Poll`'s `Pending` and `Ready(None)` are no `rt.Result`: they continue.
+				if let Some(poll) = targ(0)
+					&& let (Some(Std::Poll), ty::Adt(_, poll_args)) = (self.b.t.std_of(poll), poll.kind())
+				{
+					let inner = poll_args.type_at(0);
+					let ty::Adt(_, inner_args) = inner.kind() else {
+						unreachable!("Try for a Poll of a Result or an Option of one")
+					};
+					let value = match self.b.t.std_of(inner) {
+						Some(Std::Option) => {
+							let ty::Adt(_, result_args) = inner_args.type_at(0).kind() else {
+								unreachable!("Try for a Poll of an Option of a Result")
+							};
+							let ok = result_args.type_at(0);
+							let pending = self.b.t.pending(Ty::new_option(self.tcx, ok));
+							Expr::rt("pollOptionBranch", vec![value, pending, self.b.t.none(ok)])
+						}
+						_ => Expr::rt("pollBranch", vec![value, self.b.t.pending(inner_args.type_at(0))]),
+					};
+					return done(value, false);
+				}
 				// A `next`'s item or `rt.DONE` branches as itself.
 				if let Some(local) = dest.as_local()
 					&& self.next_results.contains(&local)
@@ -732,12 +768,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let to = targ(0)?;
 				let residual = targ(1)?;
 				let value = self.operand(&args[0].node, span, out);
-				// What a `Result` residual goes into: a `Result`, or one that is ready, which
-				// is the same value.
+				// What a `Result` residual goes into: a `Result`, or one that is ready, and some,
+				// which is the same value.
 				let result = match (self.b.t.std_of(to), to.kind()) {
 					(Some(Std::Result), _) => Some(to),
 					(Some(Std::Poll), ty::Adt(_, poll_args)) => {
-						let inner = poll_args.type_at(0);
+						let mut inner = poll_args.type_at(0);
+						if let (Some(Std::Option), ty::Adt(_, option_args)) = (self.b.t.std_of(inner), inner.kind()) {
+							inner = option_args.type_at(0);
+						}
 						(self.b.t.std_of(inner) == Some(Std::Result)).then_some(inner)
 					}
 					_ => None,

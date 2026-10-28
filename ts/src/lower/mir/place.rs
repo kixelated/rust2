@@ -5,9 +5,11 @@
 //! stays put reads as that place, which is how a `&mut` to a number changes the number.
 
 use rustc_abi::{FieldIdx, VariantIdx};
+use rustc_data_structures::fx::FxHashSet;
 use rustc_middle::mir::interpret::{GlobalId, Scalar};
+use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, ProjectionElem};
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::{Env, Fx, Pending, Slot};
@@ -453,7 +455,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero) => base,
+				Some(
+					Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero | Std::PoisonError,
+				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.
 				Some(Std::Bound) => {
 					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
@@ -531,8 +535,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// place that could change.
 			Operand::Copy(place) => {
 				let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-				// Copy propagation copies a value that isn't `Copy` where it was moved.
-				if changes_captures(ty) && self.b.t.is_copy(ty) {
+				// Optimized MIR also copies what isn't `Copy`, where it is a move: copy
+				// propagation does in a body without cleanups.
+				if changes_captures(self.tcx, ty) && self.b.t.is_copy(ty) {
 					return self.err(span, "a copy of a closure that changes what it captured");
 				}
 				let value = self.place_expr(*place, span, out);
@@ -899,8 +904,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => scrut.clone().binary("!==", self.b.t.none(args.type_at(0))),
 					},
 					Some(Std::Poll) => match index.index() {
-						0 => scrut.clone().binary("!==", Expr::Rt("Pending".into())),
-						_ => scrut.clone().binary("===", Expr::Rt("Pending".into())),
+						0 => scrut.clone().binary("!==", self.b.t.pending(args.type_at(0))),
+						_ => scrut.clone().binary("===", self.b.t.pending(args.type_at(0))),
 					},
 					Some(Std::Result) => match index.index() {
 						0 => scrut.clone().member("ok"),
@@ -1223,19 +1228,64 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 	)
 }
 
-/// Whether `ty` holds an `FnMut` closure by value: a copy of its arrow function shares
-/// the variables it captured, which in Rust each copy has its own of.
-fn changes_captures(ty: Ty<'_>) -> bool {
+/// Whether `ty` holds an `FnMut` closure by value whose body writes a capture: a copy of
+/// its arrow function shares the variables it captured, which in Rust each copy has its
+/// own of. A closure is `FnMut` where its bound asks for one, even if it writes nothing,
+/// and a capture that holds no state, a fn item or a closure capturing nothing, changes
+/// nothing when written.
+fn changes_captures<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
-		ty::Closure(_, args) => {
+		ty::Closure(def_id, args) => {
 			let closure = args.as_closure();
-			closure.kind() == ty::ClosureKind::FnMut || closure.upvar_tys().iter().any(changes_captures)
+			let upvars = closure.upvar_tys();
+			let writes = closure.kind() == ty::ClosureKind::FnMut
+				&& (!tcx.is_mir_available(*def_id)
+					|| written_captures(tcx.optimized_mir(*def_id))
+						.into_iter()
+						.any(|field| upvars.get(field.index()).is_none_or(|t| !stateless(*t))));
+			writes || upvars.iter().any(|t| changes_captures(tcx, t))
 		}
-		ty::Tuple(tys) => tys.iter().any(changes_captures),
-		ty::Array(t, _) => changes_captures(*t),
-		ty::Adt(_, args) => args.types().any(changes_captures),
+		ty::Tuple(tys) => tys.iter().any(|t| changes_captures(tcx, t)),
+		ty::Array(t, _) => changes_captures(tcx, *t),
+		ty::Adt(_, args) => args.types().any(|t| changes_captures(tcx, t)),
 		_ => false,
 	}
+}
+
+/// Whether every value of `ty` is the same, so writing one changes nothing.
+fn stateless(ty: Ty<'_>) -> bool {
+	match ty.kind() {
+		ty::FnDef(..) => true,
+		ty::Closure(_, args) => args.as_closure().upvar_tys().is_empty(),
+		ty::Tuple(tys) => tys.is_empty(),
+		_ => false,
+	}
+}
+
+/// The captures a closure's body `mir` writes into, assigns, or borrows mutably, other than
+/// to drop them.
+fn written_captures(mir: &mir::Body<'_>) -> FxHashSet<FieldIdx> {
+	struct Written(FxHashSet<FieldIdx>);
+	impl<'tcx> Visitor<'tcx> for Written {
+		fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, _: mir::Location) {
+			if place.local.as_u32() != 1
+				|| !cx.is_mutating_use()
+				|| cx == PlaceContext::MutatingUse(MutatingUseContext::Drop)
+			{
+				return;
+			}
+			let projection = match place.projection.as_slice() {
+				[ProjectionElem::Deref, rest @ ..] => rest,
+				all => all,
+			};
+			if let [ProjectionElem::Field(field, _), ..] = projection {
+				self.0.insert(*field);
+			}
+		}
+	}
+	let mut written = Written(FxHashSet::default());
+	written.visit_body(mir);
+	written.0
 }
 
 /// Whether the JS object of a `ty` is shared or private, so that copying fields into it

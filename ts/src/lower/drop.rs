@@ -39,6 +39,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex
+					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
 					| Std::Poll
@@ -125,6 +126,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(
 					Std::Arc
 					| Std::Mutex
+					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
 					| Std::Option
@@ -189,6 +191,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Mutex
 					| Std::MutexGuard
+					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
 					| Std::Poll
@@ -242,7 +245,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let option = Ty::new_option(self.tcx, args.type_at(0));
 					return self.drop_value(value.member("v"), option, span);
 				}
-				Std::Box | Std::Pin | Std::Reverse => return self.drop_value(value, args.type_at(0), span),
+				Std::Box | Std::Pin | Std::Reverse | Std::PoisonError => {
+					return self.drop_value(value, args.type_at(0), span);
+				}
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),

@@ -12,6 +12,8 @@
   take one fewer, `hashExtend` and `hashExtendKeys` no longer take `fresh`, an `rt.Iter`'s
   `fold` and `rfold` no longer take `dropAcc`, `iterToArray` no longer takes `"place"`,
   and `rt.vecClone` is gone: clone an array with `map`.
+- `Mutex::lock`'s result is an `rt.Result` of the guard, always `Ok`, rather than the
+  guard itself.
 - `tsc` checks a binding of a function returning `()` against `=> undefined`, not
   `=> void`: type its export `: undefined`.
 - `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a

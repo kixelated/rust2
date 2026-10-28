@@ -86,6 +86,13 @@ export function map$Option_u32_u32_discarded_closure16(self: rt.u32 | undefined,
 	return _0;
 }
 
+export function map$Option_u64_Result_u64_u64_streamed_closure0_closure0(self: rt.u64 | undefined, f: (a0: rt.u64) => rt.Result<rt.u64, rt.u64>): rt.Result<rt.u64, rt.u64> | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_usize_Guard_usize_u32_folded_closure103(self: [rt.usize, Guard.Guard] | undefined, f: (a0: [rt.usize, Guard.Guard]) => [rt.usize, rt.u32]): [rt.usize, rt.u32] | undefined {
 	if (self === undefined) {
 		return undefined;

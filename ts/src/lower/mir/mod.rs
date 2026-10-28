@@ -1463,7 +1463,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out.extend(entry);
 		out.extend(body);
 		drop_self_assignments(&mut out);
-		return_in_place(&mut out);
+		// A return folds in the value assigned only to a local: a closure's captures are
+		// read after it returns.
+		let returnable = (self.slots.iter())
+			.filter_map(|slot| match slot {
+				Slot::Var(name) => Some(name.clone()),
+				_ => None,
+			})
+			.collect();
+		return_in_place(&mut out, &returnable);
 		prune_unread(&mut out);
 		if self.zero_sized(self.mir.local_decls[mir::RETURN_PLACE].ty) {
 			cfg::strip_return(&mut out);
@@ -3155,7 +3163,21 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => false,
 		Expr::Array(items) => items.iter_mut().any(|e| subst(e, name, value)),
 		Expr::Object(props) => props.iter_mut().any(|(_, e)| subst(e, name, value)),
-		Expr::Member(base, _) => subst(base, name, value),
+		Expr::Member(base, key) => {
+			if !subst(base, name, value) {
+				return false;
+			}
+			// The payload of a `Result` made here is what it was made of, which `tsc` reads
+			// where it can't narrow the `Result`.
+			if let (Expr::Call(f, args), ts::Key::Name(key)) = (step::peel(base), &*key)
+				&& let Expr::Rt(ctor) = step::peel(f)
+				&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
+				&& let [payload] = args.as_slice()
+			{
+				*e = payload.clone();
+			}
+			true
+		}
 		Expr::Index(base, index) => subst(base, name, value) || subst(index, name, value),
 		Expr::Call(f, args) | Expr::New(f, args) => {
 			if !(subst(f, name, value) || args.iter_mut().any(|e| subst(e, name, value))) {
@@ -3167,6 +3189,20 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				&& matches!(ctor.as_str(), "Ok" | "Err")
 			{
 				*e = Expr::result(ctor == "Ok", arg.clone());
+			}
+			// An `Ok` made in place unwraps to its value, as a lock's does, unless what would
+			// show or replace an error has an effect.
+			if let Expr::Call(f, args) = &*e
+				&& let (Expr::Rt(unwrap), [result, rest @ ..]) = (&**f, args.as_slice())
+				&& matches!(unwrap.as_str(), "resultUnwrap" | "resultExpect" | "resultUnwrapOrElse")
+				&& let Expr::Call(ok, value) = result.unlocated()
+				&& matches!(&**ok, Expr::Rt(ok) if ok == "Ok")
+				&& let [value] = value.as_slice()
+				&& rest
+					.iter()
+					.all(|e| e.is_path() || matches!(e.unlocated(), Expr::Arrow(..) | Expr::Lambda(..)))
+			{
+				*e = value.clone();
 			}
 			true
 		}
@@ -3628,32 +3664,32 @@ fn same_path(a: &Expr, b: &Expr) -> bool {
 	}
 }
 
-/// Return values in place throughout `stmts`.
-fn return_in_place(stmts: &mut Vec<Stmt>) {
+/// Return values in place throughout `stmts`, given the names of the body's own locals.
+fn return_in_place(stmts: &mut Vec<Stmt>, returnable: &FxHashSet<String>) {
 	sink_return(stmts);
 	for stmt in stmts.iter_mut() {
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
-				return_in_place(then);
-				return_in_place(els);
+				return_in_place(then, returnable);
+				return_in_place(els, returnable);
 			}
 			StmtKind::While { body, .. } | StmtKind::ForOf { body, .. } | StmtKind::Block { body, .. } => {
-				return_in_place(body)
+				return_in_place(body, returnable)
 			}
 			StmtKind::Switch { cases, default, .. } => {
-				cases.iter_mut().for_each(|(_, body)| return_in_place(body));
-				return_in_place(default);
+				cases.iter_mut().for_each(|(_, body)| return_in_place(body, returnable));
+				return_in_place(default, returnable);
 			}
 			_ => {}
 		}
 	}
-	while return_assigned(stmts) {}
+	while return_assigned(stmts, returnable) {}
 }
 
 /// `x = v; ...; return x;` at the end of `stmts` as `...; return v;`, where moving `v`
 /// past the statements between changes nothing (there are none, or `v` is a constant or a
-/// name none of them assigns); whether it was.
-fn return_assigned(stmts: &mut Vec<Stmt>) -> bool {
+/// name none of them assigns) and `x` is `returnable`; whether it was.
+fn return_assigned(stmts: &mut Vec<Stmt>, returnable: &FxHashSet<String>) -> bool {
 	let Some(Stmt {
 		kind: StmtKind::Return(Some(Expr::Ident(name))),
 		..
@@ -3661,6 +3697,9 @@ fn return_assigned(stmts: &mut Vec<Stmt>) -> bool {
 	else {
 		return false;
 	};
+	if !returnable.contains(name) {
+		return false;
+	}
 	let name = name.clone();
 	let assigns = |e: &Expr, to: &str| matches!(e, Expr::Assign(t, _) if matches!(&**t, Expr::Ident(n) if n == to));
 	let mut at = None;
