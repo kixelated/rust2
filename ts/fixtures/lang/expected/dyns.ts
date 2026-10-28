@@ -504,140 +504,135 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 												b15: {
 													b16: {
 														b17: {
-															b18: {
-																if (unwind === 0) {
-																	throw e;
-																}
-																if (unwind === 206) {
-																	break b17;
-																}
-																if (unwind === 207) {
-																	break b18;
-																}
-																if (unwind === 208) {
-																	break b18;
-																}
-																if (unwind === 209) {
-																	break b17;
-																}
-																if (unwind === 210) {
-																	break b17;
-																}
-																if (unwind === 211) {
-																	break b17;
-																}
-																if (unwind === 212) {
-																	break b15;
-																}
-																if (unwind === 213) {
-																	break b15;
-																}
-																if (unwind === 214) {
-																	break b14;
-																}
-																if (unwind === 215) {
-																	break b13;
-																}
-																if (unwind === 216) {
-																	break b13;
-																}
-																if (unwind === 217) {
-																	break b13;
-																}
-																if (unwind === 218) {
-																	break b13;
-																}
-																if (unwind === 219) {
-																	break b12;
-																}
-																if (unwind === 220) {
-																	break b11;
-																}
-																if (unwind === 221) {
-																	rt.drop(_189);
-																	break b11;
-																}
-																if (unwind === 222) {
-																	break b11;
-																}
-																if (unwind === 223) {
-																	rt.drop(_168);
-																} else if (unwind !== 224) {
-																	if (unwind === 225) {
-																		break b11;
-																	}
-																	if (unwind === 226) {
-																		break b11;
-																	}
-																	if (unwind === 227) {
-																		break b11;
-																	}
-																	if (unwind === 228) {
-																		break b11;
-																	}
-																	if (unwind === 229) {
-																		break b11;
-																	}
-																	if (unwind === 230) {
-																		break b11;
-																	}
-																	if (unwind === 231) {
-																		break b10;
-																	}
-																	if (unwind === 232) {
-																		break b9;
-																	}
-																	if (unwind === 233) {
-																		break b9;
-																	}
-																	if (unwind === 234) {
-																		break b9;
-																	}
-																	if (unwind === 235) {
-																		break b9;
-																	}
-																	if (unwind === 236) {
-																		break b9;
-																	}
-																	if (unwind === 237) {
-																		break b8;
-																	}
-																	if (unwind === 238) {
-																		break b7;
-																	}
-																	if (unwind === 239) {
-																		break b6;
-																	}
-																	if (unwind === 242) {
-																		break b16;
-																	}
-																	if (unwind === 244) {
-																		break b13;
-																	}
-																	if (unwind === 246) {
-																		break b9;
-																	}
-																	break b5;
-																}
+															if (unwind === 0) {
+																throw e;
+															}
+															if (unwind === 206) {
+																break b16;
+															}
+															if (unwind === 207) {
+																break b17;
+															}
+															if (unwind === 208) {
+																break b17;
+															}
+															if (unwind === 209) {
+																break b16;
+															}
+															if (unwind === 210) {
+																break b16;
+															}
+															if (unwind === 211) {
+																break b16;
+															}
+															if (unwind === 212) {
+																break b14;
+															}
+															if (unwind === 213) {
+																break b14;
+															}
+															if (unwind === 214) {
+																break b13;
+															}
+															if (unwind === 215) {
+																break b12;
+															}
+															if (unwind === 216) {
+																break b12;
+															}
+															if (unwind === 217) {
+																break b12;
+															}
+															if (unwind === 218) {
+																break b12;
+															}
+															if (unwind === 219) {
 																break b11;
 															}
+															if (unwind === 220) {
+																break b10;
+															}
+															if (unwind === 221) {
+																rt.drop(_189);
+																break b10;
+															}
+															if (unwind === 222) {
+																break b10;
+															}
+															if (unwind === 223) {
+																rt.drop(_168);
+															} else if (unwind !== 224) {
+																if (unwind === 225) {
+																	break b10;
+																}
+																if (unwind === 226) {
+																	break b10;
+																}
+																if (unwind === 227) {
+																	break b10;
+																}
+																if (unwind === 228) {
+																	break b10;
+																}
+																if (unwind === 229) {
+																	break b10;
+																}
+																if (unwind === 230) {
+																	break b10;
+																}
+																if (unwind === 232) {
+																	break b9;
+																}
+																if (unwind === 233) {
+																	break b9;
+																}
+																if (unwind === 234) {
+																	break b9;
+																}
+																if (unwind === 235) {
+																	break b9;
+																}
+																if (unwind === 236) {
+																	break b9;
+																}
+																if (unwind === 237) {
+																	break b8;
+																}
+																if (unwind === 238) {
+																	break b7;
+																}
+																if (unwind === 239) {
+																	break b6;
+																}
+																if (unwind === 242) {
+																	break b15;
+																}
+																if (unwind === 244) {
+																	break b12;
+																}
+																if (unwind === 246) {
+																	break b9;
+																}
+																break b5;
+															}
+															break b10;
 														}
-														rt.dropAll(kept);
 													}
-													if (_384) {
-														rt.dropAll(tris);
-													}
+													rt.dropAll(kept);
 												}
-												rt.drop(m);
+												if (_384) {
+													rt.dropAll(tris);
+												}
 											}
-											rt.drop(n);
+											rt.drop(m);
 										}
-										if (_385) {
-											rt.dropAll(objects);
-										}
+										rt.drop(n);
 									}
-									rt.drop(hits);
+									if (_385) {
+										rt.dropAll(objects);
+									}
 								}
+								rt.drop(hits);
 							}
 						}
 						if (_386) {
