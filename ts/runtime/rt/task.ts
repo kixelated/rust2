@@ -197,20 +197,34 @@ export function atomicCompareExchange<T>(
 	return Ok(old);
 }
 
-/** `Atomic::try_update`: `f` of the value it loads, stored unless `None`. */
-export function atomicTryUpdate<T>(atomic: Atomic<T>, _set: AtomicOrdering, fetch: AtomicOrdering, f: (value: T) => T | undefined): Result<T, T> {
-	const old = atomicLoad(atomic, fetch);
-	const next = f(old);
-	if (next === undefined) return Err(old);
-	atomic.v = next;
-	return Ok(old);
+/**
+ * `Atomic::try_update`: `f` of the value it loads, compare-exchanged unless `None`, and
+ * again if `f` itself changed the atomic. `eq` is as `atomicCompareExchange`'s.
+ */
+export function atomicTryUpdate<T>(
+	atomic: Atomic<T>,
+	set: AtomicOrdering,
+	fetch: AtomicOrdering,
+	f: (value: T) => T | undefined,
+	eq?: (a: T, b: T) => boolean,
+): Result<T, T> {
+	let prev = atomicLoad(atomic, fetch);
+	for (let next = f(prev); next !== undefined; next = f(prev)) {
+		const result = atomicCompareExchange(atomic, prev, next, set, fetch, eq);
+		if (result.ok) return result;
+		prev = result.error;
+	}
+	return Err(prev);
 }
 
-/** `Atomic::update`: `f` of the value it loads, stored. */
-export function atomicUpdate<T>(atomic: Atomic<T>, _set: AtomicOrdering, fetch: AtomicOrdering, f: (value: T) => T): T {
-	const old = atomicLoad(atomic, fetch);
-	atomic.v = f(old);
-	return old;
+/** `Atomic::update`: `f` of the value it loads, compare-exchanged until it holds. */
+export function atomicUpdate<T>(atomic: Atomic<T>, set: AtomicOrdering, fetch: AtomicOrdering, f: (value: T) => T, eq?: (a: T, b: T) => boolean): T {
+	let prev = atomicLoad(atomic, fetch);
+	for (;;) {
+		const result = atomicCompareExchange(atomic, prev, f(prev), set, fetch, eq);
+		if (result.ok) return result.value;
+		prev = result.error;
+	}
 }
 
 /** `atomic::fence` and `compiler_fence`, which order nothing on one thread. */

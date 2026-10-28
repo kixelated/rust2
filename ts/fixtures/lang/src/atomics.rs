@@ -1,6 +1,7 @@
 //! Atomics, which one thread never races: each width's loads, stores, and
 //! read-modify-writes, which wrap where arithmetic would panic, and std's panics on an
-//! ordering an operation can't take, through a `&`, an `Arc`, a field, and a `&mut`.
+//! ordering an operation can't take, through a `&`, an `Arc`, a field, and a `&mut`. An
+//! update whose callback stores to the atomic it updates retries, as std's loop does.
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering::{self, AcqRel, Acquire, Relaxed, Release, SeqCst};
@@ -73,11 +74,24 @@ macro_rules! ints {
 							Ok(x) | Err(x) => x,
 						}
 					}
-					12 => match atomic.try_update(any, failure, |x| x.checked_add(v)) {
+					// Each callback stores `v` once, which its first compare-exchange then misses.
+					12 => match atomic.try_update(any, failure, |x| {
+						out.push(0xc0);
+						if x != v && b & 2 == 0 {
+							atomic.store(v, Relaxed);
+						}
+						x.checked_add(v)
+					}) {
 						Ok(x) => x,
 						Err(x) => x.wrapping_add(1),
 					},
-					13 => atomic.update(any, failure, |x| x.wrapping_sub(v) ^ 1),
+					13 => atomic.update(any, failure, |x| {
+						out.push(0xc1);
+						if x != v && b & 2 == 0 {
+							atomic.store(v, Relaxed);
+						}
+						x.wrapping_sub(v) ^ 1
+					}),
 					14 => {
 						#[expect(deprecated, reason = "moq-net calls it")]
 						let r = atomic.fetch_update(any, failure, |x| (x != v).then_some(v));
@@ -138,7 +152,13 @@ fn bools(data: &[u8], out: &mut Vec<u8>) {
 				atomic::compiler_fence(order(b ^ 0x0f, &FENCES));
 				v
 			}
-			_ => flag.update(any, Relaxed, |x| x != v),
+			_ => flag.update(any, Relaxed, |x| {
+				out.push(0xc1);
+				if x != v {
+					flag.store(v, Relaxed);
+				}
+				x != v
+			}),
 		};
 		out.push(old as u8);
 	}

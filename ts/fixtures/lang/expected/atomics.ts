@@ -95,6 +95,12 @@ export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.i16, rt.i16> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.i16): rt.i16 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i16CheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -104,6 +110,12 @@ export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.i16): rt.i16 => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i16WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
@@ -111,8 +123,8 @@ export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.i16> = atomic;
-			_112.v = _112.v ^ v;
+			const _116: rt.Place<rt.i16> = atomic;
+			_116.v = _116.v ^ v;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(old)));
@@ -196,6 +208,12 @@ export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.i32, rt.i32> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.i32): rt.i32 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i32CheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -205,6 +223,12 @@ export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.i32): rt.i32 => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i32WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
@@ -212,8 +236,8 @@ export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.i32> = atomic;
-			_112.v = _112.v ^ v;
+			const _116: rt.Place<rt.i32> = atomic;
+			_116.v = _116.v ^ v;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(old)));
@@ -297,8 +321,14 @@ export function i64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.i64, rt.i64> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.i64): rt.i64 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (rt.i64Ne(x6, v)) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i64CheckedAdd(x6, v);
-			});
+			}, rt.i64Eq);
 			if (_98.ok) {
 				old = _98.value;
 			} else {
@@ -306,15 +336,21 @@ export function i64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.i64): rt.i64 => {
+				rt.byteVecPush(out, 193);
+				if (rt.i64Ne(x5, v)) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i64Xor(rt.i64WrappingSub(x5, v), 1);
-			});
+			}, rt.i64Eq);
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_i64_i64(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i64): rt.i64 | undefined => {
 				return rt.thenSome(rt.i64Ne(x4, v), v);
-			}), v);
+			}, rt.i64Eq), v);
 		} else {
-			const _112: rt.Place<rt.i64> = atomic;
-			_112.v = rt.i64Xor(_112.v, v);
+			const _116: rt.Place<rt.i64> = atomic;
+			_116.v = rt.i64Xor(_116.v, v);
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(old)));
@@ -398,6 +434,12 @@ export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.i8, rt.i8> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.i8): rt.i8 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i8CheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -407,6 +449,12 @@ export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.i8): rt.i8 => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.i8WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
@@ -414,8 +462,8 @@ export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.i8> = atomic;
-			_112.v = _112.v ^ v;
+			const _116: rt.Place<rt.i8> = atomic;
+			_116.v = _116.v ^ v;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i8ToBeBytes(old)));
@@ -499,6 +547,12 @@ export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.isize, rt.isize> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.isize): rt.isize | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.isizeCheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -508,6 +562,12 @@ export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.isize): rt.isize => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.isizeWrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
@@ -515,8 +575,8 @@ export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.isize> = atomic;
-			_112.v = _112.v ^ v;
+			const _116: rt.Place<rt.isize> = atomic;
+			_116.v = _116.v ^ v;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.isizeToBeBytes(old)));
@@ -600,6 +660,12 @@ export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.u16, rt.u16> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.u16): rt.u16 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u16CheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -609,6 +675,12 @@ export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.u16): rt.u16 => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u16WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
@@ -616,8 +688,8 @@ export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.u16> = atomic;
-			_112.v = _112.v ^ v;
+			const _116: rt.Place<rt.u16> = atomic;
+			_116.v = _116.v ^ v;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(old)));
@@ -701,6 +773,12 @@ export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.u32, rt.u32> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.u32): rt.u32 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u32CheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -710,6 +788,12 @@ export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.u32): rt.u32 => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return (rt.u32WrappingSub(x5, v) ^ 1) >>> 0;
 			});
 		} else if (_60 === 14) {
@@ -717,8 +801,8 @@ export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.u32> = atomic;
-			_112.v = (_112.v ^ v) >>> 0;
+			const _116: rt.Place<rt.u32> = atomic;
+			_116.v = (_116.v ^ v) >>> 0;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(old)));
@@ -802,8 +886,14 @@ export function u64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.u64, rt.u64> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.u64): rt.u64 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (rt.u64Ne(x6, v)) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u64CheckedAdd(x6, v);
-			});
+			}, rt.u64Eq);
 			if (_98.ok) {
 				old = _98.value;
 			} else {
@@ -811,15 +901,21 @@ export function u64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.u64): rt.u64 => {
+				rt.byteVecPush(out, 193);
+				if (rt.u64Ne(x5, v)) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u64Xor(rt.u64WrappingSub(x5, v), 1);
-			});
+			}, rt.u64Eq);
 		} else if (_60 === 14) {
 			old = unwrapOr$Result_u64_u64(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u64): rt.u64 | undefined => {
 				return rt.thenSome(rt.u64Ne(x4, v), v);
-			}), v);
+			}, rt.u64Eq), v);
 		} else {
-			const _112: rt.Place<rt.u64> = atomic;
-			_112.v = rt.u64Xor(_112.v, v);
+			const _116: rt.Place<rt.u64> = atomic;
+			_116.v = rt.u64Xor(_116.v, v);
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(old)));
@@ -903,6 +999,12 @@ export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.u8, rt.u8> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.u8): rt.u8 | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u8CheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -912,6 +1014,12 @@ export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.u8): rt.u8 => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.u8WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
@@ -919,8 +1027,8 @@ export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.u8> = atomic;
-			_112.v = _112.v ^ v;
+			const _116: rt.Place<rt.u8> = atomic;
+			_116.v = _116.v ^ v;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u8ToBeBytes(old)));
@@ -1004,6 +1112,12 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = x;
 		} else if (_60 === 12) {
 			const _98: rt.Result<rt.usize, rt.usize> = rt.atomicTryUpdate(atomic, any, failure, (x6: rt.usize): rt.usize | undefined => {
+				rt.byteVecPush(out, 192);
+				if (x6 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return rt.usizeCheckedAdd(x6, v);
 			});
 			if (_98.ok) {
@@ -1013,6 +1127,12 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_60 === 13) {
 			old = rt.atomicUpdate(atomic, any, failure, (x5: rt.usize): rt.usize => {
+				rt.byteVecPush(out, 193);
+				if (x5 !== v) {
+					if ((b2 & 2) === 0) {
+						rt.atomicStore(atomic, v, 0);
+					}
+				}
 				return (rt.usizeWrappingSub(x5, v) ^ 1) >>> 0;
 			});
 		} else if (_60 === 14) {
@@ -1020,8 +1140,8 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.thenSome(x4 !== v, v);
 			}), v);
 		} else {
-			const _112: rt.Place<rt.usize> = atomic;
-			_112.v = (_112.v ^ v) >>> 0;
+			const _116: rt.Place<rt.usize> = atomic;
+			_116.v = (_116.v ^ v) >>> 0;
 			old = rt.atomicLoad(atomic, 4);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(old)));
@@ -1085,6 +1205,10 @@ export function bools(data: rt.ByteSlice, out: rt.ByteVec): void {
 			old = v;
 		} else {
 			old = rt.atomicUpdate(flag, any, 0, (x3: boolean): boolean => {
+				rt.byteVecPush(out, 193);
+				if (x3 !== v) {
+					rt.atomicStore(flag, v, 0);
+				}
 				return x3 !== v;
 			});
 		}

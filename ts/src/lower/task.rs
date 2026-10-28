@@ -111,6 +111,11 @@ fn atomic<'tcx>(
 		args.insert(1, f);
 		Expr::rt("atomicFetch", args)
 	};
+	// A compare-exchange, given what compares a wide integer, whose limbs `===` can't.
+	let exchange = |f: &str, mut args: Vec<Expr>| {
+		args.extend(int.filter(|int| int.big()).map(|int| int.func("eq")));
+		Expr::rt(f, args)
+	};
 	let e = match name {
 		"new" => Expr::New(Box::new(Expr::Rt("Atomic".into())), args),
 		"load" => Expr::rt("atomicLoad", args),
@@ -119,11 +124,7 @@ fn atomic<'tcx>(
 		"into_inner" => first(args).member("v"),
 		// The atomic is the place that holds its value.
 		"get_mut" => first(args),
-		"compare_exchange" | "compare_exchange_weak" => {
-			let mut args = args;
-			args.extend(int.filter(|int| int.big()).map(|int| int.func("eq")));
-			Expr::rt("atomicCompareExchange", args)
-		}
+		"compare_exchange" | "compare_exchange_weak" => exchange("atomicCompareExchange", args),
 		"fetch_add" if let Some(int) = int => fetch(int.func("wrappingAdd"), args),
 		"fetch_sub" if let Some(int) = int => fetch(int.func("wrappingSub"), args),
 		"fetch_max" | "fetch_min" if let Some(int) = int => {
@@ -148,9 +149,9 @@ fn atomic<'tcx>(
 			args.insert(1, Expr::lit("true"));
 			fetch(f, args)
 		}
-		// Loads, then stores what `f` makes of it, which a compare-exchange on one thread does.
-		"try_update" | "fetch_update" => Expr::rt("atomicTryUpdate", args),
-		"update" => Expr::rt("atomicUpdate", args),
+		// std's loop of compare-exchanges, which retries only if `f` changed the atomic.
+		"try_update" | "fetch_update" => exchange("atomicTryUpdate", args),
+		"update" => exchange("atomicUpdate", args),
 		_ => return Ok(None),
 	};
 	Ok(Some(e))
