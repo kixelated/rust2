@@ -1304,6 +1304,16 @@ function of(value: number | bigint, bits: number, signed: boolean): Wide {
 	return one(box(value, bits, signed));
 }
 
+/** An integer of `bits` from a bigint in its range: a number up to 32 bits, else as `of` makes it. */
+export function intFromBig(value: bigint, bits: number, signed: boolean): number | Limbs {
+	return bits <= 32 ? Number(value) : of(value, bits, signed);
+}
+
+/** Any integer's exact value. */
+export function intToBig(value: number | Limbs): bigint {
+	return typeof value === "number" ? BigInt(value) : exact(value);
+}
+
 /** `value as T`, from any integer: its low bits, read in the type's sign. */
 function cast(value: number | Limbs, bits: number, signed: boolean): Wide {
 	if (typeof value === "number") return fits(value, signed) ? value : one(limbs(value, bits, signed));

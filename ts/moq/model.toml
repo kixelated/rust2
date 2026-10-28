@@ -18,15 +18,11 @@ roots = [
     "model::broadcast::listing::Tracks",
     "model::time::Timestamp",
 ]
-ignore-macros = ["tracing::trace", "tracing::debug", "tracing::info", "tracing::warn", "tracing::error"]
 
 [bind]
-# `unsafe` inside.
-"bytes::Bytes" = "bind/bytes.ts"
+# `unsafe` inside, which translation doesn't map yet.
 "bytes::BytesMut" = "bind/bytes-mut.ts"
-# Randomness, DEFLATE, and the clock, which JS has its own of.
-"rand::rng" = "bind/rand.ts"
-"rand::rngs::ThreadRng" = "bind/rand.ts"
+# DEFLATE and the clock, which JS has its own of.
 "model::flate::Encoder" = "bind/encoder.ts"
 "model::flate::Decoder" = "bind/decoder.ts"
 "model::clock::now" = "bind/clock.ts"

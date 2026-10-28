@@ -16,7 +16,8 @@ use super::fmt;
 use super::num::{self, Int, Operand};
 use crate::ts::{Expr, Stmt};
 
-/// A standard library type with its own representation.
+/// A type with a representation of its own: std's, or a well-known crate's that
+/// [`super::stock`] maps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Std {
 	/// `T | undefined`.
@@ -118,12 +119,16 @@ pub enum Std {
 	Hasher,
 	/// `rt.Duration`: its seconds and nanoseconds, never changed once made.
 	Duration,
+	/// `bytes::Bytes`: an `rt.ByteSlice`, as `&[u8]` is.
+	Bytes,
+	/// `rand::rngs::ThreadRng`: `rt.ThreadRng`, which holds no state.
+	ThreadRng,
 }
 
 impl Std {
 	pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Self> {
 		if !is_std(tcx, did) {
-			return None;
+			return super::stock::of(tcx, did);
 		}
 		use rustc_span::sym;
 		if tcx.is_diagnostic_item(sym::Option, did) {
@@ -772,6 +777,10 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 
 pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>, out: &mut Vec<Stmt>) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	let args = match super::stock::call(b, call, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
 	if !is_std(tcx, call.def_id) {
 		return None;
 	}
