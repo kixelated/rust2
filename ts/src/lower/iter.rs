@@ -332,11 +332,8 @@ pub fn call<'tcx>(
 			"next" => next(b, self_ty, recv),
 			"next_back" => recv.member("nextBack").call(Vec::new()),
 			_ => {
-				let dropper = b.t.dropper(item, span);
-				if !undefined(&dropper) {
-					return Some(Expr::rt("ownedNthBack", [vec![recv], rest, vec![dropper]].concat()));
-				}
-				recv.member("nthBackItem").call(rest)
+				let args = tail([vec![recv], rest].concat(), vec![b.t.dropper(item, span)]);
+				return Some(Expr::rt("iterNthBack", args));
 			}
 		};
 		return Some(Expr::rt("iterToOption", vec![item]));
@@ -374,13 +371,9 @@ pub fn call<'tcx>(
 			method(&camel, rest)
 		}
 		// What each drops: an item it skips or rejects, or one it peeked.
-		"filter" | "skip_while" | "take_while" | "inspect" | "peekable" => {
+		"filter" | "skip_while" | "take_while" | "inspect" | "peekable" | "skip" | "take" | "step_by" => {
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, vec![dropper]))
-		}
-		"skip" | "take" | "step_by" => {
-			let dropper = b.t.dropper(item, span);
-			owned(&camel, rest, vec![dropper])
 		}
 		"fuse" => {
 			let fused = fused(b, self_ty);
@@ -410,13 +403,15 @@ pub fn call<'tcx>(
 		}
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
-		"last" | "nth" => {
+		"last" => {
 			option_ok(b, item, span);
-			let droppers = match name {
-				"last" => vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)],
-				_ => vec![b.t.dropper(item, span)],
-			};
-			owned(&camel, rest, droppers)
+			let droppers = vec![iter_dropper(b, self_ty, span), b.t.dropper(item, span)];
+			owned(name, rest, droppers)
+		}
+		"nth" => {
+			option_ok(b, item, span);
+			let dropper = b.t.dropper(item, span);
+			method(name, tail(rest, vec![dropper]))
 		}
 		"find" | "peek" | "next_if" => {
 			option_ok(b, item, span);
@@ -499,25 +494,28 @@ pub fn call<'tcx>(
 			let ty::Ref(_, inner, _) = item.kind() else {
 				return None;
 			};
+			let clone = |b: &mut Body<'_, '_, 'tcx>| {
+				let clone = tcx.lang_items().clone_fn()?;
+				Some(b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span))
+			};
 			// A `Clone` written by hand may do other than copy, even for a `Copy` type.
-			let clones = name == "cloned" && !library::clone_copies(b.t, *inner);
-			match () {
-				_ if clones => {
-					let clone = tcx.lang_items().clone_fn()?;
-					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
-					method("map", vec![clone])
-				}
+			let copies = name == "copied" || library::clone_copies(b.t, *inner);
+			let copy = match () {
+				_ if !copies => Some(clone(b)?),
 				// Out of the slice each item is.
-				_ if super::byte_array(*inner) => method("map", vec![Expr::Rt("byteSliceToArray".into())]),
-				_ if b.t.needs_copy(*inner) => method("map", b.t.copy_fn(*inner, span).into_iter().collect()),
+				_ if super::byte_array(*inner) => Some(Expr::Rt("byteSliceToArray".into())),
+				_ if b.t.needs_copy(*inner) => b.t.copy_fn(*inner, span),
 				// A JS string is a value already.
-				_ if b.t.is_copy(*inner) || library::string(tcx, *inner) => Some(recv),
+				_ if b.t.is_copy(*inner) || library::string(tcx, *inner) => None,
 				// Each item through its `Clone`.
-				_ => {
-					let clone = tcx.lang_items().clone_fn()?;
-					let clone = b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span);
-					method("map", vec![clone])
-				}
+				_ => Some(clone(b)?),
+			};
+			// std's `copied` skips through its iterator's `nth`, and `cloned` by its own `next`.
+			match (name, copy) {
+				("copied", Some(copy)) => method("copied", vec![copy]),
+				("copied", None) => Some(recv),
+				(_, Some(copy)) => method("map", vec![copy]),
+				(_, None) => method("cloned", Vec::new()),
 			}
 		}
 		"collect" => collect(b, targ(1)?, item, recv, self_ty, span),
