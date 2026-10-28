@@ -116,6 +116,9 @@ fn main() {
 		counter.edited() && counter.get() == 6
 	});
 	println!("edit {edited} {}", registry.first.get());
+	// A setter moves an object in, as assignment does.
+	registry.first = Counter::new("second", 3);
+	println!("set first {} {}", registry.first.get(), registry.first.name());
 	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
 	println!("offset {}", api_lib::offset(|| 7, 3));
 
@@ -156,10 +159,19 @@ fn main() {
 	println!("secs {}", stamp.secs());
 	println!("later {}", Stamp::from_millis(3000).later(stamp));
 	println!("secs {}", stamp.secs());
-	let message = Message::new(Some(stamp), Bytes::from_static(b"body"));
+	let mut message = Message::new(Some(stamp), Bytes::from_static(b"body"));
 	println!("payload {}", String::from_utf8_lossy(&message.payload));
 	println!("stamp {:?}", message.stamp.unwrap());
 	println!("sent {}", message.sent());
+	// Setters assign in place: the bytes are copied in, and a `Copy` handle copied.
+	let reset = Stamp::from_millis(4000);
+	message.stamp = Some(reset);
+	message.payload = Bytes::from_static(b"edited");
+	println!("payload {}", String::from_utf8_lossy(&message.payload));
+	println!("stamp {:?}", message.stamp.unwrap());
+	println!("secs {}", reset.secs());
+	message.stamp = None;
+	println!("stamp {}", message.stamp.is_some());
 
 	println!("kept {}", api_lib::emit(Print, vec![1, 2, 3, 4]));
 	let logger = Logger::new(Box::new(Print));
@@ -293,7 +305,7 @@ fn main() {
 	drop(token);
 	println!("dropped {}", api_lib::dropped());
 
-	let retry = api_lib::Retry::new(Some(5));
+	let mut retry = api_lib::Retry::new(Some(5));
 	let limit = retry.limit;
 	println!(
 		"retry {} {} {} {}",
@@ -302,5 +314,8 @@ fn main() {
 		retry.limit(),
 		retry.delay()
 	);
+	// The renamed field's setter, named as its getter.
+	retry.limit = None;
+	println!("retry {}", retry.limit());
 	println!("slot {}", api_lib::Slot::<u8>::new(200).value());
 }

@@ -230,34 +230,44 @@ impl<'a> Abi<'a> {
 
 	/// A function's C name: a method's through its type's, unless renamed itself, then
 	/// each argument of the instance it is. A field is renamed by `field@` and its path,
-	/// or by its path unless a method or constant takes it.
+	/// or by its path unless a method or constant takes it, and its setter is named as it
+	/// is, with `set_` after its type's name.
 	fn function_name(&self, function: &Function, owner: Option<&Ty>) -> String {
-		let path = function.path.join("::");
-		let shared = match function.access {
-			Access::Field { shared } => {
-				let key = format!("field@{path}");
-				if let Some(renamed) = self.rename.get(&key) {
-					self.renamed.borrow_mut().insert(key);
-					return format!("{}_{renamed}", self.prefix);
-				}
-				shared
-			}
-			_ => false,
+		let owner_name = match owner {
+			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. }) => Some(owner.as_str()),
+			_ => None,
 		};
-		let name = match owner {
-			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. })
-				if shared || !self.rename.contains_key(&path) =>
-			{
-				format!("{owner}_{}", snake(function.name()))
+		let Access::Field { shared, set } = function.access else {
+			return self.method_name(function, owner_name, false);
+		};
+		let key = format!("field@{}", function.path.join("::"));
+		let name = match self.rename.get(&key) {
+			Some(renamed) => {
+				self.renamed.borrow_mut().insert(key);
+				format!("{}_{renamed}", self.prefix)
 			}
+			None => self.method_name(function, owner_name, shared),
+		};
+		if !set {
+			return name;
+		}
+		// A rename need not start with the type's name, but always with the prefix.
+		let at = owner_name
+			.filter(|owner| name.starts_with(&format!("{owner}_")))
+			.unwrap_or(&self.prefix);
+		format!("{at}_set_{}", &name[at.len() + 1..])
+	}
+
+	/// A function's C name through its type's, unless renamed by its path and no method
+	/// or constant `shared` its name, then each argument of the instance it is.
+	fn method_name(&self, function: &Function, owner: Option<&str>, shared: bool) -> String {
+		let path = function.path.join("::");
+		let name = match owner {
+			Some(owner) if shared || !self.rename.contains_key(&path) => format!("{owner}_{}", snake(function.name())),
 			_ => self.name(&function.path),
 		};
 		let Some(instance) = &function.instance else {
 			return name;
-		};
-		let owner = match owner {
-			Some(Ty::Struct(owner) | Ty::Enum(owner) | Ty::Handle { name: owner, .. }) => Some(owner.as_str()),
-			_ => None,
 		};
 		self.instance(true, name, &instance.named, || {
 			let api = self.api;
@@ -575,7 +585,8 @@ impl<'a> Abi<'a> {
 		for (function, owner) in functions {
 			let export = self.export(function, owner.as_ref());
 			let what = match function.access {
-				Access::Field { .. } => format!("field `{}`", function.path.join("::")),
+				Access::Field { set: false, .. } => format!("field `{}`", function.path.join("::")),
+				Access::Field { set: true, .. } => format!("setter of field `{}`", function.path.join("::")),
 				_ => format!("fn `{}`", function.path.join("::")),
 			};
 			self.claim(export.call.name.clone(), what.clone(), function.span);
