@@ -24,8 +24,8 @@ moq-net still needs, by its census from MIR at the pinned revision:
 
 - Async closures, which only moq-net's tests write today.
 - kio's own API, reached across crates (`Pending`, `Consumer::poll`,
-  `Waiter::poll_future`, `Tasks`), translates through
-  [safe dependencies](/quest/m2/ts-model/crates.md), and kio's `RawWaker` vtable and
+  `Waiter::poll_future`, `Tasks`), translates from source as a
+  [dependency](/ts/README.md), and kio's `RawWaker` vtable and
   `Box<dyn FnMut>` tasks are [bindings](/ts/README.md#bindings).
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 

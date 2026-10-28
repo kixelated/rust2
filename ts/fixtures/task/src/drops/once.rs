@@ -78,6 +78,20 @@ pub fn run(log: &Log, id: u32, at: u8) {
 			let owned = guard(15);
 			other.get_or_init(move || Held::Two(owned, guard(16)));
 			drop(other);
+			// Ones that `Fn` calls, which `get_or_init` consumes by `FnOnce`: called, then
+			// dropped, or dropped uncalled.
+			let fresh = OnceCell::new();
+			let (first, second) = (guard(17), guard(18));
+			let first = move || {
+				first.note("init");
+				guard(19)
+			};
+			let second = move || {
+				second.note("init");
+				guard(20)
+			};
+			let made = fresh.get_or_init(first).id() - id;
+			log.note(format!("by ref {made} {}", fresh.get_or_init(second).id() - id));
 		}
 		2 => {
 			let mut cell = OnceCell::from(guard(21));

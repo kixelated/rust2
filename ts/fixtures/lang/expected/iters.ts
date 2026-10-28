@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bumped, copy$u8_u8 } from "./lib.ts";
+import { thenSome$bool_u16, thenSome$bool_u8 } from "./core/bool.ts";
 import { unwrapOr$Option_NonZero_u64, unwrapOr$Option_i64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_elements_closure8, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_elements_closure3, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_ranges_closure0 } from "./core/option.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
@@ -25,7 +26,7 @@ export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			}))));
 			for (const _18 of rt.iterToArray(rt.iterFilterMap(rt.iterSlice(rt.byteSliceView(data)), (_218: rt.u8): rt.u16 | undefined => {
 				const b12: rt.u8 = _218;
-				return rt.thenSome(b12 < 100, rt.u16Mul(b12 as rt.u16, 200));
+				return thenSome$bool_u16(b12 < 100, rt.u16Mul(b12 as rt.u16, 200));
 			}))) {
 				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(_18)));
 			}
@@ -298,7 +299,7 @@ export function consumers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			rt.byteVecPush(log, _24);
 		}), (_29: rt.u8): rt.u16 | undefined => {
 			const b5: rt.u8 = _29;
-			return rt.thenSome(b5 !== 32, b5 as rt.u16);
+			return thenSome$bool_u16(b5 !== 32, b5 as rt.u16);
 		}), (values__: rt.Iter<rt.u16>) => rt.iterToArray(values__)), 255, (v2: rt.u16[]): rt.u8 => {
 			return v2.length & 0xff;
 		}));
@@ -924,13 +925,13 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let n: rt.u8 = 0;
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFromFn((): rt.u8 | undefined => {
 		n = rt.u8Add(n, 1);
-		return rt.thenSome(n < 4, n);
+		return thenSome$bool_u8(n < 4, n);
 	}))));
 	let k: rt.u8 = 0;
 	rt.iterEmpty();
 	const _70: rt.Iter<rt.u8> = rt.iterFromFn((): rt.u8 | undefined => {
 		k = rt.u8Add(k, 1);
-		return rt.thenSome(k !== 2, k);
+		return thenSome$bool_u8(k !== 2, k);
 	});
 	const gappy: rt.Iter<rt.u8> = rt.iterChain(rt.iterEmpty(), _70);
 	rt.byteVecPush(out, rt.iterCount(rt.iterBorrow(gappy)) & 0xff);
