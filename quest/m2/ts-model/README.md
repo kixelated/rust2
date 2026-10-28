@@ -49,4 +49,5 @@ Public API: the translator's output for moq-net's model.
 - [Translate safe dependencies with the package](/quest/m2/ts-model/crates.md) - kio, moq-clock, moq-pattern, and rangemap translate as one program with moq-net
 - [Std gaps the model reaches](/quest/m2/ts-model/std-more.md) - ranges, wrappers, and `Vec`'s editing methods
 - [Options of values that can be undefined](/quest/m2/ts-model/nested-option.md) - `Option<Option<T>>` and `Option<()>` keep `None` apart from `Some(None)`
+- [Floats](/quest/m2/ts-model/floats.md) - `f64` translates, so `Bandwidth::scaled` and `Duration::mul_f64` do
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

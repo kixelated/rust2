@@ -421,7 +421,7 @@ to hand-written TS ([bindings](#bindings)).
 
 ## Not yet
 
-These fail translation: floats, statics, async closures, a closure that owns a value
+These fail translation: floats ([Floats](/quest/m2/ts-model/floats.md)), statics, async closures, a closure that owns a value
 that drops given to std's iterators or collections, and values that drop in some
 iterators ([Drop](/quest/m2/ts-drop.md)), a `Cow` of other than `str`,
 a collection holding a type that can be `undefined`, as `()` and `Option` can, a collection's `capacity`, looking up a key by
