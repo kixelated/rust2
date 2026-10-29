@@ -225,4 +225,14 @@ pub(super) fn fns(log: &Log, id: u32) {
 	let outer: Box<dyn FnOnce() -> u32> = Box::new(inner);
 	log.note(format!("outer {}", outer()));
 	drop(lent);
+	// An upcast of an `Arc` shares its count: the last clone of either drops it.
+	let m = guard(12);
+	let shared: Arc<dyn Fn() -> u32> = Arc::new(move || m.id());
+	let up: Arc<dyn FnOnce() -> u32> = shared.clone();
+	let again = up.clone();
+	drop(shared);
+	drop(up);
+	log.note(format!("up {}", Arc::strong_count(&again)));
+	drop(again);
+	log.note("gone".into());
 }

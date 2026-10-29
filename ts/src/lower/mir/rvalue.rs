@@ -257,6 +257,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// `Arc` upcast.
 	fn arc_object(&mut self, arc: Expr, pointee: Ty<'tcx>, object: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		let tcx = self.tcx;
+		// An upcast of a function is the same `rt.ArcDyn`: nothing calls an `Arc` through `FnOnce`.
+		if pointee.is_trait() && self.b.t.dyn_fn(object).is_some() {
+			return arc;
+		}
 		// An upcast is of an `rt.ArcDyn` already, whose object has the supertraits' methods.
 		let (arc, value) = match pointee.is_trait() {
 			true => (None, arc),

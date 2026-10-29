@@ -365,6 +365,22 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part11, f)];
 	Log.note(log, rt.fmtFormat(["outer ", args22[0]]));
 	rt.drop(lent);
+	const captured12 = guard(12);
+	const _230: rt.Arc<() => rt.u32> = new rt.Arc(rt.closure((): rt.u32 => {
+		return Guard.id(captured12);
+	}, (): void => {
+		rt.drop(captured12);
+	}));
+	const shared2: rt.Arc<() => rt.u32> = new rt.ArcDyn(_230, _230.value);
+	const up3: rt.Arc<() => rt.u32> = rt.arcClone(shared2);
+	const again: rt.Arc<() => rt.u32> = rt.arcClone(up3);
+	rt.drop(shared2);
+	rt.drop(up3);
+	const part12 = again.strong;
+	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part12, f)];
+	Log.note(log, rt.fmtFormat(["up ", args24[0]]));
+	rt.drop(again);
+	Log.note(log, "gone");
 	rt.drop(slot);
 }
 
