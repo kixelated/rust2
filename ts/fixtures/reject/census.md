@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 78
-- Function instances: 90
+- Refusals: 82
+- Function instances: 93
 - Generic functions no instance reached, lowered over their type parameters: 7
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 11 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
+| 13 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:382:2 |
 | 4 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:101:2 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:257:14 |
@@ -31,6 +31,7 @@
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | fixtures/reject/src/lib.rs:517:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:286:6 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:53:13 |
+| 1 | `_` of `_`, which is not supported yet | fixtures/reject/src/lib.rs:560:4 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:318:2 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:536:12 |
 | 1 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
@@ -48,6 +49,7 @@
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | fixtures/reject/src/lib.rs:496:26 |
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:62:2 |
+| 1 | an upcast from `_` to `_`, which is not supported yet | fixtures/reject/src/lib.rs:554:32 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:268:52 |
@@ -75,6 +77,8 @@ The type or module each refused type or path belongs to.
 | 2 | `Poll` | fixtures/reject/src/lib.rs:105:20 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:479:23 |
 | 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:479:23 |
+| 2 | `dyn std::any::Any` | fixtures/reject/src/lib.rs:554:32 |
+| 2 | `std::any::TypeId` | fixtures/reject/src/lib.rs:560:2 |
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:53:13 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:247:16 |
 | 2 | `std::iter::Map` | fixtures/reject/src/lib.rs:145:23 |
@@ -94,11 +98,13 @@ The type or module each refused type or path belongs to.
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:517:2 |
 | 1 | `[u16; 1]` | fixtures/reject/src/lib.rs:240:22 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:496:26 |
+| 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:554:32 |
 | 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `f64` | fixtures/reject/src/lib.rs:454:2 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `poll` | fixtures/reject/src/lib.rs:517:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:517:2 |
+| 1 | `std::any::Any` | fixtures/reject/src/lib.rs:560:4 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:172:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:166:14 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:420:2 |
@@ -132,6 +138,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | `Waiting`, `poll`, `Poll`, `rt.Poll`, `Poll` | fixtures/reject/src/lib.rs:517:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:286:6 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:53:13 |
+| 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:560:4 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashMap::get`, `Option` | fixtures/reject/src/lib.rs:263:6 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find`, `Option` | fixtures/reject/src/lib.rs:41:42 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:247:38 |
@@ -156,6 +163,7 @@ The type or module each refused type or path belongs to.
 | 1 | an assignment through a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:121:2 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:159:1 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:213:1 |
+| 1 | an upcast from `_` to `_`, which is not supported yet | `dyn Keyed`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:554:32 |
 | 1 | arithmetic on `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | `Option` | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:268:52 |
@@ -171,18 +179,20 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `str::contains` | fixtures/reject/src/lib.rs:377:4 |
 | 1 | replacing the value behind a reference to `_` | `[u16; 1]` | fixtures/reject/src/lib.rs:240:22 |
 | 1 | unsupported call to `_` | `<f64 as std::fmt::Display>::fmt` | fixtures/reject/src/lib.rs:454:2 |
+| 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:560:2 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:394:2 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:420:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:126:11 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:351:10 |
+| 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:560:17 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:180:8 |
 | 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:336:4 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:21:4 |
 
 ## Spans
 
-<details><summary>unsupported call to `_` (11)</summary>
+<details><summary>unsupported call to `_` (13)</summary>
 
 - fixtures/reject/src/lib.rs:21:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:74:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
@@ -195,6 +205,8 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:444:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:444:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
 - fixtures/reject/src/lib.rs:454:2: unsupported call to `<f64 as std::fmt::Display>::fmt`
+- fixtures/reject/src/lib.rs:560:2: unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq`
+- fixtures/reject/src/lib.rs:560:17: unsupported call to `std::any::TypeId::of::<u8>`
 
 </details>
 
@@ -351,6 +363,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` of `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:560:4: `std::any::Any::type_id` of `dyn std::any::Any`, which is not supported yet
+
+</details>
+
 <details><summary>`_` through a held type's own, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:318:2: `<std::sync::Arc<Picky> as PartialEq>::ne` through a held type's own, which is not supported yet
@@ -450,6 +468,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a zero-sized constant of type `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:62:2: a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:61:10: 61:18}`
+
+</details>
+
+<details><summary>an upcast from `_` to `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:554:32: an upcast from `dyn Keyed` to `dyn std::any::Any`, which is not supported yet
 
 </details>
 

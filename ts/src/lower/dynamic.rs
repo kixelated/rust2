@@ -4,7 +4,8 @@
 //! trait's type, which a TS caller can implement. A coercion to one wraps the value in a
 //! class of its type's own, whose methods call that type's impl and whose
 //! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value. An
-//! `Arc<dyn Trait>` is an `rt.ArcDyn` around the one a box would be.
+//! `Arc<dyn Trait>` is an `rt.ArcDyn` around the one a box would be. A `dyn Any` has no
+//! methods, and a downcast checks for the class of the type it names.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt, TypeVisitableExt};
@@ -13,7 +14,7 @@ use rustc_span::Span;
 use super::Translator;
 use super::body::Body;
 use crate::program::{SymKind, Symbol};
-use crate::ts::{self, Expr, FieldInit, Item, Param, StmtKind, SymId, Type};
+use crate::ts::{self, Expr, FieldId, FieldInit, Item, Param, Stmt, StmtKind, SymId, Type};
 
 /// A trait that objects of it translate for: its type, and its methods in vtable order.
 #[derive(Clone)]
@@ -26,6 +27,13 @@ pub struct Object {
 pub struct Method {
 	pub def_id: DefId,
 	pub name: String,
+}
+
+/// The class a coercion wraps a value of one type in, and its field holding the value.
+#[derive(Clone, Copy)]
+pub struct Class {
+	pub sym: SymId,
+	pub v: FieldId,
 }
 
 /// How a wrapper class holds the value a pointer to it was unsized from.
@@ -54,7 +62,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 		if let Some(object) = self.objects.get(&principal) {
 			return Some(object.clone());
 		}
-		if !principal.is_local() {
+		// A trait of a crate translated from source is as the crate's own.
+		if !self.own(principal) && !is_any(tcx, principal) {
 			self.unrepresented(
 				span,
 				format!("`{ty}`, a trait object of another crate's trait, which is not supported yet"),
@@ -90,7 +99,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 			alias: None,
 		});
 		let mut methods = Vec::new();
-		for &tr in &traits {
+		// `Any`'s object is its class, which a downcast checks for, so it needs no method.
+		for &tr in traits.iter().filter(|&&tr| !is_any(tcx, tr)) {
 			for &def_id in tcx.own_existential_vtable_entries(tr) {
 				let name = format!("{}${}", super::camel(tcx.item_name(def_id).as_str()), tcx.item_name(tr));
 				if methods.iter().any(|m: &Method| m.name == name) {
@@ -114,7 +124,11 @@ impl<'tcx> Translator<'_, 'tcx> {
 		self.program.items.push(Item::Union {
 			sym,
 			params: Vec::new(),
-			ty: Type::Object(members),
+			// Any object, as a downcast checks for the class of the value's own type.
+			ty: match is_any(tcx, principal) {
+				true => Type::Builtin("object"),
+				false => Type::Object(members),
+			},
 			doc: self.doc(principal),
 		});
 		Some(object)
@@ -139,14 +153,14 @@ impl<'tcx> Translator<'_, 'tcx> {
 
 	/// The class wrapping a `from` as the trait object `to`, held as `held`, made the first
 	/// time.
-	pub fn object_class(&mut self, from: Ty<'tcx>, to: Ty<'tcx>, held: Held, span: Span) -> Option<SymId> {
+	pub fn object_class(&mut self, from: Ty<'tcx>, to: Ty<'tcx>, held: Held, span: Span) -> Option<Class> {
 		let tcx = self.tcx;
 		let from = tcx.erase_and_anonymize_regions(from);
 		let to = tcx.erase_and_anonymize_regions(to);
 		let object = self.object(to, span)?;
 		let key = (from, object.sym, held);
-		if let Some(&sym) = self.object_classes.get(&key) {
-			return Some(sym);
+		if let Some(&class) = self.object_classes.get(&key) {
+			return Some(class);
 		}
 		let trait_sym = &self.program.syms[object.sym];
 		let base = super::short_name(tcx, from);
@@ -164,8 +178,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 			name: String::new(),
 			alias: None,
 		});
-		self.object_classes.insert(key, sym);
 		let v = self.program.field(sym, "v".into());
+		self.object_classes.insert(key, Class { sym, v });
 		let ty = self.ty(from, span);
 		let field_ty = match held {
 			Held::Value => ty,
@@ -241,7 +255,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 				doc: None,
 			});
 		}
-		Some(sym)
+		Some(Class { sym, v })
 	}
 
 	/// A method `base` of the class `owner`.
@@ -280,6 +294,24 @@ impl<'tcx> Translator<'_, 'tcx> {
 	}
 }
 
+/// Whether `def_id` is std's `Any`.
+fn is_any(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
+	tcx.is_diagnostic_item(rustc_span::Symbol::intern("Any"), def_id)
+}
+
+/// Whether `ty` is a `dyn Any`.
+pub fn is_any_object(tcx: TyCtxt<'_>, ty: Ty<'_>) -> bool {
+	principal(ty).is_some_and(|p| is_any(tcx, p))
+}
+
+/// The trait of the trait object `ty`.
+fn principal(ty: Ty<'_>) -> Option<DefId> {
+	match ty.kind() {
+		ty::Dynamic(preds, ..) => preds.principal_def_id(),
+		_ => None,
+	}
+}
+
 /// The arguments of a trait object's method `def_id` for `self_ty`: the trait's `Self`,
 /// then its own early-bound lifetimes, erased, which are all a dispatchable method takes.
 fn method_args<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, self_ty: Ty<'tcx>) -> GenericArgsRef<'tcx> {
@@ -297,6 +329,14 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 			return Expr::undefined();
 		};
 		let Some(method) = found.methods.iter().find(|m| m.def_id == def_id) else {
+			let tcx = self.t.tcx;
+			if tcx.trait_of_assoc(def_id).is_some_and(|tr| is_any(tcx, tr)) {
+				let msg = format!(
+					"`{}` of `{object}`, which is not supported yet",
+					tcx.def_path_str(def_id)
+				);
+				return self.err(span, msg);
+			}
 			return self.err(
 				span,
 				format!("`{}` is not a method of `{object}`", self.t.tcx.def_path_str(def_id)),
@@ -328,8 +368,15 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		if self.t.object(object, span).is_none() {
 			return Expr::undefined();
 		}
-		// An upcast, from a trait object, which has its supertraits' methods already.
+		// An upcast, from a trait object, which has its supertraits' methods already. One
+		// to `dyn Any` would need the class of the value's own type, which a downcast checks.
 		if pointee.is_trait() {
+			if is_any_object(self.t.tcx, object) && principal(pointee) != principal(object) {
+				return self.err(
+					span,
+					format!("an upcast from `{pointee}` to `{object}`, which is not supported yet"),
+				);
+			}
 			return value;
 		}
 		// A census over type parameters can't make the class: only an instance decides
@@ -344,8 +391,85 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 			_ => return unsupported(self),
 		};
 		match self.t.object_class(pointee, object, held, span) {
-			Some(class) => Expr::New(Box::new(Expr::Sym(class)), vec![value]),
+			Some(class) => Expr::New(Box::new(Expr::Sym(class.sym)), vec![value]),
 			None => Expr::undefined(),
 		}
 	}
+}
+
+/// A call of `dyn Any`'s `is`, `downcast_ref`, or `downcast_mut`, or of `Box`'s or `Arc`'s
+/// `downcast`, each of which checks for the class a coercion wrapped a value of its type
+/// in, or its arguments back if it is none of these.
+pub fn call<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &super::library::Call<'tcx>,
+	owner: &str,
+	name: &str,
+	args: Vec<Expr>,
+	out: &mut Vec<Stmt>,
+) -> Result<Option<Expr>, Vec<Expr>> {
+	let tcx = b.t.tcx;
+	if !matches!(
+		(owner, name),
+		("dyn Any", "is" | "downcast_ref" | "downcast_mut") | ("Box" | "Arc", "downcast")
+	) {
+		return Err(args);
+	}
+	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let receiver = sig.inputs()[0];
+	let object = match receiver.kind() {
+		ty::Adt(_, args) => args.type_at(0),
+		_ => receiver.builtin_deref(true).unwrap_or(receiver),
+	};
+	if !is_any_object(tcx, object) {
+		return Err(args);
+	}
+	let span = call.span;
+	let to = call.args.types().last().expect("a downcast's type");
+	let Some(value) = b.t.object_class(to, object, Held::Value, span) else {
+		return Ok(None);
+	};
+	// A `&mut` to a value JS copies is the place it is in, which a class of its own holds.
+	let place = match b.t.needs_place(to) && owner == "dyn Any" {
+		true => b.t.object_class(to, object, Held::Place, span),
+		false => None,
+	};
+	let o = first(args);
+	let o = if o.is_path() { o } else { b.spill(o, "object", out) };
+	let is = |class: Class| o.clone().binary("instanceof", Expr::Sym(class.sym));
+	// What the `Option` of a reference holds, which a `&mut` place never leaves `undefined`.
+	let none = match sig.output().kind() {
+		ty::Adt(_, args) => b.t.none(args.type_at(0)),
+		_ => Expr::undefined(),
+	};
+	let e = match name {
+		"is" => place.into_iter().fold(is(value), |e, place| e.binary("||", is(place))),
+		"downcast_ref" | "downcast_mut" => {
+			// A `&mut` to a value JS copies is the class itself, whose `v` is the value.
+			let get = |class: Class, held: Held| match (name, held) {
+				("downcast_mut", Held::Value) if place.is_some() => o.clone(),
+				("downcast_mut", Held::Place) => o.clone().field(class.v),
+				(_, Held::Value) => o.clone().field(class.v),
+				(_, Held::Place) => o.clone().field(class.v).member("v"),
+			};
+			let rest = match place {
+				Some(place) => Expr::Cond(Box::new(is(place)), Box::new(get(place, Held::Place)), Box::new(none)),
+				None => none,
+			};
+			Expr::Cond(Box::new(is(value)), Box::new(get(value, Held::Value)), Box::new(rest))
+		}
+		_ if owner == "Box" => Expr::Cond(
+			Box::new(is(value)),
+			Box::new(Expr::result(true, o.clone().field(value.v))),
+			Box::new(Expr::result(false, o.clone())),
+		),
+		// The `Arc` the object was made from, whose count the object shares.
+		_ => Expr::rt("arcDowncast", vec![o, Expr::Sym(value.sym)]),
+	};
+	Ok(Some(e))
+}
+
+fn first(args: Vec<Expr>) -> Expr {
+	args.into_iter().next().expect("a receiver")
 }

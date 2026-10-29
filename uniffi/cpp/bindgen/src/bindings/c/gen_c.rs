@@ -1216,16 +1216,24 @@ impl<'a> Gen<'a> {
             let callback = type_name(&format!("{name}_callback"));
             self.claim(&callback, &format!("the callback of `{name}`"))?;
 
-            let mut cb_params = vec!["void *user_data".to_string()];
+            let mut cb_params = vec!["void *user_data".to_string(), "bool cancelled".to_string()];
+            // What the callback gets when cancelled: no error and no value.
+            let mut empty = vec!["user_data", "true"];
             if let Some(err) = &err {
                 cb_params.push(format!("{} *error", err.c));
+                empty.push("nullptr");
             }
             if let Some(ret_c) = &ret_c {
                 cb_params.push(decl(ret_c, "value"));
+                empty.push("{}");
             }
             let mut cb_doc = vec![match (&err, &ret) {
-                (None, None) => format!("Called once `{name}` completes."),
-                _ => format!("Receives the result of `{name}`."),
+                (None, None) => format!(
+                    "Called exactly once on the dispatcher when `{name}` completes, or with `cancelled` set when its task was freed first; release `user_data` here."
+                ),
+                _ => format!(
+                    "Receives the result of `{name}` exactly once on the dispatcher, or `cancelled` with no error or value when its task was freed first; release `user_data` here."
+                ),
             }];
             if let Some(err) = &err {
                 cb_doc.push(format!(
@@ -1252,38 +1260,39 @@ impl<'a> Gen<'a> {
 
             let deliver = match (&err, &ret) {
                 (Some(err), Some(ret)) => format!(
-                    "[callback, user_data](auto output) {{\n        if (!output) {{\n            callback(user_data, {}, {{}});\n            return;\n        }}\n        callback(user_data, nullptr, {});\n    }}",
+                    "[callback, user_data](auto output) {{\n        if (!output) {{\n            callback(user_data, false, {}, {{}});\n            return;\n        }}\n        callback(user_data, false, nullptr, {});\n    }}",
                     box_err(err, "output.error()"),
                     ret.ret_expr(&namespace, "*output")
                 ),
                 (Some(err), None) => format!(
-                    "[callback, user_data](auto output) {{\n        if (!output) {{\n            callback(user_data, {});\n            return;\n        }}\n        callback(user_data, nullptr);\n    }}",
+                    "[callback, user_data](auto output) {{\n        if (!output) {{\n            callback(user_data, false, {});\n            return;\n        }}\n        callback(user_data, false, nullptr);\n    }}",
                     box_err(err, "output.error()")
                 ),
                 (None, Some(ret)) => format!(
-                    "[callback, user_data](auto output) {{\n        callback(user_data, {});\n    }}",
+                    "[callback, user_data](auto output) {{\n        callback(user_data, false, {});\n    }}",
                     ret.ret_expr(&namespace, "output")
                 ),
                 (None, None) => {
-                    "[callback, user_data]() {\n        callback(user_data);\n    }".to_string()
+                    "[callback, user_data]() {\n        callback(user_data, false);\n    }".to_string()
                 }
             };
+            let cancel = format!(
+                "[callback, user_data]() {{\n        callback({});\n    }}",
+                empty.join(", ")
+            );
 
             let signature = format!(
                 "{} *{name}({})",
                 type_name(&format!("{ns}_task")),
                 params.join(", ")
             );
-            notes.push(
-                "Calls `callback` once on the dispatcher, unless the returned task is freed first."
-                    .into(),
-            );
+            notes.push("Returns a task, never NULL.".into());
             h.push_str(&doc(callable.docstring(), 0));
             h.push_str(&line_doc(&notes.join(" ")));
             writeln!(h, "{signature};\n")?;
             writeln!(
                 s,
-                "{signature} {{\n{checks}    return ::{namespace}::c_detail::spawn({call}, {deliver});\n}}\n"
+                "{signature} {{\n{checks}    return ::{namespace}::c_detail::spawn({call}, {deliver}, {cancel});\n}}\n"
             )?;
             return Ok(());
         }

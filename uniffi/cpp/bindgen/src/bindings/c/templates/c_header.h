@@ -18,18 +18,20 @@ extern "C" {
  * - A call that can fail returns an error, or NULL on success, and writes its result to `out`.
  * - Strings are NUL-terminated UTF-8. Arguments are borrowed for the call.
  * - Everything returned is owned by the caller and released with the matching `_free`.
- * - Async calls return a task and later call `callback` once on the dispatcher.
+ * - Async calls always return a task, and later call `callback` exactly once on the dispatcher:
+ *   with the result, or with `cancelled` set if the task was freed first. Release `user_data` there.
+ * - A Rust panic aborts the process.
  */
 
 /**
- * A pending async call. Freeing it cancels the call: once `{{ ns }}_task_free` returns, the
- * callback has finished or will never run. Free every task, including completed ones; it is
- * safe to do so from inside its callback. A dispatcher that refuses work or has shut down
- * abandons the call, and its callback never runs.
+ * A pending async call. Free every task, including completed ones, from any thread or callback.
+ * Freeing it before its callback starts cancels the call, and the callback then runs with
+ * `cancelled` set. A dispatcher that refuses work or has shut down abandons the calls that work
+ * would finish, and their callbacks never run.
  */
 typedef struct {{ ty }}Task {{ ty }}Task;
 
-/** Cancels the call if it is still pending and releases the task; NULL is ignored. */
+/** Cancels the call if its callback has not started, and releases the task; NULL is ignored. */
 void {{ ns }}_task_free({{ ty }}Task *task);
 
 /** One unit of async work handed to a custom dispatcher. */
