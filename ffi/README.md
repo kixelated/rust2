@@ -74,9 +74,9 @@ export's, and adds nothing; another crate's type is refused.
 | `&str`, `String`, `&[u8]`, `Vec<u8>`, `bytes::Bytes` | `<prefix>_buf`: a view passed in, an owned buffer returned |
 | `&Path`, `PathBuf` | `<prefix>_buf` of the path's bytes as the OS holds them on Unix, which need not be UTF-8, else UTF-8 |
 | `Duration` | `<prefix>_duration` |
-| `SocketAddr` | `<prefix>_socket_addr`: its IP's bytes, port, and whether it is IPv6 |
+| `SocketAddr`, `SocketAddrV4`, `SocketAddrV6` | `<prefix>_socket_addr`: its IP's bytes, port, and whether it is IPv6; one of the other family passed to `V4` or `V6` aborts |
 | `url::Url` | an object `<prefix>_url`, made by `<prefix>_url_parse`, which fails with the parse error's message, and printed by `_to_string` |
-| `Vec<T>` of any other `T` | `<prefix>_vec_<T>`: an array of `T`'s C values, viewed passed in and owned returned; `Vec<&T>` only returned |
+| `Vec<T>` and `&[T]` of any other `T` | `<prefix>_vec_<T>`: an array of `T`'s C values, viewed passed in and owned returned, a slice as a clone; of references only returned |
 | `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
 | `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
@@ -233,10 +233,11 @@ kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, by
 - **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair`,
   `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
-- A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr` is a
-  `java.net.InetSocketAddress`, which must be resolved; one Rust returns with an IPv6 flow
-  label, which Java does not keep, throws. A `Vec<T>` is a `List`, and passing it by
-  value closes each object in it once the call returns.
+- A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr`,
+  `SocketAddrV4`, or `SocketAddrV6` is a `java.net.InetSocketAddress`, which must be
+  resolved and, for `V4` or `V6`, of that family; one Rust returns with an IPv6 flow
+  label, which Java does not keep, throws. A `Vec<T>` or `&[T]` is a `List`, and passing
+  a `Vec` by value closes each object in it once the call returns.
 - **Traits** are interfaces; once Rust drops an implementation, it is closed if
   `AutoCloseable`.
 - **Closures** lent for a call are function types, which Rust calls only during the call,

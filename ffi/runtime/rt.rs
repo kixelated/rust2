@@ -179,6 +179,22 @@ impl SocketAddr {
 		std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(a, b, c, d), self.port).into()
 	}
 
+	/// An IPv4 address, for `SocketAddrV4`: an IPv6 one aborts.
+	pub fn lift_v4(self, what: &str) -> std::net::SocketAddrV4 {
+		match self.lift(what) {
+			std::net::SocketAddr::V4(addr) => addr,
+			std::net::SocketAddr::V6(_) => fail(what, "an IPv6 socket address where IPv4 is taken"),
+		}
+	}
+
+	/// An IPv6 address, for `SocketAddrV6`: an IPv4 one aborts.
+	pub fn lift_v6(self, what: &str) -> std::net::SocketAddrV6 {
+		match self.lift(what) {
+			std::net::SocketAddr::V6(addr) => addr,
+			std::net::SocketAddr::V4(_) => fail(what, "an IPv4 socket address where IPv6 is taken"),
+		}
+	}
+
 	pub fn lower(addr: std::net::SocketAddr) -> Self {
 		match addr {
 			std::net::SocketAddr::V4(v4) => {

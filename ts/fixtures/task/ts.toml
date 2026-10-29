@@ -9,6 +9,7 @@ roots = [
     "model::drain",
     "model::blocks",
     "model::watch",
+    "model::front",
     "drops::run",
     "drops::held",
     "drops::edited",

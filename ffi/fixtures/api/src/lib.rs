@@ -1042,3 +1042,53 @@ impl Site {
 		Self { home }
 	}
 }
+
+impl Shape {
+	/// Every shape, as a constant slice.
+	pub const ALL: &'static [Shape] = &[Shape::Circle, Shape::Square];
+}
+
+/// Greetings, as a constant slice of references, each returned as a clone.
+pub const GREETINGS: &[&str] = &["hi", "hello"];
+
+/// A trail through points, each labeled: slices passed in and lent back out.
+pub struct Trail {
+	points: Vec<Point>,
+	labels: Vec<Label>,
+}
+
+impl Trail {
+	/// A trail through `points`, named by `names`, which it copies.
+	pub fn new(points: &[Point], names: &[String]) -> Self {
+		let labels = (points.iter().zip(names))
+			.map(|(point, name)| Label {
+				name: name.clone(),
+				at: Some(*point),
+				ttl: None,
+			})
+			.collect();
+		Self {
+			points: points.to_vec(),
+			labels,
+		}
+	}
+
+	/// Its points.
+	pub fn points(&self) -> &[Point] {
+		&self.points
+	}
+
+	/// A label per point, each owning its name.
+	pub fn labels(&self) -> &[Label] {
+		&self.labels
+	}
+}
+
+/// Each address at the next port, one IPv4 and one IPv6.
+pub fn nexts(
+	v4: std::net::SocketAddrV4,
+	mut v6: std::net::SocketAddrV6,
+) -> (std::net::SocketAddrV4, std::net::SocketAddrV6) {
+	v6.set_port(v6.port() + 1);
+	(std::net::SocketAddrV4::new(*v4.ip(), v4.port() + 1), v6)
+}
