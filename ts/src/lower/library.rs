@@ -673,10 +673,18 @@ fn called_closures<'tcx>(
 			continue;
 		};
 		let ty = call.args[param.index as usize].expect_ty();
-		let (owned, lent) = match *ty.kind() {
-			ty::Ref(_, pointee, _) => (pointee, true),
-			_ => (ty, false),
-		};
+		// Through any references and boxes, any reference of which lends it.
+		let (mut owned, mut lent) = (ty, false);
+		loop {
+			owned = match *owned.kind() {
+				ty::Ref(_, inner, _) => {
+					lent = true;
+					inner
+				}
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
+				_ => break,
+			};
+		}
 		let Some(called) = b.t.owned_fn(owned) else {
 			continue;
 		};

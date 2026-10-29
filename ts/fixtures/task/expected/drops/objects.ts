@@ -486,10 +486,16 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part22 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(24)], rt.drop), rt.lent(f2)), rt.u32Add, 0, true);
 	const args44: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part22, f)];
 	Log.note(log, rt.fmtFormat(["by ref ", args44[0]]));
-	const part23 = guard(25);
-	const part24 = f2(part23);
-	const args46: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part24, f)];
-	Log.note(log, rt.fmtFormat(["kept ", args46[0]]));
+	const part23 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(26)], rt.drop), rt.lent(borrowed)), rt.u32Add, 0, true);
+	const args46: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part23, f)];
+	Log.note(log, rt.fmtFormat(["twice ", args46[0]]));
+	const part24 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(27)], rt.drop), rt.lent(f2)), rt.u32Add, 0, true);
+	const args48: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part24, f)];
+	Log.note(log, rt.fmtFormat(["boxed ", args48[0]]));
+	const part25 = guard(25);
+	const part26 = f2(part25);
+	const args50: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part26, f)];
+	Log.note(log, rt.fmtFormat(["kept ", args50[0]]));
 	rt.drop(f2);
 	rt.drop(slot);
 }

@@ -271,6 +271,14 @@ pub(super) fn fns(log: &Log, id: u32) {
 		vec![guard(22), guard(23)].into_iter().map(borrowed).sum::<u32>()
 	));
 	log.note(format!("by ref {}", vec![guard(24)].into_iter().map(&f).sum::<u32>()));
+	log.note(format!(
+		"twice {}",
+		vec![guard(26)].into_iter().map(&borrowed).sum::<u32>()
+	));
+	log.note(format!(
+		"boxed {}",
+		vec![guard(27)].into_iter().map(Box::new(&f)).sum::<u32>()
+	));
 	log.note(format!("kept {}", f(guard(25))));
 }
 
