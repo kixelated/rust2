@@ -16,7 +16,6 @@ are folded into the [exporter's](/quest/m1/ffi-export/README.md). The
 
 ## Required
 
-- [Bump the moq pin past the fallback runtime](/quest/m1/moq-pin.md) - `ts` and `ffi` build against moq with moq-tokio's fallback runtime
 - [Waiting: publish the UniFFI fork](/quest/m1/uniffi-release.md) - the fork publishes to crates.io under `rust2-*` names, once the maintainer decides it should
 - [Exporter](/quest/m1/ffi-export/README.md) - moq's bindings exported from its crates' `pub` API, replacing the fork
 - [Land main through quest land](/quest/m1/land.md) - every queued PR lands as one tested batch through the shared gate
