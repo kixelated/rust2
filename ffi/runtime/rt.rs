@@ -118,6 +118,20 @@ impl Buf {
 		Self::vec(path.into_os_string().into_encoded_bytes())
 	}
 
+	/// The buffer `owner` holds, as [`Self::owned`] returned it.
+	///
+	/// # Safety
+	/// `owner` came from [`Self::owned`], and is not yet freed.
+	pub unsafe fn of_owner(owner: *mut c_void) -> Self {
+		// SAFETY: the caller's contract.
+		let bytes = unsafe { &*owner.cast::<bytes::Bytes>() };
+		Self {
+			ptr: bytes.as_ptr(),
+			len: bytes.len(),
+			owner,
+		}
+	}
+
 	/// Free a buffer Rust returned; a view or `None` frees nothing.
 	///
 	/// # Safety

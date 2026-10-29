@@ -219,22 +219,28 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 
 `<prefix>.kt` is Kotlin for the JVM and Android over the crate's JNI functions, which
 `--features kotlin` builds into the same library, loaded by `System.loadLibrary`. It needs
-kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes as a
-`ByteArray`, and anything else encoded into one as its C struct holds it.
+kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes passed
+in as a `ByteArray`, bytes returned as their owner, and anything else encoded into a
+`ByteArray` as its C struct holds it.
 
 - **Names** are in a package of the prefix: types in PascalCase without it, members in
   camelCase without their type's name (`moq.TrackProducer.appendGroup`). A keyword is
   quoted in backticks, and a member named as one Kotlin gives its type takes a trailing
   `_`. A constructor such as `new` stays a companion function: `Counter.new(1)`.
 - **Objects** are classes owning their handle, `AutoCloseable`, which `close()` frees once
-  no call holds it; a call after it throws. A `self` method, or passing the object by
+  no call holds it; a call after it throws. One never closed is closed once the GC
+  collects it, on a daemon thread a phantom reference queue feeds. A `self` method, or passing the object by
   value, closes it once the call returns. `Clone` is `clone()`, and `PartialEq` is `equals`.
   A field is a `val`, and its setter a function, `setFirst(value)`, since setting an object
   moves it in and closes its handle, which an assignment would hide.
 - **Records** are data classes, compared by their fields, and **enums** an `enum class`,
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
-- **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair`,
+- **Bytes** passed in are a `ByteArray`, copied, as are those Rust lends a closure or trait
+  method. Bytes Rust returns, or a record holds, are a `Bytes`, which lends Rust's buffer
+  as a read-only direct `ByteBuffer` until `close()` frees it, or, never closed, until the
+  GC collects that buffer; `Bytes(ByteArray)` holds Kotlin's for a record passed in.
+  Strings are `String`, `Option<T>` `T?`, a tuple `Pair`,
   `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
 - A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr`,
@@ -248,7 +254,8 @@ kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, by
   from any thread. An object it lends is closed once the call returns.
 - **Futures** are `suspend fun`s, which resume on the coroutine's dispatcher, as C++ resumes
   on its executor, and never inside a wake: an `Unconfined` one resumes on `Default`. Cancelling the coroutine frees the future and
-  loses nothing. Each call is its own future, so it has one poller.
+  loses nothing. Each call is its own future, so it has one poller. The call polls it once
+  before suspending, and makes the waker it parks on only if that poll pends.
 - A **waker** is a `Waker`, which Rust may call from any thread.
 - **The contract** is checked when the library loads, before any other call: a Kotlin
   file and a library from different builds throw.

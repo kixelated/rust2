@@ -25,11 +25,13 @@ upgrades once the function returns. `rt.Atomic` holds a `bool` or an integer, an
 operations check their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold
 their `Option<T>`, and a `OnceLock` initialized from within its own initialization panics as wasm32's does;
 their `Clone`, `Debug`, `PartialEq`, `get_mut`, and `get_or_try_init` are still refused.
-Left: `RwLock`, `Cell`, and `RefCell`.
+`rt.Cell` is the place that holds its value. `rt.RefCell`, a `RefCell` or an `RwLock`,
+is its own guard and counts its borrows: a conflicting borrow panics, and a conflicting
+lock aborts, each with wasm32's message. Their `get_mut`, `into_inner`, `try_borrow`,
+`Ref::map`, and `Ref::clone` are still refused.
+Left: `thread_local!` and `static` atomics, below, which hold kio's and moq-clock's cells.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
-- Keep Rust's failure modes where they are defined: a `RefCell` double borrow
-  panics, as a re-entrant `Mutex` lock does.
 - The census of moq-net's [model](/quest/m2/ts-model/README.md) on 2026-10-27 adds:
   `thread_local!` (`LocalKey::with`).
 - A `static` atomic (`static NEXT: AtomicU64`, 2 in moq-net and 1 in kio) is still
