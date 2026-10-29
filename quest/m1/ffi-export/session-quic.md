@@ -14,9 +14,9 @@ waits on moq-quic owning its waits. It has landed once that quest is gone from m
 
 ## Plan
 
-Decided with the maintainer on 2026-10-27: the full-control path, after
-[sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md). It suits consumers with
-their own event loop or sockets.
+Decided with the maintainer on 2026-10-27: the full-control path, after sessions on
+moq-tokio, which `moq/moq.c` proves with moq-tokio's fallback runtime. It suits consumers
+with their own event loop or sockets.
 
 Decided with the maintainer on 2026-10-28, from
 [#215](https://github.com/kixelated/rust2/pull/215): at moq `30f25c04`, only moq-tokio's

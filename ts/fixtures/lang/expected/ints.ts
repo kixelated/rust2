@@ -6,17 +6,17 @@ import { unwrapOr$Result_u16_TryFromIntError, unwrapOr$Result_u64_TryFromIntErro
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u8) => void = (out2: rt.ByteVec, v2: rt.u8): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v2 as rt.u128)));
-		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.u8) => void = (out2: rt.ByteVec, v3: rt.u8): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
+		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u8 | undefined) => void = (out3: rt.ByteVec, v3: rt.u8 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.u8 | undefined) => void = (out3: rt.ByteVec, v4: rt.u8 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.u8 = v3;
+			const v5: rt.u8 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v4 as rt.u128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v5 as rt.u128)));
 		}
 	};
 	const buf: Uint8Array = Uint8Array.of(0);
@@ -36,7 +36,7 @@ export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.u8 = ([rt.u8FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.u8, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 8);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.u8Add(a, b));
 	} else if (_70 === 1) {
@@ -119,6 +119,24 @@ export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u8ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.u8> = rt.iterSlice(Uint8Array.of(0, 1, 255, 0, a, rt.u8Shl(a, rt.u32Rem(shift, 8))));
+		while (true) {
+			const _200: rt.u8 | rt.Done = iter.next();
+			if (_200 === rt.DONE) {
+				break;
+			}
+			const v2: rt.u8 = _200;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u8TrailingZeros(v2))));
+			const _209: rt.u8 | undefined = rt.nonZero(v2);
+			if (_209 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.u8 = _209;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u8TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u8LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.u8 = a;
 		x2 = rt.u8Add(x2, b);
@@ -137,17 +155,17 @@ export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u16) => void = (out2: rt.ByteVec, v2: rt.u16): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v2 as rt.u128)));
-		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.u16) => void = (out2: rt.ByteVec, v3: rt.u16): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
+		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u16 | undefined) => void = (out3: rt.ByteVec, v3: rt.u16 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.u16 | undefined) => void = (out3: rt.ByteVec, v4: rt.u16 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.u16 = v3;
+			const v5: rt.u16 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v4 as rt.u128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v5 as rt.u128)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(2);
@@ -167,7 +185,7 @@ export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.u16 = ([rt.u16FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.u16, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 16);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.u16Add(a, b));
 	} else if (_70 === 1) {
@@ -250,6 +268,24 @@ export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.u16> = rt.iterSlice([0, 1, 65535, 0, a, rt.u16Shl(a, rt.u32Rem(shift, 16))]);
+		while (true) {
+			const _200: rt.u16 | rt.Done = iter.next();
+			if (_200 === rt.DONE) {
+				break;
+			}
+			const v2: rt.u16 = _200;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u16TrailingZeros(v2))));
+			const _209: rt.u16 | undefined = rt.nonZero(v2);
+			if (_209 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.u16 = _209;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u16TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u16LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.u16 = a;
 		x2 = rt.u16Add(x2, b);
@@ -268,17 +304,17 @@ export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u32) => void = (out2: rt.ByteVec, v2: rt.u32): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v2 as rt.u128)));
-		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.u32) => void = (out2: rt.ByteVec, v3: rt.u32): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
+		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u32 | undefined) => void = (out3: rt.ByteVec, v3: rt.u32 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.u32 | undefined) => void = (out3: rt.ByteVec, v4: rt.u32 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.u32 = v3;
+			const v5: rt.u32 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v4 as rt.u128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v5 as rt.u128)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(4);
@@ -298,7 +334,7 @@ export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.u32 = ([rt.u32FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.u32, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 32);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.u32Add(a, b));
 	} else if (_70 === 1) {
@@ -381,6 +417,24 @@ export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.u32> = rt.iterSlice([0, 1, 4294967295, 0, a, rt.u32Shl(a, rt.u32Rem(shift, 32))]);
+		while (true) {
+			const _200: rt.u32 | rt.Done = iter.next();
+			if (_200 === rt.DONE) {
+				break;
+			}
+			const v2: rt.u32 = _200;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u32TrailingZeros(v2))));
+			const _209: rt.u32 | undefined = rt.nonZero(v2);
+			if (_209 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.u32 = _209;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u32TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u32LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.u32 = a;
 		x2 = rt.u32Add(x2, b);
@@ -399,17 +453,17 @@ export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u64) => void = (out2: rt.ByteVec, v2: rt.u64): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(rt.u128Cast(v2))));
-		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v2)), v2) ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.u64) => void = (out2: rt.ByteVec, v3: rt.u64): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(rt.u128Cast(v3))));
+		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u64 | undefined) => void = (out3: rt.ByteVec, v3: rt.u64 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.u64 | undefined) => void = (out3: rt.ByteVec, v4: rt.u64 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.u64 = v3;
+			const v5: rt.u64 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(rt.u128Cast(v4))));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(rt.u128Cast(v5))));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(8);
@@ -429,7 +483,7 @@ export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.u64 = ([rt.u64FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.u64, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 64);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.u64Add(a, b));
 	} else if (_70 === 1) {
@@ -512,6 +566,24 @@ export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.u64> = rt.iterSlice([0, 1, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, 0, a, rt.u64Shl(a, rt.u32Rem(shift, 64))]);
+		while (true) {
+			const _200: rt.u64 | rt.Done = iter.next();
+			if (_200 === rt.DONE) {
+				break;
+			}
+			const v2: rt.u64 = _200;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u64TrailingZeros(v2))));
+			const _209: rt.u64 | undefined = rt.nonZero(v2);
+			if (_209 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.u64 = _209;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u64TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u64LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.u64 = a;
 		x2 = rt.u64Add(x2, b);
@@ -530,17 +602,17 @@ export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u128) => void = (out2: rt.ByteVec, v2: rt.u128): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v2)));
-		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v2)), v2) ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.u128) => void = (out2: rt.ByteVec, v3: rt.u128): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3)));
+		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u128 | undefined) => void = (out3: rt.ByteVec, v3: rt.u128 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.u128 | undefined) => void = (out3: rt.ByteVec, v4: rt.u128 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.u128 = v3;
+			const v5: rt.u128 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v4)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v5)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(16);
@@ -560,7 +632,7 @@ export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.u128 = ([rt.u128FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.u128, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 128);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.u128Add(a, b));
 	} else if (_70 === 1) {
@@ -643,6 +715,24 @@ export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.u128> = rt.iterSlice([0, 1, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128, 0, a, rt.u128Shl(a, rt.u32Rem(shift, 128))]);
+		while (true) {
+			const _200: rt.u128 | rt.Done = iter.next();
+			if (_200 === rt.DONE) {
+				break;
+			}
+			const v2: rt.u128 = _200;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u128TrailingZeros(v2))));
+			const _209: rt.u128 | undefined = rt.nonZero(v2);
+			if (_209 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.u128 = _209;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u128TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.u128LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.u128 = a;
 		x2 = rt.u128Add(x2, b);
@@ -661,17 +751,17 @@ export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.usize) => void = (out2: rt.ByteVec, v2: rt.usize): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v2 as rt.u128)));
-		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.usize) => void = (out2: rt.ByteVec, v3: rt.usize): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
+		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.usize | undefined) => void = (out3: rt.ByteVec, v3: rt.usize | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.usize | undefined) => void = (out3: rt.ByteVec, v4: rt.usize | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.usize = v3;
+			const v5: rt.usize = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v4 as rt.u128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.u128ToBeBytes(v5 as rt.u128)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(4);
@@ -691,7 +781,7 @@ export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.usize = ([rt.usizeFromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.usize, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 32);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.usizeAdd(a, b));
 	} else if (_70 === 1) {
@@ -774,6 +864,24 @@ export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.usize> = rt.iterSlice([0, 1, 4294967295, 0, a, rt.usizeShl(a, rt.u32Rem(shift, 32))]);
+		while (true) {
+			const _200: rt.usize | rt.Done = iter.next();
+			if (_200 === rt.DONE) {
+				break;
+			}
+			const v2: rt.usize = _200;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.usizeTrailingZeros(v2))));
+			const _209: rt.usize | undefined = rt.nonZero(v2);
+			if (_209 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.usize = _209;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.usizeTrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.usizeLeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.usize = a;
 		x2 = rt.usizeAdd(x2, b);
@@ -792,17 +900,17 @@ export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i8) => void = (out2: rt.ByteVec, v2: rt.i8): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v2 as rt.i128)));
-		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.i8) => void = (out2: rt.ByteVec, v3: rt.i8): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
+		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i8 | undefined) => void = (out3: rt.ByteVec, v3: rt.i8 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.i8 | undefined) => void = (out3: rt.ByteVec, v4: rt.i8 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.i8 = v3;
+			const v5: rt.i8 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v4 as rt.i128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v5 as rt.i128)));
 		}
 	};
 	const buf: Uint8Array = Uint8Array.of(0);
@@ -822,7 +930,7 @@ export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.i8 = ([rt.i8FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.i8, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 8);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.i8Add(a, b));
 	} else if (_70 === 1) {
@@ -905,6 +1013,24 @@ export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i8ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.i8> = rt.iterSlice([0, 1, 127, -128, a, rt.i8Shl(a, rt.u32Rem(shift, 8))]);
+		while (true) {
+			const _204: rt.i8 | rt.Done = iter.next();
+			if (_204 === rt.DONE) {
+				break;
+			}
+			const v2: rt.i8 = _204;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i8TrailingZeros(v2))));
+			const _213: rt.i8 | undefined = rt.nonZero(v2);
+			if (_213 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.i8 = _213;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i8TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i8LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.i8 = a;
 		x2 = rt.i8Add(x2, b);
@@ -923,17 +1049,17 @@ export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i16) => void = (out2: rt.ByteVec, v2: rt.i16): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v2 as rt.i128)));
-		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.i16) => void = (out2: rt.ByteVec, v3: rt.i16): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
+		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i16 | undefined) => void = (out3: rt.ByteVec, v3: rt.i16 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.i16 | undefined) => void = (out3: rt.ByteVec, v4: rt.i16 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.i16 = v3;
+			const v5: rt.i16 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v4 as rt.i128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v5 as rt.i128)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(2);
@@ -953,7 +1079,7 @@ export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.i16 = ([rt.i16FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.i16, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 16);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.i16Add(a, b));
 	} else if (_70 === 1) {
@@ -1036,6 +1162,24 @@ export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.i16> = rt.iterSlice([0, 1, 32767, -32768, a, rt.i16Shl(a, rt.u32Rem(shift, 16))]);
+		while (true) {
+			const _204: rt.i16 | rt.Done = iter.next();
+			if (_204 === rt.DONE) {
+				break;
+			}
+			const v2: rt.i16 = _204;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i16TrailingZeros(v2))));
+			const _213: rt.i16 | undefined = rt.nonZero(v2);
+			if (_213 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.i16 = _213;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i16TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i16LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.i16 = a;
 		x2 = rt.i16Add(x2, b);
@@ -1054,17 +1198,17 @@ export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i32) => void = (out2: rt.ByteVec, v2: rt.i32): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v2 as rt.i128)));
-		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.i32) => void = (out2: rt.ByteVec, v3: rt.i32): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
+		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i32 | undefined) => void = (out3: rt.ByteVec, v3: rt.i32 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.i32 | undefined) => void = (out3: rt.ByteVec, v4: rt.i32 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.i32 = v3;
+			const v5: rt.i32 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v4 as rt.i128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v5 as rt.i128)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(4);
@@ -1084,7 +1228,7 @@ export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.i32 = ([rt.i32FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.i32, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 32);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.i32Add(a, b));
 	} else if (_70 === 1) {
@@ -1167,6 +1311,24 @@ export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.i32> = rt.iterSlice([0, 1, 2147483647, -2147483648, a, rt.i32Shl(a, rt.u32Rem(shift, 32))]);
+		while (true) {
+			const _204: rt.i32 | rt.Done = iter.next();
+			if (_204 === rt.DONE) {
+				break;
+			}
+			const v2: rt.i32 = _204;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i32TrailingZeros(v2))));
+			const _213: rt.i32 | undefined = rt.nonZero(v2);
+			if (_213 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.i32 = _213;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i32TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i32LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.i32 = a;
 		x2 = rt.i32Add(x2, b);
@@ -1185,17 +1347,17 @@ export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i64) => void = (out2: rt.ByteVec, v2: rt.i64): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(rt.i128Cast(v2))));
-		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v2)), v2) ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.i64) => void = (out2: rt.ByteVec, v3: rt.i64): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(rt.i128Cast(v3))));
+		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i64 | undefined) => void = (out3: rt.ByteVec, v3: rt.i64 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.i64 | undefined) => void = (out3: rt.ByteVec, v4: rt.i64 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.i64 = v3;
+			const v5: rt.i64 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(rt.i128Cast(v4))));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(rt.i128Cast(v5))));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(8);
@@ -1215,7 +1377,7 @@ export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.i64 = ([rt.i64FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.i64, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 64);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.i64Add(a, b));
 	} else if (_70 === 1) {
@@ -1298,6 +1460,24 @@ export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.i64> = rt.iterSlice([0, 1, { hi: 0x7fffffff, lo: 0xffffffff } as rt.i64, { hi: -0x80000000, lo: 0 } as rt.i64, a, rt.i64Shl(a, rt.u32Rem(shift, 64))]);
+		while (true) {
+			const _204: rt.i64 | rt.Done = iter.next();
+			if (_204 === rt.DONE) {
+				break;
+			}
+			const v2: rt.i64 = _204;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i64TrailingZeros(v2))));
+			const _213: rt.i64 | undefined = rt.nonZero(v2);
+			if (_213 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.i64 = _213;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i64TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i64LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.i64 = a;
 		x2 = rt.i64Add(x2, b);
@@ -1316,17 +1496,17 @@ export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i128) => void = (out2: rt.ByteVec, v2: rt.i128): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v2)));
-		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v2)), v2) ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.i128) => void = (out2: rt.ByteVec, v3: rt.i128): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3)));
+		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i128 | undefined) => void = (out3: rt.ByteVec, v3: rt.i128 | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.i128 | undefined) => void = (out3: rt.ByteVec, v4: rt.i128 | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.i128 = v3;
+			const v5: rt.i128 = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v4)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v5)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(16);
@@ -1346,7 +1526,7 @@ export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.i128 = ([rt.i128FromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.i128, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 128);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.i128Add(a, b));
 	} else if (_70 === 1) {
@@ -1429,6 +1609,24 @@ export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i128ToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.i128> = rt.iterSlice([0, 1, { hi: 0x7fffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.i128, { hi: -0x80000000, w2: 0, w1: 0, lo: 0 } as rt.i128, a, rt.i128Shl(a, rt.u32Rem(shift, 128))]);
+		while (true) {
+			const _204: rt.i128 | rt.Done = iter.next();
+			if (_204 === rt.DONE) {
+				break;
+			}
+			const v2: rt.i128 = _204;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i128TrailingZeros(v2))));
+			const _213: rt.i128 | undefined = rt.nonZero(v2);
+			if (_213 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.i128 = _213;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i128TrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.i128LeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.i128 = a;
 		x2 = rt.i128Add(x2, b);
@@ -1447,17 +1645,17 @@ export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.isize) => void = (out2: rt.ByteVec, v2: rt.isize): void => {
-		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v2 as rt.i128)));
-		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v2)) === v2 ? 1 : 0);
+	const _68: (a0: rt.ByteVec, a1: rt.isize) => void = (out2: rt.ByteVec, v3: rt.isize): void => {
+		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
+		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.isize | undefined) => void = (out3: rt.ByteVec, v3: rt.isize | undefined): void => {
-		if (v3 === undefined) {
+	const _69: (a0: rt.ByteVec, a1: rt.isize | undefined) => void = (out3: rt.ByteVec, v4: rt.isize | undefined): void => {
+		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
-			const v4: rt.isize = v3;
+			const v5: rt.isize = v4;
 			rt.byteVecPush(out3, 1);
-			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v4 as rt.i128)));
+			rt.byteVecExtendFromSlice(out3, rt.byteSliceFrom(rt.i128ToBeBytes(v5 as rt.i128)));
 		}
 	};
 	const buf: Uint8Array = rt.bytes(4);
@@ -1477,7 +1675,7 @@ export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf3), 0, n3), rt.byteSliceRange(_40, 0, n3));
 	const c: rt.isize = ([rt.isizeFromBeBytes(buf3), rt.byteSliceRange(_40, n3)] as [rt.isize, rt.ByteSlice])[0];
 	const shift: rt.u32 = rt.u32Rem(unwrapOr$Option_u8(rt.byteSliceFirst(_40), 0) as rt.u32, 2 * 32);
-	const _70: rt.u8 = rt.u8Rem(op, 31);
+	const _70: rt.u8 = rt.u8Rem(op, 32);
 	if (_70 === 0) {
 		_68(out, rt.isizeAdd(a, b));
 	} else if (_70 === 1) {
@@ -1560,6 +1758,24 @@ export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_70 === 29) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.isizeToBeBytes(a).reverse()));
+	} else if (_70 === 30) {
+		const iter: rt.Iter<rt.isize> = rt.iterSlice([0, 1, 2147483647, -2147483648, a, rt.isizeShl(a, rt.u32Rem(shift, 32))]);
+		while (true) {
+			const _204: rt.isize | rt.Done = iter.next();
+			if (_204 === rt.DONE) {
+				break;
+			}
+			const v2: rt.isize = _204;
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.isizeTrailingZeros(v2))));
+			const _213: rt.isize | undefined = rt.nonZero(v2);
+			if (_213 === undefined) {
+				rt.byteVecPush(out, 255);
+			} else {
+				const n4: rt.isize = _213;
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.isizeTrailingZeros(n4))));
+				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(rt.isizeLeadingZeros(n4))));
+			}
+		}
 	} else {
 		let x2: rt.isize = a;
 		x2 = rt.isizeAdd(x2, b);

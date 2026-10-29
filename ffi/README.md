@@ -135,7 +135,8 @@ refused, and the census counts why.
   it finishes or is freed.
 - **Wakers** move into Rust, which calls `drop` once it lets go of the last clone, so a
   state machine polled with a waker, such as moq's `Driver`s through kio's `Waiter`, runs
-  from the caller's event loop.
+  from the caller's event loop. Rust may call `wake` and `drop` from any thread, as a
+  runtime's workers do.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
@@ -205,7 +206,7 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
   loses nothing. `poll(waker)` polls once; `std::move(f).get()` blocks the thread;
   `std::move(f).then(exec, callback)` polls on an executor and calls back there, returning
   a `task` that cancels when destroyed, after which the callback has finished or never
-  runs; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
+  runs and the executor is never called again; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
   executor. An executor is any callable taking a `void()` job to run once, later, on any
   thread: never inline, since a wake may come from inside Rust. Each wake that lands while
   the future polls polls it again, and a future has one poller at a time, since awaiting
@@ -302,6 +303,9 @@ moq's crates export through `target/moq-ffi`, an empty library on each that `jus
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
-publishes a binary track the catalog lists, and reads the catalog lent to C through
-`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
-C++17 without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.
+sets and reads a field of the catalog lent to C through `catalog::Producer::mutate`, and
+serves a broadcast from a moq-tokio server bound to port 0 to a client that reads it over
+QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp` does the
+same through the C++ header, short of the catalog's field, at C++17 without exceptions or
+RTTI, as OBS builds it, serving on an executor's thread and blocking on each read, and
+`moq/moq.kt` through the Kotlin, serving in a coroutine and suspending on each read.
