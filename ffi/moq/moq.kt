@@ -266,7 +266,7 @@ fun main() {
 			live.announce(OriginRoute.default())
 			val liveTrack = live.broadcast().createTrack("video", null)
 			val liveGroup = liveTrack.appendGroup()
-			liveGroup.writeFrame(null, "hello")
+			liveGroup.writeFrame(null, "hello".encodeToByteArray())
 			liveGroup.finish()
 
 			val serverConfig = ServerConfig.default()
