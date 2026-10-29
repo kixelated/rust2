@@ -104,11 +104,15 @@ export function bytesTruncate(p: Place<Bytes>, len: usize): void {
 
 /**
  * `Bytes::slice_ref`: the bytes of `b` that `subset` is, by where they are in memory. Its
- * panic names no addresses, which JS has none of.
+ * panic names no addresses, which JS has none of. Bytes of other storage throw instead:
+ * Rust may share what JS copied, such as a `&'static str`'s bytes, which `as_bytes`
+ * encodes anew each time.
  */
 export function bytesSliceRef(b: Bytes, subset: ByteSlice): Bytes {
 	if (subset.length === 0) return bytesNew();
-	if (subset.data.buffer !== b.data.buffer) panic("subset is out of bounds");
+	if (subset.data.buffer !== b.data.buffer) {
+		throw new Error("rust2-ts: `Bytes::slice_ref` of bytes from other storage, which Rust may share where JS copied");
+	}
 	const at = subset.data.byteOffset + subset.start;
 	const from = b.data.byteOffset + b.start;
 	if (at < from) panic("subset pointer is smaller than self pointer");

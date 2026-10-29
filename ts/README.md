@@ -308,7 +308,9 @@ of them:
   `Clone`, `Deref`, `AsRef`, `PartialEq` with bytes, `Default`, `Debug`, and `From`
   between it and `Vec<u8>`, `String`, `&'static [u8]`, and `&'static str` map to
   `rt/bytes.ts`, panicking as `bytes` does, and so do `split_to`, `split_off`,
-  `truncate`, `clear`, and `slice_ref`, whose panic names no addresses. `Bytes::from_owner`
+  `truncate`, `clear`, and `slice_ref`, whose panic names no addresses. `slice_ref` of
+  bytes from other storage throws, since Rust may share what JS copied, as a `&'static
+  str`'s bytes that `as_bytes` encodes anew. `Bytes::from_owner`
   reads its owner's bytes once, as `bytes` does, and is refused for an owner that drops,
   which would drop with the last clone of what it makes.
 - `bytes::BytesMut` is an `rt.BytesMut`: a window of storage that the handles `split_to`
