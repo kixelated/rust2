@@ -18,7 +18,7 @@ generic std gap is planned here even when moq never calls it.
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
 - [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
 - [A mutable reference to a reference](/quest/m3/ts-mut-ref.md) - `&mut &[u8]` and `&mut &mut T` translate, so `Buf` of a `&[u8]` and `bytes`' forwarding impls do
-- [A `BytesMut`'s capacity](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
+- [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, and `dyn Buf` translate, so a consumer neither rewrites nor binds them
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks

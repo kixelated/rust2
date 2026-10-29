@@ -1,4 +1,4 @@
-# [M] A `BytesMut`'s capacity
+# [M] The capacity of a BytesMut
 
 ## Goal
 
