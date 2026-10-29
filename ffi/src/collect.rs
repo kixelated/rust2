@@ -2410,17 +2410,18 @@ impl<'tcx> Collector<'tcx> {
 			}
 		}
 		// Besides items, the listed iterators call into only their allocator and `Split`'s
-		// pattern, wherever another crate's type fills either.
+		// pattern, whose impls must be core's or alloc's too, on a type or a borrow of one.
 		let krate = *tcx.crates(()).iter().find(|&&k| tcx.crate_name(k) == sym::core)?;
-		let callee = |path: &str| {
-			(tcx.traits(krate).iter().copied())
-				.find(|&tr| tcx.def_path_str(tr).split_once("::").is_some_and(|(_, p)| p == path))
+		let callee = |path: &str, method: &str| {
+			let tr = (tcx.traits(krate).iter().copied())
+				.find(|&tr| tcx.def_path_str(tr).split_once("::").is_some_and(|(_, p)| p == path))?;
+			Some((tr, assoc(tr, method)?))
 		};
-		let callees = [callee("alloc::Allocator")?, callee("str::pattern::Pattern")?];
-		let calls = |ty: Ty<'tcx>| {
-			matches!(ty.kind(), ty::Adt(adt, _) if !std(adt.did().krate))
-				&& callees.iter().any(|&tr| implements(tr, ty))
-		};
+		let callees = [
+			callee("alloc::Allocator", "deallocate")?,
+			callee("str::pattern::Pattern", "into_searcher")?,
+		];
+		let calls = |ty: Ty<'tcx>| (callees.iter()).any(|&(tr, method)| implements(tr, ty) && !by_std(method, ty));
 		if seen.iter().any(|&ty| calls(ty)) {
 			return None;
 		}

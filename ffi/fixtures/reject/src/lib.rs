@@ -498,6 +498,30 @@ pub fn flattened() -> impl Iterator<Item = u8> {
 	vec![bytes].into_iter().flatten()
 }
 
+/// An allocator of the crate's own, which only a borrow of it implements.
+struct Local;
+
+unsafe impl std::alloc::Allocator for &Local {
+	fn allocate(&self, layout: std::alloc::Layout) -> Result<std::ptr::NonNull<[u8]>, std::alloc::AllocError> {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		std::alloc::Global.allocate(layout)
+	}
+
+	unsafe fn deallocate(&self, ptr: std::ptr::NonNull<u8>, layout: std::alloc::Layout) {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		unsafe { std::alloc::Global.deallocate(ptr, layout) }
+	}
+}
+
+static LOCAL: Local = Local;
+
+/// Bytes in an allocation a borrowed allocator frees as collecting finishes.
+pub fn lent() -> impl Iterator<Item = u8> {
+	let mut bytes = Vec::new_in(&LOCAL);
+	bytes.push(1);
+	bytes.into_iter()
+}
+
 /// A pattern of the crate's own, whose searcher a split runs as it is read.
 struct Slash;
 

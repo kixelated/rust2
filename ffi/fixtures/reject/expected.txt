@@ -65,7 +65,8 @@ fixtures/reject/src/lib.rs:468:1: rust2-ffi: cannot export fn `successes`: forei
 fixtures/reject/src/lib.rs:488:1: rust2-ffi: cannot export fn `allocated`: foreign type `std::vec::IntoIter`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:495:1: rust2-ffi: cannot export fn `flattened`: foreign type `std::iter::Flatten`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:49:1: rust2-ffi: cannot export macro `noop`: macro; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:513:1: rust2-ffi: cannot export fn `halves`: foreign type `std::str::Split`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:519:1: rust2-ffi: cannot export fn `lent`: foreign type `std::vec::IntoIter`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:537:1: rust2-ffi: cannot export fn `halves`: foreign type `std::str::Split`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:57:1: rust2-ffi: cannot export fn `excluded`: excluded type `Excluded`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:68:2: rust2-ffi: fn `reject_fixture::audio::encoder_finish` and fn `reject_fixture::audio_encoder::finish` are both `reject_audio_encoder_finish` in C
 	fixtures/reject/src/lib.rs:63:2: note: fn `reject_fixture::audio_encoder::finish` is here
