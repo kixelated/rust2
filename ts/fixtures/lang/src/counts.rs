@@ -3,6 +3,7 @@
 //! itself, and held in a `Vec`, an `Option`, a struct, and a closure, of a value and of a
 //! trait object; and the values `get_mut` and `make_mut` write, alone or shared.
 
+use std::cell::RefCell;
 use std::rc::{self, Rc};
 use std::sync::{self, Arc, Mutex};
 
@@ -47,7 +48,7 @@ impl Id for Noisy {
 }
 
 macro_rules! counts {
-	($name:ident, $holder:ident, $cyclic:ident, $node:ident, $unique:ident, $Ptr:ident, $weak:ident) => {
+	($name:ident, $holder:ident, $cyclic:ident, $node:ident, $unique:ident, $releasing:ident, $Ptr:ident, $weak:ident) => {
 		/// Holds a handle that doesn't keep its value.
 		struct $holder<T> {
 			weak: $weak::Weak<T>,
@@ -256,10 +257,37 @@ macro_rules! counts {
 			out.extend_from_slice(&log.lock().unwrap());
 		}
 
+		/// Releases the other handles to it when cloned, as its id says it was, and logs its
+		/// id when it drops.
+		struct $releasing {
+			id: u8,
+			others: Rc<RefCell<Vec<$Ptr<$releasing>>>>,
+			log: Rc<RefCell<Vec<u8>>>,
+		}
+
+		impl Clone for $releasing {
+			fn clone(&self) -> Self {
+				self.others.borrow_mut().clear();
+				Self {
+					id: self.id.wrapping_add(1),
+					others: self.others.clone(),
+					log: self.log.clone(),
+				}
+			}
+		}
+
+		impl Drop for $releasing {
+			fn drop(&mut self) {
+				self.log.borrow_mut().push(self.id);
+			}
+		}
+
 		/// Each byte an operation on pools of strong and weak handles of a byte JS copies,
 		/// the rest of it the handle it picks; each puts what it read and the picked
 		/// handle's counts.
 		pub fn $unique(data: &[u8], out: &mut Vec<u8>) {
+			let get_mut: fn(&mut $Ptr<u8>) -> Option<&mut u8> = $Ptr::get_mut;
+			let make_mut: fn(&mut $Ptr<u8>) -> &mut u8 = $Ptr::make_mut;
 			let mut strong: Vec<$Ptr<u8>> = vec![$Ptr::new(0)];
 			let mut weak: Vec<$weak::Weak<u8>> = Vec::new();
 			for &op in data {
@@ -273,7 +301,12 @@ macro_rules! counts {
 					2 => weak.push($Ptr::downgrade(&strong[pick])),
 					3 if strong.len() > 1 => drop(strong.swap_remove(pick)),
 					3 => weak.clear(),
-					4 => match $Ptr::get_mut(&mut strong[pick]) {
+					// Called directly, and through a function pointer.
+					4 => match if op & 0x80 == 0 {
+						$Ptr::get_mut(&mut strong[pick])
+					} else {
+						get_mut(&mut strong[pick])
+					} {
 						Some(value) => {
 							*value = value.wrapping_add(op);
 							out.push(*value);
@@ -281,7 +314,11 @@ macro_rules! counts {
 						None => out.push(0xfc),
 					},
 					5 => {
-						let value = $Ptr::make_mut(&mut strong[pick]);
+						let value = if op & 0x80 == 0 {
+							$Ptr::make_mut(&mut strong[pick])
+						} else {
+							make_mut(&mut strong[pick])
+						};
 						*value ^= op;
 						out.push(*value);
 					}
@@ -304,9 +341,35 @@ macro_rules! counts {
 				out.push($weak::Weak::weak_count(w) as u8);
 			}
 			out.extend(strong.iter().map(|s| **s));
+			// A clone that releases the other handles leaves `make_mut` the last, which drops.
+			let others = Rc::new(RefCell::new(Vec::new()));
+			let log = Rc::new(RefCell::new(Vec::new()));
+			let mut first = $Ptr::new($releasing {
+				id: data.len() as u8,
+				others: others.clone(),
+				log: log.clone(),
+			});
+			let shared = data.first().map_or(1, |b| b % 3 + 1);
+			others
+				.borrow_mut()
+				.extend((0..shared).map(|_| $Ptr::clone(&first)));
+			$Ptr::make_mut(&mut first).id ^= 0x40;
+			out.extend_from_slice(&[first.id, $Ptr::strong_count(&first) as u8]);
+			out.extend_from_slice(&log.borrow());
+			drop(first);
+			out.extend_from_slice(&log.borrow());
 		}
 	};
 }
 
-counts!(arcs, ArcHolder, cyclic_arcs, ArcNode, unique_arcs, Arc, sync);
-counts!(rcs, RcHolder, cyclic_rcs, RcNode, unique_rcs, Rc, rc);
+counts!(
+	arcs,
+	ArcHolder,
+	cyclic_arcs,
+	ArcNode,
+	unique_arcs,
+	ArcReleasing,
+	Arc,
+	sync
+);
+counts!(rcs, RcHolder, cyclic_rcs, RcNode, unique_rcs, RcReleasing, Rc, rc);

@@ -236,7 +236,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let gargs = self.subst(gargs);
 		let sig = self.t.sig(def_id, gargs);
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
-		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
+		// std's mappings take a `&mut` that is an `rt.Place` as what it points at, as a call's
+		// operands pass it.
+		let pointee = self.t.mapped(def_id, gargs) && !super::pointer::takes_place(tcx, def_id);
+		let values: Vec<Expr> = std::iter::zip(&names, sig.inputs())
+			.map(|(name, &ty)| match ty.kind() {
+				ty::Ref(_, _, rustc_ast::Mutability::Mut) if pointee && self.t.place_pointee(ty).is_some() => {
+					Expr::ident(name).member("v")
+				}
+				_ => Expr::ident(name),
+			})
+			.collect();
 		// A binding's export, or a function whose body translates, is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)

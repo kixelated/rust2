@@ -143,7 +143,12 @@ pub fn call<'tcx>(
 				"get_mut" => Expr::rt(format!("arcGetMut{place}"), args),
 				_ => {
 					let clone = super::collections::clone_fn(b, value, call.span);
-					Expr::rt(format!("arcMakeMut{place}"), args.into_iter().chain([clone]).collect())
+					let arc = b.t.sig(call.def_id, call.args).inputs()[0].peel_refs();
+					let Some(droppers) = b.t.droppers([arc], call.span) else {
+						return Ok(Some(Expr::undefined()));
+					};
+					let values = args.into_iter().chain([clone]).chain(droppers).collect();
+					Expr::rt(format!("arcMakeMut{place}"), values)
 				}
 			}
 		}

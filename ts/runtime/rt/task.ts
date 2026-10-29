@@ -149,27 +149,32 @@ export function arcGetMutPlace<T>(arc: Arc<T>): Place<T> | undefined {
 
 /**
  * `Arc::make_mut`: the value of the `Arc` at `p`, made its own. Another `Arc` sharing it
- * leaves a clone by `clone`, or the value itself if none, in a new `Arc` at `p`, and only
- * `Weak`s sharing it leave them dangling as the value moves to a new `Arc`.
+ * leaves a clone by `clone`, or the value itself if none, in a new `Arc` at `p`, and drops
+ * the old one by `drop`, which is the last if the clone released the others. Only `Weak`s
+ * sharing it leave them dangling as the value moves to a new `Arc`.
  */
-export function arcMakeMut<T>(p: Place<Arc<T>>, clone?: (value: T) => T): T {
-	return arcOwn(p, clone).value;
+export function arcMakeMut<T>(p: Place<Arc<T>>, clone: ((value: T) => T) | undefined, drop: (arc: Arc<T>) => void): T {
+	return arcOwn(p, clone, drop).value;
 }
 
 /** `Arc::make_mut` of a value JS copies: where it is. */
-export function arcMakeMutPlace<T>(p: Place<Arc<T>>, clone?: (value: T) => T): Place<T> {
-	return arcPlace(arcOwn(p, clone));
+export function arcMakeMutPlace<T>(
+	p: Place<Arc<T>>,
+	clone: ((value: T) => T) | undefined,
+	drop: (arc: Arc<T>) => void,
+): Place<T> {
+	return arcPlace(arcOwn(p, clone, drop));
 }
 
 function arcUnique(arc: Arc<unknown>): boolean {
 	return arc.strong === 1 && arc.weak === 0;
 }
 
-function arcOwn<T>(p: Place<Arc<T>>, clone: ((value: T) => T) | undefined): Arc<T> {
+function arcOwn<T>(p: Place<Arc<T>>, clone: ((value: T) => T) | undefined, drop: (arc: Arc<T>) => void): Arc<T> {
 	const arc = p.v;
 	if (arc.strong !== 1) {
 		p.v = new Arc(clone ? clone(arc.value) : arc.value);
-		arc.strong--;
+		drop(arc);
 	} else if (arc.weak !== 0) {
 		arc.strong = 0;
 		p.v = new Arc(arc.value);
