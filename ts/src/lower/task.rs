@@ -222,6 +222,18 @@ pub fn call<'tcx>(
 			let [key, f] = two(args);
 			Expr::result(true, f.call(vec![key.member("get").call(Vec::new())]))
 		}
+		// With what drops the value it replaces.
+		("LocalKey", "set") => {
+			let Some(droppers) = b.t.droppers([call.args.type_at(0)], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			Expr::rt("localKeyRefCellSet", args.into_iter().chain(droppers).collect())
+		}
+		// With the value's place where JS would copy it.
+		("LocalKey", "with_borrow_mut") => match b.t.needs_place(call.args.type_at(0)) {
+			true => Expr::rt("localKeyWithBorrowMutPlace", args),
+			false => Expr::rt("localKeyWithBorrowMut", args),
+		},
 		// With the `Option`'s `None` where it is `rt.None`.
 		("LocalKey", "initialize_with") => {
 			let none = b.t.none_arg(call.args.type_at(0));
