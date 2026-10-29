@@ -584,10 +584,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.index(name, gargs, args, dest, span, out)
 			}
 			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
-			// the place it borrows, as an index does.
+			// the place it borrows, as an index does, and so does one to any value a guard
+			// holds, which is where its mutex keeps it.
 			("DerefMut", "deref_mut")
 				if let ty::Ref(_, pointee, _) = dest.ty(&self.mir.local_decls, tcx).ty.kind()
-					&& self.b.t.object_kind(*pointee).is_none()
+					&& (self.b.t.object_kind(*pointee).is_none()
+						|| self.b.t.needs_place(*pointee)
+						|| targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::MutexGuard)))
 					&& let Some(local) = dest.as_local()
 					&& self.defs[local] == 1
 					&& matches!(self.slots[local], Slot::Var(_)) =>
@@ -846,7 +849,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// The place a `&mut` operand borrows, as an assignable path, and through the
 	/// reference, which a store resolves: an alias of a borrowed place, not a copy of a
-	/// reference, which holds the object it points at, or an `rt.Place`, whose `v` it is.
+	/// reference, which holds the object it points at, or an `rt.Place`, whose `v` it is,
+	/// or else the object it points at, written in place.
 	fn borrowed_place(&mut self, op: &Operand<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Option<Borrowed<'tcx>> {
 		let (Operand::Copy(place) | Operand::Move(place)) = op else {
 			return None;
@@ -861,6 +865,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			_ if self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_some() => {
 				Some((self.place_expr(deref, span, out), Some(deref)))
+			}
+			_ if self.in_object(deref) => {
+				let target = self.place_expr(deref, span, out);
+				Some((self.path(target, "object", out), Some(deref)))
 			}
 			_ => {
 				let pointee = self.mir.local_decls[place.local].ty.peel_refs();
@@ -1042,6 +1050,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Expr {
 		let name = self.b.fresh(base);
+		// The object written in place gives what it held as an object of its own.
+		if place.1.is_some_and(|p| self.in_object(p)) {
+			let old = Expr::rt("replaceIn", vec![place.0, value]);
+			out.push(StmtKind::decl(false, name.clone(), None, Some(old)).at(None));
+			return Expr::ident(name);
+		}
 		// TypeScript widens `rt.None` read from a place narrowed to it into a `symbol`.
 		let declared = self.b.t.erases_to(ty).none.then(|| self.b.t.ty(ty, span));
 		out.push(StmtKind::decl(false, name.clone(), declared, Some(place.0.clone())).at(None));

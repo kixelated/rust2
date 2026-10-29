@@ -333,6 +333,13 @@ export function mapOr$Option_Arc_dyn_Id_u8_arcs_closure1(self: rt.Arc<Id.Id> | u
 	return f(self);
 }
 
+export function mapOr$Option_Arc_u8_u8_objects_closure1(self: rt.Arc<rt.u8> | undefined, default_: rt.u8, f: (a0: rt.Arc<rt.u8>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Hop_u64_options_closure2(self: Hop.Hop | undefined, default_: rt.u64, f: (a0: Hop.Hop) => rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;

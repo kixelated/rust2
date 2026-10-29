@@ -80,25 +80,11 @@ pub fn statics() -> u8 {
 	COUNT
 }
 
-/// The path to `*a` is `a`: assigning it would rebind the parameter, not change the caller's.
-pub fn swapped(a: &mut Meters, b: &mut Meters) {
-	std::mem::swap(a, b);
-}
-
-pub fn replaced(a: &mut Meters) -> Meters {
-	std::mem::replace(&mut *a, Meters(0))
-}
-
 pub struct Meters(pub u64);
 
 pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
 	(*t).into() as f32
-}
-
-/// Every clone of an `Arc` is one JS object: replacing the payload would reach them all.
-pub fn replace_shared(dst: &mut std::sync::Arc<u8>, src: std::sync::Arc<u8>) {
-	*dst = src;
 }
 
 /// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.
@@ -111,14 +97,14 @@ pub async fn pending_output() -> std::task::Poll<u8> {
 	std::task::Poll::Pending
 }
 
-/// A `Pin` is its pointer in JS: replacing the `Arc` would reach every clone.
-pub fn replace_pinned(dst: &mut std::pin::Pin<std::sync::Arc<u8>>, src: std::pin::Pin<std::sync::Arc<u8>>) {
-	*dst = src;
-}
-
 /// A guard is its mutex in JS: replacing it would copy the other mutex's value in.
 pub fn replace_guard<'a>(dst: &mut std::sync::MutexGuard<'a, u8>, src: std::sync::MutexGuard<'a, u8>) {
 	*dst = src;
+}
+
+/// Swapping two guards would swap their mutexes' values instead.
+pub fn swap_guards<'a>(a: &mut std::sync::MutexGuard<'a, u8>, b: &mut std::sync::MutexGuard<'a, u8>) {
+	std::mem::swap(a, b);
 }
 
 /// An adaptor without a mapping.
@@ -232,13 +218,6 @@ pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
-}
-
-/// A reference copied into a closure holds its referent's object: replacing through it
-/// would change the copy, not the referent.
-pub fn replace_captured(a: &mut [u16; 1]) -> [u16; 1] {
-	let mut g = move || std::mem::replace(&mut *a, [9]);
-	g()
 }
 
 /// A std adaptor lends its callback a reference to each array of bytes it holds, which it

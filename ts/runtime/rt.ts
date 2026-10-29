@@ -112,6 +112,21 @@ export function ptrWrite<T extends object>(p: T, value: T): void {
 	else Object.assign(p, value);
 }
 
+/**
+ * `mem::replace` of what a `&mut` to an object points at, in place: `value`'s fields, or
+ * its items for a JS array, moved into `p`, and what `p` held returned as an object of its own.
+ */
+export function replaceIn<T extends object>(p: T, value: T): T {
+	if (Array.isArray(p)) {
+		const old = p.slice() as T;
+		vecAssign(p, value as unknown[]);
+		return old;
+	}
+	const old = Object.assign(Object.create(Object.getPrototypeOf(p)) as T, p);
+	Object.assign(p, value);
+	return old;
+}
+
 // Bindings
 
 /**
@@ -429,6 +444,12 @@ export function vecDedupByKey<T, K>(v: T[], key: (item: T) => K, eq: (a: K, b: K
 /** `Vec::dedup_by_key` of an element JS copies, whose places `key` takes. */
 export function vecDedupByKeyMut<T, K>(v: T[], key: (item: Place<T>) => K, eq: (a: K, b: K) => boolean, drop?: (item: T) => void): void {
 	vecDedupByMut(v, (a, b) => eq(key(a), key(b)), drop);
+}
+
+/** `*v = value` through a `&mut Vec<T>`, other than of bytes: `value`'s items, in place. */
+export function vecAssign<T>(v: T[], value: T[]): void {
+	v.length = value.length;
+	for (let i = 0; i < value.length; i++) v[i] = value[i]!;
 }
 
 /** `Vec::insert`: `item` at `i`, with those from `i` on moved up. */

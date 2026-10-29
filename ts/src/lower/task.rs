@@ -178,7 +178,11 @@ pub fn call<'tcx>(
 		("Clone", "clone") if self_std == Some(Std::Waker) => first(args).member("clone").call(vec![]),
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard) => first(args).member("value"),
-			Some(Std::Pin) => first(args),
+			// A pinned `Arc` is the `Arc`, which holds its value.
+			Some(Std::Pin) => match self_ty.map(|t| t.peel_refs().kind()) {
+				Some(ty::Adt(_, pin)) if std_of(pin.type_at(0)) == Some(Std::Arc) => first(args).member("value"),
+				_ => first(args),
+			},
 			_ => return Err(args),
 		},
 		("Mutex", "new") => Expr::New(Box::new(Expr::Rt("Mutex".into())), args),
