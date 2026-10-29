@@ -25,14 +25,9 @@ Open a draft PR while working, run `just check` and `just test` before every pus
 
 # Reviews
 
-AI agents review pushes on their own. Never explicitly request a review.
-
-For each finding:
-
-- If you don't agree with it, reply to the finding and move on.
-- If it's a relatively easy improvement, fix it and push.
-
-Queue a PR only after a review from a reviewer other than Grok has no findings, or every finding is fixed or replied to.
+Review each PR locally with `/quest-review`, as the quest guide describes; merging never waits on an online reviewer, and never request one.
+The PR body's `## Review` record counts as the required review when it names the head being merged, and so does a recorded skip of a change too trivial to review.
+Address online reviewers' findings already posted on that head before merging: fix them, or reply where you disagree.
 
 # Follow-ups
 
