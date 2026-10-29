@@ -909,26 +909,42 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.stable_path(target, true, span, out)
 	}
 
-	/// `target`, a path, with the index it goes through held where it is now, and the
+	/// `target`, a path, with each index it goes through held where it is now, and the
 	/// object too unless it is `fixed`, which can't change while borrowed.
 	pub(super) fn stable_path(&mut self, target: Expr, fixed: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		self.materialize(&target, out);
-		let mut base = |fx: &mut Self, e: Expr| match fixed {
-			true => e,
-			false => fx.held_now(e, out),
-		};
 		match target {
 			Expr::Located(_, e) => self.stable_path(*e, fixed, span, out),
 			// A payload `Option::insert` lends, read as its type.
 			Expr::As(e, ty) => Expr::As(Box::new(self.stable_path(*e, fixed, span, out)), ty),
 			Expr::Ident(_) | Expr::This => target,
-			Expr::Member(object, key) => Expr::Member(Box::new(base(self, *object)), key),
+			Expr::Member(object, key) => Expr::Member(Box::new(self.stable_object(*object, fixed, out)), key),
 			Expr::Index(object, i) => {
-				let object = base(self, *object);
+				let object = self.stable_object(*object, fixed, out);
 				let i = self.held_now(*i, out);
 				Expr::Index(Box::new(object), Box::new(i))
 			}
 			_ => self.err(span, "a mutable reference passed on or kept, to a value with no place"),
+		}
+	}
+
+	/// `object`, a path's object, held where it is now unless it is `fixed`, in which case
+	/// only the indices it goes through are, as the borrow fixes the objects but not the
+	/// variables they are indexed by.
+	fn stable_object(&mut self, object: Expr, fixed: bool, out: &mut Vec<Stmt>) -> Expr {
+		if !fixed {
+			return self.held_now(object, out);
+		}
+		match object {
+			Expr::Located(loc, e) => Expr::Located(loc, Box::new(self.stable_object(*e, true, out))),
+			Expr::As(e, ty) => Expr::As(Box::new(self.stable_object(*e, true, out)), ty),
+			Expr::Member(e, key) => Expr::Member(Box::new(self.stable_object(*e, true, out)), key),
+			Expr::Index(e, i) => {
+				let e = self.stable_object(*e, true, out);
+				let i = self.held_now(*i, out);
+				Expr::Index(Box::new(e), Box::new(i))
+			}
+			e => e,
 		}
 	}
 
@@ -939,7 +955,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let name = self.b.fresh("borrowed");
 		let stmt = StmtKind::decl(false, name.clone(), None, Some(e)).at(None);
-		self.emit(vec![stmt], None, false, out);
+		self.emit(vec![stmt], false, out);
 		Expr::ident(name)
 	}
 

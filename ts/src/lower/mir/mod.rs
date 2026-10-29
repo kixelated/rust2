@@ -1753,10 +1753,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	// Emission
 
 	/// Emit the statements `stmts`, which together are one MIR statement, folding in the
-	/// pending temporaries they read once where that keeps every effect in order.
-	/// `writes` is the local the statement assigns whole. If `hold`, nothing runs now:
-	/// the statements are a value being held back itself.
-	fn emit(&mut self, stmts: Vec<Stmt>, writes: Option<&str>, hold: bool, out: &mut Vec<Stmt>) {
+	/// pending temporaries they read once where that keeps every effect in order. If
+	/// `hold`, nothing runs now: the statements are a value being held back itself.
+	fn emit(&mut self, stmts: Vec<Stmt>, hold: bool, out: &mut Vec<Stmt>) {
 		if self.pending.is_empty() {
 			out.extend(stmts);
 			return;
@@ -1816,18 +1815,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.filter(|&i| fold[i])
 			.map(|i| self.pending[i].order)
 			.min();
+		// A temporary held past a write of a name it reads would read the new value.
+		let written = assigned(&stmts);
 		let mut flush = Vec::new();
 		for (i, p) in self.pending.iter().enumerate() {
 			if fold[i] {
 				continue;
 			}
 			let read = count[i] > 0;
+			let overwritten = written.contains(&p.name) || p.reads.iter().any(|r| written.contains(r));
 			let keep = match hold {
-				true => !read,
-				false => {
-					let overwritten = writes.is_some_and(|w| w == p.name || p.reads.iter().any(|r| r == w));
-					!read && !p.effect && !p.memory && !overwritten
-				}
+				true => !read && !overwritten,
+				false => !read && !p.effect && !p.memory && !overwritten,
 			};
 			let after = first_folded.is_some_and(|f| p.order > f);
 			if !keep {
@@ -1917,7 +1916,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut stmts = pre;
 		stmts.extend(exprs.into_iter().map(|e| StmtKind::Expr(e).at(None)));
 		let mut emitted = Vec::new();
-		self.emit(stmts, None, hold, &mut emitted);
+		self.emit(stmts, hold, &mut emitted);
 		let folded = emitted
 			.drain(emitted.len() - n..)
 			.map(|s| match s.kind {
@@ -2100,7 +2099,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.uses[local] == 0 {
 					// Nothing reads it: only its effects run.
 					if effect {
-						self.emit(vec![StmtKind::Expr(value).at(None)], None, false, out);
+						self.emit(vec![StmtKind::Expr(value).at(None)], false, out);
 					}
 					return;
 				}
@@ -2135,7 +2134,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				self.assigned[local] = true;
 				let stmt = StmtKind::Expr(Expr::ident(&name).assign(value)).at(None);
-				self.emit(vec![stmt], Some(&name), false, out);
+				self.emit(vec![stmt], false, out);
 				// An aggregate assigned once and never changed: its operands, as emitted,
 				// read in place of its fields.
 				if parts.is_some()
@@ -2151,7 +2150,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			Slot::Unit => {
 				if effect {
-					self.emit(vec![StmtKind::Expr(value).at(None)], None, false, out);
+					self.emit(vec![StmtKind::Expr(value).at(None)], false, out);
 				}
 			}
 			Slot::Alias(_) | Slot::Discr(_) | Slot::Flag(_) => unreachable!("set by their own assignment"),
@@ -2192,7 +2191,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			StatementKind::SetDiscriminant { place, variant_index } => {
 				let target = self.set_discriminant(**place, *variant_index, span);
 				if let Some(stmt) = target {
-					self.emit(vec![stmt], None, false, out);
+					self.emit(vec![stmt], false, out);
 				}
 			}
 			StatementKind::Intrinsic(intrinsic) => match &**intrinsic {
@@ -2342,16 +2341,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => None,
 			};
 			if !pre.is_empty() {
-				self.emit(pre, None, false, out);
+				self.emit(pre, false, out);
 			}
 			self.set_local(local, value, effect, memory, parts, out);
 			return;
 		}
 		if !pre.is_empty() {
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 		}
 		let stmts = self.store(place, value, span);
-		self.emit(stmts, None, false, out);
+		self.emit(stmts, false, out);
 	}
 
 	/// Hold `value` in a path that reads it again for free.
@@ -2362,7 +2361,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let name = self.b.fresh(base);
 		let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
-		self.emit(vec![stmt], None, false, out);
+		self.emit(vec![stmt], false, out);
 		Expr::ident(name)
 	}
 
@@ -2419,7 +2418,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 				};
 				let loc = self.b.t.loc(span);
-				self.emit(vec![StmtKind::Return(value).at(loc)], None, false, out);
+				self.emit(vec![StmtKind::Return(value).at(loc)], false, out);
 				self.flush(out);
 				Exit::End
 			}
@@ -2428,7 +2427,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::Unreachable | TerminatorKind::Return => {
 				self.emit(
 					vec![StmtKind::Expr(Expr::rt("unreachable", vec![Expr::undefined()])).at(None)],
-					None,
 					false,
 					out,
 				);
@@ -2454,7 +2452,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							.at(None),
 						];
 					}
-					self.emit(glue, None, false, out);
+					self.emit(glue, false, out);
 				} else if self.b.t.drops(ty) {
 					let mut pre = Vec::new();
 					let value = self.place_expr(*place, span, &mut pre);
@@ -2465,7 +2463,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					if let Some(dropped) = dropped {
 						pre.push(StmtKind::Expr(dropped).at(None));
 					}
-					self.emit(pre, None, false, out);
+					self.emit(pre, false, out);
 				}
 				Exit::Goto(target.as_usize())
 			}
@@ -2675,11 +2673,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.at(self.b.t.loc(span)),
 					);
 				}
-				self.emit(pre, None, false, out);
+				self.emit(pre, false, out);
 				return;
 			}
 			pre.push(StmtKind::Expr(Expr::rt("idx", vec![slice, index])).at(self.b.t.loc(span)));
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 			return;
 		}
 		let mut pre = Vec::new();
@@ -2708,7 +2706,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An assert that always fails, such as a coroutine's after it returned.
 		if matches!(&failed, Expr::Lit(t) if t == "true") {
 			pre.push(StmtKind::Expr(panic).at(self.b.t.loc(span)));
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 			return;
 		}
 		pre.push(
@@ -2719,7 +2717,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			.at(self.b.t.loc(span)),
 		);
-		self.emit(pre, None, false, out);
+		self.emit(pre, false, out);
 	}
 
 	/// The panic of an assert that fails: the runtime's own function for a coroutine
@@ -3284,6 +3282,23 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 		}
 		_ => {}
 	}
+}
+
+/// The names `stmts` assign, anywhere in them.
+fn assigned(stmts: &[Stmt]) -> FxHashSet<String> {
+	let mut names = FxHashSet::default();
+	for stmt in stmts {
+		visit_stmt(stmt, &mut |e| {
+			visit_expr(e, &mut |e| {
+				if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
+					&& let Expr::Ident(name) = &**target
+				{
+					names.insert(name.clone());
+				}
+			})
+		});
+	}
+	names
 }
 
 fn reads_of(e: &Expr, out: &mut Vec<String>) {
