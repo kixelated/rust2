@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"noEmit": true,
+		"target": "esnext",
+		"lib": ["esnext", "dom"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"paths": { "moq/*": ["../target/moq/*"] },
+		"typeRoots": ["../target/moq/node_modules/@types"],
+		"types": ["bun"]
+	},
+	"include": ["*.ts"]
+}

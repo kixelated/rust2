@@ -20,7 +20,7 @@ export interface Config {
 }
 
 // A page has a `window` and its workers a `WorkerGlobalScope`; Node and Bun have neither.
-const browser = typeof window !== "undefined" || typeof WorkerGlobalScope !== "undefined";
+const browser = typeof window !== "undefined" || "WorkerGlobalScope" in globalThis;
 const threads = browser ? undefined : await import("node:worker_threads");
 const worker = browser ? typeof window === "undefined" : !threads?.isMainThread;
 
