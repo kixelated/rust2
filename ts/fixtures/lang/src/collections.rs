@@ -869,3 +869,124 @@ pub fn stores(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&[held.pair.1, holders[2].pair.0]);
 	out.extend_from_slice(&[pair.0, pair.1]);
 }
+
+/// What a script of operations on a map of `V`s reads, written as text: `None` apart from
+/// `Some(None)` where `V` is an `Option`, and `Some(())` where it is `()`.
+trait OptionMap<V> {
+	fn get(&self, k: u8) -> Option<&V>;
+	fn insert(&mut self, k: u8, v: V) -> Option<V>;
+	fn remove(&mut self, k: u8) -> Option<V>;
+	fn get_mut(&mut self, k: u8) -> Option<&mut V>;
+	fn sorted(&self) -> Vec<(u8, V)>;
+}
+
+impl<V: Clone> OptionMap<V> for HashMap<u8, V> {
+	fn get(&self, k: u8) -> Option<&V> {
+		HashMap::get(self, &k)
+	}
+	fn insert(&mut self, k: u8, v: V) -> Option<V> {
+		HashMap::insert(self, k, v)
+	}
+	fn remove(&mut self, k: u8) -> Option<V> {
+		HashMap::remove(self, &k)
+	}
+	fn get_mut(&mut self, k: u8) -> Option<&mut V> {
+		HashMap::get_mut(self, &k)
+	}
+	fn sorted(&self) -> Vec<(u8, V)> {
+		let mut all: Vec<(u8, V)> = self.iter().map(|(k, v)| (*k, v.clone())).collect();
+		all.sort_by_key(|(k, _)| *k);
+		all
+	}
+}
+
+impl<V: Clone> OptionMap<V> for BTreeMap<u8, V> {
+	fn get(&self, k: u8) -> Option<&V> {
+		BTreeMap::get(self, &k)
+	}
+	fn insert(&mut self, k: u8, v: V) -> Option<V> {
+		BTreeMap::insert(self, k, v)
+	}
+	fn remove(&mut self, k: u8) -> Option<V> {
+		BTreeMap::remove(self, &k)
+	}
+	fn get_mut(&mut self, k: u8) -> Option<&mut V> {
+		BTreeMap::get_mut(self, &k)
+	}
+	fn sorted(&self) -> Vec<(u8, V)> {
+		self.iter().map(|(k, v)| (*k, v.clone())).collect()
+	}
+}
+
+/// Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
+/// `value` making what `insert` and `get_mut` put.
+fn optional<V: Clone + std::fmt::Debug, M: OptionMap<V>>(
+	mut map: M,
+	data: &[u8],
+	value: fn(u8) -> V,
+	out: &mut Vec<u8>,
+) {
+	for &b in data {
+		let k = b % 8;
+		let read = match b / 8 % 4 {
+			0 => format!("{:?} ", map.insert(k, value(b))),
+			1 => format!("{:?} ", map.get(k)),
+			2 => format!("{:?} ", map.remove(k)),
+			_ => match map.get_mut(k) {
+				Some(v) => {
+					*v = value(b / 2);
+					format!("={v:?} ")
+				}
+				None => "- ".into(),
+			},
+		};
+		out.extend_from_slice(read.as_bytes());
+	}
+	out.extend_from_slice(format!("{:?}", map.sorted()).as_bytes());
+}
+
+/// `b`, unless a multiple of 3.
+fn some(b: u8) -> Option<u8> {
+	(b % 3 != 0).then_some(b)
+}
+
+/// What `Default` makes of `T`, as kio's `Shared<T>::default` makes its map.
+fn made<T: Default>() -> T {
+	T::default()
+}
+
+/// Maps whose values are `Option`s or `()`, whose `get`, `insert`, and `remove` return an
+/// `Option` of one: by key, by hash of a key that is an object, and in order.
+pub fn optionals(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match kind % 6 {
+		0 => optional(HashMap::<u8, Option<u8>>::new(), data, some, out),
+		1 => optional(made::<BTreeMap<u8, Option<u8>>>(), data, some, out),
+		2 => optional(HashMap::<u8, ()>::new(), data, |_| (), out),
+		3 => optional(BTreeMap::<u8, ()>::new(), data, |_| (), out),
+		4 => optional(
+			made::<HashMap<u8, Option<String>>>(),
+			data,
+			|b| some(b).map(|b| b.to_string()),
+			out,
+		),
+		// Keys found by their hash, and moq-net's reads of one: a `Some(None)` there, cloned
+		// and flattened, and the entry API.
+		_ => {
+			let mut map: HashMap<(u8, bool), Option<u8>> = HashMap::new();
+			for &b in data {
+				let k = (b % 4, b & 0x10 != 0);
+				let read = match b / 32 % 4 {
+					0 => map.insert(k, some(b)),
+					1 => map.get(&k).cloned(),
+					2 => map.remove(&k),
+					_ => Some(*map.entry(k).or_insert(None)),
+				};
+				let s = format!("{read:?} {:?} {} ", read.flatten(), map.contains_key(&k));
+				out.extend_from_slice(s.as_bytes());
+			}
+			let mut all: Vec<_> = map.into_iter().collect();
+			all.sort();
+			out.extend_from_slice(format!("{all:?}").as_bytes());
+		}
+	}
+}

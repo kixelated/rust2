@@ -6,11 +6,13 @@
 //! standard library calls it maps, `Option`'s and `Result`'s combinators from core's
 //! MIR, `Option`s of values that can already be `undefined`, atomics, trait objects,
 //! one-time cells, mutexes, `Cell`s, `RefCell`s, and read-write locks, the defaults of
-//! std types, and the counts of shared pointers.
+//! std types, the counts of shared pointers, arrays `array::from_fn` makes, and maps of
+//! `Option`s.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
 
+mod arrays;
 mod atomics;
 mod borrows;
 mod captures;

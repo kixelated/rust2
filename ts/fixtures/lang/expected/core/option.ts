@@ -250,7 +250,7 @@ export function map$Option_u8_Side_side(self: rt.u8 | undefined, _: (a0: rt.u8) 
 	return side(self);
 }
 
-export function map$Option_u8_String_owned_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => string): string | undefined {
+export function map$Option_u8_String_optionals_closure2_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => string): string | undefined {
 	if (self === undefined) {
 		return undefined;
 	}

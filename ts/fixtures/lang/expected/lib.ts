@@ -4,6 +4,7 @@ import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as Any from "./core/any.Any.ts";
 import type * as Window from "./durations.Window.ts";
+import type * as Pair from "./fmt.Pair.ts";
 import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
@@ -15,7 +16,7 @@ import type * as Halves from "./pointers.Halves.ts";
 import type * as Inner from "./pointers.Inner.ts";
 import * as List from "./pointers.List.ts";
 import type * as Outer from "./pointers.Outer.ts";
-import type * as Pair from "./pointers.Pair.ts";
+import type * as pointers_Pair from "./pointers.Pair.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -23,6 +24,10 @@ import type * as Level from "./shapes.Level.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
+
+export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> {
+	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.u64>;
+}
 
 export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
 	return { _0: v._0 };
@@ -109,8 +114,8 @@ export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined)
 	return v === undefined ? v : copy$Mutex_u8_u8(v);
 }
 
-export function copy$Option_Pair(v: Pair.Pair | undefined): Pair.Pair | undefined {
-	return v === undefined ? v : copy$Pair(v);
+export function copy$Option_Pair(v: pointers_Pair.Pair | undefined): pointers_Pair.Pair | undefined {
+	return v === undefined ? v : copy$Pair$2(v);
 }
 
 export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | undefined {
@@ -142,6 +147,10 @@ export function copy$Outer(v: Outer.Outer): Outer.Outer {
 }
 
 export function copy$Pair(v: Pair.Pair): Pair.Pair {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$Pair$2(v: pointers_Pair.Pair): pointers_Pair.Pair {
 	return { a: v.a, b: v.b };
 }
 
@@ -207,6 +216,18 @@ export function copy$chars(v: rt.char[]): rt.char[] {
 	return v.slice();
 }
 
+export function copy$dyn_Anys(v: Any.Any[]): Any.Any[] {
+	return v.slice();
+}
+
+export function copy$str_forabfnu8au8bmutstdvecVecu8(v: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void] {
+	return [v[0], v[1]];
+}
+
+export function copy$str_forabfnu8au8bmutstdvecVecu8s(v: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][]): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][] {
+	return v.map(copy$str_forabfnu8au8bmutstdvecVecu8);
+}
+
 export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
 	return [v[0], v[1]];
 }
@@ -241,6 +262,10 @@ export function copy$u8_String(v: [rt.u8, string]): [rt.u8, string] {
 
 export function copy$u8_Tally(v: [rt.u8, Tally.Tally]): [rt.u8, Tally.Tally] {
 	return [v[0], copy$Tally(v[1])];
+}
+
+export function copy$u8_bool(v: [rt.u8, boolean]): [rt.u8, boolean] {
+	return [v[0], v[1]];
 }
 
 export function copy$u8_str(v: [rt.u8, string]): [rt.u8, string] {
