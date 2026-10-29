@@ -8,13 +8,13 @@ export class Countdown {
 	left: rt.u32;
 	guard: Guard.Guard;
 
-	constructor(fields: { left: rt.u32; guard: Guard.Guard }) {
-		this.left = fields.left;
-		this.guard = fields.guard;
+	constructor(left: rt.u32, guard: Guard.Guard) {
+		this.left = left;
+		this.guard = guard;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.guard);
+		this.guard[Symbol.dispose]();
 	}
 }
 

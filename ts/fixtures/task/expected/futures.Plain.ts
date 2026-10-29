@@ -13,14 +13,14 @@ export class Plain {
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this._0);
+		this._0[Symbol.dispose]();
 	}
 }
 
 export function wake$Wake(self: rt.Arc<Plain>): void {
 	Guard.note(self.value._0.guard, "plain wake");
 	self.value._0.task.wakeByRef();
-	rt.drop(self);
+	self[Symbol.dispose]();
 }
 
 //# sourceMappingURL=futures.Plain.ts.map

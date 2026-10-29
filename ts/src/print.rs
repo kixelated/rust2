@@ -526,20 +526,6 @@ impl Printer<'_> {
 						self.start();
 						self.write("}\n");
 					}
-					Ctor::Named => {
-						let params: Vec<String> = (names.iter().zip(fields))
-							.map(|(name, field)| format!("{name}: {}", self.ty(&field.ty)))
-							.collect();
-						self.newline();
-						self.start();
-						self.write(&format!("constructor(fields: {{ {} }}) {{\n", params.join("; ")));
-						for name in &names {
-							self.start();
-							self.write(&format!("{INDENT}this.{name} = fields.{name};\n"));
-						}
-						self.start();
-						self.write("}\n");
-					}
 				}
 				for method in self.program.methods.get(sym).into_iter().flatten() {
 					self.newline();
