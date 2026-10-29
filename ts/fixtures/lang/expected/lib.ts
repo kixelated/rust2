@@ -11,7 +11,11 @@ import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
 import type * as locks_Tally from "./locks.Tally.ts";
+import type * as Halves from "./pointers.Halves.ts";
+import type * as Inner from "./pointers.Inner.ts";
 import * as List from "./pointers.List.ts";
+import type * as Outer from "./pointers.Outer.ts";
+import type * as Pair from "./pointers.Pair.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -50,6 +54,10 @@ export function copy$Gauge(v: Gauge.Gauge): Gauge.Gauge {
 	return { level: v.level };
 }
 
+export function copy$Halves(v: Halves.Halves): Halves.Halves {
+	return ({ at0: copy$MaybeUninit_u32s(v.at0) } as unknown) as Halves.Halves;
+}
+
 export function copy$Held(v: Held.Held): Held.Held {
 	return { at: copy$Point(v.at) };
 }
@@ -62,6 +70,10 @@ export function copy$Horizon(v: Horizon.Horizon): Horizon.Horizon {
 	return { exclude: copy$Option_Hop(v.exclude), local: v.local };
 }
 
+export function copy$Inner(v: Inner.Inner): Inner.Inner {
+	return { a: v.a, b: v.b };
+}
+
 export function copy$Lens(v: Lens.Lens): Lens.Lens {
 	return { slot: v.slot, n: v.n };
 }
@@ -72,6 +84,13 @@ export function copy$Level(v: Level.Level): Level.Level {
 
 export function copy$Mark(v: Mark.Mark): Mark.Mark {
 	return { at: v.at };
+}
+
+export function copy$MaybeUninit_u32s(v: rt.u32[]): rt.u32[] {
+	if (v === undefined) {
+		return v;
+	}
+	return v.slice();
 }
 
 export function copy$Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8]): [rt.Mutex<rt.u8>, rt.u8] {
@@ -88,6 +107,10 @@ export function copy$Option_Hop(v: Hop.Hop | undefined): Hop.Hop | undefined {
 
 export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined): [rt.Mutex<rt.u8>, rt.u8] | undefined {
 	return v === undefined ? v : copy$Mutex_u8_u8(v);
+}
+
+export function copy$Option_Pair(v: Pair.Pair | undefined): Pair.Pair | undefined {
+	return v === undefined ? v : copy$Pair(v);
 }
 
 export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | undefined {
@@ -108,6 +131,14 @@ export function copy$Option_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8]
 
 export function copy$Option_usize_u8(v: [rt.usize, rt.u8] | undefined): [rt.usize, rt.u8] | undefined {
 	return v === undefined ? v : copy$usize_u8(v);
+}
+
+export function copy$Outer(v: Outer.Outer): Outer.Outer {
+	return { inner: copy$Inner(v.inner), pair: copy$u32_u32(v.pair), n: v.n };
+}
+
+export function copy$Pair(v: Pair.Pair): Pair.Pair {
+	return { a: v.a, b: v.b };
 }
 
 export function copy$Point(v: Point.Point): Point.Point {
@@ -131,7 +162,7 @@ export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8]
 }
 
 export function copy$Result_u32s_u16(v: rt.Result<rt.u32[], rt.u16>): rt.Result<rt.u32[], rt.u16> {
-	return v.ok ? rt.Ok(copy$u32s(v.value)) : rt.Err(v.error);
+	return v.ok ? rt.Ok(copy$u32s$2(v.value)) : rt.Err(v.error);
 }
 
 export function copy$Result_u8s_u8s_Option_u8(v: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined>): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
@@ -172,8 +203,20 @@ export function copy$chars(v: rt.char[]): rt.char[] {
 	return v.slice();
 }
 
-export function copy$u32s(v: rt.u32[]): rt.u32[] {
+export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
+	return [v[0], v[1]];
+}
+
+export function copy$u32s(v: [rt.u32[]]): [rt.u32[]] {
+	return [copy$u32s$2(v[0])];
+}
+
+export function copy$u32s$2(v: rt.u32[]): rt.u32[] {
 	return v.slice();
+}
+
+export function copy$u8_Arc_u8(v: [rt.u8, rt.Arc<rt.u8>]): [rt.u8, rt.Arc<rt.u8>] {
+	return [v[0], v[1]];
 }
 
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
@@ -181,6 +224,10 @@ export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Ho
 }
 
 export function copy$u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] {
+	return [v[0], v[1]];
+}
+
+export function copy$u8_String(v: [rt.u8, string]): [rt.u8, string] {
 	return [v[0], v[1]];
 }
 

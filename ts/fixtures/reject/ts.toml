@@ -70,5 +70,8 @@ roots = [
     "vec_pointer",
     "bits",
     "places_compared",
+    "part_replaced",
+    "variable_reassigned",
+    "element_pointer",
 ]
 printable = ["Meters"]

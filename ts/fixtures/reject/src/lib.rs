@@ -605,3 +605,32 @@ pub fn places_compared(n: &mut u32) -> bool {
 	let b = &raw mut *n;
 	a == b
 }
+
+pub struct Span2 {
+	pub start: (u32, u32),
+	pub len: u32,
+}
+
+/// A pointer to a part kept as an object, which a write of the whole part elsewhere
+/// replaces with another object.
+pub fn part_replaced(n: u32) -> u32 {
+	let mut s = Span2 { start: (n, n), len: n };
+	let p = &raw mut s.start;
+	s.start = (0, 0);
+	unsafe { (*p).0 + s.len }
+}
+
+/// A pointer to a variable's object, which an assignment of the whole variable replaces.
+pub fn variable_reassigned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+/// A pointer to an element kept as an object.
+pub fn element_pointer(n: u32) -> u32 {
+	let mut pairs = [(n, n); 2];
+	let p = &raw mut pairs[1];
+	unsafe { (*p).0 }
+}

@@ -9,7 +9,7 @@ use rustc_data_structures::fx::FxHashSet;
 use rustc_middle::mir::interpret::{GlobalId, Scalar};
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, ProjectionElem};
-use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::{Env, Fx, Pending, Slot};
@@ -1398,5 +1398,95 @@ fn from_held(path: Expr, held: &Expr) -> Expr {
 		Expr::Index(e, i) => Expr::Index(from(e), i),
 		Expr::As(e, ty) => Expr::As(from(e), ty),
 		_ => held.clone(),
+	}
+}
+
+impl<'tcx> Fx<'_, '_, '_, 'tcx> {
+	/// Why a raw pointer made of `place` here would not keep pointing where Rust's does, if
+	/// it would not: JS keeps each part on its path that is an object, from what the last
+	/// pointer on it points at or from a local, in an object the crate may give another
+	/// object in its place, which the pointer would not see.
+	pub(super) fn out_of_step(&self, place: Place<'tcx>) -> Option<String> {
+		let (tcx, decls, t) = (self.tcx, &self.mir.local_decls, &self.b.t);
+		let elems = place.projection.as_slice();
+		let start = elems
+			.iter()
+			.rposition(|e| matches!(e, ProjectionElem::Deref))
+			.map_or(0, |i| i + 1);
+		let object = |ty: Ty<'tcx>| {
+			!(t.polymorphic() && ty.has_param()) && t.pointee(ty) == crate::lower::pointer::Pointee::Object
+		};
+		for i in start..elems.len() {
+			let base = Place::ty_from(place.local, &elems[..i], decls, tcx).ty;
+			let ty = Place::ty_from(place.local, &elems[..=i], decls, tcx).ty;
+			if !object(ty)
+				|| matches!(
+					elems[i],
+					ProjectionElem::OpaqueCast(_) | ProjectionElem::UnwrapUnsafeBinder(_)
+				) {
+				continue;
+			}
+			let field = matches!(elems[i], ProjectionElem::Field(..))
+				&& matches!(base.kind(), ty::Tuple(_) | ty::Adt(..))
+				&& !base.is_union()
+				&& !base.is_enum()
+				&& elems[..i]
+					.last()
+					.is_none_or(|e| !matches!(e, ProjectionElem::Downcast(..)));
+			if !field {
+				return Some(format!(
+					"a raw pointer to `{ty}` in an element, a payload, or a union field, which is not supported yet"
+				));
+			}
+			if t.replaced(base) {
+				return Some(format!(
+					"a raw pointer to `{ty}` in `{base}`, which the crate may put another object in place of"
+				));
+			}
+		}
+		let ty = place.ty(decls, tcx).ty;
+		if start == 0 && object(ty) && self.assigned_after(place.local) {
+			return Some(format!(
+				"a raw pointer to `{ty}` in a variable assigned again while it may point there"
+			));
+		}
+		None
+	}
+
+	/// Whether `local` may be assigned whole after the statement being lowered, before its
+	/// storage ends.
+	fn assigned_after(&self, local: Local) -> bool {
+		let blocks = &self.mir.basic_blocks;
+		let mut seen = FxHashSet::default();
+		let mut stack = vec![(self.at.block, self.at.statement_index + 1)];
+		while let Some((bb, from)) = stack.pop() {
+			let data = &blocks[bb];
+			let mut ended = false;
+			for stmt in &data.statements[from.min(data.statements.len())..] {
+				match &stmt.kind {
+					mir::StatementKind::StorageDead(l) | mir::StatementKind::StorageLive(l) if *l == local => {
+						ended = true;
+						break;
+					}
+					mir::StatementKind::Assign(assign) if assign.0.as_local() == Some(local) => return true,
+					_ => {}
+				}
+			}
+			if ended {
+				continue;
+			}
+			let term = data.terminator();
+			if let mir::TerminatorKind::Call { destination, .. } = &term.kind
+				&& destination.as_local() == Some(local)
+			{
+				return true;
+			}
+			for next in term.successors() {
+				if seen.insert(next) {
+					stack.push((next, 0));
+				}
+			}
+		}
+		false
 	}
 }

@@ -34,8 +34,9 @@ none of its own `unsafe`.
 - `&raw const *r` where `r` is a `&T` to a value JS copies or a library object, such as
   foldhash's seed and arrayvec's `as_ptr`: the reference is the value, not where it is
   kept, so it needs the place the reference came from.
-- A raw read or write of a whole object copies it one level deep, as an assignment
-  through a `&mut` does, so a pointer into a nested aggregate does not see a whole write
-  of the outer one. Prove where that differs before widening it.
+- A pointer to a part kept as an object is refused where the crate may put another
+  object there, judged by type over the whole program: a generic function writing a whole
+  `T` counts for every `T` its bounds allow. Judge by the instances translation reaches
+  if a consumer's pointer is refused only by that.
 
 Public API: the translator's output.

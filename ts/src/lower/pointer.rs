@@ -7,11 +7,13 @@
 //! keeps it. Null is `rt.NULL`, and a dangling pointer `rt.DANGLING`.
 //!
 //! A whole value written through a pointer to an object is copied into that object, so
-//! every pointer to it sees the write, and one read out of it is a copy of it, so a later
-//! write leaves it be. Both go one object deep, as `*r = v` does through a `&mut`.
+//! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
+//! a `&mut`, so a pointer to a part kept as an object is refused wherever the crate may
+//! give that part another object. A value read out is a copy of what the crate writes
+//! into in place, so a later write leaves it be.
 //!
 //! A `MaybeUninit<T>` is a `T`: `undefined` where JS copies a `T` and it holds none yet,
-//! or an object with none of its parts yet where a pointer to it is the object.
+//! or an object whose parts hold none yet where a pointer to it is the object.
 
 use rustc_middle::ty::{self, Ty, TypeVisitableExt};
 use rustc_span::Span;
@@ -19,7 +21,7 @@ use rustc_span::Span;
 use super::body::Body;
 use super::library::{Call, Std, targ};
 use super::{AdtRepr, ObjectKind, Translator};
-use crate::ts::{Expr, Stmt, StmtKind, Type};
+use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
 
 /// What a raw pointer to a type is in JS.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -80,25 +82,47 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// A `MaybeUninit<ty>` that holds nothing yet.
+	/// A `MaybeUninit<ty>` that holds nothing yet: its parts kept as objects are there, so
+	/// a pointer to one can initialize it, holding nothing yet themselves.
 	fn uninit(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
 		let ts_ty = self.ty(ty, span);
-		let empty = match (self.pointee(ty), ty.kind()) {
-			(Pointee::Object, ty::Tuple(tys)) => Expr::Array(tys.iter().map(|_| Expr::undefined()).collect()),
+		let empty = self.shell(ty, span);
+		Expr::As(Box::new(Expr::As(Box::new(empty), Type::Builtin("unknown"))), ts_ty)
+	}
+
+	/// What a `MaybeUninit<ty>` that holds nothing yet is, untyped.
+	fn shell(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
+		let ty = self.uninit_inner(ty);
+		match (self.pointee(ty), ty.kind()) {
+			(Pointee::Object, ty::Tuple(tys)) => Expr::Array(tys.iter().map(|t| self.shell(t, span)).collect()),
 			(Pointee::Object, ty::Array(elem, len)) => {
-				let len = len.try_to_target_usize(self.tcx).unwrap_or(0);
-				match elem.kind() {
-					ty::Uint(ty::UintTy::U8) => {
-						Expr::New(Box::new(Expr::ident("Uint8Array")), vec![Expr::lit(len.to_string())])
+				let len = Expr::lit(len.try_to_target_usize(self.tcx).unwrap_or(0).to_string());
+				match (elem.kind(), self.pointee(*elem)) {
+					(ty::Uint(ty::UintTy::U8), _) => Expr::New(Box::new(Expr::ident("Uint8Array")), vec![len]),
+					(_, Pointee::Place) => Expr::New(Box::new(Expr::ident("Array")), vec![len]),
+					(_, Pointee::Object) => {
+						let elem_ty = self.ty(*elem, span);
+						let each = Expr::Arrow(
+							Vec::new(),
+							elem_ty,
+							vec![StmtKind::Return(Some(self.uninit(*elem, span))).at(None)],
+						);
+						let length = Expr::Object(vec![(Key::Name("length".into()), len)]);
+						Expr::ident("Array").member("from").call(vec![length, each])
 					}
-					_ => Expr::New(Box::new(Expr::ident("Array")), vec![Expr::lit(len.to_string())]),
 				}
 			}
-			(Pointee::Object, ty::Adt(adt, _)) => {
+			(Pointee::Object, ty::Adt(adt, args)) => {
 				let info = self.adt(*adt, span);
 				match info.repr {
 					AdtRepr::Struct { ctor, fields } => {
-						let values = fields.iter().map(|_| Expr::undefined()).collect();
+						let tys: Vec<Ty<'tcx>> = adt
+							.non_enum_variant()
+							.fields
+							.iter()
+							.map(|f| self.field_ty(f.did, args))
+							.collect();
+						let values = tys.into_iter().map(|t| self.shell(t, span)).collect();
 						self.construct(info.sym, &ctor, &fields, values)
 					}
 					AdtRepr::Slots(_) => Expr::Object(Vec::new()),
@@ -106,8 +130,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 			}
 			_ => Expr::undefined(),
-		};
-		Expr::As(Box::new(Expr::As(Box::new(empty), Type::Builtin("unknown"))), ts_ty)
+		}
 	}
 }
 
@@ -121,6 +144,29 @@ pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 			("MaybeUninit", "as_mut_ptr" | "write" | "assume_init_mut" | "assume_init_drop")
 				| ("NonNull" | "ptr", "as_mut")
 				| ("Box", "leak")
+		)
+	)
+}
+
+/// Whether std's `def_id` is one this module maps that only points a pointer elsewhere,
+/// reads through it, or drops what it points at, so it gives no part another object.
+pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if matches!(
+			(owner.as_str(), name.as_str()),
+			(
+				"MaybeUninit",
+				"new" | "uninit" | "as_ptr" | "as_mut_ptr" | "assume_init" | "assume_init_ref" | "assume_init_mut"
+					| "assume_init_read" | "assume_init_drop"
+			) | (
+				"NonNull",
+				"new" | "new_unchecked" | "dangling" | "as_ptr" | "as_ref" | "as_mut" | "cast" | "cast_const" | "cast_mut"
+			) | (
+				"ptr",
+				"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "as_ref" | "as_mut" | "cast" | "cast_const"
+					| "cast_mut" | "eq" | "read" | "read_unaligned" | "read_volatile" | "drop_in_place"
+			) | ("Box", "into_raw" | "leak" | "from_raw")
 		)
 	)
 }
@@ -284,13 +330,7 @@ pub fn call<'tcx>(
 			p
 		}
 		// A shared reference to a value JS copies is the value.
-		("MaybeUninit", "assume_init_read") => match kind(b, pointee()) {
-			Some(Pointee::Place) => {
-				let value = arg();
-				b.t.copied(value, pointee(), span)
-			}
-			_ => Expr::rt("ptrRead", vec![arg()]),
-		},
+		("MaybeUninit", "assume_init_read") => b.t.snapshot(arg(), pointee(), span),
 		("MaybeUninit", "assume_init_drop") => {
 			let p = arg();
 			let value = match kind(b, pointee()) {
@@ -318,11 +358,11 @@ fn pointer_self<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'t
 
 /// The value `p`, a pointer to `ty`, points at, as a value of its own.
 fn read<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
-	let _ = span;
-	match b.t.pointee(ty) {
+	let value = match b.t.pointee(ty) {
 		Pointee::Place => p.member("v"),
-		Pointee::Object => Expr::rt("ptrRead", vec![p]),
-	}
+		Pointee::Object => p,
+	};
+	b.t.snapshot(value, ty, span)
 }
 
 /// The write of `value`, a `ty`, where `p` points.

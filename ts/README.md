@@ -87,8 +87,8 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
-| `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A read or write of a whole object copies it one level deep, as an assignment through a `&mut` does |
-| `MaybeUninit<T>` | `T`, `undefined` until written, or an object of `undefined` fields |
+| `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
+| `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
 | `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |

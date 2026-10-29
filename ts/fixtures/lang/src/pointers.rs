@@ -1,7 +1,7 @@
 //! Raw pointers: a circular list of boxed nodes as `hashlink`'s `LinkedHashMap` keeps one,
 //! linked through a union and holding a `MaybeUninit` entry, with a free list of nodes to
-//! reuse; and pointers to numbers, to fields, and to whole values, read, written,
-//! swapped, and compared.
+//! reuse; pointers to numbers, to fields, and to whole values, read, written, swapped,
+//! and compared; and pointers to the parts of a struct kept as objects.
 
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
@@ -323,4 +323,101 @@ pub fn unchecked(data: &[u8], out: &mut Vec<u8>) {
 		ptr::drop_in_place(dropped.as_mut_ptr());
 	}
 	out.push(Arc::strong_count(&held) as u8);
+}
+
+#[derive(Clone, Copy)]
+struct Inner {
+	a: u32,
+	b: u32,
+}
+
+struct Outer {
+	inner: Inner,
+	pair: (u32, u32),
+	n: u32,
+}
+
+/// Pointers to the parts of a struct kept as objects: initialized one by one from nothing,
+/// written through the struct's pointer and their own, and read out before a write.
+pub fn nested(data: &[u8], out: &mut Vec<u8>) {
+	let mut slot = MaybeUninit::<Outer>::uninit();
+	let p = slot.as_mut_ptr();
+	let (inner, pair) = unsafe { (&raw mut (*p).inner, &raw mut (*p).pair) };
+	unsafe {
+		inner.write(Inner { a: 1, b: 2 });
+		pair.write((3, 4));
+		(&raw mut (*p).n).write(5);
+	}
+	for &byte in data {
+		let v = u32::from(byte);
+		unsafe {
+			match byte % 6 {
+				0 => (*p).inner.a = v,
+				1 => inner.write(Inner { a: v, b: (*inner).a }),
+				2 => (*pair).1 += v,
+				3 => {
+					let old = p.read();
+					(*inner).b = v;
+					out.push(old.inner.b as u8);
+				}
+				4 => {
+					let old = pair.read();
+					(*p).pair.0 = v;
+					out.push(old.0 as u8);
+				}
+				_ => out.push((*inner).a as u8 ^ (*pair).0 as u8),
+			}
+		}
+	}
+	let outer = unsafe { slot.assume_init() };
+	let Outer { inner, pair, n } = outer;
+	out.extend_from_slice(&[inner.a as u8, inner.b as u8, pair.0 as u8, pair.1 as u8, n as u8]);
+}
+
+#[derive(Clone, Copy)]
+union Halves {
+	a: [u32; 2],
+	b: [u32; 2],
+}
+
+/// Copies of a `MaybeUninit` and of a union holding arrays, each changed after, and values
+/// read out through pointers before what they point at changes.
+pub fn copies(data: &[u8], out: &mut Vec<u8>) {
+	for &byte in data {
+		let v = u32::from(byte);
+		let mut x = MaybeUninit::new([v; 4]);
+		let y = x;
+		x.write([v ^ 1; 4]);
+		let h = Halves { a: [v, v + 1] };
+		let mut g = h;
+		unsafe { g.b[0] = v + 2 };
+		let mut held = Some(Pair { a: v, b: 0 });
+		let p = &raw mut held;
+		let old = unsafe { p.read() };
+		if let Some(pair) = unsafe { &mut *p } {
+			pair.a = v + 3;
+		}
+		let (before, after) = snapshot(v);
+		unsafe {
+			out.extend_from_slice(&[
+				y.assume_init()[0] as u8,
+				x.assume_init()[0] as u8,
+				h.a[0] as u8,
+				g.a[0] as u8,
+				old.map_or(0, |o| o.a as u8),
+				held.map_or(0, |o| o.a as u8),
+				before,
+				after,
+			]);
+		}
+	}
+}
+
+/// What a pointer to a tuple holding an array reads, and what the tuple holds after.
+fn snapshot(v: u32) -> (u8, u8) {
+	let mut nest = ([v, 1u32],);
+	let q = &raw mut nest;
+	let before = unsafe { q.read() };
+	nest.0[0] = v + 4;
+	(before.0[0] as u8, nest.0[0] as u8)
 }

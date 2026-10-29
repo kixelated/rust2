@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 90
-- Function instances: 98
+- Refusals: 93
+- Function instances: 101
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -49,6 +49,9 @@
 | 1 | a pointer's address, which JS has no counterpart of | fixtures/reject/src/lib.rs:570:17 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:92:1 |
 | 1 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | fixtures/reject/src/lib.rs:587:10 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:618:10 |
+| 1 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:626:10 |
+| 1 | a raw pointer to `_` in an element, a payload, or a union field, which is not supported yet | fixtures/reject/src/lib.rs:634:10 |
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | fixtures/reject/src/lib.rs:496:26 |
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:62:2 |
@@ -77,6 +80,7 @@ The type or module each refused type or path belongs to.
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:268:52 |
 | 4 | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 4 | `u8` | fixtures/reject/src/lib.rs:80:2 |
+| 3 | `(u32, u32)` | fixtures/reject/src/lib.rs:618:10 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:369:13 |
 | 2 | `HashMap` | fixtures/reject/src/lib.rs:263:6 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:85:2 |
@@ -101,6 +105,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:294:9 |
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
+| 1 | `Span2` | fixtures/reject/src/lib.rs:618:10 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:506:30 |
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:517:2 |
@@ -166,6 +171,9 @@ The type or module each refused type or path belongs to.
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | `std::vec::Vec` | fixtures/reject/src/lib.rs:587:10 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Span2` | fixtures/reject/src/lib.rs:618:10 |
+| 1 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:626:10 |
+| 1 | a raw pointer to `_` in an element, a payload, or a union field, which is not supported yet | `(u32, u32)` | fixtures/reject/src/lib.rs:634:10 |
 | 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:496:26 |
 | 1 | a zero-sized constant of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
@@ -486,6 +494,24 @@ The type or module each refused type or path belongs to.
 <details><summary>a raw pointer to `_` behind a reference, which is the object and not where it is kept (1)</summary>
 
 - fixtures/reject/src/lib.rs:587:10: a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept
+
+</details>
+
+<details><summary>a raw pointer to `_` in `_`, which the crate may put another object in place of (1)</summary>
+
+- fixtures/reject/src/lib.rs:618:10: a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of
+
+</details>
+
+<details><summary>a raw pointer to `_` in a variable assigned again while it may point there (1)</summary>
+
+- fixtures/reject/src/lib.rs:626:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+
+</details>
+
+<details><summary>a raw pointer to `_` in an element, a payload, or a union field, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:634:10: a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet
 
 </details>
 
