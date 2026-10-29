@@ -241,6 +241,21 @@ pub(super) fn fns(log: &Log, id: u32) {
 	log.note(format!("run {}", run(boxed)));
 	log.note(format!("run {}", run(Box::new(move || o.id()))));
 	log.note("ran".into());
+	// So does one std's `Option::map` consumes, and an iterator's adaptor drops its own.
+	let (p, q) = (guard(15), guard(16));
+	let add: Box<dyn Fn(u32) -> u32> = Box::new(move |x| x + q.id());
+	log.note(format!("map {:?}", Some(1).map(add)));
+	let s = guard(18);
+	let scale: Box<dyn FnMut(&u32) -> u32> = Box::new(move |x| x * s.id());
+	let total: u32 = [1, 2].iter().map(scale).sum();
+	log.note(format!("sum {total}"));
+	let r = guard(17);
+	let init: Box<dyn Fn() -> u32> = Box::new(move || r.id());
+	let unused: Box<dyn Fn() -> u32> = Box::new(move || p.id());
+	let cell: std::cell::OnceCell<u32> = std::cell::OnceCell::default();
+	let got = *cell.get_or_init(init);
+	log.note(format!("cell {got}"));
+	log.note(format!("cell {}", cell.get_or_init(unused)));
 }
 
 /// Call `f` once, which consumes it.

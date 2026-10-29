@@ -670,7 +670,7 @@ fn called_closures<'tcx>(
 			continue;
 		};
 		let ty = call.args[param.index as usize].expect_ty();
-		let ty::Closure(_, closure) = ty.kind() else {
+		let Some(called) = b.t.owned_fn(ty) else {
 			continue;
 		};
 		let Some(bound) = called_by(tcx, call.def_id, input) else {
@@ -706,8 +706,7 @@ fn called_closures<'tcx>(
 			closures.leaked = closures.leaked.or(Some(ty));
 			continue;
 		}
-		if bound == ty::ClosureKind::FnOnce && closure.as_closure().kind() != ty::ClosureKind::FnOnce && i < args.len()
-		{
+		if bound == ty::ClosureKind::FnOnce && called != ty::ClosureKind::FnOnce && i < args.len() {
 			let f = std::mem::replace(&mut args[i], Expr::undefined());
 			args[i] = Expr::rt("once", vec![f]);
 		}

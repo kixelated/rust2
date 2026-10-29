@@ -78,6 +78,20 @@ impl<'tcx> Translator<'_, 'tcx> {
 		})
 	}
 
+	/// The function trait that calls the closure or `dyn Fn*` that `ty` is, or boxes.
+	pub fn owned_fn(&self, mut ty: Ty<'tcx>) -> Option<ty::ClosureKind> {
+		while let ty::Adt(adt, args) = ty.kind()
+			&& Std::of(self.tcx, adt.did()) == Some(Std::Box)
+		{
+			ty = args.type_at(0);
+		}
+		match ty.kind() {
+			ty::Closure(_, args) => Some(args.as_closure().kind()),
+			ty::Dynamic(..) => self.dyn_fn(ty).map(|f| f.kind),
+			_ => None,
+		}
+	}
+
 	/// The trait of the trait object `ty`, a `dyn Trait`, made the first time.
 	pub fn object(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Object> {
 		let tcx = self.tcx;
@@ -452,14 +466,11 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		if !from.is_box() || !self.t.drops(ty) {
 			return value;
 		}
-		let called = match ty.kind() {
-			ty::Closure(_, args) => Some(args.as_closure().kind()),
-			ty::Dynamic(..) => self.t.dyn_fn(ty).map(|f| f.kind),
-			_ => None,
-		};
 		match owned {
 			false => Expr::rt("lent", vec![value]),
-			true if kind == ty::ClosureKind::FnOnce && called.is_some_and(|c| c != ty::ClosureKind::FnOnce) => {
+			true if kind == ty::ClosureKind::FnOnce
+				&& self.t.owned_fn(from).is_some_and(|c| c != ty::ClosureKind::FnOnce) =>
+			{
 				Expr::rt("once", vec![value])
 			}
 			true => value,

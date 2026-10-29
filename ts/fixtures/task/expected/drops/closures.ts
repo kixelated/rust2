@@ -2,7 +2,7 @@
 
 import * as rt from "../rt.ts";
 import { thenSome$bool_u32, then$bool_Guard_folded_closure50_closure0, then$bool_u32_discarded_closure13, then$bool_u32_discarded_closure17 } from "../core/bool.ts";
-import { map$Option_Guard_u32_folded_closure5_closure0, map$Option_u32_u32_discarded_closure1, map$Option_u32_u32_discarded_closure15, mapOr$Option_u32_u32_discarded_closure11 } from "../core/option.ts";
+import { map$Option_Guard_u32_folded_closure5_closure0, map$Option_u32_u32_Box_dyn_Fn_u32_u32, map$Option_u32_u32_discarded_closure1, mapOr$Option_u32_u32_discarded_closure11 } from "../core/option.ts";
 import { map$Result_u32_u32_u32_discarded_closure3, mapErr$Result_u32_u32_u32_discarded_closure5, inspectErr$Result_u32_u32_discarded_closure10, andThen$Result_u32_u32_u32_discarded_closure7 } from "../core/result.ts";
 import * as Holder from "../drops/closures.Holder.ts";
 import * as Log from "../log.Log.ts";
@@ -306,12 +306,12 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		rt.drop(captured16);
 	});
-	const _181: rt.u32 | undefined = map$Option_u32_u32_discarded_closure15(some, rt.closure((n13: rt.u32): rt.u32 => {
+	const _181: rt.u32 | undefined = map$Option_u32_u32_Box_dyn_Fn_u32_u32(some, rt.closure((n13: rt.u32): rt.u32 => {
 		return rt.u32Add(n13, Guard.id(captured15));
 	}, (): void => {
 		rt.drop(captured15);
 	}));
-	const _183: rt.u32 | undefined = map$Option_u32_u32_discarded_closure15(none, other);
+	const _183: rt.u32 | undefined = map$Option_u32_u32_Box_dyn_Fn_u32_u32(none, other);
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_181, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(_183, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["by ref ", args12[0], " ", args12[1]]));
 	const _191: [Guard.Guard, Guard.Guard] = [guard(18), guard(19)];

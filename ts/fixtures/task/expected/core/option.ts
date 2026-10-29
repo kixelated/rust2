@@ -72,6 +72,24 @@ export function map$Option_Result_Box_Guard_Box_dyn_Any_bool_anys_closure2(self:
 	return f(self);
 }
 
+export function map$Option_u32_u32_Box_dyn_Fn_u32_u32(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
+	let _0!: rt.u32 | undefined;
+	let _8: boolean = false;
+	_8 = true;
+	if (self === undefined) {
+		_0 = undefined;
+	} else {
+		const x: rt.u32 = self;
+		_8 = false;
+		_0 = rt.callOnce(f, x);
+	}
+	if (_8) {
+		rt.drop(f);
+		return _0;
+	}
+	return _0;
+}
+
 export function map$Option_u32_u32_discarded_closure1(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _8: boolean = false;
@@ -82,24 +100,6 @@ export function map$Option_u32_u32_discarded_closure1(self: rt.u32 | undefined, 
 		const x: rt.u32 = self;
 		_8 = false;
 		_0 = f(x);
-	}
-	if (_8) {
-		rt.drop(f);
-		return _0;
-	}
-	return _0;
-}
-
-export function map$Option_u32_u32_discarded_closure15(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
-	let _0!: rt.u32 | undefined;
-	let _8: boolean = false;
-	_8 = true;
-	if (self === undefined) {
-		_0 = undefined;
-	} else {
-		const x: rt.u32 = self;
-		_8 = false;
-		_0 = rt.callOnce(f, x);
 	}
 	if (_8) {
 		rt.drop(f);

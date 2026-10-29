@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import { drop$Held, drop$Option_Arc_Guard_Guard, drop$Option_Result_Box_Guard_Box_dyn_Any, drop$Result_Box_Guard_Box_dyn_Any, drop$Wrap_u32 } from "../lib.ts";
 import * as Any from "../core/any.Any.ts";
-import { map$Option_Arc_Guard_Guard_u32_usize_anys_closure3, map$Option_Box_dyn_Any_Result_Box_Guard_Box_dyn_Any_anys_closure1, map$Option_Box_dyn_Part_u32_take, map$Option_Result_Box_Guard_Box_dyn_Any_bool_anys_closure2, mapOr$Option_Arc_dyn_Part_u32_shared_closure3, mapOr$Option_Box_dyn_Part_u32_boxed_closure2 } from "../core/option.ts";
+import { map$Option_Arc_Guard_Guard_u32_usize_anys_closure3, map$Option_Box_dyn_Any_Result_Box_Guard_Box_dyn_Any_anys_closure1, map$Option_Box_dyn_Part_u32_take, map$Option_Result_Box_Guard_Box_dyn_Any_bool_anys_closure2, map$Option_u32_u32_Box_dyn_Fn_u32_u32, mapOr$Option_Arc_dyn_Part_u32_shared_closure3, mapOr$Option_Box_dyn_Part_u32_boxed_closure2 } from "../core/option.ts";
 import { ok$Result_Arc_Guard_Guard_Arc_dyn_Any, asRef$Result_Box_Guard_Box_dyn_Any, map$Result_Box_Guard_Box_dyn_Any_u32_anys_closure2_closure0 } from "../core/result.ts";
 import * as Part from "../drops/objects.Part.ts";
 import type * as Held from "../drops.Held.ts";
@@ -393,7 +393,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part13, f)];
 	Log.note(log, rt.fmtFormat(["run ", args26[0]]));
 	const captured14 = o;
-	const part14 = run$Box_fns_closure14(rt.closure((): rt.u32 => {
+	const part14 = run$Box_fns_closure18(rt.closure((): rt.u32 => {
 		return Guard.id(captured14);
 	}, (): void => {
 		rt.drop(captured14);
@@ -401,6 +401,44 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part14, f)];
 	Log.note(log, rt.fmtFormat(["run ", args28[0]]));
 	Log.note(log, "ran");
+	const _296: [Guard.Guard, Guard.Guard] = [guard(15), guard(16)];
+	const p: Guard.Guard = _296[0];
+	const captured15 = _296[1];
+	const part15 = map$Option_u32_u32_Box_dyn_Fn_u32_u32(1, rt.closure((x: rt.u32): rt.u32 => {
+		return rt.u32Add(x, Guard.id(captured15));
+	}, (): void => {
+		rt.drop(captured15);
+	}));
+	const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part15, f, rt.u32Debug)];
+	Log.note(log, rt.fmtFormat(["map ", args30[0]]));
+	const captured16 = guard(18);
+	const scale: (a0: rt.u32) => rt.u32 = rt.closure((x2: rt.u32): rt.u32 => {
+		return rt.u32Mul(x2, Guard.id(captured16));
+	}, (): void => {
+		rt.drop(captured16);
+	});
+	const part16 = rt.iterSum(rt.iterMap(rt.iterSlice([1, 2]), scale), rt.u32Add, 0, true);
+	const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part16, f)];
+	Log.note(log, rt.fmtFormat(["sum ", args32[0]]));
+	const captured17 = guard(17);
+	const init: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured17);
+	}, (): void => {
+		rt.drop(captured17);
+	});
+	const captured18 = p;
+	const unused: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured18);
+	}, (): void => {
+		rt.drop(captured18);
+	});
+	const cell: rt.OnceCell<rt.u32> = new rt.OnceCell(undefined);
+	const part17 = rt.onceGetOrInit(cell, rt.once(init), rt.drop);
+	const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part17, f)];
+	Log.note(log, rt.fmtFormat(["cell ", args34[0]]));
+	const part18 = rt.onceGetOrInit(cell, rt.once(unused), rt.drop);
+	const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part18, f)];
+	Log.note(log, rt.fmtFormat(["cell ", args36[0]]));
 	rt.drop(slot);
 }
 
@@ -410,7 +448,7 @@ export function run$Box_dyn_Fn_unit_u32(f: () => rt.u32): rt.u32 {
 }
 
 /** Call `f` once, which consumes it. */
-export function run$Box_fns_closure14(f: () => rt.u32): rt.u32 {
+export function run$Box_fns_closure18(f: () => rt.u32): rt.u32 {
 	return rt.callOnce(f);
 }
 
