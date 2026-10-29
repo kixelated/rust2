@@ -677,8 +677,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				true => Expr::rt("ptrWrite", vec![target, value]),
 				false => match self.write_in(pointee) {
 					Some(ObjectKind::Bytes) => target.member("set").call(vec![value]),
-					// A `Vec<u8>` is an `rt.ByteVec`, and any other a JS array, whose length changes.
+					// A `Vec<u8>` is an `rt.ByteVec`, and any other a JS array, as a boxed slice
+					// is, whose length a write changes, unlike a tuple's or an array's.
 					Some(ObjectKind::Vec) if !byte_vec(self.erased(pointee)) => {
+						Expr::rt("vecAssign", vec![target, value])
+					}
+					Some(ObjectKind::Array) if self.erased(pointee).is_slice() => {
 						Expr::rt("vecAssign", vec![target, value])
 					}
 					Some(_) => Expr::ident("Object").member("assign").call(vec![target, value]),
@@ -734,6 +738,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.b.t.bound_drops(adt.did()).is_some() || Std::of(self.tcx, adt.did()) == Some(Std::PollFn)
 			}
 			ty::Dynamic(..) | ty::Closure(..) => true,
+			// A `Uint8Array`'s length never changes, as a boxed slice's may.
+			ty::Slice(elem) => matches!(elem.kind(), ty::Uint(ty::UintTy::U8)),
 			_ => false,
 		};
 		self.b.t.object_kind(pointee)?;

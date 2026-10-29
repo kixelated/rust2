@@ -446,7 +446,7 @@ export function vecDedupByKeyMut<T, K>(v: T[], key: (item: Place<T>) => K, eq: (
 	vecDedupByMut(v, (a, b) => eq(key(a), key(b)), drop);
 }
 
-/** `*v = value` through a `&mut Vec<T>`, other than of bytes: `value`'s items, in place. */
+/** `*v = value` through a `&mut` to a `Vec<T>` other than of bytes, or to a boxed slice: `value`'s items, in place. */
 export function vecAssign<T>(v: T[], value: T[]): void {
 	v.length = value.length;
 	for (let i = 0; i < value.length; i++) v[i] = value[i]!;

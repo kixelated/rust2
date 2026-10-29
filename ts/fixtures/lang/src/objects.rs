@@ -76,6 +76,11 @@ fn repin_all(v: &mut Pin<Box<Vec<Arc<u8>>>>, with: &Arc<u8>, n: u8) -> usize {
 	old.len()
 }
 
+/// An array of objects, assigned whole through a parameter.
+fn reset(a: &mut [Arc<u8>; 2], with: &Arc<u8>) {
+	*a = [Arc::clone(with), Arc::new(**with)];
+}
+
 fn take_all(v: &mut Vec<Arc<u8>>) -> Vec<Arc<u8>> {
 	std::mem::take(v)
 }
@@ -215,6 +220,10 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	}
 	counts(out, &[&one, &two], &pinned_all);
 	drop(pinned_all);
+	let mut pair = [Arc::clone(&one), Arc::clone(&two)];
+	reset(&mut pair, &two);
+	counts(out, &[&one, &two], &pair);
+	drop(pair);
 	out.push(w.start);
 	out.extend_from_slice(&bytes);
 	counts(out, &[&one, &two], &w.held);
