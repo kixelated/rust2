@@ -52,6 +52,8 @@ roots = [
     "ok_passed",
     "places_equal",
     "owned_bytes",
+    "bytes_mut_capacity",
+    "bytes_mut_put",
     "fma",
     "float_printed",
     "weak_object",

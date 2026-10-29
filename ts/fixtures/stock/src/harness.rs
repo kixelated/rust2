@@ -10,7 +10,17 @@ type Case = fn(&[u8], &mut Vec<u8>);
 /// Each case, which the first byte picks modulo their count, so a case added at the end
 /// moves no other.
 fn cases() -> Vec<Case> {
-	vec![slices, made, events, random]
+	vec![
+		slices,
+		made,
+		events,
+		random,
+		crate::buf::bytes_mut,
+		crate::buf::reads,
+		crate::buf::writes,
+		crate::buf::edits,
+		crate::buf::reserves,
+	]
 }
 
 /// Run one case.

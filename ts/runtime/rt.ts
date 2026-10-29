@@ -566,7 +566,7 @@ export function byteSliceEq(a: ByteSlice, b: ByteSlice): boolean {
 }
 
 /** Copy `src` into `dst` at `at`; a few bytes copy faster than a view of them is made. */
-function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: number, length: number): void {
+export function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: number, length: number): void {
 	if (length <= 16) {
 		for (let i = 0; i < length; i++) dst[at + i] = src[start + i];
 	} else {

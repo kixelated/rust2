@@ -25,7 +25,7 @@ use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 use crate::lower::Crates;
 
 /// Fold each switch in `body` that an enclosing switch decided.
-pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates, body: &mut mir::Body<'tcx>) {
+pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, body: &mut mir::Body<'tcx>) {
 	let flow = Flow::new(tcx, crates, body);
 	let entry = flow.solve(body);
 	let mut folded = false;
@@ -161,7 +161,7 @@ impl<'tcx> Narrowing<'tcx> {
 }
 
 /// Where `body`'s tests and payload reads must see a place's whole type.
-pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates, body: &mir::Body<'tcx>) -> Narrowing<'tcx> {
+pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, body: &mir::Body<'tcx>) -> Narrowing<'tcx> {
 	let mut flow = Flow::new(tcx, crates, body);
 	// A widened test narrows nothing, which can leave a later test to widen too.
 	loop {
@@ -186,7 +186,7 @@ type Decided = (usize, Vec<(u128, BasicBlock)>, BasicBlock);
 /// What a body's places are, for the dataflow.
 struct Flow<'c, 'tcx> {
 	tcx: TyCtxt<'tcx>,
-	crates: &'c Crates,
+	crates: &'c Crates<'tcx>,
 	/// Each reference local whose one write is an assignment, as the place it borrows or
 	/// the place behind the reference it copies.
 	borrows: IndexVec<Local, Option<Place<'tcx>>>,
@@ -202,7 +202,7 @@ struct Flow<'c, 'tcx> {
 }
 
 impl<'c, 'tcx> Flow<'c, 'tcx> {
-	fn new(tcx: TyCtxt<'tcx>, crates: &'c Crates, body: &mir::Body<'tcx>) -> Self {
+	fn new(tcx: TyCtxt<'tcx>, crates: &'c Crates<'tcx>, body: &mir::Body<'tcx>) -> Self {
 		let n = body.local_decls.len();
 		let mut writes = Writes(IndexVec::from_elem_n(0, n));
 		writes.visit_body(body);
@@ -718,7 +718,7 @@ fn union(a: &[u128], b: &[u128]) -> Vec<u128> {
 
 /// Whether a value of `ty` can change what it points at: it is or holds a `&mut` or a
 /// `*mut`, or hides what it holds.
-fn lends<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates, ty: Ty<'tcx>) -> bool {
+fn lends<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, ty: Ty<'tcx>) -> bool {
 	let mut seen = FxHashSet::default();
 	let mut stack = vec![ty];
 	while let Some(ty) = stack.pop() {

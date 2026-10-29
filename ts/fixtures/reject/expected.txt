@@ -54,39 +54,41 @@ hashing `std::vec::Vec<Batched>` through `Batched`'s own `Hash::hash_slice`, whi
 passing `{closure@fixtures/reject/src/lib.rs:369:28: 369:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:369:13
 passing `{closure@fixtures/reject/src/lib.rs:370:25: 370:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet at fixtures/reject/src/lib.rs:370:16
 passing `{closure@fixtures/reject/src/lib.rs:377:13: 377:27}`, which drops, to `str::contains`, which is not supported yet at fixtures/reject/src/lib.rs:377:4
-unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:444:17
-unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:444:38
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:480:17
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:480:38
 a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:413:12
 unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:420:2
 `Bytes::from_owner` of `std::sync::Arc<[u8]>`, which would drop with the last clone of what it makes, which is not supported at fixtures/reject/src/lib.rs:425:2
-`f64::mul_add`, which rounds once, where JS would round twice at fixtures/reject/src/lib.rs:449:4
-unsupported call to `<f64 as std::fmt::Display>::fmt` at fixtures/reject/src/lib.rs:454:11
-a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:470:40
-`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:479:23
-`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:480:4
-a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:496:26
-a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:506:30
-`std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:536:12
-`Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:517:2
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:529:14
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:530:14
-an upcast from `dyn Keyed` to `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:554:32
-`std::any::Any::type_id` of `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:560:4
-unsupported call to `std::any::TypeId::of::<u8>` at fixtures/reject/src/lib.rs:560:17
-unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:560:2
-a cast from a pointer to `u32` to one to `u8`, which reads the bytes of one type as another at fixtures/reject/src/lib.rs:577:27
-a pointer's address, which JS has no counterpart of at fixtures/reject/src/lib.rs:582:17
-unsupported call to `std::alloc::Layout::new::<u8>` at fixtures/reject/src/lib.rs:587:15
-unsupported call to `std::alloc::alloc` at fixtures/reject/src/lib.rs:589:11
-unsupported call to `std::alloc::dealloc` at fixtures/reject/src/lib.rs:592:3
-a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept at fixtures/reject/src/lib.rs:599:10
-union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart at fixtures/reject/src/lib.rs:610:10
-comparing pointers to `u32`, each a place JS makes of its own at fixtures/reject/src/lib.rs:618:2
-a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:630:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:638:10
-a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:646:10
-comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:653:2
-a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:662:11
+`BytesMut::capacity`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:434:6
+`BufMut::put` of `Counted` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:440:2
+`f64::mul_add`, which rounds once, where JS would round twice at fixtures/reject/src/lib.rs:485:4
+unsupported call to `<f64 as std::fmt::Display>::fmt` at fixtures/reject/src/lib.rs:490:11
+a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:506:40
+`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:515:23
+`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:516:4
+a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:532:26
+a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:542:30
+`std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:572:12
+`Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:553:2
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:565:14
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:566:14
+an upcast from `dyn Keyed` to `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:590:32
+`std::any::Any::type_id` of `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:596:4
+unsupported call to `std::any::TypeId::of::<u8>` at fixtures/reject/src/lib.rs:596:17
+unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:596:2
+a cast from a pointer to `u32` to one to `u8`, which reads the bytes of one type as another at fixtures/reject/src/lib.rs:613:27
+a pointer's address, which JS has no counterpart of at fixtures/reject/src/lib.rs:618:17
+unsupported call to `std::alloc::Layout::new::<u8>` at fixtures/reject/src/lib.rs:623:15
+unsupported call to `std::alloc::alloc` at fixtures/reject/src/lib.rs:625:11
+unsupported call to `std::alloc::dealloc` at fixtures/reject/src/lib.rs:628:3
+a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept at fixtures/reject/src/lib.rs:635:10
+union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart at fixtures/reject/src/lib.rs:646:10
+comparing pointers to `u32`, each a place JS makes of its own at fixtures/reject/src/lib.rs:654:2
+a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:666:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:674:10
+a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:682:10
+comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:689:2
+a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:698:11
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:139:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:159:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:193:2
