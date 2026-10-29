@@ -6,7 +6,7 @@ import type * as State from "./kio.State.ts";
 import * as Waiter from "./kio.Waiter.ts";
 
 export function clone$Clone(self: Consumer): Consumer {
-	return new Consumer({ state: rt.arcClone(self.state), next: self.next });
+	return new Consumer(rt.arcClone(self.state), self.next);
 }
 
 /** The receiving side of a channel: every value sent, in order. */
@@ -14,13 +14,13 @@ export class Consumer {
 	state: rt.Arc<rt.Mutex<State.State>>;
 	next: rt.usize;
 
-	constructor(fields: { state: rt.Arc<rt.Mutex<State.State>>; next: rt.usize }) {
-		this.state = fields.state;
-		this.next = fields.next;
+	constructor(state: rt.Arc<rt.Mutex<State.State>>, next: rt.usize) {
+		this.state = state;
+		this.next = next;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.state);
+		this.state[Symbol.dispose]();
 	}
 }
 

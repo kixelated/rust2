@@ -83,7 +83,7 @@ export class waitFuture$watch_closure0_closure1_usize {
 	[Symbol.dispose](): void {
 		if (this.#state !== 0) {
 			if (this.#state === 3) {
-				rt.drop(this.#awaitee);
+				this.#awaitee[Symbol.dispose]();
 			}
 		}
 	}
@@ -100,7 +100,7 @@ export class waitFuture$watch_closure0_closure1_usize {
 		}
 		const _8: rt.Poll<rt.Result<rt.usize, Closed.Closed>> = Pending.poll$Future_wait_closure0_closure0(this.#awaitee, _2);
 		if (_8 !== rt.Pending) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return _8;
 		}
@@ -120,7 +120,7 @@ export class closedFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 3) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 		}
 	}
 
@@ -134,7 +134,7 @@ export class closedFuture {
 			rt.asyncFnResumed();
 		}
 		if (Pending.poll$Future_closed_closure0_closure0(this.#awaitee, _2) !== rt.Pending) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return undefined;
 		}
@@ -154,7 +154,7 @@ export class recvFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 3) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 		}
 	}
 
@@ -169,7 +169,7 @@ export class recvFuture {
 		}
 		const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
 		if (_7 !== rt.Pending) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return _7;
 		}

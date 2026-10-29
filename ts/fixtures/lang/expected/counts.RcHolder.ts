@@ -6,12 +6,12 @@ import * as rt from "./rt.ts";
 export class RcHolder<T> {
 	weak: rt.Weak<T>;
 
-	constructor(fields: { weak: rt.Weak<T> }) {
-		this.weak = fields.weak;
+	constructor(weak: rt.Weak<T>) {
+		this.weak = weak;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.weak);
+		this.weak[Symbol.dispose]();
 	}
 }
 

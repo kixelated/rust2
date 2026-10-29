@@ -194,6 +194,7 @@ int script() {
 	std::printf("set first %llu ", ull(registry.first().get()));
 	print("", registry.first().name(), "\n");
 	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
+	std::printf("each %u\n", api::each(2, [](std::uint32_t at) { std::printf("visit %u\n", at); }));
 	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
 
 	// A type generic only over lifetimes is a handle to its 'static form.
@@ -237,6 +238,9 @@ int script() {
 
 	print("", api::greet("x", api::shape::square), "\n");
 	std::printf("len %zu\n", api::len("abc"));
+	const std::uint8_t binary[] = {0xff, 0x00, 'a'};
+	print("hex ", api::hex(api::view(binary, sizeof binary)), "\n");
+	print("timed hex ", api::timed_hex(api::view(binary, sizeof binary)), "\n");
 	api::event events[] = {api::event_moved{p}, api::event_named{api::buf("n")}, api::event_done{}};
 	for (const auto &event : events) {
 		print("", api::describe(event), "\n");

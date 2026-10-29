@@ -13,10 +13,10 @@ export class Wrap<T> {
 	log: Log.Log;
 	inner: T;
 
-	constructor(fields: { id: rt.u32; log: Log.Log; inner: T }) {
-		this.id = fields.id;
-		this.log = fields.log;
-		this.inner = fields.inner;
+	constructor(id: rt.u32, log: Log.Log, inner: T) {
+		this.id = id;
+		this.log = log;
+		this.inner = inner;
 	}
 }
 

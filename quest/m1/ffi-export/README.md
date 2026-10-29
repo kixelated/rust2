@@ -47,11 +47,10 @@ Every generator on the C ABI:
 
 ## Required
 
-- [Payloads cross as bytes](/quest/m1/ffi-export/payload-bytes.md) - a payload that is not UTF-8 crosses unchanged, where today it aborts from C, C++, and Kotlin
 - [Iterator and JSON arguments the exporter can't map yet](/quest/m1/ffi-export/instance-keys.md) - `IntoIterator` as a `Vec`, and `serde_json::Value`
+- [Returned iterators cross as arrays](/quest/m1/ffi-export/iterators.md) - `Hops::iter`, `Versions::iter`, and `Patterns::iter` export, returning arrays as `&[T]` does
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
-- [Glue that builds without warnings](/quest/m1/ffi-export/warnings.md) - the exporter's Rust glue builds with `-D warnings`
 - [The recursion depth lint on moq's export](/quest/m1/ffi-export/recursion-lint.md) - `just ffi moq` builds clean before the lint becomes an error
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings: zero-copy payloads and the read path](/quest/m1/ffi-export/kotlin.md) - the Kotlin lends bytes without a copy, and reads at JNI's cost

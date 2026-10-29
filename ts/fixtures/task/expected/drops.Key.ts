@@ -10,20 +10,20 @@ export class Key {
 	/** Whether its `Hash` logs each call. */
 	counted: boolean;
 
-	constructor(fields: { id: rt.u32; log: Log.Log; counted: boolean }) {
-		this.id = fields.id;
-		this.log = fields.log;
-		this.counted = fields.counted;
+	constructor(id: rt.u32, log: Log.Log, counted: boolean) {
+		this.id = id;
+		this.log = log;
+		this.counted = counted;
 	}
 
 	[Symbol.dispose](): void {
 		drop$Drop(this);
-		rt.drop(this.log);
+		this.log[Symbol.dispose]();
 	}
 }
 
 function new_(id: rt.u32, log: Log.Log): Key {
-	return new Key({ id, log, counted: false });
+	return new Key(id, log, false);
 }
 
 export function drop$Drop(self: Key): void {
@@ -61,7 +61,7 @@ export function clone$Clone(self: Key): Key {
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["k", args2[0], " cloned"]);
 	Log.note(self.log, _4);
-	return new Key({ id: self.id, log: Log.clone$Clone(self.log), counted: self.counted });
+	return new Key(self.id, Log.clone$Clone(self.log), self.counted);
 }
 
 export { new_ as new };

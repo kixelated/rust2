@@ -6,8 +6,8 @@ import type * as Outer from "./model.Outer.ts";
 export class Inner {
 	outer: Outer.Outer | undefined;
 
-	constructor(fields: { outer: Outer.Outer | undefined }) {
-		this.outer = fields.outer;
+	constructor(outer: Outer.Outer | undefined) {
+		this.outer = outer;
 	}
 
 	[Symbol.dispose](): void {
