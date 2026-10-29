@@ -717,7 +717,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// Typed, so a reassigned literal keeps its integer's type.
 					let ts_ty = constant.then(|| self.b.t.held_ty(ty, span));
 					let stmt = StmtKind::decl(rebinds, name.clone(), ts_ty, Some(value)).at(None);
-					self.emit(vec![stmt], None, false, out);
+					self.emit(vec![stmt], false, out);
 					Expr::ident(name)
 				}
 			};

@@ -70,7 +70,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					let read = self.uses[dest.local] > 1;
 					let held = self.range_next(name, recv, stepped, read, &mut pre);
-					self.emit(pre, None, false, out);
+					self.emit(pre, false, out);
 					if let Some((flag, more)) = held {
 						self.hold_flag(flag, more);
 					}
@@ -90,7 +90,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Some(done)) => done,
 				// Done: the destination is set.
 				Some(None) => {
-					self.emit(pre, None, false, out);
+					self.emit(pre, false, out);
 					return;
 				}
 				None => (
@@ -114,7 +114,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => value,
 		};
 		if !pre.is_empty() {
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 		}
 		// What an `Iterator::next` returns, by the protocol, unless a `next` made it already.
 		let value = match dest.as_local() {
@@ -140,7 +140,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			None => {
 				let stmts = self.store(dest, value, span);
-				self.emit(stmts, None, false, out);
+				self.emit(stmts, false, out);
 			}
 		}
 	}
@@ -697,7 +697,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Expr::Member(..) | Expr::Index(..) => {
 						let name = self.b.fresh("arg");
 						let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
-						self.emit(vec![stmt], None, false, out);
+						self.emit(vec![stmt], false, out);
 						Expr::ident(name)
 					}
 					value => self.path(value, "arg", out),
