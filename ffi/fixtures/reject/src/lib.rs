@@ -419,3 +419,22 @@ impl IntoIterator for Start {
 pub fn launches() -> impl Iterator<Item = u8> {
 	vec![Start(1), Start(2)].into_iter().flatten()
 }
+
+/// A pump, which runs forever once a borrow of it is turned into an iterator.
+struct Pump;
+
+impl<'a> IntoIterator for &'a Pump {
+	type Item = u8;
+	type IntoIter = std::iter::Repeat<u8>;
+
+	fn into_iter(self) -> std::iter::Repeat<u8> {
+		std::iter::repeat(1)
+	}
+}
+
+static PUMPS: [Pump; 1] = [Pump];
+
+/// Each pump's bytes, through code only the items' borrows name.
+pub fn pumped() -> impl Iterator<Item = u8> {
+	PUMPS.iter().flatten()
+}

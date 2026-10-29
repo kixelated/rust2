@@ -2214,14 +2214,21 @@ impl<'tcx> Collector<'tcx> {
 			return None;
 		}
 		let std = |krate| matches!(tcx.crate_name(krate), sym::core | sym::alloc);
-		let method = |tr, name: &str| {
+		let assoc = |tr, name: &str| {
 			let item = tcx
 				.associated_items(tr)
 				.in_definition_order()
 				.find(|item| item.name().as_str() == name);
 			item.map(|item| item.def_id)
 		};
-		let (next, into_iter) = (method(iterator, "next")?, method(into_iterator, "into_iter")?);
+		let (next, into_iter) = (assoc(iterator, "next")?, assoc(into_iterator, "into_iter")?);
+		let item = tcx.get_diagnostic_item(sym::IteratorItem)?;
+		let into_iter_ty = assoc(into_iterator, "IntoIter")?;
+		let project = |assoc, ty| {
+			let projection = Ty::new_projection(tcx, ty::IsRigid::No, assoc, [ty]);
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+				.ok()
+		};
 		// Whether core's or alloc's impl of `method` is the one `ty` runs.
 		let by_std = |method, ty: Ty<'tcx>| {
 			ty::Instance::try_resolve(tcx, env, method, tcx.mk_args(&[ty.into()]))
@@ -2235,35 +2242,42 @@ impl<'tcx> Collector<'tcx> {
 					"Repeat" | "Cycle" | "RangeFrom" | "RangeFromIter"
 				)
 		};
-		let driven = ty.walk().filter_map(|arg| arg.as_type()).all(|ty| {
-			let plain = match ty.kind() {
-				ty::Adt(adt, _) => !endless(adt.did()),
-				ty::Bool
-				| ty::Char
-				| ty::Int(_)
-				| ty::Uint(_)
-				| ty::Float(_)
-				| ty::Str
-				| ty::Array(..)
-				| ty::Slice(_)
-				| ty::Ref(..)
-				| ty::Tuple(_) => true,
-				_ => false,
-			};
-			plain
-				&& match (implements(iterator, ty), implements(into_iterator, ty)) {
-					(true, _) => by_std(next, ty),
-					(false, true) => by_std(into_iter, ty),
-					(false, false) => true,
+		// Every type the iterator holds, and every item and iterator its adapters drive,
+		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
+		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		let mut queue = vec![ty];
+		while let Some(next_ty) = queue.pop() {
+			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
+				if !seen.insert(ty) {
+					continue;
 				}
-		});
-		if !driven {
-			return None;
+				let plain = match ty.kind() {
+					ty::Adt(adt, _) => !endless(adt.did()),
+					ty::Bool
+					| ty::Char
+					| ty::Int(_)
+					| ty::Uint(_)
+					| ty::Float(_)
+					| ty::Str
+					| ty::Array(..)
+					| ty::Slice(_)
+					| ty::Ref(..)
+					| ty::Tuple(_) => true,
+					_ => false,
+				};
+				let (method, driven) = match (implements(iterator, ty), implements(into_iterator, ty)) {
+					(true, _) => (next, item),
+					(false, true) => (into_iter, into_iter_ty),
+					(false, false) if plain => continue,
+					(false, false) => return None,
+				};
+				if !plain || !by_std(method, ty) {
+					return None;
+				}
+				queue.push(project(driven, ty)?);
+			}
 		}
-		let item = tcx.get_diagnostic_item(sym::IteratorItem)?;
-		let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
-		tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
-			.ok()
+		project(item, ty)
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.
