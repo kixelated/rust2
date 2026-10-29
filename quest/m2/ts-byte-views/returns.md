@@ -22,11 +22,14 @@ most. One out slot per payload type, which a forwarded result already fills, avo
   value is wrapped in an arrow that rebuilds the `Result`.
 - The callee writes its slot at the JS `return`, after its MIR drops ran; the caller reads
   it at once, before any other call.
-- Start the slot's number fields as `undefined`, not `0`, so V8 keeps them tagged. A field
-  that starts as a small integer turns into a boxed double once a value past 2^31 is
-  stored, and a function too big for V8 to inline (over 460 bytes of bytecode, as
-  `read_leading_ones` is) then boxes every write and the caller unboxes every read. This
-  is why the first hand edit was slower than `main` on leading-ones varints.
+- Start the slot's number fields as `undefined`, not `0`. Such a field holds any value once
+  a small integer is written (V8's `--trace-generalization`), so a write of a number that is
+  no small integer, as an 8-byte varint is, boxes a new one into an old object. A field
+  that starts as `0` stays a double written in place, but a slot that held one such number
+  converts every small one read after: on Chrome, `p_0` starting at `0` took QUIC and
+  leading-ones 8-byte varints from 1.13x and 1.24x `main`'s time to 0.88x and 1.06x, and
+  frame decode from 0.83x and 0.67x to 0.90x and 0.76x (2026-10-29, interleaved, a busy
+  host). Starting the starts and lengths at `0` changed nothing.
 - Measured by hand edits of the codec's translation against `main`, Chrome first (2026-10-28,
   on a busy host, so confirm on a quiet one): with the slot's fields tagged, Chrome's varint
   and frame decode were each about 1.25x faster and group decode 1.06x, Node 1.33x and
@@ -44,8 +47,13 @@ most. One out slot per payload type, which a forwarded result already fills, avo
   on frame decode, and Node 0.68-0.78 and 0.71-0.72. No run's Chrome A/A came under 5% at the
   max: 5.5%, 61%, 16%, and 5.1%, with medians of 0.6-2.0%. It doesn't land on those runs.
 - Open: Chrome's `time/u64` conversions took 1.11-1.17x `main`'s time in all four runs, with
-  that workload's A/A within 4%, and `btree/` 1.08-1.28x in three of them. That is the bundle,
-  not V8's variance between realms, as an earlier note here had it. Leading-ones varints of
-  8 bytes took 1.06-1.20x. Find out why before landing.
+  that workload's A/A within 4%, and `btree/` 1.08-1.28x in three of them. Swapping which
+  route is `translated` kept `main` faster, so it isn't the route's place in the run. Their
+  functions translate to the same text on both, and a harness of their own, running every
+  workload in a fixed or shuffled order, timed them within 3% of `main`. So the gap is in
+  how the bench drives them, not in their translation. Find which before landing.
+- Leading-ones varints of 8 bytes took 1.06-1.24x `main`'s time: `read_leading_ones` is too
+  big to inline, so each call boxes its value into the slot (above), where `main` returned
+  a new array.
 
 Public API: the translator's output for byte slices.
