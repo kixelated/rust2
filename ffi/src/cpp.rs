@@ -97,7 +97,7 @@ impl<'a> Header<'a> {
 				format!("::{}::buf", self.ns)
 			}
 			Type::Duration => format!("::{}::duration", self.ns),
-			Type::SocketAddr => format!("::{}::socket_addr", self.ns),
+			Type::SocketAddr(_) => format!("::{}::socket_addr", self.ns),
 			Type::List(inner) => format!("::std::vector<{}>", self.owned(inner)),
 			Type::Waker => format!("::{}::waker", self.ns),
 			Type::Option(inner) => format!("::std::optional<{}>", self.owned(inner)),
@@ -218,7 +218,7 @@ impl<'a> Header<'a> {
 			Type::Unit => unreachable!("no value is unit"),
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("static_cast<uint32_t>({e})"),
-			Type::Duration | Type::SocketAddr | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
 			Type::Waker => format!("{d}::give({d}::access::raw({e}))"),
 			Type::List(inner) => format!(
 				"a_.list<::{}>({e}, [&](const auto &x) {{ return {}; }})",
@@ -268,7 +268,7 @@ impl<'a> Header<'a> {
 		match ty {
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("static_cast<char32_t>({e})"),
-			Type::Duration | Type::SocketAddr | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
 			Type::List(inner) => format!(
 				"{d}::lift_list<{}>({e}, [&](const auto &c) {{ return {}; }}, &::{}_free)",
 				self.owned(inner),

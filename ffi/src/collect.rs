@@ -23,7 +23,7 @@ use rustc_trait_selection::infer::InferCtxtExt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
 
 use crate::ir::{
-	Access, Api, Callback, Constant, Dyn, Enum, Field, Function, Int, Literal, Mutability, Object, Param, Path,
+	Access, Api, Callback, Constant, Dyn, Enum, Family, Field, Function, Int, Literal, Mutability, Object, Param, Path,
 	Receiver, Record, Traits, Type, Variant,
 };
 
@@ -2603,7 +2603,20 @@ impl<'tcx> Collector<'tcx> {
 						Type::Path
 					}
 					ty::Slice(elem) if *elem == tcx.types.u8 => Type::Slice,
-					ty::Slice(elem) => return Err(why("slice", elem.to_string())),
+					// An array, as a `Vec`'s, which C passes and Rust returns as a clone.
+					ty::Slice(elem) => {
+						let item = self.ty(
+							*elem,
+							match pos {
+								Pos::Return | Pos::Returned => Pos::Returned,
+								_ => Pos::Behind,
+							},
+						)?;
+						if borrows(&item) && !matches!(pos, Pos::Return | Pos::Returned) {
+							return Err(why("slice of references", elem.to_string()));
+						}
+						Type::List(Box::new(item))
+					}
 					ty::Dynamic(..) => return Err(why("trait object", inner.to_string())),
 					_ => self.ty(
 						*inner,
@@ -2620,7 +2633,13 @@ impl<'tcx> Collector<'tcx> {
 				match (&inner_ty, pos, mutability) {
 					// Returned as a clone: a handle in it is a new handle to its clone.
 					(Type::Str | Type::Slice | Type::Path, Pos::Return | Pos::Returned, _) => {}
-					(_, Pos::Return | Pos::Returned, _) if !self.is_clone(*inner) => {
+					// A slice's clone is a `Vec` of its elements' clones.
+					(_, Pos::Return | Pos::Returned, _)
+						if !self.is_clone(match inner.kind() {
+							ty::Slice(elem) => *elem,
+							_ => *inner,
+						}) =>
+					{
 						return Err(why("borrowed return that is not Clone", inner.to_string()));
 					}
 					(_, Pos::Field, _) => return Err(why("reference field", inner.to_string())),
@@ -2658,8 +2677,16 @@ impl<'tcx> Collector<'tcx> {
 					Type::Duration
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("PathBuf"), did) {
 					Type::PathBuf
-				} else if tcx.crate_name(did.krate) == sym::core && tcx.item_name(did).as_str() == "SocketAddr" {
-					Type::SocketAddr
+				} else if let Some(family) = (tcx.crate_name(did.krate) == sym::core)
+					.then(|| match tcx.item_name(did).as_str() {
+						"SocketAddr" => Some(Family::Any),
+						"SocketAddrV4" => Some(Family::V4),
+						"SocketAddrV6" => Some(Family::V6),
+						_ => None,
+					})
+					.flatten()
+				{
+					Type::SocketAddr(family)
 				} else if let Some(&(_, i)) = self.foreign.iter().find(|&&(ty, _)| ty == did) {
 					// A value holds only values, and handles it can copy.
 					match pos {
@@ -2803,7 +2830,7 @@ enum Pos {
 /// copied by it if kept.
 fn foreign_arg(ty: &Type) -> bool {
 	match ty {
-		Type::Bool | Type::Int(_) | Type::F32 | Type::F64 | Type::Char | Type::Duration | Type::SocketAddr => true,
+		Type::Bool | Type::Int(_) | Type::F32 | Type::F64 | Type::Char | Type::Duration | Type::SocketAddr(_) => true,
 		Type::String | Type::Vec | Type::Bytes | Type::PathBuf => true,
 		Type::Ref(Mutability::Not, inner) => matches!(**inner, Type::Str | Type::Slice | Type::Path),
 		Type::Option(inner) => foreign_arg(inner),

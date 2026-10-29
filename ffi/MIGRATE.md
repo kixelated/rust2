@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `&[T]` of any type and `SocketAddrV4` and `SocketAddrV6` map, so a struct or enum whose
+  fields were refused only for the socket addresses is a value now, not an object, and
+  an item that newly exports can clash with another's C name, which takes a `rename`.
 - `Vec<T>`, `PathBuf`, `SocketAddr`, and `url::Url` map, so a struct or enum whose
   fields were refused only for them is a value now, not an object: moq-tokio's
   `listen::Bind` is the C enum `moq_listen_bind`, freed with `moq_listen_bind_free(&b)`,

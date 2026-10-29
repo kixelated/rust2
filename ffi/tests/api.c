@@ -673,6 +673,45 @@ static int script(void) {
 	api_site_free(site);
 	api_url_free(home);
 
+	/* Slices, passed in and returned as clones, and the socket address of each family. */
+	api_vec_shape shapes = api_shape_all();
+	printf("shapes [");
+	for (size_t i = 0; i < shapes.len; i++) {
+		print(i == 0 ? "" : ", ", api_shape_debug(&shapes.ptr[i]), "");
+	}
+	api_vec_shape_free(shapes);
+	api_vec_string greetings = api_greetings();
+	printf("] greetings [");
+	for (size_t i = 0; i < greetings.len; i++) {
+		printf("%s\"%.*s\"", i == 0 ? "" : ", ", (int)greetings.ptr[i].len, (const char *)greetings.ptr[i].ptr);
+	}
+	printf("]\n");
+	api_vec_string_free(greetings);
+	api_point trail_points[] = {{.x = 1, .y = 2}, {.x = 3, .y = 4}};
+	api_buf trail_names[] = {str("a"), str("b")};
+	api_trail *trail =
+		api_trail_new((api_vec_point){.ptr = trail_points, .len = 2}, (api_vec_string){.ptr = trail_names, .len = 2});
+	api_vec_point points = api_trail_points(trail);
+	printf("trail [");
+	for (size_t i = 0; i < points.len; i++) {
+		print(i == 0 ? "" : ", ", api_point_debug(&points.ptr[i]), "");
+	}
+	api_vec_point_free(points);
+	api_vec_label labels = api_trail_labels(trail);
+	printf("] [");
+	for (size_t i = 0; i < labels.len; i++) {
+		print(i == 0 ? "" : ", ", api_label_debug(&labels.ptr[i]), "");
+	}
+	printf("]\n");
+	api_vec_label_free(labels);
+	api_trail_free(trail);
+	api_socket_addr at4 = {.ip = {127, 0, 0, 1}, .port = 8080};
+	api_socket_addr at6 = {.ip = {[15] = 1}, .port = 443, .v6 = true, .scope_id = 3};
+	api_socket_addr next4, next6;
+	api_nexts(at4, at6, &next4, &next6);
+	printf("nexts %u.%u.%u.%u %u %u %u\n", next4.ip[0], next4.ip[1], next4.ip[2], next4.ip[3], next4.port, next6.port,
+		   next6.scope_id);
+
 	/* A returned `Vec<&Token>` holds clones, which its free drops. */
 	api_token *twice = api_token_new(9);
 	uint32_t before = api_dropped();
@@ -714,6 +753,10 @@ static int broken(const char *which) {
 		api_channel_recv_poll(recv, waker, &payload);
 		api_buf_free(payload);
 		api_channel_recv_poll(recv, waker, &payload);
+	} else if (strcmp(which, "family") == 0) {
+		api_socket_addr v6 = {.ip = {[15] = 1}, .port = 443, .v6 = true};
+		api_socket_addr next4, next6;
+		api_nexts(v6, v6, &next4, &next6);
 	} else if (strcmp(which, "enum") == 0) {
 		api_greet(str("x"), (api_shape)2);
 	} else if (strcmp(which, "lent") == 0 || strcmp(which, "lent moved") == 0) {

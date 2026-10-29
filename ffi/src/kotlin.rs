@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use crate::abi::{self, Abi, Ty};
-use crate::ir::{Access, Function, Int, Literal, Receiver, Type};
+use crate::ir::{Access, Family, Function, Int, Literal, Receiver, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.kt");
 pub const GLUE_RUNTIME: &str = include_str!("../runtime/jni.rs");
@@ -248,7 +248,7 @@ impl<'a> Gen<'a> {
 			Type::Slice | Type::Vec | Type::Bytes => "ByteArray".to_string(),
 			Type::Path | Type::PathBuf => "String".to_string(),
 			Type::Duration => "kotlin.time.Duration".to_string(),
-			Type::SocketAddr => "java.net.InetSocketAddress".to_string(),
+			Type::SocketAddr(_) => "java.net.InetSocketAddress".to_string(),
 			Type::List(inner) => format!("kotlin.collections.List<{}>", self.kt(inner)),
 			Type::Waker => "Waker".to_string(),
 			Type::Option(inner) => format!("{}?", self.kt(inner)),
@@ -289,7 +289,9 @@ impl<'a> Gen<'a> {
 			Type::Str | Type::String | Type::Path | Type::PathBuf => format!("{w}.string({e})"),
 			Type::Slice | Type::Vec | Type::Bytes => format!("{w}.bytes({e})"),
 			Type::Duration => format!("{w}.duration({e})"),
-			Type::SocketAddr => format!("{w}.socketAddr({e})"),
+			Type::SocketAddr(Family::Any) => format!("{w}.socketAddr({e})"),
+			Type::SocketAddr(Family::V4) => format!("{w}.socketAddrV4({e})"),
+			Type::SocketAddr(Family::V6) => format!("{w}.socketAddrV6({e})"),
 			Type::List(inner) => {
 				let (l, v) = (self.fresh("l"), self.fresh("v"));
 				let item = self.write_value(inner, w, &v);
@@ -339,7 +341,7 @@ impl<'a> Gen<'a> {
 			Type::Path | Type::PathBuf => format!("{r}.path()!!"),
 			Type::Slice | Type::Vec | Type::Bytes => format!("{r}.bytes()!!"),
 			Type::Duration => format!("{r}.duration()"),
-			Type::SocketAddr => format!("{r}.socketAddr()"),
+			Type::SocketAddr(_) => format!("{r}.socketAddr()"),
 			Type::List(inner) => {
 				let item = self.read_value(inner, r);
 				format!("kotlin.collections.List({r}.i32()) {{ {item} }}")

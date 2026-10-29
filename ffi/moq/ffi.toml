@@ -7,13 +7,11 @@ prefix = "moq"
 # What the export refuses at the pinned revision, as `just ffi census` lists it: the API
 # a hand-written wrapper still has to cover.
 exclude = [
-    "ALPNS",
     "BoundsExceeded",
     "Client::connect",
     "Consume",
     "DecodeError",
     "Driver",
-    "Hops::as_slice",
     "Hops::iter",
     "IntoBytes",
     "InvalidEpoch",
@@ -40,8 +38,6 @@ exclude = [
     "origin::Requesting",
     "origin::Routing",
     "server::Handshake",
-    "stats::Failure::ALL",
-    "stats::RefusalKind::ALL",
     "stats::Snapshot::control",
     "stats::Snapshot::sessions",
     "stats::Snapshot::traffic",
@@ -88,7 +84,7 @@ exclude = [
 
 # Exported with moq-net, whose signatures name their types, such as `Patterns` and `Instant`.
 [crates.moq-pattern]
-exclude = ["Pattern::captures", "Pattern::segments", "Patterns::iter"]
+exclude = ["Pattern::captures", "Patterns::iter"]
 
 [crates.moq-clock]
 exclude = [
@@ -119,7 +115,6 @@ exclude = [
     "Log::level",
     "Log::new",
     "RedactedUrl",
-    "accept::Failure::ALL",
     "accept::Failure::classify",
     "accept::Health::failed",
     "accept::Health::new",
@@ -134,14 +129,12 @@ exclude = [
     "cli::answer",
     "cli::check_env",
     "cli::usage_rs",
-    "connect::Addr",
+    "connect::Addr::pinned",
     "connection::Monitor::poll_presence",
     "crypto::install_default",
     "crypto::provider",
     "failover::Attempt",
     "field@Log::level",
-    "listen::Config::preferred_v4",
-    "listen::Config::preferred_v6",
     "notify",
     "panic::isolate",
     "panic::message",
@@ -361,7 +354,6 @@ exclude = [
     "container::Producer",
     "container::flv::Export",
     "container::fmp4::Export",
-    "container::fmp4::Muxer::fragment",
     "container::fmp4::Wire::new",
     "container::fmp4::Wire::trak",
     "container::fmp4::mp4_atom",

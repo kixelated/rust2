@@ -344,7 +344,7 @@ impl<'a> Abi<'a> {
 			Type::F64 => "f64".to_string(),
 			Type::Char => "char".to_string(),
 			Type::Duration => "duration".to_string(),
-			Type::SocketAddr => "socket_addr".to_string(),
+			Type::SocketAddr(_) => "socket_addr".to_string(),
 			Type::Option(inner) => format!("option_{}", self.key(inner)),
 			Type::List(inner) => format!("vec_{}", self.key(inner)),
 			Type::Record(i) => strip(self.record(*i)),
@@ -383,7 +383,7 @@ impl<'a> Abi<'a> {
 			Type::Char => Ty::Char,
 			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf => Ty::Buf,
 			Type::Duration => Ty::Duration,
-			Type::SocketAddr => Ty::SocketAddr,
+			Type::SocketAddr(_) => Ty::SocketAddr,
 			Type::Waker => Ty::Waker,
 			Type::List(inner) => Ty::Struct(self.list(inner)),
 			Type::Option(inner) => match Self::nullable(inner) {

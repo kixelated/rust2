@@ -18,3 +18,7 @@
   `app_task` is `AppTask`, enum tags are `<Enum>Tag`, variant structs `<Enum><Variant>`, and
   async callback types `<Function>Callback` (`app_my_object_do_thing_callback` is now
   `AppMyObjectDoThingCallback`). Functions and enum constants keep their names.
+- Generated C: every async callback takes `bool cancelled` after `user_data`, and freeing a task
+  whose callback has not started runs that callback once with `cancelled` set, on the dispatcher,
+  instead of never. Release `user_data` in the callback rather than after `<namespace>_task_free`,
+  which no longer waits for a callback running on another thread.
