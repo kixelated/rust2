@@ -303,6 +303,63 @@ pub unsafe fn give(node: *mut Node) -> rt::Waker {
 	lend(node)
 }
 
+/// Poll a future with a waker, writing its result into the writer if it finished.
+pub type Poll = unsafe fn(*mut c_void, rt::Waker, &mut Writer) -> bool;
+
+/// Poll the future just made, and free it if it finished: the call and its first poll are
+/// one crossing. Its result is a bool, true when finished, then the result, or else the
+/// future and the waker node made for `signal`, which Kotlin polls and frees.
+///
+/// # Safety
+/// `future` is a live future that `poll` and `free` take, and `signal` a Kotlin `Waker`.
+pub unsafe fn start(env: *mut JNIEnv, future: *mut c_void, signal: jobject, poll: Poll, free: unsafe fn(*mut c_void)) -> jbyteArray {
+	let mut w = Writer::default();
+	w.put(true);
+	// Most futures are ready at once, so the first poll takes no waker: a node costs a
+	// global reference, and two crossings to free it.
+	let none = rt::Waker {
+		wake: None,
+		drop: None,
+		data: std::ptr::null_mut(),
+	};
+	// SAFETY: the caller's contract.
+	if unsafe { poll(future, none, &mut w) } {
+		// SAFETY: as above, and it finished.
+		unsafe { free(future) };
+		return w.array(env);
+	}
+	// Pending, so polled again with the waker it parks on, which replaces the first.
+	let node = node(env, signal);
+	// SAFETY: as above, and `node` holds a reference for this.
+	if unsafe { poll(future, give(node), &mut w) } {
+		// SAFETY: as above.
+		unsafe {
+			free(future);
+			unref(node.cast());
+		}
+		return w.array(env);
+	}
+	let mut w = Writer::default();
+	w.put(false);
+	w.put(future);
+	w.put(node.cast::<c_void>());
+	w.array(env)
+}
+
+/// Poll `future` again with `node`, whose reference Rust holds from the first poll that
+/// pended: its result, or null while pending.
+///
+/// # Safety
+/// `future` is a live future that `poll` takes, and Rust holds a reference to `node`.
+pub unsafe fn poll(env: *mut JNIEnv, future: *mut c_void, node: *mut Node, poll: Poll) -> jbyteArray {
+	let mut w = Writer::default();
+	// SAFETY: the caller's contract.
+	match unsafe { poll(future, lend(node), &mut w) } {
+		true => w.array(env),
+		false => std::ptr::null_mut(),
+	}
+}
+
 /// A Kotlin `Waker` passed by value: Rust holds its only reference.
 pub fn waker(env: *mut JNIEnv, waker: jobject) -> rt::Waker {
 	lend(node(env, waker))

@@ -370,16 +370,18 @@ impl Channel {
 	}
 }
 
-/// `value`, on its second poll: the first wakes its waker before it returns pending, so
-/// the wake lands before the poller waits for one.
+/// `value`, on its third poll: each before wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one, even past a first poll Kotlin makes
+/// with no waker.
 pub async fn yielded(value: u32) -> u32 {
-	let mut woken = false;
-	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
-		true => Poll::Ready(()),
-		false => {
-			cx.waker().wake_by_ref();
-			Poll::Pending
+	let mut polls = 0;
+	std::future::poll_fn(|cx| {
+		polls += 1;
+		if polls == 3 {
+			return Poll::Ready(());
 		}
+		cx.waker().wake_by_ref();
+		Poll::Pending
 	})
 	.await;
 	value

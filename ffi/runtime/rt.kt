@@ -261,25 +261,27 @@ class Signal : Waker {
 }
 
 /**
- * Await the future [raw]: poll it with one waker until it finishes, then lift its result.
- * A cancel frees it, which cancels it in Rust and loses nothing.
+ * Await the future the call that returned [first] made and polled once with [signal]:
+ * poll it until it finishes, then lift its result. A cancel frees it, which cancels it in
+ * Rust and loses nothing.
  */
 suspend fun <T> await(
-	raw: Long,
-	poll: (Long, Long, Boolean) -> ByteArray?,
+	first: ByteArray,
+	signal: Signal,
+	poll: (Long, Long) -> ByteArray?,
 	free: (Long) -> Unit,
 	lift: (Reader) -> T,
 ): T {
-	val signal = Signal()
-	val node = __waker_new(signal)
+	val r = Reader(first)
+	if (r.bool()) return lift(r)
+	val raw = r.i64()
+	val node = r.i64()
 	try {
-		var given = false
 		while (true) {
-			signal.reset()
-			val done = poll(raw, node, given)
-			given = true
-			if (done != null) return lift(Reader(done))
 			signal.park()
+			signal.reset()
+			val done = poll(raw, node)
+			if (done != null) return lift(Reader(done))
 		}
 	} finally {
 		free(raw)

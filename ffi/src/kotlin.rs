@@ -1348,7 +1348,10 @@ impl<'a> Gen<'a> {
 			.iter()
 			.flat_map(|a| a.jni.iter().copied().zip(a.native.iter().cloned()))
 			.collect();
-		let exprs: Vec<String> = args.iter().flat_map(|a| a.exprs.clone()).collect();
+		let mut exprs: Vec<String> = args.iter().flat_map(|a| a.exprs.clone()).collect();
+		// A future's call also takes the signal its waker parks, if its first poll pends.
+		let signal = export.future.is_some().then(|| self.fresh("s"));
+		exprs.extend(signal.clone());
 		let rust_pre: Vec<String> = args.iter().flat_map(|a| a.rust_pre.clone()).collect();
 		let rust_args: Vec<String> = args.iter().flat_map(|a| a.rust_args.clone()).collect();
 		let after: Vec<String> = args.iter().flat_map(|a| a.after.clone()).collect();
@@ -1379,37 +1382,51 @@ impl<'a> Gen<'a> {
 			format!("crate::{c_name}({})", args.join(", "))
 		};
 		if let Some((_, poll, free)) = &export.future {
-			// The call makes the future, which a native poll and free take.
-			let params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
-			self.native(
-				&bare,
-				&params,
-				("jlong", "Long"),
-				&format!("{}\n\t\t{} as usize as jlong", rust_pre.join("\n\t\t"), rust_call(&[])),
-			);
+			// The call makes the future and polls it once, returning its result if ready, or
+			// else the future, which a native poll and free take.
 			let poll_bare = self.bare(&poll.name).to_string();
 			let free_bare = self.bare(&free.name).to_string();
 			let poll_outs: Vec<(String, Ty)> = poll.params[2..].to_vec();
 			let (decl, ptrs, write) = self.glue_outs(&poll_outs, function.err.is_some());
 			let ok_set = match function.err.is_some() {
-				true => "let ok = ret == 1;\n\t\t",
+				true => "let ok = ret == 1;\n\t",
 				false => "",
 			};
+			let _ = write!(
+				self.glue,
+				"unsafe fn jni_{}(f: *mut c_void, waker: crate::rt::Waker, w: &mut rt::Writer) -> bool {{\n\tlet _ = &w;\n\tunsafe {{\n\t{decl}\n\tlet ret = crate::{}(f as _, waker{});\n\tif ret == 0 {{\n\t\treturn false;\n\t}}\n\t{ok_set}{write}\n\ttrue\n\t}}\n}}\n\nunsafe fn jni_{}(f: *mut c_void) {{\n\tunsafe {{ crate::{}(f as _) }}\n}}\n\n",
+				poll.name,
+				poll.name,
+				ptrs.iter().map(|p| format!(", {p}")).collect::<String>(),
+				free.name,
+				free.name,
+			);
+			let mut params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
+			params.push(("jobject", "Waker"));
+			let p_signal = format!("p{}", params.len() - 1);
+			self.native(
+				&bare,
+				&params,
+				("jbyteArray", "ByteArray"),
+				&format!(
+					"{}\n\t\tlet f = {};\n\t\trt::start(env, f.cast(), {p_signal}, jni_{}, jni_{})",
+					rust_pre.join("\n\t\t"),
+					rust_call(&[]),
+					poll.name,
+					free.name,
+				),
+			);
 			self.native(
 				&poll_bare,
-				&[("jlong", "Long"), ("jlong", "Long"), ("jboolean", "Boolean")],
+				&[("jlong", "Long"), ("jlong", "Long")],
 				("jbyteArray", "ByteArray?"),
-				&format!(
-					"let node = p1 as usize as *mut rt::Node;\n\t\tlet waker = match p2 {{\n\t\t\ttrue => rt::lend(node),\n\t\t\tfalse => rt::give(node),\n\t\t}};\n\t\t{decl}\n\t\tlet ret = crate::{}(p0 as usize as _, waker{});\n\t\tif ret == 0 {{\n\t\t\treturn std::ptr::null_mut();\n\t\t}}\n\t\t{ok_set}let mut w = rt::Writer::default();\n\t\t{write}\n\t\tw.array(env)",
-					poll.name,
-					ptrs.iter().map(|p| format!(", {p}")).collect::<String>()
-				),
+				&format!("rt::poll(env, p0 as usize as _, p1 as usize as _, jni_{})", poll.name),
 			);
 			self.native(
 				&free_bare,
 				&[("jlong", "Long")],
 				("()", "Unit"),
-				&format!("crate::{}(p0 as usize as _)", free.name),
+				&format!("jni_{}(p0 as usize as _)", free.name),
 			);
 			let lines = self.lift_result(&ok, err.as_ref(), exception.as_deref(), "r");
 			let lambda = match lines.is_empty() {
@@ -1419,7 +1436,11 @@ impl<'a> Gen<'a> {
 					lines.iter().map(|l| format!("\t{l}\n")).collect::<String>()
 				),
 			};
-			value = format!("Native.await({call}, Native::{poll_bare}, Native::{free_bare}) {lambda}");
+			value = format!(
+				"Native.Signal().let {{ {s} ->\n\tNative.await({call}, {s}, Native::{poll_bare}, Native::{free_bare}) {}\n}}",
+				lambda.replace('\n', "\n\t"),
+				s = signal.as_deref().expect("a future takes a signal"),
+			);
 		} else if !outs.is_empty() {
 			let (decl, ptrs, write) = self.glue_outs(&outs, function.err.is_some());
 			let params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
