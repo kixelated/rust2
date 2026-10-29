@@ -61,6 +61,7 @@ fixtures/reject/src/lib.rs:451:1: rust2-ffi: cannot export fn `merged`: foreign 
 fixtures/reject/src/lib.rs:458:1: rust2-ffi: cannot export fn `values`: foreign type `std::collections::btree_map::IntoValues`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:45:1: rust2-ffi: cannot export static `COUNT`: static; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:463:1: rust2-ffi: cannot export fn `zeros`: foreign type `std::iter::RepeatN`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:468:1: rust2-ffi: cannot export fn `successes`: foreign type `std::iter::Flatten`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:49:1: rust2-ffi: cannot export macro `noop`: macro; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:57:1: rust2-ffi: cannot export fn `excluded`: excluded type `Excluded`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:68:2: rust2-ffi: fn `reject_fixture::audio::encoder_finish` and fn `reject_fixture::audio_encoder::finish` are both `reject_audio_encoder_finish` in C

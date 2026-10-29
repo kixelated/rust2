@@ -2277,9 +2277,16 @@ impl<'tcx> Collector<'tcx> {
 	/// runs no other crate's code but `Clone`, which a borrowed item crosses through anyway.
 	/// A range is a value, which crosses as itself or not at all.
 	fn items(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
-		/// Their paths below the crate, which are the same in core and alloc as in std.
+		/// Their paths below the crate, which are the same in core and alloc as in std: the
+		/// iterators, and the collections an adapter may turn into one, which hand over every
+		/// element, unlike a `Result` that drops its error.
 		const DRAINED: &[&str] = &[
 			"array::IntoIter",
+			"collections::BTreeMap",
+			"collections::BTreeSet",
+			"collections::BinaryHeap",
+			"collections::LinkedList",
+			"collections::VecDeque",
 			"collections::binary_heap::Drain",
 			"collections::binary_heap::IntoIter",
 			"collections::binary_heap::Iter",
@@ -2307,6 +2314,7 @@ impl<'tcx> Collector<'tcx> {
 			"iter::Peekable",
 			"iter::Rev",
 			"option::IntoIter",
+			"option::Option",
 			"option::Iter",
 			"option::IterMut",
 			"result::IntoIter",
@@ -2323,6 +2331,7 @@ impl<'tcx> Collector<'tcx> {
 			"string::Drain",
 			"vec::Drain",
 			"vec::IntoIter",
+			"vec::Vec",
 		];
 		let tcx = self.tcx;
 		let iterator = tcx.get_diagnostic_item(sym::Iterator)?;
@@ -2391,7 +2400,7 @@ impl<'tcx> Collector<'tcx> {
 					(false, false) => return None,
 				};
 				let listed = match ty.kind() {
-					ty::Adt(adt, _) => method != next || drained(adt.did()),
+					ty::Adt(adt, _) => drained(adt.did()),
 					_ => plain,
 				};
 				if !listed || !by_std(method, ty) {

@@ -463,3 +463,8 @@ pub fn values() -> std::collections::btree_map::IntoValues<u8, u8> {
 pub fn zeros(n: usize) -> std::iter::RepeatN<u8> {
 	std::iter::repeat_n(0, n)
 }
+
+/// The successes, where turning each failure into an iterator drops its token.
+pub fn successes() -> impl Iterator<Item = u8> {
+	vec![Err(Token(0)), Ok(7)].into_iter().flatten()
+}
