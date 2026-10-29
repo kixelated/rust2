@@ -18,6 +18,7 @@ import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
+import type * as locals_Noisy from "../locals.Noisy.ts";
 import type * as Pair from "../pointers.Pair.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
@@ -376,6 +377,13 @@ export function mapOr$Option_Noisy_u8_borrows_closure0(self: Noisy.Noisy | undef
 	return f(self);
 }
 
+export function mapOr$Option_Noisy_u8_locals_closure12(self: locals_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: locals_Noisy.Noisy) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Option_u8_u8_refs_closure2_closure0(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
 	if (self === rt.None) {
 		return default_;
@@ -399,6 +407,13 @@ export function mapOr$Option_Ordering_u8_order(self: rt.Ordering | undefined, de
 
 export function mapOr$Option_Pair_u8_copies_closure0(self: Pair.Pair | undefined, default_: rt.u8, f: (a0: Pair.Pair) => rt.u8): rt.u8 {
 	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_PhantomData_u8_u8_locals_closure9(self: undefined | rt.None, default_: rt.u8, f: (a0: undefined) => rt.u8): rt.u8 {
+	if (self === rt.None) {
 		return default_;
 	}
 	return f(self);

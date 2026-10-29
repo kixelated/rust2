@@ -11,6 +11,7 @@ import type * as Bumped from "./iters.Bumped.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
+import type * as Twin from "./locals.Twin.ts";
 import type * as locks_Tally from "./locks.Tally.ts";
 import type * as Halves from "./pointers.Halves.ts";
 import type * as Inner from "./pointers.Inner.ts";
@@ -194,6 +195,14 @@ export function copy$Shape(v: Shape.Shape): Shape.Shape {
 
 export function copy$Tally(v: Tally.Tally): Tally.Tally {
 	return { n: v.n };
+}
+
+export function copy$Twin(v: Twin.Twin): Twin.Twin {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$Twin_Twin(v: [Twin.Twin, Twin.Twin]): [Twin.Twin, Twin.Twin] {
+	return [copy$Twin(v[0]), copy$Twin(v[1])];
 }
 
 export function copy$Window(v: Window.Window): Window.Window {
