@@ -362,3 +362,8 @@ impl<'a> From<&'a u32> for Held<'a> {
 pub fn hold(value: impl Into<Held<'static>>) -> u32 {
 	*value.into().0
 }
+
+/// Takes a borrow only for as long as `'static`, which its own lifetime bound demands.
+pub fn bound<'a: 'static>(value: impl Into<Held<'a>>) -> u32 {
+	*value.into().0
+}
