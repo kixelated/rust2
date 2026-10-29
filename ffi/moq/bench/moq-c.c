@@ -20,10 +20,11 @@ static double now(void) {
 
 int main(void) {
 	int32_t origin = moq_origin_create();
-	int32_t broadcast = moq_origin_create_broadcast((uint32_t)origin, "b", 1);
+	uint32_t broadcast = 0;
+	int32_t publication = moq_origin_create_broadcast((uint32_t)origin, "b", 1, &broadcast);
 	/* No info: a raw track on a microsecond timescale. */
-	int32_t track = moq_publish_track((uint32_t)broadcast, "bench", 5, NULL);
-	if (origin <= 0 || broadcast <= 0 || track <= 0) {
+	int32_t track = moq_publish_track(broadcast, "bench", 5, NULL);
+	if (origin <= 0 || publication <= 0 || track <= 0) {
 		return 1;
 	}
 
@@ -43,7 +44,8 @@ int main(void) {
 	double stamped = (now() - start) / (GROUPS * FRAMES);
 
 	printf("moq-c: %.0f ns per stamped 100 B frame\n", stamped);
-	moq_publish_close((uint32_t)broadcast);
+	moq_publish_close(broadcast);
+	moq_publication_free((uint32_t)publication);
 	moq_origin_close((uint32_t)origin);
 	return 0;
 }
