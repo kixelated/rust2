@@ -467,8 +467,14 @@ pub fn fns(data: &[u8], out: &mut Vec<u8>) {
 	// Borrowed: a closure, a function item, and a function pointer.
 	let mul = |x: u8| x.wrapping_mul(b);
 	let ptr: fn(u8) -> u8 = if b % 2 == 0 { halve } else { flip };
-	put(out, &format!("{} {} {} ", twice(&mul, a), twice(&halve, a), twice(&ptr, a)));
-	put(out, &format!("{} ", first_word(&|s: &str| s.split(' ').next().unwrap_or(""), "ab cd")));
+	put(
+		out,
+		&format!("{} {} {} ", twice(&mul, a), twice(&halve, a), twice(&ptr, a)),
+	);
+	put(
+		out,
+		&format!("{} ", first_word(&|s: &str| s.split(' ').next().unwrap_or(""), "ab cd")),
+	);
 
 	// A `&mut dyn FnMut` changes what its closure captured.
 	let mut sum = 0u32;
@@ -515,5 +521,8 @@ pub fn fns(data: &[u8], out: &mut Vec<u8>) {
 	// Shared: every clone calls the one closure.
 	let shared: Arc<dyn Fn(u8) -> u8 + Send + Sync> = Arc::new(move |x| x ^ b);
 	let other = shared.clone();
-	put(out, &format!("{} {} {}", shared(a), other(b), Arc::strong_count(&other)));
+	put(
+		out,
+		&format!("{} {} {}", shared(a), other(b), Arc::strong_count(&other)),
+	);
 }
