@@ -259,6 +259,10 @@ impl Refs {
 				}
 			}
 			Item::Function(f) => self.function(program, f),
+			Item::Value { ty, value, .. } => {
+				self.ty(program, ty);
+				self.expr(program, value);
+			}
 		}
 	}
 
@@ -560,6 +564,22 @@ impl Printer<'_> {
 				}
 			}
 			Item::Function(f) => self.function(f, true),
+			Item::Value { sym, ty, value, doc } => {
+				self.doc(doc);
+				self.start();
+				let name = self.program.syms[*sym].name.clone();
+				let decl = match &self.program.syms[*sym].alias {
+					Some(alias) => {
+						self.aliases.push((name.clone(), alias.clone()));
+						"const"
+					}
+					None => "export const",
+				};
+				let ty = self.ty(ty);
+				self.write(&format!("{decl} {name}: {ty} = /* @__PURE__ */ "));
+				self.expr(value, 2);
+				self.write(";\n");
+			}
 		}
 	}
 

@@ -35,6 +35,7 @@ pub mod harness;
 mod ints;
 mod iters;
 mod keys;
+mod locals;
 mod locks;
 mod nested;
 mod objects;

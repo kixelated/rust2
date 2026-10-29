@@ -260,6 +260,14 @@ export function refCellBorrowMut<T>(cell: RefCell<T>): RefCell<T> {
 	return cell;
 }
 
+/** `RefCell::replace`: its value, which `value` replaces, as an exclusive borrow would. */
+export function refCellReplace<T>(cell: RefCell<T>, value: T): T {
+	if (cell.borrows !== 0) panic("RefCell already borrowed");
+	const old = cell.value;
+	cell.value = value;
+	return old;
+}
+
 /** `RwLock::read`: a shared guard, which aborts while a write is held, as wasm32's does. */
 export function rwLockRead<T>(lock: RefCell<T>): RefCell<T> {
 	if (lock.borrows < 0) panic("rwlock locked for writing");
@@ -323,6 +331,72 @@ export function cellSet<T>(cell: Cell<T>, v: T, dropOld?: (old: T) => void): voi
 	const old = cell.v;
 	cell.v = v;
 	dropOld?.(old);
+}
+
+/**
+ * `LocalKey<T>`: a thread-local, one value on JS's one thread, which `init` makes on first
+ * use and nothing drops, as wasm32's are. A lazy key's first use from within `init` makes
+ * its own, which the outer one then drops by `drop` and replaces.
+ */
+export class LocalKey<T> {
+	readonly #init: () => T;
+	/** Whether `init` is an expression's, which only a first use runs, rather than a `const`'s. */
+	readonly #lazy: boolean;
+	readonly #drop: ((value: T) => void) | undefined;
+	#value: T | undefined;
+	/** wasm32's `LazyStorage` state: 0 before `init` returns, 1 after, 2 while dropping. */
+	#state = 0;
+
+	constructor(init: () => T, lazy: boolean, drop?: (value: T) => void) {
+		this.#init = init;
+		this.#lazy = lazy;
+		this.#drop = drop;
+	}
+
+	/** `LocalKey::with`'s value. */
+	get(): T {
+		if (this.#state === 1) return this.#value as T;
+		return this.#initialize(this.#init());
+	}
+
+	/** Makes `value` a lazy key's first value, as `set` does without running `init`, and whether it did. */
+	install(value: T): boolean {
+		if (!this.#lazy || this.#state === 1) return false;
+		this.#initialize(value);
+		return true;
+	}
+
+	#initialize(value: T): T {
+		if (this.#state === 1) {
+			this.#state = 2;
+			this.#drop?.(this.#value as T);
+			this.#state = 0;
+		}
+		if (this.#state === 2) panic("Attempted to initialize thread-local while it is being dropped");
+		this.#value = value;
+		this.#state = 1;
+		return value;
+	}
+}
+
+/**
+ * `LocalKey::initialize_with`, which `set` calls: `f` of `init` and the key's value, given
+ * `none` for `init` if `init` became a lazy key's first value.
+ */
+export function localKeyInitializeWith<T, R>(key: LocalKey<T>, init: T, f: (init: T | undefined, value: T) => R): R;
+export function localKeyInitializeWith<T, R>(
+	key: LocalKey<T>,
+	init: T,
+	f: (init: T | None, value: T) => R,
+	none: None,
+): R;
+export function localKeyInitializeWith<T, R>(
+	key: LocalKey<T>,
+	init: T,
+	f: (init: T | None | undefined, value: T) => R,
+	none?: None,
+): R {
+	return f(key.install(init) ? none : init, key.get());
 }
 
 // Atomics, which one thread never races: each operation reads and writes as it would

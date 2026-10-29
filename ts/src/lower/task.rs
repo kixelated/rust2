@@ -200,12 +200,33 @@ pub fn call<'tcx>(
 		("RefCell" | "RwLock", "new") => Expr::New(Box::new(Expr::Rt("RefCell".into())), args),
 		("RefCell", "borrow") => Expr::rt("refCellBorrow", args),
 		("RefCell", "borrow_mut") => Expr::rt("refCellBorrowMut", args),
+		("RefCell", "replace") => Expr::rt("refCellReplace", args),
+		("RefCell", "take") => {
+			let ty = call.args.type_at(0);
+			let f = super::collections::trait_fn(tcx, "Default", "default");
+			let value = b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), call.span, out);
+			Expr::rt("refCellReplace", vec![first(args), value])
+		}
 		// A panic aborts, so nothing poisons it.
 		("RwLock", "read") => Expr::result(true, Expr::rt("rwLockRead", args)),
 		("RwLock", "write") => Expr::result(true, Expr::rt("rwLockWrite", args)),
 		("RwLock", "try_read") => Expr::rt("rwLockTryRead", args),
 		("RwLock", "try_write") => Expr::rt("rwLockTryWrite", args),
 		("Cell", _) => return cell(b, call, name, args, out),
+		// A thread-local's value, which is never destroyed.
+		("LocalKey", "with") => {
+			let [key, f] = two(args);
+			f.call(vec![key.member("get").call(Vec::new())])
+		}
+		("LocalKey", "try_with") => {
+			let [key, f] = two(args);
+			Expr::result(true, f.call(vec![key.member("get").call(Vec::new())]))
+		}
+		// With the `Option`'s `None` where it is `rt.None`.
+		("LocalKey", "initialize_with") => {
+			let none = b.t.none_arg(call.args.type_at(0));
+			Expr::rt("localKeyInitializeWith", args.into_iter().chain(none).collect())
+		}
 		("Atomic", _) => return atomic(b, call, name, args),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
 		("From", "from") if matches!(self_std, Some(Std::OnceCell | Std::OnceLock)) => {
@@ -359,6 +380,7 @@ fn cell<'tcx>(
 	let e = match name {
 		"new" => Expr::New(Box::new(Expr::Rt("Cell".into())), args),
 		"get" => b.t.copied(first(args).member("v"), ty, call.span),
+		"into_inner" => first(args).member("v"),
 		"replace" => Expr::rt("cellReplace", args),
 		// With what drops the value it replaces.
 		"set" => {
