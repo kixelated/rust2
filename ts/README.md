@@ -269,7 +269,8 @@ back the `Arc<T>` the object was made from.
 A `dyn Fn`, `dyn FnMut`, or `dyn FnOnce` is the closure or function it was made of, which
 a call calls as it does the closure, and which a box drops as it does the closure. One
 that `Fn` or `FnMut` calls, boxed as a `dyn FnOnce`, is `rt.once` of it, which drops it
-after the call, as an `FnOnce` closure's body drops what it owns. A trait object of std's
+after the call, as an `FnOnce` closure's body drops what it owns, and a box of a
+reference to one is `rt.lent` of it, which never drops it. A trait object of std's
 or a mapped crate's trait other than `&dyn Debug`, `&dyn Display`, `dyn Future`,
 `dyn Any`, and the function traits, of a generic
 trait or one with an associated type, of a byte array, or behind any other pointer, such

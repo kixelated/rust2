@@ -15,6 +15,7 @@ use rustc_span::Span;
 
 use super::Translator;
 use super::body::Body;
+use super::library::Std;
 use crate::program::{SymKind, Symbol};
 use crate::ts::{self, Expr, FieldId, FieldInit, Item, Param, Stmt, StmtKind, SymId, Type};
 
@@ -398,7 +399,7 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 			);
 		}
 		if let Some(f) = self.t.dyn_fn(object) {
-			return self.fn_object(value, from, pointee, f.kind);
+			return self.fn_object(value, from, f.kind);
 		}
 		if self.t.object(object, span).is_none() {
 			return Expr::undefined();
@@ -426,27 +427,42 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		}
 	}
 
-	/// `value`, a `from` pointing at a `pointee` that is a function, as a `dyn Fn*` of
-	/// `kind`: the function itself. A boxed one that an `FnOnce` call consumes but that `Fn`
-	/// or `FnMut` calls is `rt.once` of it, which drops it after the call, as rustc's shim
-	/// does, where an `FnOnce` closure's body drops what it owns.
-	fn fn_object(&mut self, value: Expr, from: Ty<'tcx>, pointee: Ty<'tcx>, kind: ty::ClosureKind) -> Expr {
-		let value = match self.t.place_pointee(from) {
-			Some(_) => value.member("v"),
-			None => value,
-		};
-		let called = match pointee.kind() {
+	/// `value`, a `from` pointing at a function, as a `dyn Fn*` of `kind`: the function
+	/// itself, through the references and boxes it is behind. A box owning one that an
+	/// `FnOnce` call consumes but that `Fn` or `FnMut` calls is `rt.once` of it, which drops
+	/// it after the call, as rustc's shim does, where an `FnOnce` closure's body drops what
+	/// it owns; a box of a reference to one that drops is `rt.lent` of it, which never does.
+	fn fn_object(&mut self, mut value: Expr, from: Ty<'tcx>, kind: ty::ClosureKind) -> Expr {
+		let tcx = self.t.tcx;
+		let (mut ty, mut owned) = (from, from.is_box());
+		loop {
+			ty = match ty.kind() {
+				ty::Ref(_, inner, _) => {
+					// A `&mut` to a function JS copies is its place.
+					if self.t.place_pointee(ty).is_some() {
+						value = value.member("v");
+					}
+					owned = false;
+					*inner
+				}
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
+				_ => break,
+			};
+		}
+		if !from.is_box() || !self.t.drops(ty) {
+			return value;
+		}
+		let called = match ty.kind() {
 			ty::Closure(_, args) => Some(args.as_closure().kind()),
-			ty::Dynamic(..) => self.t.dyn_fn(pointee).map(|f| f.kind),
+			ty::Dynamic(..) => self.t.dyn_fn(ty).map(|f| f.kind),
 			_ => None,
 		};
-		let once = kind == ty::ClosureKind::FnOnce
-			&& from.is_box()
-			&& called.is_some_and(|called| called != ty::ClosureKind::FnOnce)
-			&& self.t.drops(pointee);
-		match once {
-			true => Expr::rt("once", vec![value]),
-			false => value,
+		match owned {
+			false => Expr::rt("lent", vec![value]),
+			true if kind == ty::ClosureKind::FnOnce && called.is_some_and(|c| c != ty::ClosureKind::FnOnce) => {
+				Expr::rt("once", vec![value])
+			}
+			true => value,
 		}
 	}
 }

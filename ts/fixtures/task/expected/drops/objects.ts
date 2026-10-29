@@ -342,6 +342,29 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part8 = rt.place(() => slot, (value3) => slot = value3).v();
 	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part8, f)];
 	Log.note(log, rt.fmtFormat(["slot ", args16[0]]));
+	const captured10 = guard(10);
+	const lent: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured10);
+	}, (): void => {
+		rt.drop(captured10);
+	});
+	const boxed_: () => rt.u32 = rt.lent(lent);
+	const part9 = boxed_();
+	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part9, f)];
+	Log.note(log, rt.fmtFormat(["lent ", args18[0]]));
+	rt.drop(boxed_);
+	const part10 = lent();
+	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part10, f)];
+	Log.note(log, rt.fmtFormat(["lent ", args20[0]]));
+	const captured11 = guard(11);
+	const part11 = rt.once(rt.closure((): rt.u32 => {
+		return Guard.id(captured11);
+	}, (): void => {
+		rt.drop(captured11);
+	}))();
+	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part11, f)];
+	Log.note(log, rt.fmtFormat(["outer ", args22[0]]));
+	rt.drop(lent);
 	rt.drop(slot);
 }
 

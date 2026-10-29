@@ -212,4 +212,17 @@ pub(super) fn fns(log: &Log, id: u32) {
 	log.note(format!("shared {}", other()));
 	drop(other);
 	log.note(format!("slot {}", slot()));
+	// A box of a reference drops only the reference, and a box of a box is the closure it
+	// holds, which a call through `FnOnce` consumes.
+	let j = guard(10);
+	let lent = move || j.id();
+	let boxed: Box<dyn Fn() -> u32 + '_> = Box::new(&lent);
+	log.note(format!("lent {}", boxed()));
+	drop(boxed);
+	log.note(format!("lent {}", lent()));
+	let k = guard(11);
+	let inner: Box<dyn Fn() -> u32> = Box::new(move || k.id());
+	let outer: Box<dyn FnOnce() -> u32> = Box::new(inner);
+	log.note(format!("outer {}", outer()));
+	drop(lent);
 }
