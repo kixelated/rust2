@@ -352,12 +352,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let t = &*self.b.t;
 		// Mappings that lend an element JS copies as its place, as a map's `get_mut` does, the
-		// place a `&mut dyn Any` wraps, or a `RefCell` key's value.
+		// place a `&mut dyn Any` wraps, a `RefCell` key's value, or an `Arc`'s.
 		let lends = match library::key(tcx, def_id) {
 			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
 				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut")
 				| ("dyn Any", "downcast_mut")
-				| ("LocalKey", "with_borrow_mut") => true,
+				| ("LocalKey", "with_borrow_mut")
+				| ("Arc" | "Rc", "get_mut" | "make_mut") => true,
 				("IntoIterator", "into_iter") => gargs.types().next().is_some_and(|ty| {
 					ty.ref_mutability() == Some(ty::Mutability::Mut)
 						&& match ty.peel_refs().kind() {
@@ -374,14 +375,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		};
 		// Places held in what it is given, not one it is given, or that the iterator it adapts
 		// yields, were made where they came from, as are what it hands a closure of them.
-		let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
-		let adapts = tcx
-			.instantiate_bound_regions_with_erased(sig)
-			.inputs()
-			.iter()
-			.any(|&i| {
-				t.place_pointee(i).is_none() && t.has_place(i) || t.iter_item(i).is_some_and(|item| t.has_place(item))
-			});
+		let adapts = t.sig(def_id, gargs).inputs().iter().any(|&i| {
+			t.place_pointee(i).is_none() && t.has_place(i) || t.iter_item(i).is_some_and(|item| t.has_place(item))
+		});
 		if lends || adapts {
 			return None;
 		}
