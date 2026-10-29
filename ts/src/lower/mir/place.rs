@@ -722,11 +722,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// The kind of a `pointee`'s object, where a whole value of it can be written into
 	/// the object in place: one only its owner holds, unlike an `Arc`'s, which its clones
-	/// share, and whose parts `Object.assign` copies, unlike a binding's or an
-	/// `rt.PollFn`'s private fields.
+	/// share, and whose parts `Object.assign` copies, unlike a binding's, an `rt.PollFn`'s
+	/// or a future's private fields, or a trait object's, whatever class it is, even
+	/// pinned or boxed, which JS erases.
 	pub(super) fn write_in(&self, pointee: Ty<'tcx>) -> Option<ObjectKind> {
-		let hidden = matches!(pointee.kind(), ty::Adt(adt, _)
-			if self.b.t.bound_drops(adt.did()).is_some() || Std::of(self.tcx, adt.did()) == Some(Std::PollFn));
+		let mut erased = pointee;
+		while let ty::Adt(adt, args) = erased.kind()
+			&& matches!(Std::of(self.tcx, adt.did()), Some(Std::Pin | Std::Box))
+		{
+			erased = args.type_at(0);
+		}
+		let hidden = match erased.kind() {
+			ty::Adt(adt, _) => {
+				self.b.t.bound_drops(adt.did()).is_some() || Std::of(self.tcx, adt.did()) == Some(Std::PollFn)
+			}
+			ty::Dynamic(..) | ty::Closure(..) => true,
+			_ => false,
+		};
 		match self.b.t.object_kind(pointee)? {
 			ObjectKind::Class if shared(self, pointee) || hidden => None,
 			ObjectKind::Closure => None,

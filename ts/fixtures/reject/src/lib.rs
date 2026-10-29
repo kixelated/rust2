@@ -102,6 +102,22 @@ pub fn replace_guard<'a>(dst: &mut std::sync::MutexGuard<'a, u8>, src: std::sync
 	*dst = src;
 }
 
+/// A boxed `PollFn` is the `rt.PollFn`, whose callback is private where a copy can't reach.
+pub fn replace_boxed_poll_fn(
+	dst: &mut std::pin::Pin<Box<std::future::PollFn<fn(&mut std::task::Context<'_>) -> std::task::Poll<u8>>>>,
+	src: std::pin::Pin<Box<std::future::PollFn<fn(&mut std::task::Context<'_>) -> std::task::Poll<u8>>>>,
+) -> std::pin::Pin<Box<std::future::PollFn<fn(&mut std::task::Context<'_>) -> std::task::Poll<u8>>>> {
+	std::mem::replace(dst, src)
+}
+
+/// A boxed future is whatever class its value's type is.
+pub fn replace_boxed_future(
+	dst: &mut std::pin::Pin<Box<dyn std::future::Future<Output = u8>>>,
+	src: std::pin::Pin<Box<dyn std::future::Future<Output = u8>>>,
+) {
+	*dst = src;
+}
+
 /// Swapping two guards would swap their mutexes' values instead.
 pub fn swap_guards<'a>(a: &mut std::sync::MutexGuard<'a, u8>, b: &mut std::sync::MutexGuard<'a, u8>) {
 	std::mem::swap(a, b);

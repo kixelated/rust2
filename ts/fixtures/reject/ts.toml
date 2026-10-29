@@ -18,6 +18,8 @@ roots = [
     "pending_output",
     "replace_guard",
     "swap_guards",
+    "replace_boxed_poll_fn",
+    "replace_boxed_future",
     "cycled",
     "folds",
     "backs",
