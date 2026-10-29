@@ -2113,10 +2113,13 @@ impl<'tcx> Collector<'tcx> {
 				continue;
 			}
 			// Any other source is taken as it is: `impl<'a, V> From<&'a V> for Timed<&'a V>`
-			// makes `impl Into<Timed<&'a T>>` take `&T`. One that must outlive the call, by
-			// naming `'static` or by a lifetime bound, takes nothing C lends for it.
+			// makes `impl Into<Timed<&'a T>>` take `&T`. One that may have to outlive the call,
+			// by naming `'static`, by a lifetime bound, or by a lifetime the target ties to a
+			// `'static` of its own, as `impl Into<Held<'static>>` does, takes nothing C lends.
 			if !source.is_ty_var() {
-				let lasting = source.walk().any(|arg| arg.as_region().is_some_and(|r| r.is_static()))
+				let regions = |ty: Ty<'tcx>| ty.walk().filter_map(|arg| arg.as_region()).collect::<Vec<_>>();
+				let lasting = regions(source).iter().any(|r| r.is_static())
+					|| (!regions(source).is_empty() && regions(target).iter().any(|r| r.is_static()))
 					|| (tcx.clauses_of(imp).instantiate(tcx, args).clauses.iter()).any(|clause| {
 						let clause = clause.skip_norm_wip();
 						clause.as_type_outlives_clause().is_some() || clause.as_region_outlives_clause().is_some()

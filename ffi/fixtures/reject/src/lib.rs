@@ -348,3 +348,17 @@ pub fn stash(value: impl Into<Excluded>) -> u32 {
 	let _ = value.into();
 	0
 }
+
+/// Excluded, borrowing what it converts from.
+pub struct Held<'a>(pub &'a u32);
+
+impl<'a> From<&'a u32> for Held<'a> {
+	fn from(value: &'a u32) -> Self {
+		Held(value)
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the target's lifetime demands.
+pub fn hold(value: impl Into<Held<'static>>) -> u32 {
+	*value.into().0
+}
