@@ -15,6 +15,7 @@
 #include <cstring>
 #include <deque>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -45,48 +46,57 @@ bool is(const moq::buf &buf, const char *s) {
 
 int wakes = 0;
 
-// Runs the jobs an executor is given on a thread of its own, until destroyed.
+// Runs the jobs an executor is given on a thread of its own, until destroyed. A future
+// may still post to its executor after its task is destroyed, so the queue is shared with
+// every copy of the executor and outlives the worker, dropping what comes after it stops.
 class worker {
-	std::mutex mutex_;
-	std::condition_variable cv_;
-	std::deque<std::function<void()>> jobs_;
-	bool stopping_ = false;
+	struct queue {
+		std::mutex mutex;
+		std::condition_variable cv;
+		std::deque<std::function<void()>> jobs;
+		bool stopping = false;
+	};
+
+	std::shared_ptr<queue> queue_ = std::make_shared<queue>();
 	std::thread thread_;
 
-	void run() {
+	static void run(const std::shared_ptr<queue> &q) {
 		for (;;) {
 			std::function<void()> job;
 			{
-				std::unique_lock<std::mutex> lock(mutex_);
-				cv_.wait(lock, [&]() { return stopping_ || !jobs_.empty(); });
-				if (jobs_.empty()) {
+				std::unique_lock<std::mutex> lock(q->mutex);
+				q->cv.wait(lock, [&]() { return q->stopping || !q->jobs.empty(); });
+				if (q->jobs.empty()) {
 					return;
 				}
-				job = std::move(jobs_.front());
-				jobs_.pop_front();
+				job = std::move(q->jobs.front());
+				q->jobs.pop_front();
 			}
 			job();
 		}
 	}
 
 public:
-	worker() : thread_([this]() { run(); }) {}
+	worker() : thread_([q = queue_]() { run(q); }) {}
 	~worker() {
 		{
-			std::lock_guard<std::mutex> lock(mutex_);
-			stopping_ = true;
+			std::lock_guard<std::mutex> lock(queue_->mutex);
+			queue_->stopping = true;
 		}
-		cv_.notify_one();
+		queue_->cv.notify_one();
 		thread_.join();
 	}
 
 	auto executor() {
-		return [this](std::function<void()> job) {
+		return [q = queue_](std::function<void()> job) {
 			{
-				std::lock_guard<std::mutex> lock(mutex_);
-				jobs_.push_back(std::move(job));
+				std::lock_guard<std::mutex> lock(q->mutex);
+				if (q->stopping) {
+					return;
+				}
+				q->jobs.push_back(std::move(job));
 			}
-			cv_.notify_one();
+			q->cv.notify_one();
 		};
 	}
 };
