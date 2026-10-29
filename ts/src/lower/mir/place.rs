@@ -670,49 +670,98 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return out;
 		}
 		// `*r = v` replaces the object `r` points at in place, which other references and
-		// captures share. An alias of a borrowed place, or of a reference to no object,
-		// assigns the place, and an `rt.Place` its `v`.
-		if let [ProjectionElem::Deref] = place.projection.as_slice()
-			&& !self.alias_of_place(place.local)
-			&& self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_none()
-			&& !(place.local.as_u32() == 1 && matches!(self.env, Env::Closure(_)))
-		{
-			let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
-			let alias = matches!(self.slots[place.local], Slot::Alias(_));
+		// captures share. An alias of a borrowed place assigns the place, and an `rt.Place`
+		// its `v`.
+		if let Some(pointee) = self.pointee_object(place) {
 			let target = self.local_expr(place.local, span);
-			// A binding's value may keep what it holds where `Object.assign` can't reach.
-			let bound = matches!(pointee.kind(), ty::Adt(adt, _) if self.b.t.bound_drops(adt.did()).is_some());
 			let raw =
 				matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..)) && !self.box_pointer(place.local);
-			let e = match self.b.t.object_kind(pointee) {
-				_ if raw => Some(Expr::rt("ptrWrite", vec![target, value.clone()])),
-				Some(ObjectKind::Class) if !shared(self, pointee) && !bound => {
-					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
-				}
-				Some(ObjectKind::Bytes) => Some(target.member("set").call(vec![value.clone()])),
-				// A tuple's array has a fixed length, so its parts copy over in place.
-				Some(ObjectKind::Array) if matches!(pointee.kind(), ty::Tuple(_)) => {
-					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
-				}
-				_ => None,
+			let e = match raw {
+				true => Expr::rt("ptrWrite", vec![target, value]),
+				false => match self.write_in(pointee) {
+					Some(ObjectKind::Bytes) => target.member("set").call(vec![value]),
+					// A `Vec<u8>` is an `rt.ByteVec`, and any other a JS array, as a boxed slice
+					// is, whose length a write changes, unlike a tuple's or an array's.
+					Some(ObjectKind::Vec) if !byte_vec(self.erased(pointee)) => {
+						Expr::rt("vecAssign", vec![target, value])
+					}
+					Some(ObjectKind::Array) if self.erased(pointee).is_slice() => {
+						Expr::rt("vecAssign", vec![target, value])
+					}
+					Some(_) => Expr::ident("Object").member("assign").call(vec![target, value]),
+					None => self.err(span, format!("an assignment through a reference to `{pointee}`")),
+				},
 			};
-			match (e, alias) {
-				(Some(e), _) => {
-					out.push(StmtKind::Expr(e).at(None));
-					return out;
-				}
-				(None, true) => {}
-				(None, false) => {
-					return vec![
-						StmtKind::Expr(self.err(span, format!("an assignment through a reference to `{pointee}`")))
-							.at(None),
-					];
-				}
-			}
+			out.push(StmtKind::Expr(e).at(None));
+			return out;
 		}
 		let target = self.place_expr(place, span, &mut out);
 		out.push(StmtKind::Expr(target.assign(value)).at(self.b.t.loc(span)));
 		out
+	}
+
+	/// What `place` is, where it is `*r` for an `r` that is the object it points at, with
+	/// no place known to hold it: neither an alias of a borrowed place, nor an `rt.Place`,
+	/// nor a closure's environment, nor an alias of a reference to no object, such as a
+	/// `&mut &str`, which only an alias of the place it borrows can be.
+	pub(super) fn pointee_object(&self, place: Place<'tcx>) -> Option<Ty<'tcx>> {
+		let [ProjectionElem::Deref] = place.projection.as_slice() else {
+			return None;
+		};
+		let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
+		let ty = self.mir.local_decls[place.local].ty;
+		let lent = matches!(self.slots[place.local], Slot::Alias(_))
+			&& !matches!(ty.kind(), ty::RawPtr(..))
+			&& self.b.t.object_kind(pointee).is_none();
+		let ok = !self.alias_of_place(place.local)
+			&& !lent
+			&& self.b.t.place_pointee(ty).is_none()
+			&& !(place.local.as_u32() == 1 && matches!(self.env, Env::Closure(_)));
+		ok.then_some(pointee)
+	}
+
+	/// Whether `place` is `*r` for an `r` that is the object it points at, which a whole
+	/// value of it, not of bytes, is written into in place, with no place known to hold it.
+	pub(super) fn in_object(&self, place: Place<'tcx>) -> bool {
+		let raw = matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..));
+		self.pointee_object(place)
+			.and_then(|pointee| self.write_in(pointee))
+			.is_some_and(|kind| kind != ObjectKind::Bytes && !raw)
+	}
+
+	/// The kind of a `pointee`'s object, through the `Pin`s and `Box`es JS erases, where a
+	/// whole value of it can be written into the object in place: one only its owner
+	/// holds, unlike an `Arc`'s, which its clones share, and whose parts `Object.assign`
+	/// copies, unlike a binding's, an `rt.PollFn`'s or a future's private fields, or a
+	/// trait object's, whatever class it is.
+	pub(super) fn write_in(&self, pointee: Ty<'tcx>) -> Option<ObjectKind> {
+		let erased = self.erased(pointee);
+		let hidden = match erased.kind() {
+			ty::Adt(adt, _) => {
+				self.b.t.bound_drops(adt.did()).is_some() || Std::of(self.tcx, adt.did()) == Some(Std::PollFn)
+			}
+			ty::Dynamic(..) | ty::Closure(..) => true,
+			// A `Uint8Array`'s length never changes, as a boxed slice's may.
+			ty::Slice(elem) => matches!(elem.kind(), ty::Uint(ty::UintTy::U8)),
+			_ => false,
+		};
+		self.b.t.object_kind(pointee)?;
+		match self.b.t.object_kind(erased)? {
+			_ if hidden || shared(self, pointee) => None,
+			ObjectKind::Closure => None,
+			kind => Some(kind),
+		}
+	}
+
+	/// What JS keeps of a `ty`: what it holds through any number of `Pin`s and `Box`es.
+	fn erased(&self, ty: Ty<'tcx>) -> Ty<'tcx> {
+		let mut erased = ty;
+		while let ty::Adt(adt, args) = erased.kind()
+			&& matches!(Std::of(self.tcx, adt.did()), Some(Std::Pin | Std::Box))
+		{
+			erased = args.type_at(0);
+		}
+		erased
 	}
 
 	/// A store of `value` to `place` as a store of the whole value to what holds it, where
@@ -1522,6 +1571,11 @@ fn shared<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Ref(..) | ty::Coroutine(..) => true,
 		_ => false,
 	}
+}
+
+/// Whether `ty` is a `Vec<u8>`, an `rt.ByteVec`.
+fn byte_vec(ty: Ty<'_>) -> bool {
+	matches!(ty.kind(), ty::Adt(_, args) if args.types().next().is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))))
 }
 
 /// Whether `path` reads through the variable `name` first.

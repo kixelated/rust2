@@ -18,9 +18,7 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _17: rt.u8 = rt.u8Rem(op, 8);
 		if (_17 === 0) {
 			const tally: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
-			const _23: rt.u64 = op as rt.u64;
-			const _24: Tally.Tally = tally.value;
-			_24.n = rt.u64Add(_24.n, _23);
+			tally.value.n = rt.u64Add(tally.value.n, op as rt.u64);
 			rt.byteVecPush(tally.value.seen, op);
 			rt.mutexUnlock(tally);
 		} else if (_17 === 1) {
@@ -116,9 +114,7 @@ export function rwlocks(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _12: rt.u8 = rt.u8Rem(op, 6);
 		if (_12 === 0) {
 			const tally: rt.RefCell<Tally.Tally> = rt.rwLockWrite(lock.value);
-			const _18: rt.u64 = op as rt.u64;
-			const _19: Tally.Tally = tally.value;
-			_19.n = rt.u64Add(_19.n, _18);
+			tally.value.n = rt.u64Add(tally.value.n, op as rt.u64);
 			rt.byteVecPush(tally.value.seen, op);
 			rt.refMutRelease(tally);
 		} else if (_12 === 1) {
