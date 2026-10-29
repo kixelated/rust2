@@ -41,6 +41,7 @@ thread_local! {
 		}
 	};
 	static HELD: RefCell<Option<Noisy>> = const { RefCell::new(None) };
+	static TALLY: RefCell<u32> = RefCell::new(0);
 	// A copy the `const` makes, then changes the original of, of a type nothing else writes.
 	static PAIRS: Cell<(Twin, Twin)> = const {
 		let mut x = Twin(1, 2);
@@ -51,7 +52,17 @@ thread_local! {
 }
 
 /// Each byte an operation on the thread-locals; each puts what it read and what dropped.
+/// First, what each holds, which only the value it starts with can be.
 pub fn locals(data: &[u8], out: &mut Vec<u8>) {
+	out.push(COUNT.with(Cell::get) as u8);
+	out.extend(LOG.with_borrow(|log| log.clone()));
+	out.push(POLLING.with(|p| p.current.get().map_or(0xfd, |(a, _)| a as u8)));
+	out.push(POLLING.with(|p| p.held.borrow().len() as u8));
+	out.push(HELD.with_borrow(|held| held.as_ref().map_or(0xfd, |n| n.id)));
+	out.push(TALLY.with_borrow(|tally| *tally as u8));
+	let (Twin(a, b), Twin(c, d)) = PAIRS.get();
+	out.extend([a as u8, b as u8, c as u8, d as u8]);
+	out.push(serial(false));
 	let log = Arc::new(Mutex::new(Vec::new()));
 	for &op in data {
 		match op % 9 {
@@ -92,17 +103,29 @@ pub fn locals(data: &[u8], out: &mut Vec<u8>) {
 			}
 			// The old value each helper replaces drops, or is put.
 			7 => {
+				LOG.with_borrow_mut(|log| log.push(op));
 				out.push(LOG.with_borrow(|log| log.len() as u8));
 				out.extend(LOG.replace(vec![op]));
+				LOG.set(vec![op, op]);
 				out.extend(LOG.take());
-				LOG.with(|log| log.borrow_mut().extend([1, 2, 3]));
-				let old = HELD.replace(Some(Noisy {
+				LOG.set(vec![1, 2, 3]);
+				HELD.set(Some(Noisy {
 					id: op,
+					log: log.clone(),
+				}));
+				// Drops what it held.
+				HELD.with_borrow_mut(|held| *held = None);
+				let old = HELD.replace(Some(Noisy {
+					id: op.wrapping_add(1),
 					log: log.clone(),
 				}));
 				out.push(old.as_ref().map_or(0xfd, |n| n.id));
 				drop(old);
 				out.push(HELD.take().map_or(0xfd, |n| n.id));
+				// A value JS copies, written through its place.
+				TALLY.with_borrow_mut(|tally| *tally = tally.wrapping_mul(3).wrapping_add(u32::from(op)));
+				out.push(TALLY.with_borrow(|tally| *tally as u8));
+				TALLY.set(TALLY.with_borrow(|tally| tally / 2));
 			}
 			_ => out.push(serial(false)),
 		}
@@ -110,6 +133,7 @@ pub fn locals(data: &[u8], out: &mut Vec<u8>) {
 		log.lock().unwrap().clear();
 	}
 	COUNT.with(|c| c.set(7));
+	TALLY.with(|tally| *tally.borrow_mut() = 0);
 	LOG.with(|log| log.borrow_mut().truncate(3));
 	POLLING.with(|p| {
 		p.current.set(None);

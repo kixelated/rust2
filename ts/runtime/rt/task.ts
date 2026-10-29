@@ -4,7 +4,7 @@
 // A value whose drop JS can observe has `[Symbol.dispose]`, which runs its `Drop` impl
 // and drops its fields. `None` is `undefined`, which drops as nothing.
 
-import { Err, type None, OK, Ok, Panic, panic, type Place, type Result } from "../rt.ts";
+import { Err, type None, OK, Ok, Panic, panic, type Place, place, type Result } from "../rt.ts";
 
 // Drops
 
@@ -397,6 +397,41 @@ export function localKeyInitializeWith<T, R>(
 	none?: None,
 ): R {
 	return f(key.install(init) ? none : init, key.get());
+}
+
+/**
+ * `LocalKey::set` of a `RefCell` key: `value` becomes a lazy key's first value, or else
+ * replaces its value as an exclusive borrow would, after `dropOld` drops the old one.
+ */
+export function localKeyRefCellSet<T>(key: LocalKey<RefCell<T>>, value: T, dropOld?: (old: T) => void): void {
+	if (key.install(new RefCell(value))) return;
+	const cell = refCellBorrowMut(key.get());
+	dropOld?.(cell.value);
+	cell.value = value;
+	refMutRelease(cell);
+}
+
+/** `LocalKey::with_borrow_mut`: `f` of its value, exclusively borrowed while `f` runs. */
+export function localKeyWithBorrowMut<T, R>(key: LocalKey<RefCell<T>>, f: (value: T) => R): R {
+	const cell = refCellBorrowMut(key.get());
+	const out = f(cell.value);
+	refMutRelease(cell);
+	return out;
+}
+
+/** `localKeyWithBorrowMut` of a value JS copies, which `f` gets the place of. */
+export function localKeyWithBorrowMutPlace<T, R>(key: LocalKey<RefCell<T>>, f: (value: Place<T>) => R): R {
+	const cell = refCellBorrowMut(key.get());
+	const out = f(
+		place(
+			() => cell.value,
+			(v) => {
+				cell.value = v;
+			},
+		),
+	);
+	refMutRelease(cell);
+	return out;
 }
 
 // Atomics, which one thread never races: each operation reads and writes as it would

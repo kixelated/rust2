@@ -88,7 +88,7 @@ export function mapOr$Result_u8_u16_u8_results_closure7(self: rt.Result<rt.u8, r
 	return default_;
 }
 
-export function mapOr$Result_usize_AccessError_u8_locals_closure3(self: rt.Result<rt.usize, never>, default_: rt.u8, f: (a0: rt.usize) => rt.u8): rt.u8 {
+export function mapOr$Result_usize_AccessError_u8_locals_closure8(self: rt.Result<rt.usize, never>, default_: rt.u8, f: (a0: rt.usize) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);
 	}
