@@ -191,40 +191,58 @@ export function writeLeadingOnes(value: rt.u64, out: rt.ByteVec): void {
 }
 
 /** Decode a varint in `form` from the front of `buf`, returning it and the rest of `buf`. */
-export function read(bufData: Uint8Array, bufStart: number, bufLen: number, form: Form.Form): rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> {
+export function read(bufData: Uint8Array, bufStart: number, bufLen: number, form: Form.Form): DecodeError.DecodeError | undefined {
 	if (form.tag === "Quic") {
 		return readQuic(bufData, bufStart, bufLen);
 	}
 	return readLeadingOnes(bufData, bufStart, bufLen, form.seven);
 }
 
-export function readQuic(bufData: Uint8Array, bufStart: number, bufLen: number): rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> {
+export const readOut: { p_0: rt.u64; p_1Data: Uint8Array; p_1Start: number; p_1Len: number } = { p_0: undefined as never, p_1Data: undefined as never, p_1Start: undefined as never, p_1Len: undefined as never };
+
+export function readQuic(bufData: Uint8Array, bufStart: number, bufLen: number): DecodeError.DecodeError | undefined {
 	if (bufLen !== 0) {
 		const first: rt.u8 = bufData[bufStart];
 		if (!(first < 64)) {
 			if (!(first < 128)) {
 				if (!(first < 192)) {
 					if (bufLen >= 8) {
-						return rt.Ok([fromHalves((((bufData[bufStart] & 63) << 24) | (bufData[bufStart + 1] << 16) | (bufData[bufStart + 2] << 8) | bufData[bufStart + 3]) >>> 0, ((bufData[bufStart + 4] << 24) | (bufData[bufStart + 5] << 16) | (bufData[bufStart + 6] << 8) | bufData[bufStart + 7]) >>> 0), new rt.ByteSlice(bufData, bufStart + 8, bufLen - 8)] as [rt.u64, rt.ByteSlice]);
+						readOut.p_0 = fromHalves((((bufData[bufStart] & 63) << 24) | (bufData[bufStart + 1] << 16) | (bufData[bufStart + 2] << 8) | bufData[bufStart + 3]) >>> 0, ((bufData[bufStart + 4] << 24) | (bufData[bufStart + 5] << 16) | (bufData[bufStart + 6] << 8) | bufData[bufStart + 7]) >>> 0);
+						readOut.p_1Data = bufData;
+						readOut.p_1Start = bufStart + 8;
+						readOut.p_1Len = bufLen - 8;
+						return undefined;
 					}
-					return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+					return { tag: "Short" } as DecodeError.DecodeError;
 				}
 				if (bufLen >= 4) {
-					return rt.Ok([(((bufData[bufStart] & 63) << 24) | (bufData[bufStart + 1] << 16) | (bufData[bufStart + 2] << 8) | bufData[bufStart + 3]) >>> 0 as rt.u64, new rt.ByteSlice(bufData, bufStart + 4, bufLen - 4)] as [rt.u64, rt.ByteSlice]);
+					readOut.p_0 = (((bufData[bufStart] & 63) << 24) | (bufData[bufStart + 1] << 16) | (bufData[bufStart + 2] << 8) | bufData[bufStart + 3]) >>> 0 as rt.u64;
+					readOut.p_1Data = bufData;
+					readOut.p_1Start = bufStart + 4;
+					readOut.p_1Len = bufLen - 4;
+					return undefined;
 				}
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 			if (bufLen >= 2) {
-				return rt.Ok([(((bufData[bufStart] & 63) << 8) | bufData[bufStart + 1]) as rt.u64, new rt.ByteSlice(bufData, bufStart + 2, bufLen - 2)] as [rt.u64, rt.ByteSlice]);
+				readOut.p_0 = (((bufData[bufStart] & 63) << 8) | bufData[bufStart + 1]) as rt.u64;
+				readOut.p_1Data = bufData;
+				readOut.p_1Start = bufStart + 2;
+				readOut.p_1Len = bufLen - 2;
+				return undefined;
 			}
-			return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+			return { tag: "Short" } as DecodeError.DecodeError;
 		}
-		return rt.Ok([first as rt.u64, new rt.ByteSlice(bufData, bufStart + 1, bufLen - 1)] as [rt.u64, rt.ByteSlice]);
+		readOut.p_0 = first as rt.u64;
+		readOut.p_1Data = bufData;
+		readOut.p_1Start = bufStart + 1;
+		readOut.p_1Len = bufLen - 1;
+		return undefined;
 	}
-	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+	return { tag: "Short" } as DecodeError.DecodeError;
 }
 
-export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: number, seven: boolean): rt.Result<[rt.u64, rt.ByteSlice], DecodeError.DecodeError> {
+export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: number, seven: boolean): DecodeError.DecodeError | undefined {
 	let _8_0!: rt.u64;
 	let _8_1Data!: Uint8Array;
 	let _8_1Start!: number;
@@ -244,7 +262,7 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 2;
 				_8_1Len = bufLen - 2;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (_9 === 2) {
 			if (bufLen >= 3) {
@@ -253,7 +271,7 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 3;
 				_8_1Len = bufLen - 3;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (_9 === 3) {
 			if (bufLen >= 4) {
@@ -262,7 +280,7 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 4;
 				_8_1Len = bufLen - 4;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (_9 === 4) {
 			if (bufLen >= 5) {
@@ -271,7 +289,7 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 5;
 				_8_1Len = bufLen - 5;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (_9 === 5) {
 			if (bufLen >= 6) {
@@ -280,11 +298,11 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 6;
 				_8_1Len = bufLen - 6;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (_9 === 6) {
 			if (!seven) {
-				return rt.Err({ tag: "InvalidValue" } as DecodeError.DecodeError);
+				return { tag: "InvalidValue" } as DecodeError.DecodeError;
 			}
 			if (bufLen >= 7) {
 				_8_0 = fromHalves(((bufData[bufStart] & 1) << 16) | (bufData[bufStart + 1] << 8) | bufData[bufStart + 2], ((bufData[bufStart + 3] << 24) | (bufData[bufStart + 4] << 16) | (bufData[bufStart + 5] << 8) | bufData[bufStart + 6]) >>> 0);
@@ -292,7 +310,7 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 7;
 				_8_1Len = bufLen - 7;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (_9 === 7) {
 			if (bufLen >= 8) {
@@ -301,7 +319,7 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 				_8_1Start = bufStart + 8;
 				_8_1Len = bufLen - 8;
 			} else {
-				return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+				return { tag: "Short" } as DecodeError.DecodeError;
 			}
 		} else if (bufLen >= 9) {
 			_8_0 = fromHalves(((bufData[bufStart + 1] << 24) | (bufData[bufStart + 2] << 16) | (bufData[bufStart + 3] << 8) | bufData[bufStart + 4]) >>> 0, ((bufData[bufStart + 5] << 24) | (bufData[bufStart + 6] << 16) | (bufData[bufStart + 7] << 8) | bufData[bufStart + 8]) >>> 0);
@@ -309,11 +327,15 @@ export function readLeadingOnes(bufData: Uint8Array, bufStart: number, bufLen: n
 			_8_1Start = bufStart + 9;
 			_8_1Len = bufLen - 9;
 		} else {
-			return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+			return { tag: "Short" } as DecodeError.DecodeError;
 		}
-		return rt.Ok([_8_0, new rt.ByteSlice(_8_1Data, _8_1Start, _8_1Len)] as [rt.u64, rt.ByteSlice]);
+		readOut.p_0 = _8_0;
+		readOut.p_1Data = _8_1Data;
+		readOut.p_1Start = _8_1Start;
+		readOut.p_1Len = _8_1Len;
+		return undefined;
 	}
-	return rt.Err({ tag: "Short" } as DecodeError.DecodeError);
+	return { tag: "Short" } as DecodeError.DecodeError;
 }
 
 /**

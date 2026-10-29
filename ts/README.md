@@ -463,8 +463,8 @@ they need.
   often than before stays one. `just ts bench` measured the codec's varint decode at 0.49
   times the objects' time in Chrome, 0.57 in Firefox, 0.64 in Node, and 0.56 in Bun at
   the geometric mean, and frame decode at 0.61, 0.56, 0.70, and 0.61, with the A/A route
-  within 0.04 and encode no slower. A return and a field are still a `ByteSlice`
-  ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
+  within 0.04 and encode no slower. A field is still a `ByteSlice`, as is a return but
+  for the `Result`s below ([byte slices without objects](/quest/m2/ts-byte-views/README.md)).
 - A function only translated code calls takes each `&[u8]` or `&[u8; N]` parameter as
   three, its `data`, `start`, and `length`, which its body holds as that local's parts:
   not a root, which the outside calls, a closure, or an `async fn`. One the body borrows,
@@ -474,6 +474,15 @@ they need.
   doesn't keep: Chrome's varint decode at 0.98-0.99 times the time and frame decode at
   1.01-1.05 over two runs, with the A/A route within 0.05, Firefox and Bun within their
   noise, and Node's varint decode at 1.11-1.15.
+- A function of the crate's that only translated code calls and that returns a `Result`
+  of byte slices and scalars, such as `Result<(u64, &[u8]), E>`, whose error is one JS
+  value that is never `undefined`, returns the error or `undefined`. It writes the `Ok`'s
+  parts into a module-level slot, which every function returning that payload type
+  shares, at its JS `return`, after its drops, and its caller reads them at once, so one
+  that returns another's result as is returns the call. The slot's fields start as
+  `undefined`, so V8 keeps them tagged: one that starts as a small integer would box
+  every `u64` past 2^31 that a function too big to inline writes. The function as a value
+  is an arrow that rebuilds the `Result`.
 - A `BTreeMap` is a B+ tree of up to 64 keys a node, O(log n) as std's B-tree is: its
   leaves hold the keys and values and link to their neighbors, which iterators walk from
   either end, and its branches hold each child's lower bound. A node's slots shift in a

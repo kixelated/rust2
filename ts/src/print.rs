@@ -259,6 +259,10 @@ impl Refs {
 				}
 			}
 			Item::Function(f) => self.function(program, f),
+			Item::Const { ty, init, .. } => {
+				self.ty(program, ty);
+				self.expr(program, init);
+			}
 		}
 	}
 
@@ -574,6 +578,14 @@ impl Printer<'_> {
 				}
 			}
 			Item::Function(f) => self.function(f, true),
+			Item::Const { sym, ty, init } => {
+				let name = self.program.syms[*sym].name.clone();
+				let ty = self.ty(ty);
+				self.start();
+				self.write(&format!("export const {name}: {ty} = "));
+				self.expr(init, 0);
+				self.write(";\n");
+			}
 		}
 	}
 

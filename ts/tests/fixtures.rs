@@ -255,7 +255,6 @@ fn shake(out: &Path) {
 			"Ok",
 			"Panic",
 			"checked",
-			"idx",
 			"max",
 			"panic",
 			"saturate",
@@ -265,6 +264,7 @@ fn shake(out: &Path) {
 			"usizeSub",
 			// The translation's, and the caller.
 			"new_",
+			"sliceOut",
 			"run",
 			"short",
 			"slice",

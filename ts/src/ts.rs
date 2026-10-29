@@ -473,4 +473,10 @@ pub enum Item {
 		doc: Option<String>,
 	},
 	Function(Function),
+	/// A module-level `const`, such as where functions hand back a result's parts.
+	Const {
+		sym: SymId,
+		ty: Type,
+		init: Expr,
+	},
 }

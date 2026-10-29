@@ -3,6 +3,7 @@
 import * as rt from "../rt.ts";
 import { copy$usize_u8, drop$Result_usize_u8_Arc_dyn_Any } from "../lib.ts";
 import type * as Any from "../core/any.Any.ts";
+import type * as Error from "../returns.Error.ts";
 
 export function isOkAnd$Result_u8_u16_results_closure5(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {
 	if (self.ok) {
@@ -88,6 +89,13 @@ export function mapOr$Result_u8_u16_u8_results_closure7(self: rt.Result<rt.u8, r
 	return default_;
 }
 
+export function mapOr$Result_u8s_Error_usize_len(self: rt.Result<rt.ByteSlice, Error.Error>, default_: rt.usize, _: (a0: rt.ByteSlice) => rt.usize): rt.usize {
+	if (self.ok) {
+		return self.value.length;
+	}
+	return default_;
+}
+
 export function mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9(self: rt.Result<rt.u8, rt.u16>, default_: (a0: rt.u16) => rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);
@@ -149,6 +157,13 @@ export function andThen$Result_u8_u16_u8_results_closure3(self: rt.Result<rt.u8,
 		return op(self.value);
 	}
 	return self;
+}
+
+export function andThen$Result_u8s_u8s_Error_u8s_returns_closure3(self: rt.Result<[rt.ByteSlice, rt.ByteSlice], Error.Error>, op: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.Result<rt.ByteSlice, Error.Error>): rt.Result<rt.ByteSlice, Error.Error> {
+	if (self.ok) {
+		return op(self.value);
+	}
+	return self as rt.Result<rt.ByteSlice, Error.Error>;
 }
 
 export function or$Result_u8_u16_u16(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {

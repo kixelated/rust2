@@ -18,6 +18,9 @@ pub struct Body<'b, 'a, 'tcx> {
 	/// Which of the function's parameters are byte slices it takes as their parts, by
 	/// [`Translator::parted`], until its own body takes them.
 	pub parted: Vec<bool>,
+	/// Where the function hands back its `Ok`'s parts, by [`Translator::slotted`], until
+	/// its own body takes it.
+	pub slotted: Option<super::mir::Slotted<'tcx>>,
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
@@ -27,6 +30,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			args,
 			names: FxHashSet::default(),
 			parted: Vec::new(),
+			slotted: None,
 		}
 	}
 
@@ -124,13 +128,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if let Some(class) = super::mir::coroutine::of_async_fn(self.t, instance, span) {
 				return Expr::New(Box::new(Expr::Sym(class)), values);
 			}
-			let parted = self.t.parted(instance);
-			let values = match parted.is_empty() {
-				true => values,
-				false => self.slice_args(values, &parted, out),
-			};
-			let sym = self.t.callee(instance, span);
-			let call = Expr::Sym(sym).call(values);
+			let call = self.direct_call(instance, values, span, out);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
 				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
@@ -141,6 +139,17 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				let none = self.t.none_arg(option_args.type_at(0));
 				return Expr::rt("iterToOption", [call].into_iter().chain(none).collect());
+			}
+			// One that hands back its `Ok`'s parts, made whole here, before anything else can
+			// write its slot.
+			if let Some(slotted) = self.t.slotted(instance) {
+				let err = self.fresh("err");
+				out.push(StmtKind::decl(false, err.clone(), None, Some(call)).at(None));
+				let value = slotted.rebuild(self.t, &err, span);
+				let result = self.fresh("result");
+				let ty = self.t.ty(slotted.ret, span);
+				out.push(StmtKind::decl(false, result.clone(), Some(ty), Some(value)).at(None));
+				return Expr::ident(result);
 			}
 			return call;
 		}
@@ -242,6 +251,23 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
+	/// A call of `instance`, whose body translates, with `values`, each byte slice it takes
+	/// as its parts split into them.
+	pub fn direct_call(
+		&mut self,
+		instance: Instance<'tcx>,
+		values: Vec<Expr>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Expr {
+		let parted = self.t.parted(instance);
+		let values = match parted.is_empty() {
+			true => values,
+			false => self.slice_args(values, &parted, out),
+		};
+		Expr::Sym(self.t.callee(instance, span)).call(values)
+	}
+
 	/// `values`, with each byte slice `parted` marks as its `data`, `start`, and `length`,
 	/// evaluated in the order `values` are: a slice made in place gives its parts, and a
 	/// path or a tuple's part is read three times, but anything else is held first, after
@@ -296,8 +322,9 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			if let Some(sym) = self.t.bound_fn(instance, span) {
 				return Expr::Sym(sym);
 			}
-			// One that takes byte slices as their parts is wrapped to take them whole.
-			if self.t.lowers(instance) && self.t.parted(instance).is_empty() {
+			// One that takes byte slices as their parts, or hands back its `Ok`'s, is wrapped
+			// to take and return them whole.
+			if self.t.lowers(instance) && self.t.parted(instance).is_empty() && self.t.slotted(instance).is_none() {
 				return Expr::Sym(self.t.callee(instance, span));
 			}
 		}

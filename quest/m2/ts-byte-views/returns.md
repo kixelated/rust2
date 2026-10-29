@@ -32,8 +32,18 @@ most. One out slot per payload type, which a forwarded result already fills, avo
   and frame decode were each about 1.25x faster and group decode 1.06x, Node 1.33x and
   1.40x, Firefox 1.21x and 1.10x, Bun even and 1.12x. Leading-ones varints of 8 bytes
   measured 0.84x, within that run's noise.
-- Open: with parameters as parts, Chrome's `time/` convert workloads ran 7-12% slower than
-  `main` in every run on 2026-10-28, with the same instruction count and the same inlining.
-  Find out why before landing.
+- Decided with the maintainer on 2026-10-28: the translator writes the slot ("e1e"), its
+  fields starting as `undefined`. Land only if Chrome's varint and frame decode both beat
+  `main` on a quiet host, with the A/A route under 5% at the median and the max.
+- Std's functions keep returning their `Result` whole, as their callers take it apart
+  already. A slot sits beside the first function in source order that writes it, so its
+  place doesn't depend on the order translation reaches them. `?`'s `Err` assigns a
+  result held as its parts, so a function with early returns writes the slot at each.
+- Chrome's `time/` convert workloads, 7-12% slower than `main` in single runs, are V8's
+  variance between realms, not parts: the same code differed as much between two workers
+  of one run (`time/u64` 60 against 55, `btree/256` 113 against 152), and over 12 launches
+  each the medians matched (`time/` 58.2 on `main`, 58.0 here), with the same instruction
+  counts and inlining. One realm's A/A route doesn't capture this, so compare those
+  workloads over repeated runs.
 
 Public API: the translator's output for byte slices.

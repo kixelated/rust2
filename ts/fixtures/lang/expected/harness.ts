@@ -24,6 +24,7 @@ import { keys, overrides } from "./keys.ts";
 import { locks, relock } from "./locks.ts";
 import { nested } from "./nested.ts";
 import { refs } from "./refs.ts";
+import { returns } from "./returns.ts";
 import { copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
 import { strs, slices } from "./strs.ts";
@@ -63,45 +64,45 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		return neg(a013, a113.data, a113.start, a113.length, a213);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::cast", (a014: rt.u8, a114: rt.ByteSlice, a214: rt.ByteVec): void => {
 		return cast(a014, a114.data, a114.start, a114.length, a214);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::convert", (_222: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::convert", (_225: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void => {
 		convert(data.data, data.start, data.length, out);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::copies", (_223: rt.u8, data2: rt.ByteSlice, out2: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::copies", (_226: rt.u8, data2: rt.ByteSlice, out2: rt.ByteVec): void => {
 		copies(data2.data, data2.start, data2.length, out2);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::loops", (_224: rt.u8, data3: rt.ByteSlice, out3: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::loops", (_227: rt.u8, data3: rt.ByteSlice, out3: rt.ByteVec): void => {
 		loops(data3.data, data3.start, data3.length, out3);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::patterns", (_225: rt.u8, data4: rt.ByteSlice, out4: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::patterns", (_228: rt.u8, data4: rt.ByteSlice, out4: rt.ByteVec): void => {
 		patterns(data4.data, data4.start, data4.length, out4);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::closures", (_226: rt.u8, data5: rt.ByteSlice, out5: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::closures", (_229: rt.u8, data5: rt.ByteSlice, out5: rt.ByteVec): void => {
 		closures(data5.data, data5.start, data5.length, out5);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::discriminants", (_227: rt.u8, data6: rt.ByteSlice, out6: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::discriminants", (_230: rt.u8, data6: rt.ByteSlice, out6: rt.ByteVec): void => {
 		discriminants(data6.data, data6.start, data6.length, out6);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::library", (_228: rt.u8, data7: rt.ByteSlice, out7: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::library", (_231: rt.u8, data7: rt.ByteSlice, out7: rt.ByteVec): void => {
 		library(data7.data, data7.start, data7.length, out7);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::ints", (a015: rt.u8, a115: rt.ByteSlice, a215: rt.ByteVec): void => {
 		return ints(a015, a115.data, a115.start, a115.length, a215);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::strings", (_229: rt.u8, data8: rt.ByteSlice, out8: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::strings", (_232: rt.u8, data8: rt.ByteSlice, out8: rt.ByteVec): void => {
 		strings(data8.data, data8.start, data8.length, out8);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::derived", (_230: rt.u8, data9: rt.ByteSlice, out9: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::derived", (_233: rt.u8, data9: rt.ByteSlice, out9: rt.ByteVec): void => {
 		derived(data9.data, data9.start, data9.length, out9);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::written", (_231: rt.u8, data10: rt.ByteSlice, out10: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::written", (_234: rt.u8, data10: rt.ByteSlice, out10: rt.ByteVec): void => {
 		written(data10.data, data10.start, data10.length, out10);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::panics", (a016: rt.u8, a116: rt.ByteSlice, a216: rt.ByteVec): void => {
 		return panics(a016, a116.data, a116.start, a116.length, a216);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["generics::methods", (_232: rt.u8, data11: rt.ByteSlice, out11: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["generics::methods", (_235: rt.u8, data11: rt.ByteSlice, out11: rt.ByteVec): void => {
 		methods(data11.data, data11.start, data11.length, out11);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::adaptors", (a017: rt.u8, a117: rt.ByteSlice, a217: rt.ByteVec): void => {
 		return adaptors(a017, a117.data, a117.start, a117.length, a217);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::consumers", (a018: rt.u8, a118: rt.ByteSlice, a218: rt.ByteVec): void => {
 		return consumers(a018, a118.data, a118.start, a118.length, a218);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::ranges", (_233: rt.u8, data12: rt.ByteSlice, out12: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::ranges", (_236: rt.u8, data12: rt.ByteSlice, out12: rt.ByteVec): void => {
 		ranges(data12.data, data12.start, data12.length, out12);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::options", (_234: rt.u8, data13: rt.ByteSlice, out13: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::options", (_237: rt.u8, data13: rt.ByteSlice, out13: rt.ByteVec): void => {
 		options(data13.data, data13.start, data13.length, out13);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::own", (_235: rt.u8, data14: rt.ByteSlice, out14: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::own", (_238: rt.u8, data14: rt.ByteSlice, out14: rt.ByteVec): void => {
 		own(data14.data, data14.start, data14.length, out14);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::values", (_236: rt.u8, data15: rt.ByteSlice, out15: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::values", (_239: rt.u8, data15: rt.ByteSlice, out15: rt.ByteVec): void => {
 		values(data15.data, data15.start, data15.length, out15);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::order", (_237: rt.u8, data16: rt.ByteSlice, out16: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::order", (_240: rt.u8, data16: rt.ByteSlice, out16: rt.ByteVec): void => {
 		order(data16.data, data16.start, data16.length, out16);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::hash_maps", (a019: rt.u8, a119: rt.ByteSlice, a219: rt.ByteVec): void => {
 		return hashMaps(a019, a119.data, a119.start, a119.length, a219);
@@ -109,9 +110,9 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		return sets(a020, a120.data, a120.start, a120.length, a220);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::btree_maps", (a021: rt.u8, a121: rt.ByteSlice, a221: rt.ByteVec): void => {
 		return btreeMaps(a021, a121.data, a121.start, a121.length, a221);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::deques", (_238: rt.u8, data17: rt.ByteSlice, out17: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::deques", (_241: rt.u8, data17: rt.ByteSlice, out17: rt.ByteVec): void => {
 		deques(data17.data, data17.start, data17.length, out17);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::flows", (_239: rt.u8, data18: rt.ByteSlice, out18: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::flows", (_242: rt.u8, data18: rt.ByteSlice, out18: rt.ByteVec): void => {
 		flows(data18.data, data18.start, data18.length, out18);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::keys", (a022: rt.u8, a122: rt.ByteSlice, a222: rt.ByteVec): void => {
 		return keys(a022, a122.data, a122.start, a122.length, a222);
@@ -119,11 +120,11 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		return chars(a023, a123.data, a123.start, a123.length, a223);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::strs", (a024: rt.u8, a124: rt.ByteSlice, a224: rt.ByteVec): void => {
 		return strs(a024, a124.data, a124.start, a124.length, a224);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::vecs", (_240: rt.u8, data19: rt.ByteSlice, out19: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::vecs", (_243: rt.u8, data19: rt.ByteSlice, out19: rt.ByteVec): void => {
 		vecs(data19.data, data19.start, data19.length, out19);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::slices", (a025: rt.u8, a125: rt.ByteSlice, a225: rt.ByteVec): void => {
 		return slices(a025, a125.data, a125.start, a125.length, a225);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::stores", (_241: rt.u8, data20: rt.ByteSlice, out20: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::stores", (_244: rt.u8, data20: rt.ByteSlice, out20: rt.ByteVec): void => {
 		stores(data20.data, data20.start, data20.length, out20);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["chunks::chunks", (a026: rt.u8, a126: rt.ByteSlice, a226: rt.ByteVec): void => {
 		return chunks(a026, a126.data, a126.start, a126.length, a226);
@@ -137,11 +138,11 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		return splits(a030, a130.data, a130.start, a130.length, a230);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["nested::nested", (a031: rt.u8, a131: rt.ByteSlice, a231: rt.ByteVec): void => {
 		return nested(a031, a131.data, a131.start, a131.length, a231);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["refs::refs", (_242: rt.u8, data21: rt.ByteSlice, out21: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["refs::refs", (_245: rt.u8, data21: rt.ByteSlice, out21: rt.ByteVec): void => {
 		refs(data21.data, data21.start, data21.length, out21);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::counts", (_243: rt.u8, data22: rt.ByteSlice, out22: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::counts", (_246: rt.u8, data22: rt.ByteSlice, out22: rt.ByteVec): void => {
 		counts(data22.data, data22.start, data22.length, out22);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_244: rt.u8, _310: rt.ByteSlice, out23: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_247: rt.u8, _310: rt.ByteSlice, out23: rt.ByteVec): void => {
 		rounding(out23);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::skips", (a032: rt.u8, a132: rt.ByteSlice, a232: rt.ByteVec): void => {
 		return skips(a032, a132.data, a132.start, a132.length, a232);
@@ -157,30 +158,32 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		return atomics(a037, a137.data, a137.start, a137.length, a237);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::overrides", (a038: rt.u8, a138: rt.ByteSlice, a238: rt.ByteVec): void => {
 		return overrides(a038, a138.data, a138.start, a138.length, a238);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::dyns", (_245: rt.u8, data23: rt.ByteSlice, out24: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::dyns", (_248: rt.u8, data23: rt.ByteSlice, out24: rt.ByteVec): void => {
 		dyns(data23.data, data23.start, data23.length, out24);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["cells::cells", (a039: rt.u8, a139: rt.ByteSlice, a239: rt.ByteVec): void => {
 		return cells(a039, a139.data, a139.start, a139.length, a239);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::shared", (_246: rt.u8, data24: rt.ByteSlice, out25: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::shared", (_249: rt.u8, data24: rt.ByteSlice, out25: rt.ByteVec): void => {
 		shared(data24.data, data24.start, data24.length, out25);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::ranked", (a040: rt.u8, a140: rt.ByteSlice, a240: rt.ByteVec): void => {
 		return ranked(a040, a140.data, a140.start, a140.length, a240);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["captures::captures", (a041: rt.u8, a141: rt.ByteSlice, a241: rt.ByteVec): void => {
 		return captures(a041, a141.data, a141.start, a141.length, a241);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["locks::locks", (_247: rt.u8, data25: rt.ByteSlice, out26: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["locks::locks", (_250: rt.u8, data25: rt.ByteSlice, out26: rt.ByteVec): void => {
 		locks(data25.data, data25.start, data25.length, out26);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["locks::relock", (_248: rt.u8, data26: rt.ByteSlice, out27: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["locks::relock", (_251: rt.u8, data26: rt.ByteSlice, out27: rt.ByteVec): void => {
 		relock(data26.data, data26.start, data26.length, out27);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["defaults::defaults", (_249: rt.u8, data27: rt.ByteSlice, out28: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["defaults::defaults", (_252: rt.u8, data27: rt.ByteSlice, out28: rt.ByteVec): void => {
 		defaults(data27.data, data27.start, data27.length, out28);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::arcs", (_250: rt.u8, data28: rt.ByteSlice, out29: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::arcs", (_253: rt.u8, data28: rt.ByteSlice, out29: rt.ByteVec): void => {
 		arcs(data28.data, data28.start, data28.length, out29);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::rcs", (_251: rt.u8, data29: rt.ByteSlice, out30: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::rcs", (_254: rt.u8, data29: rt.ByteSlice, out30: rt.ByteVec): void => {
 		rcs(data29.data, data29.start, data29.length, out30);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::anys", (_252: rt.u8, data30: rt.ByteSlice, out31: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::anys", (_255: rt.u8, data30: rt.ByteSlice, out31: rt.ByteVec): void => {
 		anys(data30.data, data30.start, data30.length, out31);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["args::args", (a042: rt.u8, a142: rt.ByteSlice, a242: rt.ByteVec): void => {
 		return args(a042, a142.data, a142.start, a142.length, a242);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["returns::returns", (a043: rt.u8, a143: rt.ByteSlice, a243: rt.ByteVec): void => {
+		return returns(a043, a143.data, a143.start, a143.length, a243);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }
 

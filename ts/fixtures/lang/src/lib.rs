@@ -1,12 +1,12 @@
 //! The language the driver translates, exercised against native Rust: every integer
 //! width's arithmetic and casts, `f64`, `char`s and the `str` methods over them,
-//! `Cow<str>`, `Duration`, control flow, patterns, byte slices split apart and passed as
-//! their parts, `Copy` aggregates, closures and what they write of what they captured,
-//! traits, generic types, formatting, collections, UTF-8 decoding, `&mut` to values JS
-//! copies, the standard library calls it maps, `Option`'s and `Result`'s combinators from
-//! core's MIR, `Option`s of values that can already be `undefined`, atomics, trait
-//! objects, one-time cells, mutexes, the defaults of std types, and the counts of shared
-//! pointers.
+//! `Cow<str>`, `Duration`, control flow, patterns, byte slices split apart, passed as
+//! their parts, and returned in a slot, `Copy` aggregates, closures and what they write
+//! of what they captured, traits, generic types, formatting, collections, UTF-8
+//! decoding, `&mut` to values JS copies, the standard library calls it maps, `Option`'s
+//! and `Result`'s combinators from core's MIR, `Option`s of values that can already be
+//! `undefined`, atomics, trait objects, one-time cells, mutexes, the defaults of std
+//! types, and the counts of shared pointers.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -35,6 +35,7 @@ mod keys;
 mod locks;
 mod nested;
 mod refs;
+mod returns;
 mod shapes;
 mod splits;
 mod strs;

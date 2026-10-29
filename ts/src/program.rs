@@ -68,6 +68,8 @@ pub enum SymKind {
 	/// A class's method, called on its receiver: drop glue's `[Symbol.dispose]`, and a
 	/// coroutine's `poll`.
 	Method,
+	/// A module-level `const`.
+	Const,
 }
 
 #[derive(Debug)]
@@ -363,7 +365,7 @@ pub(crate) fn unique(taken: &mut HashSet<String>, base: &str) -> String {
 
 pub fn item_sym(item: &Item) -> SymId {
 	match item {
-		Item::Struct { sym, .. } | Item::Union { sym, .. } => *sym,
+		Item::Struct { sym, .. } | Item::Union { sym, .. } | Item::Const { sym, .. } => *sym,
 		Item::Function(f) => f.sym,
 	}
 }

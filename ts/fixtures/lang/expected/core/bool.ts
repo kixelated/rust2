@@ -136,4 +136,11 @@ export function then$bool_u8_library_closure4(self: boolean, f: () => rt.u8): rt
 	return f();
 }
 
+export function then$bool_u8s_tail_closure0(self: boolean, f: () => rt.ByteSlice): rt.ByteSlice | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
 //# sourceMappingURL=bool.ts.map

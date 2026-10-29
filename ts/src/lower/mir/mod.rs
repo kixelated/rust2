@@ -30,6 +30,7 @@ use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
 pub use self::place::{made_slice, slice_member};
+pub use self::scalar::Slotted;
 use super::Translator;
 use super::body::Body;
 
@@ -47,8 +48,10 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 	}
 	let ret_ty = mir.return_ty();
 	let parted = t.parted(instance);
+	let slotted = t.slotted(instance);
 	let mut b = Body::new(t, instance.args);
 	b.parted = parted;
+	b.slotted = slotted.clone();
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let mut params = fx.params();
 	let body = fx.lower();
@@ -57,6 +60,10 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 	let ret = match (next, ret_ty.kind()) {
 		(true, ty::Adt(_, args)) => {
 			Type::Union(vec![fx.b.t.ty(args.type_at(0), ret_span), Type::Rt("Done", Vec::new())])
+		}
+		// The error, or `undefined` once the `Ok`'s parts are in the slot.
+		(_, ty::Adt(_, args)) if slotted.is_some() => {
+			Type::Union(vec![fx.b.t.ty(args.type_at(1), ret_span), Type::Builtin("undefined")])
 		}
 		_ => fx.b.t.ret_ty(ret_ty, ret_span),
 	};
@@ -316,6 +323,12 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	rebuilt: Vec<(Local, String, [String; 3])>,
 	/// The names of the parameters that are parts.
 	part_params: Vec<String>,
+	/// Where this function hands back its `Ok`'s parts, if it does.
+	slot: Option<Slotted<'tcx>>,
+	/// The calls, by block, of functions that hand back theirs.
+	slotted_calls: FxHashMap<mir::BasicBlock, (Instance<'tcx>, Slotted<'tcx>)>,
+	/// The assignments of the result that return right where they are.
+	returning: FxHashSet<mir::Location>,
 	/// The tests and payload reads TypeScript may have narrowed stale.
 	narrowing: decided::Narrowing<'tcx>,
 	/// The statement or terminator being lowered.
@@ -326,9 +339,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn new(b: &'m mut Body<'b, 'a, 'tcx>, mir: &'m mir::Body<'tcx>, env: Env, span: Span) -> Self {
 		let tcx = b.t.tcx;
 		let n = mir.local_decls.len();
-		let parted = match env {
-			Env::Plain => std::mem::take(&mut b.parted),
-			_ => Vec::new(),
+		let (parted, slot) = match env {
+			Env::Plain => (std::mem::take(&mut b.parted), b.slotted.take()),
+			_ => (Vec::new(), None),
 		};
 		let parted = mir
 			.args_iter()
@@ -390,6 +403,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			parted,
 			rebuilt: Vec::new(),
 			part_params: Vec::new(),
+			slot,
+			slotted_calls: FxHashMap::default(),
+			returning: FxHashSet::default(),
 			narrowing,
 			at: mir::START_BLOCK.start_location(),
 		};
@@ -557,7 +573,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.find_stepped();
 		self.unborrow_passed();
 		self.find_halves();
+		self.find_slotted_calls();
 		self.find_scalars();
+		self.find_returning();
 		for local in mir.local_decls.indices() {
 			let ty = mir.local_decls[local].ty;
 			let slot = if self.zero_sized(ty) {
@@ -2197,6 +2215,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					statement_index: i,
 				};
 				self.statement(stmt, out);
+				if self.returning.contains(&self.at) {
+					self.flush(out);
+					return Exit::End;
+				}
 			}
 		}
 		if let Some(&to) = self.redirect.get(&bb) {
@@ -2433,6 +2455,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::FalseEdge { real_target, .. } | TerminatorKind::FalseUnwind { real_target, .. } => {
 				Exit::Goto(real_target.as_usize())
 			}
+			TerminatorKind::Return if let Some(slot) = self.slot.clone() => {
+				self.slot_return(&slot, span, out);
+				self.flush(out);
+				Exit::End
+			}
 			TerminatorKind::Return if !self.mir.local_decls[mir::RETURN_PLACE].ty.is_never() => {
 				let ret = self.mir.local_decls[mir::RETURN_PLACE].ty;
 				let value = match self.zero_sized(ret) {
@@ -2506,6 +2533,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			} => {
 				self.call(func, args, *destination, *fn_span, out);
 				match target {
+					Some(_) if self.returning.contains(&self.at) => {
+						self.flush(out);
+						Exit::End
+					}
 					Some(target) => Exit::Goto(target.as_usize()),
 					None => {
 						self.flush(out);
