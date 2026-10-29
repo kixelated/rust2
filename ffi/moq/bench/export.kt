@@ -16,8 +16,8 @@ fun round(): String {
 		broadcast.createTrack("bench", TrackInfo.default().withTimescale(micro))
 	}
 
-	// The C ABI takes moq's `impl Into<Bytes>` frame as a string.
-	val frame = "x".repeat(100)
+	// A frame of 100 zero bytes, as bench/export.c writes.
+	val frame = ByteArray(100)
 	var micros = 0uL
 
 	// Each frame stamped through a fresh timestamp handle, as a caller holding a u64 must.
