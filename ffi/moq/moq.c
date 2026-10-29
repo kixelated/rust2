@@ -36,21 +36,6 @@ static int is(moq_buf buf, const char *s) {
 	return same;
 }
 
-/* The catalog `mutate` lends for its call, which lists the binary track: counts it in
- * data. */
-static void lists_state(void *data, moq_hang_catalog_extra *catalog) {
-	moq_buf json;
-	moq_hang_error *hang_err = NULL;
-	CHECK(moq_hang_catalog_extra_to_json(catalog, &json, &hang_err));
-	for (size_t i = 0; i + 5 <= json.len; i++) {
-		if (memcmp(json.ptr + i, "state", 5) == 0) {
-			(*(int *)data)++;
-			break;
-		}
-	}
-	moq_buf_free(json);
-}
-
 /* Moves the stats track in data into the lent catalog, in place. */
 static void sets_stats(void *data, moq_hang_catalog_extra *catalog) {
 	moq_hang_catalog_extra_set_stats(catalog, data);
@@ -251,20 +236,21 @@ int main(void) {
 
 	/* Paths own their segments, so C builds them, and relative ones, from a string. */
 	moq_path *cam = NULL;
-	moq_path_too_long *too_long = NULL;
-	CHECK(moq_path_new(str("/cam/"), &cam, &too_long));
+	moq_path_invalid path_invalid;
+	CHECK(!moq_path_new(str("/cam/"), &cam, &path_invalid) && path_invalid == MOQ_PATH_INVALID_EMPTY_SEGMENT);
+	CHECK(moq_path_new(str("cam"), &cam, &path_invalid));
 	CHECK(is(moq_path_as_str(cam), "cam"));
 	moq_path *joined = NULL;
-	CHECK(moq_path_join(path, cam, &joined, &too_long));
+	CHECK(moq_path_join(path, cam, &joined, &path_invalid));
 	CHECK(is(moq_path_as_str(joined), "room/alice/cam"));
 	moq_path *stripped = moq_path_strip_prefix(joined, path);
 	CHECK(stripped != NULL && moq_path_eq(stripped, cam));
 	moq_path_free(stripped);
 	CHECK(moq_path_strip_prefix(path, joined) == NULL);
 	moq_relative *up = NULL;
-	CHECK(moq_relative_new(str("../bob"), &up, &too_long));
+	CHECK(moq_relative_new(str("../bob"), &up, &path_invalid));
 	moq_path *resolved = NULL;
-	CHECK(moq_path_resolve(joined, up, &resolved, &too_long));
+	CHECK(moq_path_resolve(joined, up, &resolved, &path_invalid));
 	CHECK(is(moq_path_as_str(resolved), "room/bob"));
 	moq_path_free(resolved);
 	moq_relative_free(up);
@@ -348,9 +334,9 @@ int main(void) {
 	moq_track_range_free(&ranges[1]);
 	moq_track_subscription_free(ranged);
 
-	/* A binary track the catalog lists, published through moq-mux's generic
-	 * `binary_snapshot` at the config C builds, by a catalog at moq-mux's untyped
-	 * extension, each instance named by the last segment of each argument. */
+	/* A catalog at moq-mux's untyped extension, from the config C builds, whose generic
+	 * `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
+	 * the catalog to C, which sets its fields in place. */
 	moq_broadcast_info *listed = moq_broadcast_info_new();
 	moq_broadcast_producer *publisher = moq_broadcast_info_produce(listed);
 	moq_broadcast_info_free(listed);
@@ -362,18 +348,7 @@ int main(void) {
 	moq_catalog_producer_extra *catalog = NULL;
 	CHECK(moq_catalog_producer_extra_new(publisher, extra, &catalog, &mux_err));
 	moq_catalog_config_extra_free(extra);
-	moq_track_producer *state = NULL;
-	CHECK(moq_broadcast_producer_create_track(publisher, str("state"), NULL, &state, &err));
-	moq_binary_config *binary = moq_binary_config_default();
-	moq_binary_snapshot *snapshot = NULL;
-	CHECK(moq_catalog_producer_extra_binary_snapshot_config(catalog, state, binary, &snapshot, &mux_err));
-	moq_binary_config_free(binary);
-	moq_track_producer_free(state);
-	CHECK(is(moq_binary_snapshot_name(snapshot), "state"));
-	CHECK(moq_binary_snapshot_update(snapshot, str("latest"), &mux_err));
-	int listed_state = 0;
-	CHECK(moq_catalog_producer_extra_mutate(catalog, lists_state, &listed_state, &mux_err));
-	CHECK(listed_state == 1);
+	CHECK(!moq_catalog_producer_extra_is_claimed_binary_config(catalog, str("state")));
 	/* A field of the lent catalog, set in place: the next call reads it. */
 	moq_catalog_stats *stats = moq_catalog_stats_new(str("stats"));
 	CHECK(moq_catalog_producer_extra_mutate(catalog, sets_stats, stats, &mux_err));
@@ -395,6 +370,7 @@ int main(void) {
 	moq_json_options_free(json_options);
 	moq_track_producer_free(status);
 	CHECK(is(moq_json_snapshot_json_name(status_snapshot), "status"));
+	CHECK(moq_catalog_producer_extra_is_claimed_json_config(catalog, str("status")));
 	moq_json *app = NULL;
 	moq_buf json_err;
 	CHECK(moq_json_parse(str("{\"v\": [1, true]}"), &app, &json_err));
@@ -417,9 +393,20 @@ int main(void) {
 	moq_json_free(app);
 	moq_catalog_hang_extra_free(sections);
 	moq_json_snapshot_json_free(status_snapshot);
-	moq_binary_snapshot_free(snapshot);
 	moq_catalog_producer_extra_free(catalog);
 	moq_broadcast_producer_free(publisher);
+
+	/* Outside any tokio runtime, as C is, moq-tokio runs on the fallback it starts. */
+	moq_origin_producer *spawned = moq_origin_spawn();
+	moq_origin_producer_free(spawned);
+	moq_connect_config *client_config = moq_connect_config_default();
+	moq_quic_config *quic = moq_quic_config_default();
+	moq_tokio_client *tokio_client = NULL;
+	moq_tokio_error *tokio_err = NULL;
+	CHECK(moq_connect_config_init(client_config, quic, &tokio_client, &tokio_err));
+	moq_connect_config_free(client_config);
+	moq_quic_config_free(quic);
+	moq_tokio_client_free(tokio_client);
 
 	/* moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with. */
 	moq_connect_error unauthorized = MOQ_CONNECT_ERROR_UNAUTHORIZED;

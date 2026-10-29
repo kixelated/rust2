@@ -131,8 +131,14 @@ fun main() {
 		expect(path.asStr() == "room/alice", "a broadcast has its path")
 
 		// Paths own their segments, so Kotlin builds them, and relative ones, from a string.
-		val cam = Path.new("/cam/")
-		expect(cam.asStr() == "cam", "a path trims its slashes")
+		try {
+			Path.new("/cam/")
+			expect(false, "a path with an empty segment is an error")
+		} catch (e: PathInvalidException) {
+			expect(e.error == PathInvalid.EMPTY_SEGMENT, "an empty segment is its own error")
+		}
+		val cam = Path.new("cam")
+		expect(cam.asStr() == "cam", "a path builds from its segments")
 		val joined = path.join(cam)
 		expect(joined.asStr() == "room/alice/cam", "paths join")
 		expect(joined.stripPrefix(path) == cam, "a path strips its prefix")
@@ -183,26 +189,25 @@ fun main() {
 	expect(groups.start == TrackAnchor.Absolute(2u), "groups start at their first")
 	expect(groups.end == TrackAnchor.Absolute(6u), "groups end before their end")
 
-	// A binary track the catalog lists, published through moq-mux's generic
-	// `binary_snapshot` at the config Kotlin builds, by a catalog at moq-mux's untyped
-	// extension, each instance named by the last segment of each argument.
+	// A catalog at moq-mux's untyped extension, from the config Kotlin builds, whose generic
+	// `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
+	// the catalog to Kotlin.
 	val publisher = BroadcastInfo.new().produce()
 	val extra = CatalogConfig.default().withCatalogExtra(HangCatalogExtra.default())
 	val catalog = CatalogProducerExtra.new(publisher, extra)
-	val snapshot = catalog.binarySnapshotConfig(publisher.createTrack("state", null), BinaryConfig.default())
-	expect(snapshot.name() == "state", "a snapshot has its track's name")
-	snapshot.update("latest")
-	var listed = 0
+	expect(!catalog.isClaimedBinaryConfig("state"), "an unclaimed name is not claimed")
+	var read = 0
 	catalog.mutate { lent ->
-		if (lent.toJson().contains("state")) listed++
+		if (lent.toJson().startsWith("{")) read++
 	}
-	expect(listed == 1, "the catalog lists the snapshot's track")
+	expect(read == 1, "mutate lends the catalog once")
 
 	// A JSON track the catalog lists, published through moq-mux's generic `json_snapshot` at
 	// a JSON document, and a section Kotlin parses from text, set in the lent catalog and
 	// read back as text.
 	val status = catalog.jsonSnapshotConfig(publisher.createTrack("status", null), JsonConfig.default(), JsonOptions.default())
 	expect(status.name() == "status", "a JSON snapshot has its track's name")
+	expect(catalog.isClaimedJsonConfig("status"), "the JSON snapshot claims its name")
 	catalog.mutate { lent ->
 		val sections = lent.ext
 		sections.set("app", Json.parse("""{"v": [1, true]}"""))
