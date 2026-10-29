@@ -1710,7 +1710,8 @@ impl<'tcx> Collector<'tcx> {
 			future = true;
 		}
 		// An iterator no other rule maps crosses as the array of its items, all taken at
-		// the call, as `collect` takes them; a future's stays refused.
+		// the call, as `collect` takes them, when no caller could tell; a future's stays
+		// refused.
 		let mut collect = false;
 		if !future
 			&& self.ret(output).is_err()
@@ -2186,28 +2187,77 @@ impl<'tcx> Collector<'tcx> {
 		))
 	}
 
-	/// What `ty` yields, if it is another crate's iterator, which a return crosses as what
-	/// `collect` takes from it. A range is a value, which crosses as itself or not at all.
+	/// What `ty` yields, if it is an iterator whose items a return can take at the call with
+	/// no caller able to tell: one only core's and alloc's code drives, through no closure,
+	/// function, or trait object, and that ends. A range is a value, which crosses as
+	/// itself or not at all.
 	fn items(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
-		let ty::Adt(adt, _) = ty.kind() else {
-			return None;
-		};
 		let lang = tcx.lang_items();
 		let ranges = [
 			lang.range_struct(),
 			lang.range_inclusive_struct(),
 			lang.range_from_struct(),
 		];
-		if self.exported(adt.did().krate) || ranges.contains(&Some(adt.did())) {
+		if !matches!(ty.kind(), ty::Adt(adt, _) if !ranges.contains(&Some(adt.did()))) {
 			return None;
 		}
 		let iterator = tcx.get_diagnostic_item(sym::Iterator)?;
+		let into_iterator = tcx.get_diagnostic_item(sym::IntoIterator)?;
 		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
-		if !infcx
-			.type_implements_trait(iterator, [ty], param_env)
-			.must_apply_modulo_regions()
-		{
+		let implements = |tr, ty| {
+			infcx
+				.type_implements_trait(tr, [ty], param_env)
+				.must_apply_modulo_regions()
+		};
+		if !implements(iterator, ty) {
+			return None;
+		}
+		let std = |krate| matches!(tcx.crate_name(krate), sym::core | sym::alloc);
+		let method = |tr, name: &str| {
+			let item = tcx
+				.associated_items(tr)
+				.in_definition_order()
+				.find(|item| item.name().as_str() == name);
+			item.map(|item| item.def_id)
+		};
+		let (next, into_iter) = (method(iterator, "next")?, method(into_iterator, "into_iter")?);
+		// Whether core's or alloc's impl of `method` is the one `ty` runs.
+		let by_std = |method, ty: Ty<'tcx>| {
+			ty::Instance::try_resolve(tcx, env, method, tcx.mk_args(&[ty.into()]))
+				.is_ok_and(|instance| instance.is_some_and(|instance| std(instance.def_id().krate)))
+		};
+		// Collecting these never ends.
+		let endless = |did: DefId| {
+			tcx.crate_name(did.krate) == sym::core
+				&& matches!(
+					tcx.item_name(did).as_str(),
+					"Repeat" | "Cycle" | "RangeFrom" | "RangeFromIter"
+				)
+		};
+		let driven = ty.walk().filter_map(|arg| arg.as_type()).all(|ty| {
+			let plain = match ty.kind() {
+				ty::Adt(adt, _) => !endless(adt.did()),
+				ty::Bool
+				| ty::Char
+				| ty::Int(_)
+				| ty::Uint(_)
+				| ty::Float(_)
+				| ty::Str
+				| ty::Array(..)
+				| ty::Slice(_)
+				| ty::Ref(..)
+				| ty::Tuple(_) => true,
+				_ => false,
+			};
+			plain
+				&& match (implements(iterator, ty), implements(into_iterator, ty)) {
+					(true, _) => by_std(next, ty),
+					(false, true) => by_std(into_iter, ty),
+					(false, false) => true,
+				}
+		});
+		if !driven {
 			return None;
 		}
 		let item = tcx.get_diagnostic_item(sym::IteratorItem)?;

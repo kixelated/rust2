@@ -994,6 +994,7 @@ pub const GREETINGS: &[&str] = &["hi", "hello"];
 pub struct Trail {
 	points: Vec<Point>,
 	labels: Vec<Label>,
+	route: String,
 }
 
 impl Trail {
@@ -1009,6 +1010,7 @@ impl Trail {
 		Self {
 			points: points.to_vec(),
 			labels,
+			route: names.join("/"),
 		}
 	}
 
@@ -1027,14 +1029,18 @@ impl Trail {
 		self.points.iter()
 	}
 
-	/// Each label's name, through an iterator only its bounds name.
+	/// Each name, split from its route, through an iterator only its bounds name.
 	pub fn names(&self) -> impl Iterator<Item = &str> {
-		self.labels.iter().map(|label| label.name.as_str())
+		// Splitting the empty route would yield one empty name.
+		(!self.route.is_empty())
+			.then(|| self.route.split('/'))
+			.into_iter()
+			.flatten()
 	}
 
-	/// The bytes of every name, which cross as a buffer.
-	pub fn bytes(&self) -> impl Iterator<Item = u8> + '_ {
-		self.labels.iter().flat_map(|label| label.name.bytes())
+	/// The bytes of its route, which cross as a buffer.
+	pub fn bytes(&self) -> std::str::Bytes<'_> {
+		self.route.bytes()
 	}
 
 	/// Its labels, drained: every one is taken at the call, so none are left.
@@ -1043,9 +1049,12 @@ impl Trail {
 	}
 }
 
-/// A counter for each name, counting from its index, made as the iterator is read.
+/// A counter for each name, counting from its index, last first.
 pub fn numbered(names: Vec<String>) -> impl Iterator<Item = Counter> {
-	(names.into_iter().enumerate()).map(|(i, name)| Counter::new(&name, i as u64))
+	let counters: Vec<_> = (names.iter().enumerate())
+		.map(|(i, name)| Counter::new(name, i as u64))
+		.collect();
+	counters.into_iter().rev()
 }
 
 /// Each address at the next port, one IPv4 and one IPv6.

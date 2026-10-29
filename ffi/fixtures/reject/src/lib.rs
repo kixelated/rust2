@@ -365,3 +365,57 @@ pub async fn eventually() -> std::vec::IntoIter<u8> {
 pub trait Source: Send + Sync {
 	fn items(&self) -> std::vec::IntoIter<u8>;
 }
+
+/// Every other number from zero, which collecting would never finish either.
+pub fn evens() -> std::iter::StepBy<std::ops::RangeFrom<u64>> {
+	(0..).step_by(2)
+}
+
+/// One byte forever.
+pub fn ones() -> std::iter::Repeat<u8> {
+	std::iter::repeat(1)
+}
+
+/// Two bytes in turn, forever.
+pub fn alternating() -> impl Iterator<Item = u8> {
+	[0, 1].into_iter().cycle()
+}
+
+/// Bytes doubled by a closure, which a caller who stops early never runs on the rest.
+pub fn doubled() -> impl Iterator<Item = u8> {
+	vec![1, 2].into_iter().map(|byte| byte * 2)
+}
+
+/// Counts down to one, as its own code reads it.
+struct Countdown(u8);
+
+impl Iterator for Countdown {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		self.0 = self.0.checked_sub(1)?;
+		Some(self.0 + 1)
+	}
+}
+
+/// A countdown inside core's adapter, which still runs its own code.
+pub fn launched() -> impl Iterator<Item = u8> {
+	Countdown(3).chain([0])
+}
+
+/// A countdown to begin from, which turns into one only as it is flattened.
+struct Start(u8);
+
+impl IntoIterator for Start {
+	type Item = u8;
+	type IntoIter = Countdown;
+
+	fn into_iter(self) -> Countdown {
+		Countdown(self.0)
+	}
+}
+
+/// Countdowns, each made by its own code as `flatten` reaches it.
+pub fn launches() -> impl Iterator<Item = u8> {
+	vec![Start(1), Start(2)].into_iter().flatten()
+}
