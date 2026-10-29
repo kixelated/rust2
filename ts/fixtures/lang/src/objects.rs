@@ -29,6 +29,20 @@ fn through<P: std::ops::Deref<Target = Pin<Arc<u8>>>>(p: P) -> u8 {
 	**p
 }
 
+/// What a pointer to an `Arc` reads, through its own `Deref` and then the `Arc`'s.
+fn through_arc<P: std::ops::Deref<Target = Arc<u8>>>(p: P) -> u8 {
+	**p
+}
+
+/// What a pointer to a guard reads, through its own `Deref` and then the guard's.
+fn through_mutex<P: std::ops::Deref<Target = Mutex<u8>>>(p: P) -> u8 {
+	*p.lock().unwrap()
+}
+
+fn locked_by(n: u8) -> Mutex<u8> {
+	Mutex::new(n.wrapping_add(3))
+}
+
 /// The `Arc` a pinned box holds, replaced through `Pin`'s `DerefMut`.
 fn rebox(p: &mut Pin<Box<Arc<u8>>>, to: u8) {
 	**p = Arc::new(to);
@@ -192,6 +206,7 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	// the pin, each through `Deref`.
 	let lent = Pin::new(&held);
 	out.extend_from_slice(&[Arc::strong_count(&*lent) as u8, **lent, through(&pinned)]);
+	out.extend_from_slice(&[through_arc(&held), through_mutex(&locked_by(by))]);
 	// Through a guard, taken and assigned.
 	let locked = Mutex::new(v);
 	let taken = std::mem::take(&mut *locked.lock().unwrap());

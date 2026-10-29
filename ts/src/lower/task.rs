@@ -176,11 +176,19 @@ pub fn call<'tcx>(
 		("Clone", "clone") if self_std == Some(Std::Weak) => Expr::rt("weakClone", args),
 		// A waker is the executor's, whose `clone` is its own.
 		("Clone", "clone") if self_std == Some(Std::Waker) => first(args).member("clone").call(vec![]),
+		// A reference to one of these is the object it points at, which its own `Deref` gives.
+		("Deref", "deref") | ("DerefMut", "deref_mut") if self_ty.is_some_and(|t| t.is_ref()) => match self_std {
+			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut | Std::Pin) => first(args),
+			_ => return Err(args),
+		},
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
-			// A pinned `Arc` is the `Arc`, which holds its value.
-			Some(Std::Pin) => match self_ty.map(|t| t.peel_refs().kind()) {
-				Some(ty::Adt(_, pin)) if std_of(pin.type_at(0)) == Some(Std::Arc) => first(args).member("value"),
+			// A pinned `Arc` is the `Arc`, which holds its value; a pinned reference to one is
+			// the `Arc` itself.
+			Some(Std::Pin) => match self_ty.map(|t| t.kind()) {
+				Some(ty::Adt(_, pin)) if matches!(pin.type_at(0).kind(), ty::Adt(arc, _) if Std::of(tcx, arc.did()) == Some(Std::Arc)) => {
+					first(args).member("value")
+				}
 				_ => first(args),
 			},
 			_ => return Err(args),
