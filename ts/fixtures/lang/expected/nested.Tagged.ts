@@ -7,9 +7,9 @@ export class Tagged<T> {
 	value: T;
 	order: rt.Ordering;
 
-	constructor(fields: { value: T; order: rt.Ordering }) {
-		this.value = fields.value;
-		this.order = fields.order;
+	constructor(value: T, order: rt.Ordering) {
+		this.value = value;
+		this.order = order;
 	}
 }
 

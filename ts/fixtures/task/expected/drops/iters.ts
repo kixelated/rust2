@@ -28,9 +28,9 @@ export function looped(log: Log.Log, id: rt.u32): void {
 		}
 		const g: Guard.Guard = _24;
 		if (!(Guard.id(g) === rt.u32Add(id, 2))) {
-			rt.drop(g);
+			g[Symbol.dispose]();
 		} else {
-			rt.drop(g);
+			g[Symbol.dispose]();
 			break;
 		}
 	}
@@ -45,7 +45,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 		const part = Guard.id(g2);
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 		Log.note(log, rt.fmtFormat(["array ", args2[0]]));
-		rt.drop(g2);
+		g2[Symbol.dispose]();
 	}
 	rt.drop(iter2);
 	const iter3: rt.Iter<Guard.Guard> = rt.iterOption(guard(7), rt.drop);
@@ -58,7 +58,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 		const part2 = Guard.id(g3);
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
 		Log.note(log, rt.fmtFormat(["option ", args4[0]]));
-		rt.drop(g3);
+		g3[Symbol.dispose]();
 	}
 	rt.drop(iter3);
 	const v2: Guard.Guard[] = [];
@@ -90,7 +90,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	const rest: rt.Iter<Guard.Guard> = rt.iterTake(rt.iterSkip(rt.iterSlice(v3, rt.drop), 1, rt.drop), 3, rt.drop);
 	const part4 = mapOr$Option_Guard_u32_drained_closure3(rt.iterToOption(rest.next()), 0, (g5: Guard.Guard): rt.u32 => {
 		const _03: rt.u32 = Guard.id(g5);
-		rt.drop(g5);
+		g5[Symbol.dispose]();
 		return _03;
 	});
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
@@ -143,7 +143,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	rt.drop(_254);
 	const part7 = mapOr$Option_Guard_u32_drained_closure3(nth, 0, (g8: Guard.Guard): rt.u32 => {
 		const _06: rt.u32 = Guard.id(g8);
-		rt.drop(g8);
+		g8[Symbol.dispose]();
 		return _06;
 	});
 	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part7, f)];
@@ -173,7 +173,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	rt.drop(_308);
 	const _341: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(best, 0, (g11: Guard.Guard): rt.u32 => {
 		const _09: rt.u32 = Guard.id(g11);
-		rt.drop(g11);
+		g11[Symbol.dispose]();
 		return _09;
 	});
 	const _343: boolean = found !== undefined;
@@ -188,7 +188,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	v11.push(_366);
 	const folded: rt.u32 = rt.iterFold(rt.iterSlice(v11, rt.drop), 0, (n2: rt.u32, g12: Guard.Guard): rt.u32 => {
 		const _010: rt.u32 = rt.u32Sub(rt.u32Add(n2, Guard.id(g12)), id);
-		rt.drop(g12);
+		g12[Symbol.dispose]();
 		return _010;
 	}, true);
 	const v12: Guard.Guard[] = [];
@@ -200,7 +200,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	v12.push(_388);
 	const _397: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.ownedLast(rt.iterStepBy(rt.iterSlice(v12, rt.drop), 2, rt.drop), rt.drop), 0, (g13: Guard.Guard): rt.u32 => {
 		const _011: rt.u32 = Guard.id(g13);
-		rt.drop(g13);
+		g13[Symbol.dispose]();
 		return _011;
 	});
 	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(folded, f), (f: rt.Formatter) => rt.u32Display(_397, f)];
@@ -225,12 +225,12 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	const flat: rt.Iter<Guard.Guard> = rt.iterFlatten(rt.iterSlice(v13, drop$Vec_Guard), (value: Guard.Guard[]) => rt.iterSlice(value, rt.drop), true);
 	const front: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterToOption(flat.next()), 0, (g14: Guard.Guard): rt.u32 => {
 		const _012: rt.u32 = Guard.id(g14);
-		rt.drop(g14);
+		g14[Symbol.dispose]();
 		return _012;
 	});
 	const back: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterToOption(flat.nextBack()), 0, (g15: Guard.Guard): rt.u32 => {
 		const _013: rt.u32 = Guard.id(g15);
-		rt.drop(g15);
+		g15[Symbol.dispose]();
 		return _013;
 	});
 	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(front, f), (f: rt.Formatter) => rt.u32Display(back, f)];
@@ -258,7 +258,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	const _479: rt.Iter<Guard.Guard> = rt.iterStepBy(rt.iterSlice(five(49), rt.drop), 2, rt.drop);
 	const stepped: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterNthBack(_479, 1, rt.drop), 0, (g16: Guard.Guard): rt.u32 => {
 		const _015: rt.u32 = Guard.id(g16);
-		rt.drop(g16);
+		g16[Symbol.dispose]();
 		return _015;
 	});
 	rt.drop(_479);
@@ -267,7 +267,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	const _487: rt.Iter<Guard.Guard> = rt.iterChain(_488, rt.iterSlice(_494, rt.drop));
 	const taken: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterNth(_487, 1, rt.drop), 0, (g17: Guard.Guard): rt.u32 => {
 		const _016: rt.u32 = Guard.id(g17);
-		rt.drop(g17);
+		g17[Symbol.dispose]();
 		return _016;
 	});
 	rt.drop(_487);
@@ -276,14 +276,14 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	const _498: rt.Iter<Guard.Guard> = rt.iterChain(_499, rt.iterSlice(_505, rt.drop));
 	const passed: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterNth(_498, 2, rt.drop), 0, (g18: Guard.Guard): rt.u32 => {
 		const _017: rt.u32 = Guard.id(g18);
-		rt.drop(g18);
+		g18[Symbol.dispose]();
 		return _017;
 	});
 	rt.drop(_498);
 	const _509: rt.Iter<Guard.Guard> = rt.iterStepBy(rt.iterRev(rt.iterSlice(five(69), rt.drop)), 2, rt.drop);
 	const strode: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterNth(_509, 2, rt.drop), 0, (g19: Guard.Guard): rt.u32 => {
 		const _018: rt.u32 = Guard.id(g19);
-		rt.drop(g19);
+		g19[Symbol.dispose]();
 		return _018;
 	});
 	rt.drop(_509);
@@ -394,7 +394,7 @@ export function collected(log: Log.Log, id: rt.u32): void {
 	v8.push(_200);
 	const part4 = rt.iterToArray(rt.iterMap(rt.iterSlice(v8, rt.drop), (_2: Guard.Guard): Guard.Guard => {
 		const at = rt.idx(same, 0);
-		rt.drop(_2);
+		_2[Symbol.dispose]();
 		return same[at];
 	}), "next").length;
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part4, f)];
@@ -474,7 +474,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const _37: rt.usize = keys.length;
 	const _40: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterToOption(values.next()), 0, (g: Guard.Guard): rt.u32 => {
 		const _04: rt.u32 = Guard.id(g);
-		rt.drop(g);
+		g[Symbol.dispose]();
 		return _04;
 	});
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_37, f), (f: rt.Formatter) => rt.u32Display(_40, f)];
@@ -488,7 +488,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const _70: rt.Iter<Key.Key> = rt.btreeKeys(set, rt.drop);
 	const part = mapOr$Option_Key_u32_drained_closure4(rt.iterToOption(_70.next()), 0, (k: Key.Key): rt.u32 => {
 		const _05: rt.u32 = k.id;
-		rt.drop(k);
+		k[Symbol.dispose]();
 		return _05;
 	});
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
@@ -505,7 +505,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const range: rt.Iter<Guard.Guard> = rt.dequeDrain(queue, new rt.Range(1, 4), rt.drop);
 	const part2 = mapOr$Option_Guard_u32_drained_closure3(rt.iterToOption(range.next()), 0, (g2: Guard.Guard): rt.u32 => {
 		const _06: rt.u32 = Guard.id(g2);
-		rt.drop(g2);
+		g2[Symbol.dispose]();
 		return _06;
 	});
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
@@ -515,7 +515,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const _119: rt.Iter<Guard.Guard> = rt.dequeIter(queue, rt.drop);
 	const _116: rt.u32 = mapOr$Option_Guard_u32_drained_closure3(rt.iterToOption(_119.next()), 0, (g3: Guard.Guard): rt.u32 => {
 		const _07: rt.u32 = Guard.id(g3);
-		rt.drop(g3);
+		g3[Symbol.dispose]();
 		return _07;
 	});
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_113, f), (f: rt.Formatter) => rt.u32Display(_116, f)];
@@ -547,7 +547,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const taken: rt.Iter<Key.Key> = rt.hashDrainKeys(set2, rt.drop);
 	const part5 = mapOr$Option_Key_u32_drained_closure4(rt.iterToOption(taken.next()), 0, (k2: Key.Key): rt.u32 => {
 		const _08: rt.u32 = k2.id;
-		rt.drop(k2);
+		k2[Symbol.dispose]();
 		return _08;
 	});
 	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part5, f)];
@@ -573,7 +573,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	}), rt.u32Add, 0);
 	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part6, f)];
 	Log.note(log, rt.fmtFormat(["sink ", args18[0]]));
-	rt.drop(sink);
+	sink[Symbol.dispose]();
 	rt.drop(taken);
 	rt.hashDrop(set2, rt.drop);
 	rt.hashDrop(map2, rt.drop, rt.drop);

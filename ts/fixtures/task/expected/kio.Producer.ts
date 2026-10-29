@@ -9,19 +9,19 @@ import * as WaiterList from "./kio.WaiterList.ts";
 export class Producer {
 	state: rt.Arc<rt.Mutex<State.State>>;
 
-	constructor(fields: { state: rt.Arc<rt.Mutex<State.State>> }) {
-		this.state = fields.state;
+	constructor(state: rt.Arc<rt.Mutex<State.State>>) {
+		this.state = state;
 	}
 
 	[Symbol.dispose](): void {
 		drop$Drop(this);
-		rt.drop(this.state);
+		this.state[Symbol.dispose]();
 	}
 }
 
 function new_(): Producer {
 	const _2: rt.u64[] = [];
-	return new Producer({ state: new rt.Arc(new rt.Mutex(new State.State({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() }))) });
+	return new Producer(new rt.Arc(new rt.Mutex(new State.State(_2, false, 1, WaiterList.new()))));
 }
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
@@ -31,11 +31,11 @@ export function send(self: Producer, value: rt.u64): void {
 	const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 	rt.mutexUnlock(state);
 	WaiterList.wake(waiters);
-	rt.drop(waiters);
+	waiters[Symbol.dispose]();
 }
 
 export function consume(self: Producer): Consumer.Consumer {
-	return new Consumer.Consumer({ state: rt.arcClone(self.state), next: 0 });
+	return new Consumer.Consumer(rt.arcClone(self.state), 0);
 }
 
 export function clone$Clone(self: Producer): Producer {
@@ -43,7 +43,7 @@ export function clone$Clone(self: Producer): Producer {
 	const _2: State.State = _4.value;
 	_2.producers = rt.usizeAdd(_2.producers, 1);
 	rt.mutexUnlock(_4);
-	return new Producer({ state: rt.arcClone(self.state) });
+	return new Producer(rt.arcClone(self.state));
 }
 
 export function drop$Drop(self: Producer): void {
@@ -55,7 +55,7 @@ export function drop$Drop(self: Producer): void {
 		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 		rt.mutexUnlock(state);
 		WaiterList.wake(waiters);
-		rt.drop(waiters);
+		waiters[Symbol.dispose]();
 	} else {
 		rt.mutexUnlock(state);
 	}

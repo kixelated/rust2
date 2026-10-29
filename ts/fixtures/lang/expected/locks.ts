@@ -81,8 +81,8 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(own.value));
 	rt.byteVecPush(out, shared.strong & 0xff);
-	rt.drop(other);
-	rt.drop(shared);
+	other[Symbol.dispose]();
+	shared[Symbol.dispose]();
 }
 
 /** Locks a mutex while a guard of it is held, if the first byte is odd, which panics. */

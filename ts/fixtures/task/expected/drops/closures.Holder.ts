@@ -8,14 +8,14 @@ export class Holder<F> {
 	f: F;
 	guard: Guard.Guard;
 
-	constructor(fields: { f: F; guard: Guard.Guard }) {
-		this.f = fields.f;
-		this.guard = fields.guard;
+	constructor(f: F, guard: Guard.Guard) {
+		this.f = f;
+		this.guard = guard;
 	}
 
 	[Symbol.dispose](): void {
 		rt.drop(this.f);
-		rt.drop(this.guard);
+		this.guard[Symbol.dispose]();
 	}
 }
 
