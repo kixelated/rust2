@@ -1204,9 +1204,11 @@ fn mapping<'tcx>(
 				false => return vec_clone(b, slice, elem, span),
 			}
 		}
-		("slice", "last") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
-		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
-		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
+		("slice", "last" | "swap") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		("slice", "reverse") => elements(args.pop()?, Ty::new_slice(tcx, targ(gargs, 0))).method("reverse", Vec::new()),
 		("slice", "contains") => {
 			let elem = targ(gargs, 0);
 			let [s, x] = <[Expr; 2]>::try_from(args).ok()?;
@@ -1222,9 +1224,13 @@ fn mapping<'tcx>(
 		(
 			"slice",
 			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
-		) if !is_u8(targ(gargs, 0)) => {
+		) => {
+			let elem = targ(gargs, 0);
 			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
 			match name.as_str() {
+				// A typed array sorts its numbers by value, and equal bytes are alike.
+				"sort" | "sort_unstable" if is_u8(elem) => values.remove(0).method("sort", Vec::new()),
 				"sort" | "sort_unstable" => {
 					values.push(super::collections::test_fn(b, targ(gargs, 0), "lt", span));
 					Expr::rt("sliceSort", values)
@@ -1317,31 +1323,43 @@ fn mapping<'tcx>(
 			}
 			Expr::rt("vecExtendFromSlice", values)
 		}
-		("Vec", "swap_remove") if !is_u8(targ(gargs, 0)) => Expr::rt("vecSwapRemove", args),
-		("Vec", "insert" | "remove" | "truncate") if !is_u8(targ(gargs, 0)) => {
-			Expr::rt_of("vec", &super::camel(&name)).call(args)
+		("Vec", "insert" | "remove" | "swap_remove") if is_u8(targ(gargs, 0)) => {
+			rt2(args, "byteVec", &super::camel(&name))
 		}
+		("Vec", "insert" | "remove" | "swap_remove" | "truncate") => rt2(args, "vec", &super::camel(&name)),
 		("Vec", "clear") => {
 			let mut values = args;
 			values.push(Expr::lit("0"));
 			Expr::rt("vecTruncate", values)
 		}
-		// What each takes by value is a closure, which it drops once done.
-		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") if !is_u8(targ(gargs, 0)) => {
+		// What each takes by value is a closure, which it drops once done. An element JS
+		// copies is lent to the closure as its place where it takes a `&mut`.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") => {
 			if let Some(ty) = dropping_operand(b, call) {
 				return Some(b.err(
 					span,
 					format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
 				));
 			}
+			let elem = targ(gargs, 0);
+			let of = match is_u8(elem) {
+				true => "byteVec",
+				false => "vec",
+			};
+			let lend = match b.t.needs_place(elem) {
+				true => "Mut",
+				false => "",
+			};
 			let mut values = args;
-			match name.as_str() {
-				"retain" | "retain_mut" => Expr::rt("vecRetain", values),
+			let f = match name.as_str() {
+				"retain" => "retain".to_string(),
+				"retain_mut" => format!("retain{lend}"),
+				"dedup" if is_u8(elem) => "dedup".to_string(),
 				"dedup" => {
-					values.push(super::collections::eq_fn(b, targ(gargs, 0), span));
-					Expr::rt("vecDedupBy", values)
+					values.push(super::collections::eq_fn(b, elem, span));
+					"dedupBy".to_string()
 				}
-				"dedup_by" => Expr::rt("vecDedupBy", values),
+				"dedup_by" => format!("dedupBy{lend}"),
 				_ => {
 					// `Vec<T, A>::dedup_by_key::<F, K>`.
 					let key = targ(gargs, 3);
@@ -1352,9 +1370,10 @@ fn mapping<'tcx>(
 						));
 					}
 					values.push(super::collections::eq_fn(b, key, span));
-					Expr::rt("vecDedupByKey", values)
+					format!("dedupByKey{lend}")
 				}
-			}
+			};
+			rt2(values, of, &f)
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;
