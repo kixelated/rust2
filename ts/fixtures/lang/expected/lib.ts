@@ -3,6 +3,7 @@
 import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as Window from "./durations.Window.ts";
+import type * as Pair from "./fmt.Pair.ts";
 import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
@@ -17,6 +18,10 @@ import type * as Level from "./shapes.Level.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
+
+export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> {
+	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.u64>;
+}
 
 export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
 	return { _0: v._0 };
@@ -108,6 +113,10 @@ export function copy$Option_usize_u8(v: [rt.usize, rt.u8] | undefined): [rt.usiz
 	return v === undefined ? v : copy$usize_u8(v);
 }
 
+export function copy$Pair(v: Pair.Pair): Pair.Pair {
+	return { _0: v._0, _1: v._1 };
+}
+
 export function copy$Point(v: Point.Point): Point.Point {
 	return { x: v.x, y: v.y };
 }
@@ -170,6 +179,14 @@ export function copy$chars(v: rt.char[]): rt.char[] {
 	return v.slice();
 }
 
+export function copy$str_forabfnu8au8bmutstdvecVecu8(v: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void] {
+	return [v[0], v[1]];
+}
+
+export function copy$str_forabfnu8au8bmutstdvecVecu8s(v: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][]): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][] {
+	return v.map(copy$str_forabfnu8au8bmutstdvecVecu8);
+}
+
 export function copy$u32s(v: rt.u32[]): rt.u32[] {
 	return v.slice();
 }
@@ -184,6 +201,10 @@ export function copy$u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined]): [rt.u8
 
 export function copy$u8_Tally(v: [rt.u8, Tally.Tally]): [rt.u8, Tally.Tally] {
 	return [v[0], copy$Tally(v[1])];
+}
+
+export function copy$u8_bool(v: [rt.u8, boolean]): [rt.u8, boolean] {
+	return [v[0], v[1]];
 }
 
 export function copy$u8_str(v: [rt.u8, string]): [rt.u8, string] {
