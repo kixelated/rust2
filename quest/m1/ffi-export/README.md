@@ -53,3 +53,4 @@ Every generator on the C ABI:
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings on Android](/quest/m1/ffi-export/kotlin-android.md) - an R8 keep rule for JNI's lookups, and an emulator run in CI
 - [Owned implementors for a parameter that must outlive the call](/quest/m1/ffi-export/implied-outlives.md) - `each` reads implied lifetime bounds, so the glue builds instead of borrowing past the call
+- [Kotlin reads at JNI's cost](/quest/m1/ffi-export/kotlin-reads.md) - a ready Kotlin read loses the allocations that keep it ~230 ns over C
