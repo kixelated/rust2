@@ -40,7 +40,7 @@ export function new$closed_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Po
 }
 
 export function new$front_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Poll<rt.usize>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.usize>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$recv_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {

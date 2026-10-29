@@ -323,19 +323,19 @@ export class frontFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 0) {
-			rt.drop(this.#rx);
-			rt.drop(this.#guard);
+			this.#rx[Symbol.dispose]();
+			this.#guard[Symbol.dispose]();
 			return;
 		}
 		if (this.#state === 3) {
 			rt.drop(this.#awaitee);
 		} else if (this.#state === 4) {
-			rt.drop(this.#awaitee$2);
+			this.#awaitee$2[Symbol.dispose]();
 		} else {
 			return;
 		}
-		rt.drop(this.#guard);
-		rt.drop(this.#rx);
+		this.#guard[Symbol.dispose]();
+		this.#rx[Symbol.dispose]();
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
@@ -430,15 +430,15 @@ export class frontFuture {
 					const _50: rt.Poll<rt.usize> = Pending.poll$Future_front_closure0_closure0(this.#awaitee$2, _2);
 					if (_50 !== rt.Pending) {
 						const closed: rt.usize = _50;
-						rt.drop(this.#awaitee$2);
+						this.#awaitee$2[Symbol.dispose]();
 						const _69: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(closed, f);
 						const arg2 = this.#inFlight;
 						const args4: rt.Fmt[] = [_69, (f: rt.Formatter) => rt.fmtList(arg2, f, rt.u64Debug)];
 						const _60: string = rt.fmtFormat(["closed with ", args4[0], " in flight ", args4[1]]);
 						Guard.note(this.#guard, _60);
 						const _79: rt.u64 = rt.iterSum(rt.iterSlice(this.#inFlight), rt.u64Add, 0);
-						rt.drop(this.#guard);
-						rt.drop(this.#rx);
+						this.#guard[Symbol.dispose]();
+						this.#rx[Symbol.dispose]();
 						this.#state = 1;
 						return _79;
 					}
