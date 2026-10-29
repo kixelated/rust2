@@ -438,3 +438,19 @@ static PUMPS: [Pump; 1] = [Pump];
 pub fn pumped() -> impl Iterator<Item = u8> {
 	PUMPS.iter().flatten()
 }
+
+static DROPS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// A token that counts its own drop.
+pub struct Token(pub u8);
+
+impl Drop for Token {
+	fn drop(&mut self) {
+		DROPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+	}
+}
+
+/// The second token: `skip` drops the first only as the iterator is read.
+pub fn skipped() -> impl Iterator<Item = Token> {
+	vec![Token(1), Token(2)].into_iter().skip(1)
+}

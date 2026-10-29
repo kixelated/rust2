@@ -2328,6 +2328,7 @@ impl<'tcx> Collector<'tcx> {
 		// Every type the iterator holds, and every item and iterator its adapters drive,
 		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
 		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		let root = ty;
 		let mut queue = vec![ty];
 		while let Some(next_ty) = queue.pop() {
 			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
@@ -2357,10 +2358,62 @@ impl<'tcx> Collector<'tcx> {
 				if !plain || !by_std(method, ty) {
 					return None;
 				}
-				queue.push(project(driven, ty)?);
+				let driven = project(driven, ty)?;
+				// An adapter may drop what an iterator inside it yields, such as the items `skip`
+				// passes over, which the call would then drop before the caller reads any.
+				if method == next && ty != root && self.foreign_drop(driven, env) {
+					return None;
+				}
+				queue.push(driven);
 			}
 		}
 		project(item, ty)
+	}
+
+	/// Whether dropping `ty` may run a destructor outside core, alloc, and std.
+	fn foreign_drop(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> bool {
+		let tcx = self.tcx;
+		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		let mut queue = vec![ty];
+		while let Some(ty) = queue.pop() {
+			if !seen.insert(ty) {
+				continue;
+			}
+			match ty.kind() {
+				ty::Bool
+				| ty::Char
+				| ty::Int(_)
+				| ty::Uint(_)
+				| ty::Float(_)
+				| ty::Str
+				| ty::Pat(..)
+				| ty::Never
+				| ty::Ref(..)
+				| ty::RawPtr(..)
+				| ty::FnDef(..)
+				| ty::FnPtr(..) => {}
+				ty::Array(elem, _) | ty::Slice(elem) => queue.push(*elem),
+				ty::Tuple(elems) => queue.extend(elems.iter()),
+				ty::Adt(adt, _) if adt.is_manually_drop() => {}
+				// `PhantomData<T>` is how a collection says it drops its `T`s.
+				ty::Adt(adt, args) if adt.is_phantom_data() => queue.push(args.type_at(0)),
+				ty::Adt(adt, args) => {
+					if adt.has_dtor(tcx)
+						&& !matches!(tcx.crate_name(adt.did().krate), sym::core | sym::alloc | sym::std)
+					{
+						return true;
+					}
+					for field in adt.all_fields() {
+						match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
+							Ok(ty) => queue.push(ty),
+							Err(_) => return true,
+						}
+					}
+				}
+				_ => return true,
+			}
+		}
+		false
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.
