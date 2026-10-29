@@ -93,8 +93,12 @@ impl<'a> Header<'a> {
 			Type::F32 => "float".to_string(),
 			Type::F64 => "double".to_string(),
 			Type::Char => "char32_t".to_string(),
-			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => format!("::{}::buf", self.ns),
+			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf => {
+				format!("::{}::buf", self.ns)
+			}
 			Type::Duration => format!("::{}::duration", self.ns),
+			Type::SocketAddr(_) => format!("::{}::socket_addr", self.ns),
+			Type::List(inner) => format!("::std::vector<{}>", self.owned(inner)),
 			Type::Waker => format!("::{}::waker", self.ns),
 			Type::Option(inner) => format!("::std::optional<{}>", self.owned(inner)),
 			Type::Box(inner) | Type::Ref(_, inner) => self.owned(inner),
@@ -119,6 +123,16 @@ impl<'a> Header<'a> {
 		}
 		match ty {
 			Type::Option(inner) if Abi::is_buf(inner) => format!("::std::optional<::{}::view>", self.ns),
+			// Moved out of, each handle as a handle taken by value is.
+			Type::Option(inner) if matches!(inner.base(), Type::List(elem) if moves(abi, elem)) => {
+				format!("::std::optional<{}>", self.items(inner.base()))
+			}
+			Type::Option(inner) if matches!(inner.base(), Type::List(_)) => {
+				format!("const ::std::optional<{}> &", self.items(inner.base()))
+			}
+			// Moved out of, each handle as a handle taken by value is.
+			Type::List(inner) if moves(abi, inner) => self.items(ty),
+			Type::List(_) => format!("const {} &", self.items(ty)),
 			Type::Option(inner) => match &**inner {
 				// Lent, or copied out: a pointer, null for none.
 				Type::Ref(m, object) if matches!(**object, Type::Object(_)) => {
@@ -148,6 +162,50 @@ impl<'a> Header<'a> {
 		}
 	}
 
+	/// The C++ vector a `Vec` parameter of type `ty` takes: of views, for bytes.
+	fn items(&self, ty: &Type) -> String {
+		let Type::List(inner) = ty else {
+			unreachable!("{ty:?} is no Vec")
+		};
+		match Abi::is_buf(inner) {
+			true => format!("::std::vector<::{}::view>", self.ns),
+			false => format!("::std::vector<{}>", self.owned(inner)),
+		}
+	}
+
+	/// Whether lowering a `ty` lowers a `Vec`, whose array lives in the arena `a_` until
+	/// the call returns.
+	fn arena(&self, ty: &Type) -> bool {
+		let api = self.abi.api;
+		match ty {
+			Type::List(_) => true,
+			Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => self.arena(inner),
+			Type::Record(i) => api.records[*i].fields.iter().any(|f| self.arena(&f.ty)),
+			Type::Enum(i) => (api.enums[*i].variants.iter()).any(|v| v.fields.iter().any(|f| self.arena(&f.ty))),
+			_ => false,
+		}
+	}
+
+	/// The arena a value's `lower` takes, if it lowers a `Vec`.
+	fn arena_param(&self, ty: &Type) -> String {
+		match self.arena(ty) {
+			true => format!(", {}::arena &a_", self.d()),
+			false => String::new(),
+		}
+	}
+
+	/// The arena a body lowering each of `tys` declares, if one needs it.
+	fn scope<'t>(&self, tys: impl IntoIterator<Item = &'t Type>) -> String {
+		match tys.into_iter().any(|ty| self.arena(ty)) {
+			true => format!(
+				"	{}::arena a_;
+",
+				self.d()
+			),
+			false => String::new(),
+		}
+	}
+
 	/// The C value of the C++ value `e` of type `ty`, as a parameter or a field passes it.
 	fn lower(&self, ty: &Type, e: &str) -> String {
 		let abi = self.abi;
@@ -160,10 +218,20 @@ impl<'a> Header<'a> {
 			Type::Unit => unreachable!("no value is unit"),
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("static_cast<uint32_t>({e})"),
-			Type::Duration | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
 			Type::Waker => format!("{d}::give({d}::access::raw({e}))"),
+			Type::List(inner) => format!(
+				"a_.list<::{}>({e}, [&](const auto &x) {{ return {}; }})",
+				abi.list(inner),
+				self.lower(inner, "x")
+			),
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("({e} ? {d}::access::raw(*{e}) : nullptr)"),
+				base @ Type::List(elem) => format!(
+					"({e} ? {} : ::{}{{}})",
+					self.lower(base, &format!("(*{e})")),
+					abi.list(elem)
+				),
 				// Through a view, so an empty buffer C++ made crosses as `Some`, not as null.
 				_ if Abi::is_buf(inner) => format!("({e} ? {d}::access::raw(::{ns}::view(*{e})) : {d}::none())"),
 				_ => {
@@ -173,6 +241,7 @@ impl<'a> Header<'a> {
 				}
 			},
 			Type::Box(inner) | Type::Ref(_, inner) => self.lower(inner, e),
+			Type::Record(_) | Type::Enum(_) if self.arena(ty) => format!("{d}::lower({e}, a_)"),
 			Type::Record(_) => format!("{d}::lower({e})"),
 			Type::Enum(i) => match abi.api.enums[*i].plain() {
 				true => format!("static_cast<::{}>({e})", abi.enumeration(*i)),
@@ -181,7 +250,9 @@ impl<'a> Header<'a> {
 			Type::Object(_) => format!("{d}::access::raw({e})"),
 			Type::Callback(..) => format!("{d}::lower(::std::move({e}))"),
 			Type::Closure(..) => unreachable!("a closure lowers to its trampoline"),
-			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes => unreachable!("a buffer is above"),
+			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf => {
+				unreachable!("a buffer is above")
+			}
 			Type::Tuple(_) => unreachable!("a tuple is only returned"),
 		}
 	}
@@ -197,13 +268,23 @@ impl<'a> Header<'a> {
 		match ty {
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("static_cast<char32_t>({e})"),
-			Type::Duration | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
+			Type::List(inner) => format!(
+				"{d}::lift_list<{}>({e}, [&](const auto &c) {{ return {}; }}, &::{}_free)",
+				self.owned(inner),
+				self.lift(inner, "c"),
+				abi.list(inner)
+			),
 			Type::Option(inner) => {
 				let owned = self.owned(inner);
 				match inner.base() {
 					Type::Object(_) => {
 						format!("({e} ? ::std::optional<{owned}>({d}::access::wrap<{owned}>({e})) : ::std::nullopt)")
 					}
+					Type::List(_) => format!(
+						"({e}.ptr ? ::std::optional<{owned}>({}) : ::std::nullopt)",
+						self.lift(inner, e)
+					),
 					_ if Abi::is_buf(inner) => format!("{d}::access::adopt_option({e})"),
 					_ => format!(
 						"({e}.some ? ::std::optional<{owned}>({}) : ::std::nullopt)",
@@ -276,6 +357,7 @@ impl<'a> Header<'a> {
 			"type_traits",
 			"utility",
 			"variant",
+			"vector",
 		] {
 			self.line(format!("#include <{include}>"));
 		}
@@ -292,6 +374,7 @@ impl<'a> Header<'a> {
 			upper = p.to_uppercase()
 		));
 		self.line(format!("using duration = ::{p}_duration;"));
+		self.line(format!("using socket_addr = ::{p}_socket_addr;"));
 		if abi.ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
 			self.line(format!("using bound = ::{};", abi.rt("bound")));
 		}
@@ -488,7 +571,7 @@ impl<'a> Header<'a> {
 			));
 		}
 		let mut members = Vec::new();
-		self.traits(&name, &c, t, true, &mut body, &mut members);
+		self.traits(&name, &c, t, None, &mut body, &mut members);
 		let owner = Ty::Handle {
 			name: c.clone(),
 			constant: false,
@@ -508,21 +591,25 @@ impl<'a> Header<'a> {
 	}
 
 	/// The members a type's std traits export beyond its operators: an object's, which
-	/// holds a handle, or a record's, which is lowered.
+	/// holds a handle, or a record's, `value`, which is lowered.
 	fn traits(
 		&mut self,
 		name: &str,
 		c: &str,
 		t: Traits,
-		object: bool,
+		value: Option<&Type>,
 		body: &mut Vec<String>,
 		members: &mut Vec<String>,
 	) {
 		let ns = self.ns.clone();
 		let d = self.d();
-		let (this, lower) = match object {
-			true => ("raw_", String::new()),
-			false => ("&c_self_", format!("\tauto c_self_ = {d}::lower(*this);\n")),
+		let object = value.is_none();
+		let (this, lower) = match value {
+			None => ("raw_", String::new()),
+			Some(ty) => (
+				"&c_self_",
+				format!("{}\tauto c_self_ = {};\n", self.scope([ty]), self.lower(ty, "*this")),
+			),
 		};
 		if t.display {
 			body.push(format!("\t::{ns}::buf to_string() const;"));
@@ -640,7 +727,9 @@ impl<'a> Header<'a> {
 		let c = match ty {
 			Type::Record(i) => abi.record(*i),
 			Type::Enum(i) if !abi.api.enums[*i].plain() => abi.enumeration(*i),
-			Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => return self.value(inner),
+			Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) | Type::List(inner) => {
+				return self.value(inner);
+			}
 			Type::Tuple(elements) => {
 				for element in elements {
 					self.value(element);
@@ -674,11 +763,13 @@ impl<'a> Header<'a> {
 						"\tbool operator==(const {name} &other) const;\n\tbool operator!=(const {name} &other) const {{\n\t\treturn !(*this == other);\n\t}}"
 					));
 					self.def(format!(
-						"inline bool {name}::operator==(const {name} &other) const {{\n\tauto a = {d}::lower(*this);\n\tauto b = {d}::lower(other);\n\treturn ::{c}_eq(&a, &b);\n}}\n",
-						d = self.d()
+						"inline bool {name}::operator==(const {name} &other) const {{\n{}\tauto a = {};\n\tauto b = {};\n\treturn ::{c}_eq(&a, &b);\n}}\n",
+						self.scope([ty]),
+						self.lower(ty, "*this"),
+						self.lower(ty, "other"),
 					));
 				}
-				self.traits(&name, &c, t, false, &mut body, &mut members);
+				self.traits(&name, &c, t, Some(ty), &mut body, &mut members);
 				let owner = Ty::Struct(c.clone());
 				let mut taken = fields.clone();
 				taken.push(name.clone());
@@ -732,17 +823,18 @@ impl<'a> Header<'a> {
 		let lifted = self.lift(&ty, "c_ret_");
 		let lower = |e: &str| self.lower(&ty, e);
 		let (a, b, this) = (lower("a"), lower("b"), lower("self"));
+		let scope = self.scope([&ty]);
 		let t = e.traits;
 		if t.eq {
 			let (a_, b_) = (declare(&param, "a"), declare(&param, "b"));
 			self.def(format!(
-				"inline bool operator==({a_}, {b_}) {{\n\tauto c_a_ = {a};\n\tauto c_b_ = {b};\n\treturn ::{c}_eq(&c_a_, &c_b_);\n}}\n\ninline bool operator!=({a_}, {b_}) {{\n\treturn !(a == b);\n}}\n"
+				"inline bool operator==({a_}, {b_}) {{\n{scope}\tauto c_a_ = {a};\n\tauto c_b_ = {b};\n\treturn ::{c}_eq(&c_a_, &c_b_);\n}}\n\ninline bool operator!=({a_}, {b_}) {{\n\treturn !(a == b);\n}}\n"
 			));
 		}
 		for (on, trait_name) in [(t.display, "to_string"), (t.debug, "debug")] {
 			if on {
 				self.def(format!(
-					"inline ::{ns}::buf {name}_{trait_name}({}) {{\n\tauto c_self_ = {this};\n\treturn {d}::access::adopt(::{c}_{trait_name}(&c_self_));\n}}\n",
+					"inline ::{ns}::buf {name}_{trait_name}({}) {{\n{scope}\tauto c_self_ = {this};\n\treturn {d}::access::adopt(::{c}_{trait_name}(&c_self_));\n}}\n",
 					declare(&param, "self"),
 					d = self.d()
 				));
@@ -768,13 +860,15 @@ impl<'a> Header<'a> {
 		for i in 0..api.records.len() {
 			let c = abi.record(i);
 			let name = self.name(&c);
-			self.line(format!("inline ::{c} lower(const ::{ns}::{name} &v);"));
+			let arena = self.arena_param(&Type::Record(i));
+			self.line(format!("inline ::{c} lower(const ::{ns}::{name} &v{arena});"));
 			self.line(format!("inline ::{ns}::{name} lift(const ::{c} &c);"));
 		}
 		for (i, _) in api.enums.iter().enumerate().filter(|(_, e)| !e.plain()) {
 			let c = abi.enumeration(i);
 			let name = self.name(&c);
-			self.line(format!("inline ::{c} lower(const ::{ns}::{name} &v);"));
+			let arena = self.arena_param(&Type::Enum(i));
+			self.line(format!("inline ::{c} lower(const ::{ns}::{name} &v{arena});"));
 			self.line(format!("inline ::{ns}::{name} lift(const ::{c} &c);"));
 		}
 		for i in 0..api.callbacks.len() {
@@ -800,8 +894,9 @@ impl<'a> Header<'a> {
 				true => ("", ""),
 				false => (" &v", " &c"),
 			};
+			let arena = self.arena_param(&Type::Record(i));
 			self.line(format!(
-				"inline ::{c} lower(const ::{ns}::{name}{v}) {{\n\treturn ::{c}{{{}}};\n}}\n",
+				"inline ::{c} lower(const ::{ns}::{name}{v}{arena}) {{\n\treturn ::{c}{{{}}};\n}}\n",
 				lowered.join(", ")
 			));
 			self.line(format!(
@@ -842,8 +937,9 @@ impl<'a> Header<'a> {
 					fields.join(", ")
 				));
 			}
+			let arena = self.arena_param(&Type::Enum(i));
 			self.line(format!(
-				"inline ::{c} lower(const ::{ns}::{name} &v) {{\n\t::{c} c{{}};\n\tswitch (v.index()) {{\n{}\n\t}}\n\treturn c;\n}}\n",
+				"inline ::{c} lower(const ::{ns}::{name} &v{arena}) {{\n\t::{c} c{{}};\n\tswitch (v.index()) {{\n{}\n\t}}\n\treturn c;\n}}\n",
 				lower.join("\n")
 			));
 			self.line(format!(
@@ -927,6 +1023,8 @@ impl<'a> Header<'a> {
 		let mut params: Vec<String> = Vec::new();
 		let mut args: Vec<String> = Vec::new();
 		let mut prelude = Vec::new();
+		// What the call lowers, which may need an arena.
+		let mut lowered: Vec<Type> = function.params.iter().map(|p| p.ty.clone()).collect();
 		let receiver = function.receiver.filter(|_| owner.is_some());
 		let mut c_params = export.call.params.iter();
 		if receiver.is_some() {
@@ -934,16 +1032,22 @@ impl<'a> Header<'a> {
 			match (ty, free) {
 				(Ty::Handle { .. }, _) => args.push("raw_".to_string()),
 				(_, false) => {
-					prelude.push(format!("auto c_self_ = {d}::lower(*this);"));
+					let ty = record(abi, owner_c.as_deref().expect("a member method has its record"));
+					prelude.push(format!("auto c_self_ = {};", self.lower(&ty, "*this")));
 					args.push("&c_self_".to_string());
+					lowered.push(ty);
 				}
 				(_, true) => {
 					let ty = enumeration(abi, owner_c.as_deref().expect("a free method has its enum"));
 					params.push(declare(&self.param(&ty), "self"));
 					prelude.push(format!("auto c_self_ = {};", self.lower(&ty, "self")));
 					args.push("&c_self_".to_string());
+					lowered.push(ty);
 				}
 			}
+		}
+		if lowered.iter().any(|ty| self.arena(ty)) {
+			prelude.insert(0, format!("{d}::arena a_;"));
 		}
 		let mut templates = Vec::new();
 		for param in &function.params {
@@ -1126,6 +1230,21 @@ impl<'a> Header<'a> {
 fn enumeration(abi: &Abi<'_>, c: &str) -> Type {
 	let i = (0..abi.api.enums.len()).find(|&i| abi.enumeration(i) == c);
 	Type::Enum(i.expect("a free method's owner is an enum"))
+}
+
+/// The record named `c` in C.
+fn record(abi: &Abi<'_>, c: &str) -> Type {
+	let i = (0..abi.api.records.len()).find(|&i| abi.record(i) == c);
+	Type::Record(i.expect("a member method's value is a record"))
+}
+
+/// Whether passing a `Vec` of `elem` moves each handle out, as a handle taken by value is.
+fn moves(abi: &Abi<'_>, elem: &Type) -> bool {
+	match elem {
+		Type::Object(i) => !abi.api.objects[*i].copy,
+		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => moves(abi, inner),
+		_ => false,
+	}
 }
 
 /// Whether the object named `c` in C is `Copy`.

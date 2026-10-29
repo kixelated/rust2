@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- `&[T]` of any type and `SocketAddrV4` and `SocketAddrV6` map, so a struct or enum whose
+  fields were refused only for the socket addresses is a value now, not an object, and
+  an item that newly exports can clash with another's C name, which takes a `rename`.
+- `Vec<T>`, `PathBuf`, `SocketAddr`, and `url::Url` map, so a struct or enum whose
+  fields were refused only for them is a value now, not an object: moq-tokio's
+  `listen::Bind` is the C enum `moq_listen_bind`, freed with `moq_listen_bind_free(&b)`,
+  not a handle. An item that clashes with the new names `<prefix>_socket_addr`,
+  `<prefix>_url`, or a `<prefix>_vec_<T>` takes a `rename`.
+
 - Each `pub` field of an object exports a setter, `<type>_set_<field>`, so a method
   named `set_<field>` on the same type, such as `Limit::set_max` beside `pub max`,
   clashes with it: give the method another name with a `rename`.

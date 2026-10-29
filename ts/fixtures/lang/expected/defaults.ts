@@ -114,17 +114,23 @@ export function defaults(dataData: Uint8Array, dataStart: number, dataLen: numbe
 			rt.drop(_137);
 			rt.drop(_117);
 			s = _111;
+			rt.drop(copy);
+			rt.drop(live);
 			rt.drop(arc);
+			rt.drop(default_);
+			rt.drop(empty);
 		} else if (_10 === 6) {
 			const slot: Slot.Slot = Slot.default$Default();
 			const before: rt.u64 | undefined = Slot.get(slot);
 			const arc2: rt.Arc<Made.Made> = new rt.Arc({ n: op as rt.u64, tag: Made.default$Default().tag });
 			const _161: rt.Weak<Made.Made> = new rt.Weak(arc2);
+			rt.drop(slot.weak);
 			slot.weak = _161;
 			const _167: rt.u64 | undefined = Slot.get(slot);
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(before, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtOption(_167, f, rt.u64Debug)];
 			s = rt.fmtFormat([args14[0], " ", args14[1]]);
 			rt.drop(arc2);
+			rt.drop(slot);
 		} else if (_10 === 7) {
 			let boxed2: Made.Made | undefined = then$bool_Box_Made_default(rt.u8Rem(op, 3) === 0, (): Made.Made => {
 				return Made.default$Default();

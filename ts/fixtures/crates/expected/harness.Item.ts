@@ -11,4 +11,17 @@ export function weight$Weigh(self: Item): rt.u32 {
 	return rt.u32Rem(self._0 as rt.u32, 7);
 }
 
+export function add$Tally(self: Item, by: rt.u8): void {
+	self._0 = self._0 ^ by;
+}
+
+export function count$Tally(self: Item): rt.u32 {
+	return self._0 as rt.u32;
+}
+
+/** Provided, and overridden by one impl. */
+export function scale$Tally(_self: Item): rt.u32 {
+	return 1;
+}
+
 //# sourceMappingURL=harness.Item.ts.map

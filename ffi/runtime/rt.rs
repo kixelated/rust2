@@ -93,6 +93,31 @@ impl Buf {
 		Self::owned(vec.into())
 	}
 
+	/// The path a caller passed in, which it keeps: its bytes as the OS holds them on
+	/// Unix, which may be any, else UTF-8.
+	///
+	/// # Safety
+	/// As [`Self::bytes`].
+	pub unsafe fn path(&self, what: &str) -> &std::path::Path {
+		#[cfg(unix)]
+		{
+			use std::os::unix::ffi::OsStrExt;
+			// SAFETY: the caller's contract.
+			std::path::Path::new(std::ffi::OsStr::from_bytes(unsafe { self.bytes(what) }))
+		}
+		#[cfg(not(unix))]
+		{
+			// SAFETY: the caller's contract.
+			std::path::Path::new(unsafe { self.str(what) })
+		}
+	}
+
+	/// A path handed to the caller: its bytes as the OS holds them on Unix, else as
+	/// Rust encodes them, which is UTF-8 for any path that has a UTF-8 form.
+	pub fn path_buf(path: std::path::PathBuf) -> Self {
+		Self::vec(path.into_os_string().into_encoded_bytes())
+	}
+
 	/// Free a buffer Rust returned; a view or `None` frees nothing.
 	///
 	/// # Safety
@@ -125,6 +150,135 @@ impl Duration {
 			secs: duration.as_secs(),
 			nanos: duration.subsec_nanos(),
 		}
+	}
+}
+
+/// `std::net::SocketAddr`: an IPv4 address in the first 4 bytes of `ip`, with the rest of
+/// `ip`, `flowinfo`, and `scope_id` zero, or an IPv6 address. `ip` is in network order and
+/// `port` in the host's.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct SocketAddr {
+	pub ip: [u8; 16],
+	pub port: u16,
+	pub v6: bool,
+	pub flowinfo: u32,
+	pub scope_id: u32,
+}
+
+impl SocketAddr {
+	pub fn lift(self, what: &str) -> std::net::SocketAddr {
+		if self.v6 {
+			let ip = std::net::Ipv6Addr::from(self.ip);
+			return std::net::SocketAddrV6::new(ip, self.port, self.flowinfo, self.scope_id).into();
+		}
+		let [a, b, c, d, rest @ ..] = self.ip;
+		if rest != [0; 12] || self.flowinfo != 0 || self.scope_id != 0 {
+			fail(what, "an IPv4 socket address has IPv6 bytes or fields");
+		}
+		std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(a, b, c, d), self.port).into()
+	}
+
+	/// An IPv4 address, for `SocketAddrV4`: an IPv6 one aborts.
+	pub fn lift_v4(self, what: &str) -> std::net::SocketAddrV4 {
+		match self.lift(what) {
+			std::net::SocketAddr::V4(addr) => addr,
+			std::net::SocketAddr::V6(_) => fail(what, "an IPv6 socket address where IPv4 is taken"),
+		}
+	}
+
+	/// An IPv6 address, for `SocketAddrV6`: an IPv4 one aborts.
+	pub fn lift_v6(self, what: &str) -> std::net::SocketAddrV6 {
+		match self.lift(what) {
+			std::net::SocketAddr::V6(addr) => addr,
+			std::net::SocketAddr::V4(_) => fail(what, "an IPv4 socket address where IPv6 is taken"),
+		}
+	}
+
+	pub fn lower(addr: std::net::SocketAddr) -> Self {
+		match addr {
+			std::net::SocketAddr::V4(v4) => {
+				let mut ip = [0; 16];
+				ip[..4].copy_from_slice(&v4.ip().octets());
+				Self {
+					ip,
+					port: v4.port(),
+					v6: false,
+					flowinfo: 0,
+					scope_id: 0,
+				}
+			}
+			std::net::SocketAddr::V6(v6) => Self {
+				ip: v6.ip().octets(),
+				port: v6.port(),
+				v6: true,
+				flowinfo: v6.flowinfo(),
+				scope_id: v6.scope_id(),
+			},
+		}
+	}
+}
+
+/// `Vec<T>` across the ABI, as an array of its elements' C values. Passed in, a view Rust
+/// copies each element out of and never frees. Returned, an array the caller frees once,
+/// with what its first `len` elements hold. A null `ptr` is `None`.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct List<T> {
+	pub ptr: *const T,
+	pub len: usize,
+	pub owner: *mut c_void,
+}
+
+impl<T: Copy> List<T> {
+	pub const NONE: Self = Self {
+		ptr: std::ptr::null(),
+		len: 0,
+		owner: std::ptr::null_mut(),
+	};
+
+	pub fn is_none(&self) -> bool {
+		self.ptr.is_null()
+	}
+
+	/// The elements a caller passed in, which it keeps.
+	///
+	/// # Safety
+	/// `ptr` points at `len` readable elements while `self` lives.
+	pub unsafe fn items(&self, what: &str) -> &[T] {
+		match (self.ptr.is_null(), self.len) {
+			(_, 0) => &[],
+			(true, _) => fail(what, "an array has a length but no pointer"),
+			// SAFETY: the caller's contract.
+			(false, len) => unsafe { std::slice::from_raw_parts(self.ptr, len) },
+		}
+	}
+
+	/// Elements handed to the caller, which frees them.
+	pub fn owned(items: Vec<T>) -> Self {
+		let items = Box::new(items);
+		Self {
+			ptr: items.as_ptr(),
+			len: items.len(),
+			owner: Box::into_raw(items).cast(),
+		}
+	}
+
+	/// Free an array Rust returned, after `each` frees what each of its first `len`
+	/// elements holds: a binding that took the elements frees the array with `len` 0.
+	///
+	/// # Safety
+	/// `owner` is null or came from [`Self::owned`], and is freed once.
+	pub unsafe fn free(self, what: &str, each: impl Fn(T)) {
+		if self.owner.is_null() {
+			return;
+		}
+		// SAFETY: the caller's contract.
+		let items = unsafe { Box::from_raw(self.owner.cast::<Vec<T>>()) };
+		if !std::ptr::eq(self.ptr, items.as_ptr()) || self.len > items.len() {
+			fail(what, "an array is not as Rust returned it");
+		}
+		items[..self.len].iter().copied().for_each(each);
 	}
 }
 

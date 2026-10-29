@@ -6,6 +6,8 @@ import { opaque, len } from "../args.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
+import type * as Id from "../counts.Id.ts";
+import type * as Noisy from "../counts.Noisy.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
@@ -322,6 +324,20 @@ export function inspect$Option_u8_options_closure11(self: rt.u8 | undefined, f: 
 	return self;
 }
 
+export function mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(self: rt.Arc<Noisy.Noisy> | undefined, default_: rt.u8, f: (a0: rt.Arc<Noisy.Noisy>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Arc_dyn_Id_u8_arcs_closure1(self: rt.Arc<Id.Id> | undefined, default_: rt.u8, f: (a0: rt.Arc<Id.Id>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Hop_u64_options_closure2(self: Hop.Hop | undefined, default_: rt.u64, f: (a0: Hop.Hop) => rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
@@ -449,6 +465,13 @@ export function mapOr$Option_u16_u8_hash_maps_closure0(self: rt.u16 | undefined,
 }
 
 export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | undefined, default_: rt.u32, f: (a0: rt.Place<rt.u32>) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u8_Option_u8_anys_closure0(self: rt.u8 | undefined, default_: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
 	if (self === undefined) {
 		return default_;
 	}

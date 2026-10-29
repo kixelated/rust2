@@ -19,7 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use crate::abi::{self, Abi, Ty};
-use crate::ir::{Access, Function, Int, Literal, Receiver, Type};
+use crate::ir::{Access, Family, Function, Int, Literal, Receiver, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.kt");
 pub const GLUE_RUNTIME: &str = include_str!("../runtime/jni.rs");
@@ -246,7 +246,10 @@ impl<'a> Gen<'a> {
 			Type::Char => "Int".to_string(),
 			Type::Str | Type::String => "String".to_string(),
 			Type::Slice | Type::Vec | Type::Bytes => "ByteArray".to_string(),
+			Type::Path | Type::PathBuf => "String".to_string(),
 			Type::Duration => "kotlin.time.Duration".to_string(),
+			Type::SocketAddr(_) => "java.net.InetSocketAddress".to_string(),
+			Type::List(inner) => format!("kotlin.collections.List<{}>", self.kt(inner)),
 			Type::Waker => "Waker".to_string(),
 			Type::Option(inner) => format!("{}?", self.kt(inner)),
 			Type::Box(inner) | Type::Ref(_, inner) => self.kt(inner),
@@ -283,12 +286,26 @@ impl<'a> Gen<'a> {
 			Type::F32 => format!("{w}.f32({e})"),
 			Type::F64 => format!("{w}.f64({e})"),
 			Type::Char => format!("{w}.i32({e})"),
-			Type::Str | Type::String => format!("{w}.string({e})"),
+			Type::Str | Type::String | Type::Path | Type::PathBuf => format!("{w}.string({e})"),
 			Type::Slice | Type::Vec | Type::Bytes => format!("{w}.bytes({e})"),
 			Type::Duration => format!("{w}.duration({e})"),
+			Type::SocketAddr(Family::Any) => format!("{w}.socketAddr({e})"),
+			Type::SocketAddr(Family::V4) => format!("{w}.socketAddrV4({e})"),
+			Type::SocketAddr(Family::V6) => format!("{w}.socketAddrV6({e})"),
+			Type::List(inner) => {
+				let (l, v) = (self.fresh("l"), self.fresh("v"));
+				let item = self.write_value(inner, w, &v);
+				format!("{e}.let {{ {l} -> {w}.i32({l}.size); for ({v} in {l}) {{ {item} }} }}")
+			}
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("{w}.handle({e}?.handle)"),
 				base if Abi::is_buf(base) => self.write_value(base, w, e),
+				// None is a length of -1.
+				Type::List(_) => {
+					let v = self.fresh("v");
+					let some = self.write_value(inner, w, &v);
+					format!("{e}.let {{ {v} -> if ({v} == null) {w}.i32(-1) else {some} }}")
+				}
 				_ => {
 					let v = self.fresh("v");
 					let some = self.write_value(inner, w, &v);
@@ -321,14 +338,28 @@ impl<'a> Gen<'a> {
 			Type::F64 => format!("{r}.f64()"),
 			Type::Char => format!("{r}.i32()"),
 			Type::Str | Type::String => format!("{r}.string()!!"),
+			Type::Path | Type::PathBuf => format!("{r}.path()!!"),
 			Type::Slice | Type::Vec | Type::Bytes => format!("{r}.bytes()!!"),
 			Type::Duration => format!("{r}.duration()"),
+			Type::SocketAddr(_) => format!("{r}.socketAddr()"),
+			Type::List(inner) => {
+				let item = self.read_value(inner, r);
+				format!("kotlin.collections.List({r}.i32()) {{ {item} }}")
+			}
 			Type::Option(inner) => match inner.base() {
 				Type::Object(i) => {
 					let class = self.class(&abi.object(*i));
 					format!("{r}.i64().let {{ h -> if (h == 0L) null else {class}(h) }}")
 				}
 				Type::Str | Type::String => format!("{r}.string()"),
+				Type::Path | Type::PathBuf => format!("{r}.path()"),
+				Type::List(item) => {
+					let n = self.fresh("n");
+					let item = self.read_value(item, r);
+					format!(
+						"{r}.i32().let {{ {n} -> if ({n} < 0) null else kotlin.collections.List({n}) {{ {item} }} }}"
+					)
+				}
 				base if Abi::is_buf(base) => format!("{r}.bytes()"),
 				_ => format!("(if ({r}.bool()) {} else null)", self.read_value(inner, r)),
 			},
@@ -372,11 +403,11 @@ impl<'a> Gen<'a> {
 					_ => wrap(e),
 				}
 			}
-			Ty::Buf => match (string(ty), matches!(ty, Type::Option(_))) {
-				(true, true) => format!("{e}?.decodeToString()"),
-				(true, false) => format!("{e}!!.decodeToString()"),
-				(false, true) => e.to_string(),
-				(false, false) => format!("{e}!!"),
+			Ty::Buf => match (decode(ty), matches!(ty, Type::Option(_))) {
+				(Some(decode), true) => format!("{e}?.{decode}"),
+				(Some(decode), false) => format!("{e}!!.{decode}"),
+				(None, true) => e.to_string(),
+				(None, false) => format!("{e}!!"),
 			},
 			_ => {
 				let r = self.fresh("r");
@@ -459,14 +490,19 @@ impl<'a> Gen<'a> {
 					"crate::{name} {{ vtable: &VTABLE_{name}, data: rt::global(env, {p}) }}"
 				));
 			}
-			Ty::Duration | Ty::Struct(_) | Ty::In(_) => {
+			Ty::Duration | Ty::SocketAddr | Ty::Struct(_) | Ty::In(_) => {
 				let w = self.fresh("w");
+				// Taken by value, each object in a list moves out, as one passed alone does.
+				if moved(abi, ty) {
+					let close = self.close(ty, e);
+					arg.after.push(close);
+				}
 				arg.open = Some(format!("Native.Writer().use {{ {w} ->"));
 				let value = self.write_value(ty, &w, e);
 				arg.inside.push(value);
 				arg.exprs.push(format!("{w}.finish()"));
 				arg.rust_pre.push(format!(
-					"let b{p} = rt::bytes(env, {p}).unwrap_or_default();\n\t\tlet a{p} = rt::Reader::new(&b{p}).get();"
+					"let b{p} = rt::bytes(env, {p}).unwrap_or_default();\n\t\tlet mut r{p} = rt::Reader::new(&b{p});\n\t\tlet a{p} = r{p}.get();"
 				));
 				arg.rust_args.push(match c {
 					Ty::In(_) => format!("&a{p}"),
@@ -1509,6 +1545,25 @@ impl<'a> Gen<'a> {
 		Some(indent_by(&code, indent_level))
 	}
 
+	/// The Kotlin statement closing each object the value `e` of type `ty` holds, once a
+	/// call moved them out.
+	fn close(&mut self, ty: &Type, e: &str) -> String {
+		match ty {
+			Type::Option(inner) => {
+				let v = self.fresh("v");
+				let close = self.close(inner, &v);
+				format!("{e}?.let {{ {v} -> {close} }}")
+			}
+			Type::Box(inner) => self.close(inner, e),
+			Type::List(inner) => {
+				let v = self.fresh("v");
+				let close = self.close(inner, &v);
+				format!("{e}.forEach {{ {v} -> {close} }}")
+			}
+			_ => format!("{e}.close()"),
+		}
+	}
+
 	/// The glue's out values for `outs`, the pointers the C call takes after its
 	/// parameters, and the statements writing them, `ok` saying whether it returned ok.
 	fn glue_outs(&mut self, outs: &[(String, Ty)], result: bool) -> (String, Vec<String>, String) {
@@ -1554,16 +1609,26 @@ impl<'a> Gen<'a> {
 fn moved(abi: &Abi<'_>, ty: &Type) -> bool {
 	match ty {
 		Type::Object(i) => !abi.api.objects[*i].copy,
-		Type::Option(inner) | Type::Box(inner) => moved(abi, inner),
+		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => moved(abi, inner),
 		_ => false,
 	}
 }
 
 /// Whether `ty` crosses as a buffer of UTF-8 text, or none.
 fn string(ty: &Type) -> bool {
+	decode(ty).is_some()
+}
+
+/// How Kotlin decodes the buffer of text `ty` crosses as, if it is text: a path, which on
+/// Unix may hold any bytes, throws on those no `String` holds.
+fn decode(ty: &Type) -> Option<&'static str> {
 	match ty {
-		Type::Option(inner) => string(inner),
-		ty => matches!(ty.base(), Type::Str | Type::String),
+		Type::Option(inner) => decode(inner),
+		ty => match ty.base() {
+			Type::Str | Type::String => Some("decodeToString()"),
+			Type::Path | Type::PathBuf => Some("decodeToString(throwOnInvalidSequence = true)"),
+			_ => None,
+		},
 	}
 }
 
@@ -1589,7 +1654,7 @@ fn jni_type(c: &Ty, ty: &Type) -> (&'static str, &'static str) {
 		Ty::Handle { .. } | Ty::Future(_) => ("jlong", "Long"),
 		Ty::Buf => ("jbyteArray", "ByteArray?"),
 		Ty::Struct(_) if matches!(ty.base(), Type::Callback(..)) => ("jobject", "Any"),
-		Ty::Duration | Ty::Struct(_) | Ty::In(_) => ("jbyteArray", "ByteArray"),
+		Ty::Duration | Ty::SocketAddr | Ty::Struct(_) | Ty::In(_) => ("jbyteArray", "ByteArray"),
 		Ty::Fn(..) => ("jobject", "Any"),
 		Ty::Waker => ("jobject", "Waker"),
 		Ty::Poll | Ty::Out(_) | Ty::Data => unreachable!("{c:?} never crosses JNI"),
@@ -1659,6 +1724,7 @@ fn rust_c(abi: &Abi<'_>, c: &Ty) -> String {
 		Ty::Enum(_) => "i32".to_string(),
 		Ty::Buf => "crate::rt::Buf".to_string(),
 		Ty::Duration => "crate::rt::Duration".to_string(),
+		Ty::SocketAddr => "crate::rt::SocketAddr".to_string(),
 		Ty::Struct(name) => format!("crate::{name}"),
 		Ty::Handle { .. } => "*const c_void".to_string(),
 		other => {

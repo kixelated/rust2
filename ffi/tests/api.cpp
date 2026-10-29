@@ -11,6 +11,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "api.hpp"
 
@@ -19,6 +20,28 @@ namespace {
 // Print a returned buffer.
 void print(const char *before, const api::buf &buf, const char *after) {
 	std::printf("%s%.*s%s", before, static_cast<int>(buf.size()), reinterpret_cast<const char *>(buf.data()), after);
+}
+
+// Bytes as Rust's `escape_ascii` prints those of a path.
+void print_escaped(const char *before, const api::buf &buf, const char *after) {
+	std::printf("%s", before);
+	for (std::uint8_t b : buf) {
+		if (b >= 0x20 && b < 0x7f && b != '\\' && b != '\'' && b != '"') {
+			std::putchar(b);
+		} else {
+			std::printf("\\x%02x", b);
+		}
+	}
+	std::printf("%s", after);
+}
+
+// Strings as Rust's Debug prints a list of them.
+void print_strings(const std::vector<api::buf> &strings) {
+	std::printf("[");
+	for (std::size_t i = 0; i < strings.size(); i++) {
+		print(i == 0 ? "\"" : ", \"", strings[i], "\"");
+	}
+	std::printf("]");
 }
 
 int wakes = 0;
@@ -390,6 +413,147 @@ int script() {
 	retry.set_limit_setting(std::nullopt);
 	std::printf("retry %u\n", retry.limit());
 	std::printf("slot %u\n", api::slot_u8::new_(200).value());
+
+	// Foreign types: a URL parsed from text, socket addresses, OS paths, and `Vec`s.
+	api::url base = api::url::parse("https://example.com/a/b").value();
+	print("url ", base.to_string(), " host ");
+	if (auto host = api::host(base)) {
+		print("Some(\"", *host, "\")\n");
+	} else {
+		std::printf("None\n");
+	}
+	if (auto resolved = api::resolve(base, "c?d")) {
+		print("resolve ", resolved->to_string(), " ");
+		std::printf("%s\n", *resolved == base ? "true" : "false");
+	} else {
+		print("resolve err ", resolved.error(), "\n");
+	}
+	if (auto parsed = api::url::parse("no scheme")) {
+		print("parse ", parsed->to_string(), "\n");
+	} else {
+		print("parse err ", parsed.error(), "\n");
+	}
+
+	api::socket_addr v4{};
+	v4.ip[0] = 127;
+	v4.ip[3] = 1;
+	v4.port = 8080;
+	api::socket_addr v6{};
+	v6.ip[15] = 1;
+	v6.port = 443;
+	v6.v6 = true;
+	v6.scope_id = 3;
+	auto ports = api::ports({v4, v6});
+	std::printf("ports [%u, %u]\n", ports[0], ports[1]);
+	std::vector<api::buf> names;
+	names.emplace_back(api::view("a"));
+	names.emplace_back(api::view("b"));
+	api::peer peer = api::peer{v6, names}.next("c");
+	std::printf("peer Peer { addr: [::%u%%%u]:%u, names: ", peer.addr.ip[15], peer.addr.scope_id, peer.addr.port);
+	print_strings(peer.names);
+	std::printf(" } ");
+	print_strings(peer.aliases());
+	std::printf("\n");
+
+	// A path's bytes as the OS holds them, which need not be UTF-8.
+	api::buf file = api::file("dir", "f");
+	auto parents = api::parents({file, "/"});
+	print_escaped("file ", file, "\n");
+	std::printf("parents");
+	for (const auto &parent : parents) {
+		if (parent) {
+			print_escaped(" ", *parent, "");
+		} else {
+			std::printf(" none");
+		}
+	}
+	std::printf("\n");
+
+	auto words = api::words(" one two  three ");
+	std::printf("words %zu ", words.size());
+	print_strings(words);
+	std::printf("\n");
+	print("sentence ", api::sentence(std::vector<api::view>(words.begin(), words.end())), " ");
+	print("", api::sentence(std::nullopt), "\n");
+	print("sentence ", api::sentence(std::vector<api::view>()), "|\n");
+
+	std::printf("chunks [");
+	auto chunks = api::chunks("abcde", 2);
+	for (std::size_t i = 0; i < chunks.size(); i++) {
+		std::printf("%s[", i == 0 ? "" : ", ");
+		for (std::size_t j = 0; j < chunks[i].size(); j++) {
+			std::printf("%s%u", j == 0 ? "" : ", ", chunks[i].data()[j]);
+		}
+		std::printf("]");
+	}
+	std::printf("]\n");
+
+	auto counters = api::counters({"x", "y"});
+	std::printf("counters");
+	for (std::size_t i = 0; i < counters.size(); i++) {
+		print(i == 0 ? " " : ", ", counters[i].name(), " ");
+		std::printf("%llu", static_cast<unsigned long long>(counters[i].get()));
+	}
+	std::printf("\n");
+	std::vector<api::counter> some, boxed;
+	some.push_back(std::move(counters[0]));
+	boxed.push_back(std::move(counters[1]));
+	auto worth = api::worth(std::move(some), std::move(boxed));
+	std::printf("worth %llu %llu\n", ull(worth), ull(api::worth(std::nullopt, {})));
+
+	auto sums = api::sums({{1, 2}, {}, {3}});
+	std::printf("sums [%u, %u, %u]\n", sums[0], sums[1], sums[2]);
+
+	api::site site = api::site::new_(base);
+	print("site ", site.home().to_string(), " ");
+	print("", site.home().to_string(), "\n");
+
+	// Slices, passed in and returned as clones, and the socket address of each family.
+	auto shapes = api::shape_all();
+	std::printf("shapes [");
+	for (std::size_t i = 0; i < shapes.size(); i++) {
+		print(i == 0 ? "" : ", ", api::shape_debug(shapes[i]), "");
+	}
+	std::printf("] greetings ");
+	print_strings(api::greetings());
+	std::printf("\n");
+	api::trail trail = api::trail::new_({api::point{1, 2}, api::point{3, 4}}, {"a", "b"});
+	auto points = trail.points();
+	std::printf("trail [");
+	for (std::size_t i = 0; i < points.size(); i++) {
+		print(i == 0 ? "" : ", ", points[i].debug(), "");
+	}
+	auto labels = trail.labels();
+	std::printf("] [");
+	for (std::size_t i = 0; i < labels.size(); i++) {
+		print(i == 0 ? "" : ", ", labels[i].debug(), "");
+	}
+	std::printf("]\n");
+	api::socket_addr at4{};
+	at4.ip[0] = 127;
+	at4.ip[3] = 1;
+	at4.port = 8080;
+	api::socket_addr at6{};
+	at6.ip[15] = 1;
+	at6.port = 443;
+	at6.v6 = true;
+	at6.scope_id = 3;
+	auto [next4, next6] = api::nexts(at4, at6);
+	std::printf("nexts %u.%u.%u.%u %u %u %u\n", next4.ip[0], next4.ip[1], next4.ip[2], next4.ip[3], next4.port, next6.port,
+				next6.scope_id);
+
+	// A returned `Vec<&Token>` holds clones, which the vector drops.
+	api::token twice = api::token::new_(9);
+	std::uint32_t before = api::dropped();
+	{
+		auto tokens = twice.twice();
+		if (tokens.size() != 2 || tokens[1].id() != 9) {
+			return 1;
+		}
+	}
+	if (api::dropped() != before + 2) {
+		return 1;
+	}
 	return 0;
 }
 

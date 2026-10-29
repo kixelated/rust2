@@ -310,3 +310,28 @@ pub fn both<F: Fn()>(a: F, b: F) {
 pub fn read(f: impl FnOnce(&Text<'_>)) {
 	f(&Text(""))
 }
+
+/// Words C would lend inside an array, which C lends nothing inside.
+pub fn count_words(words: Vec<&str>) -> usize {
+	words.len()
+}
+
+/// Words C would lend inside an `Option` inside an array.
+pub fn count_some(words: Vec<Option<&str>>) -> usize {
+	words.iter().flatten().count()
+}
+
+/// A slice of references C cannot lend, as a `Vec` of them.
+pub fn count_slice(words: &[&str]) -> usize {
+	words.len()
+}
+
+/// A slice of handles: lifting each would move it out of its caller's handle.
+pub fn peek_all(values: &[Opaque]) -> usize {
+	values.len()
+}
+
+/// A borrowed slice whose elements have no clone to return.
+pub fn none_opaque() -> &'static [Opaque] {
+	&[]
+}

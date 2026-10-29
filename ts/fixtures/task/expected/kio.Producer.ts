@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import * as Consumer from "./kio.Consumer.ts";
-import type * as State from "./kio.State.ts";
+import * as State from "./kio.State.ts";
 import * as WaiterList from "./kio.WaiterList.ts";
 
 /** The sending side of a channel, which closes when the last one drops. */
@@ -21,7 +21,7 @@ export class Producer {
 
 function new_(): Producer {
 	const _2: rt.u64[] = [];
-	return new Producer({ state: new rt.Arc(new rt.Mutex({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() })) });
+	return new Producer({ state: new rt.Arc(new rt.Mutex(new State.State({ queue: _2, closed: false, producers: 1, waiters: WaiterList.new() }))) });
 }
 
 /** Queue `value` and wake every consumer, after releasing the lock. */
@@ -31,6 +31,7 @@ export function send(self: Producer, value: rt.u64): void {
 	const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 	rt.mutexUnlock(state);
 	WaiterList.wake(waiters);
+	rt.drop(waiters);
 }
 
 export function consume(self: Producer): Consumer.Consumer {
@@ -54,6 +55,7 @@ export function drop$Drop(self: Producer): void {
 		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);
 		rt.mutexUnlock(state);
 		WaiterList.wake(waiters);
+		rt.drop(waiters);
 	} else {
 		rt.mutexUnlock(state);
 	}

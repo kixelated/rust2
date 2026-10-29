@@ -48,9 +48,9 @@ pub enum Std {
 	DebugList,
 	/// What `assert_eq!` and `assert_ne!` compare by: its operator, as a string.
 	AssertKind,
-	/// `rt.Arc`, counted.
+	/// `rt.Arc`, counted: an `Arc` or an `Rc`, which one thread can't tell apart.
 	Arc,
-	/// `rt.Weak`.
+	/// `rt.Weak`, of either.
 	Weak,
 	/// `rt.Mutex`, which is also its own guard.
 	Mutex,
@@ -154,6 +154,8 @@ impl Std {
 		for (item, std) in [
 			(sym::Arc, Self::Arc),
 			(sym::ArcWeak, Self::Weak),
+			(sym::Rc, Self::Arc),
+			(sym::RcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
 			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
@@ -584,6 +586,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
+				| ("dyn Any", "downcast_ref" | "downcast_mut")
 		)
 }
 
@@ -771,6 +774,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
+			ty::Dynamic(preds, ..) => format!("dyn {}", tcx.item_name(preds.principal_def_id()?)),
 			_ => return None,
 		};
 		return Some((owner, name));
@@ -833,6 +837,10 @@ fn mapping<'tcx>(
 	let span = call.span;
 	let gargs = call.args;
 	let args = match super::task::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let args = match super::dynamic::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};

@@ -24,8 +24,6 @@ typedef struct test_latch test_latch;
 test_latch *test_latch_new(void);
 void test_latch_signal(test_latch *latch);
 void test_latch_wait(test_latch *latch);
-/* Signals the latch from a new thread, so the caller can block before it arrives. */
-void test_latch_signal_from_thread(test_latch *latch);
 void test_latch_free(test_latch *latch);
 
 #ifdef __cplusplus
