@@ -394,6 +394,11 @@ fn defaulted(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(format!("{listing:?}").as_bytes());
 }
 
+/// moq-net's ingest: a field of what a `&mut` parameter points at, taken by a closure.
+fn restock(listing: &mut Listing, b: u8) -> Option<Vec<u8>> {
+	(b % 2 == 0).then(|| std::mem::replace(&mut listing.listed, vec![b]))
+}
+
 /// moq-net's front: a `Vec` a closure captured by reference, taken, replaced, and
 /// refilled on each call, read after by the caller.
 fn taken(data: &[u8], out: &mut Vec<u8>) {
@@ -433,6 +438,9 @@ fn taken(data: &[u8], out: &mut Vec<u8>) {
 		pair.1.listed.push(b);
 	};
 	data.iter().for_each(|&b| list(b));
+	for &b in data {
+		swapped.extend(restock(&mut pair.1, b).unwrap_or_default());
+	}
 	let direct = std::mem::take(&mut pair.1.stale);
 	out.extend_from_slice(&direct);
 	out.extend_from_slice(&swapped);

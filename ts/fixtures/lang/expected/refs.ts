@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { copy$Option_u8_u8, copy$u32s } from "./lib.ts";
-import { thenSome$bool_u32 } from "./core/bool.ts";
-import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_Option_u8_u8_refs_closure2_closure0, mapOr$Option_String_u8_refs_closure1, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
+import { thenSome$bool_u32, then$bool_Vec_u8_restock_closure0 } from "./core/bool.ts";
+import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_Option_u8_u8_refs_closure2_closure0, mapOr$Option_String_u8_refs_closure1, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
 import * as Counts from "./refs.Counts.ts";
 import * as Cursor from "./refs.Cursor.ts";
 import type * as Fetch from "./refs.Fetch.ts";
@@ -535,6 +535,16 @@ export function list(listing: rt.Place<Listing.Listing | undefined>, b: rt.u8): 
 	rt.byteVecPush((listing.v as Listing.Listing).listed, b);
 }
 
+/** moq-net's ingest: a field of what a `&mut` parameter points at, taken by a closure. */
+export function restock(listing: Listing.Listing, b: rt.u8): rt.ByteVec | undefined {
+	return then$bool_Vec_u8_restock_closure0(rt.u8Rem(b, 2) === 0, (): rt.ByteVec => {
+		const _2: rt.ByteVec = rt.byteVecFrom(Uint8Array.of(b));
+		const old = listing.listed;
+		listing.listed = _2;
+		return old;
+	});
+}
+
 /**
  * moq-net's front: a `Vec` a closure captured by reference, taken, replaced, and
  * refilled on each call, read after by the caller.
@@ -544,11 +554,11 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let wide: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
 		return rt.u32Mul(_2 as rt.u32, 1000);
 	}));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(poll$taken_closure1(data, (b3: rt.u8): boolean => {
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(poll$taken_closure1(data, (b4: rt.u8): boolean => {
 		const taken_ = held;
 		held = new rt.ByteVec();
 		for (const x of rt.byteVecView(taken_)) {
-			if (rt.u8Rem(x, 3) !== rt.u8Rem(b3, 3)) {
+			if (rt.u8Rem(x, 3) !== rt.u8Rem(b4, 3)) {
 				rt.byteVecPush(held, rt.u8Div(x, 2));
 			}
 		}
@@ -557,7 +567,7 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const old2 = wide;
 			wide = _34;
 			wide = rt.iterToArray(rt.iterMap(rt.iterFilter(rt.iterSlice(old2), (_25: rt.u32): boolean => {
-				return _25 > ((b3 as rt.u32));
+				return _25 > ((b4 as rt.u32));
 			}), (x3: rt.u32): rt.u32 => {
 				return rt.u32Div(x3, 2);
 			}));
@@ -568,8 +578,8 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(wide, f, rt.u32Debug)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
 	const pair: [rt.ByteVec, Listing.Listing] = [rt.byteSliceToByteVec(data), Listing.default$Default()];
-	const swap: (a0: rt.u8) => rt.ByteVec = (b4: rt.u8): rt.ByteVec => {
-		const _36: rt.ByteVec = rt.byteVecOf(b4, rt.u8Rem(b4, 4) as rt.usize);
+	const swap: (a0: rt.u8) => rt.ByteVec = (b5: rt.u8): rt.ByteVec => {
+		const _36: rt.ByteVec = rt.byteVecOf(b5, rt.u8Rem(b5, 4) as rt.usize);
 		const old3 = pair[0];
 		pair[0] = _36;
 		return old3;
@@ -579,15 +589,19 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _45: rt.ByteVec = swap(_39);
 		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_45)));
 	}
-	const list_: (a0: rt.u8) => void = (b5: rt.u8): void => {
+	const list_: (a0: rt.u8) => void = (b6: rt.u8): void => {
 		const taken2 = pair[1].listed;
 		pair[1].listed = new rt.ByteVec();
 		pair[1].stale = taken2;
-		rt.byteVecPush(pair[1].listed, b5);
+		rt.byteVecPush(pair[1].listed, b6);
 	};
 	rt.iterForEach(rt.iterSlice(rt.byteSliceView(data)), (_26: rt.u8): void => {
 		list_(_26);
 	});
+	for (const _57 of rt.byteSliceView(data)) {
+		const _63: rt.ByteVec = unwrapOrDefault$Option_Vec_u8(restock(pair[1], _57));
+		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_63)));
+	}
 	const taken3 = pair[1].stale;
 	pair[1].stale = new rt.ByteVec();
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(taken3));

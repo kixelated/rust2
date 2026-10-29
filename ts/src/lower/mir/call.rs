@@ -834,9 +834,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let deref = self.tcx.mk_place_deref(*place);
 		match &self.slots[place.local] {
-			Slot::Alias(Some(target))
-				if assignable(target) && self.alias_of_place(place.local) =>
-			{
+			Slot::Alias(Some(target)) if assignable(target) && self.alias_of_place(place.local) => {
 				Some((target.clone(), Some(deref)))
 			}
 			_ if self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_some() => {
