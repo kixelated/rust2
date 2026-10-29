@@ -7,6 +7,11 @@
   with `<prefix>_json_parse`, not a buffer, and a generic type at such a parameter is
   named by `json` (`moq_json_snapshot_json`), not `string`. An item that clashes with
   `<prefix>_json` or its functions takes a `rename`.
+- A type parameter whose bounds imply bytes, through a supertrait such as moq's
+  `IntoBytes: AsRef<[u8]>` or a `From` implementation such as moq's
+  `impl<B: Into<Bytes>> From<B> for Timed<Bytes>`, exports as bytes rather than
+  `String`. Kotlin takes a `ByteArray` there: pass text as `"text".encodeToByteArray()`.
+  C and C++ keep their types, and accept a payload that is not UTF-8 rather than aborting.
 - `&[T]` of any type and `SocketAddrV4` and `SocketAddrV6` map, so a struct or enum whose
   fields were refused only for the socket addresses is a value now, not an object, and
   an item that newly exports can clash with another's C name, which takes a `rename`.

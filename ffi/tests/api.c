@@ -299,6 +299,9 @@ static int script(void) {
 
 	print("", api_greet(str("x"), API_SHAPE_SQUARE), "\n");
 	printf("len %zu\n", api_len(str("abc")));
+	api_buf binary = {.ptr = (const uint8_t *)"\xff\0a", .len = 3};
+	print("hex ", api_hex(binary), "\n");
+	print("timed hex ", api_timed_hex(binary), "\n");
 	api_event events[3] = {
 		{.tag = API_EVENT_MOVED, .moved = {._0 = p}},
 		{.tag = API_EVENT_NAMED, .named = {.name = str("n")}},
@@ -647,6 +650,7 @@ static int script(void) {
 		return 1;
 	}
 	print("json ", api_encode(doc), "\n");
+	print("timed text ", api_timed_text(doc), "\n");
 	api_json *tagged = api_tagged(doc, str("t"));
 	api_json_free(doc);
 	print("tagged ", api_json_to_text(tagged), "\n");

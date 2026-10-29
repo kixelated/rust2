@@ -84,8 +84,8 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _79: rt.usize = again.strong;
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => Made.fmt$Debug(boxed, f), (f: rt.Formatter) => Made.fmt$Debug(_76, f), (f: rt.Formatter) => rt.usizeDisplay(_79, f)];
 			s = rt.fmtFormat([args8[0], " ", args8[1], " ", args8[2]]);
-			rt.drop(again);
-			rt.drop(shared);
+			again[Symbol.dispose]();
+			shared[Symbol.dispose]();
 		} else if (_10 === 4) {
 			const part = unwrapOrDefault$Option_Option_u64_Made(then$bool_Option_u64_Made_defaults_closure1(rt.u8Rem(op, 3) === 0, (): [rt.u64 | undefined, Made.Made] => {
 				return [op as rt.u64, Made.default$Default()] as [rt.u64 | undefined, Made.Made];
@@ -114,23 +114,23 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.drop(_137);
 			rt.drop(_117);
 			s = _111;
-			rt.drop(copy);
-			rt.drop(live);
-			rt.drop(arc);
-			rt.drop(default_);
-			rt.drop(empty);
+			copy[Symbol.dispose]();
+			live[Symbol.dispose]();
+			arc[Symbol.dispose]();
+			default_[Symbol.dispose]();
+			empty[Symbol.dispose]();
 		} else if (_10 === 6) {
 			const slot: Slot.Slot = Slot.default$Default();
 			const before: rt.u64 | undefined = Slot.get(slot);
 			const arc2: rt.Arc<Made.Made> = new rt.Arc({ n: op as rt.u64, tag: Made.default$Default().tag });
 			const _161: rt.Weak<Made.Made> = new rt.Weak(arc2);
-			rt.drop(slot.weak);
+			slot.weak[Symbol.dispose]();
 			slot.weak = _161;
 			const _167: rt.u64 | undefined = Slot.get(slot);
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(before, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtOption(_167, f, rt.u64Debug)];
 			s = rt.fmtFormat([args14[0], " ", args14[1]]);
-			rt.drop(arc2);
-			rt.drop(slot);
+			arc2[Symbol.dispose]();
+			slot[Symbol.dispose]();
 		} else if (_10 === 7) {
 			let boxed2: Made.Made | undefined = then$bool_Box_Made_default(rt.u8Rem(op, 3) === 0, (): Made.Made => {
 				return Made.default$Default();
@@ -163,8 +163,8 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const arg2 = _199.n;
 			const args16: rt.Fmt[] = [_207, _208, (f: rt.Formatter) => rt.u64Display(arg2, f), (f: rt.Formatter) => rt.usizeDisplay(_202, f)];
 			s = rt.fmtFormat([args16[0], " ", args16[1], " ", args16[2], " ", args16[3]]);
-			rt.drop(shared2);
-			rt.drop(cell);
+			shared2[Symbol.dispose]();
+			cell[Symbol.dispose]();
 		} else {
 			const made2: Made.Made = made$Made();
 			const _218: rt.u64 = rt.u64Add(made2.n, op as rt.u64);

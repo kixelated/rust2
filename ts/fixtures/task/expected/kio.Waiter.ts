@@ -8,20 +8,20 @@ export class Waiter {
 	waker: rt.Waker;
 	shared: rt.Arc<rt.Waker>;
 
-	constructor(fields: { waker: rt.Waker; shared: rt.Arc<rt.Waker> }) {
-		this.waker = fields.waker;
-		this.shared = fields.shared;
+	constructor(waker: rt.Waker, shared: rt.Arc<rt.Waker>) {
+		this.waker = waker;
+		this.shared = shared;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.waker);
-		rt.drop(this.shared);
+		this.waker[Symbol.dispose]();
+		this.shared[Symbol.dispose]();
 	}
 }
 
 function new_(waker: rt.Waker): Waiter {
 	const shared: rt.Arc<rt.Waker> = new rt.Arc(waker.clone());
-	return new Waiter({ waker, shared });
+	return new Waiter(waker, shared);
 }
 
 /** Register with `list`, a no-op while the list still holds this waiter. */

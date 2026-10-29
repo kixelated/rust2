@@ -361,8 +361,6 @@ exclude = [
     "follow::Event",
     "follow::Instances",
     "json::Consumer",
-    "json::Snapshot::update",
-    "json::Stream::append",
 ]
 
 [crates.moq-mux.rename]

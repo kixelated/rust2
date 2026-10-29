@@ -163,13 +163,13 @@ int main(void) {
 	moq_error_free(err);
 	CHECK(moq_timestamp_as_secs(at) == 1);
 
-	/* The last frame, then the group's end, which reads as None. */
-	CHECK(moq_group_producer_write_frame(writer, NULL, str("world"), &err));
+	/* The last frame, bytes that are not UTF-8, then the group's end, which reads as None. */
+	CHECK(moq_group_producer_write_frame(writer, NULL, str("\xffworld"), &err));
 	CHECK(moq_group_producer_finish(writer, &err));
 	reading = moq_group_consumer_read_frame(group);
 	CHECK(moq_group_consumer_read_frame_poll(reading, waker, &frame, &err) == MOQ_POLL_READY);
 	moq_group_consumer_read_frame_future_free(reading);
-	CHECK(frame != NULL && is(moq_frame_frame_payload(frame), "world"));
+	CHECK(frame != NULL && is(moq_frame_frame_payload(frame), "\xffworld"));
 	moq_frame_frame_free(frame);
 	reading = moq_group_consumer_read_frame(group);
 	frame = (moq_frame_frame *)1;
@@ -371,8 +371,29 @@ int main(void) {
 	moq_track_producer_free(status);
 	CHECK(is(moq_json_snapshot_json_name(status_snapshot), "status"));
 	CHECK(moq_catalog_producer_extra_is_claimed_json_config(catalog, str("status")));
-	moq_json *app = NULL;
+	/* A value C parses is published as the track's latest, which a subscriber reads back
+	 * as JSON text. */
+	moq_json *latest = NULL;
 	moq_buf json_err;
+	CHECK(moq_json_parse(str("{\"on\": true}"), &latest, &json_err));
+	CHECK(moq_json_snapshot_json_update(status_snapshot, latest, &mux_err));
+	moq_json_free(latest);
+	moq_track_subscriber *status_subscriber = moq_json_snapshot_json_consume(status_snapshot);
+	moq_track_subscriber_recv_group_future *status_receiving = moq_track_subscriber_recv_group(status_subscriber);
+	moq_group_consumer *status_group = NULL;
+	CHECK(moq_track_subscriber_recv_group_poll(status_receiving, waker, &status_group, &err) == MOQ_POLL_READY);
+	moq_track_subscriber_recv_group_future_free(status_receiving);
+	moq_frame_frame *status_frame = NULL;
+	if (status_group != NULL) {
+		moq_group_consumer_read_frame_future *status_reading = moq_group_consumer_read_frame(status_group);
+		CHECK(moq_group_consumer_read_frame_poll(status_reading, waker, &status_frame, &err) == MOQ_POLL_READY);
+		moq_group_consumer_read_frame_future_free(status_reading);
+		moq_group_consumer_free(status_group);
+	}
+	CHECK(status_frame != NULL && is(moq_frame_frame_payload(status_frame), "{\"on\":true}"));
+	moq_frame_frame_free(status_frame);
+	moq_track_subscriber_free(status_subscriber);
+	moq_json *app = NULL;
 	CHECK(moq_json_parse(str("{\"v\": [1, true]}"), &app, &json_err));
 	CHECK(moq_catalog_producer_extra_mutate(catalog, sets_app, app, &mux_err));
 	moq_json_free(app);

@@ -86,11 +86,12 @@ int main() {
 	CHECK(!late && is(late.error().to_string(), "frame timestamp doesn't fit its track"));
 	CHECK(at->as_secs() == 1);
 
-	// The last frame, then the group's end, which reads as None, both blocking.
-	CHECK(writer->write_frame(nullptr, "world"));
+	// The last frame, bytes that are not UTF-8, then the group's end, which reads as None,
+	// both blocking.
+	CHECK(writer->write_frame(nullptr, "\xffworld"));
 	CHECK(std::move(*writer).finish());
 	auto world = group.read_frame().get();
-	CHECK(world && world.value() && is(world.value()->payload(), "world"));
+	CHECK(world && world.value() && is(world.value()->payload(), "\xffworld"));
 	auto end = group.read_frame().get();
 	CHECK(end && !end.value());
 
@@ -214,6 +215,16 @@ int main() {
 		                                                     moq::json_options::default_());
 		CHECK(status_snapshot && is(status_snapshot->name(), "status"));
 		CHECK(catalog->is_claimed_json_config("status"));
+		// A value C++ parses is published as the track's latest, which a subscriber reads
+		// back as JSON text.
+		CHECK(status_snapshot->update(moq::json::parse(R"({"on": true})").value()));
+		moq::track_subscriber status_subscriber = status_snapshot->consume();
+		auto status_group = status_subscriber.recv_group().get();
+		CHECK(status_group && status_group.value());
+		if (status_group && status_group.value()) {
+			auto status_frame = status_group.value()->read_frame().get();
+			CHECK(status_frame && status_frame.value() && is(status_frame.value()->payload(), R"({"on":true})"));
+		}
 		auto app = moq::json::parse(R"({"v": [1, true]})");
 		CHECK(app);
 		CHECK(catalog->mutate([&](moq::hang_catalog_extra &lent) {

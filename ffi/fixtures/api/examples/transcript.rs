@@ -151,6 +151,8 @@ fn main() {
 
 	println!("{}", api_lib::greet("x", Shape::Square));
 	println!("len {}", api_lib::len(b"abc"));
+	println!("hex {}", api_lib::hex(Bytes::from_static(b"\xff\x00a")));
+	println!("timed hex {}", api_lib::timed_hex(Bytes::from_static(b"\xff\x00a")));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}
@@ -378,6 +380,7 @@ fn main() {
 	);
 	let doc: serde_json::Value = r#"{"b": [1, 2.5, null], "a": "\u00e9"}"#.parse().expect("a JSON document");
 	println!("json {}", api_lib::encode(&doc));
+	println!("timed text {}", api_lib::timed_text(&doc));
 	println!("tagged {}", api_lib::tagged(doc, "t"));
 	match "{\"a\":".parse::<serde_json::Value>() {
 		Ok(doc) => println!("json parse {doc}"),

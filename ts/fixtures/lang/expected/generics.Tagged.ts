@@ -22,10 +22,10 @@ export class Tagged<K, V> {
 	inner: Wrap.Wrap<V>;
 	all: Wrap.Wrap<V>[];
 
-	constructor(fields: { key: K; inner: Wrap.Wrap<V>; all: Wrap.Wrap<V>[] }) {
-		this.key = fields.key;
-		this.inner = fields.inner;
-		this.all = fields.all;
+	constructor(key: K, inner: Wrap.Wrap<V>, all: Wrap.Wrap<V>[]) {
+		this.key = key;
+		this.inner = inner;
+		this.all = all;
 	}
 }
 

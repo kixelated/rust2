@@ -133,6 +133,9 @@ fun script() {
 
 	println(greet("x", Shape.SQUARE))
 	println("len ${len("abc".encodeToByteArray())}")
+	val binary = byteArrayOf(0xff.toByte(), 0, 'a'.code.toByte())
+	println("hex ${hex(binary)}")
+	println("timed hex ${timedHex(binary)}")
 	for (event in listOf(Event.Moved(p), Event.Named("n"), Event.Done)) {
 		println(describe(event))
 	}
@@ -309,6 +312,7 @@ fun script() {
 	println("longest ${longest(listOf("a", "abc"))} ${longest(emptyList())}")
 	val doc = Json.parse("""{"b": [1, 2.5, null], "a": "\u00e9"}""")
 	println("json ${encode(doc)}")
+	println("timed text ${timedText(doc)}")
 	tagged(doc, "t").use { tagged -> println("tagged ${tagged.toText()}") }
 	try {
 		Json.parse("{\"a\":").close()

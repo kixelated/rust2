@@ -331,11 +331,11 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const gathered: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _154: Tally.Tally = rt.iterFold(rt.iterBorrow(gathered), new Tally.Tally(0), (t: Tally.Tally, x7: rt.u64): Tally.Tally => {
 			const _010: Tally.Tally = new Tally.Tally(rt.u64Add(t._0, x7));
-			rt.drop(t);
+			t[Symbol.dispose]();
 			return _010;
 		});
 		putU64(out, _154._0);
-		rt.drop(_154);
+		_154[Symbol.dispose]();
 		bounds$RangeInclusive_u64(out, gathered);
 		const keyed: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _166: rt.RangeInclusive<rt.u64> = keyed;

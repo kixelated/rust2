@@ -235,6 +235,9 @@ int script() {
 
 	print("", api::greet("x", api::shape::square), "\n");
 	std::printf("len %zu\n", api::len("abc"));
+	const std::uint8_t binary[] = {0xff, 0x00, 'a'};
+	print("hex ", api::hex(api::view(binary, sizeof binary)), "\n");
+	print("timed hex ", api::timed_hex(api::view(binary, sizeof binary)), "\n");
 	api::event events[] = {api::event_moved{p}, api::event_named{api::buf("n")}, api::event_done{}};
 	for (const auto &event : events) {
 		print("", api::describe(event), "\n");
@@ -510,6 +513,7 @@ int script() {
 
 	api::json doc = api::json::parse(R"({"b": [1, 2.5, null], "a": "\u00e9"})").value();
 	print("json ", api::encode(doc), "\n");
+	print("timed text ", api::timed_text(doc), "\n");
 	api::json tagged = api::tagged(std::move(doc), "t");
 	print("tagged ", tagged.to_text(), "\n");
 	if (auto parsed = api::json::parse("{\"a\":")) {

@@ -1133,8 +1133,8 @@ export function own(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const byRef: Evens.Evens = { inner: rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, rt.min(data.length, 1)))) };
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterTake(rt.iterFrom(byRef, (it: Evens.Evens) => Evens.next$Iterator(it)), 2))));
 	rt.byteVecPush(out, rt.iterCount(rt.iterFrom(byRef, (it: Evens.Evens) => Evens.next$Iterator(it))) & 0xff);
-	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFrom(new Halving.Halving({ value: left }), (it: Halving.Halving<rt.u8>) => Halving.next$Iterator_u8(it)))));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.iterSum(rt.iterFrom(new Halving.Halving({ value: rt.u64Mul(left as rt.u64, 4294967297) }), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator_u64(it)), rt.u64Add, 0))));
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFrom(new Halving.Halving(left), (it: Halving.Halving<rt.u8>) => Halving.next$Iterator_u8(it)))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.iterSum(rt.iterFrom(new Halving.Halving(rt.u64Mul(left as rt.u64, 4294967297)), (it: Halving.Halving<rt.u64>) => Halving.next$Iterator_u64(it)), rt.u64Add, 0))));
 }
 
 /**
