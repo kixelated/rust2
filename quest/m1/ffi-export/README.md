@@ -54,7 +54,6 @@ Every generator on the C ABI:
 - [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
 - [Glue that builds without warnings](/quest/m1/ffi-export/warnings.md) - the exporter's Rust glue builds with `-D warnings`
-- [The recursion depth lint on moq's export](/quest/m1/ffi-export/recursion-lint.md) - `just ffi moq` builds clean before the lint becomes an error
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings: zero-copy payloads and the read path](/quest/m1/ffi-export/kotlin.md) - the Kotlin lends bytes without a copy, and reads at JNI's cost
 - [Kotlin bindings on Android](/quest/m1/ffi-export/kotlin-android.md) - an R8 keep rule for JNI's lookups, and an emulator run in CI
