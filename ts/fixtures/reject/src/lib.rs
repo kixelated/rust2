@@ -560,6 +560,18 @@ pub fn any_type_id(a: &dyn std::any::Any) -> bool {
 	a.type_id() == std::any::TypeId::of::<u8>()
 }
 
+pub trait Source {
+	type Item: Reading;
+	fn item(&self) -> &Self::Item;
+}
+
+/// A trait object of a type only an instance decides, which a census lowering this over
+/// its type parameter can't make.
+pub fn source_reading<S: Source>(s: &S) -> u8 {
+	let r: &dyn Reading = s.item();
+	r.read()
+}
+
 /// A pointer read as another type's bytes.
 pub fn reinterpreted(n: u32) -> u8 {
 	unsafe { *(&raw const n).cast::<u8>() }
