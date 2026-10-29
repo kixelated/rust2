@@ -227,6 +227,7 @@ fun main() {
 	}
 	url.close()
 	// A `Vec<String>`, as a List.
+	expect(ALPNS.isNotEmpty(), "a constant slice crosses as a List")
 	val alpns = versions.alpns()
 	expect(alpns.isNotEmpty() && alpns.all { it.isNotEmpty() }, "each version has an ALPN")
 	versions.close()
@@ -238,6 +239,9 @@ fun main() {
 	expect(v4.toString() == "127.0.0.1:0", "an IPv4 bind prints as Rust's")
 	ListenConfig.default().use { listen ->
 		listen.setBind(bind)
+		// The preferred address of each family, which takes only that family.
+		listen.setPreferredV4(v4._0)
+		expect(listen.preferredV4 == v4._0 && listen.preferredV6 == null, "a listener keeps its preferred IPv4 address")
 		expect(listen.bind == bind, "a listener's config keeps its bind")
 	}
 	// TLS files, as OS paths, and fingerprints, as strings: none by default.

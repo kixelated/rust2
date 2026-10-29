@@ -508,6 +508,40 @@ int script() {
 	print("site ", site.home().to_string(), " ");
 	print("", site.home().to_string(), "\n");
 
+	// Slices, passed in and returned as clones, and the socket address of each family.
+	auto shapes = api::shape_all();
+	std::printf("shapes [");
+	for (std::size_t i = 0; i < shapes.size(); i++) {
+		print(i == 0 ? "" : ", ", api::shape_debug(shapes[i]), "");
+	}
+	std::printf("] greetings ");
+	print_strings(api::greetings());
+	std::printf("\n");
+	api::trail trail = api::trail::new_({api::point{1, 2}, api::point{3, 4}}, {"a", "b"});
+	auto points = trail.points();
+	std::printf("trail [");
+	for (std::size_t i = 0; i < points.size(); i++) {
+		print(i == 0 ? "" : ", ", points[i].debug(), "");
+	}
+	auto labels = trail.labels();
+	std::printf("] [");
+	for (std::size_t i = 0; i < labels.size(); i++) {
+		print(i == 0 ? "" : ", ", labels[i].debug(), "");
+	}
+	std::printf("]\n");
+	api::socket_addr at4{};
+	at4.ip[0] = 127;
+	at4.ip[3] = 1;
+	at4.port = 8080;
+	api::socket_addr at6{};
+	at6.ip[15] = 1;
+	at6.port = 443;
+	at6.v6 = true;
+	at6.scope_id = 3;
+	auto [next4, next6] = api::nexts(at4, at6);
+	std::printf("nexts %u.%u.%u.%u %u %u %u\n", next4.ip[0], next4.ip[1], next4.ip[2], next4.ip[3], next4.port, next6.port,
+				next6.scope_id);
+
 	// A returned `Vec<&Token>` holds clones, which the vector drops.
 	api::token twice = api::token::new_(9);
 	std::uint32_t before = api::dropped();
