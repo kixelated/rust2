@@ -97,6 +97,10 @@ export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wra
 	return v === undefined ? v : copy$Wrap_i16(v);
 }
 
+export function copy$Option_u64_u64(v: [rt.u64, rt.u64] | undefined): [rt.u64, rt.u64] | undefined {
+	return v === undefined ? v : copy$u64_u64(v);
+}
+
 export function copy$Option_u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined] | undefined): [rt.u8, rt.u8 | undefined] | undefined {
 	return v === undefined ? v : copy$u8_Reverse_Option_u8(v);
 }
@@ -175,6 +179,10 @@ export function copy$u32s(v: rt.u32[]): rt.u32[] {
 	return v.slice();
 }
 
+export function copy$u64_u64(v: [rt.u64, rt.u64]): [rt.u64, rt.u64] {
+	return [v[0], v[1]];
+}
+
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
 	return [v[0], copy$Horizon(v[1])];
 }
@@ -235,6 +243,22 @@ export function drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(_1: rt.Re
 	}
 }
 
+export function drop$Result_RwLockReadGuard_Tally_TryLockError_RwLockReadGuard_Tally(_1: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>>): void {
+	if (_1.ok) {
+		rt.refRelease(_1.value);
+	} else {
+		drop$TryLockError_RwLockReadGuard_Tally(_1.error);
+	}
+}
+
+export function drop$Result_RwLockWriteGuard_Tally_TryLockError_RwLockWriteGuard_Tally(_1: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>>): void {
+	if (_1.ok) {
+		rt.refMutRelease(_1.value);
+	} else {
+		drop$TryLockError_RwLockWriteGuard_Tally(_1.error);
+	}
+}
+
 export function drop$Result_usize_u8_Arc_dyn_Any(_1: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>): void {
 	if (!_1.ok) {
 		_1.error[Symbol.dispose]();
@@ -250,6 +274,18 @@ export function drop$TryLockError_MutexGuard_Tally(_1: rt.TryLockError<rt.Mutex<
 export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt.u32>>): void {
 	if (_1.tag === "Poisoned") {
 		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<rt.u32> })._0);
+	}
+}
+
+export function drop$TryLockError_RwLockReadGuard_Tally(_1: rt.TryLockError<rt.RefCell<locks_Tally.Tally>>): void {
+	if (_1.tag === "Poisoned") {
+		rt.refRelease((_1 as { tag: "Poisoned"; _0: rt.RefCell<locks_Tally.Tally> })._0);
+	}
+}
+
+export function drop$TryLockError_RwLockWriteGuard_Tally(_1: rt.TryLockError<rt.RefCell<locks_Tally.Tally>>): void {
+	if (_1.tag === "Poisoned") {
+		rt.refMutRelease((_1 as { tag: "Poisoned"; _0: rt.RefCell<locks_Tally.Tally> })._0);
 	}
 }
 

@@ -2,12 +2,13 @@
 
 import * as rt from "../rt.ts";
 import { copy$u8s_u8s } from "../lib.ts";
+import type * as Noisy from "../borrows.Noisy.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
 import type * as ArcNode from "../counts.ArcNode.ts";
 import type * as Id from "../counts.Id.ts";
-import type * as Noisy from "../counts.Noisy.ts";
+import type * as counts_Noisy from "../counts.Noisy.ts";
 import type * as RcNode from "../counts.RcNode.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
@@ -318,7 +319,7 @@ export function mapOr$Option_Arc_ArcNode_u8_cyclic_arcs_closure4(self: rt.Arc<Ar
 	return f(self);
 }
 
-export function mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(self: rt.Arc<Noisy.Noisy> | undefined, default_: rt.u8, f: (a0: rt.Arc<Noisy.Noisy>) => rt.u8): rt.u8 {
+export function mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(self: rt.Arc<counts_Noisy.Noisy> | undefined, default_: rt.u8, f: (a0: rt.Arc<counts_Noisy.Noisy>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -361,6 +362,13 @@ export function mapOr$Option_Named_u16_edits_closure33(self: Named.Named | undef
 }
 
 export function mapOr$Option_Nibble_u8_sets_closure4(self: Nibble.Nibble | undefined, default_: rt.u8, f: (a0: Nibble.Nibble) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Noisy_u8_borrows_closure0(self: Noisy.Noisy | undefined, default_: rt.u8, f: (a0: Noisy.Noisy) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -466,6 +474,13 @@ export function mapOr$Option_u16_u8_hash_maps_closure0(self: rt.u16 | undefined,
 }
 
 export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | undefined, default_: rt.u32, f: (a0: rt.Place<rt.u32>) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u64_u64_u8_borrows_closure1(self: [rt.u64, rt.u64] | undefined, default_: rt.u8, f: (a0: [rt.u64, rt.u64]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

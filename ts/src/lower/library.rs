@@ -59,6 +59,13 @@ pub enum Std {
 	PoisonError,
 	/// `rt.TryLockError<T>`, tagged as `Bound` is.
 	TryLockError,
+	/// `rt.RefCell`: a `RefCell` or an `RwLock`, which one thread can't tell apart, and
+	/// also its own guard, shared or exclusive.
+	RefCell,
+	Ref,
+	RefMut,
+	/// `rt.Cell<T>`, a place holding its value.
+	Cell,
 	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
 	Atomic,
 	/// `rt.AtomicOrdering`: its discriminant.
@@ -158,6 +165,13 @@ impl Std {
 			(sym::RcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
+			(sym::RefCell, Self::RefCell),
+			(sym::RwLock, Self::RefCell),
+			(rustc_span::Symbol::intern("RefCellRef"), Self::Ref),
+			(sym::RwLockReadGuard, Self::Ref),
+			(rustc_span::Symbol::intern("RefCellRefMut"), Self::RefMut),
+			(sym::RwLockWriteGuard, Self::RefMut),
+			(sym::Cell, Self::Cell),
 			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
 			(rustc_span::Symbol::intern("PinMacroHelper"), Self::Pin),
@@ -1769,6 +1783,11 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 			Std::Box => part(b, args.type_at(0), out),
 			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),
+			Std::RefCell => Expr::New(
+				Box::new(Expr::Rt("RefCell".into())),
+				vec![part(b, args.type_at(0), out)],
+			),
+			Std::Cell => Expr::New(Box::new(Expr::Rt("Cell".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Weak => Expr::New(Box::new(Expr::Rt("Weak".into())), Vec::new()),
 			_ => return None,
 		},

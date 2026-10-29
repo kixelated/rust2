@@ -223,6 +223,103 @@ export function mutexUnlock<T>(mutex: Mutex<T>): void {
 	mutex.locked = false;
 }
 
+/**
+ * `RefCell<T>` and `RwLock<T>`, which one thread can't tell apart but by how a borrow
+ * that conflicts fails, and their guards: a borrow is the cell itself, `borrows` counting
+ * the shared ones held, or -1 while an exclusive one is.
+ */
+export class RefCell<T> implements Disposable {
+	value: T;
+	borrows = 0;
+
+	constructor(value: T) {
+		this.value = value;
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.value);
+	}
+}
+
+/** `RefCell::borrow`: a shared borrow, which panics while an exclusive one is held. */
+export function refCellBorrow<T>(cell: RefCell<T>): RefCell<T> {
+	if (cell.borrows < 0) panic("RefCell already mutably borrowed");
+	cell.borrows++;
+	return cell;
+}
+
+/** `RefCell::borrow_mut`: an exclusive borrow, which panics while any other is held. */
+export function refCellBorrowMut<T>(cell: RefCell<T>): RefCell<T> {
+	if (cell.borrows !== 0) panic("RefCell already borrowed");
+	cell.borrows = -1;
+	return cell;
+}
+
+/** `RwLock::read`: a shared guard, which aborts while a write is held, as wasm32's does. */
+export function rwLockRead<T>(lock: RefCell<T>): RefCell<T> {
+	if (lock.borrows < 0) panic("rwlock locked for writing");
+	lock.borrows++;
+	return lock;
+}
+
+/** `RwLock::write`: an exclusive guard, which aborts while any other is held, as wasm32's does. */
+export function rwLockWrite<T>(lock: RefCell<T>): RefCell<T> {
+	if (lock.borrows !== 0) panic("rwlock locked for reading");
+	lock.borrows = -1;
+	return lock;
+}
+
+/** `RwLock::try_read`: a shared guard, or `WouldBlock` while a write is held. */
+export function rwLockTryRead<T>(lock: RefCell<T>): Result<RefCell<T>, TryLockError<RefCell<T>>> {
+	if (lock.borrows < 0) return WOULD_BLOCK;
+	lock.borrows++;
+	return Ok(lock);
+}
+
+/** `RwLock::try_write`: an exclusive guard, or `WouldBlock` while any other is held. */
+export function rwLockTryWrite<T>(lock: RefCell<T>): Result<RefCell<T>, TryLockError<RefCell<T>>> {
+	if (lock.borrows !== 0) return WOULD_BLOCK;
+	lock.borrows = -1;
+	return Ok(lock);
+}
+
+/** A `Ref`'s or an `RwLockReadGuard`'s drop. */
+export function refRelease<T>(cell: RefCell<T>): void {
+	cell.borrows--;
+}
+
+/** A `RefMut`'s or an `RwLockWriteGuard`'s drop. */
+export function refMutRelease<T>(cell: RefCell<T>): void {
+	cell.borrows = 0;
+}
+
+/** `Cell<T>`: the place that holds its value. */
+export class Cell<T> implements Place<T>, Disposable {
+	v: T;
+
+	constructor(v: T) {
+		this.v = v;
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.v);
+	}
+}
+
+/** `Cell::replace`: the value it held, `v` in its place. */
+export function cellReplace<T>(cell: Cell<T>, v: T): T {
+	const old = cell.v;
+	cell.v = v;
+	return old;
+}
+
+/** `Cell::set`: `v` in place of the value it held, which `dropOld` drops after. */
+export function cellSet<T>(cell: Cell<T>, v: T, dropOld?: (old: T) => void): void {
+	const old = cell.v;
+	cell.v = v;
+	dropOld?.(old);
+}
+
 // Atomics, which one thread never races: each operation reads and writes as it would
 // alone, and an ordering it can't take panics as std's does.
 
