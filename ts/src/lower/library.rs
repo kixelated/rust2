@@ -680,11 +680,19 @@ fn called_closures<'tcx>(
 			continue;
 		};
 		let ty = call.args[param.index as usize].expect_ty();
+		let Some(bound) = called_by(tcx, call.def_id, input) else {
+			continue;
+		};
 		// Through any references and boxes, any reference of which lends it.
 		let (mut owned, mut lent) = (ty, false);
 		loop {
 			owned = match *owned.kind() {
 				ty::Ref(_, inner, _) => {
+					// A `&mut` to a function JS copies is its place: std calls the function it holds.
+					if b.t.place_pointee(owned).is_some() && i < args.len() {
+						let f = std::mem::replace(&mut args[i], Expr::undefined());
+						args[i] = f.member("v");
+					}
 					lent = true;
 					inner
 				}
@@ -693,9 +701,6 @@ fn called_closures<'tcx>(
 			};
 		}
 		let Some(called) = b.t.owned_fn(owned) else {
-			continue;
-		};
-		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
 		if !b.t.drops(owned) {

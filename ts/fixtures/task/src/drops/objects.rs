@@ -279,6 +279,14 @@ pub(super) fn fns(log: &Log, id: u32) {
 		"boxed {}",
 		vec![guard(27)].into_iter().map(Box::new(&f)).sum::<u32>()
 	));
+	let x = guard(28);
+	let mut h: Box<dyn FnMut(Guard) -> u32> = Box::new(move |g| g.id() + x.id());
+	log.note(format!("mut {}", vec![guard(29)].into_iter().map(&mut h).sum::<u32>()));
+	let mut p: fn(u32) -> u32 = u32::from;
+	log.note(format!(
+		"pointer {}",
+		vec![1u32, 2].into_iter().map(&mut p).sum::<u32>()
+	));
 	log.note(format!("kept {}", f(guard(25))));
 }
 

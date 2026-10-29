@@ -393,7 +393,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part13, f)];
 	Log.note(log, rt.fmtFormat(["run ", args26[0]]));
 	const captured14 = o;
-	const part14 = run$Box_fns_closure21(rt.closure((): rt.u32 => {
+	const part14 = run$Box_fns_closure22(rt.closure((): rt.u32 => {
 		return Guard.id(captured14);
 	}, (): void => {
 		captured14[Symbol.dispose]();
@@ -404,16 +404,16 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const _296: [Guard.Guard, Guard.Guard] = [guard(15), guard(16)];
 	const p: Guard.Guard = _296[0];
 	const captured15 = _296[1];
-	const part15 = map$Option_u32_u32_Box_dyn_Fn_u32_u32(1, rt.closure((x: rt.u32): rt.u32 => {
-		return rt.u32Add(x, Guard.id(captured15));
+	const part15 = map$Option_u32_u32_Box_dyn_Fn_u32_u32(1, rt.closure((x2: rt.u32): rt.u32 => {
+		return rt.u32Add(x2, Guard.id(captured15));
 	}, (): void => {
 		captured15[Symbol.dispose]();
 	}));
 	const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part15, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["map ", args30[0]]));
 	const captured16 = guard(18);
-	const scale: (a0: rt.u32) => rt.u32 = rt.closure((x2: rt.u32): rt.u32 => {
-		return rt.u32Mul(x2, Guard.id(captured16));
+	const scale: (a0: rt.u32) => rt.u32 = rt.closure((x3: rt.u32): rt.u32 => {
+		return rt.u32Mul(x3, Guard.id(captured16));
 	}, (): void => {
 		captured16[Symbol.dispose]();
 	});
@@ -492,10 +492,28 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part24 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(27)], rt.drop), rt.lent(f2)), rt.u32Add, 0, true);
 	const args48: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part24, f)];
 	Log.note(log, rt.fmtFormat(["boxed ", args48[0]]));
-	const part25 = guard(25);
-	const part26 = f2(part25);
-	const args50: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part26, f)];
-	Log.note(log, rt.fmtFormat(["kept ", args50[0]]));
+	const captured22 = guard(28);
+	let h2: (a0: Guard.Guard) => rt.u32 = rt.closure((g3: Guard.Guard): rt.u32 => {
+		const _022: rt.u32 = rt.u32Add(Guard.id(g3), Guard.id(captured22));
+		g3[Symbol.dispose]();
+		return _022;
+	}, (): void => {
+		captured22[Symbol.dispose]();
+	});
+	const part25 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(29)], rt.drop), rt.lent(rt.place(() => h2, (value6) => h2 = value6).v)), rt.u32Add, 0, true);
+	const args50: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part25, f)];
+	Log.note(log, rt.fmtFormat(["mut ", args50[0]]));
+	let p2: (a0: rt.u32) => rt.u32 = (a0: rt.u32): rt.u32 => {
+		return a0;
+	};
+	const part26 = rt.iterSum(rt.iterMap(rt.iterSlice([1, 2]), rt.place(() => p2, (value7) => p2 = value7).v), rt.u32Add, 0);
+	const args52: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part26, f)];
+	Log.note(log, rt.fmtFormat(["pointer ", args52[0]]));
+	const part27 = guard(25);
+	const part28 = f2(part27);
+	const args54: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part28, f)];
+	Log.note(log, rt.fmtFormat(["kept ", args54[0]]));
+	rt.drop(h2);
 	rt.drop(f2);
 	rt.drop(slot);
 }
@@ -506,7 +524,7 @@ export function run$Box_dyn_Fn_unit_u32(f: () => rt.u32): rt.u32 {
 }
 
 /** Call `f` once, which consumes it. */
-export function run$Box_fns_closure21(f: () => rt.u32): rt.u32 {
+export function run$Box_fns_closure22(f: () => rt.u32): rt.u32 {
 	return rt.callOnce(f);
 }
 
