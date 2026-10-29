@@ -678,7 +678,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				false => match self.write_in(pointee) {
 					Some(ObjectKind::Bytes) => target.member("set").call(vec![value]),
 					// A `Vec<u8>` is an `rt.ByteVec`, and any other a JS array, whose length changes.
-					Some(ObjectKind::Vec) if !byte_vec(pointee) => Expr::rt("vecAssign", vec![target, value]),
+					Some(ObjectKind::Vec) if !byte_vec(self.erased(pointee)) => {
+						Expr::rt("vecAssign", vec![target, value])
+					}
 					Some(_) => Expr::ident("Object").member("assign").call(vec![target, value]),
 					None => self.err(span, format!("an assignment through a reference to `{pointee}`")),
 				},
@@ -720,18 +722,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.is_some_and(|kind| kind != ObjectKind::Bytes && !raw)
 	}
 
-	/// The kind of a `pointee`'s object, where a whole value of it can be written into
-	/// the object in place: one only its owner holds, unlike an `Arc`'s, which its clones
-	/// share, and whose parts `Object.assign` copies, unlike a binding's, an `rt.PollFn`'s
-	/// or a future's private fields, or a trait object's, whatever class it is, even
-	/// pinned or boxed, which JS erases.
+	/// The kind of a `pointee`'s object, through the `Pin`s and `Box`es JS erases, where a
+	/// whole value of it can be written into the object in place: one only its owner
+	/// holds, unlike an `Arc`'s, which its clones share, and whose parts `Object.assign`
+	/// copies, unlike a binding's, an `rt.PollFn`'s or a future's private fields, or a
+	/// trait object's, whatever class it is.
 	pub(super) fn write_in(&self, pointee: Ty<'tcx>) -> Option<ObjectKind> {
-		let mut erased = pointee;
-		while let ty::Adt(adt, args) = erased.kind()
-			&& matches!(Std::of(self.tcx, adt.did()), Some(Std::Pin | Std::Box))
-		{
-			erased = args.type_at(0);
-		}
+		let erased = self.erased(pointee);
 		let hidden = match erased.kind() {
 			ty::Adt(adt, _) => {
 				self.b.t.bound_drops(adt.did()).is_some() || Std::of(self.tcx, adt.did()) == Some(Std::PollFn)
@@ -739,11 +736,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ty::Dynamic(..) | ty::Closure(..) => true,
 			_ => false,
 		};
-		match self.b.t.object_kind(pointee)? {
-			ObjectKind::Class if shared(self, pointee) || hidden => None,
+		self.b.t.object_kind(pointee)?;
+		match self.b.t.object_kind(erased)? {
+			_ if hidden || shared(self, pointee) => None,
 			ObjectKind::Closure => None,
 			kind => Some(kind),
 		}
+	}
+
+	/// What JS keeps of a `ty`: what it holds through any number of `Pin`s and `Box`es.
+	fn erased(&self, ty: Ty<'tcx>) -> Ty<'tcx> {
+		let mut erased = ty;
+		while let ty::Adt(adt, args) = erased.kind()
+			&& matches!(Std::of(self.tcx, adt.did()), Some(Std::Pin | Std::Box))
+		{
+			erased = args.type_at(0);
+		}
+		erased
 	}
 
 	/// A store of `value` to `place` as a store of the whole value to what holds it, where

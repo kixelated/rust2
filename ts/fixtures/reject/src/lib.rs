@@ -110,6 +110,14 @@ pub fn replace_boxed_poll_fn(
 	std::mem::replace(dst, src)
 }
 
+/// A boxed byte array is a `Uint8Array`, which a replacement can't copy out as an object.
+pub fn replace_boxed_bytes(
+	dst: &mut std::pin::Pin<Box<[u8; 2]>>,
+	src: std::pin::Pin<Box<[u8; 2]>>,
+) -> std::pin::Pin<Box<[u8; 2]>> {
+	std::mem::replace(dst, src)
+}
+
 /// A boxed future is whatever class its value's type is.
 pub fn replace_boxed_future(
 	dst: &mut std::pin::Pin<Box<dyn std::future::Future<Output = u8>>>,

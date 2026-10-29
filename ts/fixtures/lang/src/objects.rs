@@ -69,6 +69,13 @@ fn replace_captured(a: &mut [u16; 2], to: u16) -> [u16; 2] {
 	g()
 }
 
+/// A pinned box is what it holds in JS: here a `Vec`, whose length changes.
+fn repin_all(v: &mut Pin<Box<Vec<Arc<u8>>>>, with: &Arc<u8>, n: u8) -> usize {
+	let old = std::mem::replace(v, Box::pin((0..n % 3).map(|_| Arc::clone(with)).collect()));
+	*v = Box::pin((0..n % 4).map(|_| Arc::clone(with)).collect());
+	old.len()
+}
+
 fn take_all(v: &mut Vec<Arc<u8>>) -> Vec<Arc<u8>> {
 	std::mem::take(v)
 }
@@ -202,6 +209,12 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 			_ => drop(take_all(&mut w.held)),
 		}
 	}
+	let mut pinned_all = Box::pin(vec![Arc::clone(&two)]);
+	for &b in data {
+		out.push(repin_all(&mut pinned_all, &one, b) as u8);
+	}
+	counts(out, &[&one, &two], &pinned_all);
+	drop(pinned_all);
 	out.push(w.start);
 	out.extend_from_slice(&bytes);
 	counts(out, &[&one, &two], &w.held);

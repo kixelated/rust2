@@ -59,6 +59,21 @@ export function replaceCaptured(a: rt.u16[], to: rt.u16): rt.u16[] {
 	})();
 }
 
+/** A pinned box is what it holds in JS: here a `Vec`, whose length changes. */
+export function repinAll(v: rt.Arc<rt.u8>[], with_: rt.Arc<rt.u8>, n: rt.u8): rt.usize {
+	const old: rt.Arc<rt.u8>[] = rt.replaceIn(v, rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(n, 3)), (_2: rt.u8): rt.Arc<rt.u8> => {
+		return rt.arcClone(with_);
+	})));
+	const _12: rt.Arc<rt.u8>[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(n, 4)), (_22: rt.u8): rt.Arc<rt.u8> => {
+		return rt.arcClone(with_);
+	}));
+	rt.dropAll(v);
+	rt.vecAssign(v, _12);
+	const _0: rt.usize = old.length;
+	rt.dropAll(old);
+	return _0;
+}
+
 export function takeAll(v: rt.Arc<rt.u8>[]): rt.Arc<rt.u8>[] {
 	return rt.replaceIn(v, []);
 }
@@ -109,7 +124,7 @@ export function counts(out: rt.ByteVec, arcs: rt.Arc<rt.u8>[], items: rt.Arc<rt.
 }
 
 export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _409!: rt.Waker;
+	let _436!: rt.Waker;
 	const by: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 5);
 	const one: rt.Arc<rt.u8> = new rt.Arc(by);
 	const two: rt.Arc<rt.u8> = new rt.Arc(rt.u8WrappingAdd(by, 1));
@@ -262,15 +277,21 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.dropAll(takeAll(w.held));
 	}
+	const pinnedAll: rt.Arc<rt.u8>[] = [rt.arcClone(two)];
+	for (const _284 of rt.byteSliceView(data)) {
+		rt.byteVecPush(out, repinAll(pinnedAll, one, _284) & 0xff);
+	}
+	counts(out, [one, two], pinnedAll);
+	rt.dropAll(pinnedAll);
 	rt.byteVecPush(out, w.start);
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(bytes));
 	counts(out, [one, two], w.held);
 	counts(out, [one, two], other);
-	const _299: Uint8Array = Uint8Array.of(by);
-	const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(_299));
+	const _326: Uint8Array = Uint8Array.of(by);
+	const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(_326));
 	const map: rt.HashMap<rt.u8, rt.u8> = rt.hashNew() as rt.HashMap<rt.u8, rt.u8>;
-	for (const _303 of rt.byteSliceView(data)) {
-		rt.byteVecPush(out, requeue(q, map, _303) & 0xff);
+	for (const _330 of rt.byteSliceView(data)) {
+		rt.byteVecPush(out, requeue(q, map, _330) & 0xff);
 	}
 	rt.iterExtendBytes(out, rt.dequeIter(q));
 	rt.iterExtendBytes(out, rt.hashValues(map));
@@ -283,31 +304,31 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}));
 	rt.byteVecPush(out, two.weak & 0xff);
 	const a: Window.Window = Window.withStart(Window.default$Default(), by);
-	const b6: Window.Window = new Window.Window(rt.u8WrappingAdd(by, 2), [rt.arcClone(one)]);
-	const _339: rt.u16 = by as rt.u16;
+	const b7: Window.Window = new Window.Window(rt.u8WrappingAdd(by, 2), [rt.arcClone(one)]);
+	const _366: rt.u16 = by as rt.u16;
 	const array: rt.u16[] = Array.from({ length: 2 }, (): rt.u16 => {
-		return _339;
+		return _366;
 	});
 	for (const x of rt.byteSliceView(data)) {
 		if (rt.u8Rem(x, 2) === 0) {
-			swapWindows(a, b6);
+			swapWindows(a, b7);
 		}
 		const old2: rt.u16[] = replaceCaptured(array, x as rt.u16);
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(old2[0] & 0xff, old2[1] & 0xff)));
 	}
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a.start, a.held.length & 0xff, b6.start, b6.held.length & 0xff)));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a.start, a.held.length & 0xff, b7.start, b7.held.length & 0xff)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(array[0] & 0xff, array[1] & 0xff)));
 	const wakes: rt.Arc<Wakes.Wakes> = new rt.Arc({ _0: new rt.Atomic(0) });
 	const counting: rt.Waker = new rt.ArcWaker(rt.arcClone(wakes), Wakes.wake$Wake, (arc: rt.Arc<Wakes.Wakes>) => arc[Symbol.dispose]());
 	const noop: rt.Waker = rt.NOOP_WAKER.clone();
 	let w2: rt.Waker = noop.clone();
-	for (const _403 of rt.byteSliceView(data)) {
-		if (!(rt.u8Rem(_403, 2) === 0)) {
-			_409 = noop;
+	for (const _430 of rt.byteSliceView(data)) {
+		if (!(rt.u8Rem(_430, 2) === 0)) {
+			_436 = noop;
 		} else {
-			_409 = counting;
+			_436 = counting;
 		}
-		const old3: rt.Waker = rewake(rt.place(() => w2, (value4) => w2 = value4), _409);
+		const old3: rt.Waker = rewake(rt.place(() => w2, (value4) => w2 = value4), _436);
 		old3.wakeByRef();
 		w2.wakeByRef();
 		old3[Symbol.dispose]();
@@ -318,7 +339,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	noop[Symbol.dispose]();
 	counting[Symbol.dispose]();
 	wakes[Symbol.dispose]();
-	b6[Symbol.dispose]();
+	b7[Symbol.dispose]();
 	a[Symbol.dispose]();
 	weak[Symbol.dispose]();
 	rt.dropAll(other);

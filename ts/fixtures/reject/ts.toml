@@ -20,6 +20,7 @@ roots = [
     "swap_guards",
     "replace_boxed_poll_fn",
     "replace_boxed_future",
+    "replace_boxed_bytes",
     "cycled",
     "folds",
     "backs",
