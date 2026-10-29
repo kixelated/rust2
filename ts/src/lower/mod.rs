@@ -202,8 +202,8 @@ pub struct Translator<'a, 'tcx> {
 	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The function copying each `Copy` aggregate type.
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
-	/// Each thread-local's module value, by its key's `const` item.
-	pub local_keys: rustc_data_structures::fx::FxHashMap<DefId, SymId>,
+	/// Each module value, by the item it stands for: a thread-local's key or a static.
+	pub values: rustc_data_structures::fx::FxHashMap<DefId, SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
 	/// The bodies of other crates whose writes count: those the run before reached.
@@ -392,7 +392,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			object_classes: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
-			local_keys: Default::default(),
+			values: Default::default(),
 			// Once the bindings are known.
 			writes: Default::default(),
 			read,

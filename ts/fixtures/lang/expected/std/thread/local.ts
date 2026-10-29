@@ -38,12 +38,56 @@ export function replace$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>, va
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure10_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
+export function withBorrow$LocalKey_RefCell_Option_Noisy_locals_closure3_u8(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, f: (a0: Noisy.Noisy | undefined) => rt.u8): rt.u8 {
+	const captured = f;
+	return ((cell: rt.RefCell<Noisy.Noisy | undefined>): rt.u8 => {
+		const _32: (a0: Noisy.Noisy | undefined) => rt.u8 = captured;
+		const _7: rt.RefCell<Noisy.Noisy | undefined> = rt.refCellBorrow(cell);
+		const _02: rt.u8 = _32(_7.value);
+		rt.refRelease(_7);
+		return _02;
+	})(self.get());
+}
+
+export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure0_Vec_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.ByteVec): rt.ByteVec {
+	const captured = f;
+	return ((cell: rt.RefCell<rt.ByteVec>): rt.ByteVec => {
+		const _32: (a0: rt.ByteVec) => rt.ByteVec = captured;
+		const _7: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(cell);
+		const _02: rt.ByteVec = _32(_7.value);
+		rt.refRelease(_7);
+		return _02;
+	})(self.get());
+}
+
+export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure16_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
 	const captured = f;
 	return ((cell: rt.RefCell<rt.ByteVec>): rt.u8 => {
 		const _32: (a0: rt.ByteVec) => rt.u8 = captured;
 		const _7: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(cell);
 		const _02: rt.u8 = _32(_7.value);
+		rt.refRelease(_7);
+		return _02;
+	})(self.get());
+}
+
+export function withBorrow$LocalKey_RefCell_u32_locals_closure21_u8(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0: rt.u32) => rt.u8): rt.u8 {
+	const captured = f;
+	return ((cell: rt.RefCell<rt.u32>): rt.u8 => {
+		const _32: (a0: rt.u32) => rt.u8 = captured;
+		const _7: rt.RefCell<rt.u32> = rt.refCellBorrow(cell);
+		const _02: rt.u8 = _32(_7.value);
+		rt.refRelease(_7);
+		return _02;
+	})(self.get());
+}
+
+export function withBorrow$LocalKey_RefCell_u32_locals_closure22_u32(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0: rt.u32) => rt.u32): rt.u32 {
+	const captured = f;
+	return ((cell: rt.RefCell<rt.u32>): rt.u32 => {
+		const _32: (a0: rt.u32) => rt.u32 = captured;
+		const _7: rt.RefCell<rt.u32> = rt.refCellBorrow(cell);
+		const _02: rt.u32 = _32(_7.value);
 		rt.refRelease(_7);
 		return _02;
 	})(self.get());

@@ -351,11 +351,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return None;
 		}
 		let t = &*self.b.t;
-		// Mappings that lend an element JS copies as its place, as a map's `get_mut` does, or
-		// the place a `&mut dyn Any` wraps.
+		// Mappings that lend an element JS copies as its place, as a map's `get_mut` does, the
+		// place a `&mut dyn Any` wraps, or a `RefCell` key's value.
 		let lends = match library::key(tcx, def_id) {
 			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
-				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut") | ("dyn Any", "downcast_mut") => true,
+				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut")
+				| ("dyn Any", "downcast_mut")
+				| ("LocalKey", "with_borrow_mut") => true,
 				("IntoIterator", "into_iter") => gargs.types().next().is_some_and(|ty| {
 					ty.ref_mutability() == Some(ty::Mutability::Mut)
 						&& match ty.peel_refs().kind() {
