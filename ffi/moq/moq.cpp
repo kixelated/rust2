@@ -3,11 +3,21 @@
 // moq-pattern, moq-clock, moq-tokio, hang, and moq-mux exported into the same library,
 // the catalog lent to C++ for a call, and a session's config filled in field by field.
 //
-// It needs no runtime: the waker counts wakes, and each poll that must wait is polled
-// again after the write that wakes it.
+// The local reads need no runtime: the waker counts wakes, and each poll that must wait
+// is polled again after the write that wakes it. A session over QUIC runs on moq-tokio's
+// fallback runtime, whose threads wake C++'s.
 
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <deque>
+#include <functional>
+#include <mutex>
+#include <string>
+#include <thread>
 
 #include "moq.hpp"
 
@@ -34,6 +44,78 @@ bool is(const moq::buf &buf, const char *s) {
 }
 
 int wakes = 0;
+
+// Runs the jobs an executor is given on a thread of its own, until destroyed.
+class worker {
+	std::mutex mutex_;
+	std::condition_variable cv_;
+	std::deque<std::function<void()>> jobs_;
+	bool stopping_ = false;
+	std::thread thread_;
+
+	void run() {
+		for (;;) {
+			std::function<void()> job;
+			{
+				std::unique_lock<std::mutex> lock(mutex_);
+				cv_.wait(lock, [&]() { return stopping_ || !jobs_.empty(); });
+				if (jobs_.empty()) {
+					return;
+				}
+				job = std::move(jobs_.front());
+				jobs_.pop_front();
+			}
+			job();
+		}
+	}
+
+public:
+	worker() : thread_([this]() { run(); }) {}
+	~worker() {
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			stopping_ = true;
+		}
+		cv_.notify_one();
+		thread_.join();
+	}
+
+	auto executor() {
+		return [this](std::function<void()> job) {
+			{
+				std::lock_guard<std::mutex> lock(mutex_);
+				jobs_.push_back(std::move(job));
+			}
+			cv_.notify_one();
+		};
+	}
+};
+
+// Fails the run rather than hanging when what it guards stalls past `limit`.
+class watchdog {
+	std::mutex mutex_;
+	std::condition_variable cv_;
+	bool done_ = false;
+	std::thread thread_;
+
+public:
+	explicit watchdog(std::chrono::seconds limit)
+	    : thread_([this, limit]() {
+		      std::unique_lock<std::mutex> lock(mutex_);
+		      if (!cv_.wait_for(lock, limit, [&]() { return done_; })) {
+			      std::fprintf(stderr, "stalled for %lld seconds\n", static_cast<long long>(limit.count()));
+			      std::abort();
+		      }
+	      }) {}
+	~watchdog() {
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			done_ = true;
+		}
+		cv_.notify_one();
+		thread_.join();
+	}
+};
 
 } // namespace
 
@@ -284,6 +366,73 @@ int main() {
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.
 	CHECK(moq::connect_error_is_auth(moq::connect_error::unauthorized));
 	CHECK(is(moq::connect_error_to_string(moq::connect_error::unauthorized), "unauthorized"));
+
+	// A session, as moq.c runs it: a server bound to port 0 reads back the port it got and
+	// serves with one call, on an executor of its own, and a client dials it with one call
+	// and reads a frame back, blocking on each read while moq-tokio's fallback runtime wakes
+	// it from its threads.
+	{
+		watchdog limit(std::chrono::seconds(30));
+		moq::origin_producer served = moq::origin_spawn();
+		auto live = served.create_broadcast("live");
+		CHECK(live && live->announce(moq::origin_route::default_()));
+		moq::broadcast_producer live_broadcast = live->broadcast();
+		auto live_track = live_broadcast.create_track("video", std::nullopt);
+		CHECK(live_track);
+		auto live_group = live_track->append_group();
+		CHECK(live_group && live_group->write_frame(nullptr, "hello"));
+		CHECK(std::move(*live_group).finish());
+
+		moq::server_config server_config = moq::server_config::default_();
+		moq::listen_config listen = server_config.listen();
+		moq::socket_addr any{};
+		any.v6 = true;
+		listen.set_bind(moq::listen_bind(moq::listen_bind_addr{any}));
+		moq::tls_listen tls = listen.tls();
+		tls.set_generate({"localhost"});
+		listen.set_tls(std::move(tls));
+		server_config.set_listen(std::move(listen));
+		auto server = std::move(server_config).init();
+		CHECK(server);
+		auto local = server->local_addr();
+		CHECK(local && local->v6 && local->port != 0);
+		worker serving_thread;
+		std::atomic<bool> stopped{false};
+		moq::task serving = std::move(*server).serve_publish(served.consume()).then(serving_thread.executor(),
+		                                                                            [&](auto &&) { stopped = true; });
+
+		moq::connect_config connect = moq::connect_config::default_();
+		connect.set_url(moq::url::parse("moqt://localhost:" + std::to_string(local->port)).value());
+		moq::tls_connect insecure = connect.tls();
+		insecure.set_insecure(true);
+		connect.set_tls(std::move(insecure));
+		moq::client_config client_config = moq::client_config::default_();
+		client_config.set_connect(std::move(connect));
+		auto client = std::move(client_config).init();
+		CHECK(client);
+		moq::origin_producer received = moq::origin_spawn();
+		moq::origin_consumer remote = received.consume();
+		auto connection = moq::tokio_client(*client).with_reconnect(false).consume(std::move(received));
+		CHECK(connection);
+		auto established = std::move(*connection).established().get();
+		CHECK(established);
+
+		auto remote_broadcast = remote.request_broadcast("live", std::nullopt).get();
+		CHECK(remote_broadcast);
+		auto remote_track = remote_broadcast->track("video");
+		CHECK(remote_track);
+		auto remote_subscriber = remote_track->subscribe(std::nullopt).get();
+		CHECK(remote_subscriber);
+		auto remote_group = remote_subscriber->recv_group().get();
+		CHECK(remote_group && remote_group.value());
+		auto remote_frame = remote_group.value()->read_frame().get();
+		CHECK(remote_frame && remote_frame.value() && is(remote_frame.value()->payload(), "hello"));
+
+		CHECK(std::move(*established).close().get());
+		std::move(*client).close().get();
+		serving = moq::task();
+		CHECK(!stopped);
+	}
 
 	if (failures == 0) {
 		std::printf("ok\n");

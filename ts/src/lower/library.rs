@@ -921,6 +921,7 @@ fn mapping<'tcx>(
 			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
+			"trailing_zeros" => "trailingZeros",
 			"checked_add" => "checkedAdd",
 			"checked_sub" => "checkedSub",
 			"checked_mul" => "checkedMul",
@@ -1149,6 +1150,12 @@ fn mapping<'tcx>(
 		// A `NonZero` is its integer.
 		("NonZero", "get") => args.pop()?,
 		("NonZero", "new") => Expr::rt("nonZero", args),
+		// Of each width's own impl, which has no type argument to read the integer from.
+		("NonZero", "leading_zeros" | "trailing_zeros") => {
+			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
+			let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+			Int::of(unwrapped(tcx, self_ty))?.method(&super::camel(&name), args)
+		}
 		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
 		("Bound", "cloned") => {
 			let value = args.pop()?;

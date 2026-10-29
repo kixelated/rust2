@@ -162,9 +162,9 @@ becomes a function writing its value, and `fmt::Arguments` an array of literal p
 and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take every option but `{:p}`:
 fill, alignment, `+`, `#`, `0`, `x?` and `X?`, a width and a precision, each also from an
-argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers. `Debug` of a string or `char` escapes by the JS
-engine's Unicode tables, so a character newer than its Unicode version is escaped where
-Rust prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
+argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers. `Debug` of a string or `char` escapes by
+std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
+`printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`.
