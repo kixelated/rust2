@@ -47,7 +47,7 @@ export function cows(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataL
 		}), "fallback"));
 		put(out, cow(first, owned));
 		put(out, first);
-		rt.drop(shared);
+		shared[Symbol.dispose]();
 	} else if (_14 === 1) {
 		let c2: string = cow(s, owned);
 		c2 = c2 + "!";

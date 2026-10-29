@@ -419,7 +419,7 @@ export function shares(dataData: Uint8Array, dataStart: number, dataLen: number,
 	const points: Point.Point[] = rt.vecFromElem(copy$Point(Point.new(a as rt.i32, 0)), 2, copy$Point);
 	movedAt(points, at);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(points[rt.idx(points, 0)].x & 0xff, points[rt.idx(points, 1)].x & 0xff, points[rt.idx(points, 1)].y & 0xff)));
-	rt.drop(arc);
+	arc[Symbol.dispose]();
 }
 
 /**

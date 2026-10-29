@@ -44,13 +44,13 @@ export class helpersFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 0) {
-			rt.drop(this.#rx);
-			rt.drop(this.#guard);
+			this.#rx[Symbol.dispose]();
+			this.#guard[Symbol.dispose]();
 		} else if (this.#state === 3) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			rt.drop(this.#pinned$2);
-			rt.drop(this.#guard);
-			rt.drop(this.#rx);
+			this.#guard[Symbol.dispose]();
+			this.#rx[Symbol.dispose]();
 		}
 	}
 
@@ -65,9 +65,9 @@ export class helpersFuture {
 						this.#lend = rt.closure((_23: rt.Context): rt.Poll<rt.u32> => {
 							return Guard.id(captured);
 						}, (): void => {
-							rt.drop(captured);
+							captured[Symbol.dispose]();
 						});
-						rt.drop(new rt.Arc(new rt.PollFn(this.#lend)));
+						new rt.Arc(new rt.PollFn(this.#lend))[Symbol.dispose]();
 						Guard.note(this.#guard, "lent");
 						rt.drop(this.#lend);
 						this.#total = 0;
@@ -121,7 +121,7 @@ export class helpersFuture {
 						});
 					}, (): void => {
 						rt.drop(captured3);
-						rt.drop(captured4);
+						captured4[Symbol.dispose]();
 					}), rt.drop);
 					bb0 = 23;
 					continue;
@@ -129,7 +129,7 @@ export class helpersFuture {
 					const _39: rt.Poll<rt.Result<rt.u64, rt.u64>> = this.#awaitee.poll(_2);
 					if (_39 !== rt.Pending) {
 						const read: rt.Result<rt.u64, rt.u64> = _39;
-						rt.drop(this.#awaitee);
+						this.#awaitee[Symbol.dispose]();
 						if (read.ok) {
 							if (read.value === 154) {
 								_51 = this.#total;
@@ -149,8 +149,8 @@ export class helpersFuture {
 					return rt.Pending;
 				case 35:
 					rt.drop(this.#pinned$2);
-					rt.drop(this.#guard);
-					rt.drop(this.#rx);
+					this.#guard[Symbol.dispose]();
+					this.#rx[Symbol.dispose]();
 					this.#state = 1;
 					return _51;
 			}
@@ -163,11 +163,11 @@ export class helpersFuture {
  * even `id`, and `Wake`'s default otherwise.
  */
 export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
-	const relay: Relay.Relay = new Relay.Relay({ task: task.clone(), guard: Guard.new(id, log) });
+	const relay: Relay.Relay = new Relay.Relay(task.clone(), Guard.new(id, log));
 	if (rt.u32Rem(id, 2) === 0) {
-		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake, (arc2: rt.Arc<Relay.Relay>) => rt.drop(arc2), Relay.wakeByRef$Wake);
+		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake, (arc2: rt.Arc<Relay.Relay>) => arc2[Symbol.dispose](), Relay.wakeByRef$Wake);
 	}
-	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake, (arc: rt.Arc<Plain.Plain>) => rt.drop(arc));
+	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake, (arc: rt.Arc<Plain.Plain>) => arc[Symbol.dispose]());
 }
 
 /**
@@ -208,8 +208,8 @@ export class boxedFuture {
 	[Symbol.dispose](): void {
 		b0: {
 			if (this.#state === 0) {
-				rt.drop(this.#rx);
-				rt.drop(this.#guard);
+				this.#rx[Symbol.dispose]();
+				this.#guard[Symbol.dispose]();
 				return;
 			}
 			if (this.#state === 3) {
@@ -220,21 +220,21 @@ export class boxedFuture {
 				rt.drop(this.#awaitee$2);
 			} else if (this.#state !== 5) {
 				if (this.#state === 6) {
-					rt.drop(this.#awaitee$3);
-					rt.drop(this.#pinned);
+					this.#awaitee$3[Symbol.dispose]();
+					this.#pinned[Symbol.dispose]();
 				} else {
 					return;
 				}
 			}
 			if (this.#saved) {
-				rt.drop(this.#lend);
+				this.#lend[Symbol.dispose]();
 			}
 			this.#saved = false;
-			rt.drop(this.#log);
+			this.#log[Symbol.dispose]();
 		}
-		rt.drop(this.#guard);
+		this.#guard[Symbol.dispose]();
 		if (this.#saved$2) {
-			rt.drop(this.#rx);
+			this.#rx[Symbol.dispose]();
 		}
 		this.#saved$2 = false;
 	}
@@ -276,7 +276,7 @@ export class boxedFuture {
 							Guard.note(captured, "lent");
 							return 4;
 						}, (): void => {
-							rt.drop(captured);
+							captured[Symbol.dispose]();
 						}), rt.drop);
 						this.#saved = true;
 						this.#awaitee$2 = new rt.DynFuture(this.#lend, rt.futurePoll);
@@ -303,7 +303,7 @@ export class boxedFuture {
 				const _66: string = rt.fmtFormat(["lent ", args4[0]]);
 				Guard.note(this.#guard, _66);
 				this.#saved = false;
-				rt.drop(this.#lend);
+				this.#lend[Symbol.dispose]();
 				const _82: [Guard.Guard, Guard.Guard, Guard.Guard] = [Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 600), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 700), Log.clone$Clone(this.#log))];
 				const block: Guard.Guard = _82[0];
 				const waiting: Guard.Guard = _82[1];
@@ -319,27 +319,27 @@ export class boxedFuture {
 						return rt.u64Add(unwrapOr$Option_u64(value, 0), 2);
 					});
 				}, (): void => {
-					rt.drop(captured2);
-					rt.drop(captured3);
+					captured2[Symbol.dispose]();
+					captured3[Symbol.dispose]();
 				})), Pending.poll$Future_boxed_closure0_closure3, rt.drop);
 				const captured4 = ready;
 				const queue: rt.Future<rt.u64>[] = [_105, _108, new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
 					Guard.note(captured4, "ready");
 					return 3;
 				}, (): void => {
-					rt.drop(captured4);
+					captured4[Symbol.dispose]();
 				}), rt.drop)];
 				const captured5 = Guard.new(rt.u32Add(this.#id, 800), Log.clone$Clone(this.#log));
 				this.#pinned = wait$boxed_closure0_closure5_u64(rt.closure((_24: Waiter.Waiter): rt.Poll<rt.u64> => {
 					return Guard.id(captured5) as rt.u64;
 				}, (): void => {
-					rt.drop(captured5);
+					captured5[Symbol.dispose]();
 				}));
 				const last: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> = this.#pinned;
 				let captured6 = queue;
 				let captured7: rt.u64 = 0;
 				let captured8 = last;
-				this.#awaitee$3 = new Forward.Forward({ future: new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
+				this.#awaitee$3 = new Forward.Forward(new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
 					let i: rt.usize = 0;
 					while (i < captured6.length) {
 						const _88: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured6[rt.idx(captured6, i)], cx);
@@ -358,7 +358,7 @@ export class boxedFuture {
 					});
 				}, (): void => {
 					rt.dropAll(captured6);
-				}), rt.drop) });
+				}), rt.drop));
 			} else {
 				this.#state = 5;
 				return rt.Pending;
@@ -367,14 +367,14 @@ export class boxedFuture {
 		const _133: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$3, _2);
 		if (_133 !== rt.Pending) {
 			const total: rt.u64 = _133;
-			rt.drop(this.#awaitee$3);
+			this.#awaitee$3[Symbol.dispose]();
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(total, f)];
 			const _143: string = rt.fmtFormat(["boxed ", args6[0]]);
 			Guard.note(this.#guard, _143);
-			rt.drop(this.#pinned);
+			this.#pinned[Symbol.dispose]();
 			this.#saved = false;
-			rt.drop(this.#log);
-			rt.drop(this.#guard);
+			this.#log[Symbol.dispose]();
+			this.#guard[Symbol.dispose]();
 			this.#saved$2 = false;
 			this.#state = 1;
 			return total;
@@ -397,12 +397,12 @@ export class boxedFuture$2 {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 0) {
-			rt.drop(this.#rx);
-			rt.drop(this.#block);
+			this.#rx[Symbol.dispose]();
+			this.#block[Symbol.dispose]();
 		} else if (this.#state === 3) {
 			rt.drop(this.#awaitee);
-			rt.drop(this.#rx);
-			rt.drop(this.#block);
+			this.#rx[Symbol.dispose]();
+			this.#block[Symbol.dispose]();
 		}
 	}
 
@@ -421,8 +421,8 @@ export class boxedFuture$2 {
 			const _17: string = rt.fmtFormat(["block ", args2[0]]);
 			Guard.note(this.#block, _17);
 			const _30: rt.u64 = rt.u64Add(value, 1);
-			rt.drop(this.#rx);
-			rt.drop(this.#block);
+			this.#rx[Symbol.dispose]();
+			this.#block[Symbol.dispose]();
 			this.#state = 1;
 			return _30;
 		}

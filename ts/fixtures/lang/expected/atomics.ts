@@ -1251,8 +1251,8 @@ export function shared(dataData: Uint8Array, dataStart: number, dataLen: number,
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(sent(peer.value, order(dataLen & 0xff, [0, 2, 4])))));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(rt.atomicLoad(peer.value.peers, 4))));
 	rt.byteVecPush(out, stats.strong & 0xff);
-	rt.drop(peer);
-	rt.drop(stats);
+	peer[Symbol.dispose]();
+	stats[Symbol.dispose]();
 }
 
 export function atomics(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {

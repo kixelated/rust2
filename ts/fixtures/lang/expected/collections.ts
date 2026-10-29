@@ -1044,7 +1044,7 @@ export function vecs(dataData: Uint8Array, dataStart: number, dataLen: number, o
 		rt.byteVecPush(out, _183.length & 0xff);
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_183));
 	}
-	const wrapped: Wrap.Wrap<rt.u8>[] = rt.vecFromElem(new Wrap.Wrap({ value: a, count: b }), n, copy$Wrap_u8);
+	const wrapped: Wrap.Wrap<rt.u8>[] = rt.vecFromElem(new Wrap.Wrap(a, b), n, copy$Wrap_u8);
 	if (n > 0) {
 		const _195: Wrap.Wrap<rt.u8>[] = wrapped;
 		const _197: rt.usize = rt.usizeSub(n, 1);

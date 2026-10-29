@@ -5,8 +5,10 @@ import { opaque, len } from "../args.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
+import type * as ArcNode from "../counts.ArcNode.ts";
 import type * as Id from "../counts.Id.ts";
 import type * as Noisy from "../counts.Noisy.ts";
+import type * as RcNode from "../counts.RcNode.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
@@ -330,6 +332,13 @@ export function inspect$Option_u8_options_closure11(self: rt.u8 | undefined, f: 
 	return self;
 }
 
+export function mapOr$Option_Arc_ArcNode_u8_cyclic_arcs_closure4(self: rt.Arc<ArcNode.ArcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<ArcNode.ArcNode>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(self: rt.Arc<Noisy.Noisy> | undefined, default_: rt.u8, f: (a0: rt.Arc<Noisy.Noisy>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -408,6 +417,13 @@ export function mapOr$Option_Point_u8_known_closure0_closure0(self: Point.Point 
 }
 
 export function mapOr$Option_Rank_Tally_u8_hash_maps_closure11(self: [Rank.Rank, Tally.Tally] | undefined, default_: rt.u8, f: (a0: [Rank.Rank, Tally.Tally]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Rc_RcNode_u8_cyclic_rcs_closure4(self: rt.Arc<RcNode.RcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<RcNode.RcNode>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

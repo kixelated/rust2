@@ -168,7 +168,8 @@ pub enum Env {
 pub struct Capture {
 	pub value: Expr,
 	/// Whether `value` is the place a `&mut` captured by reference borrows, which the
-	/// closure reads and writes as JS's do, rather than an `rt.Place` of it.
+	/// closure reads and writes as JS's do, rather than an `rt.Place` of it or the object
+	/// there.
 	pub pointee: bool,
 }
 

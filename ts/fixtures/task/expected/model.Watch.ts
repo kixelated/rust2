@@ -10,13 +10,13 @@ export class Watch {
 	rx: Consumer.Consumer;
 	index: rt.usize;
 
-	constructor(fields: { rx: Consumer.Consumer; index: rt.usize }) {
-		this.rx = fields.rx;
-		this.index = fields.index;
+	constructor(rx: Consumer.Consumer, index: rt.usize) {
+		this.rx = rx;
+		this.index = index;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.rx);
+		this.rx[Symbol.dispose]();
 	}
 }
 

@@ -110,7 +110,7 @@ export function made(dataData: Uint8Array, dataStart: number, dataLen: number, o
 		rt.byteVecPush(out, code(old) ^ code(slot.held));
 		rt.byteVecPush(out, code(rt.None));
 		const _106: rt.Ordering = rt.cmp(b, 128);
-		const tagged: Tagged.Tagged<undefined | rt.None> = new Tagged.Tagged({ value: u, order: _106 });
+		const tagged: Tagged.Tagged<undefined | rt.None> = new Tagged.Tagged(u, _106);
 		rt.byteVecPush(out, (tagged.value !== rt.None ? 1 : 0) | ((order(tagged.order) << 1) & 0xff));
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(o, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(u, f, rt.fmtUnit, rt.None)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1]])));

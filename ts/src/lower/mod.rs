@@ -413,18 +413,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// A struct's value, from its fields' values in declaration order.
 	pub fn construct(&self, sym: SymId, ctor: &Ctor, fields: &[FieldId], values: Vec<ts::Expr>) -> ts::Expr {
 		let class = Box::new(ts::Expr::Sym(sym));
-		let props = |values: Vec<ts::Expr>| {
-			fields
-				.iter()
-				.zip(values)
-				.map(|(f, v)| (ts::Key::Field(*f), v))
-				.collect()
-		};
 		match ctor {
-			_ if self.plain(sym) => ts::Expr::Object(props(values)),
+			_ if self.plain(sym) => ts::Expr::Object(
+				fields
+					.iter()
+					.zip(values)
+					.map(|(f, v)| (ts::Key::Field(*f), v))
+					.collect(),
+			),
 			Ctor::Unit => ts::Expr::New(class, Vec::new()),
 			Ctor::Positional => ts::Expr::New(class, values),
-			Ctor::Named => ts::Expr::New(class, vec![ts::Expr::Object(props(values))]),
 		}
 	}
 
@@ -939,12 +937,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let repr = match () {
 			_ if adt.is_struct() => {
 				let variant = adt.non_enum_variant();
-				// `struct E {}` and `struct E()` construct as `struct E;` does, since a
-				// constructor taking an empty `fields` fails `noUnusedParameters`.
-				let ctor = match variant.ctor_kind() {
-					_ if variant.fields.is_empty() => Ctor::Unit,
-					Some(rustc_hir::def::CtorKind::Fn) => Ctor::Positional,
-					_ => Ctor::Named,
+				// `struct E {}` and `struct E()` construct as `struct E;` does.
+				let ctor = match variant.fields.is_empty() {
+					true => Ctor::Unit,
+					false => Ctor::Positional,
 				};
 				AdtRepr::Struct {
 					ctor,
