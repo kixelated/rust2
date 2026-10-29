@@ -1998,8 +1998,11 @@ impl<'tcx> Collector<'tcx> {
 				// An `Into` target that does not map takes what converts into it instead.
 				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
 					.then(|| self.sources(def_id, target()));
-				// A source that must outlive the call, or converts into a parameter that must, owns it.
-				let sources = into.into_iter().flatten().map(|(x, source)| (x, outlives || source));
+				// A source that must outlive the call, or converts into a parameter that must, owns
+				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not taken.
+				let sources = (into.into_iter().flatten())
+					.filter(|(x, _)| !outlives || !x.walk().any(|arg| arg.as_region().is_some()))
+					.map(|(x, source)| (x, outlives || source));
 				for (target, outlives) in std::iter::once((target(), outlives)).chain(sources) {
 					let owned = match target.kind() {
 						ty::Str => string,

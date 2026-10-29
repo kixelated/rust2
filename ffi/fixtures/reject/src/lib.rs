@@ -367,3 +367,8 @@ pub fn hold(value: impl Into<Held<'static>>) -> u32 {
 pub fn bound<'a: 'static>(value: impl Into<Held<'a>>) -> u32 {
 	*value.into().0
 }
+
+/// Takes a borrow only for as long as `'static`, which its parameter's bound demands.
+pub fn kept<'a>(value: impl Into<Held<'a>> + 'static) -> u32 {
+	*value.into().0
+}
