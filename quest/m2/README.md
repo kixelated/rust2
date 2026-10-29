@@ -28,7 +28,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
-- [Values that drop, at full speed](/quest/m2/ts-drop-speed.md) - output for types that drop runs as fast as before they dropped, on the async handoff
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Held values that name a reassigned variable](/quest/m2/ts-aliases.md) - a held place or folded value reads what Rust read, in and across loop iterations
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model/README.md) - the model translates with kio, moq-clock, and moq-pattern, for moq to compare against WASM
