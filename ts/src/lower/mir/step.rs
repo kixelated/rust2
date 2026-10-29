@@ -356,7 +356,8 @@ pub(super) fn stepped_field(it: &Expr, key: &str) -> Expr {
 /// Each loop over an array iterator stepped in place that only the loop steps, as
 /// `for (const item of array)`: a `while (true)` whose first statements take the next
 /// item and leave on `rt.DONE`. Nothing else names the index, so nothing sees where it
-/// stopped.
+/// stopped, but for the `rt.dropAll` of a `Vec`'s items it owns right after the loop,
+/// which drops nothing when the loop can only leave at the end.
 pub(super) fn for_of(stmts: &mut Vec<Stmt>) {
 	let mut names: FxHashMap<String, usize> = FxHashMap::default();
 	for stmt in stmts.iter() {
@@ -407,18 +408,25 @@ fn decls(stmts: &[Stmt], f: &mut dyn FnMut(&str, &Expr)) {
 
 /// Rewrite the loops in `stmts`, collecting the indexes they no longer read.
 fn loops(
-	stmts: &mut [Stmt],
+	stmts: &mut Vec<Stmt>,
 	names: &FxHashMap<String, usize>,
 	zeros: &FxHashSet<String>,
 	indexes: &mut FxHashSet<String>,
 ) {
-	for stmt in stmts.iter_mut() {
-		// The array and the index are declared, and named only by this loop's header.
+	let mut at = 0;
+	while at < stmts.len() {
+		let rest = stmts.get(at + 1).and_then(drop_rest);
+		let stmt = &mut stmts[at];
+		// The array and the index are declared, and named only by this loop's header, and
+		// by a drop of what it leaves if it can only leave at the end.
 		if let StmtKind::While { label, cond, body } = &mut stmt.kind
 			&& matches!(cond, Expr::Lit(l) if l == "true")
 			&& let Some((item, array, index)) = header(body, label.as_deref())
-			&& names.get(&array) == Some(&2)
-			&& names.get(&index) == Some(&2)
+			&& let owned = (rest.as_ref().is_some_and(|(a, i)| *a == array && *i == index)
+				&& !leaves(&body[2..], label.as_deref(), &mut Vec::new(), false))
+			&& let uses = if owned { 3 } else { 2 }
+			&& names.get(&array) == Some(&uses)
+			&& names.get(&index) == Some(&uses)
 			&& zeros.contains(&index)
 		{
 			let mut body: Vec<Stmt> = std::mem::take(body).into_iter().skip(2).collect();
@@ -443,7 +451,12 @@ fn loops(
 				iter: Expr::ident(array),
 				body,
 			};
+			if owned {
+				stmts.remove(at + 1);
+			}
 		}
+		let stmt = &mut stmts[at];
+		at += 1;
 		match &mut stmt.kind {
 			StmtKind::If { then, els, .. } => {
 				loops(then, names, zeros, indexes);
@@ -461,6 +474,62 @@ fn loops(
 			_ => {}
 		}
 	}
+}
+
+/// The array and index of `rt.dropAll(array, f, index)`, which drops what a loop over a
+/// `Vec` it owns left.
+fn drop_rest(stmt: &Stmt) -> Option<(String, String)> {
+	let StmtKind::Expr(call) = &stmt.kind else {
+		return None;
+	};
+	let Expr::Call(f, args) = peel(call) else {
+		return None;
+	};
+	match (peel(f), args.as_slice()) {
+		(Expr::Rt(name), [array, _, index]) if name == "dropAll" => match (peel(array), peel(index)) {
+			(Expr::Ident(array), Expr::Ident(index)) => Some((array.clone(), index.clone())),
+			_ => None,
+		},
+		_ => None,
+	}
+}
+
+/// Whether `stmts`, in the loop labeled `label`, leave it other than at its end: a
+/// `return`, or a `break` or `continue` to a statement around it. `inner` holds the labels
+/// declared in between, and `nested` whether a loop or `switch` is, which an unlabeled
+/// `break` leaves instead. A panic aborts, so it leaves nothing to drop.
+fn leaves(stmts: &[Stmt], label: Option<&str>, inner: &mut Vec<String>, nested: bool) -> bool {
+	stmts.iter().any(|stmt| match &stmt.kind {
+		StmtKind::Return(_) => true,
+		StmtKind::Break(None) => !nested,
+		StmtKind::Break(Some(to)) => !inner.contains(to),
+		StmtKind::Continue(Some(to)) => Some(to.as_str()) != label && !inner.contains(to),
+		StmtKind::Continue(None) => false,
+		StmtKind::If { then, els, .. } => leaves(then, label, inner, nested) || leaves(els, label, inner, nested),
+		StmtKind::Block { label: own, body } => within(own, inner, |inner| leaves(body, label, inner, nested)),
+		StmtKind::While { label: own, body, .. } | StmtKind::ForOf { label: own, body, .. } => {
+			within(own, inner, |inner| leaves(body, label, inner, true))
+		}
+		StmtKind::Switch {
+			label: own,
+			cases,
+			default,
+			..
+		} => within(own, inner, |inner| {
+			cases.iter().any(|(_, body)| leaves(body, label, inner, true)) || leaves(default, label, inner, true)
+		}),
+		StmtKind::Expr(_) | StmtKind::Decl { .. } | StmtKind::Declare { .. } => false,
+	})
+}
+
+/// `f` with `own`, a label, among the `inner` ones.
+fn within(own: &Option<String>, inner: &mut Vec<String>, f: impl FnOnce(&mut Vec<String>) -> bool) -> bool {
+	inner.extend(own.clone());
+	let leaves = f(inner);
+	if own.is_some() {
+		inner.pop();
+	}
+	leaves
 }
 
 /// The item, array, and index of a loop that starts `const item = i < s.length ?

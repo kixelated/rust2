@@ -10,14 +10,14 @@ export class Cached {
 	sweep: rt.OnceLock<Held.Held>;
 	guard: Guard.Guard;
 
-	constructor(fields: { sweep: rt.OnceLock<Held.Held>; guard: Guard.Guard }) {
-		this.sweep = fields.sweep;
-		this.guard = fields.guard;
+	constructor(sweep: rt.OnceLock<Held.Held>, guard: Guard.Guard) {
+		this.sweep = sweep;
+		this.guard = guard;
 	}
 
 	[Symbol.dispose](): void {
 		drop$Option_Held(this.sweep.v);
-		rt.drop(this.guard);
+		this.guard[Symbol.dispose]();
 	}
 }
 

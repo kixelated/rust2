@@ -155,15 +155,15 @@ export function copy$Window(v: Window.Window): Window.Window {
 }
 
 export function copy$Wrap_Point(v: Wrap.Wrap<Point.Point>): Wrap.Wrap<Point.Point> {
-	return new Wrap.Wrap({ value: copy$Point(v.value), count: v.count });
+	return new Wrap.Wrap(copy$Point(v.value), v.count);
 }
 
 export function copy$Wrap_i16(v: Wrap.Wrap<rt.i16>): Wrap.Wrap<rt.i16> {
-	return new Wrap.Wrap({ value: v.value, count: v.count });
+	return new Wrap.Wrap(v.value, v.count);
 }
 
 export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
-	return new Wrap.Wrap({ value: v.value, count: v.count });
+	return new Wrap.Wrap(v.value, v.count);
 }
 
 export function copy$chars(v: rt.char[]): rt.char[] {
@@ -247,7 +247,7 @@ export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt
 }
 
 export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
-	rt.drop(_1[1]);
+	_1[1][Symbol.dispose]();
 }
 
 //# sourceMappingURL=lib.ts.map

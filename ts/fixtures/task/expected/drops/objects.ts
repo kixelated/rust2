@@ -29,7 +29,7 @@ export function boxed(log: Log.Log, id: rt.u32): void {
 	parts.push(_13);
 	const _24: Part.Part = new Part.u32(7);
 	parts.push(_24);
-	const _28: Part.Part = new Part.Wrap_u32(new Wrap.Wrap({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), inner: 0 }));
+	const _28: Part.Part = new Part.Wrap_u32(new Wrap.Wrap(rt.u32Add(id, 4), Log.clone$Clone(log), 0));
 	parts.push(_28);
 	const _36: Part.Part = new Part.Held({ tag: "One", _0: guard(5) } as Held.Held);
 	parts.push(_36);
@@ -92,12 +92,12 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_25, f), (f: rt.Formatter) => rt.usizeDisplay(_29, f)];
 	Log.note(log, rt.fmtFormat(["held ", args2[0], " ", args2[1]]));
 	rt.arcDrop(held, drop$Held);
-	rt.drop(first);
+	first[Symbol.dispose]();
 	const part = second.strong;
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
 	Log.note(log, rt.fmtFormat(["count ", args4[0]]));
 	const kept: rt.Arc<Guard.Guard> = new rt.Arc(guard(3));
-	const wrap: rt.Arc<Wrap.Wrap<rt.u32>> = new rt.Arc(new Wrap.Wrap({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), inner: 0 }));
+	const wrap: rt.Arc<Wrap.Wrap<rt.u32>> = new rt.Arc(new Wrap.Wrap(rt.u32Add(id, 4), Log.clone$Clone(log), 0));
 	const parts: rt.Arc<Part.Part>[] = [];
 	const _63: rt.Arc<Wrap.Wrap<rt.u32>> = rt.arcClone(wrap);
 	parts.push(new rt.ArcDyn(_63, new Part.Wrap_u32(_63.value)));
@@ -108,7 +108,7 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const _77: rt.Arc<rt.u32> = new rt.Arc(7);
 	parts.push(new rt.ArcDyn(_77, new Part.u32(_77.value)));
 	const weak: rt.Weak<Part.Part> = new rt.Weak(parts[rt.idx(parts, 1)]);
-	rt.drop(second);
+	second[Symbol.dispose]();
 	const part2 = rt.iterFold(rt.iterMap(rt.iterSlice(parts), (p: rt.Arc<Part.Part>): rt.u32 => {
 		return p.value.id$Part();
 	}), 0, (a0: rt.u32, a1: rt.u32): rt.u32 => {
@@ -120,12 +120,12 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	rt.dropAll(parts);
 	const part3 = mapOr$Option_Arc_dyn_Part_u32_shared_closure3(rt.weakUpgrade(weak), 0, (p2: rt.Arc<Part.Part>): rt.u32 => {
 		const _03: rt.u32 = p2.value.id$Part();
-		rt.drop(p2);
+		p2[Symbol.dispose]();
 		return _03;
 	});
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 	Log.note(log, rt.fmtFormat(["weak ", args8[0]]));
-	rt.drop(kept);
+	kept[Symbol.dispose]();
 	const _122: rt.Arc<Part.Part> | undefined = rt.weakUpgrade(weak);
 	const part4 = _122 === undefined;
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
@@ -135,12 +135,12 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const _132: rt.Arc<rt.Future<rt.u32>> = new rt.Arc(new sharedFuture(guard(6)));
 	const future: rt.Arc<rt.Future<rt.u32>> = new rt.ArcDyn(_132, _132.value);
 	const other: rt.Arc<rt.Future<rt.u32>> = rt.arcClone(future);
-	rt.drop(future);
+	future[Symbol.dispose]();
 	const part5 = other.strong;
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
 	Log.note(log, rt.fmtFormat(["future ", args12[0]]));
-	rt.drop(other);
-	rt.drop(weak);
+	other[Symbol.dispose]();
+	weak[Symbol.dispose]();
 }
 
 export class sharedFuture {
@@ -153,14 +153,14 @@ export class sharedFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 0) {
-			rt.drop(this.#captured);
+			this.#captured[Symbol.dispose]();
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
 		if (this.#state === 0) {
 			const _4: rt.u32 = Guard.id(this.#captured);
-			rt.drop(this.#captured);
+			this.#captured[Symbol.dispose]();
 			this.#state = 1;
 			return _4;
 		}

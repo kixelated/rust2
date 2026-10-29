@@ -7,19 +7,19 @@ export class Guard {
 	id: rt.u8;
 	log: rt.Arc<rt.Mutex<rt.ByteVec>>;
 
-	constructor(fields: { id: rt.u8; log: rt.Arc<rt.Mutex<rt.ByteVec>> }) {
-		this.id = fields.id;
-		this.log = fields.log;
+	constructor(id: rt.u8, log: rt.Arc<rt.Mutex<rt.ByteVec>>) {
+		this.id = id;
+		this.log = log;
 	}
 
 	[Symbol.dispose](): void {
 		drop$Drop(this);
-		rt.drop(this.log);
+		this.log[Symbol.dispose]();
 	}
 }
 
 function new_(id: rt.u8, log: rt.Arc<rt.Mutex<rt.ByteVec>>): Guard {
-	return new Guard({ id, log: rt.arcClone(log) });
+	return new Guard(id, rt.arcClone(log));
 }
 
 export function drop$Drop(self: Guard): void {

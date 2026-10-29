@@ -34,7 +34,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		});
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part15, f)];
 		Log.note(log, rt.fmtFormat(["held ", args6[0]]));
-		rt.drop(cell);
+		cell[Symbol.dispose]();
 		const lock: rt.OnceLock<Held.Held> = new rt.OnceLock({ tag: "Two", _0: guard(3), _1: guard(4) } as Held.Held);
 		const _71 = { tag: "One", _0: guard(5) } as Held.Held;
 		drop$Result_unit_Held(rt.onceSet(lock, _71));
@@ -49,10 +49,10 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		const part11 = rt.u32Sub(Guard.id(rt.onceGetOrInit(cell2, rt.closure((): Guard.Guard => {
 			Guard.note(captured3, "init");
 			const _05: Guard.Guard = captured4(12);
-			rt.drop(captured3);
+			captured3[Symbol.dispose]();
 			return _05;
 		}, (): void => {
-			rt.drop(captured3);
+			captured3[Symbol.dispose]();
 		}), rt.drop)), id);
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part11, f)];
 		Log.note(log, rt.fmtFormat(["made ", args10[0]]));
@@ -61,10 +61,10 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		const part12 = rt.u32Sub(Guard.id(rt.onceGetOrInit(cell2, rt.closure((): Guard.Guard => {
 			Guard.note(captured5, "init");
 			const _06: Guard.Guard = captured6(14);
-			rt.drop(captured5);
+			captured5[Symbol.dispose]();
 			return _06;
 		}, (): void => {
-			rt.drop(captured5);
+			captured5[Symbol.dispose]();
 		}), rt.drop)), id);
 		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part12, f)];
 		Log.note(log, rt.fmtFormat(["kept ", args12[0]]));
@@ -74,7 +74,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		rt.onceGetOrInit(other, rt.closure((): Held.Held => {
 			return { tag: "Two", _0: captured7, _1: captured8(16) } as Held.Held;
 		}, (): void => {
-			rt.drop(captured7);
+			captured7[Symbol.dispose]();
 		}), rt.drop);
 		drop$Option_Held(other.v);
 		const fresh: rt.OnceCell<Guard.Guard> = new rt.OnceCell(undefined);
@@ -87,7 +87,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			Guard.note(captured9, "init");
 			return captured10(19);
 		}, (): void => {
-			rt.drop(captured9);
+			captured9[Symbol.dispose]();
 		});
 		const captured11 = second;
 		const captured12 = guard;
@@ -95,14 +95,14 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			Guard.note(captured11, "init");
 			return captured12(20);
 		}, (): void => {
-			rt.drop(captured11);
+			captured11[Symbol.dispose]();
 		});
 		const made2: rt.u32 = rt.u32Sub(Guard.id(rt.onceGetOrInit(fresh, rt.once(first2), rt.drop)), id);
 		const _160: rt.u32 = rt.u32Sub(Guard.id(rt.onceGetOrInit(fresh, rt.once(second2), rt.drop)), id);
 		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(made2, f), (f: rt.Formatter) => rt.u32Display(_160, f)];
 		Log.note(log, rt.fmtFormat(["by ref ", args14[0], " ", args14[1]]));
-		rt.drop(fresh);
-		rt.drop(cell2);
+		fresh[Symbol.dispose]();
+		cell2[Symbol.dispose]();
 	} else if (_6 === 2) {
 		const cell3: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(21));
 		const taken: Guard.Guard | undefined = rt.onceTake(cell3);
@@ -121,7 +121,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		rt.drop(new rt.OnceLock(guard(23)).v);
 		const part10 = mapOr$Option_Guard_u32_drained_closure3(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
 			const _04: rt.u32 = rt.u32Sub(Guard.id(g), id);
-			rt.drop(g);
+			g[Symbol.dispose]();
 			return _04;
 		});
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part10, f)];
@@ -135,23 +135,23 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			drop$Result_unit_Guard(rt.onceSet(cell4, captured(32)));
 			Guard.note(captured2, "init");
 			const _03: Guard.Guard = captured(33);
-			rt.drop(captured2);
+			captured2[Symbol.dispose]();
 			return _03;
 		}, (): void => {
-			rt.drop(captured2);
+			captured2[Symbol.dispose]();
 		}), rt.drop);
-		rt.drop(cell4);
+		cell4[Symbol.dispose]();
 	} else if (_6 === 4) {
-		const shared: rt.Arc<Cached.Cached> = new rt.Arc(new Cached.Cached({ sweep: new rt.OnceLock(undefined), guard: guard(61) }));
+		const shared: rt.Arc<Cached.Cached> = new rt.Arc(new Cached.Cached(new rt.OnceLock(undefined), guard(61)));
 		const other2: rt.Arc<Cached.Cached> = rt.arcClone(shared);
 		rt.onceGetOrInit(shared.value.sweep, (): Held.Held => {
 			return { tag: "One", _0: guard(62) } as Held.Held;
 		});
-		rt.drop(shared);
+		shared[Symbol.dispose]();
 		const part6 = other2.value.sweep.v !== undefined;
 		const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part6, f)];
 		Log.note(log, rt.fmtFormat(["swept ", args22[0]]));
-		rt.drop(other2);
+		other2[Symbol.dispose]();
 		const v: rt.OnceCell<Guard.Guard>[] = [];
 		const _274: rt.OnceCell<Guard.Guard> = new rt.OnceCell(guard(63));
 		v.push(_274);
@@ -190,7 +190,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		const part5 = cell5.v !== rt.None;
 		const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
 		Log.note(log, rt.fmtFormat(["got ", args34[0]]));
-		rt.drop(cell5);
+		cell5[Symbol.dispose]();
 	}
 	const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(id, f)];
 	Log.note(log, rt.fmtFormat(["d", args36[0], " cells done"]));

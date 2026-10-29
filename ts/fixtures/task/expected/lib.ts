@@ -18,46 +18,46 @@ export function drop$Arc_Wrap_Pair_Held(value: rt.Arc<Wrap.Wrap<Pair.Pair<Held.H
 }
 
 export function drop$Arc_str_Arc_str(_1: [rt.Arc<string>, rt.Arc<string>]): void {
-	rt.drop(_1[0]);
-	rt.drop(_1[1]);
+	_1[0][Symbol.dispose]();
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$ControlFlow_Guard_u32(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {
-		rt.drop(_1.error);
+		_1.error[Symbol.dispose]();
 	}
 }
 
 export function drop$Guard_Guard(_1: [Guard.Guard, Guard.Guard]): void {
-	rt.drop(_1[0]);
-	rt.drop(_1[1]);
+	_1[0][Symbol.dispose]();
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$Guard_u32(_1: [Guard.Guard, rt.u32]): void {
-	rt.drop(_1[0]);
+	_1[0][Symbol.dispose]();
 }
 
 export function drop$Guard_u64(_1: [Guard.Guard, rt.u64]): void {
-	rt.drop(_1[0]);
+	_1[0][Symbol.dispose]();
 }
 
 export function drop$Held(_1: Held.Held): void {
 	if (_1.tag === "One") {
-		rt.drop(_1._0);
+		_1._0[Symbol.dispose]();
 	} else if (_1.tag === "Two") {
-		rt.drop(_1._0);
-		rt.drop(_1._1);
+		_1._0[Symbol.dispose]();
+		_1._1[Symbol.dispose]();
 	}
 }
 
 export function drop$Key_Guard(_1: [Key.Key, Guard.Guard]): void {
-	rt.drop(_1[0]);
-	rt.drop(_1[1]);
+	_1[0][Symbol.dispose]();
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$Key_Key(_1: [Key.Key, Key.Key]): void {
-	rt.drop(_1[0]);
-	rt.drop(_1[1]);
+	_1[0][Symbol.dispose]();
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$Mutex_Held(value: rt.Mutex<Held.Held>): void {
@@ -96,20 +96,20 @@ export function drop$Option_Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8> | 
 
 export function drop$Pair_Held(_1: Pair.Pair<Held.Held>): void {
 	drop$Held(_1.first);
-	rt.drop(_1.second);
+	_1.second[Symbol.dispose]();
 }
 
 export function drop$Result_Guard_Guard(_1: rt.Result<Guard.Guard, Guard.Guard>): void {
 	if (_1.ok) {
-		rt.drop(_1.value);
+		_1.value[Symbol.dispose]();
 	} else {
-		rt.drop(_1.error);
+		_1.error[Symbol.dispose]();
 	}
 }
 
 export function drop$Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8>): void {
 	if (_1.ok) {
-		rt.drop(_1.value);
+		_1.value[Symbol.dispose]();
 	}
 }
 
@@ -117,19 +117,19 @@ export function drop$Result_Vec_Guard_Guard(_1: rt.Result<Guard.Guard[], Guard.G
 	if (_1.ok) {
 		rt.dropAll(_1.value);
 	} else {
-		rt.drop(_1.error);
+		_1.error[Symbol.dispose]();
 	}
 }
 
 export function drop$Result_u32_Guard(_1: rt.Result<rt.u32, Guard.Guard>): void {
 	if (!_1.ok) {
-		rt.drop(_1.error);
+		_1.error[Symbol.dispose]();
 	}
 }
 
 export function drop$Result_unit_Guard(_1: rt.Result<undefined, Guard.Guard>): void {
 	if (!_1.ok) {
-		rt.drop(_1.error);
+		_1.error[Symbol.dispose]();
 	}
 }
 
@@ -147,7 +147,7 @@ export function drop$Result_unit_Option_Guard(_1: rt.Result<undefined, Guard.Gua
 
 export function drop$Text(_1: Text.Text): void {
 	if (_1.tag !== "Borrowed") {
-		rt.drop(_1._0);
+		_1._0[Symbol.dispose]();
 	}
 }
 
@@ -157,45 +157,45 @@ export function drop$Vec_Guard(value: Guard.Guard[]): void {
 
 export function drop$Wrap_Arc_Held(_1: Wrap.Wrap<rt.Arc<Held.Held>>): void {
 	Wrap.drop$Drop_Arc_Held(_1);
-	rt.drop(_1.log);
+	_1.log[Symbol.dispose]();
 	rt.arcDrop(_1.inner, drop$Held);
 }
 
 export function drop$Wrap_Guard(_1: Wrap.Wrap<Guard.Guard>): void {
 	Wrap.drop$Drop_Guard(_1);
-	rt.drop(_1.log);
-	rt.drop(_1.inner);
+	_1.log[Symbol.dispose]();
+	_1.inner[Symbol.dispose]();
 }
 
 export function drop$Wrap_Held(_1: Wrap.Wrap<Held.Held>): void {
 	Wrap.drop$Drop_Held(_1);
-	rt.drop(_1.log);
+	_1.log[Symbol.dispose]();
 	drop$Held(_1.inner);
 }
 
 export function drop$Wrap_Pair_Held(_1: Wrap.Wrap<Pair.Pair<Held.Held>>): void {
 	Wrap.drop$Drop_Pair_Held(_1);
-	rt.drop(_1.log);
+	_1.log[Symbol.dispose]();
 	drop$Pair_Held(_1.inner);
 }
 
 export function drop$Wrap_Vec_Wrap_Held(_1: Wrap.Wrap<Wrap.Wrap<Held.Held>[]>): void {
 	Wrap.drop$Drop_Vec_Wrap_Held(_1);
-	rt.drop(_1.log);
+	_1.log[Symbol.dispose]();
 	rt.dropAll(_1.inner, drop$Wrap_Held);
 }
 
 export function drop$Wrap_u32(_1: Wrap.Wrap<rt.u32>): void {
 	Wrap.drop$Drop_u32(_1);
-	rt.drop(_1.log);
+	_1.log[Symbol.dispose]();
 }
 
 export function drop$u32_Guard(_1: [rt.u32, Guard.Guard]): void {
-	rt.drop(_1[1]);
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$usize_Guard(_1: [rt.usize, Guard.Guard]): void {
-	rt.drop(_1[1]);
+	_1[1][Symbol.dispose]();
 }
 
 //# sourceMappingURL=lib.ts.map

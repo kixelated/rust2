@@ -19,6 +19,8 @@
 - A `Weak` and a `MutexGuard` drop: an `rt.Weak` uncounts itself from its `rt.Arc` and a
   guard unlocks its `rt.Mutex`. A struct holding either is a class made with `new` rather
   than an object literal, and a caller drops an `rt.Weak` it holds with `rt.drop`.
+- A struct's class takes its fields as arguments in declaration order, `new C(a, b)`,
+  rather than as one object, `new C({ a, b })`.
 - `tsc` checks a binding of a function returning `()` against `=> undefined`, not
   `=> void`: type its export `: undefined`.
 - `rt.ordMax`, `rt.ordMin`, and `rt.sliceSortByKey` take a `PartialOrd::lt` rather than a

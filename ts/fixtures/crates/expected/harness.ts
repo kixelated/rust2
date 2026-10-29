@@ -31,8 +31,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const held: Guard.Guard = Guard.new(255, log);
 	rt.dropAll(guards);
 	const _late: Guard.Guard = Guard.new(254, log);
-	rt.drop(held);
-	rt.drop(_late);
+	held[Symbol.dispose]();
+	_late[Symbol.dispose]();
 	const _58: rt.Mutex<rt.ByteVec> = rt.mutexLock(log.value);
 	const _54: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_58.value)));
 	rt.iterExtendBytes(out, _54);
@@ -53,7 +53,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	rt.byteVecPush(out, _106);
 	const _109: rt.u8 = last.last(input);
 	rt.byteVecPush(out, _109);
-	rt.drop(log);
+	log[Symbol.dispose]();
 	return out;
 }
 

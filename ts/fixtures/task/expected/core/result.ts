@@ -140,7 +140,7 @@ export function unwrapOr$Result_Guard_Guard(self: rt.Result<Guard.Guard, Guard.G
 		_0 = default_;
 	}
 	if (_5) {
-		rt.drop(default_);
+		default_[Symbol.dispose]();
 	}
 	if (!self.ok) {
 		drop$Result_Guard_Guard(self);

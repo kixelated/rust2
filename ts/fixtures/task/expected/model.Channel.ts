@@ -9,14 +9,14 @@ export class Channel {
 	producers: Producer.Producer[];
 	consumer: Consumer.Consumer;
 
-	constructor(fields: { producers: Producer.Producer[]; consumer: Consumer.Consumer }) {
-		this.producers = fields.producers;
-		this.consumer = fields.consumer;
+	constructor(producers: Producer.Producer[], consumer: Consumer.Consumer) {
+		this.producers = producers;
+		this.consumer = consumer;
 	}
 
 	[Symbol.dispose](): void {
 		rt.dropAll(this.producers);
-		rt.drop(this.consumer);
+		this.consumer[Symbol.dispose]();
 	}
 }
 
@@ -25,7 +25,7 @@ export function open(): Channel {
 	const consumer_: Consumer.Consumer = Producer.consume(producer);
 	const producers: Producer.Producer[] = [];
 	producers.push(producer);
-	return new Channel({ producers, consumer: consumer_ });
+	return new Channel(producers, consumer_);
 }
 
 /** A consumer that reads every value from the first. */
@@ -49,7 +49,7 @@ export function close(self: Channel): boolean {
 	if (_2 === undefined) {
 		return false;
 	}
-	rt.drop(_2);
+	_2[Symbol.dispose]();
 	return true;
 }
 

@@ -12,48 +12,48 @@ export class Pending<P> {
 	inner: P;
 	park: Park.Park;
 
-	constructor(fields: { inner: P; park: Park.Park }) {
-		this.inner = fields.inner;
-		this.park = fields.park;
+	constructor(inner: P, park: Park.Park) {
+		this.inner = inner;
+		this.park = park;
 	}
 
 	[Symbol.dispose](): void {
 		rt.drop(this.inner);
-		rt.drop(this.park);
+		this.park[Symbol.dispose]();
 	}
 }
 
 export function new$Watch(inner: Watch.Watch): Pending<Watch.Watch> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$boxed_closure0_closure3(inner: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$boxed_closure0_closure5(inner: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$closed_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Poll<undefined>): Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$recv_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$wait_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function new$watch_closure0_closure0(inner: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return new Pending({ inner, park: Park.default$Default() });
+	return new Pending(inner, Park.default$Default());
 }
 
 export function intoInner$Watch(self: Pending<Watch.Watch>): Watch.Watch {
 	const _0: Watch.Watch = self.inner;
-	rt.drop(self.park);
+	self.park[Symbol.dispose]();
 	return _0;
 }
 
