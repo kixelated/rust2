@@ -445,6 +445,7 @@ int script() {
 	            api::outer_inner_u8::new_(4).get());
 	// A bound that outlives the call takes a value, and an instance only a constant names.
 	std::printf("kept %llu boxed %u\n", ull(api::kept_point({1, -2})), api::boxed().value);
+	std::printf("keep %d\n", api::keep_point({1, -2}));
 	// Inferred instances taking a lent closure and a foreign implementation, and one only
 	// its impl of a trait names.
 	api::pair_u32 sides{2, 5};

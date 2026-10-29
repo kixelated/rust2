@@ -176,11 +176,29 @@ pub fn call<'tcx>(
 		("Clone", "clone") if self_std == Some(Std::Weak) => Expr::rt("weakClone", args),
 		// A waker is the executor's, whose `clone` is its own.
 		("Clone", "clone") if self_std == Some(Std::Waker) => first(args).member("clone").call(vec![]),
+		// A reference to one of these is the object it points at, which its own `Deref` gives:
+		// read out of a `&mut` that is an `rt.Place`, whose place `DerefMut` lends on.
+		("Deref", "deref") | ("DerefMut", "deref_mut") if let Some(ty) = self_ty.filter(|t| t.is_ref()) => {
+			match self_std {
+				Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut | Std::Pin)
+					if name == "deref" =>
+				{
+					b.t.pointee_value(ty, first(args))
+				}
+				Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut | Std::Pin) => first(args),
+				_ => return Err(args),
+			}
+		}
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
-			// A pinned `Arc` is the `Arc`, which holds its value.
-			Some(Std::Pin) => match self_ty.map(|t| t.peel_refs().kind()) {
-				Some(ty::Adt(_, pin)) if std_of(pin.type_at(0)) == Some(Std::Arc) => first(args).member("value"),
+			// A pin is its pointer, which derefs as it does: an `Arc` to the value it holds, and
+			// a reference to what it points at.
+			Some(Std::Pin) => match self_ty.map(|t| t.kind()) {
+				Some(ty::Adt(_, pin)) => match pin.type_at(0).kind() {
+					ty::Adt(arc, _) if Std::of(tcx, arc.did()) == Some(Std::Arc) => first(args).member("value"),
+					ty::Ref(..) if name == "deref" => b.t.pointee_value(pin.type_at(0), first(args)),
+					_ => first(args),
+				},
 				_ => first(args),
 			},
 			_ => return Err(args),
@@ -222,6 +240,18 @@ pub fn call<'tcx>(
 			let [key, f] = two(args);
 			Expr::result(true, f.call(vec![key.member("get").call(Vec::new())]))
 		}
+		// With what drops the value it replaces.
+		("LocalKey", "set") => {
+			let Some(droppers) = b.t.droppers([call.args.type_at(0)], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			Expr::rt("localKeyRefCellSet", args.into_iter().chain(droppers).collect())
+		}
+		// With the value's place where JS would copy it.
+		("LocalKey", "with_borrow_mut") => match b.t.needs_place(call.args.type_at(0)) {
+			true => Expr::rt("localKeyWithBorrowMutPlace", args),
+			false => Expr::rt("localKeyWithBorrowMut", args),
+		},
 		// With the `Option`'s `None` where it is `rt.None`.
 		("LocalKey", "initialize_with") => {
 			let none = b.t.none_arg(call.args.type_at(0));

@@ -548,6 +548,7 @@ static int script(void) {
 	api_outer_inner_u8_free(outer);
 	/* A bound that outlives the call takes a value, and an instance only a constant names. */
 	printf("kept %llu boxed %u\n", (unsigned long long)api_kept_point((api_point){.x = 1, .y = -2}), api_boxed().value);
+	printf("keep %d\n", api_keep_point((api_point){.x = 1, .y = -2}));
 	/* Inferred instances taking a lent closure and a foreign implementation, and one only
 	 * its impl of a trait names. */
 	api_pair_u32 sides = {.left = 2, .right = 5};

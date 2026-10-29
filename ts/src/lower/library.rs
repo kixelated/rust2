@@ -545,6 +545,13 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 			&& t.self_ty(instance)
 				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
 	}
+	// A `RefCell` key's `set` maps, as its body writes the cell in place.
+	let refcell_set = std == Some(Std::LocalKey)
+		&& name.as_str() == "set"
+		&& t.self_ty(instance).is_some_and(|key| {
+			matches!(key.kind(), ty::Adt(_, args)
+			if matches!(args.type_at(0).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::RefCell)))
+		});
 	// A lock's `unwrap_or_else` maps, to unwrap its guard in place.
 	let lock = std == Some(Std::Result)
 		&& name.as_str() == "unwrap_or_else"
@@ -557,8 +564,12 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		) | (
 			Some(Std::Result),
 			"unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err"
-		) | (Some(Std::LocalKey), "with" | "try_with" | "initialize_with")
+		) | (
+			Some(Std::LocalKey),
+			"with" | "try_with" | "initialize_with" | "with_borrow_mut"
+		)
 	) && !lock
+		&& !refcell_set
 }
 
 /// The key `def_id` makes the value of, if it is what `thread_local!` declares in a key's
@@ -606,7 +617,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Arc" | "Rc", "new_cyclic") => &[1],
-		("LocalKey", "with" | "try_with" | "initialize_with") => &[1],
+		("LocalKey", "with" | "try_with" | "initialize_with" | "with_borrow_mut") => &[1],
 		_ => return None,
 	})
 }

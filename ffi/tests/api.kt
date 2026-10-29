@@ -275,6 +275,7 @@ fun script() {
 	println("cross ${cross(LeftRightU8(RightU8(1u)), RightLeftU8(LeftU8(2u)))} outer ${OuterInnerU8.new(4u).get()}")
 	// A bound that outlives the call takes a value, and an instance only a constant names.
 	println("kept ${keptPoint(Point(1, -2))} boxed ${BOXED.value}")
+	println("keep ${keepPoint(Point(1, -2))}")
 	// Inferred instances taking a lent closure and a foreign implementation, and one only
 	// its impl of a trait names.
 	val sides = PairU32(2u, 5u)
