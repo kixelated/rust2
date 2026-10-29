@@ -131,6 +131,7 @@ pub fn call<'tcx>(
 	let self_std = self_ty.and_then(std_of);
 	let e = match (owner, name) {
 		("Arc" | "Rc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
+		("Arc" | "Rc", "new_cyclic") => Expr::rt("arcNewCyclic", args),
 		// An `Arc<str>` of a string, which JS shares as it is.
 		("From", "from")
 			if let [arc, from] = call.args.as_slice()
