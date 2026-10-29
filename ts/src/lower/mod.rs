@@ -175,7 +175,7 @@ pub struct Translator<'a, 'tcx> {
 	pub tcx: TyCtxt<'tcx>,
 	config: &'a Config,
 	/// The crates whose bodies translate.
-	pub crates: Crates,
+	pub crates: Crates<'tcx>,
 	pub program: Program,
 	instances: rustc_data_structures::fx::FxHashMap<Instance<'tcx>, SymId>,
 	queue: VecDeque<(Instance<'tcx>, SymId)>,
@@ -224,28 +224,30 @@ pub struct Translator<'a, 'tcx> {
 }
 
 /// The crates that translate as one program: the package, and every crate it depends on
-/// but std's and those [`stock`] maps. What the roots reach of them translates; any
-/// function of the others is its mapping, a binding, or refused.
-pub struct Crates(rustc_data_structures::fx::FxHashSet<CrateNum>);
+/// but std's and those [`stock`] maps whole. What the roots reach of them translates, but
+/// for what [`stock`] maps in place of it; any function of the others is its mapping, a
+/// binding, or refused.
+pub struct Crates<'tcx> {
+	tcx: TyCtxt<'tcx>,
+	crates: rustc_data_structures::fx::FxHashSet<CrateNum>,
+}
 
-impl Crates {
-	fn new(tcx: TyCtxt<'_>) -> Self {
-		Self(
-			tcx.crates(())
-				.iter()
-				.copied()
-				.filter(|&krate| {
-					!tcx.crate_dep_kind(krate).macros_only()
-						&& !of_std(tcx, krate)
-						&& !stock::is_stock_crate(tcx, krate)
-				})
-				.collect(),
-		)
+impl<'tcx> Crates<'tcx> {
+	fn new(tcx: TyCtxt<'tcx>) -> Self {
+		let crates = tcx
+			.crates(())
+			.iter()
+			.copied()
+			.filter(|&krate| {
+				!tcx.crate_dep_kind(krate).macros_only() && !of_std(tcx, krate) && !stock::is_opaque_crate(tcx, krate)
+			})
+			.collect();
+		Self { tcx, crates }
 	}
 
-	/// Whether `def_id`'s crate translates.
+	/// Whether `def_id` translates: it is of a crate that does, and no mapping stands in for it.
 	pub fn translates(&self, def_id: DefId) -> bool {
-		def_id.is_local() || self.0.contains(&def_id.krate)
+		def_id.is_local() || (self.crates.contains(&def_id.krate) && !stock::mapped(self.tcx, def_id))
 	}
 }
 
@@ -887,7 +889,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match instance.def {
 			InstanceKind::Item(did) => {
 				self.bound_module(instance).is_none()
-					&& (self.crates.translates(did) || library::from_mir(self, instance))
+					&& ((self.crates.translates(did) && !stock::maps(self.tcx, instance))
+						|| library::from_mir(self, instance))
 			}
 			_ => false,
 		}
@@ -1135,6 +1138,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::VecDeque
 					| library::Std::Entry
 					| library::Std::Hasher
+					| library::Std::BytesMut
 					| library::Std::ThreadRng,
 				) => Some(ObjectKind::Class),
 				// A place, unless a pointer to what it holds is that object.
@@ -1467,6 +1471,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Hasher => Type::Rt("Hasher", vec![]),
 				library::Std::Duration => Type::Rt("Duration", vec![]),
 				library::Std::Bytes => Type::Rt("ByteSlice", vec![]),
+				library::Std::BytesMut => Type::Rt("BytesMut", vec![]),
 				library::Std::ThreadRng => Type::Rt("ThreadRng", vec![]),
 				library::Std::ControlFlow => {
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {

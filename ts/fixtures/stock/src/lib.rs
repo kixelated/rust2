@@ -3,6 +3,7 @@
 //!
 //! `harness::run` is the entry point both sides of the differential test run.
 
+mod buf;
 pub mod harness;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]

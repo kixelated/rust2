@@ -425,6 +425,15 @@ pub fn owned_bytes(owner: std::sync::Arc<[u8]>) -> usize {
 	bytes::Bytes::from_owner(owner).len()
 }
 
+/// A `BytesMut`'s capacity, which `bytes` reclaims only once the `Bytes` it froze drops.
+pub fn bytes_mut_capacity(n: usize) -> usize {
+	let mut buf = bytes::BytesMut::with_capacity(n);
+	buf.extend_from_slice(b"frame");
+	drop(buf.split_to(2).freeze());
+	buf.reserve(n);
+	buf.capacity()
+}
+
 pub struct Part(pub u64);
 
 impl std::iter::Sum<Part> for std::time::Duration {

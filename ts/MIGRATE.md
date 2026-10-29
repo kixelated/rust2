@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `bytes::BytesMut` can't be bound: translation maps it, as an `rt.BytesMut`. Delete its
+  `[bind]` entry and the file it names.
 - A binding's path names a dependency the package renames (`foo = { package = "bar" }`)
   as the package does, `foo::Item`, no longer by its crate name, `bar::Item`.
 - A panic aborts, as on wasm32: the output throws `rt.Panic` without running any cleanup,

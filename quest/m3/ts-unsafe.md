@@ -38,5 +38,9 @@ none of its own `unsafe`.
   object there, judged by type over the whole program: a generic function writing a whole
   `T` counts for every `T` its bounds allow. Judge by the instances translation reaches
   if a consumer's pointer is refused only by that.
+- A slice's pointer cast to an array's of its length, `*(s as *const [u8] as *const
+  [u8; N])`, which `bytes`' `Buf::get_u16` and wider read a crate's own buffer through
+  ([#222](https://github.com/kixelated/rust2/pull/222)): the bytes keep their type, so
+  this reinterprets nothing. Those getters also need `<[u8]>::get` of a range.
 
 Public API: the translator's output.

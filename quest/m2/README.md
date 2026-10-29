@@ -31,6 +31,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
 - [Held values that name a reassigned variable](/quest/m2/ts-aliases.md) - a held place or folded value reads what Rust read, in and across loop iterations
 - [Translate moq-net's model to TypeScript](/quest/m2/ts-model/README.md) - the model translates with kio, moq-clock, and moq-pattern, for moq to compare against WASM
+- [The bench's varint forms at moq's pin](/quest/m2/ts-bench-forms.md) - `just ts bench` runs to its report, its hand-written route decoding each varint form
 - [Translate against the prebuilt std](/quest/m2/ts-std-build.md) - measure whether `-Zbuild-std` is still needed now that panics abort, and drop it if not
 - [Waiting: Swift 6.4 in nixpkgs-unstable](/quest/m2/uniffi-swift-arm.md) - the nightly UniFFI fixtures move back to arm
 - [Waiting: ubrn reads UniFFI 0.32](/quest/m2/ubrn-release.md) - the binding benchmark's browser runner pins a ubrn release, not an open PR

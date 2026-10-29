@@ -195,10 +195,12 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	)
 }
 
-/// Whether std's `def_id` is one this module maps that takes the `rt.Place` a `&mut self`
-/// is, rather than what it points at: a `MaybeUninit`'s, which it points into.
+/// Whether std's `def_id` is one a mapping takes the `rt.Place` a `&mut` is for, rather
+/// than what it points at: a `MaybeUninit`'s, which it points into, and a well-known
+/// crate's, such as a `Bytes` that `Buf::advance` moves past its front.
 pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	matches!(super::library::key(tcx, def_id), Some((owner, _)) if owner == "MaybeUninit")
+		|| super::stock::is_stock(tcx, def_id)
 }
 
 /// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or

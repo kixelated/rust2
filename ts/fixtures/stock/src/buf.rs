@@ -1,0 +1,313 @@
+//! `bytes`' `BytesMut`, `Buf`, and `BufMut`: each case runs ops its input picks, so the
+//! differential test reaches their panics and what `split_to` and `freeze` share.
+
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+
+/// A `BytesMut` split, frozen, grown, and written, ending with every piece's bytes: a
+/// write to one that reached another would show.
+pub fn bytes_mut(data: &[u8], out: &mut Vec<u8>) {
+	let mut ops = Ops(data);
+	let mut buf = BytesMut::with_capacity(ops.byte() as usize % 24);
+	let mut pieces: Vec<BytesMut> = Vec::new();
+	let mut frozen: Vec<Bytes> = Vec::new();
+	while let Some(op) = ops.next() {
+		let n = ops.byte() as usize;
+		match op % 18 {
+			0 => buf.extend_from_slice(ops.take(n % 12)),
+			1 => buf.put_u8(n as u8),
+			2 => buf.put_u16(n as u16 * 257),
+			3 => pieces.push(buf.split_to(n % (buf.len() + 2))),
+			4 => {
+				if let Some(piece) = pieces.pop() {
+					frozen.push(piece.freeze());
+				}
+			}
+			5 => buf.truncate(n % (buf.len() + 2)),
+			6 => buf.resize(n % 40, n as u8),
+			// Past what a buffer holds, by overflowing `usize` or not: each panics.
+			7 => buf.reserve(match n % 4 {
+				0 => usize::MAX - n,
+				1 => isize::MAX as usize - buf.len() + 1,
+				_ => n,
+			}),
+			8 => {
+				if let Some(piece) = pieces.pop() {
+					buf.unsplit(piece);
+				}
+			}
+			9 => buf.advance(n % (buf.len() + 2)),
+			10 => out.extend_from_slice(&read(&mut buf, n).to_be_bytes()),
+			11 => buf.clear(),
+			12 => pieces.push(buf.split()),
+			13 => frozen.push(buf.copy_to_bytes(n % (buf.len() + 2))),
+			14 => buf.put_bytes(n as u8, n % 9),
+			15 => {
+				// Through `DerefMut`, into what this handle alone holds.
+				if !buf.is_empty() {
+					let at = n % buf.len();
+					buf[at] ^= 0xff;
+				}
+				if let Some(piece) = pieces.last_mut() {
+					piece.put_slice(b"xy");
+				}
+			}
+			16 => buf.put(Bytes::copy_from_slice(ops.take(n % 5))),
+			_ => {
+				let mut source = BytesMut::from(ops.take(n % 6));
+				// Its own `Buf`, read into a `BufMut`, then the rest whole.
+				let first = source.get_u8_checked();
+				buf.put_u8(first);
+				buf.put(source);
+			}
+		}
+	}
+	let tail = BytesMut::from(&b"tail"[..]);
+	out.push((buf == tail) as u8);
+	out.push((buf.clone() == buf[..]) as u8);
+	out.extend_from_slice(format!("{buf:?} {}\n", buf.len()).as_bytes());
+	for piece in &pieces {
+		out.extend_from_slice(format!("{piece:?}\n").as_bytes());
+	}
+	for bytes in &frozen {
+		out.extend_from_slice(format!("{bytes:?}\n").as_bytes());
+	}
+	let vec: Vec<u8> = buf.into();
+	out.extend_from_slice(&vec);
+}
+
+trait Checked {
+	/// The next byte, or 0 if none remains.
+	fn get_u8_checked(&mut self) -> u8;
+}
+
+impl<B: Buf> Checked for B {
+	fn get_u8_checked(&mut self) -> u8 {
+		match self.has_remaining() {
+			true => self.get_u8(),
+			false => 0,
+		}
+	}
+}
+
+/// A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes.
+fn read<B: Buf>(buf: &mut B, n: usize) -> u128 {
+	match n % 14 {
+		0 => buf.get_u8().into(),
+		1 => buf.get_i8() as u128,
+		2 => buf.get_u16().into(),
+		3 => buf.get_i16_le() as u128,
+		4 => buf.get_u32_le().into(),
+		5 => buf.get_i32() as u128,
+		6 => buf.get_u64().into(),
+		7 => buf.get_i64_le() as u128,
+		8 => buf.get_u128_le(),
+		9 => buf.get_i128() as u128,
+		10 => buf.get_uint(n % 10).into(),
+		11 => buf.get_int_le(n % 10) as u128,
+		12 => buf.get_f64().to_bits().into(),
+		_ => {
+			let mut dst = [0; 3];
+			buf.copy_to_slice(&mut dst[..n % 4]);
+			u32::from_be_bytes([0, dst[0], dst[1], dst[2]]).into()
+		}
+	}
+}
+
+/// A buffer of the crate's own, in pieces: `Buf`'s provided methods read across them.
+struct Pieces {
+	/// None empty, so `chunk` is empty only once nothing remains, as `Buf` requires.
+	parts: Vec<Vec<u8>>,
+	/// How far into the first part reads are.
+	at: usize,
+}
+
+impl Pieces {
+	/// `input` in two parts, cut at `cut`.
+	fn new(input: &[u8], cut: usize) -> Self {
+		let (a, b) = input.split_at(cut);
+		let mut parts = vec![a.to_vec(), b.to_vec()];
+		parts.retain(|part| !part.is_empty());
+		Self { parts, at: 0 }
+	}
+}
+
+impl Buf for Pieces {
+	fn remaining(&self) -> usize {
+		self.parts.iter().map(Vec::len).sum::<usize>() - self.at
+	}
+
+	fn chunk(&self) -> &[u8] {
+		match self.parts.first() {
+			Some(part) => &part[self.at..],
+			None => &[],
+		}
+	}
+
+	fn advance(&mut self, mut cnt: usize) {
+		while cnt > 0 {
+			let left = self.parts[0].len() - self.at;
+			if cnt < left {
+				self.at += cnt;
+				return;
+			}
+			cnt -= left;
+			self.parts.remove(0);
+			self.at = 0;
+		}
+	}
+
+	// Its own, as moq's buffers have: the provided one reads through a `Take<&mut Self>`.
+	fn copy_to_bytes(&mut self, len: usize) -> Bytes {
+		let mut out = BytesMut::with_capacity(len);
+		while out.len() < len {
+			let take = self.chunk().len().min(len - out.len());
+			out.extend_from_slice(&self.chunk()[..take]);
+			self.advance(take);
+		}
+		out.freeze()
+	}
+}
+
+/// The same reads off a `Bytes`, a `BytesMut`, and a buffer in pieces: each scalar, and
+/// what remains.
+pub fn reads(data: &[u8], out: &mut Vec<u8>) {
+	let [kind, cut, ops @ ..] = data else {
+		return;
+	};
+	let (ops, input) = ops.split_at(ops.len() / 2);
+	let cut = *cut as usize % (input.len() + 1);
+	let rest = match kind % 3 {
+		0 => read_all(&mut Bytes::copy_from_slice(input), ops, read, out),
+		1 => read_all(&mut BytesMut::from(input), ops, read, out),
+		_ => read_all(&mut Pieces::new(input, cut), ops, read_pieces, out),
+	};
+	out.extend_from_slice(&rest);
+	// Put whole, into a buffer with room and one without, which `bytes` reads differently.
+	let mut put = BytesMut::with_capacity(*kind as usize % 2);
+	put.put(Pieces::new(input, cut));
+	let mut vec = Vec::new();
+	vec.put(Pieces::new(input, cut));
+	out.push((put == vec) as u8);
+	out.extend_from_slice(&put);
+	let slice: &[u8] = input;
+	out.push((slice.remaining() == input.len()) as u8);
+	out.push((slice.chunk() == input) as u8);
+	out.push(slice.has_remaining() as u8);
+}
+
+/// The reads of `Buf`'s provided methods that translate for a buffer of the crate's own:
+/// those whose MIR reads no bytes as another type.
+fn read_pieces(buf: &mut Pieces, n: usize) -> u128 {
+	match n % 2 {
+		0 => buf.get_u8().into(),
+		_ => {
+			let mut dst = [0; 3];
+			buf.copy_to_slice(&mut dst[..n % 4]);
+			u32::from_be_bytes([0, dst[0], dst[1], dst[2]]).into()
+		}
+	}
+}
+
+/// `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it.
+fn read_all<B: Buf>(buf: &mut B, ops: &[u8], read: fn(&mut B, usize) -> u128, out: &mut Vec<u8>) -> Vec<u8> {
+	for &op in ops {
+		if op == 0xff {
+			buf.advance(1);
+			continue;
+		}
+		out.extend_from_slice(&read(buf, op as usize).to_be_bytes());
+		out.push(buf.has_remaining() as u8);
+	}
+	let n = buf.remaining();
+	buf.copy_to_bytes(n).to_vec()
+}
+
+/// The same writes into a `Vec<u8>` and a `BytesMut`, which must match.
+pub fn writes(data: &[u8], out: &mut Vec<u8>) {
+	let mut vec = Vec::new();
+	let mut buf = BytesMut::new();
+	write_all(&mut vec, data);
+	write_all(&mut buf, data);
+	out.push((vec == buf) as u8);
+	out.push((vec.remaining_mut() == buf.remaining_mut()) as u8);
+	out.push(buf.has_remaining_mut() as u8);
+	out.extend_from_slice(&vec);
+}
+
+/// A write by each pair of `data`'s bytes.
+fn write_all<B: BufMut>(buf: &mut B, data: &[u8]) {
+	let mut data = data;
+	while let [op, n, rest @ ..] = data {
+		data = rest;
+		let (op, n) = (*op, *n);
+		let v = u64::from(n) * 0x0101_0101_0101_0101;
+		match op % 15 {
+			0 => buf.put_u8(n),
+			1 => buf.put_i8(n as i8),
+			2 => buf.put_u16(v as u16),
+			3 => buf.put_i16_le(v as i16),
+			4 => buf.put_u32(v as u32),
+			5 => buf.put_i32_le(v as i32),
+			6 => buf.put_u64_le(v),
+			7 => buf.put_i64(v as i64),
+			8 => buf.put_u128_le(u128::from(v) << 40),
+			9 => buf.put_uint(v, n as usize % 10),
+			10 => buf.put_int_le(v as i64, n as usize % 10),
+			11 => buf.put_slice(&[op, n]),
+			12 => buf.put_bytes(n, n as usize % 7),
+			13 => buf.put(Bytes::from_static(b"put")),
+			_ => buf.put_f64(f64::from(n) / 3.0),
+		}
+	}
+}
+
+/// `Bytes`' own edits, through a `&mut`, and `slice_ref` of a part of it.
+pub fn edits(data: &[u8], out: &mut Vec<u8>) {
+	let [kind, a, rest @ ..] = data else {
+		return;
+	};
+	let mut bytes = Bytes::copy_from_slice(rest);
+	let a = *a as usize % (rest.len() + 2);
+	let part = match kind % 6 {
+		0 => bytes.split_to(a),
+		1 => bytes.split_off(a),
+		2 => {
+			bytes.truncate(a);
+			bytes.clone()
+		}
+		3 => {
+			bytes.clear();
+			Bytes::new()
+		}
+		4 => {
+			let sub = &bytes[a.min(rest.len())..];
+			bytes.slice_ref(sub)
+		}
+		_ => {
+			bytes.advance(a);
+			bytes.copy_to_bytes(a / 2)
+		}
+	};
+	out.extend_from_slice(format!("{part:?} {bytes:?}").as_bytes());
+}
+
+/// The bytes of a case's input, taken from the front.
+struct Ops<'a>(&'a [u8]);
+
+impl<'a> Ops<'a> {
+	fn next(&mut self) -> Option<u8> {
+		let (&first, rest) = self.0.split_first()?;
+		self.0 = rest;
+		Some(first)
+	}
+
+	fn byte(&mut self) -> u8 {
+		self.next().unwrap_or(0)
+	}
+
+	fn take(&mut self, n: usize) -> &'a [u8] {
+		let (taken, rest) = self.0.split_at(n.min(self.0.len()));
+		self.0 = rest;
+		taken
+	}
+}
