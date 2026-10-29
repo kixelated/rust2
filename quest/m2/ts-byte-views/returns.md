@@ -54,6 +54,12 @@ most. One out slot per payload type, which a forwarded result already fills, avo
   how the bench drives them, not in their translation. Find which before landing.
 - Leading-ones varints of 8 bytes took 1.06-1.24x `main`'s time: `read_leading_ones` is too
   big to inline, so each call boxes its value into the slot (above), where `main` returned
-  a new array.
+  a new array. Returning the `Ok`'s first number, rather than writing it to the slot, would
+  avoid both the box and the conversion: an ABI change for the maintainer to weigh.
+- Parked as a draft on 2026-10-29 until the host is quiet, with moq.pro's dev servers
+  stopped. Then: time `time/` and `btree/` alone on the bench, to see whether the other
+  workloads cause their gap; trace V8's inlining of `rescale` in the bench itself, where
+  Turbofan took 3-4x longer to compile it and `ordered` here than on `main`; and run the
+  deciding bench, judged on family geomeans.
 
 Public API: the translator's output for byte slices.
