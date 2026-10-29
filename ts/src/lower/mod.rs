@@ -202,6 +202,8 @@ pub struct Translator<'a, 'tcx> {
 	pub drop_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// The function copying each `Copy` aggregate type.
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
+	/// Each thread-local's module value, by its key's `const` item.
+	pub local_keys: rustc_data_structures::fx::FxHashMap<DefId, SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
 	/// The bodies of other crates whose writes count: those the run before reached.
@@ -388,6 +390,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			object_classes: Default::default(),
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
+			local_keys: Default::default(),
 			// Once the bindings are known.
 			writes: Default::default(),
 			read,
@@ -688,7 +691,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(sym) = self.bound_fn(instance, tcx.def_span(def_id)) {
 			return sym;
 		}
-		let base = camel(tcx.item_name(def_id).as_str());
+		let parent = tcx.opt_parent(def_id);
+		let base = match parent {
+			// What initializes a thread-local, which the macro names alike for every key.
+			Some(key)
+				if tcx.def_kind(key) == DefKind::Const
+					&& matches!(tcx.type_of(key).instantiate_identity().skip_norm_wip().kind(),
+						ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::LocalKey)) =>
+			{
+				format!("{}$init", tcx.item_name(key))
+			}
+			_ => camel(tcx.item_name(def_id).as_str()),
+		};
 		// A function of a translated type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.
 		let (module, base) = match self.owner(instance) {
@@ -1121,6 +1135,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Ref
 					| library::Std::RefMut
 					| library::Std::Cell
+					| library::Std::LocalKey
 					| library::Std::Atomic
 					| library::Std::OnceCell
 					| library::Std::OnceLock
@@ -1408,6 +1423,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Type::Rt("RefCell", vec![self.ty(inner, span)])
 				}
 				library::Std::Cell => Type::Rt("Cell", vec![self.ty(args.type_at(0), span)]),
+				library::Std::LocalKey => Type::Rt("LocalKey", vec![self.ty(args.type_at(0), span)]),
 				library::Std::Atomic => Type::Rt("Atomic", vec![self.ty(args.type_at(0), span)]),
 				library::Std::AtomicOrdering => Type::Rt("AtomicOrdering", vec![]),
 				// With the `Option`'s `None` where it is `rt.None`.
@@ -1497,6 +1513,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		if let Some(inner) = library::wrapped(tcx, Ty::new_adt(tcx, adt, args)) {
 			return self.ty(inner, span);
+		}
+		// Nothing, as its value is.
+		if adt.is_phantom_data() {
+			return Type::Builtin("undefined");
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
 		if !self.crates.translates(adt.did())

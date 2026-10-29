@@ -18,6 +18,7 @@ import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
+import type * as locals_Noisy from "../locals.Noisy.ts";
 import type * as Pair from "../pointers.Pair.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
@@ -370,6 +371,13 @@ export function mapOr$Option_Nibble_u8_sets_closure4(self: Nibble.Nibble | undef
 }
 
 export function mapOr$Option_Noisy_u8_borrows_closure0(self: Noisy.Noisy | undefined, default_: rt.u8, f: (a0: Noisy.Noisy) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Noisy_u8_locals_closure11(self: locals_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: locals_Noisy.Noisy) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

@@ -66,6 +66,8 @@ pub enum SymKind {
 	/// A type alias, which has no value.
 	Union,
 	Function,
+	/// A module's value, as `Item::Value`.
+	Value,
 	/// A class's method, called on its receiver: drop glue's `[Symbol.dispose]`, and a
 	/// coroutine's `poll`.
 	Method,
@@ -183,12 +185,16 @@ impl Program {
 				ts::syms_mut(&mut f.body, &mut rename);
 			}
 			for item in &mut self.items {
-				if let Item::Struct { fields, .. } = item {
-					for field in fields {
-						if let ts::FieldInit::Value(e) = &mut field.init {
-							e.syms_mut(&mut rename);
+				match item {
+					Item::Struct { fields, .. } => {
+						for field in fields {
+							if let ts::FieldInit::Value(e) = &mut field.init {
+								e.syms_mut(&mut rename);
+							}
 						}
 					}
+					Item::Value { value, .. } => value.syms_mut(&mut rename),
+					_ => {}
 				}
 			}
 			self.std.retain(|id| !same.contains_key(id));
@@ -243,7 +249,7 @@ impl Program {
 					false => format!("{}${}", sym.base, sym.suffix),
 				};
 				let escaped = match sym.kind {
-					SymKind::Function => crate::lower::escape(&base),
+					SymKind::Function | SymKind::Value => crate::lower::escape(&base),
 					_ => base.clone(),
 				};
 				let name = unique(&mut taken, &escaped);
@@ -366,6 +372,7 @@ pub fn item_sym(item: &Item) -> SymId {
 	match item {
 		Item::Struct { sym, .. } | Item::Union { sym, .. } => *sym,
 		Item::Function(f) => f.sym,
+		Item::Value { sym, .. } => *sym,
 	}
 }
 

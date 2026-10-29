@@ -471,4 +471,12 @@ pub enum Item {
 		doc: Option<String>,
 	},
 	Function(Function),
+	/// A module's value that every use shares, made with no effect but itself, so that a
+	/// bundler drops it unused: `export const NAME: T = /* @__PURE__ */ value`.
+	Value {
+		sym: SymId,
+		ty: Type,
+		value: Expr,
+		doc: Option<String>,
+	},
 }

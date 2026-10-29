@@ -6,6 +6,8 @@
 
 use rustc_abi::{FieldIdx, VariantIdx};
 use rustc_data_structures::fx::FxHashSet;
+use rustc_hir::def::DefKind;
+use rustc_hir::def_id::{DefId, DefIndex};
 use rustc_middle::mir::interpret::{GlobalId, Scalar};
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, ProjectionElem};
@@ -16,7 +18,8 @@ use super::{Env, Fx, Pending, Slot};
 use crate::lower::library::{Flow, Std};
 use crate::lower::num::Int;
 use crate::lower::{AdtRepr, ObjectKind, byte_array, bytes_ref};
-use crate::ts::{Expr, Stmt, StmtKind};
+use crate::program::{SymKind, Symbol};
+use crate::ts::{Expr, Item, Stmt, StmtKind};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// A local read whole.
@@ -1024,6 +1027,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn constant(&mut self, c: &mir::ConstOperand<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
 		let env = self.b.t.typing_env_pub();
+		if let Some(key) = self.local_key_of(c) {
+			return self.local_key(key, span);
+		}
 		// A reference to a function or a closure that captures nothing, as `&f` promotes to,
 		// is what it points at, which has no value tree.
 		if let ty::Ref(_, inner, _) = c.ty().kind()
@@ -1052,6 +1058,129 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			mir::Const::Val(val, ty) => self.const_value(val, ty, span),
+		}
+	}
+
+	/// The `const` item of the thread-local `c` borrows, as `with`'s `&'static self` is: a
+	/// promoted borrow of the key.
+	fn local_key_of(&self, c: &mir::ConstOperand<'tcx>) -> Option<DefId> {
+		let tcx = self.tcx;
+		let ty::Ref(_, key, _) = c.ty().kind() else {
+			return None;
+		};
+		let ty::Adt(adt, _) = key.kind() else {
+			return None;
+		};
+		if Std::of(tcx, adt.did()) != Some(Std::LocalKey) {
+			return None;
+		}
+		let mir::Const::Unevaluated(uv, _) = c.const_ else {
+			return None;
+		};
+		let promoted = &tcx.promoted_mir(uv.def)[uv.promoted?];
+		promoted
+			.basic_blocks
+			.iter()
+			.flat_map(|bb| &bb.statements)
+			.find_map(|s| {
+				let mir::StatementKind::Assign(assign) = &s.kind else {
+					return None;
+				};
+				match &assign.1 {
+					mir::Rvalue::Use(mir::Operand::Constant(k), _) => match k.const_ {
+						mir::Const::Unevaluated(k, _) if k.promoted.is_none() => Some(k.def),
+						_ => None,
+					},
+					_ => None,
+				}
+			})
+	}
+
+	/// The module value of the thread-local `key`, made the first time: an `rt.LocalKey`
+	/// over what initializes it.
+	fn local_key(&mut self, key: DefId, span: Span) -> Expr {
+		let tcx = self.tcx;
+		if let Some(&sym) = self.b.t.local_keys.get(&key) {
+			return Expr::Sym(sym);
+		}
+		let key_ty = tcx.type_of(key).instantiate_identity().skip_norm_wip();
+		let ty::Adt(_, args) = key_ty.kind() else {
+			unreachable!("a thread-local's key is a LocalKey")
+		};
+		let value_ty = args.type_at(0);
+		let sym = self.b.t.program.sym(Symbol {
+			module: self.b.t.module_of(key),
+			base: tcx.item_name(key).to_string(),
+			suffix: String::new(),
+			owner: None,
+			kind: SymKind::Value,
+			order: self.b.t.order(tcx.def_span(key)),
+			instance: String::new(),
+			name: String::new(),
+			alias: None,
+		});
+		// Before its initializer, which may read it.
+		self.b.t.local_keys.insert(key, sym);
+		let (init, lazy) = self.local_init(key, span);
+		let mut ctor = vec![init, Expr::lit(if lazy { "true" } else { "false" })];
+		// What drops the value an initializer made from within itself, which only an
+		// expression's can.
+		if lazy {
+			ctor.extend(self.b.t.drop_fn(value_ty, span));
+		}
+		let ty = self.b.t.ty(key_ty, span);
+		self.b.t.program.items.push(Item::Value {
+			sym,
+			ty,
+			value: Expr::New(Box::new(Expr::Rt("LocalKey".into())), ctor),
+			doc: None,
+		});
+		Expr::Sym(sym)
+	}
+
+	/// What makes the value of the thread-local `key`, and whether it is lazy: the closure
+	/// its expression is in, or else, for a `const` one, its `const`, as a function.
+	fn local_init(&mut self, key: DefId, span: Span) -> (Expr, bool) {
+		let tcx = self.tcx;
+		let accessor = tcx
+			.mir_for_ctfe(key)
+			.local_decls
+			.iter()
+			.find_map(|l| match l.ty.kind() {
+				ty::Closure(def_id, _) => Some(*def_id),
+				_ => None,
+			});
+		let Some(accessor) = accessor else {
+			return (self.err(span, "a thread-local without its accessor"), false);
+		};
+		// `LazyStorage::get`'s function, which calls the one the expression is in.
+		let lazy = tcx.optimized_mir(accessor).basic_blocks.iter().find_map(|bb| {
+			let mir::TerminatorKind::Call { args, .. } = &bb.terminator().kind else {
+				return None;
+			};
+			args.iter().find_map(|a| match a.node.constant()?.ty().kind() {
+				ty::Closure(def_id, args) => Some((*def_id, *args)),
+				_ => None,
+			})
+		});
+		if let Some((def_id, args)) = lazy {
+			return (self.bare_closure(def_id, args, span), true);
+		}
+		// A `const` one's `EagerStorage` holds the value of the `const` the macro declares in
+		// the key's own initializer, so defined after the key and before its accessor. The
+		// storage's own MIR isn't there to read when the key is another crate's.
+		let init = (key.index.as_u32() + 1..accessor.index.as_u32())
+			.map(|i| DefId {
+				krate: key.krate,
+				index: DefIndex::from_u32(i),
+			})
+			.find(|&d| tcx.opt_parent(d) == Some(key) && matches!(tcx.def_kind(d), DefKind::Const));
+		match init {
+			Some(init) => (Expr::Sym(self.b.t.instance(Instance::mono(tcx, init))), false),
+			None => (
+				self.err(span, "a thread-local whose initializer translation can't find"),
+				false,
+			),
 		}
 	}
 

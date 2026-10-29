@@ -36,6 +36,18 @@ fn once_recursive() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
+/// A lazy thread-local's first value comes as wasm32's `LazyStorage` makes it, which
+/// `local.ts` checks.
+#[test]
+fn local_lazy() {
+	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("local.ts");
+	let output = Command::new("node")
+		.arg(script)
+		.output()
+		.expect("running node, which the dev shell provides");
+	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+}
+
 /// The runtime's B-tree runs `btree.ts`'s script of random operations as std's does.
 #[test]
 fn btree_script() {
