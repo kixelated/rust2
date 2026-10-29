@@ -305,6 +305,16 @@ fun script() {
 	println("sums ${sums(listOf(listOf(1u, 2u), emptyList(), listOf(3u)))}")
 	val site = Site.new(base)
 	site.home.use { a -> site.home.use { b -> println("site $a $b") } }
+
+	// Slices, passed in and returned as clones, and the socket address of each family.
+	println("shapes ${Shape.ALL.joinToString(", ", "[", "]") { it.debug() }} greetings ${GREETINGS.joinToString(", ", "[", "]") { "\"$it\"" }}")
+	Trail.new(listOf(Point(1, 2), Point(3, 4)), listOf("a", "b")).use { trail ->
+		println("trail ${trail.points().joinToString(", ", "[", "]") { it.debug() }} ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
+	}
+	val at4 = java.net.InetSocketAddress(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 8080)
+	val at6 = java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, loopback, 3), 443)
+	val (next4, next6) = nexts(at4, at6)
+	println("nexts ${next4.address.hostAddress} ${next4.port} ${next6.port} ${(next6.address as java.net.Inet6Address).scopeId}")
 }
 
 fun check(ok: Boolean, what: String) {
@@ -436,6 +446,11 @@ fun broken(which: String) {
 			}
 			kept!!.get()
 		}
+		// An IPv6 address where Rust takes `SocketAddrV4`.
+		"family" -> nexts(
+			java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, ByteArray(16), null as java.net.NetworkInterface?), 1),
+			java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, ByteArray(16), null as java.net.NetworkInterface?), 1),
+		)
 		// No String holds a path that is not UTF-8.
 		"stray" -> stray()
 		"callback threw" -> emit(

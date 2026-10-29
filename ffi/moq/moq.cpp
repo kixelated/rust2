@@ -224,6 +224,12 @@ int main() {
 		listen.set_bind(moq::listen_bind(moq::listen_bind_addr{addr}));
 		auto bind = listen.bind();
 		CHECK(bind && is(moq::listen_bind_to_string(*bind), "[::1]:4443"));
+		// The preferred address of each family, which takes only that family.
+		listen.set_preferred_v6(addr);
+		auto preferred = listen.preferred_v6();
+		CHECK(preferred && preferred->v6 && preferred->port == 4443 && !listen.preferred_v4());
+		// A constant slice, as a vector of clones.
+		CHECK(!moq::alpns().empty());
 	}
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.

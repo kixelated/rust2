@@ -47,6 +47,7 @@ export interface Fixture<V> {
 	drain(rx: Consumer, depth: number): Future<V>;
 	blocks(rx: Consumer, guard: Guard, moves: boolean): Future<V>;
 	watch(rx: Consumer, guard: Guard): Future<V>;
+	front(rx: Consumer, guard: Guard): Future<V>;
 	drops: {
 		run(log: Log, id: number, arg: number): void;
 		held(rx: Consumer, guard: Guard): Future<V>;
@@ -301,6 +302,13 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.watch(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
+	[
+		"front",
+		(r, arg) => {
+			const c = pick(r.channels.length, arg);
+			if (c !== undefined) r.exec.spawn(r.f.front(r.f.Channel.consumer(r.channels[c]), guard(r)));
+		},
+	],
 ];
 
 /** The script runner, as `harness.rs` runs it natively. */
@@ -371,6 +379,10 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["watch", 0], ["run", 0], ["send", 3], ["run", 0], ["send", 4], ["run", 0], ["send", 7], ["run", 0], ["close", 0], ["run", 0]),
 	script(["open", 0], ["watch", 0], ["run", 0], ["send", 1], ["run", 0], ["send", 2], ["run", 0], ["close", 0], ["run", 0]),
 	script(["open", 0], ["watch", 0], ["watch", 0], ["run", 0], ["send", 6], ["step", 0], ["send", 8], ["drop", 1], ["run", 0], ["drop", 0]),
+	// moq's front: a listing filled in place and reset, then values in flight that a
+	// closure takes and refills each poll, read after it returns; and cancelled mid-wait.
+	script(["open", 0], ["front", 0], ["run", 0], ["send", 4], ["send", 3], ["send", 7], ["send", 9], ["send", 5], ["run", 0], ["send", 6], ["run", 0], ["send", 1], ["step", 0], ["close", 0], ["run", 0]),
+	script(["open", 0], ["front", 0], ["front", 0], ["run", 0], ["send", 2], ["run", 0], ["send", 8], ["step", 0], ["drop", 1], ["run", 0], ["drop", 0]),
 	// Each scenario of values std holds that drop.
 	...Array.from({ length: 15 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its, a tuple's, and a box's `clone`, and `Ord`'s defaults.

@@ -4,7 +4,7 @@ import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
 import { unwrapOr$Option_u64, map$Option_u64_Result_u64_u64_streamed_closure0_closure0 } from "./core/option.ts";
 import { map$Poll_Option_u64_Option_Result_u64_u64_streamed_closure0, map$Poll_u64_Option_u64_Some, isReady$Poll_unit, isPending$Poll_Option_u64 } from "./core/task/poll.ts";
-import { wait$watch_closure0_closure0_Option_u64, waitFuture$watch_closure0_closure1_usize, closedFuture, recvFuture } from "./kio.ts";
+import { wait$front_closure0_closure0_usize, wait$watch_closure0_closure0_Option_u64, waitFuture$watch_closure0_closure1_usize, closedFuture, recvFuture } from "./kio.ts";
 import * as Closed from "./kio.Closed.ts";
 import * as Consumer from "./kio.Consumer.ts";
 import * as Pending from "./kio.Pending.ts";
@@ -13,6 +13,7 @@ import * as Log from "./log.Log.ts";
 import * as Countdown from "./model.Countdown.ts";
 import * as Guard from "./model.Guard.ts";
 import * as Inner from "./model.Inner.ts";
+import * as Listing from "./model.Listing.ts";
 import type * as Mark from "./model.Mark.ts";
 import * as Outer from "./model.Outer.ts";
 import type * as Tally from "./model.Tally.ts";
@@ -291,6 +292,157 @@ export class watchFuture {
 						return _109;
 					}
 					this.#state = 6;
+					return rt.Pending;
+			}
+		}
+	}
+}
+
+/**
+ * moq's front: a listing a crate type's default fills in place between awaits, and
+ * values held in flight in a `Vec` that a `kio::wait` closure takes and refills on each
+ * poll, halving each until it is zero. The caller reads both after.
+ */
+export function front(rx: Consumer.Consumer, guard: Guard.Guard): rt.Future<rt.u64> {
+	return new frontFuture(rx, guard);
+}
+
+export class frontFuture {
+	#state: number = 0;
+	#rx: Consumer.Consumer;
+	#guard: Guard.Guard;
+	#listing!: Listing.Listing | undefined;
+	#inFlight!: rt.u64[];
+	#awaitee!: rt.Future<rt.u64 | undefined>;
+	#awaitee$2!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.usize>>;
+
+	constructor(rx: Consumer.Consumer, guard: Guard.Guard) {
+		this.#rx = rx;
+		this.#guard = guard;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.#state === 0) {
+			rt.drop(this.#rx);
+			rt.drop(this.#guard);
+			return;
+		}
+		if (this.#state === 3) {
+			rt.drop(this.#awaitee);
+		} else if (this.#state === 4) {
+			rt.drop(this.#awaitee$2);
+		} else {
+			return;
+		}
+		rt.drop(this.#guard);
+		rt.drop(this.#rx);
+	}
+
+	poll(_2: rt.Context): rt.Poll<rt.u64> {
+		let value!: rt.u64;
+		let bb0: number = 0;
+		while (true) {
+			switch (bb0) {
+				case 0:
+					if (this.#state === 0) {
+						this.#listing = undefined as Listing.Listing | undefined;
+						this.#inFlight = [];
+						bb0 = 1;
+						continue;
+					}
+					if (this.#state === 1) {
+						rt.asyncFnResumed();
+					} else {
+						if (this.#state === 3) {
+							bb0 = 4;
+							continue;
+						}
+						bb0 = 30;
+						continue;
+					}
+				case 1:
+					this.#awaitee = new recvFuture(this.#rx);
+					bb0 = 4;
+					continue;
+				case 4:
+					const _6: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_6 !== rt.Pending) {
+						const result: rt.u64 | undefined = _6;
+						rt.drop(this.#awaitee);
+						if (result !== undefined) {
+							value = result;
+							if (!(rt.u64Rem(value, 3) === 0)) {
+								if (this.#listing === undefined) {
+									this.#listing = Listing.default$Default();
+								}
+								(this.#listing as Listing.Listing).last = value;
+								(this.#listing as Listing.Listing).listed.push(value);
+								this.#inFlight.push(value);
+								if (!(rt.u64Rem(value, 3) === 2)) {
+									bb0 = 1;
+									continue;
+								}
+								bb0 = 20;
+								continue;
+							}
+							this.#listing = undefined;
+							bb0 = 1;
+							continue;
+						}
+						bb0 = 20;
+						continue;
+					}
+					this.#state = 3;
+					return rt.Pending;
+				case 20:
+					const arg = this.#listing;
+					const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(arg, f, (value: Listing.Listing, f: rt.Formatter) => Listing.fmt$Debug(value, f))];
+					const _32: string = rt.fmtFormat(["listing ", args2[0]]);
+					Guard.note(this.#guard, _32);
+					this.#awaitee$2 = wait$front_closure0_closure0_usize((waiter: Waiter.Waiter): rt.Poll<rt.usize> => {
+						while (true) {
+							const _42: rt.Poll<rt.u64 | undefined> = Consumer.pollRecv(this.#rx, waiter);
+							if (_42 !== rt.Pending) {
+								const next: rt.u64 | undefined = _42;
+								if (next === undefined) {
+									return this.#inFlight.length;
+								}
+								this.#inFlight.push(next);
+							} else {
+								break;
+							}
+						}
+						const taken = this.#inFlight;
+						this.#inFlight = [];
+						for (const _15 of taken) {
+							const half: rt.u64 = rt.u64Div(_15, 2);
+							if (half === 0) {
+								Guard.note(this.#guard, "released");
+							} else {
+								this.#inFlight.push(half);
+							}
+						}
+						return rt.Pending;
+					});
+					bb0 = 30;
+					continue;
+				case 30:
+					const _50: rt.Poll<rt.usize> = Pending.poll$Future_front_closure0_closure0(this.#awaitee$2, _2);
+					if (_50 !== rt.Pending) {
+						const closed: rt.usize = _50;
+						rt.drop(this.#awaitee$2);
+						const _69: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(closed, f);
+						const arg2 = this.#inFlight;
+						const args4: rt.Fmt[] = [_69, (f: rt.Formatter) => rt.fmtList(arg2, f, rt.u64Debug)];
+						const _60: string = rt.fmtFormat(["closed with ", args4[0], " in flight ", args4[1]]);
+						Guard.note(this.#guard, _60);
+						const _79: rt.u64 = rt.iterSum(rt.iterSlice(this.#inFlight), rt.u64Add, 0);
+						rt.drop(this.#guard);
+						rt.drop(this.#rx);
+						this.#state = 1;
+						return _79;
+					}
+					this.#state = 4;
 					return rt.Pending;
 			}
 		}
