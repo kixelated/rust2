@@ -328,7 +328,7 @@ fun script() {
 	Trail.new(listOf(Point(1, 2), Point(3, 4)), listOf("a", "b")).use { trail ->
 		println("trail ${trail.points().joinToString(", ", "[", "]") { it.debug() }} ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
 		// Returned iterators, each collected at the call: drained labels are gone after.
-		println("iterated ${trail.iter().joinToString(", ", "[", "]") { it.debug() }} ${trail.names().joinToString(", ", "[", "]") { "\"$it\"" }} ${trail.bytes().joinToString(", ", "[", "]") { it.toUByte().toString() }}")
+		println("iterated ${trail.iter().joinToString(", ", "[", "]") { it.debug() }} ${trail.names().joinToString(", ", "[", "]") { "\"$it\"" }} ${trail.bytes().use { it.toByteArray() }.joinToString(", ", "[", "]") { it.toUByte().toString() }}")
 		println("drained ${trail.drain().joinToString(", ", "[", "]") { it.debug() }} then ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
 	}
 	val numbered = numbered(listOf("p", "q"))
