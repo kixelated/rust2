@@ -60,7 +60,7 @@ const handoffRoutes = ["native", "wasm", "hand-written", "translated", "spawned"
 const extra = args.route === undefined ? undefined : await extraRoute(args.route);
 
 /** `--route`'s name, and the bundles of the translations in its directory, which must both be there. */
-async function extraRoute(arg: string): Promise<{ name: string; codec: Uint8Array; task: Uint8Array }> {
+async function extraRoute(arg: string): Promise<{ name: string; codec: Uint8Array<ArrayBuffer>; task: Uint8Array<ArrayBuffer> }> {
 	const at = arg.indexOf("=");
 	const name = arg.slice(0, at);
 	if (at < 1 || at === arg.length - 1) throw new Error(`--route takes name=dir, not ${arg}`);
@@ -83,13 +83,13 @@ const moq: BunPlugin = {
 };
 
 /** `entry` bundled and minified, as a consumer ships it: each route is timed and sized as this. */
-async function bundle(entry: string, plugins: BunPlugin[] = []): Promise<Uint8Array> {
+async function bundle(entry: string, plugins: BunPlugin[] = []): Promise<Uint8Array<ArrayBuffer>> {
 	const result = await Bun.build({ entrypoints: [entry], target: "browser", external: ["node:*"], minify: true, plugins });
 	if (result.outputs.length !== 1) throw new Error(`bundling ${entry} made ${result.outputs.length} files`);
 	return new Uint8Array(await result.outputs[0].arrayBuffer());
 }
 
-async function read(path: string): Promise<Uint8Array> {
+async function read(path: string): Promise<Uint8Array<ArrayBuffer>> {
 	return new Uint8Array(await Bun.file(path).arrayBuffer());
 }
 
@@ -177,8 +177,8 @@ const taskSizes = [
 	...(extra ? [{ route: extra.name, files: [extra.task] }] : []),
 ].map(measureSize);
 
-function measureSize({ route, files }: { route: string; files: Uint8Array[] }) {
-	const sum = (f: (b: Uint8Array) => number) => files.reduce((n, b) => n + f(b), 0);
+function measureSize({ route, files }: { route: string; files: Uint8Array<ArrayBuffer>[] }) {
+	const sum = (f: (b: Uint8Array<ArrayBuffer>) => number) => files.reduce((n, b) => n + f(b), 0);
 	return { route, raw: sum((b) => b.byteLength), gzip: sum((b) => Bun.gzipSync(b, { level: 9 }).byteLength) };
 }
 

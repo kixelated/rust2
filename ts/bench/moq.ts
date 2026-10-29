@@ -7,10 +7,9 @@
 //
 // `moq/` imports resolve to the moq checkout when `main.ts` bundles this file.
 
-import { Version as Ietf } from "moq/js/net/src/ietf/version.ts";
 import { Group } from "moq/js/net/src/lite/group.ts";
 import { Version as Lite } from "moq/js/net/src/lite/version.ts";
-import { Cursor, Reader, Writer } from "moq/js/net/src/stream.ts";
+import { Cursor, Reader, type StreamVersion, Writer } from "moq/js/net/src/stream.ts";
 import * as Varint from "moq/js/net/src/varint.ts";
 
 import { iterate } from "./iter.ts";
@@ -21,10 +20,11 @@ import { interleave, stamp } from "./timestamp.ts";
 type Version = (typeof Lite)[keyof typeof Lite];
 
 // bench.rs reads a selector through the harness's `form` and `lite_version`; these are the
-// ones the workloads use.
-const FORMS: Record<number, { version: number; encode: (dst: ArrayBuffer, v: number) => Uint8Array }> = {
-	0: { version: Ietf.DRAFT_16, encode: Varint.encodeTo },
-	1: { version: Ietf.DRAFT_17, encode: Varint.encodeLeadingOnesTo },
+// ones the workloads use. A form is the varint encoding of a version moq still speaks:
+// Lite 06 is the last with QUIC varints, and Lite 07 the first with leading ones.
+const FORMS: Record<number, { version: StreamVersion; encode: (dst: ArrayBuffer, v: number) => Uint8Array }> = {
+	0: { version: Lite.DRAFT_06, encode: Varint.encodeTo },
+	1: { version: Lite.DRAFT_07, encode: Varint.encodeLeadingOnesTo },
 };
 const LITE: Record<number, Version> = { 5: Lite.DRAFT_06, 6: Lite.DRAFT_07 };
 
