@@ -1,8 +1,10 @@
 // bench/export.c's frame writes through the generated C++ header, so the two differ by
-// what the C++ wrapper adds; then the read path, each read a future polled once ready.
+// what the C++ wrapper adds; then the read path, each read a future polled once ready, and
+// a frame's payload read.
 
 #include <chrono>
 #include <cstdio>
+#include <optional>
 
 #include "moq.hpp"
 
@@ -75,6 +77,7 @@ int main() {
 		return 4;
 	}
 	moq::track_subscriber subscriber = std::move(**subscribed);
+	std::optional<moq::frame_frame> last;
 	start = std::chrono::steady_clock::now();
 	for (int g = 0; g < groups; g++) {
 		moq::group_producer group = std::move(*track->append_group());
@@ -91,13 +94,23 @@ int main() {
 			if (!read || !*read || !read->value()) {
 				return 7;
 			}
+			if (g == groups - 1 && f == frames - 1) {
+				last = std::move(*read->value());
+			}
 		}
 		(void)std::move(group).finish();
 	}
 	double read = per_frame(start);
 
+	// Payload reads: the last frame's 100 bytes, owned without a copy, then freed.
+	start = std::chrono::steady_clock::now();
+	for (int i = 0; i < groups * frames; i++) {
+		closed += last->payload().data()[0];
+	}
+	double lent = per_frame(start);
+
 	std::printf(
-	    "export (C++): %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call, %.0f ns per frame written and read%s\n",
-	    stamped, reused, call, read, closed ? "!" : "");
+	    "export (C++): %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call, %.0f ns per frame written and read, %.0f ns per payload read%s\n",
+	    stamped, reused, call, read, lent, closed ? "!" : "");
 	return 0;
 }

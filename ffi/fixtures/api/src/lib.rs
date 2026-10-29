@@ -534,6 +534,34 @@ impl Drop for Token {
 	}
 }
 
+/// Bytes whose drop counts in [`dropped`], as a token's does.
+pub fn token_bytes(id: u32) -> Bytes {
+	// The token is held only for its drop.
+	struct Owner(#[allow(dead_code)] Token, [u8; 4]);
+
+	impl AsRef<[u8]> for Owner {
+		fn as_ref(&self) -> &[u8] {
+			&self.1
+		}
+	}
+
+	Bytes::from_owner(Owner(Token::new(id), id.to_le_bytes()))
+}
+
+/// A payload and its sequence number: a record, whose bytes cross in both ways.
+pub struct Packet {
+	pub seq: u32,
+	pub payload: Bytes,
+}
+
+/// The packet after `packet`, which carries its payload on.
+pub fn next_packet(packet: Packet) -> Packet {
+	Packet {
+		seq: packet.seq + 1,
+		payload: packet.payload,
+	}
+}
+
 /// Retry settings: each field is unset until C sets it, and the method of its name
 /// resolves it, as Rust's accessors do. Not exhaustive, so an object with getters.
 #[non_exhaustive]

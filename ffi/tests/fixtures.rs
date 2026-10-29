@@ -232,6 +232,7 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 		"the Kotlin transcript differs from the native one"
 	);
 	run(&mut java(&["futures"]));
+	run(&mut java(&["owned"]));
 	for (case, message) in [
 		("moved", "Counter is closed"),
 		("boxed moved", "Node is closed"),

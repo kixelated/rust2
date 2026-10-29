@@ -12,8 +12,10 @@
 //! codec, the handles, and the waker a future parks on; the glue's,
 //! [`runtime/jni.rs`](../runtime/jni.rs), the same on the Rust side.
 //!
-//! A value crosses JNI as a scalar, a handle as a `long`, bytes as a `byte[]`, or encoded
-//! into a `byte[]` field by field as its C struct holds it, so each call is one crossing.
+//! A value crosses JNI as a scalar, a handle as a `long`, bytes passed in as a `byte[]`,
+//! bytes returned as their owner, which a `Bytes` lends as a direct `ByteBuffer`, or
+//! encoded into a `byte[]` field by field as its C struct holds it, so each call is one
+//! crossing. An object or `Bytes` never closed is freed once the GC collects it.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
@@ -62,11 +64,12 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 	kotlin.push_str(
 		"/** Wakes a future's poller. Rust may call [wake] from any thread, any number of times. */\nfun interface Waker {\n\tfun wake()\n}\n\n",
 	);
+	kotlin.push_str(BYTES);
 	kotlin.push_str(&g.types);
 	kotlin.push_str(&g.top);
 	let _ = write!(
 		kotlin,
-		"internal object Native {{\n\tinit {{\n\t\tSystem.loadLibrary(\"{p}\")\n\t\t// Checked before any other call: a Kotlin file and a library from different\n\t\t// builds must not mix.\n\t\tkotlin.check(__contract().toULong() == {}) {{ \"{p}.kt and the library are from different builds\" }}\n\t}}\n\n\t@JvmStatic external fun __contract(): Long\n\n\t@JvmStatic external fun __waker_new(waker: Waker): Long\n\n\t@JvmStatic external fun __waker_free(node: Long)\n\n\t@JvmStatic private fun __wake(waker: Any) = (waker as Waker).wake()\n\n\t@JvmStatic private fun __free(implementation: Any) {{\n\t\tif (implementation is AutoCloseable) implementation.close()\n\t}}\n\n{}{}}}\n",
+		"internal object Native {{\n\tinit {{\n\t\tSystem.loadLibrary(\"{p}\")\n\t\t// Checked before any other call: a Kotlin file and a library from different\n\t\t// builds must not mix.\n\t\tkotlin.check(__contract().toULong() == {}) {{ \"{p}.kt and the library are from different builds\" }}\n\t}}\n\n\t@JvmStatic external fun __contract(): Long\n\n\t@JvmStatic external fun __waker_new(waker: Waker): Long\n\n\t@JvmStatic external fun __waker_free(node: Long)\n\n\t@JvmStatic external fun __bytes_buffer(owner: Long): java.nio.ByteBuffer\n\n\t@JvmStatic external fun __bytes_free(owner: Long)\n\n\t@JvmStatic private fun __wake(waker: Any) = (waker as Waker).wake()\n\n\t@JvmStatic private fun __free(implementation: Any) {{\n\t\tif (implementation is AutoCloseable) implementation.close()\n\t}}\n\n{}{}}}\n",
 		contract_literal(contract),
 		g.natives,
 		indent_by(RUNTIME, 1),
@@ -95,6 +98,14 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 		pub unsafe extern \"system\" fn Java_{pkg}_Native__1_1waker_1free(_: *mut JNIEnv, _: jclass, node: jlong) {{\n\
 		\tunsafe {{ rt::unref(node as usize as _) }}\n\
 		}}\n\n\
+		#[unsafe(no_mangle)]\n\
+		pub unsafe extern \"system\" fn Java_{pkg}_Native__1_1bytes_1buffer(env: *mut JNIEnv, _: jclass, owner: jlong) -> jobject {{\n\
+		\tunsafe {{ rt::buffer(env, owner) }}\n\
+		}}\n\n\
+		#[unsafe(no_mangle)]\n\
+		pub unsafe extern \"system\" fn Java_{pkg}_Native__1_1bytes_1free(_: *mut JNIEnv, _: jclass, owner: jlong) {{\n\
+		\tunsafe {{ rt::free_bytes(owner) }}\n\
+		}}\n\n\
 		{}",
 		g.glue,
 		pkg = mangle(p),
@@ -104,9 +115,45 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 
 const IMPORTS: &[&str] = &["kotlin.coroutines.resume", "kotlin.time.toDuration"];
 
+/// The bytes Rust returns, lent rather than copied.
+const BYTES: &str = "/**
+ * Bytes Rust returned, lent without a copy: [buffer] reads them until [close] frees them,
+ * after which reading it is undefined. Unclosed, they are freed once the GC collects
+ * [buffer], so keep it, not only a slice of it, while reading.
+ */
+class Bytes private constructor(buffer: java.nio.ByteBuffer, owner: Long) : AutoCloseable {
+\t/** Bytes Kotlin holds, as a record Rust takes needs, which [close] leaves readable. */
+\tconstructor(bytes: ByteArray) : this(java.nio.ByteBuffer.wrap(bytes), 0L)
+
+\tinternal constructor(owner: Long) : this(Native.__bytes_buffer(owner), owner)
+
+\t/** The bytes, read-only. */
+\tval buffer: java.nio.ByteBuffer = buffer.asReadOnlyBuffer()
+
+\tprivate val free = if (owner == 0L) null else Native.Free(this.buffer, owner)
+
+\t@Volatile private var closed = false
+
+\t/** The bytes, copied. */
+\tfun toByteArray(): ByteArray = read().let { b -> ByteArray(b.remaining()).also { b.get(it) } }
+
+\t/** A view of the bytes from their start, which throws once closed. */
+\tinternal fun read(): java.nio.ByteBuffer {
+\t\tkotlin.check(!closed) { \"Bytes is closed\" }
+\t\treturn buffer.duplicate().also { it.clear() }
+\t}
+
+\toverride fun close() {
+\t\tclosed = true
+\t\tfree?.free()
+\t}
+}
+
+";
+
 /// The names the generated code uses unqualified, which no exported type or function may
-/// take. The runtime's own are the C ABI's: `Native`, `Waker`, and `Bound` are claimed as
-/// `<prefix>_native`, `<prefix>_waker`, and `<prefix>_bound`.
+/// take. The runtime's own are the C ABI's: `Native`, `Waker`, `Bytes`, and `Bound` are
+/// claimed as `<prefix>_native`, `<prefix>_waker`, `<prefix>_bytes`, and `<prefix>_bound`.
 const TAKEN: &[&str] = &[
 	"Any",
 	"AutoCloseable",
@@ -245,7 +292,7 @@ impl<'a> Gen<'a> {
 			Type::F64 => "Double".to_string(),
 			Type::Char => "Int".to_string(),
 			Type::Str | Type::String => "String".to_string(),
-			Type::Slice | Type::Vec | Type::Bytes => "ByteArray".to_string(),
+			Type::Slice | Type::Vec | Type::Bytes => "Bytes".to_string(),
 			Type::Path | Type::PathBuf => "String".to_string(),
 			Type::Duration => "kotlin.time.Duration".to_string(),
 			Type::SocketAddr(_) => "java.net.InetSocketAddress".to_string(),
@@ -258,7 +305,7 @@ impl<'a> Gen<'a> {
 			Type::Object(i) => self.class(&abi.object(*i)),
 			Type::Callback(i, _) => self.class(&abi.callback(*i)),
 			Type::Closure(params, ret) => {
-				let params: Vec<String> = params.iter().map(|p| self.kt(p)).collect();
+				let params: Vec<String> = params.iter().map(|p| self.kt_param(p)).collect();
 				format!("({}) -> {}", params.join(", "), self.kt(ret))
 			}
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => self.class(&abi.range(ty)),
@@ -271,6 +318,18 @@ impl<'a> Gen<'a> {
 					n => format!("{}<{}>", self.tuple(n), elements.join(", ")),
 				}
 			}
+		}
+	}
+
+	/// The Kotlin type of a parameter of type `ty`, either way: its bytes, alone or in an
+	/// `Option` or a list, are a `ByteArray`, copied.
+	fn kt_param(&mut self, ty: &Type) -> String {
+		match ty {
+			Type::Slice | Type::Vec | Type::Bytes => "ByteArray".to_string(),
+			Type::List(inner) => format!("kotlin.collections.List<{}>", self.kt_param(inner)),
+			Type::Option(inner) => format!("{}?", self.kt_param(inner)),
+			Type::Box(inner) | Type::Ref(_, inner) => self.kt_param(inner),
+			_ => self.kt(ty),
 		}
 	}
 
@@ -326,6 +385,12 @@ impl<'a> Gen<'a> {
 
 	/// A Kotlin expression reading a value of type `ty`, owned, from the reader `r`.
 	fn read_value(&mut self, ty: &Type, r: &str) -> String {
+		self.read(ty, r, true)
+	}
+
+	/// [`Self::read_value`], reading bytes as a `Bytes` Rust handed over if `owned`, or as
+	/// a parameter's `ByteArray`, copied, if not.
+	fn read(&mut self, ty: &Type, r: &str, owned: bool) -> String {
 		let abi = self.abi;
 		match ty {
 			Type::Unit => "Unit".to_string(),
@@ -339,11 +404,12 @@ impl<'a> Gen<'a> {
 			Type::Char => format!("{r}.i32()"),
 			Type::Str | Type::String => format!("{r}.string()!!"),
 			Type::Path | Type::PathBuf => format!("{r}.path()!!"),
+			Type::Slice | Type::Vec | Type::Bytes if owned => format!("{r}.owned()!!"),
 			Type::Slice | Type::Vec | Type::Bytes => format!("{r}.bytes()!!"),
 			Type::Duration => format!("{r}.duration()"),
 			Type::SocketAddr(_) => format!("{r}.socketAddr()"),
 			Type::List(inner) => {
-				let item = self.read_value(inner, r);
+				let item = self.read(inner, r, owned);
 				format!("kotlin.collections.List({r}.i32()) {{ {item} }}")
 			}
 			Type::Option(inner) => match inner.base() {
@@ -355,15 +421,16 @@ impl<'a> Gen<'a> {
 				Type::Path | Type::PathBuf => format!("{r}.path()"),
 				Type::List(item) => {
 					let n = self.fresh("n");
-					let item = self.read_value(item, r);
+					let item = self.read(item, r, owned);
 					format!(
 						"{r}.i32().let {{ {n} -> if ({n} < 0) null else kotlin.collections.List({n}) {{ {item} }} }}"
 					)
 				}
+				base if Abi::is_buf(base) && owned => format!("{r}.owned()"),
 				base if Abi::is_buf(base) => format!("{r}.bytes()"),
-				_ => format!("(if ({r}.bool()) {} else null)", self.read_value(inner, r)),
+				_ => format!("(if ({r}.bool()) {} else null)", self.read(inner, r, owned)),
 			},
-			Type::Box(inner) | Type::Ref(_, inner) => self.read_value(inner, r),
+			Type::Box(inner) | Type::Ref(_, inner) => self.read(inner, r, owned),
 			Type::Record(i) => format!("r_{}({r})", abi.record(*i)),
 			Type::Enum(i) => match abi.api.enums[*i].plain() {
 				true => format!("{}.of({r}.i32())", self.class(&abi.enumeration(*i))),
@@ -385,7 +452,8 @@ impl<'a> Gen<'a> {
 	}
 
 	/// The Kotlin value of the JNI scalar or `byte[]` `e`, of IR type `ty` and C type `c`,
-	/// which Rust returned or lent. A lent object is wrapped as lent.
+	/// which Rust returned or lent. A lent object is wrapped as lent, and lent bytes are a
+	/// parameter's, copied; returned bytes cross as their owner, unless text.
 	fn lift(&mut self, ty: &Type, c: &Ty, e: &str, lent: bool) -> String {
 		match c {
 			Ty::Void => e.to_string(),
@@ -403,15 +471,17 @@ impl<'a> Gen<'a> {
 					_ => wrap(e),
 				}
 			}
-			Ty::Buf => match (decode(ty), matches!(ty, Type::Option(_))) {
-				(Some(decode), true) => format!("{e}?.{decode}"),
-				(Some(decode), false) => format!("{e}!!.{decode}"),
-				(None, true) => e.to_string(),
-				(None, false) => format!("{e}!!"),
+			Ty::Buf => match (decode(ty), matches!(ty, Type::Option(_)), lent) {
+				(Some(decode), true, _) => format!("{e}?.{decode}"),
+				(Some(decode), false, _) => format!("{e}!!.{decode}"),
+				(None, true, true) => e.to_string(),
+				(None, false, true) => format!("{e}!!"),
+				(None, true, false) => format!("{e}.let {{ o -> if (o == 0L) null else Bytes(o) }}"),
+				(None, false, false) => format!("Bytes({e})"),
 			},
 			_ => {
 				let r = self.fresh("r");
-				let read = self.read_value(&strip_refs(ty), &r);
+				let read = self.read(&strip_refs(ty), &r, !lent);
 				format!("Native.Reader({e}).let {{ {r} -> {read} }}")
 			}
 		}
@@ -837,8 +907,11 @@ impl<'a> Gen<'a> {
 			reads.join(", ")
 		);
 		let fields: Vec<String> = (0..record.fields.len()).map(|n| format!("f{n}: r.get()")).collect();
-		let puts: String = (0..record.fields.len())
-			.map(|n| format!("\t\tw.put(self.f{n});\n"))
+		let puts: String = record
+			.fields
+			.iter()
+			.enumerate()
+			.map(|(n, f)| format!("\t\t{};\n", put(&f.ty, &format!("self.f{n}"))))
 			.collect();
 		let _ = write!(
 			self.glue,
@@ -942,7 +1015,12 @@ impl<'a> Gen<'a> {
 						"\t\t\t{n} => Self {{ tag, u: crate::{c}_union {{ v{n}: crate::{payload} {{ {} }} }} }},",
 						fields.join(", ")
 					));
-					let puts: Vec<String> = (0..variant.fields.len()).map(|k| format!("w.put(p.f{k});")).collect();
+					let puts: Vec<String> = variant
+						.fields
+						.iter()
+						.enumerate()
+						.map(|(k, f)| format!("{};", put(&f.ty, &format!("p.f{k}"))))
+						.collect();
 					glue_writes.push(format!(
 						"\t\t\t{n} => {{\n\t\t\t\tlet p = unsafe {{ self.u.v{n} }};\n\t\t\t\t{}\n\t\t\t}}",
 						puts.join("\n\t\t\t\t")
@@ -992,7 +1070,7 @@ impl<'a> Gen<'a> {
 			&format!("crate::{c}_free(p0 as usize as _)"),
 		);
 		let mut body = vec![format!(
-			"\tinternal val handle = Native.Handle(raw, if (lent) null else Native::{bare}_free, \"{name}\")\n\n\t/** Free the handle once no call holds it: a call after this throws. */\n\toverride fun close() = handle.close()\n"
+			"\tinternal val handle = Native.Handle(this, raw, if (lent) null else Native::{bare}_free, \"{name}\")\n\n\t/** Free the handle once no call holds it: a call after this throws. */\n\toverride fun close() = handle.close()\n"
 		)];
 		let mut statics = Vec::new();
 		self.traits(&ty, &c, object.traits, &mut body, &mut statics);
@@ -1044,7 +1122,7 @@ impl<'a> Gen<'a> {
 			let params: Vec<String> = method
 				.params
 				.iter()
-				.map(|p| format!("{}: {}", kw(&camel(&p.name)), self.kt(&p.ty)))
+				.map(|p| format!("{}: {}", kw(&camel(&p.name)), self.kt_param(&p.ty)))
 				.collect();
 			let ret = self.kt(&method.ok);
 			body.push(format!(
@@ -1315,7 +1393,7 @@ impl<'a> Gen<'a> {
 		for param in &function.params {
 			let (_, c) = c_params.next().expect("each parameter has its C one");
 			let name = kw(&camel(&param.name));
-			kt_params.push(format!("{name}: {}", self.kt(&param.ty)));
+			kt_params.push(format!("{name}: {}", self.kt_param(&param.ty)));
 			let trampoline = match (&param.ty, c) {
 				(Type::Closure(..), Ty::Fn(..)) => {
 					c_params.next().expect("a closure has its data");
@@ -1387,7 +1465,7 @@ impl<'a> Gen<'a> {
 			let poll_bare = self.bare(&poll.name).to_string();
 			let free_bare = self.bare(&free.name).to_string();
 			let poll_outs: Vec<(String, Ty)> = poll.params[2..].to_vec();
-			let (decl, ptrs, write) = self.glue_outs(&poll_outs, function.err.is_some());
+			let (decl, ptrs, write) = self.glue_outs(&poll_outs, &function.ok, function.err.as_ref());
 			let ok_set = match function.err.is_some() {
 				true => "let ok = ret == 1;\n\t",
 				false => "",
@@ -1442,7 +1520,7 @@ impl<'a> Gen<'a> {
 				s = signal.as_deref().expect("a future takes a signal"),
 			);
 		} else if !outs.is_empty() {
-			let (decl, ptrs, write) = self.glue_outs(&outs, function.err.is_some());
+			let (decl, ptrs, write) = self.glue_outs(&outs, &function.ok, function.err.as_ref());
 			let params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
 			// Only a result's write reads whether it returned ok.
 			let ret_set = match function.err.is_some() {
@@ -1469,7 +1547,11 @@ impl<'a> Gen<'a> {
 			};
 		} else {
 			let c_ret = export.call.ret.clone();
-			let (jni, native) = jni_type(&c_ret, &ok);
+			let (jni, native) = match c_ret {
+				// Bytes cross as their owner.
+				Ty::Buf if !string(&ok) => ("jlong", "Long"),
+				_ => jni_type(&c_ret, &ok),
+			};
 			let params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
 			let ret_expr = match &c_ret {
 				Ty::Void => "ret".to_string(),
@@ -1479,8 +1561,12 @@ impl<'a> Gen<'a> {
 				Ty::Char => "ret as jint".to_string(),
 				Ty::Enum(_) => "ret".to_string(),
 				Ty::Handle { .. } => "ret as usize as jlong".to_string(),
-				Ty::Buf => "rt::owned(env, ret)".to_string(),
-				_ => "{ let mut w = rt::Writer::default(); w.put(ret); w.array(env) }".to_string(),
+				Ty::Buf if string(&ok) => "rt::owned(env, ret)".to_string(),
+				Ty::Buf => "rt::hand(ret)".to_string(),
+				_ => format!(
+					"{{ let mut w = rt::Writer::default(); {}; w.array(env) }}",
+					put(&ok, "ret")
+				),
 			};
 			self.native(
 				&bare,
@@ -1585,22 +1671,31 @@ impl<'a> Gen<'a> {
 		}
 	}
 
-	/// The glue's out values for `outs`, the pointers the C call takes after its
-	/// parameters, and the statements writing them, `ok` saying whether it returned ok.
-	fn glue_outs(&mut self, outs: &[(String, Ty)], result: bool) -> (String, Vec<String>, String) {
+	/// The glue's out values for `outs`, of a function returning `ok` or `err`, the
+	/// pointers the C call takes after its parameters, and the statements writing them,
+	/// `ok` saying whether it returned ok.
+	fn glue_outs(&mut self, outs: &[(String, Ty)], ok: &Type, err_ty: Option<&Type>) -> (String, Vec<String>, String) {
 		let mut decl = Vec::new();
 		let mut ptrs = Vec::new();
 		let mut oks = Vec::new();
 		let mut err = String::new();
-		for (name, _) in outs {
+		// Each out's type, in the order the C ABI lists them.
+		let types: Vec<&Type> = match ok {
+			Type::Unit => Vec::new(),
+			Type::Tuple(elements) => elements.iter().collect(),
+			ok => vec![ok],
+		};
+		let types = types.into_iter().chain(err_ty);
+		for ((name, _), ty) in outs.iter().zip(types) {
 			decl.push(format!("let mut o_{name} = MaybeUninit::zeroed();"));
 			ptrs.push(format!("o_{name}.as_mut_ptr()"));
+			let put = format!("{};", put(ty, &format!("o_{name}.assume_init()")));
 			match name.as_str() {
-				"err" => err = format!("w.put(o_{name}.assume_init());"),
-				_ => oks.push(format!("w.put(o_{name}.assume_init());")),
+				"err" => err = put,
+				_ => oks.push(put),
 			}
 		}
-		let write = match result {
+		let write = match err_ty.is_some() {
 			true => format!(
 				"w.put(ok);\n\t\tif ok {{\n\t\t\t{}\n\t\t}} else {{\n\t\t\t{err}\n\t\t}}",
 				oks.join("\n\t\t\t")
@@ -1622,6 +1717,24 @@ impl<'a> Gen<'a> {
 			lines.push(self.read_value(ok, r));
 		}
 		lines
+	}
+}
+
+/// The glue's statement writing the C value `e` of IR type `ty`, which Rust returns: its
+/// bytes cross as their owner.
+fn put(ty: &Type, e: &str) -> String {
+	match bytes(ty) {
+		true => format!("w.put(rt::Owned({e}))"),
+		false => format!("w.put({e})"),
+	}
+}
+
+/// Whether `ty` is bytes, alone or in an `Option` or a list.
+fn bytes(ty: &Type) -> bool {
+	match ty {
+		Type::Slice | Type::Vec | Type::Bytes => true,
+		Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) | Type::List(inner) => bytes(inner),
+		_ => false,
 	}
 }
 

@@ -53,15 +53,17 @@ fun round(): String {
 
 	// Reads: each frame written, then read through a suspend fun whose future is ready at
 	// its first poll, so it never suspends.
+	var last: FrameFrame? = null
 	val read = runBlocking {
 		val subscriber = track.consume().use { it.subscribe(null) }
 		val start = System.nanoTime()
-		repeat(GROUPS) {
+		repeat(GROUPS) { g ->
 			track.appendGroup().use { group ->
 				subscriber.recvGroup()!!.use { reader ->
-					repeat(FRAMES) {
+					repeat(FRAMES) { f ->
 						group.writeFrame(at, frame)
-						reader.readFrame()!!.close()
+						val read = reader.readFrame()!!
+						if (g == GROUPS - 1 && f == FRAMES - 1) last = read else read.close()
 					}
 				}
 				group.finish()
@@ -69,13 +71,22 @@ fun round(): String {
 		}
 		perFrame(start).also { subscriber.close() }
 	}
+
+	// Payload reads: the last frame's 100 bytes, lent without a copy, then freed.
+	start = System.nanoTime()
+	last!!.use { read ->
+		repeat(GROUPS * FRAMES) {
+			read.payload.use { closed += it.buffer.get(0) }
+		}
+	}
+	val lent = perFrame(start)
 	at.close()
 	track.close()
 	broadcast.close()
 
 	val bang = if (closed != 0) "!" else ""
-	return "export (Kotlin): %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call, %.0f ns per frame written and read%s"
-		.format(stamped, reused, call, read, bang)
+	return "export (Kotlin): %.0f ns per stamped 100 B frame, %.0f reusing the timestamp, %.1f ns per handle call, %.0f ns per frame written and read, %.0f ns per payload read%s"
+		.format(stamped, reused, call, read, lent, bang)
 }
 
 fun main() {

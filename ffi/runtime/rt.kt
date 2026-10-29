@@ -1,6 +1,6 @@
 // The runtime every generated Kotlin file includes in its `Native` object, so no name it
 // takes can clash with an exported type's: the codec values cross JNI in, the handles
-// objects own, and the waker futures park on.
+// objects own, what frees them once collected, and the waker futures park on.
 
 /** Encodes values as the library's JNI glue decodes them: little-endian, field by field. */
 class Writer {
@@ -55,6 +55,18 @@ class Writer {
 		room(4 + v.size)
 		b.putInt(v.size)
 		b.put(v)
+	}
+
+	/** Bytes a record holds, as [bytes] writes a `ByteArray`. */
+	fun bytes(v: Bytes?) {
+		if (v == null) {
+			i32(-1)
+			return
+		}
+		val src = v.read()
+		room(4 + src.remaining())
+		b.putInt(src.remaining())
+		b.put(src)
 	}
 
 	fun string(v: String?) = bytes(v?.encodeToByteArray())
@@ -147,6 +159,9 @@ class Reader(bytes: ByteArray) {
 		return v
 	}
 
+	/** Bytes Rust handed over uncopied, as their owner, or null for none. */
+	fun owned(): Bytes? = b.getLong().let { if (it == 0L) null else Bytes(it) }
+
 	fun string(): String? {
 		val n = b.getInt()
 		if (n < 0) return null
@@ -185,13 +200,65 @@ class Reader(bytes: ByteArray) {
 }
 
 /**
- * A handle an object owns, or is lent for a call: each call holds it, so [close] frees it
- * only once no call does, and a call after [close] throws.
+ * Frees a Rust value once the GC collects its owner, unless freed first: a phantom
+ * reference, which one daemon thread takes off one queue, as every JVM and Android level
+ * has. Freeing first is the fast path, and [untrack] makes it the only one.
  */
-class Handle(internal val raw: Long, private val free: ((Long) -> Unit)?, private val type: String) {
+abstract class Cleanup(owner: Any?) : java.lang.ref.PhantomReference<Any>(owner, QUEUE) {
+	// The GC enqueues only a reference still reachable, so each is linked from [head]
+	// until freed.
+	private var prev: Cleanup? = null
+	private var next: Cleanup? = null
+
+	protected fun track() = synchronized(LOCK) {
+		next = head
+		head?.prev = this
+		head = this
+	}
+
+	/** Stop tracking, true if this call did: so whatever frees after it frees once. */
+	protected fun untrack(): Boolean = synchronized(LOCK) {
+		if (head !== this && prev == null) return false
+		prev?.next = next
+		next?.prev = prev
+		if (head === this) head = next
+		prev = null
+		next = null
+		true
+	}
+
+	/** Run on the cleaner's thread once the owner is collected. */
+	protected abstract fun collected()
+
+	private companion object {
+		val QUEUE = java.lang.ref.ReferenceQueue<Any>()
+		val LOCK = Any()
+		var head: Cleanup? = null
+
+		init {
+			val thread = java.lang.Thread({
+				while (true) (QUEUE.remove() as Cleanup).collected()
+			}, "rust2-ffi cleaner")
+			thread.isDaemon = true
+			thread.start()
+		}
+	}
+}
+
+/**
+ * A handle [owner] owns, or is lent for a call: each call holds it, so [close] frees it
+ * only once no call does, and a call after [close] throws. An owned one is closed once
+ * the GC collects [owner], if nothing closed it.
+ */
+class Handle(owner: Any, internal val raw: Long, private val free: ((Long) -> Unit)?, private val type: String) :
+	Cleanup(if (free == null) null else owner) {
 	// One for the owner until closed, and one per call holding it.
 	private val holds = java.util.concurrent.atomic.AtomicLong(1)
 	private val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+
+	init {
+		if (free != null) track()
+	}
 
 	fun hold(): Long {
 		while (true) {
@@ -202,12 +269,15 @@ class Handle(internal val raw: Long, private val free: ((Long) -> Unit)?, privat
 	}
 
 	fun release() {
-		if (holds.decrementAndGet() == 0L) free?.invoke(raw)
+		if (holds.decrementAndGet() == 0L && free != null && untrack()) free.invoke(raw)
 	}
 
 	fun close() {
 		if (closed.compareAndSet(false, true)) release()
 	}
+
+	// A call still holding it frees it once it returns.
+	override fun collected() = close()
 
 	/** Run [block] with the raw handle, held until it returns. */
 	inline fun <R> hold(block: (Long) -> R): R {
@@ -218,6 +288,19 @@ class Handle(internal val raw: Long, private val free: ((Long) -> Unit)?, privat
 			release()
 		}
 	}
+}
+
+/** Frees bytes Rust handed over, once, at [free] or once the GC collects [buffer]. */
+class Free(buffer: java.nio.ByteBuffer, private val owner: Long) : Cleanup(buffer) {
+	init {
+		track()
+	}
+
+	fun free() {
+		if (untrack()) __bytes_free(owner)
+	}
+
+	override fun collected() = free()
 }
 
 /** Run [block] with the raw handle of [handle], or 0 for none, held until it returns. */
