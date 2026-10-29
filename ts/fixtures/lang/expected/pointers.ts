@@ -125,7 +125,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, mapOr$Option_u8_Arc_u8_u8_shared_closure0(List.remove$Arc_u8(list, key2), 255, (_2: [rt.u8, rt.Arc<rt.u8>]): rt.u8 => {
 				const v: rt.Arc<rt.u8> = _2[1];
 				const _0: rt.u8 = v.value;
-				rt.drop(v);
+				v[Symbol.dispose]();
 				return _0;
 			}));
 		} else {
@@ -135,7 +135,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	drop$List_Arc_u8(list);
 	rt.byteVecPush(out, held.strong & 0xff);
-	rt.drop(held);
+	held[Symbol.dispose]();
 }
 
 /**
@@ -227,9 +227,9 @@ export function unchecked(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, boxed.v & 0xff);
 	rt.byteVecPush(out, slot & 0xff);
 	rt.byteVecPush(out, held.strong & 0xff);
-	rt.drop(rt.place(() => dropped, (value3) => dropped = value3).v);
+	rt.place(() => dropped, (value3) => dropped = value3).v[Symbol.dispose]();
 	rt.byteVecPush(out, held.strong & 0xff);
-	rt.drop(held);
+	held[Symbol.dispose]();
 }
 
 /**

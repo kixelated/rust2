@@ -314,7 +314,7 @@ export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt
 }
 
 export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
-	rt.drop(_1[1]);
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {

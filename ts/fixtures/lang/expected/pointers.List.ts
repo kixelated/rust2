@@ -14,19 +14,19 @@ export class List<V> {
 	free: Node.Node<V> | undefined;
 	len: rt.usize;
 
-	constructor(fields: { guard: Node.Node<V> | undefined; free: Node.Node<V> | undefined; len: rt.usize }) {
-		this.guard = fields.guard;
-		this.free = fields.free;
-		this.len = fields.len;
+	constructor(guard: Node.Node<V> | undefined, free: Node.Node<V> | undefined, len: rt.usize) {
+		this.guard = guard;
+		this.free = free;
+		this.len = len;
 	}
 }
 
 export function new$Arc_u8(): List<rt.Arc<rt.u8>> {
-	return new List({ guard: undefined, free: undefined, len: 0 });
+	return new List(undefined, undefined, 0);
 }
 
 export function new$String(): List<string> {
-	return new List({ guard: undefined, free: undefined, len: 0 });
+	return new List(undefined, undefined, 0);
 }
 
 export function guard$Arc_u8(self: List<rt.Arc<rt.u8>>): Node.Node<rt.Arc<rt.u8>> {
