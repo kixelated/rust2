@@ -2113,8 +2113,17 @@ impl<'tcx> Collector<'tcx> {
 				continue;
 			}
 			// Any other source is taken as it is: `impl<'a, V> From<&'a V> for Timed<&'a V>`
-			// makes `impl Into<Timed<&'a T>>` take `&T`.
+			// makes `impl Into<Timed<&'a T>>` take `&T`. One that must outlive the call, by
+			// naming `'static` or by a lifetime bound, takes nothing C lends for it.
 			if !source.is_ty_var() {
+				let lasting = source.walk().any(|arg| arg.as_region().is_some_and(|r| r.is_static()))
+					|| (tcx.clauses_of(imp).instantiate(tcx, args).clauses.iter()).any(|clause| {
+						let clause = clause.skip_norm_wip();
+						clause.as_type_outlives_clause().is_some() || clause.as_region_outlives_clause().is_some()
+					});
+				if lasting {
+					continue;
+				}
 				let x = tcx.erase_and_anonymize_regions(infcx.deeply_resolve_ignoring_regions(source));
 				if !x.has_non_region_infer() && !found.contains(&(x, false)) {
 					found.push((x, false));
