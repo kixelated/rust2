@@ -3,15 +3,20 @@
 // moq-pattern, moq-clock, moq-tokio, hang, and moq-mux exported into the same library,
 // and the catalog lent to Kotlin for a call.
 //
-// It needs no runtime: each read that must wait resumes on a dispatcher the script
-// drains, after the write that wakes it.
+// The local reads need no runtime: each read that must wait resumes on a dispatcher the
+// script drains, after the write that wakes it. A session over QUIC runs on moq-tokio's
+// fallback runtime, whose threads resume Kotlin's.
 
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executor
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import moq.*
 
 var failures = 0
@@ -247,6 +252,56 @@ fun main() {
 	// TLS files, as OS paths, and fingerprints, as strings: none by default.
 	TlsConnect.default().use { tls ->
 		expect(tls.root.isEmpty() && tls.fingerprint.isEmpty(), "a default TLS config lists none")
+	}
+
+	// A session, as moq.c runs it: a server bound to port 0 reads back the port it got and
+	// serves with one call, in a coroutine of its own, and a client dials it with one call
+	// and reads a frame back, each suspend fun resuming once moq-tokio's fallback runtime
+	// wakes it from its threads. A stall fails with the timeout's exception.
+	runBlocking {
+		withTimeout(30.seconds) {
+			val served = originSpawn()
+			val live = served.createBroadcast("live")
+			live.announce(OriginRoute.default())
+			val liveTrack = live.broadcast().createTrack("video", null)
+			val liveGroup = liveTrack.appendGroup()
+			liveGroup.writeFrame(null, "hello")
+			liveGroup.finish()
+
+			val serverConfig = ServerConfig.default()
+			val listen = serverConfig.listen
+			listen.setBind(ListenBind.Addr(InetSocketAddress(InetAddress.getByName("::"), 0)))
+			val tls = listen.tls
+			tls.setGenerate(listOf("localhost"))
+			listen.setTls(tls)
+			serverConfig.setListen(listen)
+			val server = serverConfig.init()
+			val local = server.localAddr()
+			expect(local.port != 0, "a server bound to port 0 reads back the port it got")
+			val serving = launch { server.servePublish(served.consume()) }
+
+			val connect = ConnectConfig.default()
+			connect.setUrl(Url.parse("moqt://localhost:${local.port}"))
+			val insecure = connect.tls
+			insecure.setInsecure(true)
+			connect.setTls(insecure)
+			val clientConfig = ClientConfig.default()
+			clientConfig.setConnect(connect)
+			val client = clientConfig.init()
+			val received = originSpawn()
+			val remote = received.consume()
+			val connection = client.clone().withReconnect(false).consume(received)
+			expect(connection != null, "a client with a URL dials it")
+			val established = connection!!.established()
+
+			val subscriber = remote.requestBroadcast("live", null).track("video").subscribe(null)
+			val frame = subscriber.recvGroup()?.readFrame()
+			expect(frame?.payload?.decodeToString() == "hello", "a session reads the frame the server serves")
+
+			established.close_()
+			client.close_()
+			serving.cancel()
+		}
 	}
 
 	if (failures == 0) println("ok")

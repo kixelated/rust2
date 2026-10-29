@@ -296,5 +296,6 @@ hands it to a client to publish, polls its driver until the origin's last owner 
 sets and reads a field of the catalog lent to C through `catalog::Producer::mutate`, and
 serves a broadcast from a moq-tokio server bound to port 0 to a client that reads it over
 QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp` does the
-same through the C++ header, short of the catalog's field and the session, at C++17
-without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.
+same through the C++ header, short of the catalog's field, at C++17 without exceptions or
+RTTI, as OBS builds it, serving on an executor's thread and blocking on each read, and
+`moq/moq.kt` through the Kotlin, serving in a coroutine and suspending on each read.
