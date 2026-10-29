@@ -235,4 +235,15 @@ pub(super) fn fns(log: &Log, id: u32) {
 	log.note(format!("up {}", Arc::strong_count(&again)));
 	drop(again);
 	log.note("gone".into());
+	// A box that a generic `FnOnce` call consumes drops what it holds as the call ends.
+	let (n, o) = (guard(13), guard(14));
+	let boxed: Box<dyn Fn() -> u32> = Box::new(move || n.id());
+	log.note(format!("run {}", run(boxed)));
+	log.note(format!("run {}", run(Box::new(move || o.id()))));
+	log.note("ran".into());
+}
+
+/// Call `f` once, which consumes it.
+fn run<F: FnOnce() -> u32>(f: F) -> u32 {
+	f()
 }

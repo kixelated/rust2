@@ -243,8 +243,8 @@ export function anys(log: Log.Log, id: rt.u32): void {
  * last `Arc` goes, or, called through `FnOnce`, where its body or the call ends.
  */
 export function fns(log: Log.Log, id: rt.u32): void {
-	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
-		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
+	const guard: (a0: rt.u32) => Guard.Guard = (n2: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
 	};
 	const _7: [Guard.Guard, Guard.Guard] = [guard(1), guard(2)];
 	const a: Guard.Guard = _7[0];
@@ -381,7 +381,37 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	Log.note(log, rt.fmtFormat(["up ", args24[0]]));
 	rt.drop(again);
 	Log.note(log, "gone");
+	const _257: [Guard.Guard, Guard.Guard] = [guard(13), guard(14)];
+	const n: Guard.Guard = _257[0];
+	const o: Guard.Guard = _257[1];
+	const captured13 = n;
+	const part13 = run$Box_dyn_Fn_unit_u32(rt.closure((): rt.u32 => {
+		return Guard.id(captured13);
+	}, (): void => {
+		rt.drop(captured13);
+	}));
+	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part13, f)];
+	Log.note(log, rt.fmtFormat(["run ", args26[0]]));
+	const captured14 = o;
+	const part14 = run$Box_fns_closure14(rt.closure((): rt.u32 => {
+		return Guard.id(captured14);
+	}, (): void => {
+		rt.drop(captured14);
+	}));
+	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part14, f)];
+	Log.note(log, rt.fmtFormat(["run ", args28[0]]));
+	Log.note(log, "ran");
 	rt.drop(slot);
+}
+
+/** Call `f` once, which consumes it. */
+export function run$Box_dyn_Fn_unit_u32(f: () => rt.u32): rt.u32 {
+	return rt.callOnce(f);
+}
+
+/** Call `f` once, which consumes it. */
+export function run$Box_fns_closure14(f: () => rt.u32): rt.u32 {
+	return rt.callOnce(f);
 }
 
 //# sourceMappingURL=objects.ts.map

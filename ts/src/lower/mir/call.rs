@@ -294,12 +294,23 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				_ => self.operand(&callee.node, span, out),
 			};
-			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call drops it after,
-			// as rustc's shim does, where an `FnOnce` closure's body drops what it owns.
+			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call, or of a box of one,
+			// drops it after, as rustc's shim does, where an `FnOnce` closure's body drops
+			// what it owns.
+			let mut owned = callee_ty;
+			while let ty::Adt(adt, adt_args) = owned.kind()
+				&& Std::of(tcx, adt.did()) == Some(Std::Box)
+			{
+				owned = adt_args.type_at(0);
+			}
+			let called = match owned.kind() {
+				ty::Closure(_, closure) => Some(closure.as_closure().kind()),
+				ty::Dynamic(..) => self.b.t.dyn_fn(owned).map(|f| f.kind),
+				_ => None,
+			};
 			if tcx.fn_trait_kind_from_def_id(trait_id) == Some(ty::ClosureKind::FnOnce)
-				&& let ty::Closure(_, closure) = callee_ty.kind()
-				&& closure.as_closure().kind() != ty::ClosureKind::FnOnce
-				&& self.b.t.drops(callee_ty)
+				&& called.is_some_and(|kind| kind != ty::ClosureKind::FnOnce)
+				&& self.b.t.drops(owned)
 			{
 				return Expr::rt("callOnce", [vec![f], values].concat());
 			}
