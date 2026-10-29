@@ -10,7 +10,6 @@ import { hasRemaining$Buf_Bytes, hasRemaining$Buf_BytesMut, remaining$Buf_Bytes,
  * write to one that reached another would show.
  */
 export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _61!: rt.usize;
 	const ops: Ops.Ops = { _0: data };
 	const buf: rt.BytesMut = rt.bytesMutWithCapacity(rt.usizeRem(Ops.byte(ops) as rt.usize, 24));
 	const pieces: rt.BytesMut[] = [];
@@ -42,19 +41,23 @@ export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
 			} else if (_20 === 6) {
 				rt.bytesMutResize(buf, rt.usizeRem(n, 40), n & 0xff);
 			} else if (_20 === 7) {
-				const _62: rt.usize = rt.usizeRem(n, 4);
-				if (_62 === 0) {
-					_61 = rt.usizeSub(4294967295, n);
-				} else if (_62 === 1) {
-					_61 = rt.usizeAdd(rt.usizeSub(2147483647, buf.length), 1);
+				const _60: rt.usize = rt.usizeRem(n, 4);
+				if (_60 === 0) {
+					const fresh: rt.BytesMut = rt.bytesMutFrom(Ops.take(ops, rt.usizeRem(n, 6)));
+					if (rt.usizeRem(n, 8) === 0) {
+						const _72: rt.BytesMut = rt.bytesMutSplitTo(fresh, 0);
+						pieces.push(_72);
+					}
+					rt.bytesMutReserve(fresh, rt.usizeSub(4294967295, n));
+				} else if (_60 === 1) {
+					rt.bytesMutReserve(buf, rt.usizeAdd(rt.usizeSub(2147483647, buf.length), 1));
 				} else {
-					_61 = n;
+					rt.bytesMutReserve(buf, n);
 				}
-				rt.bytesMutReserve(buf, _61);
 			} else if (_20 === 8) {
-				const _71: rt.BytesMut | undefined = pieces.pop();
-				if (_71 !== undefined) {
-					rt.bytesMutUnsplit(buf, _71);
+				const _87: rt.BytesMut | undefined = pieces.pop();
+				if (_87 !== undefined) {
+					rt.bytesMutUnsplit(buf, _87);
 				}
 			} else if (_20 === 9) {
 				rt.bytesMutAdvance(buf, rt.usizeRem(n, rt.usizeAdd(buf.length, 2)));
@@ -64,32 +67,32 @@ export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.bytesMutTruncate(buf, 0);
 			} else if (_20 === 12) {
 				const buf2 = buf;
-				const _91: rt.BytesMut = rt.bytesMutSplitTo(buf2, buf2.length);
-				pieces.push(_91);
+				const _107: rt.BytesMut = rt.bytesMutSplitTo(buf2, buf2.length);
+				pieces.push(_107);
 			} else if (_20 === 13) {
-				const _94: rt.ByteSlice = rt.bytesMutFreeze(rt.bytesMutSplitTo(buf, rt.usizeRem(n, rt.usizeAdd(buf.length, 2))));
-				frozen.push(_94);
+				const _110: rt.ByteSlice = rt.bytesMutFreeze(rt.bytesMutSplitTo(buf, rt.usizeRem(n, rt.usizeAdd(buf.length, 2))));
+				frozen.push(_110);
 			} else if (_20 === 14) {
 				rt.bytesMutPutFill(buf, n & 0xff, rt.usizeRem(n, 9));
 			} else if (_20 === 15) {
 				if (!((buf.length === 0))) {
 					const at: rt.usize = rt.usizeRem(n, buf.length);
-					const _112: rt.ByteSlice = rt.bytesMutView(buf);
-					rt.idx(_112, at);
-					_112.data[_112.start + at] = _112.data[_112.start + at] ^ 255;
+					const _128: rt.ByteSlice = rt.bytesMutView(buf);
+					rt.idx(_128, at);
+					_128.data[_128.start + at] = _128.data[_128.start + at] ^ 255;
 				}
-				const _117: rt.BytesMut | undefined = rt.sliceLast(pieces);
-				if (_117 !== undefined) {
-					rt.bytesMutExtend(_117, rt.byteSliceFrom(Uint8Array.of(120, 121)));
+				const _133: rt.BytesMut | undefined = rt.sliceLast(pieces);
+				if (_133 !== undefined) {
+					rt.bytesMutExtend(_133, rt.byteSliceFrom(Uint8Array.of(120, 121)));
 				}
 			} else if (_20 === 16) {
-				const _126: rt.ByteSlice = rt.bytesCopyFromSlice(Ops.take(ops, rt.usizeRem(n, 5)));
-				rt.bytesMutExtend(buf, _126);
+				const _142: rt.ByteSlice = rt.bytesCopyFromSlice(Ops.take(ops, rt.usizeRem(n, 5)));
+				rt.bytesMutPutStorage(buf, _142);
 			} else {
 				const source: rt.BytesMut = rt.bytesMutFrom(Ops.take(ops, rt.usizeRem(n, 6)));
 				const first: rt.u8 = getU8Checked$Checked_BytesMut(source);
 				rt.bytesMutPutWord(buf, first, 1, false);
-				rt.bytesMutExtend(buf, rt.bytesMutView(source));
+				rt.bytesMutPutStorage(buf, rt.bytesMutView(source));
 			}
 		} else {
 			break;
@@ -97,18 +100,18 @@ export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const tail: rt.BytesMut = rt.bytesMutFrom(rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(116, 97, 105, 108)), 0));
 	rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(buf), rt.bytesMutView(tail)) ? 1 : 0);
-	const _155: rt.BytesMut = rt.bytesMutFrom(rt.bytesMutView(buf));
-	const _157: rt.ByteSlice = rt.byteSliceRange(rt.bytesMutView(buf), 0);
-	rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(_155), _157) ? 1 : 0);
-	const _168: rt.usize = buf.length;
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(buf), f), (f: rt.Formatter) => rt.usizeDisplay(_168, f)];
+	const _171: rt.BytesMut = rt.bytesMutFrom(rt.bytesMutView(buf));
+	const _173: rt.ByteSlice = rt.byteSliceRange(rt.bytesMutView(buf), 0);
+	rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(_171), _173) ? 1 : 0);
+	const _184: rt.usize = buf.length;
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(buf), f), (f: rt.Formatter) => rt.usizeDisplay(_184, f)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], "\n"])));
-	for (const _179 of pieces) {
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(_179), f)];
+	for (const _195 of pieces) {
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(_195), f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0], "\n"])));
 	}
-	for (const _198 of frozen) {
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(_198, f)];
+	for (const _214 of frozen) {
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(_214, f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args6[0], "\n"])));
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.bytesMutToByteVec(buf)));
@@ -368,7 +371,7 @@ export function writeAll$BytesMut(buf: rt.BytesMut, data: rt.ByteSlice): void {
 		} else if (_18 === 12) {
 			rt.bytesMutPutFill(buf, n2, rt.usizeRem(n2 as rt.usize, 7));
 		} else if (_18 === 13) {
-			rt.bytesMutExtend(buf, rt.byteSliceFrom(Uint8Array.of(112, 117, 116)));
+			rt.bytesMutPutStorage(buf, rt.byteSliceFrom(Uint8Array.of(112, 117, 116)));
 		} else {
 			rt.bytesMutPutBytes(buf, rt.f64ToBeBytes(((n2 as rt.f64)) / 3.0), false);
 		}

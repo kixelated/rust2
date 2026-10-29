@@ -211,10 +211,14 @@ export class BytesMut {
 	start: number;
 	length: number;
 	cap: number;
-	/** Whether `split_to` shared its storage, whose growth panics as `bytes`' shared kind does. */
-	shared: boolean;
+	/**
+	 * Whether its storage is `bytes`' shared kind, which `split_to` makes and whose growth
+	 * panics apart from a vector's. `undefined` where `bytes`' kind depends on whether other
+	 * handles of its storage dropped, as once shared storage grows.
+	 */
+	shared: boolean | undefined;
 
-	constructor(data: Uint8Array, start: number, length: number, cap: number, shared: boolean) {
+	constructor(data: Uint8Array, start: number, length: number, cap: number, shared: boolean | undefined) {
 		this.data = data;
 		this.start = start;
 		this.length = length;
@@ -244,6 +248,13 @@ export function bytesMutFrom(s: ByteSlice): BytesMut {
 	return b;
 }
 
+/** `BytesMut::from` a `Bytes`, whose storage it takes where no other handle holds it. */
+export function bytesMutFromBytes(s: Bytes): BytesMut {
+	const b = bytesMutFrom(s);
+	b.shared = undefined;
+	return b;
+}
+
 /** Its bytes, as `Deref`, `DerefMut`, `AsRef`, `AsMut`, and `Buf::chunk` lend them. */
 export function bytesMutView(b: BytesMut): ByteSlice {
 	return new ByteSlice(b.data, b.start, b.length);
@@ -270,7 +281,12 @@ export function bytesMutReserve(b: BytesMut, additional: usize): void {
 		b.start = 0;
 		return;
 	}
-	if (needed > 0xffffffff && b.shared) panic("overflow");
+	if (needed > 0xffffffff) {
+		if (b.shared === undefined) {
+			throw new Error("rust2-ts: `BytesMut::reserve` past `usize::MAX`, whose panic depends on whether other handles of its storage dropped");
+		}
+		if (b.shared) panic("overflow");
+	}
 	// A vector grows past its offset, where a shared one starts afresh.
 	if ((b.shared ? needed : b.start + needed) > ISIZE_MAX) panic("capacity overflow");
 	const cap = Math.max(needed, b.cap * 2, 8);
@@ -279,7 +295,19 @@ export function bytesMutReserve(b: BytesMut, additional: usize): void {
 	b.data = data;
 	b.start = 0;
 	b.cap = cap;
-	b.shared = false;
+	// Shared storage stays shared if no other handle held it, and becomes a vector if one did.
+	if (b.shared) b.shared = undefined;
+}
+
+/**
+ * `BufMut::put` of a `Bytes` or a `BytesMut`. At zero capacity `bytes` takes its storage,
+ * of a kind that depends on its handles, and a vector's capacity is only approximate here.
+ */
+export function bytesMutPutStorage(b: BytesMut, s: Bytes): void {
+	if (s.length === 0) return;
+	const vector = b.shared === false;
+	bytesMutExtend(b, s);
+	if (vector) b.shared = undefined;
 }
 
 /** `BytesMut::extend_from_slice`, and `BufMut::put_slice`. */

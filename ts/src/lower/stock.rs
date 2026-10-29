@@ -292,10 +292,11 @@ fn from<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>) ->
 		(Some(Std::Bytes), _) => return Ok(None),
 		(Some(Std::BytesMut), _) => {
 			let bytes = match as_slice(b, from.peel_refs(), args.next().expect("an operand")) {
-				Some(bytes) if from.is_ref() || b.t.std_of(from) == Some(Std::Bytes) => bytes,
+				Some(bytes) if from.is_ref() => Expr::rt("bytesMutFrom", vec![bytes]),
+				Some(bytes) if b.t.std_of(from) == Some(Std::Bytes) => Expr::rt("bytesMutFromBytes", vec![bytes]),
 				_ => return Ok(None),
 			};
-			return Ok(Some(Expr::rt("bytesMutFrom", vec![bytes])));
+			return Ok(Some(bytes));
 		}
 		(_, Some(Std::Bytes)) if byte_vec(to) => "byteSliceToByteVec",
 		(_, Some(Std::BytesMut)) if byte_vec(to) => "bytesMutToByteVec",
@@ -538,16 +539,19 @@ fn buf_mut<'tcx>(
 fn put<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, buffer: Buffer, this: Expr, src: Expr) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	let ty = targ(call.args, 1);
-	let bytes = match Buffer::of(tcx, ty) {
+	let source = Buffer::of(tcx, ty);
+	let bytes = match source {
 		Some(Buffer::BytesMut) => Some(view(src.clone())),
 		Some(Buffer::Bytes | Buffer::Slice) => Some(src.clone()),
 		_ => None,
 	};
 	if let Some(bytes) = bytes {
-		return Some(match buffer {
-			Buffer::BytesMut => Expr::rt("bytesMutExtend", vec![this, bytes]),
-			_ => Expr::rt("byteVecExtendFromSlice", vec![this, bytes]),
-		});
+		let f = match (buffer, source) {
+			(Buffer::BytesMut, Some(Buffer::Slice)) => "bytesMutExtend",
+			(Buffer::BytesMut, _) => "bytesMutPutStorage",
+			_ => "byteVecExtendFromSlice",
+		};
+		return Some(Expr::rt(f, vec![this, bytes]));
 	}
 	// `put` drops it between calls of its methods, which only an object JS can call them on
 	// can stand for.

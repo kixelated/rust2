@@ -24,12 +24,20 @@ pub fn bytes_mut(data: &[u8], out: &mut Vec<u8>) {
 			}
 			5 => buf.truncate(n % (buf.len() + 2)),
 			6 => buf.resize(n % 40, n as u8),
-			// Past what a buffer holds, by overflowing `usize` or not: each panics.
-			7 => buf.reserve(match n % 4 {
-				0 => usize::MAX - n,
-				1 => isize::MAX as usize - buf.len() + 1,
-				_ => n,
-			}),
+			// Past what a buffer holds, by overflowing `usize` or not: each panics. Past
+			// `usize::MAX`, by the kind of storage, so into a handle sure of its kind: a new
+			// one, a vector, or one split, shared.
+			7 => match n % 4 {
+				0 => {
+					let mut fresh = BytesMut::from(ops.take(n % 6));
+					if n % 8 == 0 {
+						pieces.push(fresh.split_to(0));
+					}
+					fresh.reserve(usize::MAX - n);
+				}
+				1 => buf.reserve(isize::MAX as usize - buf.len() + 1),
+				_ => buf.reserve(n),
+			},
 			8 => {
 				if let Some(piece) = pieces.pop() {
 					buf.unsplit(piece);
