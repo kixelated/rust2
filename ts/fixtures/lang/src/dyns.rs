@@ -367,7 +367,10 @@ pub fn anys(data: &[u8], out: &mut Vec<u8>) {
 
 	// Of types that can be `undefined`, whose `None` is `rt.None`.
 	let unit: &dyn Any = &();
-	put(out, &format!("{:?} ", (unit.downcast_ref::<()>(), unit.is::<Option<u8>>())));
+	put(
+		out,
+		&format!("{:?} ", (unit.downcast_ref::<()>(), unit.is::<Option<u8>>())),
+	);
 	let (mut some, mut none) = (Some(a), None::<u8>);
 	let odd: [&mut dyn Any; 3] = [&mut some, &mut none, &mut n];
 	for x in odd {
