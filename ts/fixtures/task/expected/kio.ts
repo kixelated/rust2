@@ -18,6 +18,10 @@ export function poll$Task_closed_closure0_closure0(self: (a0: Waiter.Waiter) => 
 	return self(waiter);
 }
 
+export function poll$Task_front_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.usize>, waiter: Waiter.Waiter): rt.Poll<rt.usize> {
+	return self(waiter);
+}
+
 export function poll$Task_recv_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	return self(waiter);
 }
@@ -43,6 +47,11 @@ export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$closed_closure0_closure0_unit(poll: (a0: Waiter.Waiter) => rt.Poll<undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>> {
 	return Pending.new$closed_closure0_closure0(poll);
+}
+
+/** A future from a poll function that receives a [`Waiter`]. */
+export function wait$front_closure0_closure0_usize(poll: (a0: Waiter.Waiter) => rt.Poll<rt.usize>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.usize>> {
+	return Pending.new$front_closure0_closure0(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
@@ -74,7 +83,7 @@ export class waitFuture$watch_closure0_closure1_usize {
 	[Symbol.dispose](): void {
 		if (this.#state !== 0) {
 			if (this.#state === 3) {
-				rt.drop(this.#awaitee);
+				this.#awaitee[Symbol.dispose]();
 			}
 		}
 	}
@@ -91,7 +100,7 @@ export class waitFuture$watch_closure0_closure1_usize {
 		}
 		const _8: rt.Poll<rt.Result<rt.usize, Closed.Closed>> = Pending.poll$Future_wait_closure0_closure0(this.#awaitee, _2);
 		if (_8 !== rt.Pending) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return _8;
 		}
@@ -111,7 +120,7 @@ export class closedFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 3) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 		}
 	}
 
@@ -125,7 +134,7 @@ export class closedFuture {
 			rt.asyncFnResumed();
 		}
 		if (Pending.poll$Future_closed_closure0_closure0(this.#awaitee, _2) !== rt.Pending) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return undefined;
 		}
@@ -145,7 +154,7 @@ export class recvFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 3) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 		}
 	}
 
@@ -160,7 +169,7 @@ export class recvFuture {
 		}
 		const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
 		if (_7 !== rt.Pending) {
-			rt.drop(this.#awaitee);
+			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return _7;
 		}

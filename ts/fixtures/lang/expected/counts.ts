@@ -19,7 +19,7 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const pick: rt.usize = op >> 4 as rt.usize;
 		const _19: rt.u8 = rt.u8Rem(op, 10);
 		if (_19 === 0) {
-			const _22: rt.Arc<Noisy.Noisy> = new rt.Arc(new Noisy.Noisy({ id: op, log: rt.arcClone(log) }));
+			const _22: rt.Arc<Noisy.Noisy> = new rt.Arc(new Noisy.Noisy(op, rt.arcClone(log)));
 			strong.push(_22);
 			continue;
 		}
@@ -31,7 +31,7 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_19 === 2) {
 			if (!((strong.length === 0))) {
-				rt.drop(rt.vecSwapRemove(strong, rt.usizeRem(pick, strong.length)));
+				rt.vecSwapRemove(strong, rt.usizeRem(pick, strong.length))[Symbol.dispose]();
 				continue;
 			}
 		} else if (_19 === 3) {
@@ -48,7 +48,7 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_19 === 5) {
 			if (!((weak.length === 0))) {
-				rt.drop(rt.vecSwapRemove(weak, rt.usizeRem(pick, weak.length)));
+				rt.vecSwapRemove(weak, rt.usizeRem(pick, weak.length))[Symbol.dispose]();
 				continue;
 			}
 		} else if (_19 === 6) {
@@ -73,22 +73,22 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 				if (!((strong.length === 0))) {
 					const at = rt.idx(strong, rt.usizeRem(pick, strong.length));
 					const held: rt.Weak<Noisy.Noisy> | undefined = new rt.Weak(strong[at]);
-					const kept: ArcHolder.ArcHolder<Noisy.Noisy> = new ArcHolder.ArcHolder({ weak: new rt.Weak(strong[at]) });
+					const kept: ArcHolder.ArcHolder<Noisy.Noisy> = new ArcHolder.ArcHolder(new rt.Weak(strong[at]));
 					const captured2 = new rt.Weak(strong[at]);
 					const read: () => rt.u8 = rt.closure((): rt.u8 => {
 						return mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(rt.weakUpgrade(captured2), 253, (s: rt.Arc<Noisy.Noisy>): rt.u8 => {
 							const _02: rt.u8 = s.value.id;
-							rt.drop(s);
+							s[Symbol.dispose]();
 							return _02;
 						});
 					}, (): void => {
-						rt.drop(captured2);
+						captured2[Symbol.dispose]();
 					});
 					rt.byteVecPush(out, strong[at].weak & 0xff);
 					rt.byteVecPush(out, read());
 					rt.drop(held);
 					rt.byteVecPush(out, strong[at].weak & 0xff);
-					rt.drop(kept);
+					kept[Symbol.dispose]();
 					rt.drop(read);
 					rt.byteVecPush(out, strong[at].weak & 0xff);
 					continue;
@@ -119,12 +119,12 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.weakWeakCount(weakObject) & 0xff);
 		rt.byteVecPush(out, mapOr$Option_Arc_dyn_Id_u8_arcs_closure1(rt.weakUpgrade(weakObject), 253, (o: rt.Arc<Id.Id>): rt.u8 => {
 			const _03: rt.u8 = o.value.id$Id();
-			rt.drop(o);
+			o[Symbol.dispose]();
 			return _03;
 		}));
-		rt.drop(object);
+		object[Symbol.dispose]();
 		rt.byteVecPush(out, weakObject.arc.strong & 0xff);
-		rt.drop(weakObject);
+		weakObject[Symbol.dispose]();
 	}
 	rt.dropAll(strong);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(weak), (w: rt.Weak<Noisy.Noisy>): rt.u8 => {
@@ -140,7 +140,7 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _191: rt.Mutex<rt.ByteVec> = rt.mutexLock(log.value);
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_191.value));
 	rt.mutexUnlock(_191);
-	rt.drop(log);
+	log[Symbol.dispose]();
 }
 
 /**
@@ -155,7 +155,7 @@ export function rcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const pick: rt.usize = op >> 4 as rt.usize;
 		const _19: rt.u8 = rt.u8Rem(op, 10);
 		if (_19 === 0) {
-			const _22: rt.Arc<Noisy.Noisy> = new rt.Arc(new Noisy.Noisy({ id: op, log: rt.arcClone(log) }));
+			const _22: rt.Arc<Noisy.Noisy> = new rt.Arc(new Noisy.Noisy(op, rt.arcClone(log)));
 			strong.push(_22);
 			continue;
 		}
@@ -167,7 +167,7 @@ export function rcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_19 === 2) {
 			if (!((strong.length === 0))) {
-				rt.drop(rt.vecSwapRemove(strong, rt.usizeRem(pick, strong.length)));
+				rt.vecSwapRemove(strong, rt.usizeRem(pick, strong.length))[Symbol.dispose]();
 				continue;
 			}
 		} else if (_19 === 3) {
@@ -184,7 +184,7 @@ export function rcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_19 === 5) {
 			if (!((weak.length === 0))) {
-				rt.drop(rt.vecSwapRemove(weak, rt.usizeRem(pick, weak.length)));
+				rt.vecSwapRemove(weak, rt.usizeRem(pick, weak.length))[Symbol.dispose]();
 				continue;
 			}
 		} else if (_19 === 6) {
@@ -209,22 +209,22 @@ export function rcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 				if (!((strong.length === 0))) {
 					const at = rt.idx(strong, rt.usizeRem(pick, strong.length));
 					const held: rt.Weak<Noisy.Noisy> | undefined = new rt.Weak(strong[at]);
-					const kept: RcHolder.RcHolder<Noisy.Noisy> = new RcHolder.RcHolder({ weak: new rt.Weak(strong[at]) });
+					const kept: RcHolder.RcHolder<Noisy.Noisy> = new RcHolder.RcHolder(new rt.Weak(strong[at]));
 					const captured2 = new rt.Weak(strong[at]);
 					const read: () => rt.u8 = rt.closure((): rt.u8 => {
 						return mapOr$Option_Arc_Noisy_u8_arcs_closure0_closure0(rt.weakUpgrade(captured2), 253, (s: rt.Arc<Noisy.Noisy>): rt.u8 => {
 							const _02: rt.u8 = s.value.id;
-							rt.drop(s);
+							s[Symbol.dispose]();
 							return _02;
 						});
 					}, (): void => {
-						rt.drop(captured2);
+						captured2[Symbol.dispose]();
 					});
 					rt.byteVecPush(out, strong[at].weak & 0xff);
 					rt.byteVecPush(out, read());
 					rt.drop(held);
 					rt.byteVecPush(out, strong[at].weak & 0xff);
-					rt.drop(kept);
+					kept[Symbol.dispose]();
 					rt.drop(read);
 					rt.byteVecPush(out, strong[at].weak & 0xff);
 					continue;
@@ -255,12 +255,12 @@ export function rcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.weakWeakCount(weakObject) & 0xff);
 		rt.byteVecPush(out, mapOr$Option_Arc_dyn_Id_u8_arcs_closure1(rt.weakUpgrade(weakObject), 253, (o: rt.Arc<Id.Id>): rt.u8 => {
 			const _03: rt.u8 = o.value.id$Id();
-			rt.drop(o);
+			o[Symbol.dispose]();
 			return _03;
 		}));
-		rt.drop(object);
+		object[Symbol.dispose]();
 		rt.byteVecPush(out, weakObject.arc.strong & 0xff);
-		rt.drop(weakObject);
+		weakObject[Symbol.dispose]();
 	}
 	rt.dropAll(strong);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(weak), (w: rt.Weak<Noisy.Noisy>): rt.u8 => {
@@ -276,7 +276,7 @@ export function rcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _191: rt.Mutex<rt.ByteVec> = rt.mutexLock(log.value);
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_191.value));
 	rt.mutexUnlock(_191);
-	rt.drop(log);
+	log[Symbol.dispose]();
 }
 
 //# sourceMappingURL=counts.ts.map

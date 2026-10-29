@@ -7,8 +7,8 @@ import { thenSome$bool_u8 } from "./core/bool.ts";
 export class Halving<T> {
 	value: T;
 
-	constructor(fields: { value: T }) {
-		this.value = fields.value;
+	constructor(value: T) {
+		this.value = value;
 	}
 }
 

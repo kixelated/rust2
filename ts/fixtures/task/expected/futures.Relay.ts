@@ -8,21 +8,21 @@ export class Relay {
 	task: rt.Waker;
 	guard: Guard.Guard;
 
-	constructor(fields: { task: rt.Waker; guard: Guard.Guard }) {
-		this.task = fields.task;
-		this.guard = fields.guard;
+	constructor(task: rt.Waker, guard: Guard.Guard) {
+		this.task = task;
+		this.guard = guard;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.task);
-		rt.drop(this.guard);
+		this.task[Symbol.dispose]();
+		this.guard[Symbol.dispose]();
 	}
 }
 
 export function wake$Wake(self: rt.Arc<Relay>): void {
 	Guard.note(self.value.guard, "relay wake");
 	self.value.task.wakeByRef();
-	rt.drop(self);
+	self[Symbol.dispose]();
 }
 
 export function wakeByRef$Wake(self: rt.Arc<Relay>): void {

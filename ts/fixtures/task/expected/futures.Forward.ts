@@ -9,8 +9,8 @@ import * as rt from "./rt.ts";
 export class Forward {
 	future: rt.Future<rt.u64>;
 
-	constructor(fields: { future: rt.Future<rt.u64> }) {
-		this.future = fields.future;
+	constructor(future: rt.Future<rt.u64>) {
+		this.future = future;
 	}
 
 	[Symbol.dispose](): void {

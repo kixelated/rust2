@@ -122,6 +122,13 @@ export function then$bool_Vec_u8_new(self: boolean, _: () => rt.ByteVec): rt.Byt
 	return new rt.ByteVec();
 }
 
+export function then$bool_Vec_u8_restock_closure0(self: boolean, f: () => rt.ByteVec): rt.ByteVec | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
 export function then$bool_str_slices_closure1_closure0(self: boolean, f: () => string): string | undefined {
 	if (!self) {
 		return undefined;

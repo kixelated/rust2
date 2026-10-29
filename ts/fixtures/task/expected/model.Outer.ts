@@ -12,14 +12,14 @@ export class Outer {
 	inner: Inner.Inner | undefined;
 	guard: Guard.Guard;
 
-	constructor(fields: { inner: Inner.Inner | undefined; guard: Guard.Guard }) {
-		this.inner = fields.inner;
-		this.guard = fields.guard;
+	constructor(inner: Inner.Inner | undefined, guard: Guard.Guard) {
+		this.inner = inner;
+		this.guard = guard;
 	}
 
 	[Symbol.dispose](): void {
 		rt.drop(this.inner);
-		rt.drop(this.guard);
+		this.guard[Symbol.dispose]();
 	}
 }
 

@@ -6,11 +6,6 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "bash -lc 'project_dir=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; CLAUDE_PROJECT_DIR=\"$project_dir\" exec bash \"$project_dir/.claude/hooks/submodule.sh\"'",
-						"statusMessage": "Populating the shared skills submodule"
-					},
-					{
-						"type": "command",
 						"command": "bash -lc 'project_dir=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; exec bash \"$project_dir/.codex/hooks/direnv.sh\"'",
 						"statusMessage": "Loading Nix development shell"
 					}
