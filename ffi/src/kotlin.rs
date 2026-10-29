@@ -79,7 +79,7 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 	kotlin.push_str(&g.top);
 	let _ = write!(
 		kotlin,
-		"internal object Native {{\n\tinit {{\n\t\tSystem.loadLibrary(\"{p}\")\n\t\t// Checked before any other call: a Kotlin file and a library from different\n\t\t// builds must not mix.\n\t\tkotlin.check(__contract().toULong() == {}) {{ \"{p}.kt and the library are from different builds\" }}\n\t}}\n\n\t@JvmStatic external fun __contract(): Long\n\n\t@JvmStatic external fun __waker_new(waker: Waker): Long\n\n\t@JvmStatic external fun __waker_free(node: Long)\n\n\t@JvmStatic external fun __bytes_buffer(owner: Long): java.nio.ByteBuffer\n\n\t@JvmStatic external fun __bytes_free(owner: Long)\n\n\t@JvmStatic private fun __wake(waker: Any) = (waker as Waker).wake()\n\n\t@JvmStatic private fun __free(implementation: Any) {{\n\t\tif (implementation is AutoCloseable) implementation.close()\n\t}}\n\n{}{}}}\n",
+		"internal object Native {{\n\tinit {{\n\t\tSystem.loadLibrary(\"{p}\")\n\t\t// Checked before any other call: a Kotlin file and a library from different\n\t\t// builds must not mix.\n\t\tkotlin.check(__contract().toULong() == {}) {{ \"{p}.kt and the library are from different builds\" }}\n\t}}\n\n\t@JvmStatic external fun __contract(): Long\n\n\t@JvmStatic external fun __waker_new(waker: Waker): Long\n\n\t@JvmStatic external fun __waker_free(node: Long)\n\n\t@JvmStatic external fun __bytes_buffer(owner: Long): Any\n\n\t@JvmStatic external fun __bytes_free(owner: Long)\n\n\t@JvmStatic private fun __wake(waker: Any) = (waker as Waker).wake()\n\n\t@JvmStatic private fun __free(implementation: Any) {{\n\t\tif (implementation is AutoCloseable) implementation.close()\n\t}}\n\n{}{}}}\n",
 		contract_literal(contract),
 		g.natives,
 		indent_by(RUNTIME, 1),
@@ -131,17 +131,17 @@ const BYTES: &str = "/**
  * after which reading it is undefined. Unclosed, they are freed once the GC collects
  * [buffer], so keep it, not only a slice or duplicate of it, while reading.
  */
-class Bytes private constructor(buffer: java.nio.ByteBuffer, owner: Long) : AutoCloseable {
+class Bytes private constructor(held: Any, owner: Long) : AutoCloseable {
 \t/** Bytes Kotlin holds, as a record Rust takes needs, which [close] leaves readable. */
-\tconstructor(bytes: ByteArray) : this(java.nio.ByteBuffer.wrap(bytes), 0L)
+\tconstructor(bytes: ByteArray) : this(bytes as Any, 0L)
 
 \tinternal constructor(owner: Long) : this(Native.__bytes_buffer(owner), owner)
 
 \t/** The bytes, read-only. */
-\tval buffer: java.nio.ByteBuffer = buffer.asReadOnlyBuffer()
+\tval buffer: java.nio.ByteBuffer = (if (held is ByteArray) java.nio.ByteBuffer.wrap(held) else held as java.nio.ByteBuffer).asReadOnlyBuffer()
 
 \t// What the GC collects: a view of [buffer] need not keep it reachable, on the JVM or ART.
-\tprivate val free = if (owner == 0L) null else Native.Free(this.buffer, owner)
+\tprivate val free = if (owner == 0L || held is ByteArray) null else Native.Free(this.buffer, owner)
 
 \tprivate var closed = false
 

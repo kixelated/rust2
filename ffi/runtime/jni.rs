@@ -184,6 +184,11 @@ pub unsafe fn hand(buf: rt::Buf) -> jlong {
 pub unsafe fn buffer(env: *mut JNIEnv, owner: jlong) -> jobject {
 	// SAFETY: the caller's contract.
 	let buf = unsafe { rt::Buf::of_owner(owner as usize as _) };
+	if buf.len <= 1024 {
+		let a = array(env, unsafe { buf.bytes("jni") });
+		unsafe { buf.free() };
+		return a;
+	}
 	let Ok(len) = jlong::try_from(buf.len) else {
 		rt::fail("jni", "a buffer is too long for a ByteBuffer")
 	};
