@@ -191,6 +191,8 @@ pub enum Access {
 	/// It parses its receiver's type from text, with `FromStr`, failing with the parse
 	/// error's message: a foreign type exported as an object.
 	Parse,
+	/// It writes its receiver as text, with `Display`: a foreign type exported as an object.
+	Text,
 }
 
 impl Function {

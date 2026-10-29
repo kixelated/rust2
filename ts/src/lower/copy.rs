@@ -40,6 +40,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					(false, args.types().collect())
 				}
 				Some(Std::Bound) => (true, args.types().collect()),
+				Some(Std::MaybeUninit) => return self.changes(args.type_at(0)),
 				Some(_) => return false,
 				None if self.own(adt.did()) && adt.all_fields().next().is_some() => {
 					(true, adt.all_fields().map(|f| self.field_ty(f.did, args)).collect())
@@ -48,7 +49,23 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			_ => return false,
 		};
-		object && self.writes.written(self.tcx, ty) || parts.into_iter().any(|t| self.changes(t))
+		object && self.writes.into.contains(self.tcx, ty) || parts.into_iter().any(|t| self.changes(t))
+	}
+
+	/// Whether the crate may give a part of a `ty` kept as a JS object another object: by
+	/// a write of the part, or of the whole value one object deep.
+	pub fn replaced(&self, ty: Ty<'tcx>) -> bool {
+		self.writes.replaced.contains(self.tcx, ty)
+	}
+
+	/// `value`, a `ty` read out of where it is kept, as a value of its own, as Rust's read
+	/// copies its bytes: the JS objects it holds by value copied where the crate's code
+	/// writes into them in place.
+	pub fn snapshot(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
+		match self.changes(ty).then(|| self.shim(ty, span)).flatten() {
+			Some(copy) => copy.call(vec![value]),
+			None => value,
+		}
 	}
 
 	/// `value`, copied if a `ty` is.
@@ -64,9 +81,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if !self.needs_copy(ty) {
 			return None;
 		}
+		self.shim(ty, span)
+	}
+
+	/// The function copying a `ty`, made the first time.
+	fn shim(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
 		// An array's copy is the same at every length.
+		let tcx = self.tcx;
 		let ty = match ty.kind() {
-			ty::Array(elem, _) => Ty::new_array(self.tcx, *elem, 0),
+			ty::Array(elem, _) => Ty::new_array(tcx, *elem, 0),
+			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::MaybeUninit) => match args.type_at(0).kind() {
+				ty::Array(elem, _) => Ty::new_maybe_uninit(tcx, Ty::new_array(tcx, *elem, 0)),
+				_ => ty,
+			},
 			_ => ty,
 		};
 		if let Some(&sym) = self.copy_shims.get(&ty) {
@@ -106,30 +133,52 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// The body of the function copying `v`, a `ty`.
 	fn copy_body(&mut self, ty: Ty<'tcx>, span: Span) -> Vec<Stmt> {
+		self.copy_parts(ty, false, span)
+	}
+
+	/// The body of the function copying `v`, a `ty`, or a `MaybeUninit` of one if `uninit`:
+	/// then any of its parts kept as objects may hold nothing yet.
+	fn copy_parts(&mut self, ty: Ty<'tcx>, uninit: bool, span: Span) -> Vec<Stmt> {
 		let v = || Expr::ident("v");
 		let ret = |e: Expr| vec![StmtKind::Return(Some(e.typed())).at(None)];
 		let tcx = self.tcx;
+		let part = |t: Ty<'tcx>| match uninit {
+			true => Ty::new_maybe_uninit(tcx, t),
+			false => t,
+		};
 		match ty.kind() {
 			ty::Tuple(tys) => {
 				let parts = tys
 					.iter()
 					.enumerate()
-					.map(|(i, t)| self.copied(v().index(Expr::lit(i.to_string())), t, span))
+					.map(|(i, t)| self.snapshot(v().index(Expr::lit(i.to_string())), part(t), span))
 					.collect();
 				ret(Expr::Array(parts))
 			}
-			ty::Array(elem, _) => ret(match self.copy_fn(*elem, span) {
-				Some(copy) => v().member("map").call(vec![copy]),
-				None => v().member("slice").call(Vec::new()),
-			}),
+			ty::Array(elem, _) => ret(
+				match self.changes(*elem).then(|| self.shim(part(*elem), span)).flatten() {
+					Some(copy) => v().member("map").call(vec![copy]),
+					None => v().member("slice").call(Vec::new()),
+				},
+			),
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
+				Some(Std::MaybeUninit) => {
+					let none = StmtKind::If {
+						cond: v().binary("===", Expr::undefined()),
+						then: ret(v()),
+						els: Vec::new(),
+					};
+					let mut body = vec![none.at(None)];
+					body.extend(self.copy_parts(args.type_at(0), true, span));
+					body
+				}
 				Some(Std::Option) => ret(self.copy_unless(self.none(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Poll) => ret(self.copy_unless(self.pending(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
-				Some(Std::Reverse) => ret(self.copied(v(), args.type_at(0), span)),
+				Some(Std::Reverse) => ret(self.snapshot(v(), args.type_at(0), span)),
 				Some(Std::Bound) => {
 					let ts_ty = self.ty(ty, span);
-					let held = self.copied(v().member("_0"), args.type_at(0), span);
+					let held = self.snapshot(v().member("_0"), args.type_at(0), span);
 					let copy = Expr::Object(vec![
 						(Key::Name("tag".into()), v().member("tag")),
 						(Key::Name("_0".into()), held),
@@ -156,7 +205,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							let values = (variant.fields.iter().zip(&fields))
 								.map(|(field, &id)| {
 									let field_ty = self.field_ty(field.did, args);
-									self.copied(v().field(id), field_ty, span)
+									self.snapshot(v().field(id), part(field_ty), span)
 								})
 								.collect();
 							ret(self.construct(info.sym, &ctor, &fields, values))
@@ -170,8 +219,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 								for (i, field) in variant.fields.iter().enumerate() {
 									let name = field_name(field.name.as_str(), i);
 									let field_ty = self.field_ty(field.did, args);
-									props
-										.push((Key::Name(name.clone()), self.copied(v().member(name), field_ty, span)));
+									props.push((
+										Key::Name(name.clone()),
+										self.snapshot(v().member(name), field_ty, span),
+									));
 								}
 								body.push(
 									StmtKind::If {
@@ -186,6 +237,24 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							body.extend(ret(v()));
 							body
 						}
+						// A slot no field was written into yet holds nothing.
+						AdtRepr::Slots(_) => {
+							let (_, slots) = self.overlay(*adt, span).expect("a union is laid out where it is made");
+							let ts_ty = self.ty(ty, span);
+							let slots = slots
+								.into_iter()
+								.map(|(name, slot_ty)| {
+									let slot_ty = self.instantiate(slot_ty, args);
+									let value = self.snapshot(
+										v().member(name.clone()),
+										Ty::new_maybe_uninit(tcx, slot_ty),
+										span,
+									);
+									(name, value)
+								})
+								.collect();
+							ret(super::unions::made(slots, ts_ty))
+						}
 						AdtRepr::Tags => unreachable!("an enum without fields is shared"),
 					}
 				}
@@ -199,8 +268,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let v = || Expr::ident("v");
 		Expr::Cond(
 			Box::new(v().member("ok")),
-			Box::new(Expr::rt("Ok", vec![self.copied(v().member("value"), ok, span)])),
-			Box::new(Expr::rt("Err", vec![self.copied(v().member("error"), err, span)])),
+			Box::new(Expr::rt("Ok", vec![self.snapshot(v().member("value"), ok, span)])),
+			Box::new(Expr::rt("Err", vec![self.snapshot(v().member("error"), err, span)])),
 		)
 	}
 
@@ -210,16 +279,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Expr::Cond(
 			Box::new(v().binary("===", none)),
 			Box::new(v()),
-			Box::new(self.copied(v(), some, span)),
+			Box::new(self.snapshot(v(), some, span)),
 		)
 	}
 
 	/// The type of field `did` of an ADT with `args`.
 	pub fn field_ty(&self, did: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> Ty<'tcx> {
-		let field = EarlyBinder::bind(self.tcx, self.tcx.type_of(did).instantiate_identity().skip_norm_wip());
+		self.instantiate(self.tcx.type_of(did).instantiate_identity().skip_norm_wip(), args)
+	}
+
+	/// `ty`, over an item's own type parameters, with `args` for them.
+	pub fn instantiate(&self, ty: Ty<'tcx>, args: ty::GenericArgsRef<'tcx>) -> Ty<'tcx> {
+		let ty = EarlyBinder::bind(self.tcx, ty);
 		self.tcx
-			.try_instantiate_and_normalize_erasing_regions(args, self.typing_env_pub(), field)
-			.unwrap_or_else(|_| field.instantiate(self.tcx, args).skip_norm_wip())
+			.try_instantiate_and_normalize_erasing_regions(args, self.typing_env_pub(), ty)
+			.unwrap_or_else(|_| ty.instantiate(self.tcx, args).skip_norm_wip())
 	}
 }
 
@@ -232,12 +306,23 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// bounds let it be.
 #[derive(Default)]
 pub struct Writes<'tcx> {
-	/// Each type written without type parameters, an array as a slice of its element,
-	/// since the two share storage in JS.
+	pub into: Types<'tcx>,
+	/// The types a part of which, kept as a JS object, the code may give another object:
+	/// by a write of the part, as `p.x = Inner {..}`; by a write of the whole value, which
+	/// goes one object deep, as `*r = v` does; or by a call of a std function, as a
+	/// mutable reference to the type may do with any part of it.
+	pub replaced: Types<'tcx>,
+}
+
+/// Types, each without type parameters or over those of the body naming it.
+#[derive(Default)]
+pub struct Types<'tcx> {
+	/// Each type without type parameters, an array as a slice of its element, since the
+	/// two share storage in JS.
 	concrete: FxHashSet<Ty<'tcx>>,
 	/// Each type over the type parameters of the body writing it, and that body.
 	generic: FxIndexSet<(DefId, Ty<'tcx>)>,
-	/// What [`Writes::written`] found of each type it was asked about.
+	/// What [`Types::contains`] found of each type it was asked about.
 	found: RefCell<FxHashMap<Ty<'tcx>, bool>>,
 }
 
@@ -277,7 +362,9 @@ impl<'tcx> Writes<'tcx> {
 		}
 		writes
 	}
+}
 
+impl<'tcx> Types<'tcx> {
 	fn insert(&mut self, tcx: TyCtxt<'tcx>, def_id: DefId, ty: Ty<'tcx>) {
 		let ty = storage(tcx, ty);
 		match ty.has_param() {
@@ -286,9 +373,9 @@ impl<'tcx> Writes<'tcx> {
 		}
 	}
 
-	/// Whether the crate writes into a value of `ty` in place. Over type parameters, as a
-	/// census lowers some functions, it may.
-	fn written(&self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	/// Whether `ty` is one of them. Over type parameters, as a census lowers some
+	/// functions, it may be.
+	pub fn contains(&self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 		let ty = tcx.erase_and_anonymize_regions(ty);
 		let stored = storage(tcx, ty);
 		if ty.has_param() || self.concrete.contains(&stored) {
@@ -307,9 +394,15 @@ impl<'tcx> Writes<'tcx> {
 	}
 }
 
-/// `ty` as [`Writes`] keys it: without regions, and an array as a slice of its element.
+/// `ty` as [`Types`] keys it: without regions, a `MaybeUninit` as what it holds, and an
+/// array as a slice of its element.
 fn storage<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-	let ty = tcx.erase_and_anonymize_regions(ty);
+	let mut ty = tcx.erase_and_anonymize_regions(ty);
+	while let ty::Adt(adt, args) = ty.kind()
+		&& Std::of(tcx, adt.did()) == Some(Std::MaybeUninit)
+	{
+		ty = args.type_at(0);
+	}
 	match ty.kind() {
 		ty::Array(elem, _) => Ty::new_slice(tcx, *elem),
 		_ => ty,
@@ -400,20 +493,46 @@ struct BodyWrites<'w, 'm, 'tcx> {
 
 impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 	fn insert(&mut self, ty: Ty<'tcx>) {
-		self.writes.insert(self.tcx, self.def_id, ty);
+		self.writes.into.insert(self.tcx, self.def_id, ty);
+	}
+
+	/// `ty` as replaced, if a part of it may be kept as a JS object: a write of the whole
+	/// goes one object deep, so it replaces only the parts it holds directly.
+	fn replace(&mut self, ty: Ty<'tcx>) {
+		if self.inline(ty) {
+			self.writes.replaced.insert(self.tcx, self.def_id, ty);
+		}
+	}
+
+	/// Whether a `ty` may be kept as a JS object that a pointer to it is: a tuple, an
+	/// array, a struct or union of a crate that translates, or a `MaybeUninit` of one.
+	fn inline(&self, ty: Ty<'tcx>) -> bool {
+		match ty.kind() {
+			ty::Tuple(tys) => !tys.is_empty(),
+			ty::Array(..) | ty::Param(_) | ty::Alias(..) => true,
+			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
+				Some(Std::MaybeUninit) => self.inline(args.type_at(0)),
+				Some(_) => false,
+				None => !adt.is_enum() && (self.own)(adt.did()),
+			},
+			_ => false,
+		}
 	}
 
 	/// What each mutable reference or pointer a value of `ty` holds points at, where code
-	/// given the value can reach it. What a closure or a coroutine holds only its own body
-	/// reads, a function holds nothing, and what a trait object holds counted where it
-	/// became one.
-	fn pointees(&mut self, ty: Ty<'tcx>) {
+	/// given the value can reach it, written into, and if `replace`, replaced. What a
+	/// closure or a coroutine holds only its own body reads, a function holds nothing,
+	/// and what a trait object holds counted where it became one.
+	fn pointees(&mut self, ty: Ty<'tcx>, replace: bool) {
 		let mut stack = vec![ty];
 		while let Some(ty) = stack.pop() {
 			match *ty.kind() {
 				ty::Ref(_, inner, mutability) | ty::RawPtr(inner, mutability) => {
 					if mutability.is_mut() {
 						self.insert(inner);
+						if replace {
+							self.replace(inner);
+						}
 					}
 					stack.push(inner);
 				}
@@ -439,14 +558,14 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 	fn visit_assign(&mut self, place: &Place<'tcx>, rvalue: &Rvalue<'tcx>, location: Location) {
 		if place.as_local().is_none() {
-			self.pointees(place.ty(self.body, self.tcx).ty);
+			self.pointees(place.ty(self.body, self.tcx).ty, true);
 		}
 		// A `dyn Any` has no method that writes: a write through its downcast counts where it is.
 		let object = |t: Ty<'tcx>| t.is_trait() && !super::dynamic::is_any_object(self.tcx, t);
 		if let Rvalue::Cast(mir::CastKind::PointerCoercion(ty::adjustment::PointerCoercion::Unsize, _), op, to) = rvalue
 			&& to.walk().any(|arg| arg.as_type().is_some_and(object))
 		{
-			self.pointees(op.ty(self.body, self.tcx));
+			self.pointees(op.ty(self.body, self.tcx), true);
 		}
 		self.super_assign(place, rvalue, location);
 	}
@@ -454,9 +573,9 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 	fn visit_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
 		match &terminator.kind {
 			mir::TerminatorKind::Call { destination, .. } if destination.as_local().is_none() => {
-				self.pointees(destination.ty(self.body, self.tcx).ty)
+				self.pointees(destination.ty(self.body, self.tcx).ty, true)
 			}
-			mir::TerminatorKind::Yield { value, .. } => self.pointees(value.ty(self.body, self.tcx)),
+			mir::TerminatorKind::Yield { value, .. } => self.pointees(value.ty(self.body, self.tcx), true),
 			_ => {}
 		}
 		self.super_terminator(terminator, location);
@@ -476,8 +595,10 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 				.fn_sig(def_id)
 				.instantiate(self.tcx, args.skip_binder())
 				.skip_norm_wip();
+			// Those that point a pointer elsewhere or read through it replace nothing.
+			let replace = !super::pointer::keeps(self.tcx, def_id);
 			for &input in sig.skip_binder().inputs() {
-				self.pointees(input);
+				self.pointees(input, replace);
 			}
 		}
 		self.super_operand(operand, location);
@@ -500,6 +621,28 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 			|| matches!(kind, MutatingUseContext::SetDiscriminant)
 		{
 			self.insert(place.ty(self.body, self.tcx).ty);
+		}
+		// A whole part written gives what holds it another object there, and a whole value
+		// written through a pointer each of its parts, as it goes one object deep.
+		if !matches!(
+			kind,
+			MutatingUseContext::Store
+				| MutatingUseContext::Call
+				| MutatingUseContext::AsmOutput
+				| MutatingUseContext::Yield
+		) {
+			return;
+		}
+		let ty = place.ty(self.body, self.tcx).ty;
+		match place.iter_projections().last() {
+			Some((_, ProjectionElem::Deref)) => self.replace(ty),
+			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => {
+				let base = base.ty(self.body, self.tcx).ty;
+				if !base.is_union() {
+					self.replace(base);
+				}
+			}
+			_ => {}
 		}
 	}
 }

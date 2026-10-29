@@ -76,6 +76,7 @@ export's, and adds nothing; another crate's type is refused.
 | `Duration` | `<prefix>_duration` |
 | `SocketAddr`, `SocketAddrV4`, `SocketAddrV6` | `<prefix>_socket_addr`: its IP's bytes, port, and whether it is IPv6; one of the other family passed to `V4` or `V6` aborts |
 | `url::Url` | an object `<prefix>_url`, made by `<prefix>_url_parse`, which fails with the parse error's message, and printed by `_to_string` |
+| `serde_json::Value` | an object `<prefix>_json`, made by `<prefix>_json_parse` from JSON text, which fails with serde_json's message, and read back by `_to_text`; its contents are the caller's JSON library's to read |
 | `Vec<T>` and `&[T]` of any other `T` | `<prefix>_vec_<T>`: an array of `T`'s C values, viewed passed in and owned returned, a slice as a clone; of references only returned |
 | a returned iterator, such as `slice::Iter` or an `impl Iterator`, that no other rule maps, outside a future, made of core's and alloc's iterators over a slice, string, `Option`, `Result`, or collection, through `rev`, `chain`, `flatten`, `fuse`, `enumerate`, `peekable`, `copied`, or `cloned`, with no closure, function, or trait object inside | what `collect::<Vec<_>>()` makes of it: every item, taken at the call |
 | `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
@@ -84,8 +85,9 @@ export's, and adds nothing; another crate's type is refused.
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>`, or a bound implying one, as a supertrait does | `X`, or `&X` and then `String` or `Vec<T>` where `X` is `str` or `[T]` |
-| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes, by its source parameter's bounds as above: `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes` |
-| another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
+| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes: a source parameter by its bounds as above, so `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes`, and any other source as it is, so `impl<'a, V> From<&'a V> for Timed<&'a V>` takes `&V` |
+| `impl IntoIterator<Item = X>`, where `X` is no type parameter | `Vec<X>` |
+| another type parameter | `serde_json::Value` for a serde `Serialize` or `Deserialize` bound, else the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
 
 A generic type infers the instances it exports at, with no config: the one at its
 defaults, if each type parameter has one; the one each inherent impl is of, such as
