@@ -590,14 +590,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.index(name, gargs, args, dest, span, out)
 			}
 			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
-			// the place it borrows, as an index does, and so does one to any value a guard
-			// holds, which is where its mutex keeps it, or that an `rt.Place` lends, as one
-			// to a pinned box of an `Arc` does.
+			// the place it borrows, as an index does, and so does one to any value a guard or
+			// a `RefMut` holds, which is where its mutex or cell keeps it, or that an
+			// `rt.Place` lends, as one to a pinned box of an `Arc` does.
 			("DerefMut", "deref_mut")
 				if let ty::Ref(_, pointee, _) = dest.ty(&self.mir.local_decls, tcx).ty.kind()
 					&& (self.b.t.object_kind(*pointee).is_none()
 						|| targ(0).is_some_and(|t| {
-							self.b.t.std_of(t) == Some(Std::MutexGuard)
+							matches!(self.b.t.std_of(t), Some(Std::MutexGuard | Std::RefMut))
 								|| self.b.t.needs_place(t) && self.b.t.needs_place(*pointee)
 						}))
 					&& let Some(local) = dest.as_local()

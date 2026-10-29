@@ -190,6 +190,11 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	*locked.lock().unwrap() = vec![Arc::clone(&two)];
 	drop(taken);
 	counts(out, &[&one, &two], &locked.lock().unwrap());
+	let cell = std::cell::RefCell::new(vec![Arc::clone(&one)]);
+	let taken = std::mem::take(&mut *cell.borrow_mut());
+	*cell.borrow_mut() = vec![Arc::clone(&two), Arc::clone(&two)];
+	counts(out, &[&one, &two], &taken);
+	counts(out, &[&one, &two], &cell.borrow());
 	// Through a map lookup.
 	let mut sets: HashMap<u8, BTreeSet<u8>> = HashMap::new();
 	sets.insert(by, data.iter().copied().collect());

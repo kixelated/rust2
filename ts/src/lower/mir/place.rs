@@ -1437,7 +1437,7 @@ fn shared<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	match erased.kind() {
 		ty::Adt(adt, _) => matches!(
 			Std::of(tcx, adt.did()),
-			Some(Std::Arc | Std::Waker | Std::Context | Std::MutexGuard)
+			Some(Std::Arc | Std::Waker | Std::Context | Std::MutexGuard | Std::Ref | Std::RefMut)
 		),
 		ty::Ref(..) | ty::Coroutine(..) => true,
 		_ => false,

@@ -10,6 +10,7 @@ import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDe
 import { dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
+import { UNPRINTABLE } from "./rt/unicode.ts";
 export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
@@ -1231,8 +1232,26 @@ function closePretty(f: Formatter, close: string): FmtResult {
 
 // `Debug` and `Display` of what std defines them for. A string's `Display` is `fmtPad`.
 
-/** Characters `Debug` of a string writes as `\u{..}`, by std's rule. */
-const unprintable = /[\p{Cc}\p{Co}\p{White_Space}\p{Grapheme_Extend}\p{Default_Ignorable_Code_Point}\p{Cf}\P{Assigned}]/u;
+/** Where each run of `UNPRINTABLE` starts and ends, in order, once one is looked up. */
+let unprintableBounds: Uint32Array | undefined;
+
+/** Whether `Debug` writes `point` as `\u{..}`, by std's Unicode rather than the engine's. */
+function unprintable(point: number): boolean {
+	if (unprintableBounds === undefined) {
+		unprintableBounds = new Uint32Array(UNPRINTABLE.length);
+		let at = 0;
+		for (let i = 0; i < UNPRINTABLE.length; i++) unprintableBounds[i] = at += UNPRINTABLE[i];
+	}
+	// How many bounds are at most `point`: odd inside a run.
+	let lo = 0;
+	let hi = unprintableBounds.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >>> 1;
+		if (unprintableBounds[mid] <= point) lo = mid + 1;
+		else hi = mid;
+	}
+	return (lo & 1) === 1;
+}
 
 /** One char of `Debug` of a string, which escapes `"`, or of a char, which escapes `'`. */
 function escapeDebug(c: string, quote: '"' | "'"): string {
@@ -1251,9 +1270,7 @@ function escapeDebug(c: string, quote: '"' | "'"): string {
 			return "\\0";
 	}
 	const point = c.codePointAt(0)!;
-	// Printable ASCII, and two halfwidth katakana marks that extend graphemes but print.
-	if ((point >= 0x20 && point <= 0x7e) || point === 0xff9e || point === 0xff9f) return c;
-	return unprintable.test(c) ? `\\u{${point.toString(16)}}` : c;
+	return unprintable(point) ? `\\u{${point.toString(16)}}` : c;
 }
 
 /** `format!`, from `alloc::fmt::format`. */

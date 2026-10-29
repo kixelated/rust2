@@ -19,6 +19,7 @@ pub const RUNTIME: &[(&str, &str)] = &[
 	("rt/str.ts", include_str!("../runtime/rt/str.ts")),
 	("rt/task.ts", include_str!("../runtime/rt/task.ts")),
 	("rt/time.ts", include_str!("../runtime/rt/time.ts")),
+	("rt/unicode.ts", include_str!("../runtime/rt/unicode.ts")),
 ];
 
 /// The first line of every generated file, which also marks it as safe to replace.

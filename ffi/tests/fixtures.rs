@@ -232,6 +232,7 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 		"the Kotlin transcript differs from the native one"
 	);
 	run(&mut java(&["futures"]));
+	run(&mut java(&["owned"]));
 	for (case, message) in [
 		("moved", "Counter is closed"),
 		("boxed moved", "Node is closed"),
@@ -254,7 +255,7 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 	// refuse to load it.
 	let native_class = classes.join("api").join("Native.class");
 	let bytes = std::fs::read(&native_class).unwrap();
-	let contract = contract(&out.join("include").join("api.h")).to_be_bytes();
+	let contract = kotlin_contract(&out.join("kotlin").join("api.kt")).to_be_bytes();
 	let at: Vec<usize> = (0..bytes.len() - 8).filter(|&i| bytes[i..i + 8] == contract).collect();
 	assert_eq!(at.len(), 1, "Native.class holds the contract once");
 	let mut mismatched = bytes.clone();
@@ -270,15 +271,14 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 	);
 }
 
-/// The contract a header defines.
-fn contract(header: &Path) -> u64 {
-	let header = std::fs::read_to_string(header).unwrap();
-	let line = header
-		.lines()
-		.find(|l| l.starts_with("#define API_CONTRACT"))
-		.expect("the header defines its contract");
-	let hex = line.split("0x").nth(1).expect("a hex contract");
-	u64::from_str_radix(hex.trim_end_matches(|c: char| !c.is_ascii_hexdigit()), 16).unwrap()
+/// The contract a Kotlin file checks its library against.
+fn kotlin_contract(kotlin: &Path) -> u64 {
+	let kotlin = std::fs::read_to_string(kotlin).unwrap();
+	let at = kotlin
+		.find("__contract().toULong() == 0x")
+		.expect("the Kotlin checks its contract");
+	let hex = &kotlin[at..].split("0x").nth(1).expect("a hex contract")[..16];
+	u64::from_str_radix(hex, 16).unwrap()
 }
 
 /// A relative `CARGO_TARGET_DIR` is the caller's, wherever cargo runs.

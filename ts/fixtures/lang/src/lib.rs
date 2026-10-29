@@ -5,8 +5,9 @@
 //! types, formatting, collections, UTF-8 decoding, `&mut` to values JS copies, whole
 //! writes through a `&mut` to an object, the standard library calls it maps, `Option`'s
 //! and `Result`'s combinators from core's MIR, `Option`s of values that can already be
-//! `undefined`, atomics, trait objects, one-time cells, mutexes, the defaults of std
-//! types, the counts of shared pointers, arrays `array::from_fn` makes, and maps of
+//! `undefined`, atomics, trait objects, one-time cells, mutexes, `Cell`s, `RefCell`s, and
+//! read-write locks, the defaults of std types, the counts of shared pointers, arrays
+//! `array::from_fn` makes, and maps of
 //! `Option`s.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
@@ -14,6 +15,7 @@
 
 mod arrays;
 mod atomics;
+mod borrows;
 mod captures;
 mod cells;
 mod chars;

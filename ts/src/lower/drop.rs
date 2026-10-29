@@ -31,8 +31,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				// A guard unlocks its mutex, and a `Weak` uncounts itself.
-				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard) => true,
+				// A guard unlocks its mutex or ends its borrow, and a `Weak` uncounts itself.
+				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard | Std::Ref | Std::RefMut) => true,
 				Some(
 					Std::Option
 					| Std::Result
@@ -40,6 +40,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Vec
 					| Std::Mutex
+					| Std::RefCell
+					| Std::Cell
 					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
@@ -128,6 +130,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(
 					Std::Arc
 					| Std::Mutex
+					| Std::RefCell
+					| Std::Cell
 					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
@@ -168,7 +172,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match Std::of(self.tcx, adt.did()) {
 			_ if self.bound_drops(adt.did()).is_some() => true,
 			Some(Std::Box | Std::Pin | Std::Reverse | Std::PoisonError) => self.always_disposes(args.type_at(0)),
-			Some(Std::Waker | Std::PollFn | Std::Weak | Std::Arc | Std::Mutex | Std::OnceCell | Std::OnceLock) => true,
+			Some(
+				Std::Waker
+				| Std::PollFn
+				| Std::Weak
+				| Std::Arc
+				| Std::Mutex
+				| Std::RefCell
+				| Std::Cell
+				| Std::OnceCell
+				| Std::OnceLock,
+			) => true,
 			Some(_) => false,
 			// An `rt.Iter` has one only if it was given what drops.
 			None if self.std_iter(ty) => false,
@@ -212,6 +226,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					Std::Option
 					| Std::Box
 					| Std::Mutex
+					| Std::RefCell
+					| Std::Cell
 					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
@@ -266,6 +282,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Std::Arc => ("arcDrop", vec![value, each(self, 0)?]),
 				Std::Mutex => return self.drop_value(value.member("value"), args.type_at(0), span),
 				Std::MutexGuard => ("mutexUnlock", vec![value]),
+				Std::RefCell => return self.drop_value(value.member("value"), args.type_at(0), span),
+				Std::Ref => ("refRelease", vec![value]),
+				Std::RefMut => ("refMutRelease", vec![value]),
+				Std::Cell => return self.drop_value(value.member("v"), args.type_at(0), span),
 				Std::OnceCell | Std::OnceLock => {
 					let option = Ty::new_option(self.tcx, args.type_at(0));
 					return self.drop_value(value.member("v"), option, span);
