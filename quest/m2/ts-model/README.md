@@ -50,6 +50,8 @@ Public API: the translator's output for moq-net's model.
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
 - [Writes through places the model still refuses](/quest/m2/ts-model/places.md) - `get_or_insert_default` through a `&mut`, and `mem::take` of a captured `&mut Vec`
-- [std gaps kio reaches](/quest/m2/ts-model/kio-std.md) - `array::from_fn`, `Default` of arrays and `()`, and maps of `Option`s
+- [std gaps kio reaches](/quest/m2/ts-model/kio-std.md) - `array::from_fn`, `Default` of arrays and `()`, maps of `Option`s, and `trailing_zeros`
+- [hashbrown as the runtime's map](/quest/m2/ts-model/hashbrown.md) - hashlink's `hashbrown` tables translate as `rt.HashMap`, with std's capacity
+- [A write through a mutable reference to a library object](/quest/m2/ts-model/library-place.md) - `*r = v` where `r` came out of an `Option` writes the slot, not a copy
 - [bytes' BytesMut, Buf, and BufMut](/quest/m2/ts-model/bytes.md) - map without config, so the model's `BytesMut` binding goes
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

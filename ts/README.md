@@ -12,9 +12,9 @@ would; the configured library is also translated, after type and borrow checking
 what they reach. Every crate it depends on but std's translates with it as one program,
 as far as the roots reach: each compiles with every function's MIR, and its types and
 calls translate as the package's own do. They compile with `--cfg rust2_ts`, so a crate
-can give translation a safe twin of its `unsafe`. Their `unsafe` is
-refused where it is, as the package's is, unless a binding stands in for the item holding
-it. Only the writes of the dependencies' functions translation reaches decide what it
+can give translation a safe twin of its `unsafe`. Their `unsafe` translates as the
+package's does, and what translation can't model is refused where it is, unless a binding
+stands in for the item holding it. Only the writes of the dependencies' functions translation reaches decide what it
 copies, so it runs again when it reaches one it didn't read. A construct outside the subset is a compile error with its span, and
 then nothing is written. A type without a JS value is refused where a value of it is made
 or received, such as a parameter, a field, or a call, rather than again at each variable
@@ -87,6 +87,9 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
+| `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A read or write of a whole object copies it one level deep, as an assignment through a `&mut` does |
+| `MaybeUninit<T>` | `T`, `undefined` until written, or an object of `undefined` fields |
+| `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
@@ -505,7 +508,8 @@ they need.
 
 ## Not yet
 
-`unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
+Byte reinterpretation, pointer arithmetic and addresses, raw allocation, and unions whose
+fields overlap in different types ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
 `&dyn Debug`, `&dyn Display`, `dyn Future`, `dyn Any`, and the translated crates' traits'
 behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
 hand-written TS ([bindings](#bindings)).
@@ -564,7 +568,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
-  that log what each is called with, and std's `Bound`, `Reverse`, and `NonZero`. Its
+  that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw
+  pointers: a linked list of boxed nodes as `hashlink` keeps one, through a union and a
+  `MaybeUninit` entry, and pointers to locals, fields, and whole structs. Its
   differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,
