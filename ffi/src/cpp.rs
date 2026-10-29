@@ -4,7 +4,8 @@
 //! Each name is its C name without the prefix, in a namespace of the prefix: `moq_track`
 //! is `moq::track`, and a method is its C name without its type's (`moq_track_close` is
 //! `moq::track::close`). C names are unique, so these are too, once a keyword, or a member
-//! named as its class or a field, takes a trailing `_`. An object is a move-only class
+//! named as its class or a field, takes a trailing `_`; so does a parameter named as a
+//! member or as anything in the namespace, which it would hide. An object is a move-only class
 //! owning its handle, copyable if `Clone`; a record a struct; an enum an `enum class`, or
 //! for one with data a `std::variant` of a struct per variant, with its methods free
 //! functions; a closure lent for the call a template parameter. The runtime they share,
@@ -26,6 +27,7 @@ pub fn header(abi: &Abi<'_>, packages: &str) -> Result<String, String> {
 		out: String::new(),
 		defs: String::new(),
 		defined: BTreeSet::new(),
+		globals: runtime_names().map(str::to_string).collect(),
 		errors: Vec::new(),
 	};
 	h.write(packages);
@@ -53,6 +55,8 @@ struct Header<'a> {
 	defs: String,
 	/// The value types written so far, so each is written after what it holds.
 	defined: BTreeSet<String>,
+	/// The names declared in the namespace, which a parameter named alike would hide.
+	globals: BTreeSet<String>,
 	errors: Vec<String>,
 }
 
@@ -80,6 +84,12 @@ impl<'a> Header<'a> {
 	/// The namespace's `detail`, qualified.
 	fn d(&self) -> String {
 		format!("::{}::detail", self.ns)
+	}
+
+	/// `name`, declared in the namespace.
+	fn global(&mut self, name: &str) -> String {
+		self.globals.insert(name.to_string());
+		name.to_string()
 	}
 
 	/// The C++ type of `ty` as a value: a field, or what a function returns, owning what
@@ -220,11 +230,14 @@ impl<'a> Header<'a> {
 			Type::Char => format!("static_cast<uint32_t>({e})"),
 			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
 			Type::Waker => format!("{d}::give({d}::access::raw({e}))"),
-			Type::List(inner) => format!(
-				"a_.list<::{}>({e}, [&](const auto &x) {{ return {}; }})",
-				abi.list(inner),
-				self.lower(inner, "x")
-			),
+			Type::List(inner) => {
+				let x = format!("x{}_", lists(inner));
+				format!(
+					"a_.list<::{}>({e}, [&](const auto &{x}) {{ return {}; }})",
+					abi.list(inner),
+					self.lower(inner, &x)
+				)
+			}
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("({e} ? {d}::access::raw(*{e}) : nullptr)"),
 				base @ Type::List(elem) => format!(
@@ -269,12 +282,15 @@ impl<'a> Header<'a> {
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("static_cast<char32_t>({e})"),
 			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
-			Type::List(inner) => format!(
-				"{d}::lift_list<{}>({e}, [&](const auto &c) {{ return {}; }}, &::{}_free)",
-				self.owned(inner),
-				self.lift(inner, "c"),
-				abi.list(inner)
-			),
+			Type::List(inner) => {
+				let c = format!("c{}_", lists(inner));
+				format!(
+					"{d}::lift_list<{}>({e}, [&](const auto &{c}) {{ return {}; }}, &::{}_free)",
+					self.owned(inner),
+					self.lift(inner, &c),
+					abi.list(inner)
+				)
+			}
 			Type::Option(inner) => {
 				let owned = self.owned(inner);
 				match inner.base() {
@@ -373,19 +389,23 @@ impl<'a> Header<'a> {
 			"\nnamespace detail {{\n\n// Checked at load, before any other call: a header and a library from different builds\n// must not mix.\ninline const bool contract = ::{p}_contract() == {upper}_CONTRACT ||\n\t(fail(\"{p}.hpp and the library are from different builds\"), false);\n\n}} // namespace detail\n",
 			upper = p.to_uppercase()
 		));
-		self.line(format!("using duration = ::{p}_duration;"));
-		self.line(format!("using socket_addr = ::{p}_socket_addr;"));
+		let mut aliases = vec![
+			("duration".to_string(), format!("{p}_duration")),
+			("socket_addr".to_string(), format!("{p}_socket_addr")),
+		];
 		if abi.ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
-			self.line(format!("using bound = ::{};", abi.rt("bound")));
+			aliases.push(("bound".to_string(), abi.rt("bound")));
 		}
-		for name in abi.ranges.keys() {
-			self.line(format!("using {} = ::{name};", self.name(name)));
+		aliases.extend(abi.ranges.keys().map(|name| (self.name(name), name.clone())));
+		for (alias, c) in aliases {
+			let alias = self.global(&alias);
+			self.line(format!("using {alias} = ::{c};"));
 		}
 		self.line("");
 
 		// Plain enums, complete at once.
 		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| e.plain()) {
-			let name = self.name(&abi.enumeration(i));
+			let name = self.global(&self.name(&abi.enumeration(i)));
 			let variants: Vec<String> = e
 				.variants
 				.iter()
@@ -400,28 +420,31 @@ impl<'a> Header<'a> {
 
 		// Every class and struct, declared so any signature may name it.
 		for i in 0..api.records.len() {
-			self.line(format!("struct {};", self.name(&abi.record(i))));
+			let name = self.global(&self.name(&abi.record(i)));
+			self.line(format!("struct {name};"));
 		}
 		for i in 0..api.objects.len() {
-			self.line(format!("class {};", self.name(&abi.object(i))));
+			let name = self.global(&self.name(&abi.object(i)));
+			self.line(format!("class {name};"));
 		}
 		for i in 0..api.callbacks.len() {
-			self.line(format!("class {};", self.name(&abi.callback(i))));
+			let name = self.global(&self.name(&abi.callback(i)));
+			self.line(format!("class {name};"));
 		}
 		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| !e.plain()) {
 			let name = abi.enumeration(i);
 			let payloads: Vec<String> = e
 				.variants
 				.iter()
-				.map(|v| self.name(&format!("{name}_{}", abi::snake(&v.name))))
+				.map(|v| self.global(&self.name(&format!("{name}_{}", abi::snake(&v.name)))))
 				.collect();
 			for payload in &payloads {
 				self.line(format!("struct {payload};"));
 			}
+			let alias = self.global(&self.name(&name));
 			self.line(format!(
-				"{}using {} = ::std::variant<{}>;",
+				"{}using {alias} = ::std::variant<{}>;",
 				docs(&e.docs, ""),
-				self.name(&name),
 				payloads.join(", ")
 			));
 		}
@@ -432,7 +455,7 @@ impl<'a> Header<'a> {
 		for (function, owner) in &futures {
 			let export = abi.export(function, owner.as_ref());
 			if let Some((handle, _, _)) = &export.future {
-				let name = self.name(handle);
+				let name = self.global(&self.name(handle));
 				self.line(format!(
 					"namespace detail {{\nstruct {name}_op;\n}}\nusing {name} = ::{ns}::future<detail::{name}_op>;"
 				));
@@ -445,10 +468,10 @@ impl<'a> Header<'a> {
 				Literal::Bool(_) => "bool",
 				Literal::Int(int, _) => cpp_int(int),
 			};
+			let name = self.global(&self.name(&abi.name(&constant.path)));
 			self.line(format!(
-				"{}inline constexpr {ty} {} = {};",
+				"{}inline constexpr {ty} {name} = {};",
 				docs(&constant.docs, ""),
-				self.name(&abi.name(&constant.path)),
 				abi.constant(&constant.path)
 			));
 		}
@@ -1050,9 +1073,19 @@ impl<'a> Header<'a> {
 			prelude.insert(0, format!("{d}::arena a_;"));
 		}
 		let mut templates = Vec::new();
+		// A parameter named as a member or anything in the namespace would hide it.
+		let members = match class {
+			Some((taken, Owner::Member)) => taken,
+			_ => &[],
+		};
+		let mut names: Vec<String> = Vec::new();
 		for param in &function.params {
 			let (_, c_ty) = c_params.next().expect("each parameter has its C one");
-			let name = escape(&param.name);
+			let mut name = escape(&param.name);
+			while self.globals.contains(&name) || members.contains(&name) || names.contains(&name) {
+				name.push('_');
+			}
+			names.push(name.clone());
 			if let (Type::Closure(lent, ret), Ty::Fn(c_lent, c_ret)) = (&param.ty, c_ty) {
 				c_params.next().expect("a closure has its data");
 				let f = format!("F{}", templates.len());
@@ -1121,9 +1154,8 @@ impl<'a> Header<'a> {
 			body.join("\n\t")
 		));
 		let mut text = function.docs.clone();
-		for param in &function.params {
+		for (param, name) in function.params.iter().zip(&names) {
 			if let Type::Closure(lent, _) = &param.ty {
-				let name = escape(&param.name);
 				text.push_str(&format!(
 					"\n\nRust calls `{name}` only during the call, from any thread."
 				));
@@ -1153,31 +1185,39 @@ impl<'a> Header<'a> {
 	fn closure(&self, f: &str, name: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
 		let abi = self.abi;
 		let d = self.d();
-		let c_params: Vec<String> = std::iter::once("void *data".to_string())
-			.chain(c_lent.iter().enumerate().map(|(k, ty)| decl(abi, ty, &format!("p{k}"))))
+		let c_params: Vec<String> = std::iter::once("void *data_".to_string())
+			.chain(
+				c_lent
+					.iter()
+					.enumerate()
+					.map(|(k, ty)| decl(abi, ty, &format!("p{k}_"))),
+			)
 			.collect();
 		let mut body = vec![format!(
-			"auto &f = *static_cast<::std::remove_reference_t<{f}> *>(data);"
+			"auto &f_ = *static_cast<::std::remove_reference_t<{f}> *>(data_);"
 		)];
 		let mut args = Vec::new();
 		for (k, (ty, c_ty)) in lent.iter().zip(c_lent).enumerate() {
-			let p = format!("p{k}");
+			let p = format!("p{k}_");
 			match (ty, c_ty) {
 				(Type::Ref(m, object), Ty::Handle { name: c, constant }) => {
 					let constant = match constant {
 						true => "const ",
 						false => "",
 					};
-					body.push(format!("{d}::lent<{}, {constant}::{c}> l{k}({p});", self.owned(object)));
+					body.push(format!(
+						"{d}::lent<{}, {constant}::{c}> l{k}_({p});",
+						self.owned(object)
+					));
 					args.push(match m {
-						crate::ir::Mutability::Not => format!("::std::as_const(l{k}.get())"),
-						crate::ir::Mutability::Mut => format!("l{k}.get()"),
+						crate::ir::Mutability::Not => format!("::std::as_const(l{k}_.get())"),
+						crate::ir::Mutability::Mut => format!("l{k}_.get()"),
 					});
 				}
 				_ => args.push(self.lift_lent(ty, &p)),
 			}
 		}
-		let call = format!("f({})", args.join(", "));
+		let call = format!("f_({})", args.join(", "));
 		body.push(match ret {
 			Type::Unit => format!("{call};"),
 			ret => format!("return {};", self.lower(ret, &call)),
@@ -1223,6 +1263,36 @@ impl<'a> Header<'a> {
 			args.join(", "),
 			cases.join("\n")
 		));
+	}
+}
+
+/// The names the runtime declares in the namespace, outside its `detail`, and `detail`.
+fn runtime_names() -> impl Iterator<Item = &'static str> {
+	let mut detail = false;
+	let lines = RUNTIME.lines().filter(move |line| {
+		match *line {
+			"namespace detail {" => detail = true,
+			"} // namespace detail" => detail = false,
+			_ => {}
+		}
+		!detail
+	});
+	let names = lines.filter_map(|line| {
+		let rest = ["class ", "struct ", "using "]
+			.iter()
+			.find_map(|kw| line.strip_prefix(kw))?;
+		rest.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).next()
+	});
+	std::iter::once("detail").chain(names)
+}
+
+/// How many lists `ty` nests, which names the element of each list's lambda apart from
+/// those of the lambdas around it.
+fn lists(ty: &Type) -> usize {
+	match ty {
+		Type::List(inner) => 1 + lists(inner),
+		Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => lists(inner),
+		_ => 0,
 	}
 }
 

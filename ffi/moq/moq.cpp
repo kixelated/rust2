@@ -410,9 +410,9 @@ int main() {
 		client_config.set_connect(std::move(connect));
 		auto client = std::move(client_config).init();
 		CHECK(client);
-		moq::origin_producer received = moq::origin_spawn();
-		moq::origin_consumer remote = received.consume();
-		auto connection = moq::tokio_client(*client).with_reconnect(false).consume(std::move(received));
+		moq::origin_producer incoming = moq::origin_spawn();
+		moq::origin_consumer remote = incoming.consume();
+		auto connection = moq::tokio_client(*client).with_reconnect(false).consume(std::move(incoming));
 		CHECK(connection);
 		auto established = std::move(*connection).established().get();
 		CHECK(established);

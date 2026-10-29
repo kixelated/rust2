@@ -3,8 +3,11 @@
 //! transcripts must match the fixture's own script run natively.
 //! The reject fixture's export must fail at each item it cannot export.
 
+use std::env::consts::EXE_SUFFIX;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::OnceLock;
 
 fn manifest_dir() -> PathBuf {
 	PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -45,127 +48,98 @@ fn export(name: &str, out: &Path, cargo: &[&str]) -> Output {
 		.expect("running rust2-ffi")
 }
 
-#[test]
-fn api() {
-	let out = scratch().join("api").join("out");
-	// A feature enabled on another export directly, which the C library must build with.
-	let features = ["--features", "dep-fixture/doubled"];
-	let output = export("api", &out, &features);
-	assert!(
-		output.status.success(),
-		"exporting failed:\n{}",
-		String::from_utf8_lossy(&output.stderr)
-	);
-	// The workspace's lockfile pins what the export depends on.
-	std::fs::copy(manifest_dir().join("Cargo.lock"), out.join("Cargo.lock")).unwrap();
-	let target = scratch().join("api").join("glue");
-	run(cargo()
-		.arg("build")
-		.arg("--quiet")
-		.arg("--manifest-path")
-		.arg(out.join("Cargo.toml"))
-		.arg("--target-dir")
-		.arg(&target)
-		.args(["--features", "kotlin"])
-		// Glue the exporter writes builds without warnings.
-		.env("RUSTFLAGS", "-D warnings"));
+/// The api fixture, exported and built once for each language's test.
+struct Api {
+	/// The export.
+	out: PathBuf,
+	/// Where cargo built the static library and the JNI library.
+	lib: PathBuf,
+	/// What a program linking the static library links besides, as rustc prints it.
+	native: Vec<String>,
+	/// The fixture's script, run natively.
+	transcript: String,
+}
 
+impl Api {
+	fn staticlib(&self) -> PathBuf {
+		self.lib.join(match cfg!(target_env = "msvc") {
+			true => "api.lib",
+			false => "libapi.a",
+		})
+	}
+}
+
+fn api() -> &'static Api {
+	static API: OnceLock<Api> = OnceLock::new();
+	API.get_or_init(|| {
+		let out = scratch().join("api").join("out");
+		// A feature enabled on another export directly, which the C library must build with.
+		let features = ["--features", "dep-fixture/doubled"];
+		let output = export("api", &out, &features);
+		assert!(
+			output.status.success(),
+			"exporting failed:\n{}",
+			String::from_utf8_lossy(&output.stderr)
+		);
+		// The workspace's lockfile pins what the export depends on.
+		std::fs::copy(manifest_dir().join("Cargo.lock"), out.join("Cargo.lock")).unwrap();
+		let target = scratch().join("api").join("glue");
+		let built = run(cargo()
+			.arg("build")
+			.arg("--quiet")
+			.arg("--manifest-path")
+			.arg(out.join("Cargo.toml"))
+			.arg("--target-dir")
+			.arg(&target)
+			.args(["--features", "kotlin"])
+			// Glue the exporter writes builds without warnings.
+			.env("RUSTFLAGS", "-D warnings --print=native-static-libs"));
+		let native = String::from_utf8_lossy(&built.stderr)
+			.lines()
+			.find_map(|line| line.strip_prefix("note: native-static-libs: "))
+			.expect("rustc prints the static library's native libraries")
+			.split_whitespace()
+			.map(str::to_string)
+			.collect();
+		let transcript = run(cargo()
+			.args([
+				"run",
+				"--quiet",
+				"--locked",
+				"--package",
+				"api-fixture",
+				"--example",
+				"transcript",
+			])
+			.args(features)
+			.current_dir(manifest_dir()));
+		Api {
+			out,
+			lib: target.join("debug"),
+			native,
+			transcript: String::from_utf8_lossy(&transcript.stdout).into_owned(),
+		}
+	})
+}
+
+#[test]
+fn api_c() {
+	let api = api();
 	let exe = scratch().join("api").join("api-test");
 	let cc = std::env::var_os("CC").unwrap_or_else(|| "cc".into());
 	run(Command::new(cc)
 		.args(["-std=c11", "-pedantic", "-Wall", "-Wextra", "-Werror", "-I"])
-		.arg(out.join("include"))
+		.arg(api.out.join("include"))
 		.arg(manifest_dir().join("tests").join("api.c"))
-		.arg(target.join("debug").join("libapi.a"))
-		.args(["-lpthread", "-ldl", "-lm", "-o"])
+		.arg(api.staticlib())
+		.args(&api.native)
+		.arg("-o")
 		.arg(&exe));
-
 	let c = run(&mut Command::new(&exe));
-	let native = run(cargo()
-		.args([
-			"run",
-			"--quiet",
-			"--locked",
-			"--package",
-			"api-fixture",
-			"--example",
-			"transcript",
-		])
-		.args(features)
-		.current_dir(manifest_dir()));
 	assert_eq!(
 		String::from_utf8_lossy(&c.stdout),
-		String::from_utf8_lossy(&native.stdout),
+		api.transcript,
 		"the C transcript differs from the native one"
-	);
-
-	// The C++ header at each standard, with exceptions and RTTI on and off between them,
-	// runs the same script, then checks its futures' semantics.
-	let cxx = std::env::var_os("CXX").unwrap_or_else(|| "c++".into());
-	for (standard, flags) in [
-		("c++17", &["-fno-exceptions", "-fno-rtti"][..]),
-		("c++20", &[]),
-		("c++23", &["-fno-exceptions", "-fno-rtti"]),
-	] {
-		let exe = scratch().join("api").join(format!("api-{standard}"));
-		run(Command::new(&cxx)
-			.arg(format!("-std={standard}"))
-			.args(flags)
-			.args(["-pedantic", "-Wall", "-Wextra", "-Werror", "-I"])
-			.arg(out.join("include"))
-			.arg(manifest_dir().join("tests").join("api.cpp"))
-			.arg(target.join("debug").join("libapi.a"))
-			.args(["-lpthread", "-ldl", "-lm", "-o"])
-			.arg(&exe));
-		let cpp = run(&mut Command::new(&exe));
-		assert_eq!(
-			String::from_utf8_lossy(&cpp.stdout),
-			String::from_utf8_lossy(&native.stdout),
-			"the {standard} transcript differs from the native one"
-		);
-		run(Command::new(&exe).arg("futures"));
-		for (case, message) in [
-			("moved", "api_counter_get: a handle's value was moved out"),
-			("value", "value() of a result that holds an error"),
-			(
-				"finished",
-				"api_channel_recv_poll: a future is polled after it finished",
-			),
-			(
-				"lent moved",
-				"api_counter_into_label: a lent handle's value cannot move out",
-			),
-			("lent kept", "a lent object was moved out of"),
-			("null view", "a view of null bytes has a length"),
-		] {
-			let output = Command::new(&exe).arg(case).output().unwrap();
-			assert!(!output.status.success(), "{standard} {case} did not abort");
-			let stderr = String::from_utf8_lossy(&output.stderr);
-			assert!(stderr.contains(message), "{standard} {case} printed {stderr}");
-		}
-	}
-
-	// A C++ program whose header names another contract than its library's aborts at load.
-	let mismatched = scratch().join("api").join("contract.cpp");
-	std::fs::write(
-		&mismatched,
-		"#include \"api.h\"\n#undef API_CONTRACT\n#define API_CONTRACT ((uint64_t)0)\n#include \"api.hpp\"\nint main() {}\n",
-	)
-	.unwrap();
-	let contract = scratch().join("api").join("contract");
-	run(Command::new(&cxx)
-		.args(["-std=c++17", "-I"])
-		.arg(out.join("include"))
-		.arg(&mismatched)
-		.arg(target.join("debug").join("libapi.a"))
-		.args(["-lpthread", "-ldl", "-lm", "-o"])
-		.arg(&contract));
-	let output = Command::new(&contract).output().unwrap();
-	assert!(!output.status.success(), "a mismatched contract did not abort");
-	let stderr = String::from_utf8_lossy(&output.stderr);
-	assert!(
-		stderr.contains("api.hpp and the library are from different builds"),
-		"a mismatched contract printed {stderr}"
 	);
 
 	// Each broken contract aborts, naming the function and what broke.
@@ -194,8 +168,120 @@ fn api() {
 		let stderr = String::from_utf8_lossy(&output.stderr);
 		assert!(stderr.contains(message), "{case} printed {stderr}");
 	}
+}
 
-	kotlin(&out, &target.join("debug"), &String::from_utf8_lossy(&native.stdout));
+/// The C++ header at each standard, with exceptions and RTTI on and off between them,
+/// runs the same script, then checks its futures' semantics.
+#[test]
+fn api_cpp() {
+	let api = api();
+	for (standard, plain) in [(17, true), (20, false), (23, true)] {
+		let exe = scratch().join("api").join(format!("api-c++{standard}{EXE_SUFFIX}"));
+		run(&mut cxx(
+			api,
+			standard,
+			plain,
+			&manifest_dir().join("tests").join("api.cpp"),
+			&exe,
+		));
+		let cpp = run(&mut Command::new(&exe));
+		assert_eq!(
+			String::from_utf8_lossy(&cpp.stdout),
+			api.transcript,
+			"the C++{standard} transcript differs from the native one"
+		);
+		run(Command::new(&exe).arg("futures"));
+		for (case, message) in [
+			("moved", "api_counter_get: a handle's value was moved out"),
+			("value", "value() of a result that holds an error"),
+			(
+				"finished",
+				"api_channel_recv_poll: a future is polled after it finished",
+			),
+			(
+				"lent moved",
+				"api_counter_into_label: a lent handle's value cannot move out",
+			),
+			("lent kept", "a lent object was moved out of"),
+			("null view", "a view of null bytes has a length"),
+		] {
+			let output = Command::new(&exe).arg(case).output().unwrap();
+			assert!(!output.status.success(), "C++{standard} {case} did not abort");
+			let stderr = String::from_utf8_lossy(&output.stderr);
+			assert!(stderr.contains(message), "C++{standard} {case} printed {stderr}");
+		}
+	}
+
+	// A C++ program whose header names another contract than its library's aborts at load.
+	let mismatched = scratch().join("api").join("contract.cpp");
+	std::fs::write(
+		&mismatched,
+		"#include \"api.h\"\n#undef API_CONTRACT\n#define API_CONTRACT ((uint64_t)0)\n#include \"api.hpp\"\nint main() {}\n",
+	)
+	.unwrap();
+	let contract = scratch().join("api").join(format!("contract{EXE_SUFFIX}"));
+	run(&mut cxx(api, 17, false, &mismatched, &contract));
+	let output = Command::new(&contract).output().unwrap();
+	assert!(!output.status.success(), "a mismatched contract did not abort");
+	let stderr = String::from_utf8_lossy(&output.stderr);
+	assert!(
+		stderr.contains("api.hpp and the library are from different builds"),
+		"a mismatched contract printed {stderr}"
+	);
+}
+
+/// A build of the C++ `src` against the api library into `exe`, at C++`standard`, with
+/// exceptions and RTTI off if `plain`, and warnings as errors: by `CXX` or the platform's
+/// compiler, given MSVC's flags where the target is MSVC's.
+fn cxx(api: &Api, standard: u8, plain: bool, src: &Path, exe: &Path) -> Command {
+	let include = api.out.join("include");
+	if cfg!(target_env = "msvc") {
+		// cl from a developer environment. Its C++23 is `latest`; its objects go beside `exe`.
+		let mut cmd = Command::new(std::env::var_os("CXX").unwrap_or_else(|| "cl".into()));
+		let standard = match standard {
+			23 => "latest".to_string(),
+			n => format!("c++{n}"),
+		};
+		cmd.args([
+			"-nologo",
+			&format!("-std:{standard}"),
+			"-permissive-",
+			"-W4",
+			"-WX",
+			"-MD",
+		]);
+		cmd.args(match plain {
+			true => &["-EHs-c-", "-D_HAS_EXCEPTIONS=0", "-GR-"][..],
+			false => &["-EHsc", "-GR"],
+		});
+		let mut obj = OsString::from("-Fo");
+		obj.push(exe.with_extension("obj"));
+		let mut out = OsString::from("-Fe");
+		out.push(exe);
+		cmd.arg("-I").arg(include).arg(src).arg(obj).arg(out);
+		cmd.arg("-link").arg(api.staticlib()).args(&api.native);
+		return cmd;
+	}
+	let mut cmd = Command::new(std::env::var_os("CXX").unwrap_or_else(|| "c++".into()));
+	cmd.arg(format!("-std=c++{standard}"));
+	if plain {
+		cmd.args(["-fno-exceptions", "-fno-rtti"]);
+	}
+	// -Wshadow stands in for MSVC's warnings that a name hides another.
+	cmd.args(["-pedantic", "-Wall", "-Wextra", "-Wshadow", "-Werror", "-I"])
+		.arg(include)
+		.arg(src)
+		.arg(api.staticlib())
+		.args(&api.native)
+		.arg("-o")
+		.arg(exe);
+	cmd
+}
+
+#[test]
+fn api_kotlin() {
+	let api = api();
+	kotlin(&api.out, &api.lib, &api.transcript);
 }
 
 /// The generated Kotlin, compiled with `tests/api.kt` against the library's JNI

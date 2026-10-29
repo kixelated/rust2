@@ -347,10 +347,10 @@ class waker {
 
 	template <class F>
 	struct callable final : detail::node {
-		F f;
-		explicit callable(F f) : f(::std::move(f)) {}
+		F f_;
+		explicit callable(F f) : f_(::std::move(f)) {}
 		void wake() noexcept override {
-			f();
+			f_();
 		}
 	};
 
