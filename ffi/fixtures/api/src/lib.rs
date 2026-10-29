@@ -595,6 +595,67 @@ pub fn len(payload: &[u8]) -> usize {
 	payload.len()
 }
 
+/// Converts into owned bytes, as moq's `IntoBytes` does: text implements it too, but its
+/// supertrait makes a parameter it bounds bytes, and owned ones, as it must be `'static`.
+pub trait Payload: AsRef<[u8]> + 'static {
+	fn into_bytes(self) -> Bytes;
+}
+
+impl Payload for Bytes {
+	fn into_bytes(self) -> Bytes {
+		self
+	}
+}
+
+impl Payload for Vec<u8> {
+	fn into_bytes(self) -> Bytes {
+		self.into()
+	}
+}
+
+impl Payload for String {
+	fn into_bytes(self) -> Bytes {
+		self.into()
+	}
+}
+
+impl Payload for &'static str {
+	fn into_bytes(self) -> Bytes {
+		Bytes::from_static(self.as_bytes())
+	}
+}
+
+impl Payload for &'static [u8] {
+	fn into_bytes(self) -> Bytes {
+		Bytes::from_static(self)
+	}
+}
+
+/// A payload's bytes in hex, which need not be UTF-8.
+pub fn hex(payload: impl Payload) -> String {
+	payload.into_bytes().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// A value and when it was stamped, as moq's `Timed` is, which bytes convert into.
+pub struct Timed<P> {
+	pub value: P,
+	pub at: Option<Stamp>,
+}
+
+impl<B: AsRef<[u8]>> From<B> for Timed<Bytes> {
+	fn from(value: B) -> Self {
+		Self {
+			value: Bytes::copy_from_slice(value.as_ref()),
+			at: None,
+		}
+	}
+}
+
+/// A timed payload's bytes in hex, which need not be UTF-8, owned as it is `'static`.
+pub fn timed_hex(payload: impl Into<Timed<Bytes>> + 'static) -> String {
+	hex(payload.into().value)
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }
