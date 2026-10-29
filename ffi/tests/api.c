@@ -632,9 +632,9 @@ static int script(void) {
 	api_vec_u32 sums = api_sums((api_vec_vec_u32){.ptr = rows, .len = 3});
 	printf("sums [%u, %u, %u]\n", sums.ptr[0], sums.ptr[1], sums.ptr[2]);
 	api_vec_u32_free(sums);
-	api_point points[] = {{.x = 1, .y = 2}, {.x = -4, .y = 6}};
-	api_point summed = api_summed((api_vec_point){.ptr = points, .len = 2});
-	api_point none_summed = api_summed((api_vec_point){.ptr = points, .len = 0});
+	api_point summands[] = {{.x = 1, .y = 2}, {.x = -4, .y = 6}};
+	api_point summed = api_summed((api_vec_point){.ptr = summands, .len = 2});
+	api_point none_summed = api_summed((api_vec_point){.ptr = summands, .len = 0});
 	printf("summed %d %d %d %d\n", summed.x, summed.y, none_summed.x, none_summed.y);
 	api_buf longest_words[] = {str("a"), str("abc")};
 	size_t most = api_longest((api_vec_string){.ptr = longest_words, .len = 2});
