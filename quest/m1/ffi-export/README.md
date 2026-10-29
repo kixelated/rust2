@@ -47,10 +47,10 @@ Every generator on the C ABI:
 
 ## Required
 
-- [Returned iterators cross as arrays](/quest/m1/ffi-export/iterators.md) - `Hops::iter`, `Versions::iter`, and `Patterns::iter` export, returning arrays as `&[T]` does
 - [moq-clock's C names once it moves into kio](/quest/m1/ffi-export/crates.md) - `moq_now` and `moq_origin` become the clock's, after moq moves it into `kio::clock`
-- [Sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md) - bindings connect and accept with one call, the library running moq-tokio inside
-- [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves
+- [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves, over moq's runtime-free QUIC driver once it lands
+- [Tuples inside other types](/quest/m1/ffi-export/tuples.md) - a tuple crosses as an iterator's or `Vec`'s item, in an `Option`, or as a field, so hang's `ranked` exports
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings: zero-copy payloads and the read path](/quest/m1/ffi-export/kotlin.md) - the Kotlin lends bytes without a copy, and reads at JNI's cost
 - [Kotlin bindings on Android](/quest/m1/ffi-export/kotlin-android.md) - an R8 keep rule for JNI's lookups, and an emulator run in CI
+- [Owned implementors for a parameter that must outlive the call](/quest/m1/ffi-export/implied-outlives.md) - `each` reads implied lifetime bounds, so the glue builds instead of borrowing past the call

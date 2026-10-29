@@ -603,17 +603,19 @@ fn takes_none(owner: &str, name: &str) -> bool {
 
 /// Whether the runtime function `owner::name` maps to takes the `None` of the `Option` it
 /// makes or reads, where that is `rt.None`, last: after what drops its operands.
-fn none_last(owner: &str, name: &str) -> bool {
+pub(super) fn none_last(owner: &str, name: &str) -> bool {
 	matches!(
 		(owner, name),
-		("Option", "unwrap" | "expect") | ("slice", "first" | "get")
+		("Option", "unwrap" | "expect")
+			| ("slice", "first" | "get")
+			| ("HashMap" | "BTreeMap", "get" | "get_mut" | "insert" | "remove")
 	)
 }
 
 /// The type of the first `Some` whose `Option`'s `None` is `rt.None`, of those in the
 /// signature and bounds of the function `call` calls, over its type arguments: what the
 /// mapping of a std function would make or read with `undefined` for `None`.
-fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
+pub(super) fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = t.tcx;
 	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
 	let sig = tcx.instantiate_bound_regions_with_erased(sig);
@@ -907,6 +909,7 @@ fn mapping<'tcx>(
 			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
+			"trailing_zeros" => "trailingZeros",
 			"checked_add" => "checkedAdd",
 			"checked_sub" => "checkedSub",
 			"checked_mul" => "checkedMul",
@@ -1135,6 +1138,12 @@ fn mapping<'tcx>(
 		// A `NonZero` is its integer.
 		("NonZero", "get") => args.pop()?,
 		("NonZero", "new") => Expr::rt("nonZero", args),
+		// Of each width's own impl, which has no type argument to read the integer from.
+		("NonZero", "leading_zeros" | "trailing_zeros") => {
+			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
+			let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+			Int::of(unwrapped(tcx, self_ty))?.method(&super::camel(&name), args)
+		}
 		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
 		("Bound", "cloned") => {
 			let value = args.pop()?;
@@ -1497,6 +1506,14 @@ fn mapping<'tcx>(
 			let env = b.t.typing_env_pub();
 			let layout = tcx.layout_of(env.as_query_input(targ(gargs, 0))).ok()?;
 			Expr::lit(layout.size.bytes().to_string())
+		}
+		("array", "from_fn") => {
+			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
+			let f = match targ(gargs, 0).kind() {
+				ty::Uint(ty::UintTy::U8) => "bytesFromFn",
+				_ => "arrayFromFn",
+			};
+			Expr::rt(f, vec![Expr::lit(n.to_string()), args.pop()?])
 		}
 		("fmt", "format") => {
 			let parts = args.pop()?;

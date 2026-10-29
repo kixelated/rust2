@@ -627,6 +627,20 @@ export function bytes(n: number): Uint8Array {
 	return out;
 }
 
+/** `array::from_fn`: `f` of each index, called in order. */
+export function arrayFromFn<T>(n: number, f: (i: number) => T): T[] {
+	const out: T[] = [];
+	for (let i = 0; i < n; i++) out.push(f(i));
+	return out;
+}
+
+/** `array::from_fn` of bytes. */
+export function bytesFromFn(n: number, f: (i: number) => number): Uint8Array {
+	const out = bytes(n);
+	for (let i = 0; i < n; i++) out[i] = f(i);
+	return out;
+}
+
 /** `Vec<u8>`: a growable byte buffer. */
 export class ByteVec {
 	/** The storage; only the first `length` bytes are the vector. */

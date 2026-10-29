@@ -52,7 +52,7 @@ macro_rules! ops {
 				}
 				None => out.push(0),
 			};
-			match op % 31 {
+			match op % 32 {
 				0 => put(out, a + b),
 				1 => put(out, a - b),
 				2 => put(out, a * b),
@@ -104,6 +104,19 @@ macro_rules! ops {
 					}
 				}
 				29 => out.extend_from_slice(&a.to_le_bytes()),
+				// Each width's edges, where a count is 0 or every bit, and through a `NonZero`.
+				30 => {
+					for v in [0, 1, <$t>::MAX, <$t>::MIN, a, a << shift % <$t>::BITS] {
+						out.extend_from_slice(&v.trailing_zeros().to_be_bytes());
+						match core::num::NonZero::new(v) {
+							Some(n) => {
+								out.extend_from_slice(&n.trailing_zeros().to_be_bytes());
+								out.extend_from_slice(&n.leading_zeros().to_be_bytes());
+							}
+							None => out.push(0xff),
+						}
+					}
+				}
 				_ => {
 					// Compound assignment, with constants folded beside variables.
 					let mut x = a;

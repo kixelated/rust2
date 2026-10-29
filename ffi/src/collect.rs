@@ -925,6 +925,7 @@ impl<'tcx> Collector<'tcx> {
 			err: Some(Type::String),
 			future: false,
 			eager: false,
+			collect: false,
 			access: Access::Parse,
 			instance: None,
 		};
@@ -955,6 +956,7 @@ impl<'tcx> Collector<'tcx> {
 						err: None,
 						future: false,
 						eager: false,
+						collect: false,
 						access: Access::Text,
 						instance: None,
 					},
@@ -1443,6 +1445,7 @@ impl<'tcx> Collector<'tcx> {
 						err: None,
 						future: false,
 						eager: false,
+						collect: false,
 						access: Access::Field { shared, set },
 						instance: None,
 					};
@@ -1807,6 +1810,19 @@ impl<'tcx> Collector<'tcx> {
 			output = normalize(inner);
 			future = true;
 		}
+		// An iterator no other rule maps crosses as the array of its items, all taken at
+		// the call, as `collect` takes them, when no caller could tell; a future's stays
+		// refused.
+		let mut collect = false;
+		if !future
+			&& self.ret(output).is_err()
+			&& let Some(items) = self
+				.collected(output, env)
+				.and_then(|item| self.vec_of(normalize(item)))
+		{
+			output = items;
+			collect = true;
+		}
 		let (ok, err) = match output.kind() {
 			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
 				(self.ret(args.type_at(0)), Some(self.ty(args.type_at(1), Pos::Return)))
@@ -1833,6 +1849,7 @@ impl<'tcx> Collector<'tcx> {
 				err,
 				future,
 				eager: future && eager,
+				collect,
 				access: Access::Call,
 				instance,
 			}),
@@ -1977,16 +1994,6 @@ impl<'tcx> Collector<'tcx> {
 			.lang_items()
 			.string()
 			.map(|string| Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
-		let vec = |elem: Ty<'tcx>| {
-			let vec = tcx.get_diagnostic_item(sym::Vec)?;
-			let alloc = tcx.lang_items().global_alloc_ty()?;
-			let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
-			Some(Ty::new_adt(
-				tcx,
-				tcx.adt_def(vec),
-				tcx.mk_args(&[elem.into(), alloc.into()]),
-			))
-		};
 		let mut candidates = Vec::new();
 		let implied = (implied.iter())
 			.filter_map(|clause| clause.as_trait_clause())
@@ -2006,7 +2013,7 @@ impl<'tcx> Collector<'tcx> {
 				for (target, outlives) in std::iter::once((target(), outlives)).chain(sources) {
 					let owned = match target.kind() {
 						ty::Str => string,
-						ty::Slice(elem) => vec(*elem),
+						ty::Slice(elem) => self.vec_of(*elem),
 						_ => {
 							candidates.push(target);
 							continue;
@@ -2022,7 +2029,7 @@ impl<'tcx> Collector<'tcx> {
 			} else if Some(tr) == self.range_bounds {
 				candidates.extend(self.bounds(target()));
 			} else if tcx.is_diagnostic_item(sym::IntoIterator, tr) {
-				candidates.extend(self.items(&identity.clauses, param).and_then(vec));
+				candidates.extend(self.items(&identity.clauses, param).and_then(|item| self.vec_of(item)));
 			} else if serde(tcx, tr) {
 				candidates.extend(self.json());
 			}
@@ -2031,7 +2038,7 @@ impl<'tcx> Collector<'tcx> {
 		if let Some(bytes) = self.bytes {
 			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
 		}
-		candidates.extend(vec(tcx.types.u8));
+		candidates.extend(self.vec_of(tcx.types.u8));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
 		candidates
 			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));
@@ -2407,6 +2414,177 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
+	/// `Vec<item>`.
+	fn vec_of(&self, item: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let vec = tcx.get_diagnostic_item(sym::Vec)?;
+		let alloc = tcx.lang_items().global_alloc_ty()?;
+		let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
+		Some(Ty::new_adt(
+			tcx,
+			tcx.adt_def(vec),
+			tcx.mk_args(&[item.into(), alloc.into()]),
+		))
+	}
+
+	/// What `ty` yields, if it is an iterator whose items a return can take at the call with
+	/// no caller able to tell: one of core's and alloc's iterators over a slice, string, or
+	/// collection, through adapters that neither make, drop, nor compare items, and no closure,
+	/// function, or trait object. Collecting it ends and runs no other crate's code but
+	/// `Clone`, which a borrowed item crosses through anyway.
+	/// A range is a value, which crosses as itself or not at all.
+	fn collected(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
+		/// Their paths below the crate, which are the same in core and alloc as in std: the
+		/// iterators, and the collections an adapter may turn into one, which hand over every
+		/// element, unlike a `Result` that drops its error.
+		const DRAINED: &[&str] = &[
+			"array::IntoIter",
+			"collections::BTreeMap",
+			"collections::BTreeSet",
+			"collections::BinaryHeap",
+			"collections::LinkedList",
+			"collections::VecDeque",
+			"collections::binary_heap::Drain",
+			"collections::binary_heap::IntoIter",
+			"collections::binary_heap::Iter",
+			"collections::btree_map::IntoIter",
+			"collections::btree_map::Iter",
+			"collections::btree_map::IterMut",
+			"collections::btree_map::Keys",
+			"collections::btree_map::Values",
+			"collections::btree_map::ValuesMut",
+			"collections::btree_set::IntoIter",
+			"collections::btree_set::Iter",
+			"collections::linked_list::IntoIter",
+			"collections::linked_list::Iter",
+			"collections::linked_list::IterMut",
+			"collections::vec_deque::Drain",
+			"collections::vec_deque::IntoIter",
+			"collections::vec_deque::Iter",
+			"collections::vec_deque::IterMut",
+			"iter::Chain",
+			"iter::Cloned",
+			"iter::Copied",
+			"iter::Enumerate",
+			"iter::Flatten",
+			"iter::Fuse",
+			"iter::Peekable",
+			"iter::Rev",
+			"option::IntoIter",
+			"option::Option",
+			"option::Iter",
+			"option::IterMut",
+			"result::IntoIter",
+			"result::Iter",
+			"result::IterMut",
+			"slice::Iter",
+			"slice::IterMut",
+			"str::Bytes",
+			"str::CharIndices",
+			"str::Chars",
+			"str::Lines",
+			"str::Split",
+			"str::SplitWhitespace",
+			"string::Drain",
+			"vec::Drain",
+			"vec::IntoIter",
+			"vec::Vec",
+		];
+		let tcx = self.tcx;
+		let iterator = tcx.get_diagnostic_item(sym::Iterator)?;
+		let into_iterator = tcx.get_diagnostic_item(sym::IntoIterator)?;
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		let implements = |tr, ty| {
+			infcx
+				.type_implements_trait(tr, [ty], param_env)
+				.must_apply_modulo_regions()
+		};
+		if !matches!(ty.kind(), ty::Adt(..)) || !implements(iterator, ty) {
+			return None;
+		}
+		let std = |krate| matches!(tcx.crate_name(krate), sym::core | sym::alloc);
+		let drained = |did: DefId| {
+			let path = tcx.def_path_str(did);
+			std(did.krate) && path.split_once("::").is_some_and(|(_, path)| DRAINED.contains(&path))
+		};
+		let assoc = |tr, name: &str| {
+			let item = tcx
+				.associated_items(tr)
+				.in_definition_order()
+				.find(|item| item.name().as_str() == name);
+			item.map(|item| item.def_id)
+		};
+		let (next, into_iter) = (assoc(iterator, "next")?, assoc(into_iterator, "into_iter")?);
+		let item = tcx.get_diagnostic_item(sym::IteratorItem)?;
+		let into_iter_ty = assoc(into_iterator, "IntoIter")?;
+		let project = |assoc, ty| {
+			let projection = Ty::new_projection(tcx, ty::IsRigid::No, assoc, [ty]);
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+				.ok()
+		};
+		// Whether core's or alloc's impl of `method` is the one `ty` runs.
+		let by_std = |method, ty: Ty<'tcx>| {
+			ty::Instance::try_resolve(tcx, env, method, tcx.mk_args(&[ty.into()]))
+				.is_ok_and(|instance| instance.is_some_and(|instance| std(instance.def_id().krate)))
+		};
+		// Every type the iterator holds, and every item and iterator its adapters drive,
+		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
+		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		let mut queue = vec![ty];
+		while let Some(next_ty) = queue.pop() {
+			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
+				if !seen.insert(ty) {
+					continue;
+				}
+				let plain = matches!(
+					ty.kind(),
+					ty::Adt(..)
+						| ty::Bool
+						| ty::Char
+						| ty::Int(_)
+						| ty::Uint(_)
+						| ty::Float(_)
+						| ty::Str
+						| ty::Array(..)
+						| ty::Slice(_)
+						| ty::Ref(..)
+						| ty::Tuple(_)
+				);
+				let (method, driven) = match (implements(iterator, ty), implements(into_iterator, ty)) {
+					(true, _) => (next, item),
+					(false, true) => (into_iter, into_iter_ty),
+					(false, false) if plain => continue,
+					(false, false) => return None,
+				};
+				let listed = match ty.kind() {
+					ty::Adt(adt, _) => drained(adt.did()),
+					_ => plain,
+				};
+				if !listed || !by_std(method, ty) {
+					return None;
+				}
+				queue.push(project(driven, ty)?);
+			}
+		}
+		// Besides items, the listed iterators call into only their allocator and `Split`'s
+		// pattern, whose impls must be core's or alloc's too, on a type or a borrow of one.
+		let krate = *tcx.crates(()).iter().find(|&&k| tcx.crate_name(k) == sym::core)?;
+		let callee = |path: &str, method: &str| {
+			let tr = (tcx.traits(krate).iter().copied())
+				.find(|&tr| tcx.def_path_str(tr).split_once("::").is_some_and(|(_, p)| p == path))?;
+			Some((tr, assoc(tr, method)?))
+		};
+		let callees = [
+			callee("alloc::Allocator", "deallocate")?,
+			callee("str::pattern::Pattern", "into_searcher")?,
+		];
+		let calls = |ty: Ty<'tcx>| (callees.iter()).any(|&(tr, method)| implements(tr, ty) && !by_std(method, ty));
+		if seen.iter().any(|&ty| calls(ty)) {
+			return None;
+		}
+		project(item, ty)
+	}
+
 	/// What `ty` resolves to when awaited, if it is a future.
 	fn future_output(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
@@ -2661,6 +2839,7 @@ impl<'tcx> Collector<'tcx> {
 				err: None,
 				future: false,
 				eager: false,
+				collect: false,
 				access: Access::Const,
 				instance: None,
 			}),

@@ -543,7 +543,7 @@ These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
-a collection holding a type that can be `undefined`, as `()` and `Option` can, a std
+a collection's key or item of a type that can be `undefined`, as `()` and `Option` can (a map's value can be), a std
 function without a mapping of its own that makes or reads an `Option` whose `None` is
 `rt.None`, as `find` over `Option`s does, an `Option` of an `Option` of `()` or another
 `Option`, an instance of a generic type whose field is an `Option` of a type parameter
