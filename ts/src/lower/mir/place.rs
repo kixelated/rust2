@@ -1024,6 +1024,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn constant(&mut self, c: &mir::ConstOperand<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
 		let env = self.b.t.typing_env_pub();
+		// A reference to a function or a closure that captures nothing, as `&f` promotes to,
+		// is what it points at, which has no value tree.
+		if let ty::Ref(_, inner, _) = c.ty().kind()
+			&& matches!(inner.kind(), ty::FnDef(..) | ty::Closure(..))
+		{
+			return self.const_value(ConstValue::ZeroSized, *inner, span);
+		}
 		match c.const_ {
 			mir::Const::Ty(ty, ct) => match ct.kind() {
 				ty::ConstKind::Value(v) => self.b.value(v.ty, v.valtree, span),

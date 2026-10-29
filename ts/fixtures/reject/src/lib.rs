@@ -8,8 +8,8 @@ pub fn float(a: f32) -> f32 {
 	a * 2.0
 }
 
-pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
-	f(1)
+pub fn dynamic(f: &mut dyn Iterator<Item = u8>) -> Option<u8> {
+	f.next()
 }
 
 /// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.

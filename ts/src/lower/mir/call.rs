@@ -287,12 +287,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
-			let f = self.operand(&callee.node, span, out);
-			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call drops it after,
-			// as rustc's shim does, where an `FnOnce` closure's body drops what it owns.
+			// A `&mut` to a function JS copies, such as a box of one, is its place: call what is there.
+			let f = match callee.node.place() {
+				Some(p) if self.b.t.place_pointee(p.ty(&self.mir.local_decls, tcx).ty).is_some() => {
+					self.place_expr(tcx.mk_place_deref(p), span, out)
+				}
+				_ => self.operand(&callee.node, span, out),
+			};
+			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call, or of a box of one,
+			// drops it after, as rustc's shim does, where an `FnOnce` closure's body drops
+			// what it owns.
 			if tcx.fn_trait_kind_from_def_id(trait_id) == Some(ty::ClosureKind::FnOnce)
-				&& let ty::Closure(_, closure) = callee_ty.kind()
-				&& closure.as_closure().kind() != ty::ClosureKind::FnOnce
+				&& self
+					.b
+					.t
+					.owned_fn(callee_ty)
+					.is_some_and(|kind| kind != ty::ClosureKind::FnOnce)
 				&& self.b.t.drops(callee_ty)
 			{
 				return Expr::rt("callOnce", [vec![f], values].concat());
@@ -938,10 +948,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						if let Some(drop) = self.b.t.drop_value(f.clone(), f_ty, span) {
 							els.push(StmtKind::Expr(drop).at(None));
 						}
-						match f_ty.kind() {
-							ty::Closure(_, c)
-								if c.as_closure().kind() != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) =>
-							{
+						match self.b.t.owned_fn(f_ty) {
+							Some(kind) if kind != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) => {
 								Expr::rt("callOnce", vec![f])
 							}
 							_ => f.call(Vec::new()),

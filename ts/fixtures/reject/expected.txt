@@ -6,7 +6,7 @@ unsupported type `f32` at fixtures/reject/src/lib.rs:7:14
 a scalar constant of type `f32` at fixtures/reject/src/lib.rs:8:2
 arithmetic on `f32` at fixtures/reject/src/lib.rs:8:2
 unsupported type `f32` at fixtures/reject/src/lib.rs:7:25
-`dyn std::ops::Fn(u8) -> u8`, a trait object of another crate's trait, which is not supported yet at fixtures/reject/src/lib.rs:11:16
+`dyn std::iter::Iterator<Item = u8>`, a trait object of another crate's trait, which is not supported yet at fixtures/reject/src/lib.rs:11:16
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:17:2
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:16:15
 unsupported call to `core::slice::<impl [u8]>::rotate_left` at fixtures/reject/src/lib.rs:21:4
