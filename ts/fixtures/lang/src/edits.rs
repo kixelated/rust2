@@ -350,3 +350,142 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 	}
 }
+
+/// [`edits`]'s methods of bytes, which are an `rt.ByteVec` or `rt.ByteSlice` rather than an
+/// array, on every short prefix of the input and on a slice that starts past its storage's,
+/// and those that lend a closure another element JS copies, as its place.
+pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let words: Vec<u16> = data.iter().map(|&b| b as u16 * 3).collect();
+	let prefixes = (0..data.len().min(3)).map(|n| &data[..n]).chain([data]);
+	match kind % 4 {
+		0 => {
+			for data in prefixes {
+				// `retain` sees each byte once, in order; `retain_mut` keeps what it changed.
+				let mut v = data.to_vec();
+				let mut seen = Vec::new();
+				v.retain(|&b| {
+					seen.push(b);
+					b % 3 != 0
+				});
+				out.extend_from_slice(&seen);
+				out.extend_from_slice(&v);
+				let mut v = data.to_vec();
+				v.retain_mut(|b| {
+					*b = b.wrapping_add(1);
+					*b % 4 != 0
+				});
+				out.extend_from_slice(&v);
+				out.push(0xfe);
+			}
+			// An element JS copies, changed through its place.
+			let mut halves = words.clone();
+			halves.retain_mut(|x| {
+				*x /= 2;
+				*x % 3 != 0
+			});
+			put_u16s(out, &halves);
+		}
+		1 => {
+			for data in prefixes {
+				let mut v: Vec<u8> = data.iter().map(|b| b % 4).collect();
+				v.dedup();
+				out.extend_from_slice(&v);
+				// Current first, then the previous kept, each changed in place.
+				let mut v = data.to_vec();
+				let mut seen = Vec::new();
+				v.dedup_by(|a, b| {
+					seen.extend_from_slice(&[*a, *b]);
+					*b = b.wrapping_add(1);
+					*a / 32 == *b / 32
+				});
+				out.extend_from_slice(&seen);
+				out.extend_from_slice(&v);
+				let mut v = data.to_vec();
+				v.dedup_by_key(|b| {
+					*b ^= 1;
+					*b / 64
+				});
+				out.extend_from_slice(&v);
+				out.push(0xfe);
+			}
+			// Elements JS copies, changed through their places.
+			let mut v: Vec<u16> = words.clone();
+			v.dedup_by(|a, b| {
+				*b += 1;
+				*a / 8 == *b / 8
+			});
+			put_u16s(out, &v);
+			let mut v: Vec<u16> = words.clone();
+			v.dedup_by_key(|x| {
+				*x ^= 1;
+				*x / 16
+			});
+			put_u16s(out, &v);
+		}
+		2 => {
+			for data in prefixes {
+				let mut v = data.to_vec();
+				v.sort();
+				out.extend_from_slice(&v);
+				let mut v = data.to_vec();
+				v.sort_unstable();
+				out.extend_from_slice(&v);
+				let mut v = data.to_vec();
+				v.sort_by(|a, b| b.cmp(a));
+				out.extend_from_slice(&v);
+				// Stable: bytes of a key keep their order.
+				let mut v = data.to_vec();
+				v.sort_by_key(|b| b % 5);
+				out.extend_from_slice(&v);
+				// Unstable, by keys no two bytes share, so std's order is the only one.
+				let mut v = data.to_vec();
+				v.sort_unstable_by_key(|b| b.wrapping_mul(13));
+				out.extend_from_slice(&v);
+				let mut v = data.to_vec();
+				v.sort_unstable_by(|a, b| (b ^ 0x55).cmp(&(a ^ 0x55)));
+				out.extend_from_slice(&v);
+				// Past the slice's own start in what holds it.
+				let mut v = data.to_vec();
+				let n = v.len();
+				let tail = &mut v[n.min(1)..];
+				tail.sort();
+				tail.reverse();
+				out.extend_from_slice(&v);
+				out.push(v.last().copied().unwrap_or(0xfd));
+				out.push(v[v.len().min(1)..].last().copied().unwrap_or(0xfd));
+				v.reverse();
+				out.extend_from_slice(&v);
+				out.push(0xfe);
+			}
+		}
+		_ => {
+			let (i, j) = (at(0) as usize % 8, at(1) as usize % 8);
+			let mut v = data.to_vec();
+			v.insert(i.min(v.len()), 0xaa);
+			out.extend_from_slice(&v);
+			out.push(v.swap_remove(j % v.len()));
+			out.extend_from_slice(&v);
+			if !v.is_empty() {
+				out.push(v.remove(i % v.len()));
+			}
+			out.extend_from_slice(&v);
+			// Past the slice's own start in what holds it.
+			let n = v.len();
+			let tail = &mut v[n.min(1)..];
+			if !tail.is_empty() {
+				tail.swap(i % tail.len(), j % tail.len());
+			}
+			out.extend_from_slice(&v);
+			// Each panics with std's message past the end.
+			match at(2) % 5 {
+				0 => v.insert(i, 0xbb),
+				1 => out.push(v.remove(i)),
+				2 => out.push(v.swap_remove(j)),
+				3 => v[i % 3..].swap(i, j),
+				_ => v.swap(i, j),
+			}
+			out.extend_from_slice(&v);
+		}
+	}
+}

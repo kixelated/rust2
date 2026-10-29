@@ -94,6 +94,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("counts::arcs", |_, data, out| counts::arcs(data, out)),
 		("counts::rcs", |_, data, out| counts::rcs(data, out)),
 		("dyns::anys", |_, data, out| dyns::anys(data, out)),
+		("edits::bytes", edits::bytes),
 	]
 }
 
