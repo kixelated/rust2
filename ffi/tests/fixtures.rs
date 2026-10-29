@@ -177,6 +177,8 @@ fn api() {
 		),
 		("enum", "api_greet: an enum value is invalid"),
 		("bound", "api_count: a bound's kind is invalid"),
+		("socket", "api_ports: an IPv4 socket address has IPv6 bytes or fields"),
+		("array", "api_vec_u16_free: an array is not as Rust returned it"),
 		("lent", "api_registry_edit: a lent handle was freed"),
 		(
 			"lent moved",
@@ -236,6 +238,7 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 			"api_counter_into_label: a lent handle's value cannot move out",
 		),
 		("callback threw", "api_fixture::Log::log: a call into Kotlin threw"),
+		("stray", "MalformedInputException"),
 	] {
 		let output = java(&[case]).output().unwrap();
 		assert!(!output.status.success(), "Kotlin {case} did not fail");

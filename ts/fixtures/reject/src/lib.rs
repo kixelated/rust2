@@ -538,14 +538,36 @@ pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
 	*n
 }
 
+pub trait Keyed: std::any::Any {
+	fn key(&self) -> u8;
+}
+
+impl Keyed for u8 {
+	fn key(&self) -> u8 {
+		*self
+	}
+}
+
+/// An upcast to `dyn Any`, whose downcast checks for the class of the value's own type,
+/// not the object of another trait.
+pub fn any_upcast(k: &dyn Keyed) -> bool {
+	let any: &dyn std::any::Any = k;
+	any.is::<u8>()
+}
+
+/// A `TypeId`, which no value stands for yet.
+pub fn any_type_id(a: &dyn std::any::Any) -> bool {
+	a.type_id() == std::any::TypeId::of::<u8>()
+}
+
 /// A pointer read as another type's bytes.
-pub fn reinterpreted(n: &u32) -> u8 {
-	unsafe { *(n as *const u32).cast::<u8>() }
+pub fn reinterpreted(n: u32) -> u8 {
+	unsafe { *(&raw const n).cast::<u8>() }
 }
 
 /// A pointer's address, as an integer.
-pub fn addressed(n: &u32) -> usize {
-	(n as *const u32).addr()
+pub fn addressed(n: u32) -> usize {
+	(&raw const n).addr()
 }
 
 /// Memory from the allocator, which has no JS object to point at.

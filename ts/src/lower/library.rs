@@ -592,6 +592,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
+				| ("dyn Any", "downcast_ref" | "downcast_mut")
 		)
 }
 
@@ -781,6 +782,7 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
 			// `<*const T>::read` is `ptr::read`.
 			ty::RawPtr(..) => "ptr".into(),
+			ty::Dynamic(preds, ..) => format!("dyn {}", tcx.item_name(preds.principal_def_id()?)),
 			_ => return None,
 		};
 		return Some((owner, name));
@@ -843,6 +845,10 @@ fn mapping<'tcx>(
 	let span = call.span;
 	let gargs = call.args;
 	let args = match super::task::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let args = match super::dynamic::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};

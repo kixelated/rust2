@@ -115,35 +115,24 @@ impl Callbacks for Export {
 			));
 		}
 		let written = match &self.output {
-			Output::Census(dir) => collected.reports.iter().enumerate().try_for_each(|(i, report)| {
-				let text = census::render(&collected.api, report, i == 0, &abi.clashes, &|span| at(tcx, span));
-				write(&dir.join(format!("{}.md", report.package)), &text)
-			}),
+			Output::Census(dir) => {
+				let written = collected.reports.iter().enumerate().try_for_each(|(i, report)| {
+					let text = census::render(&collected.api, report, i == 0, &abi.clashes, &|span| at(tcx, span));
+					write(&dir.join(format!("{}.md", report.package)), &text)
+				});
+				// A census reports what a crate uses, but a missed instance is the exporter's bug.
+				for refusal in collected.reports.iter().flat_map(|report| &report.refusals) {
+					if refusal.why.iter().any(|why| why.construct == collect::NOT_INFERRED) {
+						refuse(tcx, refusal, "inference missed an instance, a bug in rust2-ffi");
+					}
+				}
+				written
+			}
 			Output::Dir(out) => {
 				for report in &collected.reports {
 					let table = self.table(&collected, &report.krate);
 					for refusal in &report.refusals {
-						let reasons: Vec<String> = refusal
-							.why
-							.iter()
-							.map(|why| match why.detail.is_empty() {
-								true => why.construct.to_string(),
-								false => format!("{} `{}`", why.construct, why.detail),
-							})
-							.collect();
-						let mut err = tcx.dcx().struct_span_err(
-							refusal.span,
-							format!(
-								"rust2-ffi: cannot export {} `{}`: {}; exclude it in {table} to leave it out",
-								refusal.kind,
-								refusal.path,
-								reasons.join("; ")
-							),
-						);
-						for (span, note) in refusal.why.iter().filter_map(|why| why.note.as_ref()) {
-							err = err.with_span_note(*span, note.clone());
-						}
-						err.emit();
+						refuse(tcx, refusal, &format!("exclude it in {table} to leave it out"));
 					}
 					for (path, count) in &report.excluded {
 						if *count == 0 {
@@ -269,6 +258,31 @@ fn extern_files(tcx: TyCtxt<'_>, name: &str) -> Vec<PathBuf> {
 
 fn canonical(path: &Path) -> Option<PathBuf> {
 	std::fs::canonicalize(path).ok()
+}
+
+/// Emits `refusal` as an error at its span, with every reason and its notes, then `advice`.
+fn refuse(tcx: TyCtxt<'_>, refusal: &collect::Refusal, advice: &str) {
+	let reasons: Vec<String> = refusal
+		.why
+		.iter()
+		.map(|why| match why.detail.is_empty() {
+			true => why.construct.to_string(),
+			false => format!("{} `{}`", why.construct, why.detail),
+		})
+		.collect();
+	let mut err = tcx.dcx().struct_span_err(
+		refusal.span,
+		format!(
+			"rust2-ffi: cannot export {} `{}`: {}; {advice}",
+			refusal.kind,
+			refusal.path,
+			reasons.join("; ")
+		),
+	);
+	for (span, note) in refusal.why.iter().filter_map(|why| why.note.as_ref()) {
+		err = err.with_span_note(*span, note.clone());
+	}
+	err.emit();
 }
 
 /// Where `span` starts, relative to the crate's directory when inside it.
