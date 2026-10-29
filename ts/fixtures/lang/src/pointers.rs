@@ -415,7 +415,7 @@ pub fn copies(data: &[u8], out: &mut Vec<u8>) {
 
 /// What a pointer to a tuple holding an array reads, and what the tuple holds after.
 fn snapshot(v: u32) -> (u8, u8) {
-	let mut nest = ([v, 1u32],);
+	let mut nest = ([v, 1u32], 0u8);
 	let q = &raw mut nest;
 	let before = unsafe { q.read() };
 	nest.0[0] = v + 4;

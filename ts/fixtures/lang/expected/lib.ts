@@ -162,7 +162,7 @@ export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8]
 }
 
 export function copy$Result_u32s_u16(v: rt.Result<rt.u32[], rt.u16>): rt.Result<rt.u32[], rt.u16> {
-	return v.ok ? rt.Ok(copy$u32s$2(v.value)) : rt.Err(v.error);
+	return v.ok ? rt.Ok(copy$u32s(v.value)) : rt.Err(v.error);
 }
 
 export function copy$Result_u8s_u8s_Option_u8(v: rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined>): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
@@ -207,12 +207,12 @@ export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
 	return [v[0], v[1]];
 }
 
-export function copy$u32s(v: [rt.u32[]]): [rt.u32[]] {
-	return [copy$u32s$2(v[0])];
+export function copy$u32s(v: rt.u32[]): rt.u32[] {
+	return v.slice();
 }
 
-export function copy$u32s$2(v: rt.u32[]): rt.u32[] {
-	return v.slice();
+export function copy$u32s_u8(v: [rt.u32[], rt.u8]): [rt.u32[], rt.u8] {
+	return [copy$u32s(v[0]), v[1]];
 }
 
 export function copy$u8_Arc_u8(v: [rt.u8, rt.Arc<rt.u8>]): [rt.u8, rt.Arc<rt.u8>] {
