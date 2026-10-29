@@ -262,6 +262,16 @@ pub(super) fn fns(log: &Log, id: u32) {
 	let mut lazy: Option<u32> = None;
 	log.note(format!("lazy {}", lazy.get_or_insert_with(fill)));
 	log.note(format!("lazy {}", lazy.get_or_insert_with(skip)));
+	// An adaptor drops the function it holds, but not one it borrows.
+	let w = guard(21);
+	let f = move |g: Guard| g.id() + w.id();
+	let borrowed: &dyn Fn(Guard) -> u32 = &f;
+	log.note(format!(
+		"borrowed {}",
+		vec![guard(22), guard(23)].into_iter().map(borrowed).sum::<u32>()
+	));
+	log.note(format!("by ref {}", vec![guard(24)].into_iter().map(&f).sum::<u32>()));
+	log.note(format!("kept {}", f(guard(25))));
 }
 
 /// Call `f` once, which consumes it.

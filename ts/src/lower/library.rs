@@ -654,7 +654,8 @@ struct Closures<'tcx> {
 /// drops is ordered against it; dropped where `discarded` says, by the type's index among
 /// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
 /// one that calls it through `FnOnce`, becomes `rt.once` of it, which drops it after the
-/// call, as rustc's shim does.
+/// call, as rustc's shim does. A reference to one is the closure in JS, so an iterator,
+/// which drops what it holds, keeps `rt.lent` of it instead.
 fn called_closures<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
@@ -672,24 +673,37 @@ fn called_closures<'tcx>(
 			continue;
 		};
 		let ty = call.args[param.index as usize].expect_ty();
-		let Some(called) = b.t.owned_fn(ty) else {
+		let (owned, lent) = match *ty.kind() {
+			ty::Ref(_, pointee, _) => (pointee, true),
+			_ => (ty, false),
+		};
+		let Some(called) = b.t.owned_fn(owned) else {
 			continue;
 		};
 		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
-		if !b.t.drops(ty) {
+		if !b.t.drops(owned) {
 			continue;
 		}
 		let mentions = |t: Ty<'tcx>| t.walk().any(|a| a.as_type() == Some(input));
 		if mentions(output) {
-			// An `rt.Iter` or `rt.PollFn` drops the closure it holds.
-			let held = matches!(output.kind(), ty::Adt(adt, args)
-				if (super::iter::holds_closure(tcx, adt.did()) || Std::of(tcx, adt.did()) == Some(Std::PollFn))
-					&& args.types().any(|a| a == input));
-			if !held {
+			// An `rt.Iter` drops the closure it holds, and an `rt.PollFn` one it owns.
+			let holder = match output.kind() {
+				ty::Adt(adt, args) if args.types().any(|a| a == input) => Some(adt.did()),
+				_ => None,
+			};
+			let iter = holder.is_some_and(|did| super::iter::holds_closure(tcx, did));
+			if lent && iter && i < args.len() {
+				let f = std::mem::replace(&mut args[i], Expr::undefined());
+				args[i] = Expr::rt("lent", vec![f]);
+			} else if !lent && !iter && holder.and_then(|did| Std::of(tcx, did)) != Some(Std::PollFn) {
 				closures.leaked = closures.leaked.or(Some(ty));
 			}
+			continue;
+		}
+		// Its owner drops a borrowed closure.
+		if lent {
 			continue;
 		}
 		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));

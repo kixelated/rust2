@@ -393,7 +393,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part13, f)];
 	Log.note(log, rt.fmtFormat(["run ", args26[0]]));
 	const captured14 = o;
-	const part14 = run$Box_fns_closure20(rt.closure((): rt.u32 => {
+	const part14 = run$Box_fns_closure21(rt.closure((): rt.u32 => {
 		return Guard.id(captured14);
 	}, (): void => {
 		captured14[Symbol.dispose]();
@@ -471,6 +471,26 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part20 = rt.place(() => lazy as rt.u32, (value5) => (lazy as rt.u32) = value5);
 	const args40: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part20.v, f)];
 	Log.note(log, rt.fmtFormat(["lazy ", args40[0]]));
+	const captured21 = guard(21);
+	const f2: (a0: Guard.Guard) => rt.u32 = rt.closure((g2: Guard.Guard): rt.u32 => {
+		const _021: rt.u32 = rt.u32Add(Guard.id(g2), Guard.id(captured21));
+		g2[Symbol.dispose]();
+		return _021;
+	}, (): void => {
+		captured21[Symbol.dispose]();
+	});
+	const borrowed: (a0: Guard.Guard) => rt.u32 = f2;
+	const part21 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(22), guard(23)], rt.drop), rt.lent(borrowed)), rt.u32Add, 0, true);
+	const args42: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part21, f)];
+	Log.note(log, rt.fmtFormat(["borrowed ", args42[0]]));
+	const part22 = rt.iterSum(rt.iterMap(rt.iterSlice([guard(24)], rt.drop), rt.lent(f2)), rt.u32Add, 0, true);
+	const args44: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part22, f)];
+	Log.note(log, rt.fmtFormat(["by ref ", args44[0]]));
+	const part23 = guard(25);
+	const part24 = f2(part23);
+	const args46: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part24, f)];
+	Log.note(log, rt.fmtFormat(["kept ", args46[0]]));
+	rt.drop(f2);
 	rt.drop(slot);
 }
 
@@ -480,7 +500,7 @@ export function run$Box_dyn_Fn_unit_u32(f: () => rt.u32): rt.u32 {
 }
 
 /** Call `f` once, which consumes it. */
-export function run$Box_fns_closure20(f: () => rt.u32): rt.u32 {
+export function run$Box_fns_closure21(f: () => rt.u32): rt.u32 {
 	return rt.callOnce(f);
 }
 
