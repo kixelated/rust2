@@ -4,8 +4,8 @@
 
 rust2-ts translates the std that kio reaches and no other quest owns, proven by
 differential tests against native Rust: `array::from_fn`, `Default` of arrays (kio's
-`[Atomic<u64>; 8]::default()`) and of `()`, and a `HashMap` whose values are `Option`s
-(`shared.rs`).
+`[Atomic<u64>; 8]::default()`) and of `()`, a `HashMap` whose values are `Option`s
+(`shared.rs`), and `trailing_zeros` of every integer width and `NonZero` (`task.rs`).
 
 ## Plan
 

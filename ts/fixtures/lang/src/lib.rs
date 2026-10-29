@@ -33,6 +33,7 @@ mod iters;
 mod keys;
 mod locks;
 mod nested;
+mod pointers;
 mod refs;
 mod shapes;
 mod splits;
