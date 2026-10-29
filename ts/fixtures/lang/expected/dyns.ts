@@ -145,16 +145,9 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _169: rt.u32 = shapes[at2].larger$Shape(b as rt.u32);
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_175, f), (f: rt.Formatter) => Shown.fmt$Debug(_165, f), (f: rt.Formatter) => rt.u32Display(_169, f)];
 		put(out, rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " "]));
-		const iterS2: Named.Named[] = shapes;
-		let iterI2: number = 0;
-		while (true) {
-			const _185: Named.Named | rt.Done = iterI2 < iterS2.length ? iterS2[iterI2++] : rt.DONE;
-			if (_185 === rt.DONE) {
-				break;
-			}
-			sum = rt.u32WrappingAdd(sum, _185.intoArea$Shape());
+		for (const s2 of shapes) {
+			sum = rt.u32WrappingAdd(sum, s2.intoArea$Shape());
 		}
-		rt.dropAll(iterS2, rt.drop, iterI2);
 		const _204: rt.u32 = sum;
 		const _203: rt.u32 = new Shape.u32(n).intoArea$Shape();
 		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_204, f), (f: rt.Formatter) => rt.u32Display(_203, f)];
@@ -216,22 +209,22 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _94: boolean = rt.arcPtrEq(weak.arc, other.arc);
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_86, f), (f: rt.Formatter) => rt.fmtBool(_90, f), (f: rt.Formatter) => rt.fmtBool(_94, f)];
 		put(out, rt.fmtFormat([args6[0], " ", args6[1], " ", args6[2], " "]));
-		rt.drop(sq);
-		rt.drop(named);
+		sq[Symbol.dispose]();
+		named[Symbol.dispose]();
 		const _113: string = counts$dyn_Named([again]);
 		const _119: rt.usize = weak.arc.strong;
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _113), (f: rt.Formatter) => rt.usizeDisplay(_119, f)];
 		put(out, rt.fmtFormat([args8[0], " ", args8[1], " "]));
 		const upgraded: rt.u32 | undefined = map$Option_Arc_dyn_Shape_u32_shared_closure0(rt.weakUpgrade(weak), (s: rt.Arc<Shape.Shape>): rt.u32 => {
 			const _0: rt.u32 = s.value.area$Shape();
-			rt.drop(s);
+			s[Symbol.dispose]();
 			return _0;
 		});
-		rt.drop(again);
+		again[Symbol.dispose]();
 		const part2 = counts$dyn_Shape([up]);
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part2)];
 		put(out, rt.fmtFormat([args10[0], " "]));
-		rt.drop(up);
+		up[Symbol.dispose]();
 		const _156: string = counts$dyn_Shape([shape]);
 		const _164: rt.Arc<Shape.Shape> | undefined = rt.weakUpgrade(weak);
 		const _162: boolean = _164 !== undefined;
@@ -239,7 +232,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _152: string = rt.fmtFormat([args12[0], " ", args12[1], " ", args12[2], " "]);
 		rt.drop(_164);
 		put(out, _152);
-		rt.drop(shape);
+		shape[Symbol.dispose]();
 		const _184: rt.Arc<Shape.Shape> | undefined = rt.weakUpgrade(weak);
 		const _182: boolean = _184 === undefined;
 		const _187: rt.usize = other.arc.strong;
@@ -304,11 +297,11 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(total_, f), (f: rt.Formatter) => rt.fmtPad(f, _337)];
 		put(out, rt.fmtFormat([args24[0], " ", args24[1]]));
 		rt.dropAll(kept);
-		rt.drop(m);
-		rt.drop(n);
-		rt.drop(hits);
-		rt.drop(other);
-		rt.drop(weak);
+		m[Symbol.dispose]();
+		n[Symbol.dispose]();
+		hits[Symbol.dispose]();
+		other[Symbol.dispose]();
+		weak[Symbol.dispose]();
 	}
 }
 
@@ -539,7 +532,7 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else {
 			const typed: [rt.usize, rt.u8] | undefined = ok$Result_usize_u8_Arc_dyn_Any(map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
 				const _02: [rt.usize, rt.u8] = [t.strong, t.value[0]];
-				rt.drop(t);
+				t[Symbol.dispose]();
 				return _02;
 			}));
 			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(typed, f, (value: [rt.usize, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];

@@ -6,7 +6,7 @@ import * as Log from "./log.Log.ts";
 /** Consumes the box, dropping it on return. */
 export function take$Part(self: Guard): rt.u32 {
 	const _0: rt.u32 = rt.u32WrappingAdd(id$Part(self), 1);
-	rt.drop(self);
+	self[Symbol.dispose]();
 	return _0;
 }
 
@@ -19,19 +19,19 @@ export class Guard {
 	id: rt.u32;
 	log: Log.Log;
 
-	constructor(fields: { id: rt.u32; log: Log.Log }) {
-		this.id = fields.id;
-		this.log = fields.log;
+	constructor(id: rt.u32, log: Log.Log) {
+		this.id = id;
+		this.log = log;
 	}
 
 	[Symbol.dispose](): void {
 		drop$Drop(this);
-		rt.drop(this.log);
+		this.log[Symbol.dispose]();
 	}
 }
 
 function new_(id_: rt.u32, log_: Log.Log): Guard {
-	return new Guard({ id: id_, log: log_ });
+	return new Guard(id_, log_);
 }
 
 export function id(self: Guard): rt.u32 {
@@ -54,7 +54,7 @@ export function note(self: Guard, event: string): void {
 export function finish(self: Guard, event: string): rt.u32 {
 	note(self, event);
 	const _0: rt.u32 = self.id;
-	rt.drop(self);
+	self[Symbol.dispose]();
 	return _0;
 }
 

@@ -73,7 +73,7 @@ export function name(b: rt.u8): Name.Name {
 	} else {
 		text = new rt.Arc(_3[_4]);
 	}
-	return new Name.Name({ text, rank: small(rt.u8Div(b, 64)) });
+	return new Name.Name(text, small(rt.u8Div(b, 64)));
 }
 
 export function hashOf$Arc_str(value: rt.Arc<string>): rt.u64 {
@@ -375,8 +375,8 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const p: rt.ByteSlice = _232;
 		const q: rt.ByteSlice = _236;
 		rt.byteVecPush(out, (rt.byteSliceEq(l, r) ? 1 : 0) | (((!rt.byteSliceEq(l, r) ? 1 : 0) << 1) & 0xff) | (((rt.byteSliceEq(p, q) ? 1 : 0) << 2) & 0xff) | (((!rt.byteSliceEq(p, q) ? 1 : 0) << 3) & 0xff) | (((rt.byteSliceEq(rt.byteSliceRange(l, 0, 0), rt.byteSliceRange(r, 0, 0)) ? 1 : 0) << 4) & 0xff) | (((rt.byteSliceEq(rt.byteSliceRange(data, 0, i), rt.byteSliceRange(data, rt.usizeSub(data.length, i))) ? 1 : 0) << 5) & 0xff));
-		rt.drop(n);
-		rt.drop(m);
+		n[Symbol.dispose]();
+		m[Symbol.dispose]();
 	}
 }
 
@@ -413,8 +413,8 @@ export function overrides(_1: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 		const _90: rt.Arc<Lopsided.Lopsided> = new rt.Arc(a);
 		const _92: rt.Arc<Lopsided.Lopsided> = new rt.Arc(b);
 		rt.byteVecPush(out, compare$Arc_Lopsided(_90, _92));
-		rt.drop(_92);
-		rt.drop(_90);
+		_92[Symbol.dispose]();
+		_90[Symbol.dispose]();
 		rt.byteVecPush(out, compare$Reverse_Lopsided(a, b));
 		rt.byteVecPush(out, compare$Option_Lopsided(a, b));
 		const _108: [rt.u8, rt.Arc<Lopsided.Lopsided>] = [rt.u8Rem(c, 2), new rt.Arc(a)];
@@ -431,7 +431,7 @@ export function overrides(_1: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 		if (Lopsided.le$PartialOrd(a, b)) {
 			rt.byteVecPush(out, rt.ordClamp(x, a, b, Lopsided.le$PartialOrd, Lopsided.lt$PartialOrd, Lopsided.gt$PartialOrd)._0);
 		}
-		rt.drop(n);
+		n[Symbol.dispose]();
 	}
 	const v: Lopsided.Lopsided[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): Lopsided.Lopsided => {
 		return { _0: _2 };
@@ -522,8 +522,8 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const t2: Skewed.Skewed = _111[1];
 		rt.byteVecPush(out, (Skewed.eq$PartialEq(s2, t2) ? 1 : 0) | ((partial(Skewed.partialCmp$PartialOrd(s2, t2)) << 1) & 0xff));
 		rt.byteVecPush(out, (rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) | (((Horizon.eq$PartialEq(gr, hr) ? 1 : 0) << 1) & 0xff) | (((Hop.eq$PartialEq(x, y) ? 1 : 0) << 2) & 0xff) | (((Hop.eq$PartialEq(x, y) ? 1 : 0) << 3) & 0xff) | (((Hop.eq$PartialEq(x, y) ? 1 : 0) << 4) & 0xff) | (((rt.u64Eq(hashOf$Hop(x), hashOf$Hop$2(y)) ? 1 : 0) << 5) & 0xff));
-		rt.drop(n);
-		rt.drop(m);
+		n[Symbol.dispose]();
+		m[Symbol.dispose]();
 	}
 }
 
@@ -601,10 +601,10 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.hashLen(ways) & 0xff);
 		const _303: [rt.u8, Horizon.Horizon] = [rt.u8Rem(d, 3), { exclude: b, local: false }];
 		rt.byteVecPush(out, rt.hashContains(hashed, _303) ? 1 : 0);
-		rt.drop(s2);
-		rt.drop(r);
-		rt.drop(n);
-		rt.drop(m);
+		s2[Symbol.dispose]();
+		r[Symbol.dispose]();
+		n[Symbol.dispose]();
+		m[Symbol.dispose]();
 	}
 	const iter2: rt.Iter<[[rt.u8, Horizon.Horizon], rt.u8]> = rt.btreeIter(sorted);
 	while (true) {
@@ -667,11 +667,11 @@ export function arcs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _140: rt.u8 = _141 | (((rt.eqArc(Never.eq$PartialEq)(never, _152) ? 1 : 0) << 1) & 0xff);
 	const _161: rt.Arc<Liar.Liar> = new rt.Arc({});
 	rt.byteVecPush(out, _140 | (((rt.eqArc(Liar.eq$PartialEq, true)(liar, _161) ? 1 : 0) << 2) & 0xff));
-	rt.drop(_161);
-	rt.drop(_152);
-	rt.drop(_145);
-	rt.drop(never);
-	rt.drop(liar);
+	_161[Symbol.dispose]();
+	_152[Symbol.dispose]();
+	_145[Symbol.dispose]();
+	never[Symbol.dispose]();
+	liar[Symbol.dispose]();
 }
 
 /**

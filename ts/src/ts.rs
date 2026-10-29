@@ -449,10 +449,8 @@ pub enum FieldInit {
 pub enum Ctor {
 	/// `new C()`, for a struct without fields.
 	Unit,
-	/// `new C(a, b)`, for a tuple struct.
+	/// `new C(a, b)`: its fields in declaration order, which allocates no object for them.
 	Positional,
-	/// `new C({ a, b })`, for a struct with named fields.
-	Named,
 }
 
 #[derive(Clone, Debug)]
