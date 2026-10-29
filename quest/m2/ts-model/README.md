@@ -50,5 +50,4 @@ Public API: the translator's output for moq-net's model.
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
 - [hashbrown as the runtime's map](/quest/m2/ts-model/hashbrown.md) - hashlink's `hashbrown` tables translate as `rt.HashMap`, with std's capacity
-- [bytes' BytesMut, Buf, and BufMut](/quest/m2/ts-model/bytes.md) - map without config, so the model's `BytesMut` binding goes
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

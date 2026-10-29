@@ -14,13 +14,17 @@ moq_rev := "30f25c04e6d0288d87893dc609ba582518be2cf6"
 default:
     @just --list
 
-# Lint and format-check the driver and its fixtures.
+# Lint and format-check the driver, its fixtures, and the bench.
 check:
     cargo clippy --locked --all-targets -- -D warnings
     cargo fmt --all --check
     cargo shear
     cargo sort --workspace --check --no-format
     tsc -p runtime
+    # The bench against moq's TypeScript at the pin, so a pin that drops what it uses fails here.
+    just moq-pin
+    cd target/moq && bun install --frozen-lockfile --ignore-scripts --filter @moq/net --silent
+    tsc -p bench
 
 # Run the snapshot and differential tests.
 test *args:

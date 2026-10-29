@@ -38,5 +38,12 @@ none of its own `unsafe`.
   object there, judged by type over the whole program: a generic function writing a whole
   `T` counts for every `T` its bounds allow. Judge by the instances translation reaches
   if a consumer's pointer is refused only by that.
+- A slice's pointer cast to an array's of its length, `*(s as *const [u8] as *const
+  [u8; N])`, which `bytes`' `Buf::get_u16` and wider read a crate's own buffer through
+  ([#222](https://github.com/kixelated/rust2/pull/222)): the bytes keep their type, so
+  this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
+  range, and each integer's `from_le_bytes` and `from_ne_bytes`, and `chunks_vectored`
+  needs `std::io::IoSlice`: 184 of moq-net's 197 refusals in `bytes`, the rest being 12
+  of [`f32`](/quest/m3/ts-f32.md) and one of [`&mut &[u8]`](/quest/m3/ts-mut-ref.md).
 
 Public API: the translator's output.

@@ -134,6 +134,8 @@ pub enum Std {
 	Duration,
 	/// `bytes::Bytes`: an `rt.ByteSlice`, as `&[u8]` is.
 	Bytes,
+	/// `bytes::BytesMut`: `rt.BytesMut`, a window of storage it shares with what it splits off.
+	BytesMut,
 	/// `rand::rngs::ThreadRng`: `rt.ThreadRng`, which holds no state.
 	ThreadRng,
 }

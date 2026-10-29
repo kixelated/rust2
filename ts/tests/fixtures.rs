@@ -593,6 +593,8 @@ fn stock() {
 		String::from_utf8_lossy(&output.stderr)
 	);
 	snapshot("stock", &out);
+	// A hand-written caller, which names inputs the generated ones never reach.
+	std::fs::copy(fixture("stock").join("caller.ts"), out.join("caller.ts")).unwrap();
 	typecheck(&out);
-	differential("stock-fixture", &["--config", GETRANDOM], &out, "harness.ts", 5_000);
+	differential("stock-fixture", &["--config", GETRANDOM], &out, "caller.ts", 5_000);
 }
