@@ -370,4 +370,14 @@ fn main() {
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);
+
+	// Slices, passed in and returned as clones, and the socket address of each family.
+	println!("shapes {:?} greetings {:?}", api_lib::Shape::ALL, api_lib::GREETINGS);
+	let trail = api_lib::Trail::new(
+		&[api_lib::Point { x: 1, y: 2 }, api_lib::Point { x: 3, y: 4 }],
+		&["a".to_string(), "b".to_string()],
+	);
+	println!("trail {:?} {:?}", trail.points(), trail.labels());
+	let (v4, v6) = api_lib::nexts("127.0.0.1:8080".parse().unwrap(), "[::1%3]:443".parse().unwrap());
+	println!("nexts {} {} {} {}", v4.ip(), v4.port(), v6.port(), v6.scope_id());
 }
