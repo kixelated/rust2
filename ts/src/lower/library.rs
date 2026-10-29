@@ -559,6 +559,16 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	) && !lock
 }
 
+/// The key `def_id` makes the value of, if it is what `thread_local!` declares in a key's
+/// own initializer to: a `const { .. }` key's `const`, or a lazy key's function.
+pub fn local_init(tcx: TyCtxt<'_>, def_id: DefId) -> Option<DefId> {
+	let key = tcx.opt_parent(def_id)?;
+	let is_key = tcx.def_kind(key) == DefKind::Const
+		&& matches!(tcx.type_of(key).instantiate_identity().skip_norm_wip().kind(),
+			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::LocalKey));
+	is_key.then_some(key)
+}
+
 pub struct Call<'tcx> {
 	/// The function as written, before resolving a trait method to its impl.
 	pub def_id: DefId,

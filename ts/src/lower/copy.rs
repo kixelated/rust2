@@ -9,6 +9,7 @@
 use std::cell::RefCell;
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexSet};
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, Location, Place, ProjectionElem, Rvalue};
@@ -335,15 +336,16 @@ impl<'tcx> Writes<'tcx> {
 		let mut queue: Vec<DefId> = bodies.into_iter().collect();
 		let mut seen = FxHashSet::default();
 		while let Some(def_id) = queue.pop() {
-			// One without MIR, such as an import, is refused where it is reached.
-			if !seen.insert(def_id)
-				|| !tcx.def_kind(def_id).is_fn_like()
-				|| !own(def_id)
-				|| !tcx.is_mir_available(def_id)
-			{
+			if !seen.insert(def_id) || !own(def_id) {
 				continue;
 			}
-			let body = tcx.optimized_mir(def_id);
+			let body = match tcx.def_kind(def_id) {
+				// A thread-local's `const`, which lowers from this MIR as a function.
+				DefKind::Const if super::library::local_init(tcx, def_id).is_some() => tcx.mir_for_ctfe(def_id),
+				kind if kind.is_fn_like() && tcx.is_mir_available(def_id) => tcx.optimized_mir(def_id),
+				// One without MIR, such as an import, is refused where it is reached.
+				_ => continue,
+			};
 			// Another crate lists none of its closures' bodies.
 			for local in body.local_decls.iter() {
 				queue.extend(local.ty.walk().filter_map(|arg| match *arg.as_type()?.kind() {

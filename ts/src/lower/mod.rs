@@ -691,17 +691,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(sym) = self.bound_fn(instance, tcx.def_span(def_id)) {
 			return sym;
 		}
-		let parent = tcx.opt_parent(def_id);
-		let base = match parent {
-			// What initializes a thread-local, which the macro names alike for every key.
-			Some(key)
-				if tcx.def_kind(key) == DefKind::Const
-					&& matches!(tcx.type_of(key).instantiate_identity().skip_norm_wip().kind(),
-						ty::Adt(adt, _) if library::Std::of(tcx, adt.did()) == Some(library::Std::LocalKey)) =>
-			{
-				format!("{}$init", tcx.item_name(key))
-			}
-			_ => camel(tcx.item_name(def_id).as_str()),
+		let base = match library::local_init(tcx, def_id) {
+			// The macro names it alike for every key.
+			Some(key) => format!("{}$init", tcx.item_name(key)),
+			None => camel(tcx.item_name(def_id).as_str()),
 		};
 		// A function of a translated type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.

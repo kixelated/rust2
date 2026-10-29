@@ -20,6 +20,10 @@ impl Drop for Noisy {
 	}
 }
 
+/// Only `PAIRS`'s `const` writes one in place.
+#[derive(Clone, Copy)]
+struct Twin(u16, u16);
+
 /// What a batch holds, as kio's `Polling` does.
 struct Polling {
 	current: Cell<Option<(u64, u64)>>,
@@ -36,6 +40,13 @@ thread_local! {
 		}
 	};
 	static HELD: RefCell<Option<Noisy>> = const { RefCell::new(None) };
+	// A copy the `const` makes, then changes the original of, of a type nothing else writes.
+	static PAIRS: Cell<(Twin, Twin)> = const {
+		let mut x = Twin(1, 2);
+		let y = x;
+		x.0 = 3;
+		Cell::new((x, y))
+	};
 }
 
 /// Each byte an operation on the thread-locals; each puts what it read and what dropped.
@@ -72,6 +83,8 @@ pub fn locals(data: &[u8], out: &mut Vec<u8>) {
 				out.push(COUNT.replace(u32::from(op)) as u8);
 				out.push(COUNT.take() as u8);
 				COUNT.set(u32::from(op) + 1);
+				let (Twin(a, b), Twin(c, d)) = PAIRS.get();
+				out.extend([a as u8, b as u8, c as u8, d as u8]);
 			}
 			// The old value each helper replaces drops, or is put.
 			7 => {
