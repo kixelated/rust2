@@ -72,6 +72,18 @@ class Writer {
 		i32((ip as? java.net.Inet6Address)?.scopeId ?: 0)
 	}
 
+	/** An IPv4 address, for Rust's `SocketAddrV4`. */
+	fun socketAddrV4(v: java.net.InetSocketAddress) {
+		kotlin.require(v.address !is java.net.Inet6Address) { "an IPv6 address has no Rust SocketAddrV4" }
+		socketAddr(v)
+	}
+
+	/** An IPv6 address, for Rust's `SocketAddrV6`. */
+	fun socketAddrV6(v: java.net.InetSocketAddress) {
+		kotlin.require(v.address !is java.net.Inet4Address) { "an IPv4 address has no Rust SocketAddrV6" }
+		socketAddr(v)
+	}
+
 	fun duration(v: kotlin.time.Duration) {
 		kotlin.require(!v.isNegative()) { "a negative duration has no Rust Duration" }
 		v.toComponents { secs, nanos ->

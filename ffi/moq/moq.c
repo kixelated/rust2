@@ -405,7 +405,17 @@ int main(void) {
 	moq_option_listen_bind bound = moq_listen_config_bind(listen);
 	CHECK(bound.some && moq_listen_bind_eq(&bound.value, &bind));
 	moq_listen_bind_free(&bound.value);
+	/* The preferred address of each family, which takes only that family. */
+	moq_socket_addr preferred = {.ip = {10, 0, 0, 1}, .port = 4443};
+	moq_listen_config_set_preferred_v4(listen, (moq_option_socket_addr){.some = true, .value = preferred});
+	moq_option_socket_addr preferred_v4 = moq_listen_config_preferred_v4(listen);
+	CHECK(preferred_v4.some && !preferred_v4.value.v6 && preferred_v4.value.ip[0] == 10 && preferred_v4.value.port == 4443);
+	CHECK(!moq_listen_config_preferred_v6(listen).some);
 	moq_listen_config_free(listen);
+	/* A constant slice, as an array of clones. */
+	moq_vec_string alpns_all = moq_alpns();
+	CHECK(alpns_all.len > 0);
+	moq_vec_string_free(alpns_all);
 
 	if (failures == 0) {
 		printf("ok\n");
