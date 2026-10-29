@@ -64,5 +64,16 @@ roots = [
     "rebound_reference",
     "any_upcast",
     "any_type_id",
+    "reinterpreted",
+    "addressed",
+    "allocated",
+    "vec_pointer",
+    "bits",
+    "places_compared",
+    "part_replaced",
+    "variable_reassigned",
+    "element_pointer",
+    "units_compared",
+    "dangling_enum",
 ]
 printable = ["Meters"]

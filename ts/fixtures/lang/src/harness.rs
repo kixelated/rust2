@@ -3,7 +3,7 @@
 
 use crate::{
 	atomics, captures, cells, chars, chunks, collections, combinators, counts, cows, defaults, durations, dyns, edits,
-	floats, fmt, generics, ints, iters, keys, locks, nested, refs, shapes, splits, strs, utf8, wrappers,
+	floats, fmt, generics, ints, iters, keys, locks, nested, pointers, refs, shapes, splits, strs, utf8, wrappers,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -96,6 +96,13 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("counts::cyclic_arcs", |_, data, out| counts::cyclic_arcs(data, out)),
 		("counts::cyclic_rcs", |_, data, out| counts::cyclic_rcs(data, out)),
 		("dyns::anys", |_, data, out| dyns::anys(data, out)),
+		("pointers::copies", |_, data, out| pointers::copies(data, out)),
+		("pointers::lists", |_, data, out| pointers::lists(data, out)),
+		("pointers::nested", |_, data, out| pointers::nested(data, out)),
+		("pointers::places", |_, data, out| pointers::places(data, out)),
+		("pointers::sentinels", |_, data, out| pointers::sentinels(data, out)),
+		("pointers::shared", |_, data, out| pointers::shared(data, out)),
+		("pointers::unchecked", |_, data, out| pointers::unchecked(data, out)),
 		("edits::bytes", edits::bytes),
 	]
 }

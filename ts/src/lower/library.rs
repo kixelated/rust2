@@ -101,8 +101,10 @@ pub enum Std {
 	NonZero,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
-	/// Its pointee: what an async body passes its context in.
+	/// A raw pointer to its pointee, as `pointer` has it.
 	NonNull,
+	/// What it holds, or nothing yet, as `pointer` has it.
+	MaybeUninit,
 	/// No value: `never`.
 	Infallible,
 	/// `rt.HashMap`, and `rt.HashSet`, a map to `undefined`.
@@ -214,6 +216,7 @@ impl Std {
 			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["mem", "maybe_uninit", "MaybeUninit"] => Some(Self::MaybeUninit),
 			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
 			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
@@ -555,7 +558,10 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
 		| ("Box", "new" | "pin")
-		| ("mem", "replace" | "take" | "swap")
+		| ("mem", "replace" | "take" | "swap" | "forget")
+		| ("ptr", "write" | "write_unaligned" | "write_volatile" | "replace")
+		| ("MaybeUninit", "new" | "write" | "assume_init")
+		| ("Box", "into_raw" | "leak" | "from_raw")
 		| ("hint", "must_use")
 		| ("From", "from")
 		| ("Into", "into")
@@ -589,6 +595,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
+				| ("ptr", "as_ref" | "as_mut")
 		)
 }
 
@@ -776,6 +783,8 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
+			// `<*const T>::read` is `ptr::read`.
+			ty::RawPtr(..) => "ptr".into(),
 			ty::Dynamic(preds, ..) => format!("dyn {}", tcx.item_name(preds.principal_def_id()?)),
 			_ => return None,
 		};
@@ -843,6 +852,10 @@ fn mapping<'tcx>(
 		Err(args) => args,
 	};
 	let args = match super::dynamic::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let args = match super::pointer::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
