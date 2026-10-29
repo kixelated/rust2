@@ -186,6 +186,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							body.extend(ret(v()));
 							body
 						}
+						// Its slots hold values JS copies.
+						AdtRepr::Slots(_) => ret(Expr::rt("ptrRead", vec![v()])),
 						AdtRepr::Tags => unreachable!("an enum without fields is shared"),
 					}
 				}

@@ -31,6 +31,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Rvalue::CopyForDeref(place) => self.place_expr(*place, span, out),
 			Rvalue::Repeat(op, count) => self.repeat(op, *count, span, out),
 			Rvalue::Ref(_, kind, place) => {
+				if self.union_whole(*place, span).is_some() {
+					return Some(self.err(span, "a reference to a union's field kept in more than one slot"));
+				}
 				if let Some(e) = self.mut_subslice(*kind, *place, span) {
 					return Some(e);
 				}
@@ -60,7 +63,36 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// A bounds check of a `&mut` slice reads its length through a raw pointer that
 			// only `PtrMetadata` reads, which reads the slice's.
 			Rvalue::RawPtr(mir::RawPtrKind::FakeForPtrMetadata, place) => self.place_expr(*place, span, out),
-			Rvalue::RawPtr(..) => self.err(span, "raw pointers are not supported"),
+			Rvalue::RawPtr(_, place) => {
+				if self.union_whole(*place, span).is_some() {
+					return Some(self.err(span, "a pointer to a union's field kept in more than one slot"));
+				}
+				let pointee = place.ty(&self.mir.local_decls, tcx).ty;
+				match self.b.t.pointee(pointee) {
+					// `&raw mut *p` is `p`.
+					Ok(crate::lower::pointer::Pointee::Place) => match place.projection.as_slice() {
+						[rest @ .., mir::ProjectionElem::Deref]
+							if self
+								.b
+								.t
+								.place_pointee(Place::ty_from(place.local, rest, &self.mir.local_decls, tcx).ty)
+								.is_some() =>
+						{
+							let base = Place {
+								local: place.local,
+								projection: tcx.mk_place_elems(rest),
+							};
+							self.place_expr(base, span, out)
+						}
+						_ => {
+							let target = self.place_expr(*place, span, out);
+							self.make_place(*place, target, span, out)
+						}
+					},
+					Ok(crate::lower::pointer::Pointee::Object) => self.place_expr(*place, span, out),
+					Err(msg) => self.err(span, msg),
+				}
+			}
 			Rvalue::Reborrow(..) => self.err(span, "reborrowing a type by its `Reborrow` impl is not supported"),
 			Rvalue::ThreadLocalRef(_) => self.err(span, "thread locals are not supported"),
 			Rvalue::WrapUnsafeBinder(..) => self.err(span, "unsafe binders are not supported"),
@@ -86,6 +118,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					BinOp::ShrUnchecked => BinOp::Shr,
 					op => op,
 				};
+				if let ty::RawPtr(pointee, _) = lty.kind()
+					&& matches!(op, BinOp::Eq | BinOp::Ne)
+				{
+					let x = self.operand(l, span, out);
+					let y = self.operand(r, span, out);
+					let same = crate::lower::pointer::compare(self.b, x, y, *pointee, span);
+					return Some(match op {
+						BinOp::Eq => same,
+						_ => same.not(),
+					});
+				}
 				if matches!(op, BinOp::Cmp | BinOp::Offset) {
 					return Some(self.err(span, format!("`{op:?}` is not supported")));
 				}
@@ -233,11 +276,28 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => self.err(span, format!("a coercion to `{to}`")),
 					}
 				}
-				PointerCoercion::Unsize | PointerCoercion::ReifyFnPointer(_) | PointerCoercion::ClosureFnPointer(_) => {
-					self.operand(op, span, out)
-				}
+				PointerCoercion::Unsize
+				| PointerCoercion::ReifyFnPointer(_)
+				| PointerCoercion::ClosureFnPointer(_)
+				| PointerCoercion::MutToConstPointer => self.operand(op, span, out),
 				_ => self.err(span, format!("unsupported pointer coercion {coercion:?}")),
 			},
+			// The same pointer, as one to the same pointee: `*mut T` as `*const T`, or a
+			// `MaybeUninit<T>` as the `T` it holds.
+			CastKind::PtrToPtr
+				if let (Some(a), Some(b)) = (from.builtin_deref(true), to.builtin_deref(true))
+					&& self.b.t.uninit_inner(a) == self.b.t.uninit_inner(b) =>
+			{
+				self.operand(op, span, out)
+			}
+			CastKind::PtrToPtr => self.err(
+				span,
+				format!("a cast from `{from}` to `{to}`, which reads the bytes of one type as another"),
+			),
+			CastKind::PointerExposeProvenance | CastKind::PointerWithExposedProvenance => self.err(
+				span,
+				format!("a cast from `{from}` to `{to}`, between a pointer and an integer"),
+			),
 			// A box's pointer is its contents in JS, which a read shares: the pointer's
 			// type is `Copy`, but what it points to is not copied.
 			CastKind::BoxDerefTransmute => match op {
@@ -346,7 +406,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				return Some(super::coroutine::construct(self, *def_id, args, ops, span, out));
 			}
 			AggregateKind::CoroutineClosure(..) => return Some(self.err(span, "async closures are not supported")),
-			AggregateKind::RawPtr(..) => return Some(self.err(span, "raw pointers are not supported")),
+			AggregateKind::RawPtr(..) => return Some(self.err(span, "a raw pointer made from parts")),
 			_ => {}
 		}
 		// A reference field read as its operand may be read more than once, or later: what
@@ -377,8 +437,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => Expr::Array(values),
 			},
 			AggregateKind::Adt(def_id, variant, args, _, active) => {
-				if active.is_some() {
-					return Some(self.err(span, "unions are not supported"));
+				if let Some(active) = active {
+					let ty::Adt(adt, _) = ty.kind() else {
+						unreachable!("a union")
+					};
+					let parts = self.b.t.union_field(*adt, active.as_usize(), span);
+					let field_ty = ops[FieldIdx::ZERO].ty(&self.mir.local_decls, self.tcx);
+					let value = values.pop().expect("a union's field");
+					let value = match parts.len() {
+						0 | 1 => value,
+						_ => self.path(value, "field", out),
+					};
+					let slots = self.b.t.into_slots(value, field_ty, &parts, span);
+					let ts_ty = self.b.t.ty(ty, span);
+					return Some(crate::lower::unions::made(slots, ts_ty));
 				}
 				if let Some(same) = self.rebuilt_result(kind, ops, &values, ty, span, out) {
 					return Some(same);
@@ -553,6 +625,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let ts_ty = self.b.t.ty(ty, span);
 				Expr::As(Box::new(Expr::Str(def.name.to_string())), ts_ty)
 			}
+			AdtRepr::Slots(_) => unreachable!("a union is made by its field"),
 			AdtRepr::Union => {
 				let mut props = vec![(Key::Name("tag".into()), Expr::Str(def.name.to_string()))];
 				for (i, value) in values.into_iter().enumerate() {

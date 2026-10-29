@@ -10,6 +10,7 @@ import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
 import type * as locks_Tally from "./locks.Tally.ts";
+import * as List from "./pointers.List.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -218,6 +219,14 @@ export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
 }
 
+export function drop$List_Arc_u8(_1: List.List<rt.Arc<rt.u8>>): void {
+	List.drop$Drop_Arc_u8(_1);
+}
+
+export function drop$List_String(_1: List.List<string>): void {
+	List.drop$Drop_String(_1);
+}
+
 export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
 	if (_1.ok) {
 		rt.mutexUnlock(_1.value);
@@ -244,6 +253,10 @@ export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt
 	if (_1.tag === "Poisoned") {
 		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<rt.u32> })._0);
 	}
+}
+
+export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
+	rt.drop(_1[1]);
 }
 
 export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {

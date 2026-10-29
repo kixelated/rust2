@@ -95,6 +95,33 @@ export function place<T>(get: () => T, set: (value: T) => void): Place<T> {
 	return new Accessed(get, set);
 }
 
+// Raw pointers
+
+/** A null raw pointer, of any type: nothing reads through it. */
+export const NULL: never = null as never;
+
+/** A dangling raw pointer, `NonNull::dangling`, of any type: nothing reads through it. */
+export const DANGLING: never = /* @__PURE__ */ Object.freeze({}) as never;
+
+/**
+ * `ptr::read` of a pointer to an object: a copy one object deep, so a write through the
+ * pointer later leaves it be.
+ */
+export function ptrRead<T extends object>(p: T): T {
+	if (ArrayBuffer.isView(p)) return (p as unknown as Uint8Array).slice() as unknown as T;
+	if (Array.isArray(p)) return p.slice() as T;
+	return Object.assign(Object.create(Object.getPrototypeOf(p)), p);
+}
+
+/**
+ * `ptr::write` of `value` through a pointer to an object: `value` copied into it, one
+ * object deep, so every pointer to it sees the write.
+ */
+export function ptrWrite<T extends object>(p: T, value: T): void {
+	if (ArrayBuffer.isView(p)) (p as unknown as Uint8Array).set(value as unknown as Uint8Array);
+	else Object.assign(p, value);
+}
+
 // Bindings
 
 /**
