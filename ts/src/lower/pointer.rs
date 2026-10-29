@@ -100,7 +100,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	/// What a `MaybeUninit<ty>` that holds nothing yet is, untyped.
-	fn shell(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
+	pub fn shell(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
 		let ty = self.uninit_inner(ty);
 		match (self.pointee(ty), ty.kind()) {
 			(Pointee::Object, ty::Tuple(tys)) => Expr::Array(tys.iter().map(|t| self.shell(t, span)).collect()),
@@ -205,6 +205,13 @@ pub fn call<'tcx>(
 	let mut arg = || args.next().expect("an argument");
 	let e = match (owner, name) {
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
+		// One to a value of no bytes points at one, which every read of it reads.
+		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.zero_sized(pointee()) => {
+			match kind(b, pointee()) {
+				Some(Pointee::Place) => Expr::Object(vec![(Key::Name("v".into()), b.t.shell(pointee(), span))]),
+				_ => b.t.uninit(pointee(), span),
+			}
+		}
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") => Expr::Rt("DANGLING".into()),
 		// The same pointer, as one to what a `MaybeUninit` holds or the other way.
 		("ptr" | "NonNull", "cast") => {
@@ -387,9 +394,16 @@ fn write<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, value: Expr, ty: Ty<'tcx>, s
 }
 
 /// Whether pointers `x` and `y` to `ty` point at the same place: the same object, or
-/// null both. Two `rt.Place`s of one place are two objects, so they are refused.
+/// null both. Two `rt.Place`s of one place are two objects, and Rust leaves where a value
+/// of no bytes is unspecified, so both are refused.
 pub fn compare<'tcx>(b: &mut Body<'_, '_, 'tcx>, x: Expr, y: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let null = |e: &Expr| matches!(e, Expr::Rt(n) if n == "NULL");
+	if b.t.zero_sized(ty) && !null(&x) && !null(&y) {
+		return b.err(
+			span,
+			format!("comparing pointers to `{ty}`, which has no bytes and so no address of its own"),
+		);
+	}
 	match b.t.pointee(ty) {
 		Pointee::Object => x.binary("===", y),
 		Pointee::Place if null(&x) || null(&y) => x.binary("===", y),

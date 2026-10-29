@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 93
-- Function instances: 101
+- Refusals: 94
+- Function instances: 102
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -59,6 +59,7 @@
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:268:52 |
+| 1 | comparing pointers to `()`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:641:2 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | fixtures/reject/src/lib.rs:606:2 |
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:400:53 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:268:52 |
@@ -554,6 +555,12 @@ The type or module each refused type or path belongs to.
 <details><summary>comparing `_` as a key, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:268:52: comparing `std::vec::Vec<u8>` as a key, which is not supported yet
+
+</details>
+
+<details><summary>comparing pointers to `()`, which has no bytes and so no address of its own (1)</summary>
+
+- fixtures/reject/src/lib.rs:641:2: comparing pointers to `()`, which has no bytes and so no address of its own
 
 </details>
 

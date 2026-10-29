@@ -423,7 +423,8 @@ fn snapshot(v: u32) -> (u8, u8) {
 }
 
 /// Null and dangling pointers to values JS keeps as `undefined`: an `Option` read through
-/// `as_ref`, and `()` written through a dangling pointer.
+/// `as_ref`, and `()` written through a dangling pointer; and values of no bytes read
+/// through dangling pointers.
 pub fn sentinels(data: &[u8], out: &mut Vec<u8>) {
 	for &byte in data {
 		let some = Some(u32::from(byte)).filter(|v| v % 2 == 0);
@@ -441,6 +442,9 @@ pub fn sentinels(data: &[u8], out: &mut Vec<u8>) {
 				Some(Some(v)) => 2 + (*v % 100) as u8,
 			});
 			out.push(p.as_ref().is_none() as u8);
+			let units = NonNull::<[(); 2]>::dangling();
+			out.push(units.as_ptr().read().into_iter().count() as u8);
+			out.push(units.as_ref().len() as u8);
 		}
 	}
 }

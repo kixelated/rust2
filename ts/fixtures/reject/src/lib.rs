@@ -634,3 +634,9 @@ pub fn element_pointer(n: u32) -> u32 {
 	let p = &raw mut pairs[1];
 	unsafe { (*p).0 }
 }
+
+/// Two pointers to values of no bytes, which Rust may put anywhere.
+pub fn units_compared() -> bool {
+	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();
+	std::ptr::eq(unit(), unit())
+}

@@ -263,6 +263,10 @@ export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt
 	return [v[0], v[1]];
 }
 
+export function copy$units(v: undefined[]): undefined[] {
+	return v.slice();
+}
+
 export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
 }
