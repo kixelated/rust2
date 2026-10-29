@@ -63,12 +63,13 @@ pub enum Text<'a> {
 /// A type generic over a lifetime alone, holding one that is.
 pub struct Named<'a>(Text<'a>);
 
-/// Run trait object scenario `arg % 3`: boxed, shared, or as `dyn Any`.
+/// Run trait object scenario `arg % 4`: boxed, shared, as `dyn Any`, or as `dyn Fn*`.
 pub fn dyns(log: &Log, id: u32, arg: u8) {
-	match arg % 3 {
+	match arg % 4 {
 		0 => objects::boxed(log, id),
 		1 => objects::shared(log, id),
-		_ => objects::anys(log, id),
+		2 => objects::anys(log, id),
+		_ => objects::fns(log, id),
 	}
 }
 

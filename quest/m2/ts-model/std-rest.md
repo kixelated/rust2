@@ -4,7 +4,8 @@
 
 rust2-ts translates the std calls the model's census still refuses outside other quests:
 `Vec`'s and `VecDeque`'s `capacity`, `reserve`, and `shrink_to`, and `RandomState` with
-`BuildHasher::hash_one`, proven by differential tests against native Rust.
+`BuildHasher::hash_one`, also where another crate names it, as hashbrown's and hashlink's
+default hasher does, proven by differential tests against native Rust.
 
 ## Plan
 
