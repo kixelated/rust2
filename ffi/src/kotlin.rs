@@ -1086,7 +1086,7 @@ impl<'a> Gen<'a> {
 			&format!("crate::{c}_free(p0 as usize as _)"),
 		);
 		let mut body = vec![format!(
-			"\tinternal val handle = Native.Handle(this, raw, if (lent) null else Native::{bare}_free, \"{name}\")\n\n\t/** Free the handle once no call holds it: a call after this throws. */\n\toverride fun close() = handle.close()\n"
+			"\tinternal val handle = Native.Handle(this, raw, if (lent) null else Native.Drop {{ Native.{bare}_free(it) }}, \"{name}\")\n\n\t/** Free the handle once no call holds it: a call after this throws. */\n\toverride fun close() = handle.close()\n"
 		)];
 		let mut statics = Vec::new();
 		self.traits(&ty, &c, object.traits, &mut body, &mut statics);
@@ -1531,7 +1531,7 @@ impl<'a> Gen<'a> {
 				),
 			};
 			value = format!(
-				"Native.Signal().let {{ {s} ->\n\tNative.await({call}, {s}, Native::{poll_bare}, Native::{free_bare}) {}\n}}",
+				"Native.Signal().let {{ {s} ->\n\tNative.await({call}, {s}, {{ f, n -> Native.{poll_bare}(f, n) }}, {{ Native.{free_bare}(it) }}) {}\n}}",
 				lambda.replace('\n', "\n\t"),
 				s = signal.as_deref().expect("a future takes a signal"),
 			);
