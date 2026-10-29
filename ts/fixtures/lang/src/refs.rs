@@ -349,7 +349,94 @@ fn lent(data: &[u8], out: &mut Vec<u8>) {
 	for x in [counts.a, counts.b, spare[0], spare[1]] {
 		out.extend_from_slice(&x.unwrap_or(0xeeee).to_be_bytes());
 	}
+	defaulted(data, out);
+	taken(data, out);
 	elements(data, out);
+}
+
+/// moq-net's listing: a crate type's default, made in place only while there is none.
+#[derive(Default, Debug)]
+struct Listing {
+	source: Option<u8>,
+	listed: Vec<u8>,
+	stale: Vec<u8>,
+}
+
+/// Filled in place by its default, through a `&mut` and from a closure, then reset.
+fn defaulted(data: &[u8], out: &mut Vec<u8>) {
+	fn list(listing: &mut Option<Listing>, b: u8) {
+		let state = listing.get_or_insert_default();
+		state.source = Some(b);
+		state.stale = state.listed.clone();
+		state.listed.push(b);
+	}
+	let mut listing: Option<Listing> = None;
+	for &b in data {
+		match b % 5 {
+			0 => listing = None,
+			1 => list(&mut listing, b),
+			2 => {
+				let state = listing.get_or_insert_with(Listing::default);
+				state.source = Some(state.source.unwrap_or(b) ^ b);
+			}
+			3 => {
+				let mut relist = |b: u8| listing.get_or_insert_default().listed.push(b);
+				relist(b);
+				relist(b ^ 1);
+			}
+			_ => {
+				let state = listing.get_or_insert_default();
+				state.source = None;
+				state.listed.pop();
+			}
+		}
+	}
+	out.extend_from_slice(format!("{listing:?}").as_bytes());
+}
+
+/// moq-net's front: a `Vec` a closure captured by reference, taken, replaced, and
+/// refilled on each call, read after by the caller.
+fn taken(data: &[u8], out: &mut Vec<u8>) {
+	fn poll<F: FnMut(u8) -> bool>(data: &[u8], mut f: F) -> usize {
+		data.iter().take_while(|&&b| !f(b)).count()
+	}
+	let mut held = data.to_vec();
+	let mut wide: Vec<u32> = data.iter().map(|&b| u32::from(b) * 1000).collect();
+	let polls = poll(data, |b| {
+		for x in std::mem::take(&mut held) {
+			if x % 3 != b % 3 {
+				held.push(x / 2);
+			}
+		}
+		// From a closure inside this one, and replaced whole.
+		let mut halve = || {
+			let old = std::mem::replace(&mut wide, Vec::new());
+			wide = old.into_iter().filter(|&x| x > u32::from(b)).map(|x| x / 2).collect();
+		};
+		halve();
+		held.is_empty()
+	});
+	out.extend_from_slice(&(polls as u32).to_be_bytes());
+	out.extend_from_slice(&held);
+	out.extend_from_slice(format!("{wide:?}").as_bytes());
+	// A `&mut` moved into the closure, and a field.
+	let mut pair = (data.to_vec(), Listing::default());
+	let first = &mut pair.0;
+	let mut swap = move |b: u8| std::mem::replace(first, vec![b; usize::from(b % 4)]);
+	let mut swapped = Vec::new();
+	for &b in data {
+		swapped.extend(swap(b));
+	}
+	let mut list = |b: u8| {
+		let listed = std::mem::take(&mut pair.1.listed);
+		pair.1.stale = listed;
+		pair.1.listed.push(b);
+	};
+	data.iter().for_each(|&b| list(b));
+	let direct = std::mem::take(&mut pair.1.stale);
+	out.extend_from_slice(&direct);
+	out.extend_from_slice(&swapped);
+	out.extend_from_slice(format!("{pair:?}").as_bytes());
 }
 
 /// What std lends of the elements and values of slices and collections, which JS copies:

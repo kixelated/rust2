@@ -18,6 +18,10 @@ export function poll$Task_closed_closure0_closure0(self: (a0: Waiter.Waiter) => 
 	return self(waiter);
 }
 
+export function poll$Task_front_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.usize>, waiter: Waiter.Waiter): rt.Poll<rt.usize> {
+	return self(waiter);
+}
+
 export function poll$Task_recv_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	return self(waiter);
 }
@@ -43,6 +47,11 @@ export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt
 /** A future from a poll function that receives a [`Waiter`]. */
 export function wait$closed_closure0_closure0_unit(poll: (a0: Waiter.Waiter) => rt.Poll<undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>> {
 	return Pending.new$closed_closure0_closure0(poll);
+}
+
+/** A future from a poll function that receives a [`Waiter`]. */
+export function wait$front_closure0_closure0_usize(poll: (a0: Waiter.Waiter) => rt.Poll<rt.usize>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.usize>> {
+	return Pending.new$front_closure0_closure0(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
