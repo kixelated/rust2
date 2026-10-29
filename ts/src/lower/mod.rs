@@ -1661,6 +1661,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// An `rt.Place`, which is an object.
 			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
+			// Nothing, as `()` is.
+			ty::Adt(adt, _) if adt.is_phantom_data() => Erased {
+				undefined: true,
+				..Erased::default()
+			},
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
 				Some(
 					library::Std::Box

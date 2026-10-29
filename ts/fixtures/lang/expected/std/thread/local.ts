@@ -38,7 +38,7 @@ export function replace$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>, va
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure9_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
+export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure10_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
 	const captured = f;
 	return ((cell: rt.RefCell<rt.ByteVec>): rt.u8 => {
 		const _32: (a0: rt.ByteVec) => rt.u8 = captured;

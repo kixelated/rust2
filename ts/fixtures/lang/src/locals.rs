@@ -6,6 +6,7 @@
 //! every thread-local as it found it, so a fresh instance and a reused one agree.
 
 use std::cell::{Cell, RefCell};
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
 /// Logs its id when it drops.
@@ -85,6 +86,9 @@ pub fn locals(data: &[u8], out: &mut Vec<u8>) {
 				COUNT.set(u32::from(op) + 1);
 				let (Twin(a, b), Twin(c, d)) = PAIRS.get();
 				out.extend([a as u8, b as u8, c as u8, d as u8]);
+				// `PhantomData`, which a lazy key's function takes, is nothing, as `()` is.
+				let marker = (op % 2 == 0).then_some(PhantomData::<u8>);
+				out.push(marker.map_or(0xfd, |PhantomData| 1));
 			}
 			// The old value each helper replaces drops, or is put.
 			7 => {
