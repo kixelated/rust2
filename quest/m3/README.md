@@ -28,4 +28,5 @@ generic std gap is planned here even when moq never calls it.
 - [Debug and Display of Arc and ranges](/quest/m3/ts-fmt-wrappers.md) - `Arc<T>` formats as `T`, and ranges as std's `Debug`
 - [Fold a match a bool decided](/quest/m3/ts-fold-bool.md) - `if matches!` and derived `==` drop a later match's dead arms
 - [Rename one instance](/quest/m3/ffi-instance-rename.md) - `rename` by an instance's path, once a consumer's clash needs it
+- [Into targets through a chain of From implementations](/quest/m3/ffi-from-chains.md) - `sources` follows more than one level, once a consumer's parameter needs it
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
