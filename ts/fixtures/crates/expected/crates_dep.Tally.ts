@@ -13,7 +13,7 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.v);
+		this.v[Symbol.dispose]();
 	}
 
 	add$Tally(a: rt.u8): void {

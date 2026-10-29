@@ -157,6 +157,26 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// Whether every JS value of `ty`, a type that drops and is [`Self::disposable`], is an
+	/// object with `[Symbol.dispose]`, which a drop calls directly rather than through
+	/// `rt.drop`'s one megamorphic site. An `Option` may be `None`, and a type parameter, a
+	/// trait object, a closure, or a future may be any value.
+	fn always_disposes(&self, ty: Ty<'tcx>) -> bool {
+		let ty::Adt(adt, args) = ty.kind() else {
+			return false;
+		};
+		match Std::of(self.tcx, adt.did()) {
+			_ if self.bound_drops(adt.did()).is_some() => true,
+			Some(Std::Box | Std::Pin | Std::Reverse | Std::PoisonError) => self.always_disposes(args.type_at(0)),
+			Some(Std::Waker | Std::PollFn | Std::Weak | Std::Arc | Std::Mutex | Std::OnceCell | Std::OnceLock) => true,
+			Some(_) => false,
+			// An `rt.Iter` has one only if it was given what drops.
+			None if self.std_iter(ty) => false,
+			// The class its glue made.
+			None => adt.is_struct(),
+		}
+	}
+
 	/// Whether each closure that drops in `ty`, one of std's iterators, is one an adaptor's
 	/// `rt.Iter` drops, as `iter::holds_closure` says.
 	fn closures_held(&mut self, ty: Ty<'tcx>) -> bool {
@@ -227,7 +247,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return Some(Expr::rt("dropAll", args));
 		}
 		if self.disposable(ty, span) {
-			return Some(Expr::rt("drop", vec![value]));
+			return Some(match self.always_disposes(ty) {
+				true => value.index(Expr::ident("Symbol").member("dispose")).call(Vec::new()),
+				false => Expr::rt("drop", vec![value]),
+			});
 		}
 		if let ty::Adt(adt, args) = ty.kind()
 			&& let Some(std) = Std::of(self.tcx, adt.did())

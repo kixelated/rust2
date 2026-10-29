@@ -14,7 +14,7 @@ export class Noisy {
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.v);
+		this.v[Symbol.dispose]();
 	}
 
 	id$Id(): rt.u8 {

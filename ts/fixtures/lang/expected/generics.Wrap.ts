@@ -99,38 +99,38 @@ export class Wrap<T> {
 	value: T;
 	count: rt.u8;
 
-	constructor(fields: { value: T; count: rt.u8 }) {
-		this.value = fields.value;
-		this.count = fields.count;
+	constructor(value: T, count: rt.u8) {
+		this.value = value;
+		this.count = count;
 	}
 }
 
 export function new$Option_u8(value: rt.u8 | undefined): Wrap<rt.u8 | undefined> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function new$Pair(value: Pair.Pair): Wrap<Pair.Pair> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function new$Point(value: Point.Point): Wrap<Point.Point> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function new$Shape(value: Shape.Shape): Wrap<Shape.Shape> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function new$Wrap_Pair(value: Wrap<Pair.Pair>): Wrap<Wrap<Pair.Pair>> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function new$i16(value: rt.i16): Wrap<rt.i16> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function new$u8(value: rt.u8): Wrap<rt.u8> {
-	return new Wrap({ value, count: 0 });
+	return new Wrap(value, 0);
 }
 
 export function get$Option_u8(self: Wrap<rt.u8 | undefined>): rt.u8 | undefined {
@@ -170,7 +170,7 @@ export function intoInner$Point(self: Wrap<Point.Point>): Point.Point {
 
 /** A method with its own type parameter. */
 export function map$u8_Pair_methods_closure1(self: Wrap<rt.u8>, f: (a0: rt.u8) => Pair.Pair): Wrap<Pair.Pair> {
-	return new Wrap({ value: f(self.value), count: self.count });
+	return new Wrap(f(self.value), self.count);
 }
 
 export function scaled$Meters(self: Wrap<Meters.Meters>): rt.u64 {

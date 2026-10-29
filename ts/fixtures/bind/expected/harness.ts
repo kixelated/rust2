@@ -53,7 +53,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const a: Tally.Tally = Tally.new(count);
 	const b: Tally.Tally = Tally.new(count);
 	rt.byteVecPush(out, count.strong & 0xff);
-	rt.drop(a);
+	a[Symbol.dispose]();
 	rt.byteVecPush(out, count.strong & 0xff);
 	const _110: rt.u8 = Tally.get(b) & 0xff;
 	rt.byteVecPush(out, _110);
@@ -69,7 +69,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		rt.drop(held);
 	}
 	_125 = false;
-	rt.drop(count);
+	count[Symbol.dispose]();
 	return _0;
 }
 

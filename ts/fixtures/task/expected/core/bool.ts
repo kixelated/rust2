@@ -14,7 +14,7 @@ export function thenSome$bool_Guard(self: boolean, t: Guard.Guard): Guard.Guard 
 		_0 = t;
 	}
 	if (_4) {
-		rt.drop(t);
+		t[Symbol.dispose]();
 		return _0;
 	}
 	return _0;
