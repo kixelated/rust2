@@ -93,6 +93,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("defaults::defaults", |_, data, out| defaults::defaults(data, out)),
 		("counts::arcs", |_, data, out| counts::arcs(data, out)),
 		("counts::rcs", |_, data, out| counts::rcs(data, out)),
+		("counts::cyclic_arcs", |_, data, out| counts::cyclic_arcs(data, out)),
+		("counts::cyclic_rcs", |_, data, out| counts::cyclic_rcs(data, out)),
 		("dyns::anys", |_, data, out| dyns::anys(data, out)),
 		("pointers::copies", |_, data, out| pointers::copies(data, out)),
 		("pointers::lists", |_, data, out| pointers::lists(data, out)),

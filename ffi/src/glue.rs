@@ -225,7 +225,7 @@ impl Gen<'_> {
 	/// The Rust value of type `ty` that the C value `e` holds, copied out of it.
 	fn lift(&self, ty: &Type, e: &str) -> String {
 		match ty {
-			Type::Unit => "()".to_string(),
+			Type::Unit => e.to_string(),
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("rt::char({e}, w)"),
 			Type::Str | Type::String => format!("unsafe {{ {e}.str(w) }}.to_owned()"),
