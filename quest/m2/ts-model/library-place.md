@@ -19,10 +19,17 @@ the translation assigns the local the `Option` was matched into, so the `Vec` ke
 `Arc`, whose count stays up. It silently differs from native, so it is fixed first.
 
 Both have one root: a `&mut` to a library object is the object, which a write can't put
-another object in place of. At #196's pin, moq-net's census refuses six such sites: `Vec`s
-in `ietf/publisher.rs`, `lite/publisher.rs`, `model/broadcast.rs`, and `model/origin.rs`, a
-`BTreeSet` in `lite/subscriber.rs` ("replacing the value behind a reference"), and an
-`Arc` in `model/frame.rs` ("an assignment through a reference").
+another object in place of, and so is one to the crate's own struct or enum. On main, at
+moq `30f25c04`, moq-net's census refuses eight such sites, after
+[#204](https://github.com/kixelated/rust2/pull/204) translated the write through a
+closure's capture:
+
+- "replacing the value behind a reference": a `Vec` at `ietf/publisher.rs:3794` (through a
+  `MutexGuard`), `lite/publisher.rs:4043`, and `model/broadcast.rs:1226`; a `BTreeSet` at
+  `lite/subscriber.rs:7620`; and the crate's own `Subscription` at
+  `ietf/publisher.rs:16954`, `TrackState` at `ietf/subscriber/tracks.rs:1118`, and `Parked`
+  at `model/expiry.rs:316`.
+- "an assignment through a reference": an `Arc` at `model/frame.rs:752`.
 
 - A whole write through such a reference goes through the `rt.Place` of where the object
   is kept, as a `&mut` to a value JS copies does, or into the object in place where the
