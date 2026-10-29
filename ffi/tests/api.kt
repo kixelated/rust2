@@ -105,6 +105,10 @@ fun script() {
 	println("halves ${lowerHalf.first} ${lowerHalf.second} ${upperHalf.first} ${upperHalf.second} ${span.debug()}")
 	val (swappedN, swappedText) = swapped(Pair("t", 4u))
 	println("swapped $swappedN $swappedText")
+	for (value in listOf(null, Tuple1<UInt?>(null), Tuple1<UInt?>(3u))) {
+		val doubled = doubled(value)
+		println(if (doubled == null) "doubled None" else "doubled Some((${doubled.first?.let { "Some($it)" } ?: "None"},))")
+	}
 
 	// Each lent counter is a new handle to a clone.
 	val registry = Registry.new(Counter.new("first", 1u))
@@ -151,6 +155,8 @@ fun script() {
 	).map { count(it) }
 	println("count ${counts.joinToString(" ")}")
 	println("end ${bound(end(3u))} ${bound(end(0u))}")
+	val (endsStart, endsEnd) = ends(3u)
+	println("ends ${bound(endsStart)} ${bound(endsEnd)}")
 	val window = Window(RangeU64(2u, 8u), end(5u))
 	println("window ${window.contains(4u)} ${window.contains(6u)} ${window.debug()}")
 

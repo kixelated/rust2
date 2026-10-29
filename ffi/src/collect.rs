@@ -3040,8 +3040,10 @@ impl<'tcx> Collector<'tcx> {
 				}
 			}
 			ty::Tuple(list) => match list.as_slice() {
+				// Returned whole, the pair is a tuple, written through an out pointer each.
 				[start, end]
-					if start == end
+					if pos != Pos::Return
+						&& start == end
 						&& let Some(int) = self.bound_of(*start) =>
 				{
 					Type::Bounds(int)

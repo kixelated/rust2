@@ -235,7 +235,7 @@ struct Gen<'a> {
 	errors: Vec<String>,
 	/// A counter for fresh Kotlin names.
 	fresh: usize,
-	/// The arities past `Triple` a tuple class is written for.
+	/// The arities a tuple class is written for: one, and past `Triple`.
 	tuples: BTreeSet<usize>,
 }
 
@@ -270,8 +270,8 @@ impl<'a> Gen<'a> {
 		}
 	}
 
-	/// The class of a tuple of `n` past `Triple`, written once, its fields named as
-	/// `Triple`'s go on.
+	/// The class of a tuple of `n`, of one or past `Triple`, written once, its fields named
+	/// as `Triple`'s.
 	fn tuple(&mut self, n: usize) -> String {
 		let name = format!("Tuple{n}");
 		if self.tuples.insert(n) {
@@ -288,10 +288,9 @@ impl<'a> Gen<'a> {
 		name
 	}
 
-	/// The Kotlin type of a tuple of `elements`: one element alone is itself.
+	/// The Kotlin type of a tuple of `elements`.
 	fn tuple_of(&mut self, elements: Vec<String>) -> String {
 		match elements.len() {
-			1 => elements[0].clone(),
 			2 => format!("kotlin.Pair<{}>", elements.join(", ")),
 			3 => format!("kotlin.Triple<{}>", elements.join(", ")),
 			n => format!("{}<{}>", self.tuple(n), elements.join(", ")),
@@ -395,7 +394,6 @@ impl<'a> Gen<'a> {
 			},
 			Type::Object(_) => format!("{w}.handle({e}.handle)"),
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => format!("w_{}({w}, {e})", abi.range(ty)),
-			Type::Tuple(elements) if elements.len() == 1 => self.write_value(&elements[0], w, e),
 			Type::Tuple(elements) => {
 				let t = self.fresh("t");
 				let writes: Vec<String> = (elements.iter().enumerate())
@@ -465,7 +463,6 @@ impl<'a> Gen<'a> {
 			Type::Tuple(elements) => {
 				let read: Vec<String> = elements.iter().map(|e| self.read(e, r, owned)).collect();
 				match read.len() {
-					1 => read[0].clone(),
 					2 => format!("kotlin.Pair({})", read.join(", ")),
 					3 => format!("kotlin.Triple({})", read.join(", ")),
 					n => format!("{}({})", self.tuple(n), read.join(", ")),
@@ -1474,7 +1471,11 @@ impl<'a> Gen<'a> {
 		let rust_args: Vec<String> = args.iter().flat_map(|a| a.rust_args.clone()).collect();
 		let after: Vec<String> = args.iter().flat_map(|a| a.after.clone()).collect();
 
-		let ok = strip_refs(&function.ok);
+		// A tuple of one returned whole is its element, written through its one out pointer.
+		let ok = match strip_refs(&function.ok) {
+			Type::Tuple(mut elements) if elements.len() == 1 => elements.remove(0),
+			ok => ok,
+		};
 		let ret_kt = self.kt(&ok);
 		let err = function.err.as_ref().map(strip_refs);
 		let exception = err.as_ref().map(|e| {
@@ -1702,7 +1703,6 @@ impl<'a> Gen<'a> {
 				format!("{e}?.let {{ {v} -> {close} }}")
 			}
 			Type::Box(inner) => self.close(inner, e),
-			Type::Tuple(elements) if elements.len() == 1 => self.close(&elements[0], e),
 			Type::Tuple(elements) => {
 				let t = self.fresh("t");
 				let closes: Vec<String> = (elements.iter().enumerate())

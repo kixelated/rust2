@@ -574,3 +574,9 @@ impl std::str::pattern::Pattern for Slash {
 pub fn halves() -> impl Iterator<Item = &'static str> {
 	"a/b".split(Slash)
 }
+
+/// Two tuples whose C names run their elements together alike: both are
+/// `reject_tuple_tuple_u8_u16_u32`.
+pub fn mixed(a: Option<((u8, u16), u32)>, b: Option<((u8, u16, u32),)>) -> bool {
+	a.is_some() && b.is_some()
+}

@@ -279,6 +279,21 @@ static int script(void) {
 	api_swapped((api_tuple_string_u32){._0 = str("t"), ._1 = 4}, &swapped_n, &swapped_text);
 	printf("swapped %u ", swapped_n);
 	print("", swapped_text, "\n");
+	api_option_tuple_option_u32 doubles[] = {
+		{.some = false},
+		{.some = true, .value = {._0 = {.some = false}}},
+		{.some = true, .value = {._0 = {.some = true, .value = 3}}},
+	};
+	for (int i = 0; i < 3; i++) {
+		api_option_tuple_option_u32 doubled = api_doubled(doubles[i]);
+		if (!doubled.some) {
+			printf("doubled None\n");
+		} else if (!doubled.value._0.some) {
+			printf("doubled Some((None,))\n");
+		} else {
+			printf("doubled Some((Some(%u),))\n", doubled.value._0.value);
+		}
+	}
 
 	/* Each lent counter is a new handle to a clone. */
 	api_registry *registry = api_registry_new(api_counter_new(str("first"), 1));
@@ -359,6 +374,13 @@ static int script(void) {
 	print_bound(api_end(3));
 	printf(" ");
 	print_bound(api_end(0));
+	printf("\n");
+	api_bound_u64 ends_start, ends_end;
+	api_ends(3, &ends_start, &ends_end);
+	printf("ends ");
+	print_bound(ends_start);
+	printf(" ");
+	print_bound(ends_end);
 	printf("\n");
 	api_window window = {.range = {.start = 2, .end = 8}, .end = api_end(5)};
 	printf("window %s %s ", api_window_contains(&window, 4) ? "true" : "false",

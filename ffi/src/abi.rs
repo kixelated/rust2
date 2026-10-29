@@ -371,6 +371,21 @@ impl<'a> Abi<'a> {
 		}
 	}
 
+	/// A type by its key, with each tuple spelled as Rust spells it, which tells apart
+	/// tuples that share a C name.
+	fn spell(&self, ty: &Type) -> String {
+		match ty {
+			Type::Tuple(elements) => {
+				let elements: Vec<String> = elements.iter().map(|e| self.spell(e)).collect();
+				match elements.len() {
+					1 => format!("({},)", elements[0]),
+					_ => format!("({})", elements.join(", ")),
+				}
+			}
+			ty => self.key(ty),
+		}
+	}
+
 	/// Whether `ty` crosses as a `<prefix>_buf`.
 	pub fn is_buf(ty: &Type) -> bool {
 		matches!(
@@ -670,7 +685,8 @@ impl<'a> Abi<'a> {
 		let mut options = BTreeMap::new();
 		let mut ranges = BTreeMap::new();
 		let mut lists = BTreeMap::new();
-		let mut tuples = BTreeMap::new();
+		let mut tuples: BTreeMap<String, Vec<Type>> = BTreeMap::new();
+		let mut mixed = Vec::new();
 		let mut stack = types;
 		while let Some(ty) = stack.pop() {
 			match ty {
@@ -688,7 +704,16 @@ impl<'a> Abi<'a> {
 				Type::Ref(_, inner) | Type::Box(inner) => stack.push(inner),
 				Type::Tuple(elements) => {
 					// A returned tuple of borrows holds clones, as a `Vec` does.
-					tuples.insert(self.tuple(elements), elements.iter().map(owned).collect());
+					let owned: Vec<Type> = elements.iter().map(owned).collect();
+					let name = self.tuple(elements);
+					match tuples.get(&name) {
+						// Its name runs its elements' together, which two nestings can share.
+						Some(other) if *other != owned => mixed.push((name, owned)),
+						Some(_) => {}
+						None => {
+							tuples.insert(name, owned);
+						}
+					}
 					stack.extend(elements);
 				}
 				Type::Closure(params, ret) => {
@@ -711,8 +736,13 @@ impl<'a> Abi<'a> {
 		for name in ranges.keys() {
 			self.claim(name.clone(), "a range".to_string(), crate_span);
 		}
-		for name in tuples.keys() {
-			self.claim(name.clone(), "a tuple".to_string(), crate_span);
+		for (name, elements) in &tuples {
+			let what = format!("tuple `{}`", self.spell(&Type::Tuple(elements.clone())));
+			self.claim(name.clone(), what, crate_span);
+		}
+		for (name, elements) in mixed {
+			let what = format!("tuple `{}`", self.spell(&Type::Tuple(elements)));
+			self.claim(name, what, crate_span);
 		}
 		for name in lists.keys() {
 			self.claim(name.clone(), "a Vec".to_string(), crate_span);

@@ -8,6 +8,8 @@ fixtures/reject/src/lib.rs:113:2: rust2-ffi: cannot export method `Text::replace
 fixtures/reject/src/lib.rs:118:2: rust2-ffi: cannot export method `Text::later`: returned object that borrows `impl std::future::Future<Output = Text<'_>>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:125:1: rust2-ffi: cannot export fn `either`: reference inside a parameter `std::option::Option<&str>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:130:1: rust2-ffi: cannot export struct `Lease`: object no export returns; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:139:1: rust2-ffi: tuple `((u8, u16), u32)` and tuple `((u8, u16, u32),)` are both `reject_tuple_tuple_u8_u16_u32` in C
+	fixtures/reject/src/lib.rs:139:1: note: tuple `((u8, u16, u32),)` is here
 fixtures/reject/src/lib.rs:149:1: rust2-ffi: cannot export instance `Cell<std::vec::Vec<String>>`: type argument `std::vec::Vec<String>`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:14:1: rust2-ffi: cannot export fn `map`: foreign type `std::collections::HashMap`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:159:2: rust2-ffi: cannot export method `Cell<u8>::nest`: instance holding an instance of a type inside it `reject_fixture::Cell<reject_fixture::Cell<u8>>`; exclude it in the config to leave it out

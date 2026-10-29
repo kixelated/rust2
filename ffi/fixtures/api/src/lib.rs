@@ -241,6 +241,12 @@ pub fn halves(span: &Span) -> ((u32, u32), (u32, u32)) {
 	((start, mid), (mid, end))
 }
 
+/// `value` doubled: a tuple of one inside an `Option` keeps `None` apart from
+/// `Some((None,))`.
+pub fn doubled(value: Option<(Option<u32>,)>) -> Option<(Option<u32>,)> {
+	value.map(|(n,)| (n.map(|n| n * 2),))
+}
+
 /// `pair` with its sides swapped: a tuple taken by value.
 pub fn swapped(pair: (String, u32)) -> (u32, String) {
 	(pair.1, pair.0)
@@ -340,6 +346,12 @@ pub fn end(limit: u64) -> Bound<u64> {
 		0 => Bound::Unbounded,
 		limit => Bound::Excluded(limit),
 	}
+}
+
+/// A range's two bounds, up to the end `limit` puts on it: returned whole, a tuple, not
+/// the pair a `RangeBounds` parameter takes.
+pub fn ends(limit: u64) -> (Bound<u64>, Bound<u64>) {
+	(Bound::Included(0), end(limit))
 }
 
 /// A record of a range and a bound, which C holds after the structs they are.

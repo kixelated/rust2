@@ -132,6 +132,9 @@ fn main() {
 	println!("halves {a} {b} {c} {d} {span:?}");
 	let (n, text) = api_lib::swapped(("t".to_string(), 4));
 	println!("swapped {n} {text}");
+	for value in [None, Some((None,)), Some((Some(3),))] {
+		println!("doubled {:?}", api_lib::doubled(value));
+	}
 
 	// Each lent counter is a new handle to a clone.
 	let mut registry = Registry::new(Counter::new("first", 1));
@@ -177,6 +180,8 @@ fn main() {
 		api_lib::count((Bound::Excluded(2), Bound::Included(4)))
 	);
 	println!("end {:?} {:?}", api_lib::end(3), api_lib::end(0));
+	let (start, end) = api_lib::ends(3);
+	println!("ends {start:?} {end:?}");
 	let window = Window {
 		range: 2..8,
 		end: api_lib::end(5),

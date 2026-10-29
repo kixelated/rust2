@@ -218,6 +218,17 @@ int script() {
 	auto [swapped_n, swapped_text] = api::swapped({"t", 4});
 	std::printf("swapped %u ", swapped_n);
 	print("", swapped_text, "\n");
+	using single = std::tuple<std::optional<std::uint32_t>>;
+	for (const auto &value : {std::optional<single>(), std::optional<single>(single()), std::optional<single>(single(3))}) {
+		auto doubled = api::doubled(value);
+		if (!doubled) {
+			std::printf("doubled None\n");
+		} else if (auto n = std::get<0>(*doubled)) {
+			std::printf("doubled Some((Some(%u),))\n", *n);
+		} else {
+			std::printf("doubled Some((None,))\n");
+		}
+	}
 
 	// Each lent counter is a new handle to a clone.
 	api::registry registry = api::registry::new_(api::counter::new_("first", 1));
@@ -280,6 +291,12 @@ int script() {
 	print_bound(api::end(3));
 	std::printf(" ");
 	print_bound(api::end(0));
+	std::printf("\n");
+	auto [ends_start, ends_end] = api::ends(3);
+	std::printf("ends ");
+	print_bound(ends_start);
+	std::printf(" ");
+	print_bound(ends_end);
 	std::printf("\n");
 	api::window window{{2, 8}, api::end(5)};
 	std::printf("window %s %s ", yes(window.contains(4)), yes(window.contains(6)));

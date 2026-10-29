@@ -242,7 +242,7 @@ in as a `ByteArray`, bytes returned as their owner, and anything else encoded in
   as a read-only direct `ByteBuffer` until `close()` frees it, or, never closed, until the
   GC collects that buffer; `Bytes(ByteArray)` holds Kotlin's for a record passed in.
   Strings are `String`, `Option<T>` `T?`, a tuple `Pair`,
-  `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
+  `Triple`, or else a generated `Tuple<n>`, though a tuple of one returned whole is its element, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
 - A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr`,
   `SocketAddrV4`, or `SocketAddrV6` is a `java.net.InetSocketAddress`, which must be
