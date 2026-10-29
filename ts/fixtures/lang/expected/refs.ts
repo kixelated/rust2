@@ -2,11 +2,12 @@
 
 import * as rt from "./rt.ts";
 import { copy$Option_u8_u8, copy$u32s$2 } from "./lib.ts";
-import { thenSome$bool_u32 } from "./core/bool.ts";
-import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_Option_u8_u8_refs_closure2_closure0, mapOr$Option_String_u8_refs_closure1, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
+import { thenSome$bool_u32, then$bool_Vec_u8_restock_closure0 } from "./core/bool.ts";
+import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_Option_u8_u8_refs_closure2_closure0, mapOr$Option_String_u8_refs_closure1, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
 import * as Counts from "./refs.Counts.ts";
 import * as Cursor from "./refs.Cursor.ts";
 import type * as Fetch from "./refs.Fetch.ts";
+import * as Listing from "./refs.Listing.ts";
 import type * as Pair from "./refs.Pair.ts";
 import type * as Pair2 from "./refs.Pair2.ts";
 
@@ -39,9 +40,9 @@ export function takeLargest(seen: rt.Place<rt.u8 | undefined>, next: rt.u8): rt.
 		if (!(next === 0)) {
 			return undefined;
 		}
-		const taken = seen.v;
+		const taken_ = seen.v;
 		seen.v = undefined;
-		return taken;
+		return taken_;
 	}
 	const old = seen.v;
 	seen.v = next;
@@ -59,13 +60,13 @@ export function rename(name: rt.Place<string | undefined>, b: rt.u8): string | u
 
 /** A `&mut Option` passed on from inside a closure std calls. */
 export function largestOf(seen: rt.Place<rt.u8 | undefined>, items: rt.ByteSlice): rt.u8 {
-	let taken: rt.u8 = 0;
+	let taken_: rt.u8 = 0;
 	rt.iterForEach(rt.iterSlice(rt.byteSliceView(items)), (_2: rt.u8): void => {
 		if (takeLargest(seen, _2) !== undefined) {
-			taken = rt.u8WrappingAdd(taken, 1);
+			taken_ = rt.u8WrappingAdd(taken_, 1);
 		}
 	});
-	return taken;
+	return taken_;
 }
 
 /** moq-net's `&mut Box<Subscriber>`: changed through, and replaced whole. */
@@ -106,9 +107,9 @@ export function refuse(f: rt.Place<Fetch.Fetch>): void {
 export function pushTo(s: rt.Place<string>, c: rt.char): void {
 	s.v = s.v + String.fromCodePoint(c);
 	if (c === 122) {
-		const taken = s.v;
+		const taken_ = s.v;
 		s.v = "";
-		const iter: rt.Iter<rt.char> = rt.iterTake(rt.strChars(taken), 2);
+		const iter: rt.Iter<rt.char> = rt.iterTake(rt.strChars(taken_), 2);
 		while (true) {
 			const _12: rt.char | rt.Done = iter.next();
 			if (_12 === rt.DONE) {
@@ -480,7 +481,139 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(unwrapOr$Option_u32(_154, 61166))));
 	}
+	defaulted(data, out);
+	taken(data, out);
 	elements(data, out);
+}
+
+/** Filled in place by its default, through a `&mut` and from a closure, then reset. */
+export function defaulted(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let listing: Listing.Listing | undefined = undefined;
+	for (const b of rt.byteSliceView(data)) {
+		const _11: rt.u8 = rt.u8Rem(b, 5);
+		if (_11 === 0) {
+			listing = undefined;
+		} else if (_11 === 1) {
+			list(rt.place(() => listing, (value4) => listing = value4), b);
+		} else if (_11 === 2) {
+			const _16: rt.Place<Listing.Listing | undefined> = rt.place(() => listing, (value3) => listing = value3);
+			if (_16.v === undefined) {
+				_16.v = Listing.default$Default();
+			}
+			const _17: rt.u8 | undefined = unwrapOr$Option_u8((_16.v as Listing.Listing).source, b) ^ b;
+			(_16.v as Listing.Listing).source = _17;
+		} else if (_11 === 3) {
+			const _22: rt.Place<Listing.Listing | undefined> = rt.place(() => listing, (value2) => listing = value2);
+			const relist: (a0: rt.u8) => void = (b2: rt.u8): void => {
+				if (_22.v === undefined) {
+					_22.v = Listing.default$Default();
+				}
+				rt.byteVecPush((_22.v as Listing.Listing).listed, b2);
+			};
+			relist(b);
+			relist(b ^ 1);
+		} else {
+			const _31: rt.Place<Listing.Listing | undefined> = rt.place(() => listing, (value) => listing = value);
+			if (_31.v === undefined) {
+				_31.v = Listing.default$Default();
+			}
+			(_31.v as Listing.Listing).source = undefined;
+			rt.byteVecPop((_31.v as Listing.Listing).listed);
+		}
+	}
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(listing, f, (value: Listing.Listing, f: rt.Formatter) => Listing.fmt$Debug(value, f))];
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
+}
+
+export function list(listing: rt.Place<Listing.Listing | undefined>, b: rt.u8): void {
+	if (listing.v === undefined) {
+		listing.v = Listing.default$Default();
+	}
+	(listing.v as Listing.Listing).source = b;
+	const _5: rt.ByteVec = rt.byteVecFrom(rt.byteVecView((listing.v as Listing.Listing).listed));
+	(listing.v as Listing.Listing).stale = _5;
+	rt.byteVecPush((listing.v as Listing.Listing).listed, b);
+}
+
+/** moq-net's ingest: a field of what a `&mut` parameter points at, taken by a closure. */
+export function restock(listing: Listing.Listing, b: rt.u8): rt.ByteVec | undefined {
+	return then$bool_Vec_u8_restock_closure0(rt.u8Rem(b, 2) === 0, (): rt.ByteVec => {
+		const _2: rt.ByteVec = rt.byteVecFrom(Uint8Array.of(b));
+		const old = listing.listed;
+		listing.listed = _2;
+		return old;
+	});
+}
+
+/**
+ * moq-net's front: a `Vec` a closure captured by reference, taken, replaced, and
+ * refilled on each call, read after by the caller.
+ */
+export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let held: rt.ByteVec = rt.byteSliceToByteVec(data);
+	let wide: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
+		return rt.u32Mul(_2 as rt.u32, 1000);
+	}));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(poll$taken_closure1(data, (b4: rt.u8): boolean => {
+		const taken_ = held;
+		held = new rt.ByteVec();
+		for (const x of rt.byteVecView(taken_)) {
+			if (rt.u8Rem(x, 3) !== rt.u8Rem(b4, 3)) {
+				rt.byteVecPush(held, rt.u8Div(x, 2));
+			}
+		}
+		((): void => {
+			const _34: rt.u32[] = [];
+			const old2 = wide;
+			wide = _34;
+			wide = rt.iterToArray(rt.iterMap(rt.iterFilter(rt.iterSlice(old2), (_25: rt.u32): boolean => {
+				return _25 > ((b4 as rt.u32));
+			}), (x3: rt.u32): rt.u32 => {
+				return rt.u32Div(x3, 2);
+			}));
+		})();
+		return held.length === 0;
+	}) as rt.u32)));
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(held));
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(wide, f, rt.u32Debug)];
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
+	const pair: [rt.ByteVec, Listing.Listing] = [rt.byteSliceToByteVec(data), Listing.default$Default()];
+	const swap: (a0: rt.u8) => rt.ByteVec = (b5: rt.u8): rt.ByteVec => {
+		const _36: rt.ByteVec = rt.byteVecOf(b5, rt.u8Rem(b5, 4) as rt.usize);
+		const old3 = pair[0];
+		pair[0] = _36;
+		return old3;
+	};
+	const swapped: rt.ByteVec = new rt.ByteVec();
+	for (const _39 of rt.byteSliceView(data)) {
+		const _45: rt.ByteVec = swap(_39);
+		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_45)));
+	}
+	const list_: (a0: rt.u8) => void = (b6: rt.u8): void => {
+		const taken2 = pair[1].listed;
+		pair[1].listed = new rt.ByteVec();
+		pair[1].stale = taken2;
+		rt.byteVecPush(pair[1].listed, b6);
+	};
+	rt.iterForEach(rt.iterSlice(rt.byteSliceView(data)), (_26: rt.u8): void => {
+		list_(_26);
+	});
+	for (const _57 of rt.byteSliceView(data)) {
+		const _63: rt.ByteVec = unwrapOrDefault$Option_Vec_u8(restock(pair[1], _57));
+		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_63)));
+	}
+	const taken3 = pair[1].stale;
+	pair[1].stale = new rt.ByteVec();
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(taken3));
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(swapped));
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtList(rt.byteVecView(pair[0]), f, rt.u8Debug), (f: rt.Formatter) => Listing.fmt$Debug(pair[1], f)], f)];
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0]])));
+}
+
+export function poll$taken_closure1(data: rt.ByteSlice, f: (a0: rt.u8) => boolean): rt.usize {
+	return rt.iterCount(rt.iterTakeWhile(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): boolean => {
+		return !f(_2);
+	}));
 }
 
 /**

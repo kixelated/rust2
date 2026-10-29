@@ -94,8 +94,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 								projection.next();
 								value
 							}
-							// Passed on or kept whole, it is the place's `rt.Place`.
-							None if pointee => self.place_of(value, None),
+							// Passed on or kept whole, it is the place's `rt.Place`, or the
+							// object there.
+							None if pointee && self.b.t.place_pointee(pty.ty).is_some() => self.place_of(value, None),
 							_ => value,
 						}
 					}

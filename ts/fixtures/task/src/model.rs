@@ -143,6 +143,53 @@ pub async fn watch(mut rx: Consumer, guard: Guard) -> u64 {
 	total
 }
 
+/// moq's front: a listing a crate type's default fills in place between awaits, and
+/// values held in flight in a `Vec` that a `kio::wait` closure takes and refills on each
+/// poll, halving each until it is zero. The caller reads both after.
+pub async fn front(mut rx: Consumer, guard: Guard) -> u64 {
+	let mut listing: Option<Listing> = None;
+	let mut in_flight: Vec<u64> = Vec::new();
+	while let Some(value) = rx.recv().await {
+		if value % 3 == 0 {
+			listing = None;
+			continue;
+		}
+		let state = listing.get_or_insert_default();
+		state.last = Some(value);
+		state.listed.push(value);
+		in_flight.push(value);
+		if value % 3 == 2 {
+			break;
+		}
+	}
+	guard.note(&format!("listing {listing:?}"));
+	let closed = kio::wait(|waiter| {
+		while let Poll::Ready(next) = rx.poll_recv(waiter) {
+			match next {
+				Some(value) => in_flight.push(value),
+				None => return Poll::Ready(in_flight.len()),
+			}
+		}
+		for value in std::mem::take(&mut in_flight) {
+			match value / 2 {
+				0 => guard.note("released"),
+				half => in_flight.push(half),
+			}
+		}
+		Poll::Pending
+	})
+	.await;
+	guard.note(&format!("closed with {closed} in flight {in_flight:?}"));
+	in_flight.iter().sum()
+}
+
+/// What [`front`] lists.
+#[derive(Default, Debug)]
+struct Listing {
+	last: Option<u64>,
+	listed: Vec<u64>,
+}
+
 /// The value at `index` of a channel, read by [`at`].
 struct Watch {
 	rx: Consumer,

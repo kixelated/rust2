@@ -846,9 +846,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let deref = self.tcx.mk_place_deref(*place);
 		match &self.slots[place.local] {
-			Slot::Alias(Some(target))
-				if (target.is_path() || matches!(target, Expr::Index(..))) && self.alias_of_place(place.local) =>
-			{
+			Slot::Alias(Some(target)) if assignable(target) && self.alias_of_place(place.local) => {
 				Some((target.clone(), Some(deref)))
 			}
 			_ if self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_some() => {
@@ -896,6 +894,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let Some(payload) = payload else {
 			return Some(Some((target, true)));
 		};
+		// The test reads it before either branch, so what it reads is set before both.
+		self.materialize(&target, out);
 		let whole = tcx.mk_place_deref(args[0].node.place()?);
 		let option_ty = whole.ty(&self.mir.local_decls, tcx).ty;
 		// What it inserts, made before the `Option` is read, as Rust makes the argument.
@@ -926,7 +926,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					value
 				}
-				"get_or_insert_default" => library::default_value(self.b, payload_ty, span, &mut then)?,
+				"get_or_insert_default" => self.default_of(payload_ty, span, &mut then),
 				_ => {
 					let f_ty = args[1].node.ty(&self.mir.local_decls, tcx);
 					if let ty::FnDef(f, f_args) = *f_ty.kind() {
@@ -1304,5 +1304,14 @@ fn continued(ty: Ty<'_>) -> Ty<'_> {
 	match ty.kind() {
 		ty::Adt(_, args) => args.type_at(1),
 		_ => unreachable!("checked by the caller"),
+	}
+}
+
+/// Whether an assignment can write `e`: a path, an element, or a member of one.
+fn assignable(e: &Expr) -> bool {
+	match e {
+		Expr::Index(..) => true,
+		Expr::Member(base, _) | Expr::Located(_, base) => assignable(base),
+		e => e.is_path(),
 	}
 }

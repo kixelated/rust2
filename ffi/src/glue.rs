@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::abi::{self, Abi, Ty};
 use crate::config::Package;
-use crate::ir::{Access, Function, Mutability, Receiver, Traits, Type};
+use crate::ir::{Access, Family, Function, Mutability, Receiver, Traits, Type};
 
 const RUNTIME: &str = include_str!("../runtime/rt.rs");
 
@@ -174,7 +174,9 @@ impl Gen<'_> {
 			Type::Duration => "::std::time::Duration".to_string(),
 			Type::Path => "::std::path::Path".to_string(),
 			Type::PathBuf => "::std::path::PathBuf".to_string(),
-			Type::SocketAddr => "::std::net::SocketAddr".to_string(),
+			Type::SocketAddr(Family::Any) => "::std::net::SocketAddr".to_string(),
+			Type::SocketAddr(Family::V4) => "::std::net::SocketAddrV4".to_string(),
+			Type::SocketAddr(Family::V6) => "::std::net::SocketAddrV6".to_string(),
 			Type::List(inner) => format!("::std::vec::Vec<{}>", self.rust(inner)),
 			Type::Option(inner) => format!("Option<{}>", self.rust(inner)),
 			Type::Ref(Mutability::Not, inner) => format!("&{}", self.rust(inner)),
@@ -230,7 +232,9 @@ impl Gen<'_> {
 			Type::Slice | Type::Vec => format!("unsafe {{ {e}.bytes(w) }}.to_vec()"),
 			Type::Bytes => format!("::bytes::Bytes::copy_from_slice(unsafe {{ {e}.bytes(w) }})"),
 			Type::Path | Type::PathBuf => format!("unsafe {{ {e}.path(w) }}.to_path_buf()"),
-			Type::Duration | Type::SocketAddr => format!("{e}.lift(w)"),
+			Type::Duration | Type::SocketAddr(Family::Any) => format!("{e}.lift(w)"),
+			Type::SocketAddr(Family::V4) => format!("{e}.lift_v4(w)"),
+			Type::SocketAddr(Family::V6) => format!("{e}.lift_v6(w)"),
 			Type::Waker => format!("{e}.lift()"),
 			Type::List(inner) => format!(
 				"unsafe {{ {e}.items(w) }}.iter().map(|c| {}).collect::<::std::vec::Vec<_>>()",
@@ -327,7 +331,7 @@ impl Gen<'_> {
 			Type::Path => format!("rt::Buf::path_buf({e}.to_path_buf())"),
 			Type::PathBuf => format!("rt::Buf::path_buf({e})"),
 			Type::Duration => format!("rt::Duration::lower({e})"),
-			Type::SocketAddr => format!("rt::SocketAddr::lower({e})"),
+			Type::SocketAddr(_) => format!("rt::SocketAddr::lower(::std::net::SocketAddr::from({e}))"),
 			Type::List(inner) => format!(
 				"rt::List::owned(::std::iter::IntoIterator::into_iter({e}).map(|v| {}).collect())",
 				self.lower(inner, "v")
@@ -350,8 +354,8 @@ impl Gen<'_> {
 			Type::Box(inner) => self.lower(inner, &format!("*{e}")),
 			Type::Ref(_, inner) => match &**inner {
 				Type::Str | Type::Slice | Type::Path => self.lower(inner, e),
-				// A handle in the clone is a new handle.
-				inner => self.lower(inner, &format!("::std::clone::Clone::clone({e})")),
+				// A handle in the clone is a new handle, and a slice's clone a `Vec`.
+				inner => self.lower(inner, &format!("::std::borrow::ToOwned::to_owned({e})")),
 			},
 			Type::Record(i) => format!("lower_{}({e})", self.abi.record(*i)),
 			Type::Enum(i) => format!("lower_{}({e})", self.abi.enumeration(*i)),
