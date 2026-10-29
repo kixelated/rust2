@@ -86,7 +86,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
+| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
 | `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
 | `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
 | `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
@@ -114,6 +114,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `pin!(x)`, `poll_fn(f)`, `future::pending()` | `x`; `rt.PollFn`, which drops `f` with itself; `rt.NEVER` |
 | `Box::pin(x)`, `dyn Future<Output = T>` | `x`; `rt.Future<T>`: an `async` body or std's future as it is, and another future as an `rt.DynFuture` over its `poll`, which drops it with itself unless borrowed |
 | `bytes::Bytes` | `rt.ByteSlice`, as `&[u8]` is: its clones and slices share bytes that never change |
+| `bytes::BytesMut` | `rt.BytesMut`: a window of storage, which what it splits off and freezes share without overlapping |
 | `rand::rngs::ThreadRng` | `rt.ThreadRng`, which holds no state |
 
 `Vec<u8>` storage and `[x; N]` byte arrays up to 1 KiB share 8 KiB `ArrayBuffer`s, as Node's
@@ -223,7 +224,15 @@ on, returned, kept in a field, or captured by a value, it is
 `rt.place(() => x, (value) => x = value)` over that place, the objects and index it goes
 through held as they were when it was borrowed; a reborrow of one is the same
 `rt.Place`. A caller passes one as `{ v }`, or as any object whose `v` it reads and writes.
-std's mappings take a `&mut` parameter as what it points at.
+std's mappings take a `&mut` parameter as what it points at. So is a `&mut` to an `Arc` or a
+`Waker`, pinned or boxed too, whose clones may be one JS object.
+
+A `&mut` to any other object is the object. A whole write through it, `*r = v` or std's
+`mem::replace`, `mem::take`, or `mem::swap`, assigns the place it borrows where that is
+known, as a local, a field, an element, or a `MutexGuard`'s value, and otherwise writes
+into the object in place: a `Vec`'s items, or the fields of a struct, a collection, or a
+`Weak`, with what it held moved out into an object of its own. A guard, a context, a
+pinned reference, or a binding's value, whose object is shared or opaque, is refused there.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
@@ -308,9 +317,32 @@ of them:
 - `bytes::Bytes` is an `rt.ByteSlice`. Its constructors, `len`, `is_empty`, `slice`,
   `Clone`, `Deref`, `AsRef`, `PartialEq` with bytes, `Default`, `Debug`, and `From`
   between it and `Vec<u8>`, `String`, `&'static [u8]`, and `&'static str` map to
-  `rt/bytes.ts`, panicking as `bytes` does. `Bytes::from_owner` reads its owner's bytes
-  once, as `bytes` does, and is refused for an owner that drops, which would drop with the
-  last clone of what it makes.
+  `rt/bytes.ts`, panicking as `bytes` does, and so do `split_to`, `split_off`,
+  `truncate`, `clear`, and `slice_ref`, whose panic names no addresses. `slice_ref` of
+  bytes from other storage throws, since Rust may share what JS copied, as a `&'static
+  str`'s bytes that `as_bytes` encodes anew. `Bytes::from_owner`
+  reads its owner's bytes once, as `bytes` does, and is refused for an owner that drops,
+  which would drop with the last clone of what it makes.
+- `bytes::BytesMut` is an `rt.BytesMut`: a window of storage that the handles `split_to`
+  and `split` make and the `Bytes` that `freeze` makes share without overlapping, as
+  `bytes`' do. Its constructors, `len`, `is_empty`, `freeze`, `split_to`, `split`,
+  `truncate`, `clear`, `resize`, `reserve`, `extend_from_slice`, `unsplit`, `Clone`,
+  `Deref`, `DerefMut`, `AsRef`, `AsMut`, `PartialEq` with bytes, `Default`, `Debug`, and
+  `From` between it and `Bytes`, `Vec<u8>`, `&[u8]`, and `&str` map, panicking as `bytes`
+  does. A handle never split nor taken from a `Bytes` is a vector that grows and panics
+  as `Vec` does, counting the bytes it read past. Once its storage was shared, `bytes`'
+  capacity depends on whether the other handles of it dropped, such as a `Bytes` it froze,
+  which nothing here counts: its `reserve` throws past 512 MiB, counting what it read
+  past, where `bytes`' panic depends on that, and its capacity is refused, as are
+  `split_off`, `try_reclaim`, `try_unsplit`, and `spare_capacity_mut`, which read it.
+- `Buf` and `BufMut` of a `Bytes`, a `BytesMut`, a `&[u8]`, and a `Vec<u8>` map: the
+  required methods, `has_remaining`, `copy_to_slice`, `copy_to_bytes`, each `get_` and
+  `put_` of an integer or `f64`, `put_slice`, `put_bytes`, and `put`, whose panics are
+  `bytes`'. `put` of the crate's own `Buf` into a `Vec<u8>` reads it through its methods
+  as `bytes` does, and into a `BytesMut` is refused, as `bytes` picks those methods by its
+  capacity.
+  The rest of `bytes`, such as the provided methods of the crate's own `Buf` and the impls
+  forwarding through a `&mut` or a `Box`, translates from its MIR, refused where that is.
 - `rand::rng()` is an `rt.ThreadRng`, whose `random` of an integer or `bool` and
   `random_range` of an integer range map to `rt/rand.ts`. Each value comes from
   `crypto.getRandomValues`, uniform as `rand`'s are, though no seed reproduces them, as
@@ -620,7 +652,11 @@ built natively for wasm32 and run beside its translation on the same inputs by
 - `stock` calls `bytes`, `rand`, and `tracing` with no config, against native Rust, whose
   `rand::rng()` reads the fixture's own getrandom backend on wasm32. It checks `Bytes`'s
   slices and panics, how each is made and printed, that no event evaluates a field, and
-  that each random value is in its range, every value of a small range drawn.
+  that each random value is in its range, every value of a small range drawn. It splits,
+  freezes, grows, and writes a `BytesMut` by ops its input picks, ending with every
+  piece's bytes, and reads and writes through `Buf` and `BufMut` generically, a buffer of
+  its own included. `caller.ts` names the inputs that reserve at the edges of
+  `BytesMut`'s 512 MiB limit.
 - `bind` binds `buf::Blob`, a renamed dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
   pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match

@@ -40,16 +40,14 @@ export function consume(self: Producer): Consumer.Consumer {
 
 export function clone$Clone(self: Producer): Producer {
 	const _4: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
-	const _2: State.State = _4.value;
-	_2.producers = rt.usizeAdd(_2.producers, 1);
+	_4.value.producers = rt.usizeAdd(_4.value.producers, 1);
 	rt.mutexUnlock(_4);
 	return new Producer(rt.arcClone(self.state));
 }
 
 export function drop$Drop(self: Producer): void {
 	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
-	const _7: State.State = state.value;
-	_7.producers = rt.usizeSub(_7.producers, 1);
+	state.value.producers = rt.usizeSub(state.value.producers, 1);
 	if (!(state.value.producers > 0)) {
 		state.value.closed = true;
 		const waiters: WaiterList.WaiterList = WaiterList.take(state.value.waiters);

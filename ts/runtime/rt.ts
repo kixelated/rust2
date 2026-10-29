@@ -113,6 +113,21 @@ export function ptrWrite<T extends object>(p: T, value: T): void {
 	else Object.assign(p, value);
 }
 
+/**
+ * `mem::replace` of what a `&mut` to an object points at, in place: `value`'s fields, or
+ * its items for a JS array, moved into `p`, and what `p` held returned as an object of its own.
+ */
+export function replaceIn<T extends object>(p: T, value: T): T {
+	if (Array.isArray(p)) {
+		const old = p.slice() as T;
+		vecAssign(p, value as unknown[]);
+		return old;
+	}
+	const old = Object.assign(Object.create(Object.getPrototypeOf(p)) as T, p);
+	Object.assign(p, value);
+	return old;
+}
+
 // Bindings
 
 /**
@@ -432,6 +447,12 @@ export function vecDedupByKeyMut<T, K>(v: T[], key: (item: Place<T>) => K, eq: (
 	vecDedupByMut(v, (a, b) => eq(key(a), key(b)), drop);
 }
 
+/** `*v = value` through a `&mut` to a `Vec<T>` other than of bytes, or to a boxed slice: `value`'s items, in place. */
+export function vecAssign<T>(v: T[], value: T[]): void {
+	v.length = value.length;
+	for (let i = 0; i < value.length; i++) v[i] = value[i]!;
+}
+
 /** `Vec::insert`: `item` at `i`, with those from `i` on moved up. */
 export function vecInsert<T>(v: T[], i: number, item: T): void {
 	if (i > v.length) panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
@@ -566,7 +587,7 @@ export function byteSliceEq(a: ByteSlice, b: ByteSlice): boolean {
 }
 
 /** Copy `src` into `dst` at `at`; a few bytes copy faster than a view of them is made. */
-function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: number, length: number): void {
+export function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: number, length: number): void {
 	if (length <= 16) {
 		for (let i = 0; i < length; i++) dst[at + i] = src[start + i];
 	} else {

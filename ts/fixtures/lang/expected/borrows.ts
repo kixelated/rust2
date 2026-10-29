@@ -69,9 +69,8 @@ export function borrows(dataData: Uint8Array, dataStart: number, dataLen: number
 		} else if (_25 === 8) {
 			const _118: Noisy.Noisy = new Noisy.Noisy(op, rt.arcClone(log));
 			const _123: rt.RefCell<Noisy.Noisy> = rt.refCellBorrowMut(owned);
-			const _121: Noisy.Noisy = _123.value;
-			_121[Symbol.dispose]();
-			Object.assign(_121, _118);
+			_123.value[Symbol.dispose]();
+			_123.value = _118;
 			rt.refMutRelease(_123);
 			const _129: rt.RefCell<Noisy.Noisy> = rt.refCellBorrow(owned);
 			rt.byteVecPush(out, _129.value.id);

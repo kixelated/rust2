@@ -4,7 +4,15 @@
 
 - A function the config's roots don't name takes each `&[u8]` or `&[u8; N]` parameter as
   its `data`, `start`, and `length`: `read(buf, form)` is
-  `read(buf.data, buf.start, buf.length, form)`. A root still takes an `rt.ByteSlice`.
+  `read(buf.data, buf.start, buf.length, form)`. One that returns a `Result` of byte slices
+  and scalars returns its error or `undefined`, and leaves the `Ok`'s parts in a
+  module-level slot, such as `readOut`. A root still takes an `rt.ByteSlice` and returns
+  the `Result`.
+- A `&mut` to an `Arc` or a `Waker`, pinned or boxed too, is an `rt.Place` of it, as a `&mut`
+  to a number is, rather than the object: a caller passes one as `{ v: arc }` and reads
+  the `Arc` it holds after the call from `v`.
+- `bytes::BytesMut` can't be bound: translation maps it, as an `rt.BytesMut`. Delete its
+  `[bind]` entry and the file it names.
 - A binding's path names a dependency the package renames (`foo = { package = "bar" }`)
   as the package does, `foo::Item`, no longer by its crate name, `bar::Item`.
 - A panic aborts, as on wasm32: the output throws `rt.Panic` without running any cleanup,
