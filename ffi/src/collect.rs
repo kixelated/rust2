@@ -2271,10 +2271,10 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// What `ty` yields, if it is an iterator whose items a return can take at the call with
-	/// no caller able to tell: one of core's and alloc's iterators over storage that already
-	/// exists, through adapters that neither make, drop, nor compare items, and no closure,
-	/// function, or trait object. Collecting it allocates no more than the storage holds and
-	/// runs no other crate's code but `Clone`, which a borrowed item crosses through anyway.
+	/// no caller able to tell: one of core's and alloc's iterators over a slice, string, or
+	/// collection, through adapters that neither make, drop, nor compare items, and no closure,
+	/// function, or trait object. Collecting it ends and runs no other crate's code but
+	/// `Clone`, which a borrowed item crosses through anyway.
 	/// A range is a value, which crosses as itself or not at all.
 	fn items(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
 		/// Their paths below the crate, which are the same in core and alloc as in std: the
@@ -2373,11 +2373,6 @@ impl<'tcx> Collector<'tcx> {
 		// Every type the iterator holds, and every item and iterator its adapters drive,
 		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
 		let mut seen = rustc_data_structures::fx::FxHashSet::default();
-		// What reaches the caller, the only place another crate's type may be: elsewhere, as
-		// `Split`'s pattern, `IntoIter`'s allocator, or in an item `flatten` takes apart,
-		// core and alloc call into its code during the call.
-		let yielded = project(item, ty)?;
-		let held: rustc_data_structures::fx::FxHashSet<_> = yielded.walk().filter_map(|arg| arg.as_type()).collect();
 		let mut queue = vec![ty];
 		while let Some(next_ty) = queue.pop() {
 			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
@@ -2414,14 +2409,22 @@ impl<'tcx> Collector<'tcx> {
 				queue.push(project(driven, ty)?);
 			}
 		}
-		let other = |ty: Ty<'tcx>| {
-			matches!(ty.kind(), ty::Adt(adt, _)
-				if !matches!(tcx.crate_name(adt.did().krate), sym::core | sym::alloc | sym::std))
+		// Besides items, the listed iterators call into only their allocator and `Split`'s
+		// pattern, wherever another crate's type fills either.
+		let krate = *tcx.crates(()).iter().find(|&&k| tcx.crate_name(k) == sym::core)?;
+		let callee = |path: &str| {
+			(tcx.traits(krate).iter().copied())
+				.find(|&tr| tcx.def_path_str(tr).split_once("::").is_some_and(|(_, p)| p == path))
 		};
-		if seen.iter().any(|&ty| other(ty) && !held.contains(&ty)) {
+		let callees = [callee("alloc::Allocator")?, callee("str::pattern::Pattern")?];
+		let calls = |ty: Ty<'tcx>| {
+			matches!(ty.kind(), ty::Adt(adt, _) if !std(adt.did().krate))
+				&& callees.iter().any(|&tr| implements(tr, ty))
+		};
+		if seen.iter().any(|&ty| calls(ty)) {
 			return None;
 		}
-		Some(yielded)
+		project(item, ty)
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.
