@@ -937,10 +937,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						if let Some(drop) = self.b.t.drop_value(f.clone(), f_ty, span) {
 							els.push(StmtKind::Expr(drop).at(None));
 						}
-						match f_ty.kind() {
-							ty::Closure(_, c)
-								if c.as_closure().kind() != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) =>
-							{
+						match self.b.t.owned_fn(f_ty) {
+							Some(kind) if kind != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) => {
 								Expr::rt("callOnce", vec![f])
 							}
 							_ => f.call(Vec::new()),

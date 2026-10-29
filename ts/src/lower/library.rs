@@ -747,13 +747,13 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 				.unwrap_or(ty)
 		})
 		.collect();
-	let called = |i: usize, ty: Ty<'tcx>| {
-		matches!(ty.kind(), ty::Closure(..)) && called_by(tcx, call.def_id, generic[i]).is_some()
-	};
 	inputs
 		.into_iter()
 		.enumerate()
-		.find(|&(i, ty)| !called(i, ty) && b.t.drops(ty))
+		.find(|&(i, ty)| {
+			let called = b.t.owned_fn(ty).is_some() && called_by(tcx, call.def_id, generic[i]).is_some();
+			!called && b.t.drops(ty)
+		})
 		.map(|(_, ty)| ty)
 }
 

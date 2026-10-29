@@ -256,6 +256,12 @@ pub(super) fn fns(log: &Log, id: u32) {
 	let got = *cell.get_or_init(init);
 	log.note(format!("cell {got}"));
 	log.note(format!("cell {}", cell.get_or_init(unused)));
+	let (u, v) = (guard(19), guard(20));
+	let fill: Box<dyn Fn() -> u32> = Box::new(move || u.id());
+	let skip: Box<dyn Fn() -> u32> = Box::new(move || v.id());
+	let mut lazy: Option<u32> = None;
+	log.note(format!("lazy {}", lazy.get_or_insert_with(fill)));
+	log.note(format!("lazy {}", lazy.get_or_insert_with(skip)));
 }
 
 /// Call `f` once, which consumes it.

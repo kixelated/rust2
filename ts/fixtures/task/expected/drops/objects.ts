@@ -393,7 +393,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part13, f)];
 	Log.note(log, rt.fmtFormat(["run ", args26[0]]));
 	const captured14 = o;
-	const part14 = run$Box_fns_closure18(rt.closure((): rt.u32 => {
+	const part14 = run$Box_fns_closure20(rt.closure((): rt.u32 => {
 		return Guard.id(captured14);
 	}, (): void => {
 		rt.drop(captured14);
@@ -439,6 +439,38 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part18 = rt.onceGetOrInit(cell, rt.once(unused), rt.drop);
 	const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part18, f)];
 	Log.note(log, rt.fmtFormat(["cell ", args36[0]]));
+	const _376: [Guard.Guard, Guard.Guard] = [guard(19), guard(20)];
+	const u: Guard.Guard = _376[0];
+	const v: Guard.Guard = _376[1];
+	const captured19 = u;
+	const fill: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured19);
+	}, (): void => {
+		rt.drop(captured19);
+	});
+	const captured20 = v;
+	const skip: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured20);
+	}, (): void => {
+		rt.drop(captured20);
+	});
+	let lazy = undefined as rt.u32 | undefined;
+	if (lazy === undefined) {
+		lazy = rt.callOnce(fill);
+	} else {
+		rt.drop(fill);
+	}
+	const part19 = rt.place(() => lazy as rt.u32, (value4) => (lazy as rt.u32) = value4);
+	const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part19.v, f)];
+	Log.note(log, rt.fmtFormat(["lazy ", args38[0]]));
+	if (lazy === undefined) {
+		lazy = rt.callOnce(skip);
+	} else {
+		rt.drop(skip);
+	}
+	const part20 = rt.place(() => lazy as rt.u32, (value5) => (lazy as rt.u32) = value5);
+	const args40: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part20.v, f)];
+	Log.note(log, rt.fmtFormat(["lazy ", args40[0]]));
 	rt.drop(slot);
 }
 
@@ -448,7 +480,7 @@ export function run$Box_dyn_Fn_unit_u32(f: () => rt.u32): rt.u32 {
 }
 
 /** Call `f` once, which consumes it. */
-export function run$Box_fns_closure18(f: () => rt.u32): rt.u32 {
+export function run$Box_fns_closure20(f: () => rt.u32): rt.u32 {
 	return rt.callOnce(f);
 }
 
