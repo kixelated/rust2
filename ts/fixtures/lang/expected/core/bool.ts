@@ -10,6 +10,13 @@ export function thenSome$bool_Duration(self: boolean, t: rt.Duration): rt.Durati
 	return t;
 }
 
+export function thenSome$bool_PhantomData_u8(self: boolean, t: undefined): undefined | rt.None {
+	if (!self) {
+		return rt.None;
+	}
+	return t;
+}
+
 export function thenSome$bool_i16(self: boolean, t: rt.i16): rt.i16 | undefined {
 	if (!self) {
 		return undefined;

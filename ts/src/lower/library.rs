@@ -66,6 +66,8 @@ pub enum Std {
 	RefMut,
 	/// `rt.Cell<T>`, a place holding its value.
 	Cell,
+	/// `rt.LocalKey<T>`: a thread-local, a module's value.
+	LocalKey,
 	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
 	Atomic,
 	/// `rt.AtomicOrdering`: its discriminant.
@@ -176,6 +178,7 @@ impl Std {
 			(rustc_span::Symbol::intern("RefCellRefMut"), Self::RefMut),
 			(sym::RwLockWriteGuard, Self::RefMut),
 			(sym::Cell, Self::Cell),
+			(rustc_span::Symbol::intern("LocalKey"), Self::LocalKey),
 			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
 			(rustc_span::Symbol::intern("PinMacroHelper"), Self::Pin),
@@ -236,6 +239,8 @@ impl Std {
 			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
 			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
+			// A thread-local on wasm32 is never destroyed, so `try_with` never fails.
+			["thread", "local", "AccessError"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
 			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
 			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
@@ -498,7 +503,8 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 }
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
-/// than mapping here: a method of `bool`, `Option`, `Result`, or `Poll`, or their `Clone`.
+/// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
+/// their `Clone`.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
 /// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
 /// as the runtime's panic.
@@ -516,7 +522,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	// `None` for `bool`'s.
 	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
 		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-			std @ Some(Std::Option | Std::Result | Std::Poll) => std,
+			std @ Some(Std::Option | Std::Result | Std::Poll | Std::LocalKey) => std,
 			_ => return false,
 		},
 		ty::Bool => None,
@@ -551,8 +557,18 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		) | (
 			Some(Std::Result),
 			"unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err"
-		)
+		) | (Some(Std::LocalKey), "with" | "try_with" | "initialize_with")
 	) && !lock
+}
+
+/// The key `def_id` makes the value of, if it is what `thread_local!` declares in a key's
+/// own initializer to: a `const { .. }` key's `const`, or a lazy key's function.
+pub fn local_init(tcx: TyCtxt<'_>, def_id: DefId) -> Option<DefId> {
+	let key = tcx.opt_parent(def_id)?;
+	let is_key = tcx.def_kind(key) == DefKind::Const
+		&& matches!(tcx.type_of(key).instantiate_identity().skip_norm_wip().kind(),
+			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::LocalKey));
+	is_key.then_some(key)
 }
 
 pub struct Call<'tcx> {
@@ -590,6 +606,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Arc" | "Rc", "new_cyclic") => &[1],
+		("LocalKey", "with" | "try_with" | "initialize_with") => &[1],
 		_ => return None,
 	})
 }

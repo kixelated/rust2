@@ -29,11 +29,13 @@ their `Clone`, `Debug`, `PartialEq`, `get_mut`, and `get_or_try_init` are still 
 is its own guard and counts its borrows: a conflicting borrow panics, and a conflicting
 lock aborts, each with wasm32's message. Their `get_mut`, `into_inner`, `try_borrow`,
 `Ref::map`, and `Ref::clone` are still refused.
-Left: `thread_local!` and `static` atomics, below, which hold kio's and moq-clock's cells.
+A `thread_local!` key is an `rt.LocalKey`, a module's value that makes its value on
+first use, as wasm32's `LazyStorage` does, and never drops it. A `RefCell` key's `set`
+and `with_borrow_mut` are still refused: std's bodies write through a `&mut`, which a
+body of std's can't yet.
+Left: `static` atomics, below, which a module's value, as a thread-local's, can hold.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
-- The census of moq-net's [model](/quest/m2/ts-model/README.md) on 2026-10-27 adds:
-  `thread_local!` (`LocalKey::with`).
 - A `static` atomic (`static NEXT: AtomicU64`, 2 in moq-net and 1 in kio) is still
   refused as a constant of type `&Atomic`: a `static` with interior mutability needs one
   module-level value that every use shares.
