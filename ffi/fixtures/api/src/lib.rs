@@ -630,23 +630,23 @@ pub fn hex(payload: impl Payload) -> String {
 	payload.into_bytes().iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// A value and when it was stamped, as moq's `Timed` is, which a payload converts into.
+/// A value and when it was stamped, as moq's `Timed` is, which bytes convert into.
 pub struct Timed<P> {
 	pub value: P,
 	pub at: Option<Stamp>,
 }
 
-impl<B: Payload> From<B> for Timed<Bytes> {
+impl<B: AsRef<[u8]>> From<B> for Timed<Bytes> {
 	fn from(value: B) -> Self {
 		Self {
-			value: value.into_bytes(),
+			value: Bytes::copy_from_slice(value.as_ref()),
 			at: None,
 		}
 	}
 }
 
-/// A timed payload's bytes in hex, which need not be UTF-8.
-pub fn timed_hex(payload: impl Into<Timed<Bytes>>) -> String {
+/// A timed payload's bytes in hex, which need not be UTF-8, owned as it is `'static`.
+pub fn timed_hex(payload: impl Into<Timed<Bytes>> + 'static) -> String {
 	hex(payload.into().value)
 }
 
