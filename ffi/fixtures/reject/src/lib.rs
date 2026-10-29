@@ -491,6 +491,13 @@ pub fn allocated() -> impl Iterator<Item = u8> {
 	bytes.into_iter()
 }
 
+/// The same bytes, whose allocation `flatten` frees through the allocator as it reads them.
+pub fn flattened() -> impl Iterator<Item = u8> {
+	let mut bytes = Vec::new_in(Counted);
+	bytes.push(1);
+	vec![bytes].into_iter().flatten()
+}
+
 /// A pattern of the crate's own, whose searcher a split runs as it is read.
 struct Slash;
 

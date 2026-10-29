@@ -2373,10 +2373,11 @@ impl<'tcx> Collector<'tcx> {
 		// Every type the iterator holds, and every item and iterator its adapters drive,
 		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
 		let mut seen = rustc_data_structures::fx::FxHashSet::default();
-		// What the iterators yield or become, the only place another crate's type may be:
-		// elsewhere, as `Split`'s pattern or `IntoIter`'s allocator, core and alloc call
-		// into its code.
-		let mut held = rustc_data_structures::fx::FxHashSet::default();
+		// What reaches the caller, the only place another crate's type may be: elsewhere, as
+		// `Split`'s pattern, `IntoIter`'s allocator, or in an item `flatten` takes apart,
+		// core and alloc call into its code during the call.
+		let yielded = project(item, ty)?;
+		let held: rustc_data_structures::fx::FxHashSet<_> = yielded.walk().filter_map(|arg| arg.as_type()).collect();
 		let mut queue = vec![ty];
 		while let Some(next_ty) = queue.pop() {
 			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
@@ -2410,9 +2411,7 @@ impl<'tcx> Collector<'tcx> {
 				if !listed || !by_std(method, ty) {
 					return None;
 				}
-				let driven = project(driven, ty)?;
-				held.extend(driven.walk().filter_map(|arg| arg.as_type()));
-				queue.push(driven);
+				queue.push(project(driven, ty)?);
 			}
 		}
 		let other = |ty: Ty<'tcx>| {
@@ -2422,7 +2421,7 @@ impl<'tcx> Collector<'tcx> {
 		if seen.iter().any(|&ty| other(ty) && !held.contains(&ty)) {
 			return None;
 		}
-		project(item, ty)
+		Some(yielded)
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.
