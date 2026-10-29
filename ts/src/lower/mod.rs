@@ -1155,20 +1155,22 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	/// Whether a JS value of `ty` is a copy that no JS value can point at, such as a number,
-	/// or an object its clones may share, as an `Arc`'s, a pinned `Arc`'s, and a `Waker`'s
-	/// are, so a `&mut` to it is an `rt.Place`: where the value is, read and written
-	/// through `v`. A reference's referent is the object it points at, or a copy itself.
+	/// or an object its clones may share, as an `Arc`'s and a `Waker`'s are, pinned or boxed
+	/// too, which JS erases, so a `&mut` to it is an `rt.Place`: where the value is, read
+	/// and written through `v`. A reference's referent is the object it points at, or a copy
+	/// itself.
 	pub fn needs_place(&self, ty: Ty<'tcx>) -> bool {
 		use library::Std;
-		match (self.object_kind(ty), ty.kind()) {
-			(None, _) => !ty.is_ref(),
-			(Some(_), ty::Adt(adt, args)) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::Arc | Std::Waker) => true,
-				Some(Std::Pin) => self.std_of(args.type_at(0)) == Some(Std::Arc),
-				_ => false,
-			},
-			(Some(_), _) => false,
+		if self.object_kind(ty).is_none() {
+			return !ty.is_ref();
 		}
+		let mut erased = ty;
+		while let ty::Adt(adt, args) = erased.kind()
+			&& matches!(Std::of(self.tcx, adt.did()), Some(Std::Pin | Std::Box))
+		{
+			erased = args.type_at(0);
+		}
+		matches!(self.std_of(erased), Some(Std::Arc | Std::Waker))
 	}
 
 	/// What `ty` points at, if it is a `&mut` that is an `rt.Place`.

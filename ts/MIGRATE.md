@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A `&mut` to an `Arc`, a pinned `Arc`, or a `Waker` is an `rt.Place` of it, as a `&mut`
+- A `&mut` to an `Arc` or a `Waker`, pinned or boxed too, is an `rt.Place` of it, as a `&mut`
   to a number is, rather than the object: a caller passes one as `{ v: arc }` and reads
   the `Arc` it holds after the call from `v`.
 - A binding's path names a dependency the package renames (`foo = { package = "bar" }`)

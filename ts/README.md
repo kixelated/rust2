@@ -221,8 +221,8 @@ on, returned, kept in a field, or captured by a value, it is
 `rt.place(() => x, (value) => x = value)` over that place, the objects and index it goes
 through held as they were when it was borrowed; a reborrow of one is the same
 `rt.Place`. A caller passes one as `{ v }`, or as any object whose `v` it reads and writes.
-std's mappings take a `&mut` parameter as what it points at. So is a `&mut` to an `Arc`, a
-pinned `Arc`, or a `Waker`, whose clones may be one JS object.
+std's mappings take a `&mut` parameter as what it points at. So is a `&mut` to an `Arc` or a
+`Waker`, pinned or boxed too, whose clones may be one JS object.
 
 A `&mut` to any other object is the object. A whole write through it, `*r = v` or std's
 `mem::replace`, `mem::take`, or `mem::swap`, assigns the place it borrows where that is

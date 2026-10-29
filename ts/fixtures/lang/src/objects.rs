@@ -24,6 +24,11 @@ fn repin(p: &mut Pin<Arc<u8>>, to: u8) {
 	*p = Pin::new(Arc::new(to));
 }
 
+/// The `Arc` a pinned box holds, replaced through `Pin`'s `DerefMut`.
+fn rebox(p: &mut Pin<Box<Arc<u8>>>, to: u8) {
+	**p = Arc::new(to);
+}
+
 /// The crate's own struct, taken apart and put back, as moq-net's `apply` does.
 #[derive(Default)]
 struct Window {
@@ -174,6 +179,10 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	let mut pinned = Pin::new(Arc::new(by));
 	repin(&mut pinned, by.wrapping_add(7));
 	out.push(*pinned);
+	let held = Arc::new(by);
+	let mut boxed = Box::pin(Arc::clone(&held));
+	rebox(&mut boxed, by.wrapping_add(9));
+	out.extend_from_slice(&[**boxed, Arc::strong_count(&held) as u8]);
 	// Through a guard, taken and assigned.
 	let locked = Mutex::new(v);
 	let taken = std::mem::take(&mut *locked.lock().unwrap());
