@@ -274,6 +274,40 @@ fun script() {
 	retry.setLimitSetting(null)
 	println("retry ${retry.limit()}")
 	println("slot ${SlotU8.new(200u).value()}")
+
+	// Foreign types: a URL parsed from text, socket addresses, OS paths, and `Vec`s.
+	val base = Url.parse("https://example.com/a/b")
+	println("url $base host ${host(base)?.let { "Some(\"$it\")" } ?: "None"}")
+	resolve(base.clone(), "c?d").use { url -> println("resolve $url ${url == base}") }
+	try {
+		Url.parse("no scheme").close()
+	} catch (e: StringException) {
+		println("parse err ${e.error}")
+	}
+	val v4 = java.net.InetSocketAddress(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 8080)
+	val loopback = ByteArray(16).also { it[15] = 1 }
+	val v6 = java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, loopback, 3), 443)
+	println("ports ${ports(listOf(v4, v6))}")
+	val peer = Peer(v6, listOf("a", "b")).next("c")
+	println("peer ${peer.debug()} ${peer.aliases().joinToString(", ", "[", "]") { "\"$it\"" }}")
+	val file = file("dir", "f")
+	println("file $file")
+	println("parents ${parents(listOf(file, "/")).joinToString(" ") { it ?: "none" }}")
+	val words = words(" one two  three ")
+	println("words ${words.size} ${words.joinToString(", ", "[", "]") { "\"$it\"" }}")
+	println("sentence ${sentence(words)} ${sentence(null)}")
+	println("sentence ${sentence(emptyList())}|")
+	println("chunks ${chunks("abcde".encodeToByteArray(), 2uL).map { it.toList() }}")
+	val counters = counters(listOf("x", "y"))
+	println("counters ${counters.joinToString(", ") { "${it.name()} ${it.get()}" }}")
+	// Each counter moves in, so Kotlin closes it.
+	println("worth ${worth(listOf(counters[0]), listOf(counters[1]))} ${worth(null, emptyList())}")
+	for (counter in counters) {
+		check(runCatching { counter.get() }.exceptionOrNull() is IllegalStateException, "a counter moved in is closed")
+	}
+	println("sums ${sums(listOf(listOf(1u, 2u), emptyList(), listOf(3u)))}")
+	val site = Site.new(base)
+	site.home.use { a -> site.home.use { b -> println("site $a $b") } }
 }
 
 fun check(ok: Boolean, what: String) {
@@ -405,6 +439,8 @@ fun broken(which: String) {
 			}
 			kept!!.get()
 		}
+		// No String holds a path that is not UTF-8.
+		"stray" -> stray()
 		"callback threw" -> emit(
 			object : Log {
 				override fun log(level: UByte, line: String): Boolean = throw IllegalStateException("a log failed")

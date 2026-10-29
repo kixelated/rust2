@@ -71,8 +71,9 @@ typedef struct {
     MediaFrame *frame;
 } next_result;
 
-static void on_next(void *user_data, NetGroupError *error, MediaFrame *value) {
+static void on_next(void *user_data, bool cancelled, NetGroupError *error, MediaFrame *value) {
     next_result *r = (next_result *)user_data;
+    CHECK(!cancelled);
     r->error = error;
     r->frame = value;
     test_latch_signal(r->done);

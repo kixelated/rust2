@@ -95,10 +95,11 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
+| `dyn Any` | an instance of the class its value's type was wrapped in, which a downcast checks for: `a instanceof Any.Square ? a.v : undefined` |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
-| `Arc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc`, counted; `rt.Weak`, of no `Arc` once made by `Weak::new`; `rt.Mutex`, its own guard, which a lock gives as `Ok` and the guard's drop unlocks: locking it again while held panics and `try_lock` gives `WouldBlock`, as wasm32's do, and a panic aborts, so nothing poisons it and `thread::panicking` is `false` |
+| `Arc<T>`, `Rc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc` for either, with its strong and weak counts; `rt.Weak`, counted in its `rt.Arc` until it drops, and of no `Arc` once made by `Weak::new`; `rt.Mutex`, its own guard, which a lock gives as `Ok` and the guard's drop unlocks: locking it again while held panics and `try_lock` gives `WouldBlock`, as wasm32's do, and a panic aborts, so nothing poisons it and `thread::panicking` is `false` |
 | `PoisonError<T>`, `TryLockError<T>` | the `T` it holds; `rt.TryLockError<T>`, tagged as `Bound` is |
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
 | `AtomicU32` and the others of `bool` and integers | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does |
@@ -245,7 +246,7 @@ what it skips or rejects, and a consumer that takes an iterator by value drops i
 through each `rt.Iter`'s own `fold` where std's folds, which drops each adaptor's closure
 as its fold ends, before what it wraps, as std's does.
 
-A trait object of the crate's own trait, behind `&`, `&mut`, `Box`, or `Arc`, is an object with
+A trait object of the crate's own trait, or a dependency's, behind `&`, `&mut`, `Box`, or `Arc`, is an object with
 a method for each function a call can dispatch to, its supertraits' included, named for
 its trait as an impl's function is and taking what follows `self`: `shape.area$Shape()`.
 The trait's module exports its type, `Shape.Shape` from `dyns.Shape.ts`, which a TS
@@ -256,10 +257,17 @@ same object. A `Box<dyn Trait>` drops what it holds through its `[Symbol.dispose
 a TS caller's object may leave out. An `Arc<T>` unsized to an `Arc<dyn Trait>`, or to an
 `Arc<dyn Future>`, is an `rt.ArcDyn`: the object a box of its value would be, and the
 `Arc<T>` it was made from, whose one count both sides' clones and drops change, and the
-last of which drops the value. `Arc::ptr_eq` compares the `Arc<T>`s. A trait object of
-another crate's trait, but for `&dyn Debug`, `&dyn Display`, and `dyn Future`, of a
-generic trait or one with an associated type, of a byte array, or behind any other
-pointer, such as a `Weak` or a struct's last field, is refused.
+last of which drops the value. `Arc::ptr_eq` compares the `Arc<T>`s.
+
+A `dyn Any` is such an object with no methods, whose class `is`, `downcast_ref`,
+`downcast_mut`, and `Box`'s and `Arc`'s `downcast` check for: `a instanceof Any.Square ?
+a.v : undefined`. A `&mut` one of a value JS copies is the class holding its `rt.Place`,
+or the class itself behind a `Box`, as a `&mut dyn Trait`'s is, and `Arc::downcast` gives
+back the `Arc<T>` the object was made from. A trait object of std's or a mapped crate's
+trait other than `&dyn Debug`, `&dyn Display`, `dyn Future`, and `dyn Any`, of a generic
+trait or one with an associated type, of a byte array, or behind any other pointer, such
+as a `Weak` or a struct's last field, is refused, and so are an upcast to `dyn Any` and
+`Any::type_id`.
 
 An `async fn` returns a future without running anything: an instance of a class of its
 own (`sumFuture`), the state machine MIR's coroutine transform makes. Its fields are the
@@ -498,8 +506,8 @@ they need.
 ## Not yet
 
 `unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
-`&dyn Debug`, `&dyn Display`, `dyn Future`, and the crate's own traits' behind `&`, `&mut`,
-`Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
+`&dyn Debug`, `&dyn Display`, `dyn Future`, `dyn Any`, and the translated crates' traits'
+behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value

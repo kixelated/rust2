@@ -196,6 +196,52 @@ fun main() {
 	expect(ConnectError.UNAUTHORIZED.isAuth(), "unauthorized is an auth error")
 	expect(ConnectError.UNAUTHORIZED.toString() == "unauthorized", "a connect error prints as Rust's")
 
+	// Session config's foreign types. A URL is parsed from text, failing with why.
+	try {
+		Url.parse("relay.example").close()
+		expect(false, "a relative URL is an error")
+	} catch (e: StringException) {
+		expect(e.message == "relative URL without a base", "a URL's parse error is Rust's")
+	}
+	// A session's config, its URL and pinned fingerprints set as Rust assigns them.
+	val connect = ConnectConfig.default()
+	connect.tls.use { tls ->
+		tls.setFingerprint(listOf("ab:cd"))
+		connect.setTls(tls)
+	}
+	connect.setUrl(Url.parse("https://relay.example:4443/demo"))
+	connect.tls.use { tls -> expect(tls.fingerprint == listOf("ab:cd"), "a TLS config keeps its fingerprints") }
+	val url = connect.url!!
+	connect.close()
+	val versions = Versions.default()
+	AuthTokens.new(emptyList()).use { tokens ->
+		tokens.dial(url, versions).use { dial ->
+			dial.url.use { dialed ->
+				expect(dialed == url, "a dial keeps its URL")
+				expect(dialed.toString() == "https://relay.example:4443/demo", "a URL prints as Rust's")
+			}
+		}
+	}
+	url.close()
+	// A `Vec<String>`, as a List.
+	val alpns = versions.alpns()
+	expect(alpns.isNotEmpty() && alpns.all { it.isNotEmpty() }, "each version has an ALPN")
+	versions.close()
+	// A socket address, crossing in a listener's bind.
+	val loopback = ByteArray(16).also { it[15] = 1 }
+	val bind = ListenBind.Addr(java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, loopback, null as java.net.NetworkInterface?), 4443))
+	expect(bind.toString() == "[::1]:4443", "an IPv6 bind prints as Rust's")
+	val v4 = ListenBind.Addr(java.net.InetSocketAddress(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 0))
+	expect(v4.toString() == "127.0.0.1:0", "an IPv4 bind prints as Rust's")
+	ListenConfig.default().use { listen ->
+		listen.setBind(bind)
+		expect(listen.bind == bind, "a listener's config keeps its bind")
+	}
+	// TLS files, as OS paths, and fingerprints, as strings: none by default.
+	TlsConnect.default().use { tls ->
+		expect(tls.root.isEmpty() && tls.fingerprint.isEmpty(), "a default TLS config lists none")
+	}
+
 	if (failures == 0) println("ok")
 	kotlin.system.exitProcess(if (failures == 0) 0 else 1)
 }

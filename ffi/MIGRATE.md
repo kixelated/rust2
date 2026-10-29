@@ -7,6 +7,12 @@
   `impl<B: Into<Bytes>> From<B> for Timed<Bytes>`, exports as bytes rather than
   `String`. Kotlin takes a `ByteArray` there: pass text as `"text".encodeToByteArray()`.
   C and C++ keep their types, and accept a payload that is not UTF-8 rather than aborting.
+- `Vec<T>`, `PathBuf`, `SocketAddr`, and `url::Url` map, so a struct or enum whose
+  fields were refused only for them is a value now, not an object: moq-tokio's
+  `listen::Bind` is the C enum `moq_listen_bind`, freed with `moq_listen_bind_free(&b)`,
+  not a handle. An item that clashes with the new names `<prefix>_socket_addr`,
+  `<prefix>_url`, or a `<prefix>_vec_<T>` takes a `rename`.
+
 - Each `pub` field of an object exports a setter, `<type>_set_<field>`, so a method
   named `set_<field>` on the same type, such as `Limit::set_max` beside `pub max`,
   clashes with it: give the method another name with a `rename`.

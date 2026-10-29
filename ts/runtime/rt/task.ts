@@ -55,9 +55,10 @@ export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A
 
 // Shared ownership
 
-/** `Arc<T>`: every clone is this one object, counted. */
+/** `Arc<T>` and `Rc<T>`: every clone is this one object, counted, as are its `Weak`s. */
 export class Arc<T> implements Disposable {
 	strong = 1;
+	weak = 0;
 	value: T;
 
 	constructor(value: T) {
@@ -91,6 +92,14 @@ export class ArcDyn<T, U> implements Disposable {
 		this.arc.strong = strong;
 	}
 
+	get weak(): number {
+		return this.arc.weak;
+	}
+
+	set weak(weak: number) {
+		this.arc.weak = weak;
+	}
+
 	[Symbol.dispose](): void {
 		if (--this.arc.strong === 0) drop(this.value);
 	}
@@ -103,6 +112,11 @@ export function arcPtrEq<T>(l: Arc<T>, r: Arc<T>): boolean {
 
 function arcRoot(arc: Arc<unknown>): Arc<unknown> {
 	return arc instanceof ArcDyn ? arc.arc : arc;
+}
+
+/** `Arc::downcast` of an `Arc<dyn Any>`: the `Arc` it was made from, if its object is a `class`. */
+export function arcDowncast<T, U>(arc: Arc<U>, class_: abstract new (...args: never[]) => unknown): Result<Arc<T>, Arc<U>> {
+	return arc instanceof ArcDyn && arc.value instanceof class_ ? Ok(arc.arc as Arc<T>) : Err(arc);
 }
 
 /**
@@ -128,12 +142,17 @@ function dangling(): Arc<never> {
 	return arc;
 }
 
-/** `Weak<T>`, which nothing observes dropping: of `arc`, or else dangling. */
-export class Weak<T> {
+/** `Weak<T>`, of `arc`, or else dangling, counted in `arc` until it drops. */
+export class Weak<T> implements Disposable {
 	readonly arc: Arc<T>;
 
 	constructor(arc: Arc<T> = DANGLING) {
 		this.arc = arc;
+		arc.weak++;
+	}
+
+	[Symbol.dispose](): void {
+		this.arc.weak--;
 	}
 }
 
@@ -145,6 +164,11 @@ export function weakUpgrade<T>(weak: Weak<T>): Arc<T> | undefined {
 /** `Weak::clone`. */
 export function weakClone<T>(weak: Weak<T>): Weak<T> {
 	return new Weak(weak.arc);
+}
+
+/** `Weak::weak_count`: its `Arc`'s, or 0 once no strong one is left, as for a dangling one. */
+export function weakWeakCount<T>(weak: Weak<T>): number {
+	return weak.arc.strong > 0 ? weak.arc.weak : 0;
 }
 
 /**

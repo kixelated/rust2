@@ -338,15 +338,45 @@ int main(void) {
 	moq_tls_connect *tls = moq_connect_config_tls(connect);
 	moq_tls_connect_set_insecure(tls, (moq_option_bool){.some = true, .value = true});
 	moq_tls_connect_set_host_name(tls, str("relay.example"));
+	/* A `Vec<String>`, an array of buffers C keeps. */
+	moq_buf pins[] = {str("ab:cd")};
+	moq_tls_connect_set_fingerprint(tls, (moq_vec_string){.ptr = pins, .len = 1});
 	moq_connect_config_set_tls(connect, tls);
 	moq_tls_connect_free(tls);
 	moq_connect_config_set_implementation(connect, str("moq.c"));
+	/* A URL, parsed from text, failing with why, and moved in. */
+	moq_url *url = NULL;
+	moq_buf parse_err;
+	CHECK(!moq_url_parse(str("relay.example"), &url, &parse_err));
+	CHECK(is(parse_err, "relative URL without a base"));
+	CHECK(moq_url_parse(str("https://relay.example:4443/demo"), &url, &parse_err));
+	moq_connect_config_set_url(connect, url);
+	moq_url_free(url);
 	tls = moq_connect_config_tls(connect);
 	moq_option_bool insecure = moq_tls_connect_insecure(tls);
 	CHECK(insecure.some && insecure.value);
 	CHECK(is(moq_tls_connect_host_name(tls), "relay.example"));
+	/* TLS files, as OS paths: none by default. */
+	moq_vec_path roots = moq_tls_connect_root(tls);
+	moq_vec_string fingerprints = moq_tls_connect_fingerprint(tls);
+	CHECK(roots.ptr != NULL && roots.len == 0);
+	CHECK(fingerprints.len == 1 && fingerprints.ptr[0].len == 5 && memcmp(fingerprints.ptr[0].ptr, "ab:cd", 5) == 0);
+	moq_vec_path_free(roots);
+	moq_vec_string_free(fingerprints);
 	moq_tls_connect_free(tls);
 	CHECK(is(moq_connect_config_implementation(connect), "moq.c"));
+	url = moq_connect_config_url(connect);
+	CHECK(url != NULL && is(moq_url_to_string(url), "https://relay.example:4443/demo"));
+	/* The config's URL, dialed with no tokens. */
+	moq_auth_tokens *tokens = moq_auth_tokens_new((moq_vec_auth_token){0});
+	moq_versions *versions = moq_versions_default();
+	moq_auth_dial *dial = moq_auth_tokens_dial(tokens, url, versions);
+	moq_url *dialed = moq_auth_dial_url(dial);
+	CHECK(moq_url_eq(dialed, url));
+	moq_url_free(dialed);
+	moq_auth_dial_free(dial);
+	moq_auth_tokens_free(tokens);
+	moq_url_free(url);
 	moq_connect_config_free(connect);
 
 	/* A backoff's fields are settings left unset, and the methods of their names resolve them. */
@@ -355,6 +385,27 @@ int main(void) {
 	moq_duration initial = moq_backoff_initial(backoff);
 	CHECK(initial.secs == 1 && initial.nanos == 0);
 	moq_backoff_free(backoff);
+
+	/* A `Vec<String>`, each element a buffer the array frees. */
+	moq_vec_string alpns = moq_versions_alpns(versions);
+	CHECK(alpns.len > 0);
+	for (size_t i = 0; i < alpns.len; i++) {
+		CHECK(alpns.ptr[i].len > 0);
+	}
+	moq_vec_string_free(alpns);
+	moq_versions_free(versions);
+	/* A socket address, crossing in a listener's bind, set on its config and read back. */
+	moq_listen_bind bind = {.tag = MOQ_LISTEN_BIND_ADDR, .addr = {._0 = {.ip = {[15] = 1}, .port = 4443, .v6 = true}}};
+	CHECK(is(moq_listen_bind_to_string(&bind), "[::1]:4443"));
+	moq_listen_bind v4 = {.tag = MOQ_LISTEN_BIND_ADDR, .addr = {._0 = {.ip = {127, 0, 0, 1}, .port = 0}}};
+	CHECK(is(moq_listen_bind_to_string(&v4), "127.0.0.1:0"));
+	CHECK(!moq_listen_bind_eq(&bind, &v4));
+	moq_listen_config *listen = moq_listen_config_default();
+	moq_listen_config_set_bind(listen, (moq_option_listen_bind){.some = true, .value = bind});
+	moq_option_listen_bind bound = moq_listen_config_bind(listen);
+	CHECK(bound.some && moq_listen_bind_eq(&bound.value, &bind));
+	moq_listen_bind_free(&bound.value);
+	moq_listen_config_free(listen);
 
 	if (failures == 0) {
 		printf("ok\n");
