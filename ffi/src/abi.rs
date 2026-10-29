@@ -559,6 +559,7 @@ impl<'a> Abi<'a> {
 			"poll_t",
 			"detail",
 			"native",
+			"bytes",
 		] {
 			self.claim(self.rt(runtime), "the runtime".to_string(), crate_span);
 		}

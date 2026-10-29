@@ -370,16 +370,18 @@ impl Channel {
 	}
 }
 
-/// `value`, on its second poll: the first wakes its waker before it returns pending, so
-/// the wake lands before the poller waits for one.
+/// `value`, on its third poll: each before wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one, even past a first poll Kotlin makes
+/// with no waker.
 pub async fn yielded(value: u32) -> u32 {
-	let mut woken = false;
-	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
-		true => Poll::Ready(()),
-		false => {
-			cx.waker().wake_by_ref();
-			Poll::Pending
+	let mut polls = 0;
+	std::future::poll_fn(|cx| {
+		polls += 1;
+		if polls == 3 {
+			return Poll::Ready(());
 		}
+		cx.waker().wake_by_ref();
+		Poll::Pending
 	})
 	.await;
 	value
@@ -529,6 +531,34 @@ impl Token {
 impl Drop for Token {
 	fn drop(&mut self) {
 		DROPPED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+	}
+}
+
+/// Bytes whose drop counts in [`dropped`], as a token's does.
+pub fn token_bytes(id: u32) -> Bytes {
+	// The token is held only for its drop.
+	struct Owner(#[allow(dead_code)] Token, [u8; 4]);
+
+	impl AsRef<[u8]> for Owner {
+		fn as_ref(&self) -> &[u8] {
+			&self.1
+		}
+	}
+
+	Bytes::from_owner(Owner(Token::new(id), id.to_le_bytes()))
+}
+
+/// A payload and its sequence number: a record, whose bytes cross in both ways.
+pub struct Packet {
+	pub seq: u32,
+	pub payload: Bytes,
+}
+
+/// The packet after `packet`, which carries its payload on.
+pub fn next_packet(packet: Packet) -> Packet {
+	Packet {
+		seq: packet.seq + 1,
+		payload: packet.payload,
 	}
 }
 

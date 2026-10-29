@@ -4,7 +4,8 @@
 //! A value Kotlin passes is a JNI scalar, a handle as a `long`, its bytes as a `byte[]`,
 //! or anything else encoded into a `byte[]`: little-endian, field by field, as the C
 //! struct holds it, with a buffer as its length (-1 for none) and its bytes, and an array
-//! as its length (-1 for none) and its elements.
+//! as its length (-1 for none) and its elements. Bytes Rust returns cross as their owner,
+//! which a Kotlin `Bytes` lends as a direct `ByteBuffer` until it frees it.
 
 use std::cell::Cell;
 use std::ffi::{CStr, c_void};
@@ -159,6 +160,50 @@ pub fn array(env: *mut JNIEnv, bytes: &[u8]) -> jbyteArray {
 	}
 }
 
+/// The owner of a buffer Rust returned, handed to Kotlin uncopied, or 0 for none: a view,
+/// which Rust lent only for a call, is copied into an owned buffer.
+///
+/// # Safety
+/// `buf` is a buffer Rust returned or lent, freed by nothing else.
+pub unsafe fn hand(buf: rt::Buf) -> jlong {
+	if buf.is_none() {
+		return 0;
+	}
+	let buf = match buf.owner.is_null() {
+		// SAFETY: the caller's contract.
+		true => rt::Buf::owned(bytes::Bytes::copy_from_slice(unsafe { buf.bytes("jni") })),
+		false => buf,
+	};
+	buf.owner as usize as jlong
+}
+
+/// A direct `ByteBuffer` over the bytes `owner` holds, which it lends until freed.
+///
+/// # Safety
+/// `owner` came from [`hand`], and is not yet freed.
+pub unsafe fn buffer(env: *mut JNIEnv, owner: jlong) -> jobject {
+	// SAFETY: the caller's contract.
+	let buf = unsafe { rt::Buf::of_owner(owner as usize as _) };
+	let Ok(len) = jlong::try_from(buf.len) else {
+		rt::fail("jni", "a buffer is too long for a ByteBuffer")
+	};
+	// SAFETY: `env` is this thread's, and the bytes live until the owner is freed.
+	let buffer = unsafe { ((**env).v1_4.NewDirectByteBuffer)(env, buf.ptr.cast_mut().cast(), len) };
+	if buffer.is_null() {
+		fail(env, "jni", "a ByteBuffer is out of memory");
+	}
+	buffer
+}
+
+/// Free the bytes `owner` holds.
+///
+/// # Safety
+/// `owner` came from [`hand`], and is freed once.
+pub unsafe fn free_bytes(owner: jlong) {
+	// SAFETY: the caller's contract.
+	unsafe { rt::Buf::of_owner(owner as usize as _).free() }
+}
+
 /// A buffer Rust returned as a `byte[]`, or null for none, freeing it.
 ///
 /// # Safety
@@ -303,6 +348,63 @@ pub unsafe fn give(node: *mut Node) -> rt::Waker {
 	lend(node)
 }
 
+/// Poll a future with a waker, writing its result into the writer if it finished.
+pub type Poll = unsafe fn(*mut c_void, rt::Waker, &mut Writer) -> bool;
+
+/// Poll the future just made, and free it if it finished: the call and its first poll are
+/// one crossing. Its result is a bool, true when finished, then the result, or else the
+/// future and the waker node made for `signal`, which Kotlin polls and frees.
+///
+/// # Safety
+/// `future` is a live future that `poll` and `free` take, and `signal` a Kotlin `Waker`.
+pub unsafe fn start(env: *mut JNIEnv, future: *mut c_void, signal: jobject, poll: Poll, free: unsafe fn(*mut c_void)) -> jbyteArray {
+	let mut w = Writer::default();
+	w.put(true);
+	// Most futures are ready at once, so the first poll takes no waker: a node costs a
+	// global reference, and two crossings to free it.
+	let none = rt::Waker {
+		wake: None,
+		drop: None,
+		data: std::ptr::null_mut(),
+	};
+	// SAFETY: the caller's contract.
+	if unsafe { poll(future, none, &mut w) } {
+		// SAFETY: as above, and it finished.
+		unsafe { free(future) };
+		return w.array(env);
+	}
+	// Pending, so polled again with the waker it parks on, which replaces the first.
+	let node = node(env, signal);
+	// SAFETY: as above, and `node` holds a reference for this.
+	if unsafe { poll(future, give(node), &mut w) } {
+		// SAFETY: as above.
+		unsafe {
+			free(future);
+			unref(node.cast());
+		}
+		return w.array(env);
+	}
+	let mut w = Writer::default();
+	w.put(false);
+	w.put(future);
+	w.put(node.cast::<c_void>());
+	w.array(env)
+}
+
+/// Poll `future` again with `node`, whose reference Rust holds from the first poll that
+/// pended: its result, or null while pending.
+///
+/// # Safety
+/// `future` is a live future that `poll` takes, and Rust holds a reference to `node`.
+pub unsafe fn poll(env: *mut JNIEnv, future: *mut c_void, node: *mut Node, poll: Poll) -> jbyteArray {
+	let mut w = Writer::default();
+	// SAFETY: the caller's contract.
+	match unsafe { poll(future, lend(node), &mut w) } {
+		true => w.array(env),
+		false => std::ptr::null_mut(),
+	}
+}
+
 /// A Kotlin `Waker` passed by value: Rust holds its only reference.
 pub fn waker(env: *mut JNIEnv, waker: jobject) -> rt::Waker {
 	lend(node(env, waker))
@@ -444,6 +546,48 @@ impl Wire for rt::Buf {
 		w.0.extend_from_slice(bytes);
 		// SAFETY: as above.
 		unsafe { self.free() };
+	}
+}
+
+/// Bytes Rust returns, or an array of them, crossing as each buffer's owner rather than
+/// copied: see [`hand`].
+pub struct Owned<T>(pub T);
+
+impl Wire for Owned<rt::Buf> {
+	fn read(_: &mut Reader<'_>) -> Self {
+		rt::fail("jni", "Kotlin passes bytes, never their owner")
+	}
+
+	fn write(self, w: &mut Writer) {
+		// SAFETY: a buffer Rust returned or lent, handed over here.
+		w.put(unsafe { hand(self.0) });
+	}
+}
+
+impl<T: Copy + 'static> Wire for Owned<rt::List<T>>
+where
+	Owned<T>: Wire,
+{
+	fn read(_: &mut Reader<'_>) -> Self {
+		rt::fail("jni", "Kotlin passes bytes, never their owner")
+	}
+
+	fn write(self, w: &mut Writer) {
+		let list = self.0;
+		if list.is_none() {
+			w.put(-1i32);
+			return;
+		}
+		let Ok(len) = i32::try_from(list.len) else {
+			rt::fail("jni", "an array is too long for a List")
+		};
+		w.put(len);
+		// SAFETY: an array Rust returned, whose elements move into the writer, so it is
+		// freed without them.
+		unsafe {
+			list.items("jni").iter().for_each(|&item| w.put(Owned(item)));
+			rt::List { len: 0, ..list }.free("jni", |_| {});
+		}
 	}
 }
 
