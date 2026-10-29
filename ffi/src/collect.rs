@@ -1815,7 +1815,7 @@ impl<'tcx> Collector<'tcx> {
 		// refused.
 		let mut collect = false;
 		if !future
-			&& self.ret(output).is_err()
+			&& self.ty(output, Pos::Return).is_err()
 			&& let Some(items) = self
 				.collected(output, env)
 				.and_then(|item| self.vec_of(normalize(item)))
@@ -1824,10 +1824,11 @@ impl<'tcx> Collector<'tcx> {
 			collect = true;
 		}
 		let (ok, err) = match output.kind() {
-			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
-				(self.ret(args.type_at(0)), Some(self.ty(args.type_at(1), Pos::Return)))
-			}
-			_ => (self.ret(output), None),
+			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => (
+				self.ty(args.type_at(0), Pos::Return),
+				Some(self.ty(args.type_at(1), Pos::Return)),
+			),
+			_ => (self.ty(output, Pos::Return), None),
 		};
 		let ok = ok.map_err(|why| errs.push(why)).ok();
 		let err = match err {
@@ -2727,24 +2728,6 @@ impl<'tcx> Collector<'tcx> {
 		(held, lent)
 	}
 
-	/// What a function returns: a tuple's elements each, or else one value.
-	fn ret(&self, ty: Ty<'tcx>) -> Result<Type, Why> {
-		let ty::Tuple(list) = ty.kind() else {
-			return self.ty(ty, Pos::Return);
-		};
-		if list.is_empty() {
-			return Ok(Type::Unit);
-		}
-		let mut elements = Vec::new();
-		for element in list.iter() {
-			match self.ty(element, Pos::Return)? {
-				Type::Unit => return Err(why("unit in a tuple", ty.to_string())),
-				element => elements.push(element),
-			}
-		}
-		Ok(Type::Tuple(elements))
-	}
-
 	/// `(Bound<T>, Bound<T>)`, which a `RangeBounds<T>` parameter takes.
 	fn bounds(&self, int: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
@@ -3069,7 +3052,17 @@ impl<'tcx> Collector<'tcx> {
 				{
 					Type::Bounds(int)
 				}
-				_ => return Err(why("tuple", "")),
+				list => {
+					let elements = (list.iter())
+						.map(|element| self.ty(*element, pos.inner()))
+						.collect::<Result<Vec<_>, _>>()?;
+					// C lends nothing inside a value, and an element lowered back into one is
+					// a clone of what Rust lent.
+					if elements.iter().any(borrows) && !matches!(pos, Pos::Return | Pos::Returned) {
+						return Err(why("tuple of references", ty.to_string()));
+					}
+					Type::Tuple(elements)
+				}
 			},
 			ty::Array(..) => return Err(why("array", ty.to_string())),
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
@@ -3136,6 +3129,7 @@ fn buildable(api: &Api, ty: &Type, held: &[bool]) -> bool {
 		Type::Object(i) => held[*i],
 		Type::Ref(_, inner) | Type::Box(inner) => buildable(api, inner, held),
 		Type::Record(i) => api.records[*i].fields.iter().all(|f| buildable(api, &f.ty, held)),
+		Type::Tuple(elements) => elements.iter().all(|ty| buildable(api, ty, held)),
 		Type::Enum(i) => api.enums[*i]
 			.variants
 			.iter()
@@ -3199,6 +3193,7 @@ fn borrows(ty: &Type) -> bool {
 	match ty {
 		Type::Ref(..) => true,
 		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => borrows(inner),
+		Type::Tuple(elements) => elements.iter().any(borrows),
 		_ => false,
 	}
 }

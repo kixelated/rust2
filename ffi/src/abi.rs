@@ -80,6 +80,7 @@ fn owned(ty: &Type) -> Type {
 		Type::Option(inner) => Type::Option(Box::new(owned(inner))),
 		Type::Box(inner) => Type::Box(Box::new(owned(inner))),
 		Type::List(inner) => Type::List(Box::new(owned(inner))),
+		Type::Tuple(elements) => Type::Tuple(elements.iter().map(owned).collect()),
 		ty => ty.clone(),
 	}
 }
@@ -104,6 +105,8 @@ pub struct Abi<'a> {
 	pub ranges: BTreeMap<String, Type>,
 	/// Each `Vec<T>` struct by C name, with `T`.
 	pub lists: BTreeMap<String, Type>,
+	/// Each tuple struct by C name, with its elements.
+	pub tuples: BTreeMap<String, Vec<Type>>,
 	/// Every C name claimed, with what claimed it.
 	names: HashMap<String, (String, Span)>,
 	/// Each name claimed twice.
@@ -121,6 +124,7 @@ impl<'a> Abi<'a> {
 			options: BTreeMap::new(),
 			ranges: BTreeMap::new(),
 			lists: BTreeMap::new(),
+			tuples: BTreeMap::new(),
 			names: HashMap::new(),
 			clashes: Vec::new(),
 		};
@@ -325,6 +329,11 @@ impl<'a> Abi<'a> {
 		format!("{}_vec_{}", self.prefix, self.key(elem))
 	}
 
+	/// The C name of a tuple's struct: `<prefix>_tuple_string_u64`.
+	pub fn tuple(&self, elements: &[Type]) -> String {
+		format!("{}_{}", self.prefix, self.key(&Type::Tuple(elements.to_vec())))
+	}
+
 	/// The C name of a range, bound, or pair of bounds struct: `<prefix>_range_u64`.
 	pub fn range(&self, ty: &Type) -> String {
 		format!("{}_{}", self.prefix, self.key(ty))
@@ -347,6 +356,10 @@ impl<'a> Abi<'a> {
 			Type::SocketAddr(_) => "socket_addr".to_string(),
 			Type::Option(inner) => format!("option_{}", self.key(inner)),
 			Type::List(inner) => format!("vec_{}", self.key(inner)),
+			Type::Tuple(elements) => {
+				let keys: Vec<String> = elements.iter().map(|e| self.key(e)).collect();
+				format!("tuple_{}", keys.join("_"))
+			}
 			Type::Record(i) => strip(self.record(*i)),
 			Type::Enum(i) => strip(self.enumeration(*i)),
 			Type::Object(i) => strip(self.object(*i)),
@@ -410,7 +423,7 @@ impl<'a> Abi<'a> {
 			Type::Callback(i, _) => Ty::Struct(self.callback(*i)),
 			Type::Closure(params, ret) => Ty::Fn(params.iter().map(|p| self.ty(p)).collect(), Box::new(self.ty(ret))),
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => Ty::Struct(self.range(ty)),
-			Type::Tuple(_) => unreachable!("a tuple is only returned, through out parameters"),
+			Type::Tuple(elements) => Ty::Struct(self.tuple(elements)),
 		}
 	}
 
@@ -640,7 +653,11 @@ impl<'a> Abi<'a> {
 				self.claim(free.name.clone(), what.clone(), function.span);
 			}
 			types.extend(function.params.iter().map(|p| &p.ty));
-			types.push(&function.ok);
+			// A tuple returned whole is written element by element, with no struct of its own.
+			match &function.ok {
+				Type::Tuple(elements) => types.extend(elements),
+				ok => types.push(ok),
+			}
 			types.extend(&function.err);
 		}
 		for constant in &api.constants {
@@ -653,6 +670,7 @@ impl<'a> Abi<'a> {
 		let mut options = BTreeMap::new();
 		let mut ranges = BTreeMap::new();
 		let mut lists = BTreeMap::new();
+		let mut tuples = BTreeMap::new();
 		let mut stack = types;
 		while let Some(ty) = stack.pop() {
 			match ty {
@@ -668,7 +686,11 @@ impl<'a> Abi<'a> {
 					stack.push(inner);
 				}
 				Type::Ref(_, inner) | Type::Box(inner) => stack.push(inner),
-				Type::Tuple(elements) => stack.extend(elements),
+				Type::Tuple(elements) => {
+					// A returned tuple of borrows holds clones, as a `Vec` does.
+					tuples.insert(self.tuple(elements), elements.iter().map(owned).collect());
+					stack.extend(elements);
+				}
 				Type::Closure(params, ret) => {
 					stack.extend(params);
 					stack.push(ret);
@@ -689,6 +711,9 @@ impl<'a> Abi<'a> {
 		for name in ranges.keys() {
 			self.claim(name.clone(), "a range".to_string(), crate_span);
 		}
+		for name in tuples.keys() {
+			self.claim(name.clone(), "a tuple".to_string(), crate_span);
+		}
 		for name in lists.keys() {
 			self.claim(name.clone(), "a Vec".to_string(), crate_span);
 			self.claim(format!("{name}_free"), "a Vec".to_string(), crate_span);
@@ -706,6 +731,7 @@ impl<'a> Abi<'a> {
 		self.options = options;
 		self.ranges = ranges;
 		self.lists = lists;
+		self.tuples = tuples;
 	}
 
 	/// Claim the functions a type's std traits export.

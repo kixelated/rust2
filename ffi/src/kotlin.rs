@@ -276,17 +276,8 @@ impl<'a> Gen<'a> {
 		let name = format!("Tuple{n}");
 		if self.tuples.insert(n) {
 			self.claim(&name, format!("a tuple of {n}"));
-			let ordinals = [
-				"first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth",
-				"eleventh", "twelfth",
-			];
-			let field = |k: usize| {
-				ordinals
-					.get(k)
-					.map_or_else(|| format!("item{}", k + 1), |o| o.to_string())
-			};
 			let params: Vec<String> = (1..=n).map(|k| format!("T{k}")).collect();
-			let fields: Vec<String> = (0..n).map(|k| format!("\tval {}: T{},\n", field(k), k + 1)).collect();
+			let fields: Vec<String> = (0..n).map(|k| format!("\tval {}: T{},\n", ordinal(k), k + 1)).collect();
 			let _ = write!(
 				self.types,
 				"/** A tuple of {n}, as `Pair` and `Triple` are of two and three. */\ndata class {name}<{}>(\n{})\n\n",
@@ -295,6 +286,16 @@ impl<'a> Gen<'a> {
 			);
 		}
 		name
+	}
+
+	/// The Kotlin type of a tuple of `elements`: one element alone is itself.
+	fn tuple_of(&mut self, elements: Vec<String>) -> String {
+		match elements.len() {
+			1 => elements[0].clone(),
+			2 => format!("kotlin.Pair<{}>", elements.join(", ")),
+			3 => format!("kotlin.Triple<{}>", elements.join(", ")),
+			n => format!("{}<{}>", self.tuple(n), elements.join(", ")),
+		}
 	}
 
 	/// The Kotlin type of `ty` as a value, owning what it holds.
@@ -327,12 +328,7 @@ impl<'a> Gen<'a> {
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => self.class(&abi.range(ty)),
 			Type::Tuple(elements) => {
 				let elements: Vec<String> = elements.iter().map(|e| self.kt(e)).collect();
-				match elements.len() {
-					1 => elements[0].clone(),
-					2 => format!("kotlin.Pair<{}>", elements.join(", ")),
-					3 => format!("kotlin.Triple<{}>", elements.join(", ")),
-					n => format!("{}<{}>", self.tuple(n), elements.join(", ")),
-				}
+				self.tuple_of(elements)
 			}
 		}
 	}
@@ -345,6 +341,10 @@ impl<'a> Gen<'a> {
 			Type::List(inner) => format!("kotlin.collections.List<{}>", self.kt_param(inner)),
 			Type::Option(inner) => format!("{}?", self.kt_param(inner)),
 			Type::Box(inner) | Type::Ref(_, inner) => self.kt_param(inner),
+			Type::Tuple(elements) => {
+				let elements: Vec<String> = elements.iter().map(|e| self.kt_param(e)).collect();
+				self.tuple_of(elements)
+			}
 			_ => self.kt(ty),
 		}
 	}
@@ -395,6 +395,14 @@ impl<'a> Gen<'a> {
 			},
 			Type::Object(_) => format!("{w}.handle({e}.handle)"),
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => format!("w_{}({w}, {e})", abi.range(ty)),
+			Type::Tuple(elements) if elements.len() == 1 => self.write_value(&elements[0], w, e),
+			Type::Tuple(elements) => {
+				let t = self.fresh("t");
+				let writes: Vec<String> = (elements.iter().enumerate())
+					.map(|(k, ty)| self.write_value(ty, w, &format!("{t}.{}", ordinal(k))))
+					.collect();
+				format!("{e}.let {{ {t} -> {} }}", writes.join("; "))
+			}
 			other => unreachable!("{other:?} is never encoded"),
 		}
 	}
@@ -455,7 +463,7 @@ impl<'a> Gen<'a> {
 			Type::Object(i) => format!("{}({r}.i64())", self.class(&abi.object(*i))),
 			Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => format!("r_{}({r})", abi.range(ty)),
 			Type::Tuple(elements) => {
-				let read: Vec<String> = elements.iter().map(|e| self.read_value(e, r)).collect();
+				let read: Vec<String> = elements.iter().map(|e| self.read(e, r, owned)).collect();
 				match read.len() {
 					1 => read[0].clone(),
 					2 => format!("kotlin.Pair({})", read.join(", ")),
@@ -628,6 +636,9 @@ impl<'a> Gen<'a> {
 		for c in abi.options.clone().keys() {
 			self.glue_option(c);
 		}
+		for (c, elements) in &abi.tuples.clone() {
+			self.glue_tuple(c, elements);
+		}
 		for constant in &api.constants {
 			let name = self.bare(&abi.name(&constant.path)).to_uppercase();
 			let (ty, value) = match constant.value {
@@ -732,6 +743,19 @@ impl<'a> Gen<'a> {
 		let _ = write!(
 			self.glue,
 			"impl Wire for crate::{c} {{\n\tfn read(r: &mut Reader<'_>) -> Self {{\n\t\tlet some: bool = r.get();\n\t\tSelf {{ some, value: if some {{ r.get() }} else {{ unsafe {{ std::mem::zeroed() }} }} }}\n\t}}\n\n\tfn write(self, w: &mut Writer) {{\n\t\tw.put(self.some);\n\t\tif self.some {{\n\t\t\tw.put(self.value);\n\t\t}}\n\t}}\n}}\n\n"
+		);
+	}
+
+	/// The glue's codec for a tuple struct, field by field.
+	fn glue_tuple(&mut self, c: &str, elements: &[Type]) {
+		let fields: Vec<String> = (0..elements.len()).map(|n| format!("_{n}: r.get()")).collect();
+		let puts: String = (elements.iter().enumerate())
+			.map(|(n, ty)| format!("\t\t{};\n", put(ty, &format!("self._{n}"))))
+			.collect();
+		let _ = write!(
+			self.glue,
+			"impl Wire for crate::{c} {{\n\tfn read(r: &mut Reader<'_>) -> Self {{\n\t\tSelf {{ {} }}\n\t}}\n\n\tfn write(self, w: &mut Writer) {{\n{puts}\t}}\n}}\n\n",
+			fields.join(", ")
 		);
 	}
 
@@ -1678,6 +1702,15 @@ impl<'a> Gen<'a> {
 				format!("{e}?.let {{ {v} -> {close} }}")
 			}
 			Type::Box(inner) => self.close(inner, e),
+			Type::Tuple(elements) if elements.len() == 1 => self.close(&elements[0], e),
+			Type::Tuple(elements) => {
+				let t = self.fresh("t");
+				let closes: Vec<String> = (elements.iter().enumerate())
+					.filter(|(_, ty)| moved(self.abi, ty))
+					.map(|(k, ty)| self.close(ty, &format!("{t}.{}", ordinal(k))))
+					.collect();
+				format!("{e}.let {{ {t} -> {} }}", closes.join("; "))
+			}
 			Type::List(inner) => {
 				let v = self.fresh("v");
 				let close = self.close(inner, &v);
@@ -1760,6 +1793,7 @@ fn moved(abi: &Abi<'_>, ty: &Type) -> bool {
 	match ty {
 		Type::Object(i) => !abi.api.objects[*i].copy,
 		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => moved(abi, inner),
+		Type::Tuple(elements) => elements.iter().any(|ty| moved(abi, ty)),
 		_ => false,
 	}
 }
@@ -1957,6 +1991,17 @@ fn strip_refs(ty: &Type) -> Type {
 		Type::Box(inner) => Type::Box(Box::new(strip_refs(inner))),
 		ty => ty.clone(),
 	}
+}
+
+/// The name of a tuple's field `k`, as `Pair`'s and `Triple`'s go on.
+fn ordinal(k: usize) -> String {
+	const ORDINALS: [&str; 12] = [
+		"first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh",
+		"twelfth",
+	];
+	ORDINALS
+		.get(k)
+		.map_or_else(|| format!("item{}", k + 1), |o| o.to_string())
 }
 
 /// A snake-case name in Pascal case: `size_pair` is `SizePair`.

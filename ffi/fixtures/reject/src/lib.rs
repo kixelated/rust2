@@ -5,9 +5,9 @@ use std::collections::HashMap;
 /// A generic type.
 pub struct Wrap<T>(pub T);
 
-/// A tuple inside an `Option`: only a returned tuple crosses, as out pointers.
-pub fn pair() -> Option<(u8, u8)> {
-	Some((1, 2))
+/// A tuple of references taken: C lends nothing inside a value.
+pub fn pair(pair: (&str, u8)) -> u8 {
+	pair.1
 }
 
 /// Another crate's type, which has no mapping.

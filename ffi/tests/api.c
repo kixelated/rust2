@@ -217,6 +217,68 @@ static int script(void) {
 			api_error_free(&err);
 		}
 	}
+	/* A tuple inside another type is a struct, its fields _0, _1, and so on. */
+	uint64_t spreads[] = {98305, 0};
+	for (int i = 0; i < 2; i++) {
+		api_option_tuple_u8_i16_u32_u64 spread = api_spread(spreads[i]);
+		if (spread.some) {
+			printf("spread %u %d %u %llu\n", spread.value._0, spread.value._1, spread.value._2,
+				   (unsigned long long)spread.value._3);
+		} else {
+			printf("spread none\n");
+		}
+	}
+	const char *needles[] = {"lo", "x"};
+	for (int i = 0; i < 2; i++) {
+		api_option_tuple_usize_usize found = api_find(str("hello"), str(needles[i]));
+		if (found.some) {
+			printf("find %zu %zu\n", found.value._0, found.value._1);
+		} else {
+			printf("find none\n");
+		}
+	}
+	api_point row_points[] = {{.x = 1, .y = 2}, {.x = 3, .y = 3}};
+	api_vec_tuple_string_shape_point stat_rows = api_rows((api_vec_point){.ptr = row_points, .len = 2});
+	printf("rows");
+	for (size_t i = 0; i < stat_rows.len; i++) {
+		/* The array's free frees each element's buffer. */
+		printf("%s%.*s ", i == 0 ? " " : ", ", (int)stat_rows.ptr[i]._0.len, (const char *)stat_rows.ptr[i]._0.ptr);
+		print("", api_shape_debug(&stat_rows.ptr[i]._1), " ");
+		printf("%d %d", stat_rows.ptr[i]._2.x, stat_rows.ptr[i]._2.y);
+	}
+	printf("\n");
+	api_vec_tuple_string_shape_point_free(stat_rows);
+	/* Each handle in a tuple moves in, as one taken by value does. */
+	api_tuple_string_counter tallies[] = {
+		{._0 = str("low"), ._1 = api_counter_new(str("l"), 1)},
+		{._0 = str("high"), ._1 = api_counter_new(str("h"), 9)},
+	};
+	api_board *board = api_board_new((api_vec_tuple_string_counter){.ptr = tallies, .len = 2});
+	api_counter_free(tallies[0]._1);
+	api_counter_free(tallies[1]._1);
+	api_vec_tuple_string_counter ranked = api_board_ranked(board);
+	printf("ranked");
+	for (size_t i = 0; i < ranked.len; i++) {
+		printf("%s%.*s ", i == 0 ? " " : ", ", (int)ranked.ptr[i]._0.len, (const char *)ranked.ptr[i]._0.ptr);
+		print("", api_counter_name(ranked.ptr[i]._1), " ");
+		printf("%llu", (unsigned long long)api_counter_get(ranked.ptr[i]._1));
+	}
+	printf("\n");
+	api_vec_tuple_string_counter_free(ranked);
+	api_board_free(board);
+	api_span span = {
+		.bounds = {._0 = 2, ._1 = 10},
+		.named = {.some = true, .value = {._0 = str("s"), ._1 = API_SHAPE_SQUARE}},
+	};
+	api_tuple_u32_u32 lower_half, upper_half;
+	api_halves(span, &lower_half, &upper_half);
+	printf("halves %u %u %u %u ", lower_half._0, lower_half._1, upper_half._0, upper_half._1);
+	print("", api_span_debug(&span), "\n");
+	uint32_t swapped_n;
+	api_buf swapped_text;
+	api_swapped((api_tuple_string_u32){._0 = str("t"), ._1 = 4}, &swapped_n, &swapped_text);
+	printf("swapped %u ", swapped_n);
+	print("", swapped_text, "\n");
 
 	/* Each lent counter is a new handle to a clone. */
 	api_registry *registry = api_registry_new(api_counter_new(str("first"), 1));

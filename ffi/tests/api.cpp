@@ -169,6 +169,55 @@ int script() {
 			print("divide err ", api::error_to_string(r.error()), "\n");
 		}
 	}
+	// A tuple inside another type is a std::tuple.
+	for (std::uint64_t n : {98305, 0}) {
+		if (auto spread = api::spread(n)) {
+			auto [s8, s16, s32, s64] = *spread;
+			std::printf("spread %u %d %u %llu\n", s8, s16, s32, ull(s64));
+		} else {
+			std::printf("spread none\n");
+		}
+	}
+	for (const char *needle : {"lo", "x"}) {
+		if (auto found = api::find("hello", needle)) {
+			std::printf("find %zu %zu\n", std::get<0>(*found), std::get<1>(*found));
+		} else {
+			std::printf("find none\n");
+		}
+	}
+	std::printf("rows");
+	auto stat_rows = api::rows({api::point{1, 2}, api::point{3, 3}});
+	for (std::size_t i = 0; i < stat_rows.size(); i++) {
+		auto &[name, shape, at] = stat_rows[i];
+		print(i == 0 ? " " : ", ", name, " ");
+		print("", api::shape_debug(shape), " ");
+		std::printf("%d %d", at.x, at.y);
+	}
+	std::printf("\n");
+	{
+		// Each handle in a tuple moves in, as one taken by value does.
+		std::vector<std::tuple<api::view, api::counter>> tallies;
+		tallies.emplace_back("low", api::counter::new_("l", 1));
+		tallies.emplace_back("high", api::counter::new_("h", 9));
+		auto board = api::board::new_(std::move(tallies));
+		std::printf("ranked");
+		auto ranked = board.ranked();
+		for (std::size_t i = 0; i < ranked.size(); i++) {
+			auto &[name, counter] = ranked[i];
+			print(i == 0 ? " " : ", ", name, " ");
+			print("", counter.name(), " ");
+			std::printf("%llu", ull(counter.get()));
+		}
+		std::printf("\n");
+	}
+	api::span span{{2, 10}, std::make_tuple(api::buf("s"), api::shape::square)};
+	auto [lower_half, upper_half] = api::halves(span);
+	std::printf("halves %u %u %u %u ", std::get<0>(lower_half), std::get<1>(lower_half), std::get<0>(upper_half),
+				std::get<1>(upper_half));
+	print("", span.debug(), "\n");
+	auto [swapped_n, swapped_text] = api::swapped({"t", 4});
+	std::printf("swapped %u ", swapped_n);
+	print("", swapped_text, "\n");
 
 	// Each lent counter is a new handle to a clone.
 	api::registry registry = api::registry::new_(api::counter::new_("first", 1));
