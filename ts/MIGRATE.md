@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A `&mut` to an `Arc`, a pinned `Arc`, or a `Waker` is an `rt.Place` of it, as a `&mut`
+  to a number is, rather than the object: a caller passes one as `{ v: arc }` and reads
+  the `Arc` it holds after the call from `v`.
 - A binding's path names a dependency the package renames (`foo = { package = "bar" }`)
   as the package does, `foo::Item`, no longer by its crate name, `bar::Item`.
 - A panic aborts, as on wasm32: the output throws `rt.Panic` without running any cleanup,

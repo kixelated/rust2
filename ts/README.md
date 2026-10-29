@@ -86,7 +86,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
+| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
 | `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
 | `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
 | `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
@@ -221,7 +221,15 @@ on, returned, kept in a field, or captured by a value, it is
 `rt.place(() => x, (value) => x = value)` over that place, the objects and index it goes
 through held as they were when it was borrowed; a reborrow of one is the same
 `rt.Place`. A caller passes one as `{ v }`, or as any object whose `v` it reads and writes.
-std's mappings take a `&mut` parameter as what it points at.
+std's mappings take a `&mut` parameter as what it points at. So is a `&mut` to an `Arc`, a
+pinned `Arc`, or a `Waker`, whose clones may be one JS object.
+
+A `&mut` to any other object is the object. A whole write through it, `*r = v` or std's
+`mem::replace`, `mem::take`, or `mem::swap`, assigns the place it borrows where that is
+known, as a local, a field, an element, or a `MutexGuard`'s value, and otherwise writes
+into the object in place: a `Vec`'s items, or the fields of a struct, a collection, or a
+`Weak`, with what it held moved out into an object of its own. A guard, a context, a
+pinned reference, or a binding's value, whose object is shared or opaque, is refused there.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and

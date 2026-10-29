@@ -693,15 +693,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// What `place` is, where it is `*r` for an `r` that is the object it points at, with
 	/// no place known to hold it: neither an alias of a borrowed place, nor an `rt.Place`,
-	/// nor a closure's environment.
+	/// nor a closure's environment, nor an alias of a reference to no object, such as a
+	/// `&mut &str`, which only an alias of the place it borrows can be.
 	pub(super) fn into_object(&self, place: Place<'tcx>) -> Option<Ty<'tcx>> {
 		let [ProjectionElem::Deref] = place.projection.as_slice() else {
 			return None;
 		};
+		let pointee = place.ty(&self.mir.local_decls, self.tcx).ty;
+		let ty = self.mir.local_decls[place.local].ty;
+		let lent = matches!(self.slots[place.local], Slot::Alias(_))
+			&& !matches!(ty.kind(), ty::RawPtr(..))
+			&& self.b.t.object_kind(pointee).is_none();
 		let ok = !self.alias_of_place(place.local)
-			&& self.b.t.place_pointee(self.mir.local_decls[place.local].ty).is_none()
+			&& !lent
+			&& self.b.t.place_pointee(ty).is_none()
 			&& !(place.local.as_u32() == 1 && matches!(self.env, Env::Closure(_)));
-		ok.then(|| place.ty(&self.mir.local_decls, self.tcx).ty)
+		ok.then_some(pointee)
 	}
 
 	/// Whether `place` is `*r` for an `r` that is the object it points at, which a whole
