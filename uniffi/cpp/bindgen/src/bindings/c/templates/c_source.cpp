@@ -2,14 +2,13 @@
 #include "{{ namespace }}.h"
 #include "{{ namespace }}.hpp"
 
-#include <condition_variable>
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 #include <type_traits>
 #include <utility>
 
@@ -44,52 +43,15 @@ inline const char *copy_string(const std::string &value) {
     return out;
 }
 
-// Whether a task's callback may still run. Freeing a task cancels it unless the callback
-// already started, and then waits for the callback unless it is the one freeing the task.
-class TaskState {
-public:
-    template <typename Deliver>
-    void run(Deliver &&deliver) {
-        {
-            std::lock_guard<std::mutex> guard(mutex_);
-            if (phase_ == Phase::Cancelled) {
-                return;
-            }
-            phase_ = Phase::Running;
-            runner_ = std::this_thread::get_id();
-        }
-        deliver();
-        {
-            std::lock_guard<std::mutex> guard(mutex_);
-            phase_ = Phase::Finished;
-        }
-        finished_.notify_all();
-    }
-
-    void cancel() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        if (phase_ == Phase::Pending) {
-            phase_ = Phase::Cancelled;
-        } else if (phase_ == Phase::Running && runner_ != std::this_thread::get_id()) {
-            finished_.wait(lock, [this] { return phase_ == Phase::Finished; });
-        }
-    }
-
-private:
-    enum class Phase { Pending, Running, Finished, Cancelled };
-
-    std::mutex mutex_;
-    std::condition_variable finished_;
-    Phase phase_ = Phase::Pending;
-    std::thread::id runner_;
-};
-
 } // namespace {{ namespace }}::c_detail
 
 struct {{ ty }}Task {
-    std::shared_ptr<::{{ namespace }}::c_detail::TaskState> state;
+    // Set by whichever runs the callback first, the result or the cancel, so it runs once.
+    std::shared_ptr<std::atomic<bool>> claimed;
     // Destroying it cancels the Rust future, which is a no-op once it completed.
     ::uniffi::FutureContinuation continuation;
+    // Runs the callback with `cancelled` set.
+    std::function<void()> cancel;
 };
 
 struct {{ ty }}Work {
@@ -106,23 +68,27 @@ namespace {{ namespace }}::c_detail {
 
 // Delivers a future's output to `deliver` on the dispatcher, never on the calling thread,
 // so a callback cannot run before the call that started it returns its task.
-template <typename Future, typename Deliver>
-::{{ ty }}Task *spawn(Future future, Deliver deliver) {
-    auto state = std::make_shared<TaskState>();
+template <typename Future, typename Deliver, typename Cancel>
+::{{ ty }}Task *spawn(Future future, Deliver deliver, Cancel cancel) {
+    auto claimed = std::make_shared<std::atomic<bool>>(false);
     auto executor = [](::uniffi::AsyncTask task) {
         return ::uniffi::detail::dispatch_async(std::move(task));
     };
     using Output = typename Future::Output;
     if constexpr (std::is_void_v<Output>) {
-        auto continuation = std::move(future).then(executor, [state, deliver]() {
-            state->run(deliver);
+        auto continuation = std::move(future).then(executor, [claimed, deliver]() {
+            if (!claimed->exchange(true)) {
+                deliver();
+            }
         });
-        return new ::{{ ty }}Task{std::move(state), std::move(continuation)};
+        return new ::{{ ty }}Task{std::move(claimed), std::move(continuation), std::move(cancel)};
     } else {
-        auto continuation = std::move(future).then(executor, [state, deliver](Output output) {
-            state->run([&] { deliver(std::move(output)); });
+        auto continuation = std::move(future).then(executor, [claimed, deliver](Output output) {
+            if (!claimed->exchange(true)) {
+                deliver(std::move(output));
+            }
         });
-        return new ::{{ ty }}Task{std::move(state), std::move(continuation)};
+        return new ::{{ ty }}Task{std::move(claimed), std::move(continuation), std::move(cancel)};
     }
 }
 
@@ -134,8 +100,13 @@ void {{ ns }}_task_free({{ ty }}Task *task) {
     if (!task) {
         return;
     }
-    task->state->cancel();
+    auto cancel = std::move(task->cancel);
+    const bool pending = !task->claimed->exchange(true);
     delete task;
+    // Dispatched like a result, so it never runs inside a call; a refusal drops it.
+    if (pending) {
+        (void)::uniffi::detail::dispatch_async(std::move(cancel));
+    }
 }
 
 void {{ ns }}_work_run({{ ty }}Work *work) {

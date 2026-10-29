@@ -2,8 +2,10 @@
 //! the impl of the value's own type, a struct, an enum, or a number, changing it in place
 //! through `&mut self` wherever it is, a provided method, a supertrait's, `Debug` among
 //! them, `self: Box<Self>`, and an upcast to the supertrait. Behind an `Arc`, the object
-//! shares the count of the `Arc` it was made from.
+//! shares the count of the `Arc` it was made from. A `dyn Any` downcasts to the type it
+//! was made of, borrowed, boxed, or shared.
 
+use std::any::Any;
 use std::fmt::{self, Debug};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Weak};
@@ -276,4 +278,149 @@ pub fn shared(data: &[u8], out: &mut Vec<u8>) {
 		k.tally(&mut total);
 	}
 	put(out, &format!("{total} {}", counts(&kept.iter().collect::<Vec<_>>())));
+}
+
+/// A value that knows its own type, as an object of a trait whose `as_any` gives it.
+trait Erased {
+	fn as_any(&self) -> &dyn Any;
+	fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T: Any> Erased for T {
+	fn as_any(&self) -> &dyn Any {
+		self
+	}
+	fn as_any_mut(&mut self) -> &mut dyn Any {
+		self
+	}
+}
+
+/// What `a` holds, by the type it downcasts to.
+fn kind(a: &dyn Any) -> String {
+	if let Some(sq) = a.downcast_ref::<Square>() {
+		format!("square {}", sq.side)
+	} else if let Some(n) = a.downcast_ref::<u32>() {
+		format!("u32 {n}")
+	} else if let Some(t) = a.downcast_ref::<Tri>() {
+		format!("tri {t:?}")
+	} else if a.is::<u8>() {
+		"u8".into()
+	} else {
+		"other".into()
+	}
+}
+
+/// Bumps the number or enum `a` holds where it is.
+fn bump(a: &mut dyn Any, by: u8) -> bool {
+	if let Some(n) = a.downcast_mut::<u32>() {
+		*n = n.wrapping_add(u32::from(by));
+		true
+	} else if let Some(t) = a.downcast_mut::<Tri>() {
+		t.grow(by);
+		true
+	} else if let Some(sq) = a.downcast_mut::<Square>() {
+		sq.grow(by);
+		true
+	} else {
+		false
+	}
+}
+
+/// The same, through a generic `downcast_ref`, as a type parameter instantiates it.
+fn is_a<T: Any>(e: &dyn Erased) -> bool {
+	e.as_any().downcast_ref::<T>().is_some()
+}
+
+pub fn anys(data: &[u8], out: &mut Vec<u8>) {
+	let [a, b, rest @ ..] = data else {
+		return;
+	};
+	let (a, b) = (*a, *b);
+
+	// Borrowed, of each type, and of one no downcast names.
+	let mut sq = Square { side: u16::from(a) };
+	let mut tri = if b % 2 == 0 { Tri::Flat } else { Tri::Tall(b) };
+	let mut n = u32::from(b);
+	let anys: [&dyn Any; 5] = [&sq, &tri, &n, &a, &"str"];
+	for x in anys {
+		put(out, &format!("{} ", kind(x)));
+	}
+
+	// Changed in place through `&mut dyn Any`, which JS copies for a number and an enum.
+	let hit = (bump(&mut sq, a), bump(&mut tri, b), bump(&mut n, a), bump(&mut 0u8, a));
+	put(out, &format!("{} {tri:?} {n} {hit:?} ", sq.side));
+
+	// Through a trait whose methods give the value as `dyn Any`.
+	let erased: [&dyn Erased; 3] = [&sq, &tri, &n];
+	for e in erased {
+		put(
+			out,
+			&format!("{}{}{} ", is_a::<Square>(e), is_a::<u32>(e), kind(e.as_any())),
+		);
+	}
+	let mut m = u32::from(a);
+	let e: &mut dyn Erased = &mut m;
+	if let Some(x) = e.as_any_mut().downcast_mut::<u32>() {
+		*x = x.wrapping_mul(3);
+	}
+	put(out, &format!("{m} "));
+
+	// Of types that can be `undefined`, whose `None` is `rt.None`.
+	let unit: &dyn Any = &();
+	put(
+		out,
+		&format!("{:?} ", (unit.downcast_ref::<()>(), unit.is::<Option<u8>>())),
+	);
+	let (mut some, mut none) = (Some(a), None::<u8>);
+	let odd: [&mut dyn Any; 3] = [&mut some, &mut none, &mut n];
+	for x in odd {
+		let found = (x.downcast_ref::<()>(), x.downcast_ref::<Option<u8>>().copied());
+		put(out, &format!("{found:?}"));
+		if let Some(o) = x.downcast_mut::<Option<u8>>() {
+			*o = o.map_or(Some(b), |_| None);
+		}
+		put(out, &format!("{} ", x.downcast_mut::<()>().is_some()));
+	}
+	put(out, &format!("{some:?} {none:?} "));
+
+	// Owned: a box downcasts to its value, or back to itself.
+	let mut boxes: Vec<Box<dyn Any>> = Vec::new();
+	for (i, &x) in rest.iter().enumerate() {
+		boxes.push(match x % 4 {
+			0 => Box::new(x) as Box<dyn Any>,
+			1 => Box::new(u32::from(x)),
+			2 => Box::new(Tri::Tall(x)),
+			_ => Box::new(Square { side: i as u16 }),
+		});
+	}
+	let mut kept = Vec::new();
+	for (i, boxed) in boxes.into_iter().enumerate() {
+		match boxed.downcast::<u32>() {
+			Ok(n) => put(out, &format!("n{} ", *n)),
+			Err(other) if i % 2 == 0 => kept.push(other),
+			Err(other) => match other.downcast::<u8>() {
+				Ok(byte) => put(out, &format!("u8 {byte} ")),
+				Err(other) => put(out, &format!("{} ", kind(&*other))),
+			},
+		}
+	}
+	for k in kept.iter_mut().rev() {
+		put(out, &format!("{}:{} ", kind(&**k), bump(&mut **k, a)));
+	}
+
+	// Shared: one count across the clones, and `Arc::downcast` gives back the `Arc` it
+	// was made of.
+	let hold: Arc<dyn Any + Send + Sync> = Arc::new((a, b));
+	let held = [hold.clone(), hold.clone()];
+	put(
+		out,
+		&format!("{} {:?} ", Arc::strong_count(&hold), hold.downcast_ref::<(u8, u8)>()),
+	);
+	drop(held);
+	put(out, &format!("{} ", Arc::strong_count(&hold)));
+	let typed = match hold.downcast::<u8>() {
+		Ok(_) => unreachable!(),
+		Err(hold) => hold.downcast::<(u8, u8)>().map(|t| (Arc::strong_count(&t), t.0)).ok(),
+	};
+	put(out, &format!("{typed:?}"));
 }

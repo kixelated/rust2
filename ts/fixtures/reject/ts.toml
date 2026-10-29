@@ -62,5 +62,7 @@ roots = [
     "missing",
     "generic_pending",
     "rebound_reference",
+    "any_upcast",
+    "any_type_id",
 ]
 printable = ["Meters"]

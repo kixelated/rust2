@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
+import type * as Any from "./core/any.Any.ts";
 import type * as Window from "./durations.Window.ts";
 import type * as Pair from "./fmt.Pair.ts";
 import type * as Either from "./generics.Either.ts";
@@ -179,6 +180,10 @@ export function copy$chars(v: rt.char[]): rt.char[] {
 	return v.slice();
 }
 
+export function copy$dyn_Anys(v: Any.Any[]): Any.Any[] {
+	return v.slice();
+}
+
 export function copy$str_forabfnu8au8bmutstdvecVecu8(v: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void] {
 	return [v[0], v[1]];
 }
@@ -252,6 +257,12 @@ export function drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(_1: rt.Re
 		rt.mutexUnlock(_1.value);
 	} else {
 		drop$TryLockError_MutexGuard_u32(_1.error);
+	}
+}
+
+export function drop$Result_usize_u8_Arc_dyn_Any(_1: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>): void {
+	if (!_1.ok) {
+		rt.drop(_1.error);
 	}
 }
 
