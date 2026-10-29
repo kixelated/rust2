@@ -292,6 +292,8 @@ export const u8IsMultipleOf = (a: u8, b: u8): boolean => multipleOf(a, b);
 export const u8LeadingOnes = (a: u8): number => Math.clz32(~(a << 24));
 /** `u8`'s `leading_zeros`: the count of leading zero bits. */
 export const u8LeadingZeros = (a: u8): number => Math.clz32(a) - 24;
+/** `u8`'s `trailing_zeros`: the count of trailing zero bits. */
+export const u8TrailingZeros = (a: u8): number => trailingZeros32(a, 8);
 /** `u8`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const u8FromBeBytes = (bytes: Uint8Array): u8 => beWord(bytes) & 0xff;
 /** `u8`'s `to_be_bytes`: its big-endian bytes. */
@@ -355,6 +357,8 @@ export const u16IsMultipleOf = (a: u16, b: u16): boolean => multipleOf(a, b);
 export const u16LeadingOnes = (a: u16): number => Math.clz32(~(a << 16));
 /** `u16`'s `leading_zeros`: the count of leading zero bits. */
 export const u16LeadingZeros = (a: u16): number => Math.clz32(a) - 16;
+/** `u16`'s `trailing_zeros`: the count of trailing zero bits. */
+export const u16TrailingZeros = (a: u16): number => trailingZeros32(a, 16);
 /** `u16`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const u16FromBeBytes = (bytes: Uint8Array): u16 => beWord(bytes) & 0xffff;
 /** `u16`'s `to_be_bytes`: its big-endian bytes. */
@@ -418,6 +422,8 @@ export const u32IsMultipleOf = (a: u32, b: u32): boolean => multipleOf(a, b);
 export const u32LeadingOnes = (a: u32): number => Math.clz32(~a);
 /** `u32`'s `leading_zeros`: the count of leading zero bits. */
 export const u32LeadingZeros = (a: u32): number => Math.clz32(a);
+/** `u32`'s `trailing_zeros`: the count of trailing zero bits. */
+export const u32TrailingZeros = (a: u32): number => trailingZeros32(a, 32);
 /** `u32`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const u32FromBeBytes = (bytes: Uint8Array): u32 => word(bytes, 0);
 /** `u32`'s `to_be_bytes`: its big-endian bytes. */
@@ -479,6 +485,8 @@ export const i8WrappingMul = (a: i8, b: i8): i8 => (Math.imul(a, b) << 24) >> 24
 export const i8LeadingOnes = (a: i8): number => Math.clz32(~(a << 24));
 /** `i8`'s `leading_zeros`: the count of leading zero bits. */
 export const i8LeadingZeros = (a: i8): number => Math.clz32(a & 0xff) - 24;
+/** `i8`'s `trailing_zeros`: the count of trailing zero bits. */
+export const i8TrailingZeros = (a: i8): number => trailingZeros32(a, 8);
 /** `i8`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const i8FromBeBytes = (bytes: Uint8Array): i8 => (beWord(bytes) << 24) >> 24;
 /** `i8`'s `to_be_bytes`: its big-endian bytes. */
@@ -540,6 +548,8 @@ export const i16WrappingMul = (a: i16, b: i16): i16 => (Math.imul(a, b) << 16) >
 export const i16LeadingOnes = (a: i16): number => Math.clz32(~(a << 16));
 /** `i16`'s `leading_zeros`: the count of leading zero bits. */
 export const i16LeadingZeros = (a: i16): number => Math.clz32(a & 0xffff) - 16;
+/** `i16`'s `trailing_zeros`: the count of trailing zero bits. */
+export const i16TrailingZeros = (a: i16): number => trailingZeros32(a, 16);
 /** `i16`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const i16FromBeBytes = (bytes: Uint8Array): i16 => (beWord(bytes) << 16) >> 16;
 /** `i16`'s `to_be_bytes`: its big-endian bytes. */
@@ -601,6 +611,8 @@ export const i32WrappingMul = (a: i32, b: i32): i32 => Math.imul(a, b);
 export const i32LeadingOnes = (a: i32): number => Math.clz32(~a);
 /** `i32`'s `leading_zeros`: the count of leading zero bits. */
 export const i32LeadingZeros = (a: i32): number => Math.clz32(a);
+/** `i32`'s `trailing_zeros`: the count of trailing zero bits. */
+export const i32TrailingZeros = (a: i32): number => trailingZeros32(a, 32);
 /** `i32`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const i32FromBeBytes = (bytes: Uint8Array): i32 => word(bytes, 0) | 0;
 /** `i32`'s `to_be_bytes`: its big-endian bytes. */
@@ -675,6 +687,8 @@ export const usizeIsMultipleOf: (a: usize, b: usize) => boolean = u32IsMultipleO
 export const usizeLeadingOnes: (a: usize) => number = u32LeadingOnes as never;
 /** `usize`'s `leading_zeros`: the count of leading zero bits. */
 export const usizeLeadingZeros: (a: usize) => number = u32LeadingZeros as never;
+/** `usize`'s `trailing_zeros`: the count of trailing zero bits. */
+export const usizeTrailingZeros: (a: usize) => number = u32TrailingZeros as never;
 /** `usize`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const usizeFromBeBytes: (bytes: Uint8Array) => usize = u32FromBeBytes as never;
 /** `usize`'s `to_be_bytes`: its big-endian bytes. */
@@ -735,6 +749,8 @@ export const isizeWrappingMul: (a: isize, b: isize) => isize = i32WrappingMul as
 export const isizeLeadingOnes: (a: isize) => number = i32LeadingOnes as never;
 /** `isize`'s `leading_zeros`: the count of leading zero bits. */
 export const isizeLeadingZeros: (a: isize) => number = i32LeadingZeros as never;
+/** `isize`'s `trailing_zeros`: the count of trailing zero bits. */
+export const isizeTrailingZeros: (a: isize) => number = i32TrailingZeros as never;
 /** `isize`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const isizeFromBeBytes: (bytes: Uint8Array) => isize = i32FromBeBytes as never;
 /** `isize`'s `to_be_bytes`: its big-endian bytes. */
@@ -1200,6 +1216,24 @@ function not128(a: Wide, signed: boolean): Wide {
 	return one(box(~exact(limbs(a, 128, signed)), 128, signed));
 }
 
+/** The count of trailing zero bits of `a`, a value of a type `bits` wide: all of them if `a` is 0. */
+function trailingZeros32(a: number, bits: number): number {
+	return a === 0 ? bits : 31 - Math.clz32(a & -a);
+}
+
+function trailingZeros64(a: Wide, signed: boolean): number {
+	const x = limbs(a, 64, signed);
+	return x.lo !== 0 ? trailingZeros32(x.lo, 32) : 32 + trailingZeros32(x.hi, 32);
+}
+
+function trailingZeros128(a: Wide, signed: boolean): number {
+	const v = BigInt.asUintN(128, exact(limbs(a, 128, signed)));
+	if (v === 0n) return 128;
+	let n = 0;
+	while (!((v >> BigInt(n)) & 1n)) n++;
+	return n;
+}
+
 function leadingZeros64(a: Wide, signed: boolean): number {
 	const x = limbs(a, 64, signed);
 	const hi = x.hi >>> 0;
@@ -1394,6 +1428,8 @@ export const u64IsMultipleOf = (a: u64, b: u64): boolean => (typeof a === "numbe
 export const u64LeadingOnes = (a: u64): number => leadingOnes64(a, false);
 /** `u64`'s `leading_zeros`: the count of leading zero bits. */
 export const u64LeadingZeros = (a: u64): number => leadingZeros64(a, false);
+/** `u64`'s `trailing_zeros`: the count of trailing zero bits. */
+export const u64TrailingZeros = (a: u64): number => trailingZeros64(a, false);
 /** `u64`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const u64FromBeBytes = (bytes: Uint8Array): u64 => fromBeBytes64(bytes, false) as u64;
 /** `u64`'s `to_be_bytes`: its big-endian bytes. */
@@ -1500,6 +1536,8 @@ export const i64WrappingMul = (a: i64, b: i64): i64 => (typeof a === "number" &&
 export const i64LeadingOnes = (a: i64): number => leadingOnes64(a, true);
 /** `i64`'s `leading_zeros`: the count of leading zero bits. */
 export const i64LeadingZeros = (a: i64): number => leadingZeros64(a, true);
+/** `i64`'s `trailing_zeros`: the count of trailing zero bits. */
+export const i64TrailingZeros = (a: i64): number => trailingZeros64(a, true);
 /** `i64`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const i64FromBeBytes = (bytes: Uint8Array): i64 => fromBeBytes64(bytes, true) as i64;
 /** `i64`'s `to_be_bytes`: its big-endian bytes. */
@@ -1606,6 +1644,8 @@ export const u128IsMultipleOf = (a: u128, b: u128): boolean => (typeof a === "nu
 export const u128LeadingOnes = (a: u128): number => leadingOnes128(a, false);
 /** `u128`'s `leading_zeros`: the count of leading zero bits. */
 export const u128LeadingZeros = (a: u128): number => leadingZeros128(a, false);
+/** `u128`'s `trailing_zeros`: the count of trailing zero bits. */
+export const u128TrailingZeros = (a: u128): number => trailingZeros128(a, false);
 /** `u128`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const u128FromBeBytes = (bytes: Uint8Array): u128 => fromBeBytes128(bytes, false) as u128;
 /** `u128`'s `to_be_bytes`: its big-endian bytes. */
@@ -1710,6 +1750,8 @@ export const i128WrappingMul = (a: i128, b: i128): i128 => (typeof a === "number
 export const i128LeadingOnes = (a: i128): number => leadingOnes128(a, true);
 /** `i128`'s `leading_zeros`: the count of leading zero bits. */
 export const i128LeadingZeros = (a: i128): number => leadingZeros128(a, true);
+/** `i128`'s `trailing_zeros`: the count of trailing zero bits. */
+export const i128TrailingZeros = (a: i128): number => trailingZeros128(a, true);
 /** `i128`'s `from_be_bytes`: a value from its big-endian bytes. */
 export const i128FromBeBytes = (bytes: Uint8Array): i128 => fromBeBytes128(bytes, true) as i128;
 /** `i128`'s `to_be_bytes`: its big-endian bytes. */
