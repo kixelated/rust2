@@ -131,7 +131,8 @@ refused, and the census counts why.
   it finishes or is freed.
 - **Wakers** move into Rust, which calls `drop` once it lets go of the last clone, so a
   state machine polled with a waker, such as moq's `Driver`s through kio's `Waiter`, runs
-  from the caller's event loop.
+  from the caller's event loop. Rust may call `wake` and `drop` from any thread, as a
+  runtime's workers do.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
@@ -292,6 +293,8 @@ moq's crates export through `target/moq-ffi`, an empty library on each that `jus
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
-publishes a binary track the catalog lists, and reads the catalog lent to C through
-`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
-C++17 without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.
+sets and reads a field of the catalog lent to C through `catalog::Producer::mutate`, and
+serves a broadcast from a moq-tokio server bound to port 0 to a client that reads it over
+QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp` does the
+same through the C++ header, short of the catalog's field and the session, at C++17
+without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.

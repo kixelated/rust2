@@ -4,11 +4,18 @@
  * each names the others' types, the catalog is lent to C for a call, and a session's
  * config is filled in field by field.
  *
- * It needs no runtime: the waker counts wakes, and each poll that must wait is polled
- * again after the write that wakes it. */
+ * The local reads need no runtime: the waker counts wakes, and each poll that must wait
+ * is polled again after the write that wakes it. A session over QUIC runs on moq-tokio's
+ * fallback runtime, whose threads wake this one. */
 
+#define _POSIX_C_SOURCE 200809L
+
+#include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "moq.h"
 
@@ -58,6 +65,62 @@ static void wake(void *data) {
 	(void)data;
 	wakes++;
 }
+
+/* A session's futures complete on moq-tokio's runtime threads, so its waker signals this
+ * thread, which waits for a wake after a poll finds a future pending. */
+static pthread_mutex_t woken_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t woken_cond = PTHREAD_COND_INITIALIZER;
+static unsigned long woken = 0;
+
+static void wake_session(void *data) {
+	(void)data;
+	pthread_mutex_lock(&woken_lock);
+	woken++;
+	pthread_cond_broadcast(&woken_cond);
+	pthread_mutex_unlock(&woken_lock);
+}
+
+static const moq_waker session_waker = {.wake = wake_session};
+
+static unsigned long wakes_so_far(void) {
+	pthread_mutex_lock(&woken_lock);
+	unsigned long n = woken;
+	pthread_mutex_unlock(&woken_lock);
+	return n;
+}
+
+/* Waits for a wake after `seen`, failing the run rather than hanging when none comes. */
+static void wait_wake(unsigned long seen) {
+	struct timespec deadline;
+	clock_gettime(CLOCK_REALTIME, &deadline);
+	deadline.tv_sec += 30;
+	pthread_mutex_lock(&woken_lock);
+	while (woken == seen) {
+		if (pthread_cond_timedwait(&woken_cond, &woken_lock, &deadline) == ETIMEDOUT) {
+			fprintf(stderr, "no wake in 30 seconds\n");
+			abort();
+		}
+	}
+	pthread_mutex_unlock(&woken_lock);
+}
+
+/* The server's accept loop, which must keep running while the client waits on it. */
+static moq_tokio_server_serve_publish_future *serving = NULL;
+
+/* Polls `poll` until it is ready, and the server's accept loop alongside it. */
+#define AWAIT(poll)                                                                                                    \
+	for (;;) {                                                                                                         \
+		unsigned long seen = wakes_so_far();                                                                           \
+		moq_tokio_error *serve_err = NULL;                                                                             \
+		if (moq_tokio_server_serve_publish_poll(serving, session_waker, &serve_err) == MOQ_POLL_READY) {             \
+			fprintf(stderr, "%s:%d: the server stopped\n", __FILE__, __LINE__);                                        \
+			abort();                                                                                                   \
+		}                                                                                                              \
+		if ((poll) == MOQ_POLL_READY) {                                                                                \
+			break;                                                                                                     \
+		}                                                                                                              \
+		wait_wake(seen);                                                                                               \
+	}
 
 int main(void) {
 	moq_waker waker = {.wake = wake};
@@ -402,6 +465,122 @@ int main(void) {
 	moq_vec_string alpns_all = moq_alpns();
 	CHECK(alpns_all.len > 0);
 	moq_vec_string_free(alpns_all);
+
+	/* A session from C: a server binds QUIC on port 0, reads back the port it got, and
+	 * serves an origin with one call, and a client dials it with one call and reads a frame
+	 * back. Neither has a runtime of C's, so moq-tokio's fallback runs both. */
+	moq_origin_producer *served = moq_origin_spawn();
+	moq_origin_publication *live = NULL;
+	CHECK(moq_origin_producer_create_broadcast(served, str("live"), &live, &err));
+	moq_origin_route *route = moq_origin_route_default();
+	CHECK(moq_origin_publication_announce(live, route, &err));
+	moq_origin_route_free(route);
+	moq_broadcast_producer *live_broadcast = moq_origin_publication_broadcast(live);
+	moq_track_producer *live_track = NULL;
+	CHECK(moq_broadcast_producer_create_track(live_broadcast, str("video"), NULL, &live_track, &err));
+	moq_group_producer *live_group = NULL;
+	CHECK(moq_track_producer_append_group(live_track, &live_group, &err));
+	CHECK(moq_group_producer_write_frame(live_group, NULL, str("hello"), &err));
+	CHECK(moq_group_producer_finish(live_group, &err));
+	moq_group_producer_free(live_group);
+
+	moq_server_config *server_config = moq_server_config_default();
+	moq_listen_config *listen_config = moq_server_config_listen(server_config);
+	moq_listen_bind any = {.tag = MOQ_LISTEN_BIND_ADDR, .addr = {._0 = {.port = 0, .v6 = true}}};
+	moq_listen_config_set_bind(listen_config, (moq_option_listen_bind){.some = true, .value = any});
+	moq_tls_listen *tls_listen = moq_tls_listen_default();
+	moq_buf names[] = {str("localhost")};
+	moq_tls_listen_set_generate(tls_listen, (moq_vec_string){.ptr = names, .len = 1});
+	moq_listen_config_set_tls(listen_config, tls_listen);
+	moq_tls_listen_free(tls_listen);
+	moq_server_config_set_listen(server_config, listen_config);
+	moq_listen_config_free(listen_config);
+	moq_tokio_server *server = NULL;
+	CHECK(moq_server_config_init(server_config, &server, &tokio_err));
+	moq_server_config_free(server_config);
+	moq_socket_addr local;
+	CHECK(moq_tokio_server_local_addr(server, &local, &tokio_err));
+	CHECK(local.v6 && local.port != 0);
+	moq_origin_consumer *published = moq_origin_producer_consume(served);
+	serving = moq_tokio_server_serve_publish(server, published);
+	moq_tokio_server_free(server);
+	moq_origin_consumer_free(published);
+
+	char address[32];
+	snprintf(address, sizeof address, "moqt://localhost:%u", (unsigned)local.port);
+	moq_connect_config *dialing = moq_connect_config_default();
+	CHECK(moq_url_parse(str(address), &url, &parse_err));
+	moq_connect_config_set_url(dialing, url);
+	moq_url_free(url);
+	tls = moq_connect_config_tls(dialing);
+	moq_tls_connect_set_insecure(tls, (moq_option_bool){.some = true, .value = true});
+	moq_connect_config_set_tls(dialing, tls);
+	moq_tls_connect_free(tls);
+	moq_client_config *session_client = moq_client_config_default();
+	moq_client_config_set_connect(session_client, dialing);
+	moq_connect_config_free(dialing);
+	moq_tokio_client *dialer = NULL;
+	CHECK(moq_client_config_init(session_client, &dialer, &tokio_err));
+	moq_client_config_free(session_client);
+	moq_tokio_client *dialer_copy = moq_tokio_client_clone(dialer);
+	moq_tokio_client *once = moq_tokio_client_with_reconnect(dialer_copy, false);
+	moq_tokio_client_free(dialer_copy);
+	moq_origin_producer *received = moq_origin_spawn();
+	moq_origin_consumer *remote = moq_origin_producer_consume(received);
+	moq_connection *connection = moq_tokio_client_consume(once, received);
+	moq_tokio_client_free(once);
+	moq_origin_producer_free(received);
+	CHECK(connection != NULL);
+
+	moq_connection_established_future *establishing = moq_connection_established(connection);
+	moq_connection_free(connection);
+	moq_connection *established = NULL;
+	AWAIT(moq_connection_established_poll(establishing, session_waker, &established, &tokio_err));
+	moq_connection_established_future_free(establishing);
+	CHECK(established != NULL);
+
+	moq_origin_consumer_request_broadcast_future *requesting = moq_origin_consumer_request_broadcast(remote, str("live"), NULL);
+	moq_broadcast_consumer *remote_broadcast = NULL;
+	AWAIT(moq_origin_consumer_request_broadcast_poll(requesting, session_waker, &remote_broadcast, &err));
+	moq_origin_consumer_request_broadcast_future_free(requesting);
+	CHECK(remote_broadcast != NULL);
+	moq_track_consumer *remote_track = NULL;
+	CHECK(moq_broadcast_consumer_track(remote_broadcast, str("video"), &remote_track, &err));
+	subscribing = moq_track_consumer_subscribe(remote_track, NULL);
+	AWAIT(moq_track_consumer_subscribe_poll(subscribing, session_waker, &subscriber, &err));
+	moq_track_consumer_subscribe_future_free(subscribing);
+	CHECK(subscriber != NULL);
+	receiving = moq_track_subscriber_recv_group(subscriber);
+	group = NULL;
+	AWAIT(moq_track_subscriber_recv_group_poll(receiving, session_waker, &group, &err));
+	moq_track_subscriber_recv_group_future_free(receiving);
+	CHECK(group != NULL);
+	reading = moq_group_consumer_read_frame(group);
+	frame = NULL;
+	AWAIT(moq_group_consumer_read_frame_poll(reading, session_waker, &frame, &err));
+	moq_group_consumer_read_frame_future_free(reading);
+	CHECK(frame != NULL && is(moq_frame_frame_payload(frame), "hello"));
+	moq_frame_frame_free(frame);
+	moq_group_consumer_free(group);
+	moq_track_subscriber_free(subscriber);
+	moq_track_consumer_free(remote_track);
+	moq_broadcast_consumer_free(remote_broadcast);
+
+	moq_connection_close_future *closing = moq_connection_close(established);
+	moq_connection_free(established);
+	AWAIT(moq_connection_close_poll(closing, session_waker, &tokio_err));
+	moq_connection_close_future_free(closing);
+	moq_tokio_client_close_future *client_closing = moq_tokio_client_close(dialer);
+	moq_tokio_client_free(dialer);
+	AWAIT(moq_tokio_client_close_poll(client_closing, session_waker));
+	moq_tokio_client_close_future_free(client_closing);
+	moq_tokio_server_serve_publish_future_free(serving);
+	moq_origin_consumer_free(remote);
+	moq_track_producer_free(live_track);
+	moq_broadcast_producer_free(live_broadcast);
+	moq_origin_publication_free(live);
+	moq_origin_producer_free(served);
+	CHECK(tokio_err == NULL);
 
 	if (failures == 0) {
 		printf("ok\n");

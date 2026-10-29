@@ -9,9 +9,9 @@ poll from its own event loop, as driving decided for the origin's
 
 ## Plan
 
-Decided with the maintainer on 2026-10-27: the full-control path, after
-[sessions on moq-tokio](/quest/m1/ffi-export/session-tokio.md). It suits consumers with
-their own event loop or sockets.
+Decided with the maintainer on 2026-10-27: the full-control path, after sessions on
+moq-tokio, which `moq/moq.c` proves with moq-tokio's fallback runtime. It suits consumers
+with their own event loop or sockets.
 
 - Exported from moq-quic's and moq-net's `pub` API; where moq-quic's session does not yet
   fit moq-net's transport trait, that adapter is moq's change, not the exporter's.
