@@ -135,6 +135,12 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(model::watch(channels[c].consumer(), guard));
 			}
 		}),
+		("front", |log, exec, channels, arg| {
+			if let Some(c) = pick(channels.len(), arg) {
+				let guard = Guard::new(exec.len() as u32, log.clone());
+				exec.spawn(model::front(channels[c].consumer(), guard));
+			}
+		}),
 	]
 }
 
