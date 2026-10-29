@@ -3,7 +3,8 @@
 //! through `&mut self` wherever it is, a provided method, a supertrait's, `Debug` among
 //! them, `self: Box<Self>`, and an upcast to the supertrait. Behind an `Arc`, the object
 //! shares the count of the `Arc` it was made from. A `dyn Any` downcasts to the type it
-//! was made of, borrowed, boxed, or shared.
+//! was made of, borrowed, boxed, or shared. A `dyn Fn*` of a closure, a function, or a
+//! function pointer calls it, changing what it captured, borrowed, boxed, or shared.
 
 use std::any::Any;
 use std::fmt::{self, Debug};
@@ -423,4 +424,96 @@ pub fn anys(data: &[u8], out: &mut Vec<u8>) {
 		Err(hold) => hold.downcast::<(u8, u8)>().map(|t| (Arc::strong_count(&t), t.0)).ok(),
 	};
 	put(out, &format!("{typed:?}"));
+}
+
+/// A boxed callback kept in a struct, as kio keeps its waiters' polls.
+struct Hook {
+	f: Box<dyn FnMut(u8) -> u32>,
+}
+
+fn twice(f: &dyn Fn(u8) -> u8, x: u8) -> u8 {
+	f(f(x))
+}
+
+fn bump_all(f: &mut dyn FnMut(u8), xs: &[u8]) {
+	for &x in xs {
+		f(x);
+	}
+}
+
+/// Over a lifetime the call picks, as `form_urlencoded`'s encoder override is.
+fn first_word(f: &dyn for<'a> Fn(&'a str) -> &'a str, s: &str) -> usize {
+	f(s).len()
+}
+
+fn adder(by: u8) -> Box<dyn Fn(u8) -> u8> {
+	Box::new(move |x| x.wrapping_add(by))
+}
+
+fn halve(x: u8) -> u8 {
+	x / 2
+}
+
+fn flip(x: u8) -> u8 {
+	x ^ 0x5a
+}
+
+pub fn fns(data: &[u8], out: &mut Vec<u8>) {
+	let [a, b, rest @ ..] = data else {
+		return;
+	};
+	let (a, b) = (*a, *b);
+
+	// Borrowed: a closure, a function item, and a function pointer.
+	let mul = |x: u8| x.wrapping_mul(b);
+	let ptr: fn(u8) -> u8 = if b % 2 == 0 { halve } else { flip };
+	put(out, &format!("{} {} {} ", twice(&mul, a), twice(&halve, a), twice(&ptr, a)));
+	put(out, &format!("{} ", first_word(&|s: &str| s.split(' ').next().unwrap_or(""), "ab cd")));
+
+	// A `&mut dyn FnMut` changes what its closure captured.
+	let mut sum = 0u32;
+	let mut seen = Vec::new();
+	bump_all(
+		&mut |x| {
+			sum = sum.wrapping_add(u32::from(x));
+			seen.push(x);
+		},
+		rest,
+	);
+	put(out, &format!("{sum} {seen:?} "));
+
+	// Owned, of each kind, called in turn; the counter keeps its state between calls.
+	let mut count = 0u8;
+	let mut fs: Vec<Box<dyn Fn(u8) -> u8>> = vec![adder(a), Box::new(halve), Box::new(mul), Box::new(ptr)];
+	fs.push(Box::new(move |x| twice(&halve, x).wrapping_add(a)));
+	let turn = usize::from(b) % fs.len();
+	fs.swap(0, turn);
+	let mut hook = Hook {
+		f: Box::new(move |x| {
+			count = count.wrapping_add(x);
+			u32::from(count) * 3
+		}),
+	};
+	for (i, f) in fs.iter().enumerate() {
+		let y = f(rest.get(i).copied().unwrap_or(b));
+		put(out, &format!("{y}:{} ", (hook.f)(y)));
+	}
+	hook.f = Box::new(|x| u32::from(x));
+	put(out, &format!("{} ", (hook.f)(a)));
+
+	// Consumed once: a closure that moves out what it captured, and an `Fn` upcast to `FnOnce`.
+	let list = vec![a];
+	let take: Box<dyn FnOnce(u8) -> Vec<u8>> = Box::new(move |x| {
+		let mut list = list;
+		list.push(x);
+		list
+	});
+	put(out, &format!("{:?} ", take(b)));
+	let up: Box<dyn FnOnce(u8) -> u8> = fs.pop().unwrap();
+	put(out, &format!("{} ", up(a)));
+
+	// Shared: every clone calls the one closure.
+	let shared: Arc<dyn Fn(u8) -> u8 + Send + Sync> = Arc::new(move |x| x ^ b);
+	let other = shared.clone();
+	put(out, &format!("{} {} {}", shared(a), other(b), Arc::strong_count(&other)));
 }

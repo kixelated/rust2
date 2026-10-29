@@ -96,6 +96,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
 | `dyn Any` | an instance of the class its value's type was wrapped in, which a downcast checks for: `a instanceof Any.Square ? a.v : undefined` |
+| `dyn Fn`, `dyn FnMut`, `dyn FnOnce` | the closure or function it was made of: `(a0: rt.u8) => rt.u32` |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
@@ -263,8 +264,14 @@ A `dyn Any` is such an object with no methods, whose class `is`, `downcast_ref`,
 `downcast_mut`, and `Box`'s and `Arc`'s `downcast` check for: `a instanceof Any.Square ?
 a.v : undefined`. A `&mut` one of a value JS copies is the class holding its `rt.Place`,
 or the class itself behind a `Box`, as a `&mut dyn Trait`'s is, and `Arc::downcast` gives
-back the `Arc<T>` the object was made from. A trait object of std's or a mapped crate's
-trait other than `&dyn Debug`, `&dyn Display`, `dyn Future`, and `dyn Any`, of a generic
+back the `Arc<T>` the object was made from.
+
+A `dyn Fn`, `dyn FnMut`, or `dyn FnOnce` is the closure or function it was made of, which
+a call calls as it does the closure, and which a box drops as it does the closure. One
+that `Fn` or `FnMut` calls, boxed as a `dyn FnOnce`, is `rt.once` of it, which drops it
+after the call, as an `FnOnce` closure's body drops what it owns. A trait object of std's
+or a mapped crate's trait other than `&dyn Debug`, `&dyn Display`, `dyn Future`,
+`dyn Any`, and the function traits, of a generic
 trait or one with an associated type, of a byte array, or behind any other pointer, such
 as a `Weak` or a struct's last field, is refused, and so are an upcast to `dyn Any` and
 `Any::type_id`.
@@ -506,8 +513,8 @@ they need.
 ## Not yet
 
 `unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
-`&dyn Debug`, `&dyn Display`, `dyn Future`, `dyn Any`, and the translated crates' traits'
-behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
+`&dyn Debug`, `&dyn Display`, `dyn Future`, `dyn Any`, `dyn Fn*`, and the translated crates' traits'
+behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a `dyn Error`, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value

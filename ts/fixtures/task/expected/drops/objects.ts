@@ -238,4 +238,111 @@ export function anys(log: Log.Log, id: rt.u32): void {
 	rt.drop(slot);
 }
 
+/**
+ * Boxed and shared closures as `dyn Fn*`: each drops what it owns where the box or the
+ * last `Arc` goes, or, called through `FnOnce`, where its body or the call ends.
+ */
+export function fns(log: Log.Log, id: rt.u32): void {
+	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
+	};
+	const _7: [Guard.Guard, Guard.Guard] = [guard(1), guard(2)];
+	const a: Guard.Guard = _7[0];
+	const b: Guard.Guard = _7[1];
+	const captured = a;
+	const moved: () => rt.u32 = rt.closure((): rt.u32 => {
+		const id2: rt.u32 = Guard.id(captured);
+		rt.drop(captured);
+		return id2;
+	}, (): void => {
+		rt.drop(captured);
+	});
+	const captured2 = b;
+	const uncalled: () => rt.u32 = rt.closure((): rt.u32 => {
+		const _02: rt.u32 = Guard.id(captured2);
+		rt.drop(captured2);
+		return _02;
+	}, (): void => {
+		rt.drop(captured2);
+	});
+	const part = moved();
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
+	Log.note(log, rt.fmtFormat(["moved ", args2[0]]));
+	rt.drop(uncalled);
+	const captured3 = guard(3);
+	const part2 = rt.closure((): rt.u32 => {
+		const _03: rt.u32 = Guard.id(captured3);
+		rt.drop(captured3);
+		return _03;
+	}, (): void => {
+		rt.drop(captured3);
+	})();
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
+	Log.note(log, rt.fmtFormat(["once ", args4[0]]));
+	const captured4 = guard(4);
+	const part3 = rt.once(rt.closure((): rt.u32 => {
+		return rt.u32Add(Guard.id(captured4), 1);
+	}, (): void => {
+		rt.drop(captured4);
+	}))();
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
+	Log.note(log, rt.fmtFormat(["up ", args6[0]]));
+	const captured5 = guard(5);
+	let slot: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured5);
+	}, (): void => {
+		rt.drop(captured5);
+	});
+	const part4 = rt.place(() => slot, (value) => slot = value).v();
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
+	Log.note(log, rt.fmtFormat(["slot ", args8[0]]));
+	const captured6 = guard(6);
+	const _88: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured6);
+	}, (): void => {
+		rt.drop(captured6);
+	});
+	rt.drop(slot);
+	slot = _88;
+	const part5 = rt.place(() => slot, (value2) => slot = value2).v();
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part5, f)];
+	Log.note(log, rt.fmtFormat(["slot ", args10[0]]));
+	const _104: [Guard.Guard, Guard.Guard] = [guard(7), guard(8)];
+	const g: Guard.Guard = _104[0];
+	const h: Guard.Guard = _104[1];
+	const captured7 = g;
+	const _113: () => rt.u32 = rt.closure((): rt.u32 => {
+		return Guard.id(captured7);
+	}, (): void => {
+		rt.drop(captured7);
+	});
+	const captured8 = h;
+	const list: Array<() => rt.u32> = [_113, rt.closure((): rt.u32 => {
+		return Guard.id(captured8);
+	}, (): void => {
+		rt.drop(captured8);
+	})];
+	const part6 = rt.u32Add(list[rt.idx(list, 1)](), list[rt.idx(list, 0)]());
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part6, f)];
+	Log.note(log, rt.fmtFormat(["list ", args12[0]]));
+	rt.dropAll(list);
+	const captured9 = guard(9);
+	const _143: rt.Arc<() => rt.u32> = new rt.Arc(rt.closure((): rt.u32 => {
+		return Guard.id(captured9);
+	}, (): void => {
+		rt.drop(captured9);
+	}));
+	const shared_: rt.Arc<() => rt.u32> = new rt.ArcDyn(_143, _143.value);
+	const other: rt.Arc<() => rt.u32> = rt.arcClone(shared_);
+	rt.drop(shared_);
+	const part7 = other.value();
+	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part7, f)];
+	Log.note(log, rt.fmtFormat(["shared ", args14[0]]));
+	rt.drop(other);
+	const part8 = rt.place(() => slot, (value3) => slot = value3).v();
+	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part8, f)];
+	Log.note(log, rt.fmtFormat(["slot ", args16[0]]));
+	rt.drop(slot);
+}
+
 //# sourceMappingURL=objects.ts.map

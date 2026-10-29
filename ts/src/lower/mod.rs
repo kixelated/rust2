@@ -1233,6 +1233,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			{
 				Type::Rt("Fmt", vec![])
 			}
+			ty::Dynamic(..) if let Some(f) = self.dyn_fn(ty) => self.fn_ty(&f.inputs, f.output, span),
 			ty::Dynamic(..) => match self.object(ty, span) {
 				Some(object) => Type::Sym(object.sym, Vec::new()),
 				None => Type::Builtin("unknown"),

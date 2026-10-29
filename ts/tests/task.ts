@@ -375,8 +375,8 @@ export const cases: Uint8Array[] = [
 	...Array.from({ length: 15 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its, a tuple's, and a box's `clone`, and `Ord`'s defaults.
 	...Array.from({ length: 9 }, (_, arg) => script(["edited", arg])),
-	// What boxed and shared trait objects drop, and boxed and shared `dyn Any`s.
-	...Array.from({ length: 3 }, (_, arg) => script(["dyns", arg])),
+	// What boxed and shared trait objects drop, `dyn Any`s, and `dyn Fn*`s.
+	...Array.from({ length: 4 }, (_, arg) => script(["dyns", arg])),
 	// What one-time cells drop.
 	...Array.from({ length: 6 }, (_, arg) => script(["cells", arg])),
 	// Each scenario of adaptors' closures that drop, folded either way.

@@ -287,7 +287,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
-			let f = self.operand(&callee.node, span, out);
+			// A `&mut` to a function JS copies, such as a box of one, is its place: call what is there.
+			let f = match callee.node.place() {
+				Some(p) if self.b.t.place_pointee(p.ty(&self.mir.local_decls, tcx).ty).is_some() => {
+					self.place_expr(tcx.mk_place_deref(p), span, out)
+				}
+				_ => self.operand(&callee.node, span, out),
+			};
 			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call drops it after,
 			// as rustc's shim does, where an `FnOnce` closure's body drops what it owns.
 			if tcx.fn_trait_kind_from_def_id(trait_id) == Some(ty::ClosureKind::FnOnce)

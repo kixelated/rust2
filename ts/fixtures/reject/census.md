@@ -99,7 +99,7 @@ The type or module each refused type or path belongs to.
 | 1 | `[u16; 1]` | fixtures/reject/src/lib.rs:240:22 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:496:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:554:32 |
-| 1 | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
+| 1 | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `f64` | fixtures/reject/src/lib.rs:454:2 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `poll` | fixtures/reject/src/lib.rs:517:2 |
@@ -145,7 +145,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:247:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:318:2 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::sync::Mutex::get_mut` | fixtures/reject/src/lib.rs:536:12 |
-| 1 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::ops::Fn(u8) -> u8` | fixtures/reject/src/lib.rs:11:16 |
+| 1 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:294:9 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:221:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:172:51 |
@@ -383,7 +383,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_`, a trait object of another crate's trait, which is not supported yet (1)</summary>
 
-- fixtures/reject/src/lib.rs:11:16: `dyn std::ops::Fn(u8) -> u8`, a trait object of another crate's trait, which is not supported yet
+- fixtures/reject/src/lib.rs:11:16: `dyn std::iter::Iterator<Item = u8>`, a trait object of another crate's trait, which is not supported yet
 
 </details>
 

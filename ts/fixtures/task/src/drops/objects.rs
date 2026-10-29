@@ -2,7 +2,8 @@
 //! struct's, an enum's glue, or nothing for a number, where the box goes out of scope,
 //! is replaced, or is consumed by `self: Box<Self>`. An `Arc<dyn Trait>`
 //! drops it with the last `Arc` of it, of the trait object or of the type it was made of.
-//! A `dyn Any` drops the same, and one downcast drops as the type it was made of.
+//! A `dyn Any` drops the same, and one downcast drops as the type it was made of. A
+//! `dyn Fn*` drops what its closure owns, and a call through `FnOnce` consumes it.
 
 use std::any::Any;
 use std::future::Future;
@@ -166,4 +167,49 @@ pub(super) fn anys(log: &Log, id: u32) {
 	log.note("dropped".into());
 	drop(b);
 	log.note(format!("slot {}", slot.downcast_ref::<Held>().is_some()));
+}
+
+/// Boxed and shared closures as `dyn Fn*`: each drops what it owns where the box or the
+/// last `Arc` goes, or, called through `FnOnce`, where its body or the call ends.
+pub(super) fn fns(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	// An `FnOnce` closure's body drops what it owns; uncalled, the box drops it.
+	let (a, b) = (guard(1), guard(2));
+	let moved: Box<dyn FnOnce() -> u32> = Box::new(move || {
+		let id = a.id();
+		drop(a);
+		id
+	});
+	let uncalled: Box<dyn FnOnce() -> u32> = Box::new(move || b.id());
+	log.note(format!("moved {}", moved()));
+	drop(uncalled);
+	// An `Fn` closure called once through `FnOnce`, boxed as one or upcast to one, drops
+	// what it owns after the call.
+	let c = guard(3);
+	let as_once: Box<dyn FnOnce() -> u32> = Box::new(move || c.id());
+	log.note(format!("once {}", as_once()));
+	let d = guard(4);
+	let up: Box<dyn Fn() -> u32> = Box::new(move || d.id() + 1);
+	let up: Box<dyn FnOnce() -> u32> = up;
+	log.note(format!("up {}", up()));
+	// A replaced box drops the old closure, and a `Vec` drops its boxes in order.
+	let e = guard(5);
+	let mut slot: Box<dyn FnMut() -> u32> = Box::new(move || e.id());
+	log.note(format!("slot {}", slot()));
+	let f = guard(6);
+	slot = Box::new(move || f.id());
+	log.note(format!("slot {}", slot()));
+	let (g, h) = (guard(7), guard(8));
+	let list: Vec<Box<dyn Fn() -> u32>> = vec![Box::new(move || g.id()), Box::new(move || h.id())];
+	let borrowed: &dyn Fn() -> u32 = &*list[1];
+	log.note(format!("list {}", borrowed() + list[0]()));
+	drop(list);
+	// Shared: the last `Arc` drops it.
+	let i = guard(9);
+	let shared: Arc<dyn Fn() -> u32> = Arc::new(move || i.id());
+	let other = shared.clone();
+	drop(shared);
+	log.note(format!("shared {}", other()));
+	drop(other);
+	log.note(format!("slot {}", slot()));
 }

@@ -8,7 +8,7 @@ import { ok$Result_Guard_Guard, err$Result_Guard_Guard, asRef$Result_Guard_u8, m
 import { scoped, discarded, iterated } from "./drops/closures.ts";
 import { folded as folds_folded, rfolded as folds_rfolded } from "./drops/folds.ts";
 import { looped, collected, drained, extended } from "./drops/iters.ts";
-import { boxed, shared, anys } from "./drops/objects.ts";
+import { boxed, shared, anys, fns } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Held from "./drops.Held.ts";
 import * as Key from "./drops.Key.ts";
@@ -21,15 +21,17 @@ import type * as Consumer from "./kio.Consumer.ts";
 import * as Log from "./log.Log.ts";
 import * as Guard from "./model.Guard.ts";
 
-/** Run trait object scenario `arg % 3`: boxed, shared, or as `dyn Any`. */
+/** Run trait object scenario `arg % 4`: boxed, shared, as `dyn Any`, or as `dyn Fn*`. */
 export function dyns(log: Log.Log, id: rt.u32, arg: rt.u8): void {
-	const _4: rt.u8 = rt.u8Rem(arg, 3);
+	const _4: rt.u8 = rt.u8Rem(arg, 4);
 	if (_4 === 0) {
 		boxed(log, id);
 	} else if (_4 === 1) {
 		shared(log, id);
-	} else {
+	} else if (_4 === 2) {
 		anys(log, id);
+	} else {
+		fns(log, id);
 	}
 }
 
