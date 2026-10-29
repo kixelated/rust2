@@ -12,11 +12,9 @@ exclude = [
     "Consume",
     "DecodeError",
     "Driver",
-    "Hops::iter",
     "IntoBytes",
     "InvalidEpoch",
     "Path::from_static",
-    "Path::parts",
     "Server::accept",
     "Server::accept_request",
     "Timed",
@@ -24,7 +22,6 @@ exclude = [
     "Timestamp::as_millis",
     "Timestamp::as_nanos",
     "Timestamp::as_scale",
-    "Versions::iter",
     "announce::Announce",
     "announce::Consumer::poll_synced",
     "auth::EmptyToken",
@@ -83,7 +80,7 @@ exclude = [
 
 # Exported with moq-net, whose signatures name their types, such as `Patterns` and `Instant`.
 [crates.moq-pattern]
-exclude = ["Pattern::captures", "Patterns::iter"]
+exclude = ["Pattern::captures"]
 
 [crates.moq-clock]
 exclude = [

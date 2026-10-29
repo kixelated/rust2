@@ -176,12 +176,17 @@ pub fn call<'tcx>(
 		return Ok(None);
 	};
 	// The runtime drops what std's would rather than return or keep, given what drops it.
-	let Some(lost) = discarded(std, owner, name) else {
-		return Ok(Some(e));
-	};
-	let Some(droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
+	let lost = discarded(std, owner, name).unwrap_or_default();
+	let Some(mut droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
 		return Ok(Some(Expr::undefined()));
 	};
+	// A map's value that can be `undefined`, whose `Option` `get` returns tells `None` apart.
+	if library::none_last(owner, name)
+		&& let Some(none) = library::sentinel_option(b.t, call).and_then(|inner| b.t.none_arg(inner))
+	{
+		droppers.resize(lost.len(), Expr::undefined());
+		droppers.push(none);
+	}
 	if droppers.is_empty() {
 		return Ok(Some(e));
 	}
@@ -265,15 +270,17 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 		|| (library::string(tcx, key) && library::string(tcx, by))
 }
 
-/// A key, value, or item type of `coll` that can be `undefined` in JS, so that an `Option`
-/// of it, as `get` returns, could not tell `None` from `Some`.
+/// A key or item type of `coll` that can be `undefined` in JS, so that an `Option` of it,
+/// as `first` returns, could not tell `None` from `Some`. A map's value can be: its
+/// `get`, `insert`, and `remove` take the `Option`'s `rt.None`.
 fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	let n = match std {
-		Std::HashMap | Std::BTreeMap | Std::Entry => 2,
-		Std::HashSet | Std::BTreeSet | Std::VecDeque => 1,
-		_ => 0,
-	};
-	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
+	if !matches!(
+		std,
+		Std::HashMap | Std::BTreeMap | Std::Entry | Std::HashSet | Std::BTreeSet | Std::VecDeque
+	) {
+		return None;
+	}
+	Some(arg(coll, 0)).filter(|&key| b.t.erases_to(key).undefined)
 }
 
 /// Whether `call` lends a value a collection or an atomic holds that JS copies, which its
