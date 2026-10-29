@@ -119,7 +119,7 @@ const IMPORTS: &[&str] = &["kotlin.coroutines.resume", "kotlin.time.toDuration"]
 const BYTES: &str = "/**
  * Bytes Rust returned, lent without a copy: [buffer] reads them until [close] frees them,
  * after which reading it is undefined. Unclosed, they are freed once the GC collects
- * [buffer], so keep it, not only a slice of it, while reading.
+ * [buffer], so keep it, not only a slice or duplicate of it, while reading.
  */
 class Bytes private constructor(buffer: java.nio.ByteBuffer, owner: Long) : AutoCloseable {
 \t/** Bytes Kotlin holds, as a record Rust takes needs, which [close] leaves readable. */
@@ -130,22 +130,28 @@ class Bytes private constructor(buffer: java.nio.ByteBuffer, owner: Long) : Auto
 \t/** The bytes, read-only. */
 \tval buffer: java.nio.ByteBuffer = buffer.asReadOnlyBuffer()
 
+\t// What the GC collects: a view of [buffer] need not keep it reachable, on the JVM or ART.
 \tprivate val free = if (owner == 0L) null else Native.Free(this.buffer, owner)
 
-\t@Volatile private var closed = false
+\tprivate var closed = false
 
 \t/** The bytes, copied. */
-\tfun toByteArray(): ByteArray = read().let { b -> ByteArray(b.remaining()).also { b.get(it) } }
+\tfun toByteArray(): ByteArray = read { b -> ByteArray(b.remaining()).also { b.get(it) } }
 
-\t/** A view of the bytes from their start, which throws once closed. */
-\tinternal fun read(): java.nio.ByteBuffer {
+\t/**
+\t * Run [block] with a view of the bytes from their start, which throws once closed. Locked,
+\t * so this and [buffer] stay reachable, and [close] waits, until it returns.
+\t */
+\tinternal fun <R> read(block: (java.nio.ByteBuffer) -> R): R = synchronized(this) {
 \t\tkotlin.check(!closed) { \"Bytes is closed\" }
-\t\treturn buffer.duplicate().also { it.clear() }
+\t\tblock(buffer.duplicate().also { it.clear() })
 \t}
 
 \toverride fun close() {
-\t\tclosed = true
-\t\tfree?.free()
+\t\tsynchronized(this) {
+\t\t\tclosed = true
+\t\t\tfree?.free()
+\t\t}
 \t}
 }
 

@@ -63,10 +63,11 @@ class Writer {
 			i32(-1)
 			return
 		}
-		val src = v.read()
-		room(4 + src.remaining())
-		b.putInt(src.remaining())
-		b.put(src)
+		v.read { src ->
+			room(4 + src.remaining())
+			b.putInt(src.remaining())
+			b.put(src)
+		}
 	}
 
 	fun string(v: String?) = bytes(v?.encodeToByteArray())
