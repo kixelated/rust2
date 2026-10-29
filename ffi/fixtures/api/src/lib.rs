@@ -662,6 +662,18 @@ pub fn timed_hex(payload: impl Into<Timed<Bytes>> + 'static) -> String {
 	hex(payload.into().value)
 }
 
+/// A reference stamped with no time, as moq's `Timed` converts one.
+impl<'a, V> From<&'a V> for Timed<&'a V> {
+	fn from(value: &'a V) -> Self {
+		Self { value, at: None }
+	}
+}
+
+/// A timed value's compact JSON text, taken as moq's JSON tracks take theirs.
+pub fn timed_text<'a, T: serde::Serialize + 'a>(value: impl Into<Timed<&'a T>>) -> String {
+	serde_json::to_string(value.into().value).expect("a JSON document serializes")
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }
@@ -1035,6 +1047,29 @@ pub fn worth(some: Option<Vec<Counter>>, boxed: Box<Vec<Counter>>) -> u64 {
 /// Each row's sum.
 pub fn sums(rows: Vec<Vec<u32>>) -> Vec<u32> {
 	rows.iter().map(|row| row.iter().sum()).collect()
+}
+
+/// The points added up, from anything that iterates them.
+pub fn summed(points: impl IntoIterator<Item = Point>) -> Point {
+	points.into_iter().fold(Point::default(), |sum, p| sum.offset(p.x, p.y))
+}
+
+/// The length of the longest word, naming its iterator.
+pub fn longest<I>(words: I) -> usize
+where
+	I: IntoIterator<Item = String>,
+{
+	words.into_iter().map(|word| word.len()).max().unwrap_or(0)
+}
+
+/// `value` as compact JSON text: a serde bound takes a JSON document.
+pub fn encode<T: serde::Serialize>(value: &T) -> String {
+	serde_json::to_string(value).expect("a JSON document serializes")
+}
+
+/// `doc` under `tag`, as a new document.
+pub fn tagged(doc: serde_json::Value, tag: &str) -> serde_json::Value {
+	serde_json::json!({ "tag": tag, "doc": doc })
 }
 
 /// A site: every field is `pub`, but a URL is a handle C cannot copy, so it is an object
