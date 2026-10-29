@@ -149,6 +149,12 @@ impl<'a> Abi<'a> {
 				rest = &path[len..];
 				break;
 			}
+			// No config names a foreign type, which is named by its role instead.
+			if key == "serde_json::Value" {
+				segments.push("json".to_string());
+				rest = &path[len..];
+				break;
+			}
 		}
 		segments.extend(rest.iter().map(|segment| snake(segment)));
 		segments

@@ -641,6 +641,24 @@ static int script(void) {
 	size_t no_longest = api_longest((api_vec_string){.ptr = longest_words, .len = 0});
 	printf("longest %zu %zu\n", most, no_longest);
 
+	/* JSON crosses as a document, made from text and read back as text. */
+	api_json *doc;
+	if (!api_json_parse(str("{\"b\": [1, 2.5, null], \"a\": \"\\u00e9\"}"), &doc, &parse_err)) {
+		return 1;
+	}
+	print("json ", api_encode(doc), "\n");
+	api_json *tagged = api_tagged(doc, str("t"));
+	api_json_free(doc);
+	print("tagged ", api_json_to_text(tagged), "\n");
+	api_json_free(tagged);
+	api_json *broken;
+	if (api_json_parse(str("{\"a\":"), &broken, &parse_err)) {
+		print("json parse ", api_json_to_text(broken), "\n");
+		api_json_free(broken);
+	} else {
+		print("json parse err ", parse_err, "\n");
+	}
+
 	api_url *home;
 	if (!api_url_parse(str("https://example.com/a/b"), &home, &parse_err)) {
 		return 1;

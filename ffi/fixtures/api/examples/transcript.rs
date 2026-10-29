@@ -376,6 +376,13 @@ fn main() {
 		api_lib::longest(["a".to_string(), "abc".to_string()]),
 		api_lib::longest([])
 	);
+	let doc: serde_json::Value = r#"{"b": [1, 2.5, null], "a": "\u00e9"}"#.parse().expect("a JSON document");
+	println!("json {}", api_lib::encode(&doc));
+	println!("tagged {}", api_lib::tagged(doc, "t"));
+	match "{\"a\":".parse::<serde_json::Value>() {
+		Ok(doc) => println!("json parse {doc}"),
+		Err(err) => println!("json parse err {err}"),
+	}
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);
 }

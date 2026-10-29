@@ -983,6 +983,16 @@ where
 	words.into_iter().map(|word| word.len()).max().unwrap_or(0)
 }
 
+/// `value` as compact JSON text: a serde bound takes a JSON document.
+pub fn encode<T: serde::Serialize>(value: &T) -> String {
+	serde_json::to_string(value).expect("a JSON document serializes")
+}
+
+/// `doc` under `tag`, as a new document.
+pub fn tagged(doc: serde_json::Value, tag: &str) -> serde_json::Value {
+	serde_json::json!({ "tag": tag, "doc": doc })
+}
+
 /// A site: every field is `pub`, but a URL is a handle C cannot copy, so it is an object
 /// whose getter returns a clone.
 pub struct Site {
