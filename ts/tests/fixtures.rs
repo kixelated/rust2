@@ -478,10 +478,11 @@ fn bind() {
 	);
 }
 
-/// A package and its dependency translate as one program, the dependency's safe twin of
-/// its `unsafe` included, and run as native Rust does. Its `unsafe` that nothing binds is
-/// refused at its span, and so are its iterator that runs from either end and a module of
-/// the package's that would share the dependency's files.
+/// A package and its dependency translate as one program, trait objects of the
+/// dependency's trait and its safe twin of its `unsafe` included, and run as native Rust
+/// does. Its `unsafe` that nothing binds is refused at its span, and so are its iterator
+/// that runs from either end and a module of the package's that would share the
+/// dependency's files.
 #[test]
 fn crates() {
 	let out = translated("crates");

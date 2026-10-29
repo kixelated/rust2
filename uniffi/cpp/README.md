@@ -73,11 +73,12 @@ with both named. The rest follows from a few rules:
 * Optional strings, objects, and structs are pointers that are NULL when absent; optional scalars
   are `{ has_value, value }` structs. Bytes, lists, and maps are pointer and length structs.
 * An async call takes a callback, typed as the function's name in CamelCase plus `Callback`
-  (`AppMyObjectDoThingCallback`), and `user_data`, and returns a `<Namespace>Task *`. The
-  callback runs once on the dispatcher with the result, which it owns, unless the dispatcher
-  refuses the work or has shut down, which abandons the call. Free every task: freeing a pending
-  one cancels the Rust future, and once `<namespace>_task_free` returns the callback has finished
-  or will never run.
+  (`AppMyObjectDoThingCallback`), and `user_data`, and returns a `<Namespace>Task *`, never NULL.
+  The callback runs exactly once on the dispatcher, with the result, which it owns, or with
+  `cancelled` set and no result when the task was freed first, so `user_data` is released in
+  one place. Free every task: freeing one whose callback has not started cancels the Rust
+  future. A dispatcher that refuses the work or has shut down abandons the call, and its
+  callback never runs.
 * Callbacks run on the default dispatcher thread unless `<namespace>_set_dispatcher` installs a
   host's own, which receives `<Namespace>Work *` items to run with `<namespace>_work_run`.
 * A type from another crate keeps that crate's C name and `_free`, and its header is included.

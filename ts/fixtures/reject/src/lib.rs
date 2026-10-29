@@ -537,3 +537,25 @@ pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
 	*n += 1;
 	*n
 }
+
+pub trait Keyed: std::any::Any {
+	fn key(&self) -> u8;
+}
+
+impl Keyed for u8 {
+	fn key(&self) -> u8 {
+		*self
+	}
+}
+
+/// An upcast to `dyn Any`, whose downcast checks for the class of the value's own type,
+/// not the object of another trait.
+pub fn any_upcast(k: &dyn Keyed) -> bool {
+	let any: &dyn std::any::Any = k;
+	any.is::<u8>()
+}
+
+/// A `TypeId`, which no value stands for yet.
+pub fn any_type_id(a: &dyn std::any::Any) -> bool {
+	a.type_id() == std::any::TypeId::of::<u8>()
+}
