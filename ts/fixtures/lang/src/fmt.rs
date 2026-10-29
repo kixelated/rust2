@@ -79,7 +79,8 @@ const STRINGS: [&str; 14] = [
 	"\u{80}\u{9f}\u{a0}\u{ad}",
 	"e\u{301}",
 	"\u{200d}\u{feff}\u{115f}\u{2028}\u{3000}",
-	"\u{e000}\u{378}\u{10fffd}",
+	// Unicode 18, newer than an engine may know, assigns U+3D000 but not U+3FC40.
+	"\u{e000}\u{378}\u{10fffd}\u{3d000}\u{3fc40}",
 	"😀 \u{1f1e6}",
 	"\u{ff9e}\u{ff9f}\u{ff9d}",
 	"{}",

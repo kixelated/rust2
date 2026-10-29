@@ -641,6 +641,33 @@ static int script(void) {
 	api_vec_u32 sums = api_sums((api_vec_vec_u32){.ptr = rows, .len = 3});
 	printf("sums [%u, %u, %u]\n", sums.ptr[0], sums.ptr[1], sums.ptr[2]);
 	api_vec_u32_free(sums);
+	api_point summands[] = {{.x = 1, .y = 2}, {.x = -4, .y = 6}};
+	api_point summed = api_summed((api_vec_point){.ptr = summands, .len = 2});
+	api_point none_summed = api_summed((api_vec_point){.ptr = summands, .len = 0});
+	printf("summed %d %d %d %d\n", summed.x, summed.y, none_summed.x, none_summed.y);
+	api_buf longest_words[] = {str("a"), str("abc")};
+	size_t most = api_longest((api_vec_string){.ptr = longest_words, .len = 2});
+	size_t no_longest = api_longest((api_vec_string){.ptr = longest_words, .len = 0});
+	printf("longest %zu %zu\n", most, no_longest);
+
+	/* JSON crosses as a document, made from text and read back as text. */
+	api_json *doc;
+	if (!api_json_parse(str("{\"b\": [1, 2.5, null], \"a\": \"\\u00e9\"}"), &doc, &parse_err)) {
+		return 1;
+	}
+	print("json ", api_encode(doc), "\n");
+	print("timed text ", api_timed_text(doc), "\n");
+	api_json *tagged = api_tagged(doc, str("t"));
+	api_json_free(doc);
+	print("tagged ", api_json_to_text(tagged), "\n");
+	api_json_free(tagged);
+	api_json *broken;
+	if (api_json_parse(str("{\"a\":"), &broken, &parse_err)) {
+		print("json parse ", api_json_to_text(broken), "\n");
+		api_json_free(broken);
+	} else {
+		print("json parse err ", parse_err, "\n");
+	}
 
 	api_url *home;
 	if (!api_url_parse(str("https://example.com/a/b"), &home, &parse_err)) {
@@ -687,7 +714,49 @@ static int script(void) {
 	}
 	printf("]\n");
 	api_vec_label_free(labels);
+	/* Returned iterators, each collected at the call: drained labels are gone after. */
+	api_vec_point iter_points = api_trail_iter(trail);
+	printf("iterated [");
+	for (size_t i = 0; i < iter_points.len; i++) {
+		print(i == 0 ? "" : ", ", api_point_debug(&iter_points.ptr[i]), "");
+	}
+	api_vec_point_free(iter_points);
+	api_vec_string iter_names = api_trail_names(trail);
+	printf("] [");
+	for (size_t i = 0; i < iter_names.len; i++) {
+		printf("%s\"%.*s\"", i == 0 ? "" : ", ", (int)iter_names.ptr[i].len, (const char *)iter_names.ptr[i].ptr);
+	}
+	api_vec_string_free(iter_names);
+	api_buf iter_bytes = api_trail_bytes(trail);
+	printf("] [");
+	for (size_t i = 0; i < iter_bytes.len; i++) {
+		printf("%s%u", i == 0 ? "" : ", ", iter_bytes.ptr[i]);
+	}
+	printf("]\n");
+	api_buf_free(iter_bytes);
+	api_vec_label drained = api_trail_drain(trail);
+	printf("drained [");
+	for (size_t i = 0; i < drained.len; i++) {
+		print(i == 0 ? "" : ", ", api_label_debug(&drained.ptr[i]), "");
+	}
+	api_vec_label_free(drained);
+	api_vec_label left = api_trail_labels(trail);
+	printf("] then [");
+	for (size_t i = 0; i < left.len; i++) {
+		print(i == 0 ? "" : ", ", api_label_debug(&left.ptr[i]), "");
+	}
+	printf("]\n");
+	api_vec_label_free(left);
 	api_trail_free(trail);
+	api_buf numbered_names[] = {str("p"), str("q")};
+	api_vec_counter numbered = api_numbered((api_vec_string){.ptr = numbered_names, .len = 2});
+	printf("numbered");
+	for (size_t i = 0; i < numbered.len; i++) {
+		print(i == 0 ? " " : ", ", api_counter_name(numbered.ptr[i]), " ");
+		printf("%llu", (unsigned long long)api_counter_get(numbered.ptr[i]));
+	}
+	printf("\n");
+	api_vec_counter_free(numbered);
 	api_socket_addr at4 = {.ip = {127, 0, 0, 1}, .port = 8080};
 	api_socket_addr at6 = {.ip = {[15] = 1}, .port = 443, .v6 = true, .scope_id = 3};
 	api_socket_addr next4, next6;

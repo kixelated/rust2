@@ -3,15 +3,20 @@
 // moq-pattern, moq-clock, moq-tokio, hang, and moq-mux exported into the same library,
 // and the catalog lent to Kotlin for a call.
 //
-// It needs no runtime: each read that must wait resumes on a dispatcher the script
-// drains, after the write that wakes it.
+// The local reads need no runtime: each read that must wait resumes on a dispatcher the
+// script drains, after the write that wakes it. A session over QUIC runs on moq-tokio's
+// fallback runtime, whose threads resume Kotlin's.
 
+import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executor
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import moq.*
 
 var failures = 0
@@ -79,7 +84,7 @@ fun main() {
 	expect(q.size == 1, "a frame's arrival wakes the read")
 	q.drain()
 	val hello = frame!!
-	expect(hello.payload.decodeToString() == "hello", "a frame has its payload")
+	expect(hello.payload.use { it.toByteArray().decodeToString() } == "hello", "a frame has its payload")
 	expect(hello.timestamp == null, "an untimed frame has no timestamp")
 	// When it arrived: moq-clock's `Instant`, from moq-clock's own export.
 	expect(now().checkedDurationSince(hello.arrived()) != null, "a frame arrived before now")
@@ -101,7 +106,7 @@ fun main() {
 	writer.writeFrame(null, world)
 	writer.finish()
 	runBlocking {
-		expect(first.readFrame()?.payload?.contentEquals(world) == true, "the last frame reads")
+		expect(first.readFrame()?.payload?.use { it.toByteArray().contentEquals(world) } == true, "the last frame reads")
 		expect(first.readFrame() == null, "a finished group reads null")
 	}
 
@@ -174,7 +179,7 @@ fun main() {
 	expect(audio.sampleRate == 48000u, "Opus decodes at 48 kHz")
 	expect(audio.channelCount == 2u, "the head is stereo")
 	expect(audio.codec == CatalogAudioCodec.Opus, "the codec is Opus")
-	expect(audio.description?.contentEquals(head) == true, "the head is the description")
+	expect(audio.description?.use { it.toByteArray().contentEquals(head) } == true, "the head is the description")
 	// A truncated head is moq-mux's error.
 	try {
 		codecOpusAudioConfig(head.copyOf(8))
@@ -182,6 +187,13 @@ fun main() {
 	} catch (e: MuxErrorException) {
 		expect(e.message.isNotEmpty(), "a truncated head's error has a message")
 	}
+
+	// A subscription's ranges, from any iterable of them: a list.
+	val groups = TrackRange.groups(BoundsU64(BoundU64(Bound.INCLUDED, 2u), BoundU64(Bound.EXCLUDED, 6u)))
+	val ranged = TrackSubscription.default().withRanges(listOf(TrackRange.live(), groups)).ranges
+	expect(ranged == listOf(TrackRange.live(), groups), "a subscription keeps its ranges")
+	expect(groups.start == TrackAnchor.Absolute(2u), "groups start at their first")
+	expect(groups.end == TrackAnchor.Absolute(6u), "groups end before their end")
 
 	// A catalog at moq-mux's untyped extension, from the config Kotlin builds, whose generic
 	// `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
@@ -195,6 +207,44 @@ fun main() {
 		if (lent.toJson().startsWith("{")) read++
 	}
 	expect(read == 1, "mutate lends the catalog once")
+
+	// A JSON track the catalog lists, published through moq-mux's generic `json_snapshot` at
+	// a JSON document, and a section Kotlin parses from text, set in the lent catalog and
+	// read back as text.
+	val status = catalog.jsonSnapshotConfig(publisher.createTrack("status", null), JsonConfig.default(), JsonOptions.default())
+	expect(status.name() == "status", "a JSON snapshot has its track's name")
+	expect(catalog.isClaimedJsonConfig("status"), "the JSON snapshot claims its name")
+	// A value Kotlin parses is published as the track's latest, which a subscriber reads
+	// back as JSON text.
+	Json.parse("""{"on": true}""").use { status.update(it) }
+	runBlocking {
+		val frame = status.consume().recvGroup()?.readFrame()
+		expect(frame?.payload?.use { it.toByteArray().decodeToString() } == """{"on":true}""", "a subscriber reads the latest value")
+	}
+	catalog.mutate { lent ->
+		val sections = lent.ext
+		sections.set("app", Json.parse("""{"v": [1, true]}"""))
+		lent.setExt(sections)
+	}
+	var app: String? = null
+	catalog.mutate { lent ->
+		expect(lent.toJson().contains("\"status\""), "the catalog lists the JSON track")
+		app = lent.ext.get("app")?.use { it.toText() }
+	}
+	expect(app == """{"v":[1,true]}""", "the catalog reads its section back as text")
+	// Malformed text fails to parse, and a reserved section is moq-mux's error.
+	try {
+		Json.parse("""{"v":""").close()
+		expect(false, "malformed JSON fails to parse")
+	} catch (e: StringException) {
+		expect(e.error == "EOF while parsing a value at line 1 column 5", "a parse error is serde_json's")
+	}
+	try {
+		CatalogHangExtra.default().use { it.set("json", Json.parse("1")) }
+		expect(false, "a reserved section is an error")
+	} catch (e: MuxErrorException) {
+		expect(e.message == "reserved catalog section: json", "a reserved section is moq-mux's error")
+	}
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.
 	expect(ConnectError.UNAUTHORIZED.isAuth(), "unauthorized is an auth error")
@@ -248,6 +298,56 @@ fun main() {
 	// TLS files, as OS paths, and fingerprints, as strings: none by default.
 	TlsConnect.default().use { tls ->
 		expect(tls.root.isEmpty() && tls.fingerprint.isEmpty(), "a default TLS config lists none")
+	}
+
+	// A session, as moq.c runs it: a server bound to port 0 reads back the port it got and
+	// serves with one call, in a coroutine of its own, and a client dials it with one call
+	// and reads a frame back, each suspend fun resuming once moq-tokio's fallback runtime
+	// wakes it from its threads. A stall fails with the timeout's exception.
+	runBlocking {
+		withTimeout(30.seconds) {
+			val served = originSpawn()
+			val live = served.createBroadcast("live")
+			live.announce(OriginRoute.default())
+			val liveTrack = live.broadcast().createTrack("video", null)
+			val liveGroup = liveTrack.appendGroup()
+			liveGroup.writeFrame(null, "hello".encodeToByteArray())
+			liveGroup.finish()
+
+			val serverConfig = ServerConfig.default()
+			val listen = serverConfig.listen
+			listen.setBind(ListenBind.Addr(InetSocketAddress(InetAddress.getByName("::"), 0)))
+			val tls = listen.tls
+			tls.setGenerate(listOf("localhost"))
+			listen.setTls(tls)
+			serverConfig.setListen(listen)
+			val server = serverConfig.init()
+			val local = server.localAddr()
+			expect(local.port != 0, "a server bound to port 0 reads back the port it got")
+			val serving = launch { server.servePublish(served.consume()) }
+
+			val connect = ConnectConfig.default()
+			connect.setUrl(Url.parse("moqt://localhost:${local.port}"))
+			val insecure = connect.tls
+			insecure.setInsecure(true)
+			connect.setTls(insecure)
+			val clientConfig = ClientConfig.default()
+			clientConfig.setConnect(connect)
+			val client = clientConfig.init()
+			val received = originSpawn()
+			val remote = received.consume()
+			val connection = client.clone().withReconnect(false).consume(received)
+			expect(connection != null, "a client with a URL dials it")
+			val established = connection!!.established()
+
+			val subscriber = remote.requestBroadcast("live", null).track("video").subscribe(null)
+			val frame = subscriber.recvGroup()?.readFrame()
+			expect(frame?.payload?.use { it.toByteArray().decodeToString() } == "hello", "a session reads the frame the server serves")
+
+			established.close_()
+			client.close_()
+			serving.cancel()
+		}
 	}
 
 	if (failures == 0) println("ok")

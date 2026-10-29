@@ -12,9 +12,7 @@ export class At {
 	}
 
 	split$Split(a: rt.ByteSlice): rt.Result<[rt.ByteSlice, rt.ByteSlice], Error.Error> {
-		const err = returns_At.split$Split(this.v, a.data, a.start, a.length);
-		const result: rt.Result<[rt.ByteSlice, rt.ByteSlice], Error.Error> = err === undefined ? rt.Ok([new rt.ByteSlice(returns_At.splitOut.p_0Data, returns_At.splitOut.p_0Start, returns_At.splitOut.p_0Len), new rt.ByteSlice(returns_At.splitOut.p_1Data, returns_At.splitOut.p_1Start, returns_At.splitOut.p_1Len)] as [rt.ByteSlice, rt.ByteSlice]) : rt.Err(err as Error.Error);
-		return result;
+		return returns_At.split$Split(this.v, a.data, a.start, a.length);
 	}
 }
 

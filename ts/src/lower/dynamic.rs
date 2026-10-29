@@ -5,7 +5,9 @@
 //! class of its type's own, whose methods call that type's impl and whose
 //! `[Symbol.dispose]`, which a `Box<dyn Trait>` drops it by, drops the value. An
 //! `Arc<dyn Trait>` is an `rt.ArcDyn` around the one a box would be. A `dyn Any` has no
-//! methods, and a downcast checks for the class of the type it names.
+//! methods, and a downcast checks for the class of the type it names. A `dyn Fn`,
+//! `dyn FnMut`, or `dyn FnOnce` is the function it was made of, which a call calls as it
+//! would the closure itself.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt, TypeVisitableExt};
@@ -13,6 +15,7 @@ use rustc_span::Span;
 
 use super::Translator;
 use super::body::Body;
+use super::library::Std;
 use crate::program::{SymKind, Symbol};
 use crate::ts::{self, Expr, FieldId, FieldInit, Item, Param, Stmt, StmtKind, SymId, Type};
 
@@ -36,6 +39,13 @@ pub struct Class {
 	pub v: FieldId,
 }
 
+/// A `dyn Fn`, `dyn FnMut`, or `dyn FnOnce`: its trait, and the signature it calls by.
+pub struct DynFn<'tcx> {
+	pub kind: ty::ClosureKind,
+	pub inputs: Vec<Ty<'tcx>>,
+	pub output: Ty<'tcx>,
+}
+
 /// How a wrapper class holds the value a pointer to it was unsized from.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Held {
@@ -46,6 +56,42 @@ pub enum Held {
 }
 
 impl<'tcx> Translator<'_, 'tcx> {
+	/// The function trait and signature of `ty`, if it is a `dyn Fn`, `dyn FnMut`, or
+	/// `dyn FnOnce`, whose JS value is the function it was made of.
+	pub fn dyn_fn(&self, ty: Ty<'tcx>) -> Option<DynFn<'tcx>> {
+		let tcx = self.tcx;
+		let ty::Dynamic(preds, ..) = ty.kind() else {
+			return None;
+		};
+		let principal = preds.principal()?;
+		let kind = tcx.fn_trait_kind_from_def_id(principal.def_id())?;
+		let args = tcx.instantiate_bound_regions_with_erased(principal).args.type_at(0);
+		let output = preds
+			.projection_bounds()
+			.find(|p| Some(p.item_def_id()) == tcx.lang_items().fn_once_output())
+			.and_then(|p| tcx.instantiate_bound_regions_with_erased(p).term.as_type())
+			.unwrap_or(tcx.types.unit);
+		Some(DynFn {
+			kind,
+			inputs: args.tuple_fields().to_vec(),
+			output,
+		})
+	}
+
+	/// The function trait that calls the closure or `dyn Fn*` that `ty` is, or boxes.
+	pub fn owned_fn(&self, mut ty: Ty<'tcx>) -> Option<ty::ClosureKind> {
+		while let ty::Adt(adt, args) = ty.kind()
+			&& Std::of(self.tcx, adt.did()) == Some(Std::Box)
+		{
+			ty = args.type_at(0);
+		}
+		match ty.kind() {
+			ty::Closure(_, args) => Some(args.as_closure().kind()),
+			ty::Dynamic(..) => self.dyn_fn(ty).map(|f| f.kind),
+			_ => None,
+		}
+	}
+
 	/// The trait of the trait object `ty`, a `dyn Trait`, made the first time.
 	pub fn object(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Object> {
 		let tcx = self.tcx;
@@ -146,6 +192,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 			return false;
 		};
 		self.dyn_future(object).is_none()
+			&& self.dyn_fn(object).is_none()
 			&& preds
 				.principal_def_id()
 				.is_none_or(|principal| super::fmt::Trait::of(self.tcx, principal).is_none())
@@ -365,6 +412,9 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 				format!("a trait object of `{pointee}`, which is not supported yet"),
 			);
 		}
+		if let Some(f) = self.t.dyn_fn(object) {
+			return self.fn_object(value, from, f.kind);
+		}
 		if self.t.object(object, span).is_none() {
 			return Expr::undefined();
 		}
@@ -393,6 +443,42 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		match self.t.object_class(pointee, object, held, span) {
 			Some(class) => Expr::New(Box::new(Expr::Sym(class.sym)), vec![value]),
 			None => Expr::undefined(),
+		}
+	}
+
+	/// `value`, a `from` pointing at a function, as a `dyn Fn*` of `kind`: the function
+	/// itself, through the references and boxes it is behind. A box owning one that an
+	/// `FnOnce` call consumes but that `Fn` or `FnMut` calls is `rt.once` of it, which drops
+	/// it after the call, as rustc's shim does, where an `FnOnce` closure's body drops what
+	/// it owns; a box of a reference to one that drops is `rt.lent` of it, which never does.
+	fn fn_object(&mut self, mut value: Expr, from: Ty<'tcx>, kind: ty::ClosureKind) -> Expr {
+		let tcx = self.t.tcx;
+		let (mut ty, mut owned) = (from, from.is_box());
+		loop {
+			ty = match ty.kind() {
+				ty::Ref(_, inner, _) => {
+					// A `&mut` to a function JS copies is its place.
+					if self.t.place_pointee(ty).is_some() {
+						value = value.member("v");
+					}
+					owned = false;
+					*inner
+				}
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
+				_ => break,
+			};
+		}
+		if !from.is_box() || !self.t.drops(ty) {
+			return value;
+		}
+		match owned {
+			false => Expr::rt("lent", vec![value]),
+			true if kind == ty::ClosureKind::FnOnce
+				&& self.t.owned_fn(from).is_some_and(|c| c != ty::ClosureKind::FnOnce) =>
+			{
+				Expr::rt("once", vec![value])
+			}
+			true => value,
 		}
 	}
 }

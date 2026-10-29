@@ -259,9 +259,9 @@ impl Refs {
 				}
 			}
 			Item::Function(f) => self.function(program, f),
-			Item::Const { ty, init, .. } => {
+			Item::Value { ty, value, .. } => {
 				self.ty(program, ty);
-				self.expr(program, init);
+				self.expr(program, value);
 			}
 		}
 	}
@@ -564,12 +564,26 @@ impl Printer<'_> {
 				}
 			}
 			Item::Function(f) => self.function(f, true),
-			Item::Const { sym, ty, init } => {
-				let name = self.program.syms[*sym].name.clone();
-				let ty = self.ty(ty);
+			Item::Value { sym, ty, value, doc } => {
+				self.doc(doc);
 				self.start();
-				self.write(&format!("export const {name}: {ty} = "));
-				self.expr(init, 0);
+				let name = self.program.syms[*sym].name.clone();
+				let decl = match &self.program.syms[*sym].alias {
+					Some(alias) => {
+						self.aliases.push((name.clone(), alias.clone()));
+						"const"
+					}
+					None => "export const",
+				};
+				let ty = self.ty(ty);
+				// Only a call or `new` takes the mark: a literal is pure already, and Rollup
+				// warns of a mark anywhere else.
+				let pure = match value {
+					Expr::Call(..) | Expr::New(..) => "/* @__PURE__ */ ",
+					_ => "",
+				};
+				self.write(&format!("{decl} {name}: {ty} = {pure}"));
+				self.expr(value, 2);
 				self.write(";\n");
 			}
 		}

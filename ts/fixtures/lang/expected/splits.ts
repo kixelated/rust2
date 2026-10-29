@@ -3,7 +3,6 @@
 import * as rt from "./rt.ts";
 import { copy$Result_u8s_u8s_Option_u8 } from "./lib.ts";
 import { unwrapOr$Option_u8, mapOr$Option_u8s_u8s_u8_splits_closure0, okOr$Option_u8s_u8s_Option_u8 } from "./core/option.ts";
-import * as At from "./returns.At.ts";
 import type * as Short from "./splits.Short.ts";
 
 /** The first byte, then a big-endian `u16`, by `?` on `ok_or`. */
@@ -43,14 +42,16 @@ export function take(dataData: Uint8Array, dataStart: number, dataLen: number, n
 	if (!(n <= dataLen)) {
 		return { tag: "Need", _0: n } as Short.Short;
 	}
-	At.splitOut.p_0Data = dataData;
-	At.splitOut.p_0Start = dataStart;
-	At.splitOut.p_0Len = n;
-	At.splitOut.p_1Data = dataData;
-	At.splitOut.p_1Start = dataStart + n;
-	At.splitOut.p_1Len = dataLen - n;
+	takeOut.p_0Data = dataData;
+	takeOut.p_0Start = dataStart;
+	takeOut.p_0Len = n;
+	takeOut.p_1Data = dataData;
+	takeOut.p_1Start = dataStart + n;
+	takeOut.p_1Len = dataLen - n;
 	return undefined;
 }
+
+export const takeOut: { p_0Data: Uint8Array; p_0Start: number; p_0Len: number; p_1Data: Uint8Array; p_1Start: number; p_1Len: number } = { p_0Data: undefined as never, p_0Start: undefined as never, p_0Len: undefined as never, p_1Data: undefined as never, p_1Start: undefined as never, p_1Len: undefined as never };
 
 /** The byte after the first, or an error that is itself an enum, held whole. */
 export function second(dataData: Uint8Array, dataStart: number, dataLen: number, e: rt.u8 | undefined): rt.Result<rt.u8, rt.u8 | undefined> {
@@ -239,10 +240,10 @@ export function splits(kind: rt.u8, dataData: Uint8Array, dataStart: number, dat
 			}));
 		}
 		const err2: Short.Short | undefined = take(dataData, dataStart, dataLen, 3);
-		const part: Uint8Array = At.splitOut.p_0Data;
-		const part2: number = At.splitOut.p_0Start;
-		const part3: number = At.splitOut.p_0Len;
-		const part6: number = At.splitOut.p_1Len;
+		const part: Uint8Array = takeOut.p_0Data;
+		const part2: number = takeOut.p_0Start;
+		const part3: number = takeOut.p_0Len;
+		const part6: number = takeOut.p_1Len;
 		if (err2 === undefined) {
 			rt.byteVecPush(out, opaque(part, part2, part3));
 			rt.byteVecPush(out, part6 & 0xff);

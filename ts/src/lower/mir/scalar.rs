@@ -182,18 +182,21 @@ fn uninhabited(ty: Ty<'_>) -> bool {
 }
 
 impl<'tcx> crate::lower::Translator<'_, 'tcx> {
-	/// The item of `instance` if only translated code calls it directly, so it can take
-	/// and return what the outside can't: not a root, a closure, an `async fn`, or the
-	/// crate's own `next`, and not in a census, which writes nothing.
+	/// The function of `instance` if only translated code calls it directly, so it can
+	/// take and return what the outside can't: a function or method, not a closure or a
+	/// `const`, and not a root, an `async fn`, or the crate's own `next`; and not in a
+	/// census, which writes nothing.
 	fn inside(&self, instance: ty::Instance<'tcx>) -> Option<rustc_hir::def_id::DefId> {
 		let tcx = self.tcx;
 		let ty::InstanceKind::Item(did) = instance.def else {
 			return None;
 		};
-		let outside = self.census
+		let outside = !matches!(
+			tcx.def_kind(did),
+			rustc_hir::def::DefKind::Fn | rustc_hir::def::DefKind::AssocFn
+		) || self.census
 			|| self.roots.contains(&instance)
 			|| !self.lowers(instance)
-			|| tcx.is_closure_like(did)
 			|| tcx.asyncness(did).is_async()
 			|| crate::lower::iter::is_next(tcx, did);
 		(!outside).then_some(did)
@@ -306,7 +309,7 @@ impl<'tcx> crate::lower::Translator<'_, 'tcx> {
 			base: String::new(),
 			suffix: String::new(),
 			owner: None,
-			kind: crate::program::SymKind::Const,
+			kind: crate::program::SymKind::Value,
 			order: u32::MAX,
 			instance: String::new(),
 			name: String::new(),
@@ -314,10 +317,11 @@ impl<'tcx> crate::lower::Translator<'_, 'tcx> {
 		});
 		let tys: Vec<Type> = parts.iter().map(|(_, part)| self.part_ty(*part, span)).collect();
 		let never = Expr::As(Box::new(Expr::undefined()), Type::Builtin("never"));
-		self.program.items.push(crate::ts::Item::Const {
+		self.program.items.push(crate::ts::Item::Value {
 			sym,
 			ty: Type::Object(fields.iter().cloned().zip(tys).collect()),
-			init: Expr::Object(
+			doc: None,
+			value: Expr::Object(
 				fields
 					.iter()
 					.map(|field| (Key::Name(field.clone()), never.clone()))

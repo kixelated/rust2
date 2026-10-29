@@ -434,8 +434,16 @@ export function hashLen<K, V>(m: HashMap<K, V>): number {
 	return m.p.size + m.n;
 }
 
-export function hashGet<K, V>(m: HashMap<K, V>, key: K): V | undefined {
-	return hashed(m, key) ? slot(m, key)?.v : m.p.get(key);
+/** `HashMap::get`: the value there, or else `none`, the `None` of an `Option` of a value that can be `undefined`. */
+export function hashGet<K, V>(m: HashMap<K, V>, key: K): V | undefined;
+export function hashGet<K, V>(m: HashMap<K, V>, key: K, none: None): V | None;
+export function hashGet<K, V>(m: HashMap<K, V>, key: K, none?: None): V | None | undefined {
+	if (hashed(m, key)) {
+		const s = slot(m, key);
+		return s === undefined ? none : s.v;
+	}
+	const v = m.p.get(key);
+	return v !== undefined || none === undefined || m.p.has(key) ? v : none;
 }
 
 /** `HashMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
@@ -465,13 +473,16 @@ function dropPairs<K, V>(keys: readonly K[], values: readonly V[], k?: (key: K) 
 	for (let i = 0; i < keys.length; i++) dropPair(keys[i], values[i], k, v);
 }
 
-/** `HashMap::insert`: the old value, if any. An equal key already there stays, and `key` drops. */
-export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K) => void): V | undefined {
+/** `HashMap::insert`: the old value, or else `none`. An equal key already there stays, and `key` drops. */
+export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K) => void): V | undefined;
+export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k: ((key: K) => void) | undefined, none: None): V | None;
+export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K) => void, none?: None): V | None | undefined {
 	if (!hashed(m, key)) {
 		const had = m.p.has(key);
 		const old = m.p.get(key);
 		m.p.set(key, value);
-		if (had) k?.(key);
+		if (!had) return none;
+		k?.(key);
 		return old;
 	}
 	// Hashed once, as std's is, into an empty map too.
@@ -484,7 +495,7 @@ export function hashInsert<K, V>(m: HashMap<K, V>, key: K, value: V, k?: (key: K
 		return old;
 	}
 	add(m, key, value, hash);
-	return undefined;
+	return none;
 }
 
 /** Add a hashed key that is not there yet, whose hash is `hash`: its new slot. */
@@ -544,17 +555,19 @@ function unlink<K, V>(m: HashMap<K, V>, hash: number, s: Slot<K, V>): void {
 	m.n--;
 }
 
-/** `HashMap::remove`: the value there, if any, whose key drops. */
-export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k?: (key: K) => void): V | undefined {
+/** `HashMap::remove`: the value there, whose key drops, or else `none`. */
+export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k?: (key: K) => void): V | undefined;
+export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k: ((key: K) => void) | undefined, none: None): V | None;
+export function hashRemove<K, V>(m: HashMap<K, V>, key: K, k?: (key: K) => void, none?: None): V | None | undefined {
 	if (!hashed(m, key)) {
-		if (!m.p.has(key)) return undefined;
+		if (!m.p.has(key)) return none;
 		const old = m.p.get(key);
 		m.p.delete(key);
 		k?.(key);
 		return old;
 	}
 	const entry = hashRemoveEntry(m, key);
-	if (entry === undefined) return undefined;
+	if (entry === undefined) return none;
 	k?.(entry[0]);
 	return entry[1];
 }
@@ -908,10 +921,13 @@ export function btreeLen<K, V>(m: BTreeMap<K, V>): number {
 	return m.n;
 }
 
-export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K): V | undefined {
+/** `BTreeMap::get`: the value there, or else `none`, the `None` of an `Option` of a value that can be `undefined`. */
+export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K): V | undefined;
+export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K, none: None): V | None;
+export function btreeGet<K, V>(m: BTreeMap<K, V>, key: K, none?: None): V | None | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
-	return i < 0 ? undefined : l.v[i];
+	return i < 0 ? none : l.v[i];
 }
 
 /** `BTreeMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
@@ -940,13 +956,15 @@ export function btreeIndex<K, V>(m: BTreeMap<K, V>, key: K): V {
 	return l.v[i];
 }
 
-/** `BTreeMap::insert`: the old value, if any. An equal key already there stays, and `key` drops. */
-export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k?: (key: K) => void): V | undefined {
+/** `BTreeMap::insert`: the old value, or else `none`. An equal key already there stays, and `key` drops. */
+export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k?: (key: K) => void): V | undefined;
+export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k: ((key: K) => void) | undefined, none: None): V | None;
+export function btreeInsert<K, V>(m: BTreeMap<K, V>, key: K, value: V, k?: (key: K) => void, none?: None): V | None | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
 	if (i < 0) {
 		insertAt(m, l, ~i, key, value);
-		return undefined;
+		return none;
 	}
 	k?.(key);
 	const old = l.v[i];
@@ -1009,11 +1027,13 @@ export function btreeRemoveEntry<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | unde
 	return entry;
 }
 
-/** `BTreeMap::remove`: the value there, if any, whose key drops. */
-export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K, k?: (key: K) => void): V | undefined {
+/** `BTreeMap::remove`: the value there, whose key drops, or else `none`. */
+export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K, k?: (key: K) => void): V | undefined;
+export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K, k: ((key: K) => void) | undefined, none: None): V | None;
+export function btreeRemove<K, V>(m: BTreeMap<K, V>, key: K, k?: (key: K) => void, none?: None): V | None | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
-	if (i < 0) return undefined;
+	if (i < 0) return none;
 	const held = l.k[i];
 	const value = l.v[i];
 	removeAt(m, l, i);

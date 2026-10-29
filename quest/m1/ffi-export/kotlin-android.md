@@ -15,7 +15,8 @@ tests the Kotlin on the JVM only.
   Ship a keep rule with the generated Kotlin, in the form an Android library consumes
   (`consumer-rules.pro` or the AAR's `proguard.txt`), and test a minified build with it.
 - The emulator run is slow: put it in the nightly workflow, not the merge gate.
-- Check what the Android API levels moq targets give the Kotlin, such as the
-  `java.lang.ref.Cleaner` question in [the Kotlin quest](/quest/m1/ffi-export/kotlin.md).
+- Check the Kotlin on the Android API levels moq targets: the daemon thread a phantom
+  reference queue feeds, which frees what nobody closed, and whether a slice of a `Bytes`
+  buffer keeps that buffer reachable on ART, as it does on the JVM.
 
 Public API: the keep rule shipped beside the generated Kotlin.

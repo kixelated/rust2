@@ -4,6 +4,8 @@
 // With an argument, it instead checks the futures' semantics, or breaks a contract of the
 // ABI, which must abort.
 
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <deque>
@@ -507,6 +509,21 @@ int script() {
 
 	auto sums = api::sums({{1, 2}, {}, {3}});
 	std::printf("sums [%u, %u, %u]\n", sums[0], sums[1], sums[2]);
+	auto summed = api::summed({{1, 2}, {-4, 6}});
+	auto none_summed = api::summed({});
+	std::printf("summed %d %d %d %d\n", summed.x, summed.y, none_summed.x, none_summed.y);
+	std::printf("longest %zu %zu\n", api::longest({"a", "abc"}), api::longest({}));
+
+	api::json doc = api::json::parse(R"({"b": [1, 2.5, null], "a": "\u00e9"})").value();
+	print("json ", api::encode(doc), "\n");
+	print("timed text ", api::timed_text(doc), "\n");
+	api::json tagged = api::tagged(std::move(doc), "t");
+	print("tagged ", tagged.to_text(), "\n");
+	if (auto parsed = api::json::parse("{\"a\":")) {
+		print("json parse ", parsed->to_text(), "\n");
+	} else {
+		print("json parse err ", parsed.error(), "\n");
+	}
 
 	api::site site = api::site::new_(base);
 	print("site ", site.home().to_string(), " ");
@@ -533,6 +550,38 @@ int script() {
 		print(i == 0 ? "" : ", ", labels[i].debug(), "");
 	}
 	std::printf("]\n");
+	// Returned iterators, each collected at the call: drained labels are gone after.
+	auto iter_points = trail.iter();
+	std::printf("iterated [");
+	for (std::size_t i = 0; i < iter_points.size(); i++) {
+		print(i == 0 ? "" : ", ", iter_points[i].debug(), "");
+	}
+	std::printf("] ");
+	print_strings(trail.names());
+	auto iter_bytes = trail.bytes();
+	std::printf(" [");
+	for (std::size_t i = 0; i < iter_bytes.size(); i++) {
+		std::printf("%s%u", i == 0 ? "" : ", ", iter_bytes.data()[i]);
+	}
+	std::printf("]\n");
+	auto drained = trail.drain();
+	std::printf("drained [");
+	for (std::size_t i = 0; i < drained.size(); i++) {
+		print(i == 0 ? "" : ", ", drained[i].debug(), "");
+	}
+	auto left = trail.labels();
+	std::printf("] then [");
+	for (std::size_t i = 0; i < left.size(); i++) {
+		print(i == 0 ? "" : ", ", left[i].debug(), "");
+	}
+	std::printf("]\n");
+	auto numbered = api::numbered({"p", "q"});
+	std::printf("numbered");
+	for (std::size_t i = 0; i < numbered.size(); i++) {
+		print(i == 0 ? " " : ", ", numbered[i].name(), " ");
+		std::printf("%llu", static_cast<unsigned long long>(numbered[i].get()));
+	}
+	std::printf("\n");
 	api::socket_addr at4{};
 	at4.ip[0] = 127;
 	at4.ip[3] = 1;
@@ -630,6 +679,62 @@ int futures() {
 		});
 		q.drain();
 		check(called, "a task cancelled in its callback finishes");
+	}
+
+	// Destroyed while a wake is posting it, a task returns only once that post is done, so
+	// its executor can go with it. This executor blocks inside the wake's post until released:
+	// a destroy that returns before then has left the executor in use. Seeing that the
+	// destroy waits needs a bound, so it is given 100 ms, more than a destroy that does not
+	// wait ever takes.
+	{
+		std::mutex mutex;
+		std::condition_variable cv;
+		std::deque<std::function<void()>> jobs;
+		int posts = 0;
+		bool entered = false;
+		bool released = false;
+		bool destroyed = false;
+		auto exec = [&](std::function<void()> job) {
+			std::unique_lock<std::mutex> lock(mutex);
+			jobs.push_back(std::move(job));
+			// The first post is the task's own first poll; the second, the send's wake.
+			if (++posts == 2) {
+				entered = true;
+				cv.notify_all();
+				cv.wait(lock, [&]() { return released; });
+			}
+		};
+		api::task task = channel.recv().then(exec, [](api::buf) {});
+		std::function<void()> first;
+		{
+			std::lock_guard<std::mutex> lock(mutex);
+			first = std::move(jobs.front());
+			jobs.pop_front();
+		}
+		first();
+		std::thread sender([&]() { channel.send("raced"); });
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			cv.wait(lock, [&]() { return entered; });
+		}
+		std::thread destroyer([&]() {
+			task = api::task();
+			std::lock_guard<std::mutex> lock(mutex);
+			destroyed = true;
+			cv.notify_all();
+		});
+		bool early = false;
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			early = cv.wait_for(lock, std::chrono::milliseconds(100), [&]() { return destroyed; });
+			released = true;
+		}
+		cv.notify_all();
+		sender.join();
+		destroyer.join();
+		check(!early, "destroying a task waits for a post under way");
+		jobs.clear();
+		check(channel.recv().get().str() == "raced", "a task destroyed mid-post loses nothing");
 	}
 
 #if defined(__cpp_impl_coroutine) && __cpp_impl_coroutine >= 201902L && __has_include(<coroutine>)

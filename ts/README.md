@@ -12,9 +12,9 @@ would; the configured library is also translated, after type and borrow checking
 what they reach. Every crate it depends on but std's translates with it as one program,
 as far as the roots reach: each compiles with every function's MIR, and its types and
 calls translate as the package's own do. They compile with `--cfg rust2_ts`, so a crate
-can give translation a safe twin of its `unsafe`. Their `unsafe` is
-refused where it is, as the package's is, unless a binding stands in for the item holding
-it. Only the writes of the dependencies' functions translation reaches decide what it
+can give translation a safe twin of its `unsafe`. Their `unsafe` translates as the
+package's does, and what translation can't model is refused where it is, unless a binding
+stands in for the item holding it. Only the writes of the dependencies' functions translation reaches decide what it
 copies, so it runs again when it reaches one it didn't read. A construct outside the subset is a compile error with its span, and
 then nothing is written. A type without a JS value is refused where a value of it is made
 or received, such as a parameter, a field, or a call, rather than again at each variable
@@ -87,6 +87,9 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, is an `rt.Place<T>` |
+| `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
+| `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
+| `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
@@ -96,11 +99,14 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
 | `dyn Any` | an instance of the class its value's type was wrapped in, which a downcast checks for: `a instanceof Any.Square ? a.v : undefined` |
+| `dyn Fn`, `dyn FnMut`, `dyn FnOnce` | the closure or function it was made of: `(a0: rt.u8) => rt.u32` |
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
 | `Arc<T>`, `Rc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc` for either, with its strong and weak counts, and `new_cyclic`'s `Weak` upgrading only once its value is made; `rt.Weak`, counted in its `rt.Arc` until it drops, and of no `Arc` once made by `Weak::new`; `rt.Mutex`, its own guard, which a lock gives as `Ok` and the guard's drop unlocks: locking it again while held panics and `try_lock` gives `WouldBlock`, as wasm32's do, and a panic aborts, so nothing poisons it and `thread::panicking` is `false` |
 | `PoisonError<T>`, `TryLockError<T>` | the `T` it holds; `rt.TryLockError<T>`, tagged as `Bound` is |
+| `Cell<T>`, `RefCell<T>`, `RwLock<T>` | `rt.Cell`, the place holding its value in `v`; `rt.RefCell` for either of the others, its own guard, counting its borrows: borrowing it while that conflicts panics as `RefCell`'s does, and locking it so aborts as wasm32's `RwLock` does |
+| `thread_local!`, `LocalKey<T>` | an `rt.LocalKey`, a module's value, which makes its value on first use from the `const` or the expression and never drops it, as wasm32's do; `with` calls its function on that value, `try_with` never fails, and the `Cell` and `RefCell` helpers lower from std, except a `RefCell` key's `set` and `with_borrow_mut` |
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
 | `AtomicU32` and the others of `bool` and integers | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
@@ -157,9 +163,9 @@ becomes a function writing its value, and `fmt::Arguments` an array of literal p
 and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take every option but `{:p}`:
 fill, alignment, `+`, `#`, `0`, `x?` and `X?`, a width and a precision, each also from an
-argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers. `Debug` of a string or `char` escapes by the JS
-engine's Unicode tables, so a character newer than its Unicode version is escaped where
-Rust prints it. A caller prints a `printable` type as `to_string()` and `format!("{err:?}")`
+argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers. `Debug` of a string or `char` escapes by
+std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
+`printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`.
@@ -263,8 +269,15 @@ A `dyn Any` is such an object with no methods, whose class `is`, `downcast_ref`,
 `downcast_mut`, and `Box`'s and `Arc`'s `downcast` check for: `a instanceof Any.Square ?
 a.v : undefined`. A `&mut` one of a value JS copies is the class holding its `rt.Place`,
 or the class itself behind a `Box`, as a `&mut dyn Trait`'s is, and `Arc::downcast` gives
-back the `Arc<T>` the object was made from. A trait object of std's or a mapped crate's
-trait other than `&dyn Debug`, `&dyn Display`, `dyn Future`, and `dyn Any`, of a generic
+back the `Arc<T>` the object was made from.
+
+A `dyn Fn`, `dyn FnMut`, or `dyn FnOnce` is the closure or function it was made of, which
+a call calls as it does the closure, and which a box drops as it does the closure. One
+that `Fn` or `FnMut` calls, boxed as a `dyn FnOnce`, is `rt.once` of it, which drops it
+after the call, as an `FnOnce` closure's body drops what it owns, and a box of a
+reference to one is `rt.lent` of it, which never drops it. A trait object of std's
+or a mapped crate's trait other than `&dyn Debug`, `&dyn Display`, `dyn Future`,
+`dyn Any`, and the function traits, of a generic
 trait or one with an associated type, of a byte array, or behind any other pointer, such
 as a `Weak` or a struct's last field, is refused, and so are an upcast to `dyn Any` and
 `Any::type_id`.
@@ -523,16 +536,17 @@ they need.
 
 ## Not yet
 
-`unsafe` and raw pointers ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
-`&dyn Debug`, `&dyn Display`, `dyn Future`, `dyn Any`, and the translated crates' traits'
-behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a boxed closure, binds to
+Byte reinterpretation, pointer arithmetic and addresses, raw allocation, and unions whose
+fields overlap in different types ([unsafe](/quest/m3/ts-unsafe.md)), and trait objects other than
+`&dyn Debug`, `&dyn Display`, `dyn Future`, `dyn Any`, `dyn Fn*`, and the translated crates' traits'
+behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a `dyn Error`, binds to
 hand-written TS ([bindings](#bindings)).
 
 These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
-a collection holding a type that can be `undefined`, as `()` and `Option` can, a std
+a collection's key or item of a type that can be `undefined`, as `()` and `Option` can (a map's value can be), a std
 function without a mapping of its own that makes or reads an `Option` whose `None` is
 `rt.None`, as `find` over `Option`s does, an `Option` of an `Option` of `()` or another
 `Option`, an instance of a generic type whose field is an `Option` of a type parameter
@@ -582,7 +596,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
-  that log what each is called with, and std's `Bound`, `Reverse`, and `NonZero`. Its
+  that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw
+  pointers: a linked list of boxed nodes as `hashlink` keeps one, through a union and a
+  `MaybeUninit` entry, and pointers to locals, fields, and whole structs. Its
   differential test runs through `caller.ts`, a
   hand-written caller that also prints a `printable` error nothing translated prints,
   and adds every 64- and 128-bit case over each pair of values next to a power of two,

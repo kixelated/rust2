@@ -6,17 +6,20 @@
 
 use rustc_abi::{FieldIdx, VariantIdx};
 use rustc_data_structures::fx::FxHashSet;
+use rustc_hir::def::DefKind;
+use rustc_hir::def_id::{DefId, DefIndex};
 use rustc_middle::mir::interpret::{GlobalId, Scalar};
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, ProjectionElem};
-use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::{Env, Fx, Pending, Slot};
 use crate::lower::library::{Flow, Std};
 use crate::lower::num::Int;
 use crate::lower::{AdtRepr, ObjectKind, byte_array, bytes_ref};
-use crate::ts::{Expr, Stmt, StmtKind};
+use crate::program::{SymKind, Symbol};
+use crate::ts::{Expr, Item, Stmt, StmtKind};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// A local read whole.
@@ -172,24 +175,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// Whether `e` is an `rt.ByteSlice` of the place's bytes: a `[u8]`, or a `[u8; N]`
 		// behind a reference.
 		let mut in_bytes = false;
+		// The projections a union's field consumed with it, down to a slot.
+		let mut consumed = 0;
 		for (read, elem) in place.projection.iter().enumerate().skip(from) {
 			let ty = pty.ty;
+			if consumed > 0 {
+				consumed -= 1;
+				pty = pty.projection_ty(tcx, elem);
+				continue;
+			}
 			in_bytes = in_bytes || byte_slice(ty);
 			match elem {
+				ProjectionElem::Field(field, field_ty)
+					if let ty::Adt(adt, _) = ty.kind()
+						&& adt.is_union() =>
+				{
+					let (parts, n, part_ty) =
+						self.union_part(*adt, field.as_usize(), field_ty, &place.projection[read + 1..], span);
+					consumed = n;
+					e = self.b.t.of_slots(e, part_ty, &parts, span);
+				}
 				ProjectionElem::Deref => {
 					// Drop glue's pointer is the value it drops.
 					let glue =
 						matches!(self.env, Env::Shim) && place.local.as_u32() == 1 && pty.ty == decls[place.local].ty;
-					if self.b.t.place_pointee(ty).is_some() && !glue {
+					// A box's pointer is the box, which is its contents.
+					if self.b.t.place_pointee(ty).is_some() && !glue && !self.box_pointer(place.local) {
 						e = e.member("v");
-					}
-					// A box's pointer is the box in JS: one to an object shares it.
-					if let ty::RawPtr(pointee, _) = ty.kind()
-						&& !matches!(self.slots[place.local], Slot::Alias(_))
-						&& !(matches!(self.env, Env::Shim) && place.local.as_u32() == 1)
-						&& !(self.box_pointer(place.local) && self.b.t.object_kind(*pointee).is_some())
-					{
-						return self.err(span, "a raw pointer dereferenced");
 					}
 				}
 				ProjectionElem::Field(field, _) => {
@@ -309,6 +321,54 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			pty = pty.projection_ty(tcx, elem);
 		}
 		e
+	}
+
+	/// The parts of field `field` of union `adt` that `rest`, the projections after it,
+	/// go down to, how many of them that takes, and the type they make: one slot, or the
+	/// parts of an aggregate kept in several.
+	pub(super) fn union_part(
+		&mut self,
+		adt: ty::AdtDef<'tcx>,
+		field: usize,
+		field_ty: Ty<'tcx>,
+		rest: &[ProjectionElem<Local, Ty<'tcx>>],
+		span: Span,
+	) -> (Vec<crate::lower::unions::Part>, usize, Ty<'tcx>) {
+		let mut parts = self.b.t.union_field(adt, field, span);
+		let (mut n, mut ty) = (0, field_ty);
+		while !crate::lower::unions::whole(&parts)
+			&& let Some(ProjectionElem::Field(inner, inner_ty)) = rest.get(n)
+		{
+			parts = crate::lower::unions::within(&parts, inner.as_usize());
+			(n, ty) = (n + 1, *inner_ty);
+		}
+		(parts, n, ty)
+	}
+
+	/// The union field part `place` ends in, if it ends in one kept in more than one slot:
+	/// the union's place and the parts.
+	pub(super) fn union_whole(
+		&mut self,
+		place: Place<'tcx>,
+		span: Span,
+	) -> Option<(Place<'tcx>, Vec<crate::lower::unions::Part>)> {
+		let tcx = self.tcx;
+		for (i, (base, elem)) in place.iter_projections().enumerate() {
+			let ProjectionElem::Field(field, field_ty) = elem else {
+				continue;
+			};
+			let ty::Adt(adt, _) = base.ty(&self.mir.local_decls, tcx).ty.kind() else {
+				continue;
+			};
+			if !adt.is_union() {
+				continue;
+			}
+			let rest = &place.projection[i + 1..];
+			let (parts, n, _) = self.union_part(*adt, field.as_usize(), field_ty, rest, span);
+			let whole = crate::lower::unions::whole(&parts);
+			return (n == rest.len() && !whole).then(|| (base.to_place(tcx), parts));
+		}
+		None
 	}
 
 	/// Whether `place` is a `[u8; N]` read through a reference, whose JS value is an
@@ -507,6 +567,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let info = self.b.t.adt(*adt, span);
 					match info.repr {
 						AdtRepr::Struct { fields, .. } => base.field(fields[field.index()]),
+						AdtRepr::Slots(_) => {
+							self.err(span, format!("a field of union `{ty}` read apart from its place"))
+						}
 						AdtRepr::Union | AdtRepr::Tags => {
 							let variant = variant.unwrap_or(rustc_abi::FIRST_VARIANT);
 							let def = &adt.variant(variant).fields[field];
@@ -580,6 +643,24 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn store(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> Vec<Stmt> {
 		let (place, value) = self.rebuilt(place, value, span);
 		let mut out = Vec::new();
+		// A raw pointer to a value of no bytes may dangle, and a write through it writes nothing.
+		if let [.., ProjectionElem::Deref] = place.projection.as_slice()
+			&& matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..))
+			&& self.b.t.zero_sized(place.ty(&self.mir.local_decls, self.tcx).ty)
+		{
+			return out;
+		}
+		// A union's field written whole is written into each slot it is kept in.
+		if let Some((union, parts)) = self.union_whole(place, span) {
+			let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+			let value = self.path(value, "field", &mut out);
+			let target = self.place_expr(union, span, &mut out);
+			let target = self.path(target, "union", &mut out);
+			for (slot, part) in self.b.t.slots_of(value, ty, &parts, span) {
+				out.push(StmtKind::Expr(target.clone().member(slot).assign(part)).at(self.b.t.loc(span)));
+			}
+			return out;
+		}
 		// Bytes through a reference are copied into the slice of them it holds.
 		if self.in_bytes(place) {
 			let target = self.place_expr(place, span, &mut out);
@@ -601,7 +682,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let target = self.local_expr(place.local, span);
 			// A binding's value may keep what it holds where `Object.assign` can't reach.
 			let bound = matches!(pointee.kind(), ty::Adt(adt, _) if self.b.t.bound_drops(adt.did()).is_some());
+			let raw =
+				matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..)) && !self.box_pointer(place.local);
 			let e = match self.b.t.object_kind(pointee) {
+				_ if raw => Some(Expr::rt("ptrWrite", vec![target, value.clone()])),
 				Some(ObjectKind::Class) if !shared(self, pointee) && !bound => {
 					Some(Expr::ident("Object").member("assign").call(vec![target, value.clone()]))
 				}
@@ -916,7 +1000,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						match info.repr {
 							AdtRepr::Tags => scrut.clone().binary("===", name),
 							AdtRepr::Union => scrut.clone().member("tag").binary("===", name),
-							AdtRepr::Struct { .. } => self.err(span, format!("a switch on `{ty}`")),
+							AdtRepr::Struct { .. } | AdtRepr::Slots(_) => self.err(span, format!("a switch on `{ty}`")),
 						}
 					}
 					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index),
@@ -943,6 +1027,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub fn constant(&mut self, c: &mir::ConstOperand<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
 		let env = self.b.t.typing_env_pub();
+		if let Some(key) = self.local_key_of(c) {
+			return self.local_key(key, span);
+		}
+		// A reference to a function or a closure that captures nothing, as `&f` promotes to,
+		// is what it points at, which has no value tree.
+		if let ty::Ref(_, inner, _) = c.ty().kind()
+			&& matches!(inner.kind(), ty::FnDef(..) | ty::Closure(..))
+		{
+			return self.const_value(ConstValue::ZeroSized, *inner, span);
+		}
 		match c.const_ {
 			mir::Const::Ty(ty, ct) => match ct.kind() {
 				ty::ConstKind::Value(v) => self.b.value(v.ty, v.valtree, span),
@@ -964,6 +1058,129 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 			}
 			mir::Const::Val(val, ty) => self.const_value(val, ty, span),
+		}
+	}
+
+	/// The `const` item of the thread-local `c` borrows, as `with`'s `&'static self` is: a
+	/// promoted borrow of the key.
+	fn local_key_of(&self, c: &mir::ConstOperand<'tcx>) -> Option<DefId> {
+		let tcx = self.tcx;
+		let ty::Ref(_, key, _) = c.ty().kind() else {
+			return None;
+		};
+		let ty::Adt(adt, _) = key.kind() else {
+			return None;
+		};
+		if Std::of(tcx, adt.did()) != Some(Std::LocalKey) {
+			return None;
+		}
+		let mir::Const::Unevaluated(uv, _) = c.const_ else {
+			return None;
+		};
+		let promoted = &tcx.promoted_mir(uv.def)[uv.promoted?];
+		promoted
+			.basic_blocks
+			.iter()
+			.flat_map(|bb| &bb.statements)
+			.find_map(|s| {
+				let mir::StatementKind::Assign(assign) = &s.kind else {
+					return None;
+				};
+				match &assign.1 {
+					mir::Rvalue::Use(mir::Operand::Constant(k), _) => match k.const_ {
+						mir::Const::Unevaluated(k, _) if k.promoted.is_none() => Some(k.def),
+						_ => None,
+					},
+					_ => None,
+				}
+			})
+	}
+
+	/// The module value of the thread-local `key`, made the first time: an `rt.LocalKey`
+	/// over what initializes it.
+	fn local_key(&mut self, key: DefId, span: Span) -> Expr {
+		let tcx = self.tcx;
+		if let Some(&sym) = self.b.t.local_keys.get(&key) {
+			return Expr::Sym(sym);
+		}
+		let key_ty = tcx.type_of(key).instantiate_identity().skip_norm_wip();
+		let ty::Adt(_, args) = key_ty.kind() else {
+			unreachable!("a thread-local's key is a LocalKey")
+		};
+		let value_ty = args.type_at(0);
+		let sym = self.b.t.program.sym(Symbol {
+			module: self.b.t.module_of(key),
+			base: tcx.item_name(key).to_string(),
+			suffix: String::new(),
+			owner: None,
+			kind: SymKind::Value,
+			order: self.b.t.order(tcx.def_span(key)),
+			instance: String::new(),
+			name: String::new(),
+			alias: None,
+		});
+		// Before its initializer, which may read it.
+		self.b.t.local_keys.insert(key, sym);
+		let (init, lazy) = self.local_init(key, span);
+		let mut ctor = vec![init, Expr::lit(if lazy { "true" } else { "false" })];
+		// What drops the value an initializer made from within itself, which only an
+		// expression's can.
+		if lazy {
+			ctor.extend(self.b.t.drop_fn(value_ty, span));
+		}
+		let ty = self.b.t.ty(key_ty, span);
+		self.b.t.program.items.push(Item::Value {
+			sym,
+			ty,
+			value: Expr::New(Box::new(Expr::Rt("LocalKey".into())), ctor),
+			doc: None,
+		});
+		Expr::Sym(sym)
+	}
+
+	/// What makes the value of the thread-local `key`, and whether it is lazy: the closure
+	/// its expression is in, or else, for a `const` one, its `const`, as a function.
+	fn local_init(&mut self, key: DefId, span: Span) -> (Expr, bool) {
+		let tcx = self.tcx;
+		let accessor = tcx
+			.mir_for_ctfe(key)
+			.local_decls
+			.iter()
+			.find_map(|l| match l.ty.kind() {
+				ty::Closure(def_id, _) => Some(*def_id),
+				_ => None,
+			});
+		let Some(accessor) = accessor else {
+			return (self.err(span, "a thread-local without its accessor"), false);
+		};
+		// `LazyStorage::get`'s function, which calls the one the expression is in.
+		let lazy = tcx.optimized_mir(accessor).basic_blocks.iter().find_map(|bb| {
+			let mir::TerminatorKind::Call { args, .. } = &bb.terminator().kind else {
+				return None;
+			};
+			args.iter().find_map(|a| match a.node.constant()?.ty().kind() {
+				ty::Closure(def_id, args) => Some((*def_id, *args)),
+				_ => None,
+			})
+		});
+		if let Some((def_id, args)) = lazy {
+			return (self.bare_closure(def_id, args, span), true);
+		}
+		// A `const` one's `EagerStorage` holds the value of the `const` the macro declares in
+		// the key's own initializer, so defined after the key and before its accessor. The
+		// storage's own MIR isn't there to read when the key is another crate's.
+		let init = (key.index.as_u32() + 1..accessor.index.as_u32())
+			.map(|i| DefId {
+				krate: key.krate,
+				index: DefIndex::from_u32(i),
+			})
+			.find(|&d| tcx.opt_parent(d) == Some(key) && matches!(tcx.def_kind(d), DefKind::Const));
+		match init {
+			Some(init) => (Expr::Sym(self.b.t.instance(Instance::mono(tcx, init))), false),
+			None => (
+				self.err(span, "a thread-local whose initializer translation can't find"),
+				false,
+			),
 		}
 	}
 
@@ -1300,7 +1517,7 @@ fn shared<'tcx>(fx: &Fx<'_, '_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	match erased.kind() {
 		ty::Adt(adt, _) => matches!(
 			Std::of(tcx, adt.did()),
-			Some(Std::Arc | Std::Waker | Std::Context | Std::MutexGuard)
+			Some(Std::Arc | Std::Waker | Std::Context | Std::MutexGuard | Std::Ref | Std::RefMut)
 		),
 		ty::Ref(..) | ty::Coroutine(..) => true,
 		_ => false,
@@ -1325,5 +1542,95 @@ fn from_held(path: Expr, held: &Expr) -> Expr {
 		Expr::Index(e, i) => Expr::Index(from(e), i),
 		Expr::As(e, ty) => Expr::As(from(e), ty),
 		_ => held.clone(),
+	}
+}
+
+impl<'tcx> Fx<'_, '_, '_, 'tcx> {
+	/// Why a raw pointer made of `place` here would not keep pointing where Rust's does, if
+	/// it would not: JS keeps each part on its path that is an object, from what the last
+	/// pointer on it points at or from a local, in an object the crate may give another
+	/// object in its place, which the pointer would not see.
+	pub(super) fn out_of_step(&self, place: Place<'tcx>) -> Option<String> {
+		let (tcx, decls, t) = (self.tcx, &self.mir.local_decls, &self.b.t);
+		let elems = place.projection.as_slice();
+		let start = elems
+			.iter()
+			.rposition(|e| matches!(e, ProjectionElem::Deref))
+			.map_or(0, |i| i + 1);
+		let object = |ty: Ty<'tcx>| {
+			!(t.polymorphic() && ty.has_param()) && t.pointee(ty) == crate::lower::pointer::Pointee::Object
+		};
+		for i in start..elems.len() {
+			let base = Place::ty_from(place.local, &elems[..i], decls, tcx).ty;
+			let ty = Place::ty_from(place.local, &elems[..=i], decls, tcx).ty;
+			if !object(ty)
+				|| matches!(
+					elems[i],
+					ProjectionElem::OpaqueCast(_) | ProjectionElem::UnwrapUnsafeBinder(_)
+				) {
+				continue;
+			}
+			let field = matches!(elems[i], ProjectionElem::Field(..))
+				&& matches!(base.kind(), ty::Tuple(_) | ty::Adt(..))
+				&& !base.is_union()
+				&& !base.is_enum()
+				&& elems[..i]
+					.last()
+					.is_none_or(|e| !matches!(e, ProjectionElem::Downcast(..)));
+			if !field {
+				return Some(format!(
+					"a raw pointer to `{ty}` in an element, a payload, or a union field, which is not supported yet"
+				));
+			}
+			if t.replaced(base) {
+				return Some(format!(
+					"a raw pointer to `{ty}` in `{base}`, which the crate may put another object in place of"
+				));
+			}
+		}
+		let ty = place.ty(decls, tcx).ty;
+		if start == 0 && object(ty) && self.assigned_after(place.local) {
+			return Some(format!(
+				"a raw pointer to `{ty}` in a variable assigned again while it may point there"
+			));
+		}
+		None
+	}
+
+	/// Whether `local` may be assigned whole after the statement being lowered, before its
+	/// storage ends.
+	fn assigned_after(&self, local: Local) -> bool {
+		let blocks = &self.mir.basic_blocks;
+		let mut seen = FxHashSet::default();
+		let mut stack = vec![(self.at.block, self.at.statement_index + 1)];
+		while let Some((bb, from)) = stack.pop() {
+			let data = &blocks[bb];
+			let mut ended = false;
+			for stmt in &data.statements[from.min(data.statements.len())..] {
+				match &stmt.kind {
+					mir::StatementKind::StorageDead(l) | mir::StatementKind::StorageLive(l) if *l == local => {
+						ended = true;
+						break;
+					}
+					mir::StatementKind::Assign(assign) if assign.0.as_local() == Some(local) => return true,
+					_ => {}
+				}
+			}
+			if ended {
+				continue;
+			}
+			let term = data.terminator();
+			if let mir::TerminatorKind::Call { destination, .. } = &term.kind
+				&& destination.as_local() == Some(local)
+			{
+				return true;
+			}
+			for next in term.successors() {
+				if seen.insert(next) {
+					stack.push((next, 0));
+				}
+			}
+		}
+		false
 	}
 }

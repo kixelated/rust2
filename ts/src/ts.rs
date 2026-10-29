@@ -471,10 +471,13 @@ pub enum Item {
 		doc: Option<String>,
 	},
 	Function(Function),
-	/// A module-level `const`, such as where functions hand back a result's parts.
-	Const {
+	/// A module's value that every use shares, made with no effect but itself, so that a
+	/// bundler drops it unused: `export const NAME: T = /* @__PURE__ */ new ...`, or a
+	/// literal.
+	Value {
 		sym: SymId,
 		ty: Type,
-		init: Expr,
+		value: Expr,
+		doc: Option<String>,
 	},
 }

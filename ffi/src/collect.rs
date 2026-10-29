@@ -39,6 +39,11 @@ pub struct Why {
 	pub note: Option<(Span, String)>,
 }
 
+/// Types of crates that are no export, by crate and name, each exported as an object made
+/// by parsing its text, where some crate builds with it: `url::Url`, and
+/// `serde_json::Value`, which a `Serialize` or `Deserialize` parameter takes.
+const FOREIGN: [(&str, &str); 2] = [("url", "Url"), ("serde_json", "Value")];
+
 /// The construct of an instance inference missed: a bug in the exporter, not the crate.
 pub const NOT_INFERRED: &str = "instance not inferred";
 
@@ -162,8 +167,9 @@ struct Collector<'tcx> {
 	/// implementation or a lent closure, with the type each takes.
 	impls: std::cell::RefCell<Vec<(Ty<'tcx>, Type)>>,
 	bytes: Option<DefId>,
-	/// `url::Url`, when no export is the `url` crate, and the object it exports as.
-	url: Option<(DefId, usize)>,
+	/// Each type in [`FOREIGN`] that some crate builds with and no export is, and the
+	/// object it exports as.
+	foreign: Vec<(DefId, usize)>,
 	/// `std::ops::Bound`, and `std::ops::RangeBounds`, which names it.
 	bound: Option<DefId>,
 	range_bounds: Option<DefId>,
@@ -182,7 +188,10 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 			.and_then(|child| child.res.opt_def_id())
 	};
 	let bytes = root("bytes", "Bytes");
-	let url = root("url", "Url").filter(|url| !crates.iter().any(|c| c.krate == url.krate));
+	let foreign: Vec<DefId> = (FOREIGN.iter())
+		.filter_map(|&(krate, name)| root(krate, name))
+		.filter(|ty| !crates.iter().any(|c| c.krate == ty.krate))
+		.collect();
 	let range_bounds = tcx.get_diagnostic_item(rustc_span::Symbol::intern("RangeBounds"));
 	// `RangeBounds::start_bound` returns a `Bound`, which has no diagnostic item of its own.
 	let bound = range_bounds.and_then(|tr| {
@@ -221,7 +230,7 @@ pub fn collect<'tcx>(tcx: TyCtxt<'tcx>, crates: &[Crate<'_>]) -> Collected {
 			left_out: Default::default(),
 			impls: Default::default(),
 			bytes,
-			url: url.map(|url| (url, 0)),
+			foreign: foreign.iter().map(|&ty| (ty, 0)).collect(),
 			bound,
 			range_bounds,
 			orphans: orphans.clone(),
@@ -510,14 +519,18 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The first type argument an instance is named by that cannot map as [`Self::arg`]
-	/// requires, which is `()`, a primitive, `String`, or an export's type.
+	/// requires, which is `()`, a primitive, `String`, a foreign object, or an export's type.
 	fn unarguable(&self, site: &Site<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
 		site.args.types().take(site.explicit).find(|&ty| match ty.kind() {
 			ty::Tuple(list) => !list.is_empty(),
 			ty::Bool | ty::Char | ty::Float(_) => false,
 			ty::Int(_) | ty::Uint(_) => int(ty).is_none(),
-			ty::Adt(adt, _) => tcx.lang_items().string() != Some(adt.did()) && !self.exported(adt.did().krate),
+			ty::Adt(adt, _) => {
+				tcx.lang_items().string() != Some(adt.did())
+					&& !self.exported(adt.did().krate)
+					&& !self.foreign.iter().any(|&(ty, _)| ty == adt.did())
+			}
 			_ => true,
 		})
 	}
@@ -876,45 +889,91 @@ impl<'tcx> Collector<'tcx> {
 				}
 			}
 		}
-		// After every declared object, so `prune` can drop it if no export names it. Until
-		// here, it maps only to decide what does, never to an index kept.
-		if let Some((url, index)) = &mut self.url {
-			*index = self.api.objects.len();
-			let span = tcx.def_span(*url);
-			let ty = Type::Object(*index);
-			let path = |rest: &[&str]| -> Path { ["url", "Url"].iter().chain(rest).map(|s| s.to_string()).collect() };
-			self.api.objects.push(Object {
-				path: path(&[]),
-				args: Vec::new(),
-				span,
-				docs: "`url::Url`: a URL, made by parsing its text.".to_string(),
-				sync: true,
-				copy: false,
-				lifetimes: 0,
-				methods: vec![Function {
-					path: path(&["parse"]),
-					span,
-					docs: "Parse an absolute URL, failing with why it is not one.".to_string(),
-					receiver: None,
-					params: vec![Param {
-						name: "input".to_string(),
-						ty: Type::Ref(Mutability::Not, Box::new(Type::Str)),
-					}],
-					ok: ty,
-					err: Some(Type::String),
-					future: false,
-					eager: false,
-					access: Access::Parse,
-					instance: None,
-				}],
-				traits: Traits {
+		// After every declared object, so `prune` can drop each that no export names. Until
+		// here, each maps only to decide what does, never to an index kept.
+		for n in 0..self.foreign.len() {
+			let index = self.api.objects.len();
+			self.foreign[n].1 = index;
+			let object = self.foreign_object(self.foreign[n].0, index);
+			self.api.objects.push(object);
+		}
+	}
+
+	/// The object a type in [`FOREIGN`] exports as, at `index`: made by parsing its text.
+	fn foreign_object(&self, def_id: DefId, index: usize) -> Object {
+		let tcx = self.tcx;
+		let span = tcx.def_span(def_id);
+		let ty = Type::Object(index);
+		let krate = tcx.crate_name(def_id.krate);
+		let path = |rest: &str| -> Path {
+			[krate.as_str(), tcx.item_name(def_id).as_str(), rest]
+				.iter()
+				.filter(|s| !s.is_empty())
+				.map(|s| s.to_string())
+				.collect()
+		};
+		let parse = |docs: &str| Function {
+			path: path("parse"),
+			span,
+			docs: docs.to_string(),
+			receiver: None,
+			params: vec![Param {
+				name: "input".to_string(),
+				ty: Type::Ref(Mutability::Not, Box::new(Type::Str)),
+			}],
+			ok: ty.clone(),
+			err: Some(Type::String),
+			future: false,
+			eager: false,
+			collect: false,
+			access: Access::Parse,
+			instance: None,
+		};
+		let (docs, methods, traits) = match krate.as_str() {
+			"url" => (
+				"`url::Url`: a URL, made by parsing its text.",
+				vec![parse("Parse an absolute URL, failing with why it is not one.")],
+				Traits {
 					clone: true,
 					eq: true,
 					display: true,
 					debug: true,
 					default: false,
 				},
-			});
+			),
+			// Its contents are the caller's JSON library's to read, from its text.
+			_ => (
+				"`serde_json::Value`: a JSON document, made by parsing its text and read back as text.",
+				vec![
+					parse("Parse a JSON document, failing with why it is not one."),
+					Function {
+						path: path("to_text"),
+						span,
+						docs: "The document as JSON text.".to_string(),
+						receiver: Some(Receiver::Ref),
+						params: Vec::new(),
+						ok: Type::String,
+						err: None,
+						future: false,
+						eager: false,
+						collect: false,
+						access: Access::Text,
+						instance: None,
+					},
+				],
+				Traits::default(),
+			),
+		};
+		Object {
+			path: path(""),
+			args: Vec::new(),
+			span,
+			docs: docs.to_string(),
+			sync: true,
+			copy: false,
+			lifetimes: 0,
+			methods,
+			traits,
 		}
 	}
 
@@ -1245,29 +1304,69 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// Drop `url::Url`'s object if no export names it, so a crate that only builds with
-	/// `url` exports none of it.
+	/// Drop each foreign type's object that no export names, so a crate that only builds
+	/// with `url` exports none of it. They are the last objects, so dropping one renumbers
+	/// only those after it.
 	fn prune(&mut self) {
-		let Some((_, url)) = self.url else {
-			return;
-		};
-		let api = &self.api;
-		let signature = |f: &Function| {
-			(f.params.iter().map(|p| &p.ty))
-				.chain([&f.ok])
-				.chain(&f.err)
-				.any(|ty| names(ty, url))
-		};
-		let fields = |fields: &[Field]| fields.iter().any(|f| names(&f.ty, url));
-		let used = api.functions.iter().any(signature)
-			|| (api.records.iter()).any(|r| fields(&r.fields) || r.methods.iter().any(signature))
-			|| (api.enums.iter())
-				.any(|e| e.variants.iter().any(|v| fields(&v.fields)) || e.methods.iter().any(signature))
-			|| (api.objects.iter().enumerate()).any(|(i, o)| i != url && o.methods.iter().any(signature))
-			|| (api.callbacks.iter()).any(|c| c.methods.iter().any(signature));
-		if !used {
-			assert_eq!(url, api.objects.len() - 1, "url::Url is the last object");
-			self.api.objects.pop();
+		for n in (0..self.foreign.len()).rev() {
+			let gone = self.foreign[n].1;
+			let api = &self.api;
+			let signature = |f: &Function| {
+				(f.params.iter().map(|p| &p.ty))
+					.chain([&f.ok])
+					.chain(&f.err)
+					.chain(f.instance.iter().flat_map(|i| i.args.iter().flatten().chain(&i.named)))
+					.any(|ty| names(ty, gone))
+			};
+			let fields = |fields: &[Field]| fields.iter().any(|f| names(&f.ty, gone));
+			let args = |args: &[Type]| args.iter().any(|ty| names(ty, gone));
+			let used = api.functions.iter().any(signature)
+				|| (api.records.iter()).any(|r| args(&r.args) || fields(&r.fields) || r.methods.iter().any(signature))
+				|| (api.enums.iter()).any(|e| {
+					args(&e.args) || e.variants.iter().any(|v| fields(&v.fields)) || e.methods.iter().any(signature)
+				})
+				|| (api.objects.iter().enumerate())
+					.any(|(i, o)| i != gone && (args(&o.args) || o.methods.iter().any(signature)))
+				|| (api.callbacks.iter()).any(|c| c.methods.iter().any(signature));
+			if used {
+				continue;
+			}
+			self.api.objects.remove(gone);
+			self.foreign.remove(n);
+			for later in &mut self.foreign[n..] {
+				later.1 -= 1;
+			}
+			let api = &mut self.api;
+			let functions = (api.functions.iter_mut())
+				.chain(api.records.iter_mut().flat_map(|r| &mut r.methods))
+				.chain(api.enums.iter_mut().flat_map(|e| &mut e.methods))
+				.chain(api.objects.iter_mut().flat_map(|o| &mut o.methods))
+				.chain(api.callbacks.iter_mut().flat_map(|c| &mut c.methods));
+			for f in functions {
+				let instance = (f.instance.iter_mut()).flat_map(|i| i.args.iter_mut().flatten().chain(&mut i.named));
+				(f.params.iter_mut().map(|p| &mut p.ty))
+					.chain([&mut f.ok])
+					.chain(&mut f.err)
+					.chain(instance)
+					.for_each(|ty| renumber(ty, gone));
+			}
+			for r in &mut api.records {
+				(r.args.iter_mut())
+					.chain(r.fields.iter_mut().map(|f| &mut f.ty))
+					.for_each(|ty| renumber(ty, gone));
+			}
+			for e in &mut api.enums {
+				(e.args.iter_mut())
+					.chain(
+						e.variants
+							.iter_mut()
+							.flat_map(|v| v.fields.iter_mut().map(|f| &mut f.ty)),
+					)
+					.for_each(|ty| renumber(ty, gone));
+			}
+			for o in &mut api.objects {
+				o.args.iter_mut().for_each(|ty| renumber(ty, gone));
+			}
 		}
 	}
 
@@ -1346,6 +1445,7 @@ impl<'tcx> Collector<'tcx> {
 						err: None,
 						future: false,
 						eager: false,
+						collect: false,
 						access: Access::Field { shared, set },
 						instance: None,
 					};
@@ -1710,6 +1810,19 @@ impl<'tcx> Collector<'tcx> {
 			output = normalize(inner);
 			future = true;
 		}
+		// An iterator no other rule maps crosses as the array of its items, all taken at
+		// the call, as `collect` takes them, when no caller could tell; a future's stays
+		// refused.
+		let mut collect = false;
+		if !future
+			&& self.ret(output).is_err()
+			&& let Some(items) = self
+				.collected(output, env)
+				.and_then(|item| self.vec_of(normalize(item)))
+		{
+			output = items;
+			collect = true;
+		}
 		let (ok, err) = match output.kind() {
 			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
 				(self.ret(args.type_at(0)), Some(self.ty(args.type_at(1), Pos::Return)))
@@ -1736,6 +1849,7 @@ impl<'tcx> Collector<'tcx> {
 				err,
 				future,
 				eager: future && eager,
+				collect,
 				access: Access::Call,
 				instance,
 			}),
@@ -1774,7 +1888,8 @@ impl<'tcx> Collector<'tcx> {
 				// The first refusal ends it, before any later parameter's candidates are mapped.
 				GenericArgKind::Const(_) => return Err(vec![why("const generic", "")]),
 				GenericArgKind::Type(param) if self.lent(def_id, param) => kept.push(param),
-				GenericArgKind::Type(param) => match self.choose(def_id, param, &base) {
+				// Its bounds see each earlier parameter chosen, as `impl Into<Timed<&'a T>>` names `T`.
+				GenericArgKind::Type(param) => match self.choose(def_id, param, &args) {
 					// Typing takes a later type only where an earlier one's export is refused.
 					Ok(ranked) if self.inferring => {
 						let last = ranked.iter().position(|&ty| !self.names_export(ty));
@@ -1853,8 +1968,9 @@ impl<'tcx> Collector<'tcx> {
 
 	/// The types a type parameter may be exported as, best first, which typing takes the
 	/// first of: `X` for each `Into<X>` or `AsRef<X>` its bounds imply, or `&X` and then
-	/// `String` or `Vec<T>` where `X` is `str` or `[T]`, then `String`, `Bytes`, and
-	/// `Vec<u8>`, each that meets its bounds and maps.
+	/// `String` or `Vec<T>` where `X` is `str` or `[T]`, `Vec<X>` for
+	/// `impl IntoIterator<Item = X>`, `serde_json::Value` for a serde bound, then `String`,
+	/// `Bytes`, and `Vec<u8>`, each that meets its bounds and maps.
 	fn choose(&self, def_id: DefId, param: Ty<'tcx>, base: &[ty::GenericArg<'tcx>]) -> Result<Vec<Ty<'tcx>>, Why> {
 		let tcx = self.tcx;
 		let clauses = tcx.clauses_of(def_id);
@@ -1878,16 +1994,6 @@ impl<'tcx> Collector<'tcx> {
 			.lang_items()
 			.string()
 			.map(|string| Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
-		let vec = |elem: Ty<'tcx>| {
-			let vec = tcx.get_diagnostic_item(sym::Vec)?;
-			let alloc = tcx.lang_items().global_alloc_ty()?;
-			let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
-			Some(Ty::new_adt(
-				tcx,
-				tcx.adt_def(vec),
-				tcx.mk_args(&[elem.into(), alloc.into()]),
-			))
-		};
 		let mut candidates = Vec::new();
 		let implied = (implied.iter())
 			.filter_map(|clause| clause.as_trait_clause())
@@ -1899,12 +2005,15 @@ impl<'tcx> Collector<'tcx> {
 				// An `Into` target that does not map takes what converts into it instead.
 				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
 					.then(|| self.sources(def_id, target()));
-				// A source that must outlive the call, or converts into a parameter that must, owns it.
-				let sources = into.into_iter().flatten().map(|(x, source)| (x, outlives || source));
+				// A source that must outlive the call, or converts into a parameter that must, owns
+				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not taken.
+				let sources = (into.into_iter().flatten())
+					.filter(|(x, _)| !outlives || !x.walk().any(|arg| arg.as_region().is_some()))
+					.map(|(x, source)| (x, outlives || source));
 				for (target, outlives) in std::iter::once((target(), outlives)).chain(sources) {
 					let owned = match target.kind() {
 						ty::Str => string,
-						ty::Slice(elem) => vec(*elem),
+						ty::Slice(elem) => self.vec_of(*elem),
 						_ => {
 							candidates.push(target);
 							continue;
@@ -1919,13 +2028,17 @@ impl<'tcx> Collector<'tcx> {
 				}
 			} else if Some(tr) == self.range_bounds {
 				candidates.extend(self.bounds(target()));
+			} else if tcx.is_diagnostic_item(sym::IntoIterator, tr) {
+				candidates.extend(self.items(&identity.clauses, param).and_then(|item| self.vec_of(item)));
+			} else if serde(tcx, tr) {
+				candidates.extend(self.json());
 			}
 		}
 		candidates.extend(string);
 		if let Some(bytes) = self.bytes {
 			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
 		}
-		candidates.extend(vec(tcx.types.u8));
+		candidates.extend(self.vec_of(tcx.types.u8));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
 		candidates
 			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));
@@ -1950,10 +2063,36 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
-	/// What `impl Into<target>` takes through the `From` implementations into `target`
-	/// whose source is a type parameter: each `Into<X>` or `AsRef<X>` its bounds imply, and
+	/// `serde_json::Value`, if it exports as a foreign object.
+	fn json(&self) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		(self.foreign.iter())
+			.find(|&&(ty, _)| tcx.crate_name(ty.krate).as_str() == "serde_json")
+			.map(|&(ty, _)| Ty::new_adt(tcx, tcx.adt_def(ty), ty::List::empty()))
+	}
+
+	/// The `Item` that `clauses` bind `param`'s `IntoIterator` to, if it names no type
+	/// parameter, which a `Vec` of it then iterates as.
+	fn items(&self, clauses: &[ty::Unnormalized<'tcx, ty::Clause<'tcx>>], param: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		(clauses.iter())
+			.filter_map(|clause| clause.skip_norm_wip().as_projection_clause())
+			.map(|pred| pred.skip_binder())
+			.find(|pred| {
+				let term = pred.projection_term;
+				let item = term.expect_projection_def_id();
+				term.self_ty() == param
+					&& tcx.is_diagnostic_item(sym::IntoIterator, tcx.parent(item))
+					&& tcx.item_name(item) == sym::Item
+			})
+			.and_then(|pred| pred.term.as_type())
+			.filter(|item| !item.has_non_region_param())
+	}
+
+	/// What `impl Into<target>` takes through the `From` implementations into `target`: a
+	/// source that is a type parameter by each `Into<X>` or `AsRef<X>` its bounds imply, and
 	/// whether they make it outlive the call, so `impl<B: Into<Bytes>> From<B> for
-	/// Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes.
+	/// Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes; any other source as it is.
 	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<(Ty<'tcx>, bool)> {
 		let tcx = self.tcx;
 		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
@@ -1962,6 +2101,8 @@ impl<'tcx> Collector<'tcx> {
 		let Some(simple) = simplify_type(tcx, target, TreatParams::AsRigid) else {
 			return Vec::new();
 		};
+		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+		let (statics, _) = self.borrows(def_id, sig.skip_binder());
 		let mut found = Vec::new();
 		for &imp in tcx
 			.trait_impls_of(from)
@@ -1977,11 +2118,31 @@ impl<'tcx> Collector<'tcx> {
 			let trait_ref = tcx.impl_trait_ref(imp).instantiate(tcx, args).skip_norm_wip();
 			let source = trait_ref.args.type_at(1);
 			let ocx = ObligationCtxt::new(&infcx);
-			if !source.is_ty_var()
-				|| ocx
-					.eq(&ObligationCause::dummy(), env, trait_ref.self_ty(), target)
-					.is_err()
+			if ocx
+				.eq(&ObligationCause::dummy(), env, trait_ref.self_ty(), target)
+				.is_err()
 			{
+				continue;
+			}
+			// Any other source is taken as it is: `impl<'a, V> From<&'a V> for Timed<&'a V>`
+			// makes `impl Into<Timed<&'a T>>` take `&T`. One that may have to outlive the call,
+			// by naming `'static`, by a lifetime bound, or by a lifetime the target ties to one
+			// the export makes `'static`, as `impl Into<Held<'static>>` does, takes nothing C lends.
+			if !source.is_ty_var() {
+				let regions = |ty: Ty<'tcx>| ty.walk().filter_map(|arg| arg.as_region()).collect::<Vec<_>>();
+				let lasting = regions(source).iter().any(|r| r.is_static())
+					|| (!regions(source).is_empty() && regions(target).iter().any(|r| statics.contains(r)))
+					|| (tcx.clauses_of(imp).instantiate(tcx, args).clauses.iter()).any(|clause| {
+						let clause = clause.skip_norm_wip();
+						clause.as_type_outlives_clause().is_some() || clause.as_region_outlives_clause().is_some()
+					});
+				if lasting {
+					continue;
+				}
+				let x = tcx.erase_and_anonymize_regions(infcx.deeply_resolve_ignoring_regions(source));
+				if !x.has_non_region_infer() && !found.contains(&(x, false)) {
+					found.push((x, false));
+				}
 				continue;
 			}
 			let source = infcx.deeply_resolve_ignoring_regions(source);
@@ -2253,6 +2414,177 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
+	/// `Vec<item>`.
+	fn vec_of(&self, item: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let vec = tcx.get_diagnostic_item(sym::Vec)?;
+		let alloc = tcx.lang_items().global_alloc_ty()?;
+		let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
+		Some(Ty::new_adt(
+			tcx,
+			tcx.adt_def(vec),
+			tcx.mk_args(&[item.into(), alloc.into()]),
+		))
+	}
+
+	/// What `ty` yields, if it is an iterator whose items a return can take at the call with
+	/// no caller able to tell: one of core's and alloc's iterators over a slice, string, or
+	/// collection, through adapters that neither make, drop, nor compare items, and no closure,
+	/// function, or trait object. Collecting it ends and runs no other crate's code but
+	/// `Clone`, which a borrowed item crosses through anyway.
+	/// A range is a value, which crosses as itself or not at all.
+	fn collected(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
+		/// Their paths below the crate, which are the same in core and alloc as in std: the
+		/// iterators, and the collections an adapter may turn into one, which hand over every
+		/// element, unlike a `Result` that drops its error.
+		const DRAINED: &[&str] = &[
+			"array::IntoIter",
+			"collections::BTreeMap",
+			"collections::BTreeSet",
+			"collections::BinaryHeap",
+			"collections::LinkedList",
+			"collections::VecDeque",
+			"collections::binary_heap::Drain",
+			"collections::binary_heap::IntoIter",
+			"collections::binary_heap::Iter",
+			"collections::btree_map::IntoIter",
+			"collections::btree_map::Iter",
+			"collections::btree_map::IterMut",
+			"collections::btree_map::Keys",
+			"collections::btree_map::Values",
+			"collections::btree_map::ValuesMut",
+			"collections::btree_set::IntoIter",
+			"collections::btree_set::Iter",
+			"collections::linked_list::IntoIter",
+			"collections::linked_list::Iter",
+			"collections::linked_list::IterMut",
+			"collections::vec_deque::Drain",
+			"collections::vec_deque::IntoIter",
+			"collections::vec_deque::Iter",
+			"collections::vec_deque::IterMut",
+			"iter::Chain",
+			"iter::Cloned",
+			"iter::Copied",
+			"iter::Enumerate",
+			"iter::Flatten",
+			"iter::Fuse",
+			"iter::Peekable",
+			"iter::Rev",
+			"option::IntoIter",
+			"option::Option",
+			"option::Iter",
+			"option::IterMut",
+			"result::IntoIter",
+			"result::Iter",
+			"result::IterMut",
+			"slice::Iter",
+			"slice::IterMut",
+			"str::Bytes",
+			"str::CharIndices",
+			"str::Chars",
+			"str::Lines",
+			"str::Split",
+			"str::SplitWhitespace",
+			"string::Drain",
+			"vec::Drain",
+			"vec::IntoIter",
+			"vec::Vec",
+		];
+		let tcx = self.tcx;
+		let iterator = tcx.get_diagnostic_item(sym::Iterator)?;
+		let into_iterator = tcx.get_diagnostic_item(sym::IntoIterator)?;
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		let implements = |tr, ty| {
+			infcx
+				.type_implements_trait(tr, [ty], param_env)
+				.must_apply_modulo_regions()
+		};
+		if !matches!(ty.kind(), ty::Adt(..)) || !implements(iterator, ty) {
+			return None;
+		}
+		let std = |krate| matches!(tcx.crate_name(krate), sym::core | sym::alloc);
+		let drained = |did: DefId| {
+			let path = tcx.def_path_str(did);
+			std(did.krate) && path.split_once("::").is_some_and(|(_, path)| DRAINED.contains(&path))
+		};
+		let assoc = |tr, name: &str| {
+			let item = tcx
+				.associated_items(tr)
+				.in_definition_order()
+				.find(|item| item.name().as_str() == name);
+			item.map(|item| item.def_id)
+		};
+		let (next, into_iter) = (assoc(iterator, "next")?, assoc(into_iterator, "into_iter")?);
+		let item = tcx.get_diagnostic_item(sym::IteratorItem)?;
+		let into_iter_ty = assoc(into_iterator, "IntoIter")?;
+		let project = |assoc, ty| {
+			let projection = Ty::new_projection(tcx, ty::IsRigid::No, assoc, [ty]);
+			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+				.ok()
+		};
+		// Whether core's or alloc's impl of `method` is the one `ty` runs.
+		let by_std = |method, ty: Ty<'tcx>| {
+			ty::Instance::try_resolve(tcx, env, method, tcx.mk_args(&[ty.into()]))
+				.is_ok_and(|instance| instance.is_some_and(|instance| std(instance.def_id().krate)))
+		};
+		// Every type the iterator holds, and every item and iterator its adapters drive,
+		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
+		let mut seen = rustc_data_structures::fx::FxHashSet::default();
+		let mut queue = vec![ty];
+		while let Some(next_ty) = queue.pop() {
+			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
+				if !seen.insert(ty) {
+					continue;
+				}
+				let plain = matches!(
+					ty.kind(),
+					ty::Adt(..)
+						| ty::Bool
+						| ty::Char
+						| ty::Int(_)
+						| ty::Uint(_)
+						| ty::Float(_)
+						| ty::Str
+						| ty::Array(..)
+						| ty::Slice(_)
+						| ty::Ref(..)
+						| ty::Tuple(_)
+				);
+				let (method, driven) = match (implements(iterator, ty), implements(into_iterator, ty)) {
+					(true, _) => (next, item),
+					(false, true) => (into_iter, into_iter_ty),
+					(false, false) if plain => continue,
+					(false, false) => return None,
+				};
+				let listed = match ty.kind() {
+					ty::Adt(adt, _) => drained(adt.did()),
+					_ => plain,
+				};
+				if !listed || !by_std(method, ty) {
+					return None;
+				}
+				queue.push(project(driven, ty)?);
+			}
+		}
+		// Besides items, the listed iterators call into only their allocator and `Split`'s
+		// pattern, whose impls must be core's or alloc's too, on a type or a borrow of one.
+		let krate = *tcx.crates(()).iter().find(|&&k| tcx.crate_name(k) == sym::core)?;
+		let callee = |path: &str, method: &str| {
+			let tr = (tcx.traits(krate).iter().copied())
+				.find(|&tr| tcx.def_path_str(tr).split_once("::").is_some_and(|(_, p)| p == path))?;
+			Some((tr, assoc(tr, method)?))
+		};
+		let callees = [
+			callee("alloc::Allocator", "deallocate")?,
+			callee("str::pattern::Pattern", "into_searcher")?,
+		];
+		let calls = |ty: Ty<'tcx>| (callees.iter()).any(|&(tr, method)| implements(tr, ty) && !by_std(method, ty));
+		if seen.iter().any(|&ty| calls(ty)) {
+			return None;
+		}
+		project(item, ty)
+	}
+
 	/// What `ty` resolves to when awaited, if it is a future.
 	fn future_output(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
@@ -2434,7 +2766,7 @@ impl<'tcx> Collector<'tcx> {
 		ty.walk().filter_map(|arg| arg.as_type()).any(|ty| match ty.kind() {
 			ty::Adt(adt, args) => {
 				let object = matches!(self.decl(adt.did(), args), Some(Decl::Object(_)))
-					|| self.url.is_some_and(|(url, _)| url == adt.did());
+					|| self.foreign.iter().any(|&(ty, _)| ty == adt.did());
 				object && !implements(tcx, ty, adt.did(), sym::Copy)
 			}
 			_ => false,
@@ -2507,6 +2839,7 @@ impl<'tcx> Collector<'tcx> {
 				err: None,
 				future: false,
 				eager: false,
+				collect: false,
 				access: Access::Const,
 				instance: None,
 			}),
@@ -2646,12 +2979,10 @@ impl<'tcx> Collector<'tcx> {
 					.flatten()
 				{
 					Type::SocketAddr(family)
-				} else if let Some((url, i)) = self.url
-					&& did == url
-				{
+				} else if let Some(&(_, i)) = self.foreign.iter().find(|&&(ty, _)| ty == did) {
 					// A value holds only values, and handles it can copy.
 					match pos {
-						Pos::Field => return Err(why("object in a value", "url::Url")),
+						Pos::Field => return Err(why("object in a value", tcx.def_path_str(did))),
 						_ => Type::Object(i),
 					}
 				} else if tcx.is_diagnostic_item(rustc_span::Symbol::intern("Waker"), did) {
@@ -2827,6 +3158,27 @@ fn returns(api: &Api, ty: &Type, objects: &mut Vec<usize>) {
 			.iter()
 			.flat_map(|v| &v.fields)
 			.for_each(|f| returns(api, &f.ty, objects)),
+		_ => {}
+	}
+}
+
+/// Whether `tr` is serde's `Serialize`, `Deserialize`, or `DeserializeOwned`, which
+/// `serde_json::Value` meets as a document of any shape.
+fn serde(tcx: TyCtxt<'_>, tr: DefId) -> bool {
+	matches!(tcx.crate_name(tr.krate).as_str(), "serde" | "serde_core")
+		&& matches!(
+			tcx.item_name(tr).as_str(),
+			"Serialize" | "Deserialize" | "DeserializeOwned"
+		)
+}
+
+/// Renumber each object after `gone`, which is dropped, in `ty`.
+fn renumber(ty: &mut Type, gone: usize) {
+	match ty {
+		Type::Object(o) if *o > gone => *o -= 1,
+		Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) | Type::List(inner) => renumber(inner, gone),
+		Type::Tuple(elements) => elements.iter_mut().for_each(|ty| renumber(ty, gone)),
+		Type::Closure(params, ret) => params.iter_mut().chain([&mut **ret]).for_each(|ty| renumber(ty, gone)),
 		_ => {}
 	}
 }

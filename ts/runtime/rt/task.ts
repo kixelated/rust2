@@ -52,6 +52,11 @@ export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A
 	return closure((...args: A) => callOnce(f, ...args), () => drop(f));
 }
 
+/** A function that calls `f` but never drops it, for a reference to a closure that something would drop. */
+export function lent<A extends unknown[], R>(f: (...args: A) => R): (...args: A) => R {
+	return (...args: A) => f(...args);
+}
+
 // Shared ownership
 
 /** `Arc<T>` and `Rc<T>`: every clone is this one object, counted, as are its `Weak`s. */
@@ -221,6 +226,177 @@ export function mutexTryLock<T>(mutex: Mutex<T>): Result<Mutex<T>, TryLockError<
 /** A `MutexGuard`'s drop. */
 export function mutexUnlock<T>(mutex: Mutex<T>): void {
 	mutex.locked = false;
+}
+
+/**
+ * `RefCell<T>` and `RwLock<T>`, which one thread can't tell apart but by how a borrow
+ * that conflicts fails, and their guards: a borrow is the cell itself, `borrows` counting
+ * the shared ones held, or -1 while an exclusive one is.
+ */
+export class RefCell<T> implements Disposable {
+	value: T;
+	borrows = 0;
+
+	constructor(value: T) {
+		this.value = value;
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.value);
+	}
+}
+
+/** `RefCell::borrow`: a shared borrow, which panics while an exclusive one is held. */
+export function refCellBorrow<T>(cell: RefCell<T>): RefCell<T> {
+	if (cell.borrows < 0) panic("RefCell already mutably borrowed");
+	cell.borrows++;
+	return cell;
+}
+
+/** `RefCell::borrow_mut`: an exclusive borrow, which panics while any other is held. */
+export function refCellBorrowMut<T>(cell: RefCell<T>): RefCell<T> {
+	if (cell.borrows !== 0) panic("RefCell already borrowed");
+	cell.borrows = -1;
+	return cell;
+}
+
+/** `RefCell::replace`: its value, which `value` replaces, as an exclusive borrow would. */
+export function refCellReplace<T>(cell: RefCell<T>, value: T): T {
+	if (cell.borrows !== 0) panic("RefCell already borrowed");
+	const old = cell.value;
+	cell.value = value;
+	return old;
+}
+
+/** `RwLock::read`: a shared guard, which aborts while a write is held, as wasm32's does. */
+export function rwLockRead<T>(lock: RefCell<T>): RefCell<T> {
+	if (lock.borrows < 0) panic("rwlock locked for writing");
+	lock.borrows++;
+	return lock;
+}
+
+/** `RwLock::write`: an exclusive guard, which aborts while any other is held, as wasm32's does. */
+export function rwLockWrite<T>(lock: RefCell<T>): RefCell<T> {
+	if (lock.borrows !== 0) panic("rwlock locked for reading");
+	lock.borrows = -1;
+	return lock;
+}
+
+/** `RwLock::try_read`: a shared guard, or `WouldBlock` while a write is held. */
+export function rwLockTryRead<T>(lock: RefCell<T>): Result<RefCell<T>, TryLockError<RefCell<T>>> {
+	if (lock.borrows < 0) return WOULD_BLOCK;
+	lock.borrows++;
+	return Ok(lock);
+}
+
+/** `RwLock::try_write`: an exclusive guard, or `WouldBlock` while any other is held. */
+export function rwLockTryWrite<T>(lock: RefCell<T>): Result<RefCell<T>, TryLockError<RefCell<T>>> {
+	if (lock.borrows !== 0) return WOULD_BLOCK;
+	lock.borrows = -1;
+	return Ok(lock);
+}
+
+/** A `Ref`'s or an `RwLockReadGuard`'s drop. */
+export function refRelease<T>(cell: RefCell<T>): void {
+	cell.borrows--;
+}
+
+/** A `RefMut`'s or an `RwLockWriteGuard`'s drop. */
+export function refMutRelease<T>(cell: RefCell<T>): void {
+	cell.borrows = 0;
+}
+
+/** `Cell<T>`: the place that holds its value. */
+export class Cell<T> implements Place<T>, Disposable {
+	v: T;
+
+	constructor(v: T) {
+		this.v = v;
+	}
+
+	[Symbol.dispose](): void {
+		drop(this.v);
+	}
+}
+
+/** `Cell::replace`: the value it held, `v` in its place. */
+export function cellReplace<T>(cell: Cell<T>, v: T): T {
+	const old = cell.v;
+	cell.v = v;
+	return old;
+}
+
+/** `Cell::set`: `v` in place of the value it held, which `dropOld` drops after. */
+export function cellSet<T>(cell: Cell<T>, v: T, dropOld?: (old: T) => void): void {
+	const old = cell.v;
+	cell.v = v;
+	dropOld?.(old);
+}
+
+/**
+ * `LocalKey<T>`: a thread-local, one value on JS's one thread, which `init` makes on first
+ * use and nothing drops, as wasm32's are. A lazy key's first use from within `init` makes
+ * its own, which the outer one then drops by `drop` and replaces.
+ */
+export class LocalKey<T> {
+	readonly #init: () => T;
+	/** Whether `init` is an expression's, which only a first use runs, rather than a `const`'s. */
+	readonly #lazy: boolean;
+	readonly #drop: ((value: T) => void) | undefined;
+	#value: T | undefined;
+	/** wasm32's `LazyStorage` state: 0 before `init` returns, 1 after, 2 while dropping. */
+	#state = 0;
+
+	constructor(init: () => T, lazy: boolean, drop?: (value: T) => void) {
+		this.#init = init;
+		this.#lazy = lazy;
+		this.#drop = drop;
+	}
+
+	/** `LocalKey::with`'s value. */
+	get(): T {
+		if (this.#state === 1) return this.#value as T;
+		return this.#initialize(this.#init());
+	}
+
+	/** Makes `value` a lazy key's first value, as `set` does without running `init`, and whether it did. */
+	install(value: T): boolean {
+		if (!this.#lazy || this.#state === 1) return false;
+		this.#initialize(value);
+		return true;
+	}
+
+	#initialize(value: T): T {
+		if (this.#state === 1) {
+			this.#state = 2;
+			this.#drop?.(this.#value as T);
+			this.#state = 0;
+		}
+		if (this.#state === 2) panic("Attempted to initialize thread-local while it is being dropped");
+		this.#value = value;
+		this.#state = 1;
+		return value;
+	}
+}
+
+/**
+ * `LocalKey::initialize_with`, which `set` calls: `f` of `init` and the key's value, given
+ * `none` for `init` if `init` became a lazy key's first value.
+ */
+export function localKeyInitializeWith<T, R>(key: LocalKey<T>, init: T, f: (init: T | undefined, value: T) => R): R;
+export function localKeyInitializeWith<T, R>(
+	key: LocalKey<T>,
+	init: T,
+	f: (init: T | None, value: T) => R,
+	none: None,
+): R;
+export function localKeyInitializeWith<T, R>(
+	key: LocalKey<T>,
+	init: T,
+	f: (init: T | None | undefined, value: T) => R,
+	none?: None,
+): R {
+	return f(key.install(init) ? none : init, key.get());
 }
 
 // Atomics, which one thread never races: each operation reads and writes as it would

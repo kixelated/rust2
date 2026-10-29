@@ -23,6 +23,7 @@ mod step;
 mod vec;
 
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_hir::def::DefKind;
 use rustc_index::IndexVec;
 use rustc_middle::mir::{self, BasicBlock, Local, Operand, Place, Rvalue, StatementKind, TerminatorKind};
 use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
@@ -81,11 +82,15 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, span: Span) -> Option<mir::Body<'tcx>> {
 	let tcx = t.tcx;
 	let def_id = instance.def_id();
-	if !tcx.is_mir_available(def_id) {
-		t.err(span, format!("no MIR for `{}`", tcx.def_path_str(def_id)));
-		return None;
-	}
-	let body = tcx.optimized_mir(def_id).clone();
+	// A `const`'s, as a function of no arguments that makes its value.
+	let body = match tcx.def_kind(def_id) {
+		DefKind::Const => tcx.mir_for_ctfe(def_id).clone(),
+		_ if !tcx.is_mir_available(def_id) => {
+			t.err(span, format!("no MIR for `{}`", tcx.def_path_str(def_id)));
+			return None;
+		}
+		_ => tcx.optimized_mir(def_id).clone(),
+	};
 	let mut body = match instance.try_instantiate_mir_and_normalize_erasing_regions(
 		tcx,
 		t.typing_env_pub(),

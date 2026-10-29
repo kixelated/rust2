@@ -1,5 +1,5 @@
 //! Items rust2-ffi cannot export: each is a compile error at its span.
-
+#![feature(allocator_api, pattern)]
 use std::collections::HashMap;
 
 /// A generic type.
@@ -334,4 +334,243 @@ pub fn peek_all(values: &[Opaque]) -> usize {
 /// A borrowed slice whose elements have no clone to return.
 pub fn none_opaque() -> &'static [Opaque] {
 	&[]
+}
+
+/// A conversion only from what outlives every call, which C cannot lend.
+impl From<&'static u32> for Excluded {
+	fn from(_: &'static u32) -> Self {
+		Excluded
+	}
+}
+
+/// Takes only a `'static` borrow, through `Excluded`'s `From`.
+pub fn stash(value: impl Into<Excluded>) -> u32 {
+	let _ = value.into();
+	0
+}
+
+/// Excluded, borrowing what it converts from.
+pub struct Held<'a>(pub &'a u32);
+
+impl<'a> From<&'a u32> for Held<'a> {
+	fn from(value: &'a u32) -> Self {
+		Held(value)
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the target's lifetime demands.
+pub fn hold(value: impl Into<Held<'static>>) -> u32 {
+	*value.into().0
+}
+
+/// Takes a borrow only for as long as `'static`, which its own lifetime bound demands.
+pub fn bound<'a: 'static>(value: impl Into<Held<'a>>) -> u32 {
+	*value.into().0
+}
+
+/// Takes a borrow only for as long as `'static`, which its parameter's bound demands.
+pub fn kept<'a>(value: impl Into<Held<'a>> + 'static) -> u32 {
+	*value.into().0
+}
+
+/// A range is a value, not an iterator to collect: one that maps to no range is refused.
+pub fn alphabet() -> std::ops::Range<char> {
+	'a'..'z'
+}
+
+/// A range with no end, which collecting would never finish.
+pub fn naturals() -> std::ops::RangeFrom<u64> {
+	0..
+}
+
+/// An iterator of handles with no clone to return.
+pub fn opaques() -> std::slice::Iter<'static, Opaque> {
+	[].iter()
+}
+
+/// An iterator inside a `Result`, which crosses only as a whole return.
+pub fn tried() -> Result<std::vec::IntoIter<u8>, String> {
+	Ok(Vec::new().into_iter())
+}
+
+/// An iterator a future resolves to.
+pub async fn eventually() -> std::vec::IntoIter<u8> {
+	Vec::new().into_iter()
+}
+
+/// A callback returning an iterator, which C would have to make.
+pub trait Source: Send + Sync {
+	fn items(&self) -> std::vec::IntoIter<u8>;
+}
+
+/// One byte forever.
+pub fn ones() -> std::iter::Repeat<u8> {
+	std::iter::repeat(1)
+}
+
+/// Words split where a closure says, which a caller who stops early never runs on the rest.
+pub fn words() -> impl Iterator<Item = &'static str> {
+	"a b".split(|c: char| c.is_whitespace())
+}
+
+/// Counts down to one, as its own code reads it.
+struct Countdown(u8);
+
+impl Iterator for Countdown {
+	type Item = u8;
+
+	fn next(&mut self) -> Option<u8> {
+		self.0 = self.0.checked_sub(1)?;
+		Some(self.0 + 1)
+	}
+}
+
+/// A countdown inside core's adapter, which still runs its own code.
+pub fn launched() -> impl Iterator<Item = u8> {
+	Countdown(3).chain([0])
+}
+
+/// A countdown to begin from, which turns into one only as it is flattened.
+struct Start(u8);
+
+impl IntoIterator for Start {
+	type Item = u8;
+	type IntoIter = Countdown;
+
+	fn into_iter(self) -> Countdown {
+		Countdown(self.0)
+	}
+}
+
+/// Countdowns, each made by its own code as `flatten` reaches it.
+pub fn launches() -> impl Iterator<Item = u8> {
+	vec![Start(1), Start(2)].into_iter().flatten()
+}
+
+/// How often the code below ran.
+static RAN: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// A pump, which runs its own code each time a borrow of it is turned into an iterator.
+struct Pump([u8; 1]);
+
+impl<'a> IntoIterator for &'a Pump {
+	type Item = &'a u8;
+	type IntoIter = std::slice::Iter<'a, u8>;
+
+	fn into_iter(self) -> std::slice::Iter<'a, u8> {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		self.0.iter()
+	}
+}
+
+static PUMPS: [Pump; 1] = [Pump([1])];
+
+/// Each pump's bytes, through code only the items' borrows name.
+pub fn pumped() -> impl Iterator<Item = &'static u8> {
+	PUMPS.iter().flatten()
+}
+
+/// A token that counts its own drop.
+pub struct Token(pub u8);
+
+impl Drop for Token {
+	fn drop(&mut self) {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+	}
+}
+
+/// The second token: `skip` drops the first only as the iterator is read.
+pub fn skipped() -> impl Iterator<Item = Token> {
+	vec![Token(1), Token(2)].into_iter().skip(1)
+}
+
+/// The bytes in either set, which `union` compares as the iterator is read.
+pub fn merged() -> impl Iterator<Item = u8> {
+	static A: std::collections::BTreeSet<u8> = std::collections::BTreeSet::new();
+	static B: std::collections::BTreeSet<u8> = std::collections::BTreeSet::new();
+	A.union(&B).copied()
+}
+
+/// A map's values, which drops each key as the iterator is read.
+pub fn values() -> std::collections::btree_map::IntoValues<u8, u8> {
+	std::collections::BTreeMap::new().into_values()
+}
+
+/// As many zeros as the caller asks, held nowhere until made.
+pub fn zeros(n: usize) -> std::iter::RepeatN<u8> {
+	std::iter::repeat_n(0, n)
+}
+
+/// The successes, where turning each failure into an iterator drops its token.
+pub fn successes() -> impl Iterator<Item = u8> {
+	vec![Err(Token(0)), Ok(7)].into_iter().flatten()
+}
+
+/// An allocator of the crate's own, which counts each call into it.
+struct Counted;
+
+unsafe impl std::alloc::Allocator for Counted {
+	fn allocate(&self, layout: std::alloc::Layout) -> Result<std::ptr::NonNull<[u8]>, std::alloc::AllocError> {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		std::alloc::Global.allocate(layout)
+	}
+
+	unsafe fn deallocate(&self, ptr: std::ptr::NonNull<u8>, layout: std::alloc::Layout) {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		unsafe { std::alloc::Global.deallocate(ptr, layout) }
+	}
+}
+
+/// Bytes in the crate's own allocation, which collecting frees through its allocator.
+pub fn allocated() -> impl Iterator<Item = u8> {
+	let mut bytes = Vec::new_in(Counted);
+	bytes.push(1);
+	bytes.into_iter()
+}
+
+/// The same bytes, whose allocation `flatten` frees through the allocator as it reads them.
+pub fn flattened() -> impl Iterator<Item = u8> {
+	let mut bytes = Vec::new_in(Counted);
+	bytes.push(1);
+	vec![bytes].into_iter().flatten()
+}
+
+/// An allocator of the crate's own, which only a borrow of it implements.
+struct Local;
+
+unsafe impl std::alloc::Allocator for &Local {
+	fn allocate(&self, layout: std::alloc::Layout) -> Result<std::ptr::NonNull<[u8]>, std::alloc::AllocError> {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		std::alloc::Global.allocate(layout)
+	}
+
+	unsafe fn deallocate(&self, ptr: std::ptr::NonNull<u8>, layout: std::alloc::Layout) {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		unsafe { std::alloc::Global.deallocate(ptr, layout) }
+	}
+}
+
+static LOCAL: Local = Local;
+
+/// Bytes in an allocation a borrowed allocator frees as collecting finishes.
+pub fn lent() -> impl Iterator<Item = u8> {
+	let mut bytes = Vec::new_in(&LOCAL);
+	bytes.push(1);
+	bytes.into_iter()
+}
+
+/// A pattern of the crate's own, whose searcher a split runs as it is read.
+struct Slash;
+
+impl std::str::pattern::Pattern for Slash {
+	type Searcher<'a> = std::str::pattern::CharSearcher<'a>;
+
+	fn into_searcher(self, haystack: &str) -> std::str::pattern::CharSearcher<'_> {
+		'/'.into_searcher(haystack)
+	}
+}
+
+/// Halves split where the crate's own pattern says.
+pub fn halves() -> impl Iterator<Item = &'static str> {
+	"a/b".split(Slash)
 }

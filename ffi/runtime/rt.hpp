@@ -399,7 +399,8 @@ void spawn(task &slot, typename Op::raw *raw, Exec exec, F f);
 } // namespace detail
 
 // A future running on an executor until it calls back with the output. Destroying it
-// cancels the future: once that returns, the callback has finished or never runs.
+// cancels the future: once that returns, the callback has finished or never runs, and the
+// executor is never called again, so it may go too.
 class task {
 	detail::task_node *node_ = nullptr;
 
@@ -465,13 +466,15 @@ public:
 
 	// Poll on `exec` until ready, then call `f` there with the output. `exec` is any
 	// callable that takes a `void()` callable and runs it once, later, on any thread: never
-	// within the call, which may come from inside Rust.
+	// within the call, which may come from inside Rust. Once the returned task is
+	// destroyed, `exec` is never called again.
 	template <class Exec, class F>
 	task then(Exec exec, F f) &&;
 
 	// From C++20, `co_await` it, polled and resumed on `exec`, as `then` takes it.
-	// Destroying the suspended coroutine cancels the future. Declared at every standard,
-	// so the class is one definition across translation units built at different ones.
+	// Destroying the suspended coroutine cancels the future, and once that returns, `exec`
+	// is never called again. Declared at every standard, so the class is one definition
+	// across translation units built at different ones.
 	template <class Exec>
 	auto via(Exec exec) &&;
 };
@@ -579,6 +582,9 @@ class driver final : public task_node {
 	enum : int { idle, queued, running, done };
 
 	::std::mutex mutex_;
+	// Held across each call to the executor, so `cancel` returns only once none is under
+	// way, and none starts after.
+	::std::mutex posting_;
 	// Null once the future finished or was cancelled.
 	typename Op::raw *raw_;
 	Exec exec_;
@@ -592,6 +598,11 @@ class driver final : public task_node {
 	bool given_ = false;
 
 	void post() {
+		::std::lock_guard<::std::mutex> lock(posting_);
+		// Cancelled since the wake that queued it, so the executor may be gone.
+		if (state_.load(::std::memory_order_acquire) == done) {
+			return;
+		}
 		ref();
 		exec_([self = ptr<driver>(this)]() { self->run(); });
 	}
@@ -659,6 +670,11 @@ public:
 			::std::lock_guard<::std::mutex> lock(mutex_);
 			state_.store(done, ::std::memory_order_release);
 			Op::free(::std::exchange(raw_, nullptr));
+		}
+		// Wait out a post under way, which may have passed its check before `done`: after
+		// this, the executor is never called again.
+		{
+			::std::lock_guard<::std::mutex> lock(posting_);
 		}
 		unref();
 	}

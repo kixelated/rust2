@@ -1,10 +1,11 @@
 //! Mutexes on one thread, where a panic aborts and so never poisons one: made by
 //! `Default`, read and written through a guard, recovered from a `PoisonError` that never
 //! comes, read by `get_mut` without locking, tried while held and free, and locked again
-//! while held, which panics as wasm32's does.
+//! while held, which panics as wasm32's does; and read-write locks, read and written,
+//! tried while read and while written.
 
 use std::fmt;
-use std::sync::{Arc, Mutex, PoisonError, TryLockError};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, TryLockError};
 
 /// A value a mutex holds, which `Default` makes.
 #[derive(Default)]
@@ -90,4 +91,52 @@ pub fn relock(data: &[u8], out: &mut Vec<u8>) {
 	}
 	drop(guard);
 	out.push(*mutex.lock().unwrap());
+}
+
+/// Each byte an operation on read-write locks, its value the operand; each puts what it
+/// read.
+pub fn rwlocks(data: &[u8], out: &mut Vec<u8>) {
+	let lock: Arc<RwLock<Tally>> = Arc::default();
+	let number = RwLock::new(0u32);
+	for &op in data {
+		match op % 6 {
+			0 => {
+				let mut tally = lock.write().unwrap();
+				tally.n += u64::from(op);
+				tally.seen.push(op);
+			}
+			// Two reads at once.
+			1 => {
+				let a = lock.read().unwrap();
+				let b = lock.read().expect("never poisoned");
+				out.push(a.seen.len() as u8);
+				out.push(b.n as u8);
+			}
+			2 => {
+				*number.write().unwrap() += u32::from(op);
+				out.push(*number.read().unwrap() as u8);
+			}
+			// Tried while a read is held, then while a write is.
+			3 => {
+				let read = lock.read().unwrap();
+				out.push(lock.try_read().is_ok() as u8);
+				out.push(matches!(lock.try_write(), Err(TryLockError::WouldBlock)) as u8);
+				drop(read);
+				let write = lock.try_write();
+				out.push(write.is_ok() as u8);
+				out.push(matches!(lock.try_read(), Err(TryLockError::WouldBlock)) as u8);
+			}
+			4 => match lock.try_write() {
+				Ok(tally) => out.push(tally.seen.len() as u8),
+				Err(TryLockError::WouldBlock) => out.push(0xfe),
+				Err(TryLockError::Poisoned(err)) => out.push(err.into_inner().n as u8),
+			},
+			_ => {
+				let made: RwLock<Vec<u8>> = RwLock::default();
+				made.write().unwrap().push(op);
+				out.extend_from_slice(&made.read().unwrap());
+			}
+		}
+	}
+	out.push(lock.read().unwrap().n as u8);
 }

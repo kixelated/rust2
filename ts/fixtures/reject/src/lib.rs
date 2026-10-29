@@ -8,8 +8,8 @@ pub fn float(a: f32) -> f32 {
 	a * 2.0
 }
 
-pub fn dynamic(f: &dyn Fn(u8) -> u8) -> u8 {
-	f(1)
+pub fn dynamic(f: &mut dyn Iterator<Item = u8>) -> Option<u8> {
+	f.next()
 }
 
 /// `None` and `Some(None)` would both be `rt.None`, as `Some(Some(None))` is `undefined`.
@@ -17,8 +17,8 @@ pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
-pub fn sorted(v: &mut [u8]) {
-	v.sort();
+pub fn rotated(v: &mut [u8]) {
+	v.rotate_left(1);
 }
 
 /// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
@@ -258,9 +258,9 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// `get`'s `None` and `Some(&None)` would both be `undefined`.
-pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
-	map.get(&1).is_some()
+/// A set's `get` of an item that can be `undefined`: its `None` and `Some(&None)` would both be.
+pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
+	set.get(&None).is_some()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.
@@ -570,4 +570,94 @@ pub trait Source {
 pub fn source_reading<S: Source>(s: &S) -> u8 {
 	let r: &dyn Reading = s.item();
 	r.read()
+}
+
+/// A pointer read as another type's bytes.
+pub fn reinterpreted(n: u32) -> u8 {
+	unsafe { *(&raw const n).cast::<u8>() }
+}
+
+/// A pointer's address, as an integer.
+pub fn addressed(n: u32) -> usize {
+	(&raw const n).addr()
+}
+
+/// Memory from the allocator, which has no JS object to point at.
+pub fn allocated() -> u8 {
+	let layout = std::alloc::Layout::new::<u8>();
+	unsafe {
+		let p = std::alloc::alloc(layout);
+		*p = 1;
+		let n = *p;
+		std::alloc::dealloc(p, layout);
+		n
+	}
+}
+
+/// A pointer to a `Vec`, whose JS array is its heap, not where Rust keeps the `Vec`.
+pub fn vec_pointer(v: &mut Vec<u8>) -> usize {
+	let p = &raw const *v;
+	unsafe { (*p).len() }
+}
+
+/// A union whose fields overlap in values JS keeps apart.
+pub union Bits {
+	pub int: u32,
+	pub float: f64,
+}
+
+pub fn bits(n: u32) -> u32 {
+	let b = Bits { int: n };
+	unsafe { b.int }
+}
+
+/// Two `rt.Place`s of one number, which are two objects.
+pub fn places_compared(n: &mut u32) -> bool {
+	let a = &raw mut *n;
+	let b = &raw mut *n;
+	a == b
+}
+
+pub struct Span2 {
+	pub start: (u32, u32),
+	pub len: u32,
+}
+
+/// A pointer to a part kept as an object, which a write of the whole part elsewhere
+/// replaces with another object.
+pub fn part_replaced(n: u32) -> u32 {
+	let mut s = Span2 { start: (n, n), len: n };
+	let p = &raw mut s.start;
+	s.start = (0, 0);
+	unsafe { (*p).0 + s.len }
+}
+
+/// A pointer to a variable's object, which an assignment of the whole variable replaces.
+pub fn variable_reassigned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+/// A pointer to an element kept as an object.
+pub fn element_pointer(n: u32) -> u32 {
+	let mut pairs = [(n, n); 2];
+	let p = &raw mut pairs[1];
+	unsafe { (*p).0 }
+}
+
+/// Two pointers to values of no bytes, which Rust may put anywhere.
+pub fn units_compared() -> bool {
+	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();
+	std::ptr::eq(unit(), unit())
+}
+
+pub enum Only {
+	One,
+}
+
+/// A dangling pointer to an enum of no bytes, whose value is its variant's tag.
+pub fn dangling_enum() -> bool {
+	unsafe { std::ptr::NonNull::<Only>::dangling().as_ptr().as_ref().is_some() }
 }

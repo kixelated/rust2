@@ -147,14 +147,14 @@ fun script() {
 	println("later ${Stamp.fromMillis(3000u).later(stamp)}")
 	println("secs ${stamp.secs()}")
 	val message = Message.new(stamp, "body".encodeToByteArray())
-	println("payload ${message.payload.decodeToString()}")
+	println("payload ${message.payload.text()}")
 	println("stamp ${message.stamp!!.debug()}")
 	println("sent ${message.sent()}")
 	// Setters assign in place: the bytes are copied in, and a `Copy` handle copied.
 	val reset = Stamp.fromMillis(4000u)
 	message.setStamp(reset)
 	message.setPayload("edited".encodeToByteArray())
-	println("payload ${message.payload.decodeToString()}")
+	println("payload ${message.payload.text()}")
 	println("stamp ${message.stamp!!.debug()}")
 	println("secs ${reset.secs()}")
 	message.setStamp(null)
@@ -177,7 +177,7 @@ fun script() {
 	// On a dispatcher the script drains, so it sees the receive pend and its wake queue
 	// the resume.
 	val q = Queue()
-	var got: ByteArray? = null
+	var got: Bytes? = null
 	CoroutineScope(q.asCoroutineDispatcher()).launch { got = channel.recv() }
 	q.drain()
 	println("recv pending ${got == null}")
@@ -185,20 +185,20 @@ fun script() {
 	wakes += q.size
 	println("woken $wakes")
 	q.drain()
-	println("recv ${got!!.decodeToString()}")
+	println("recv ${got!!.text()}")
 	runBlocking {
 		channel.send(byteArrayOf())
 		try {
-			println("nonempty ${channel.recvNonempty().size}")
+			println("nonempty ${channel.recvNonempty().use { it.buffer.remaining() }}")
 		} catch (e: ErrorException) {
 			println("nonempty err ${e.message}")
 		}
 		// The send happens at the call: the future is dropped unawaited.
 		channel.sendLater("eager".encodeToByteArray())
-		println("recv ${channel.recv().decodeToString()}")
+		println("recv ${channel.recv().text()}")
 		channel.send("sized".encodeToByteArray())
 		val (payload, size) = channel.recvSized()
-		println("sized ${payload.decodeToString()} $size")
+		println("sized ${payload.text()} $size")
 	}
 	// The waker moves into Rust, which keeps it until the send wakes it.
 	channel.notify(waker)
@@ -298,7 +298,7 @@ fun script() {
 	println("words ${words.size} ${words.joinToString(", ", "[", "]") { "\"$it\"" }}")
 	println("sentence ${sentence(words)} ${sentence(null)}")
 	println("sentence ${sentence(emptyList())}|")
-	println("chunks ${chunks("abcde".encodeToByteArray(), 2uL).map { it.toList() }}")
+	println("chunks ${chunks("abcde".encodeToByteArray(), 2uL).map { it.use { b -> b.toByteArray().toList() } }}")
 	val counters = counters(listOf("x", "y"))
 	println("counters ${counters.joinToString(", ") { "${it.name()} ${it.get()}" }}")
 	// Each counter moves in, so Kotlin closes it.
@@ -307,6 +307,19 @@ fun script() {
 		check(runCatching { counter.get() }.exceptionOrNull() is IllegalStateException, "a counter moved in is closed")
 	}
 	println("sums ${sums(listOf(listOf(1u, 2u), emptyList(), listOf(3u)))}")
+	val summed = summed(listOf(Point(1, 2), Point(-4, 6)))
+	val noneSummed = summed(emptyList())
+	println("summed ${summed.x} ${summed.y} ${noneSummed.x} ${noneSummed.y}")
+	println("longest ${longest(listOf("a", "abc"))} ${longest(emptyList())}")
+	val doc = Json.parse("""{"b": [1, 2.5, null], "a": "\u00e9"}""")
+	println("json ${encode(doc)}")
+	println("timed text ${timedText(doc)}")
+	tagged(doc, "t").use { tagged -> println("tagged ${tagged.toText()}") }
+	try {
+		Json.parse("{\"a\":").close()
+	} catch (e: StringException) {
+		println("json parse err ${e.error}")
+	}
 	val site = Site.new(base)
 	site.home.use { a -> site.home.use { b -> println("site $a $b") } }
 
@@ -314,12 +327,21 @@ fun script() {
 	println("shapes ${Shape.ALL.joinToString(", ", "[", "]") { it.debug() }} greetings ${GREETINGS.joinToString(", ", "[", "]") { "\"$it\"" }}")
 	Trail.new(listOf(Point(1, 2), Point(3, 4)), listOf("a", "b")).use { trail ->
 		println("trail ${trail.points().joinToString(", ", "[", "]") { it.debug() }} ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
+		// Returned iterators, each collected at the call: drained labels are gone after.
+		println("iterated ${trail.iter().joinToString(", ", "[", "]") { it.debug() }} ${trail.names().joinToString(", ", "[", "]") { "\"$it\"" }} ${trail.bytes().use { it.toByteArray() }.joinToString(", ", "[", "]") { it.toUByte().toString() }}")
+		println("drained ${trail.drain().joinToString(", ", "[", "]") { it.debug() }} then ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
 	}
+	val numbered = numbered(listOf("p", "q"))
+	println("numbered ${numbered.joinToString(", ") { "${it.name()} ${it.get()}" }}")
+	numbered.forEach { it.close() }
 	val at4 = java.net.InetSocketAddress(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 8080)
 	val at6 = java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, loopback, 3), 443)
 	val (next4, next6) = nexts(at4, at6)
 	println("nexts ${next4.address.hostAddress} ${next4.port} ${next6.port} ${(next6.address as java.net.Inet6Address).scopeId}")
 }
+
+/** The bytes as text, closing them. */
+fun Bytes.text(): String = use { it.toByteArray().decodeToString() }
 
 fun check(ok: Boolean, what: String) {
 	if (!ok) {
@@ -355,7 +377,7 @@ fun futures() {
 		val sender = thread { channel.send("blocked".encodeToByteArray()) }
 		val payload = channel.recv()
 		sender.join()
-		check(payload.decodeToString() == "blocked", "recv returns the payload another thread sent")
+		check(payload.text() == "blocked", "recv returns the payload another thread sent")
 	}
 
 	val q = Queue()
@@ -364,7 +386,7 @@ fun futures() {
 	// Resumed on its dispatcher, never inside the wake.
 	run {
 		var got: String? = null
-		scope.launch { got = channel.recv().decodeToString() }
+		scope.launch { got = channel.recv().text() }
 		q.drain()
 		check(got == null, "recv waits for a send")
 		channel.send("then".encodeToByteArray())
@@ -377,7 +399,7 @@ fun futures() {
 	// receive's poll takes.
 	runBlocking {
 		var got: String? = null
-		val job = launch(Dispatchers.Unconfined) { got = channel.recv().decodeToString() }
+		val job = launch(Dispatchers.Unconfined) { got = channel.recv().text() }
 		channel.send("unconfined".encodeToByteArray())
 		job.join()
 		check(got == "unconfined", "an unconfined recv resumes outside the wake")
@@ -406,14 +428,14 @@ fun futures() {
 		q.drain()
 		check(!called && job.isCancelled, "a cancelled receive never resumes")
 		val payload = runBlocking { withTimeout(5.seconds) { channel.recv() } }
-		check(payload.decodeToString() == "kept", "a cancelled receive loses nothing")
+		check(payload.text() == "kept", "a cancelled receive loses nothing")
 	}
 
 	// A handle closed while a call awaits on it is freed once the call ends.
 	run {
 		val other = Channel.new()
 		var got: String? = null
-		scope.launch { got = other.recv().decodeToString() }
+		scope.launch { got = other.recv().text() }
 		q.drain()
 		val sender = other.clone()
 		other.close()
@@ -466,10 +488,40 @@ fun broken(which: String) {
 	}
 }
 
+// What frees an object or bytes nobody closed: the GC, once each is collected, and only
+// what closing did not free already.
+fun owned() {
+	val packet = nextPacket(Packet(1u, Bytes("seq".encodeToByteArray())))
+	check(packet.seq == 2u && packet.payload.text() == "seq", "a record's bytes cross both ways")
+	val read = tokenBytes(0u).also { it.close() }
+	check(runCatching { read.toByteArray() }.isFailure, "closed bytes refuse a read")
+
+	val before = dropped()
+	Token.new(1u).close()
+	tokenBytes(2u).close()
+	check(dropped() == before + 2u, "closing frees at once")
+	unclosed()
+	val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
+	while (dropped() < before + 4u) {
+		check(System.nanoTime() < deadline, "the GC frees what nobody closed")
+		System.gc()
+		Thread.sleep(1)
+	}
+	// The closed ones were collected by the same collections, and not freed again.
+	check(dropped() == before + 4u, "the GC frees each once")
+}
+
+// In its own frame, so nothing on the caller's keeps them reachable.
+fun unclosed() {
+	Token.new(3u)
+	tokenBytes(4u)
+}
+
 fun main(args: Array<String>) {
 	when {
 		args.isEmpty() -> script()
 		args[0] == "futures" -> futures()
+		args[0] == "owned" -> owned()
 		else -> broken(args[0])
 	}
 }

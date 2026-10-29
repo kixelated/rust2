@@ -370,16 +370,18 @@ impl Channel {
 	}
 }
 
-/// `value`, on its second poll: the first wakes its waker before it returns pending, so
-/// the wake lands before the poller waits for one.
+/// `value`, on its third poll: each before wakes its waker before it returns pending, so
+/// the wake lands before the poller waits for one, even past a first poll Kotlin makes
+/// with no waker.
 pub async fn yielded(value: u32) -> u32 {
-	let mut woken = false;
-	std::future::poll_fn(|cx| match std::mem::replace(&mut woken, true) {
-		true => Poll::Ready(()),
-		false => {
-			cx.waker().wake_by_ref();
-			Poll::Pending
+	let mut polls = 0;
+	std::future::poll_fn(|cx| {
+		polls += 1;
+		if polls == 3 {
+			return Poll::Ready(());
 		}
+		cx.waker().wake_by_ref();
+		Poll::Pending
 	})
 	.await;
 	value
@@ -532,6 +534,34 @@ impl Drop for Token {
 	}
 }
 
+/// Bytes whose drop counts in [`dropped`], as a token's does.
+pub fn token_bytes(id: u32) -> Bytes {
+	// The token is held only for its drop.
+	struct Owner(#[allow(dead_code)] Token, [u8; 4]);
+
+	impl AsRef<[u8]> for Owner {
+		fn as_ref(&self) -> &[u8] {
+			&self.1
+		}
+	}
+
+	Bytes::from_owner(Owner(Token::new(id), id.to_le_bytes()))
+}
+
+/// A payload and its sequence number: a record, whose bytes cross in both ways.
+pub struct Packet {
+	pub seq: u32,
+	pub payload: Bytes,
+}
+
+/// The packet after `packet`, which carries its payload on.
+pub fn next_packet(packet: Packet) -> Packet {
+	Packet {
+		seq: packet.seq + 1,
+		payload: packet.payload,
+	}
+}
+
 /// Retry settings: each field is unset until C sets it, and the method of its name
 /// resolves it, as Rust's accessors do. Not exhaustive, so an object with getters.
 #[non_exhaustive]
@@ -660,6 +690,18 @@ impl<B: AsRef<[u8]>> From<B> for Timed<Bytes> {
 /// A timed payload's bytes in hex, which need not be UTF-8, owned as it is `'static`.
 pub fn timed_hex(payload: impl Into<Timed<Bytes>> + 'static) -> String {
 	hex(payload.into().value)
+}
+
+/// A reference stamped with no time, as moq's `Timed` converts one.
+impl<'a, V> From<&'a V> for Timed<&'a V> {
+	fn from(value: &'a V) -> Self {
+		Self { value, at: None }
+	}
+}
+
+/// A timed value's compact JSON text, taken as moq's JSON tracks take theirs.
+pub fn timed_text<'a, T: serde::Serialize + 'a>(value: impl Into<Timed<&'a T>>) -> String {
+	serde_json::to_string(value.into().value).expect("a JSON document serializes")
 }
 
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
@@ -1037,6 +1079,29 @@ pub fn sums(rows: Vec<Vec<u32>>) -> Vec<u32> {
 	rows.iter().map(|row| row.iter().sum()).collect()
 }
 
+/// The points added up, from anything that iterates them.
+pub fn summed(points: impl IntoIterator<Item = Point>) -> Point {
+	points.into_iter().fold(Point::default(), |sum, p| sum.offset(p.x, p.y))
+}
+
+/// The length of the longest word, naming its iterator.
+pub fn longest<I>(words: I) -> usize
+where
+	I: IntoIterator<Item = String>,
+{
+	words.into_iter().map(|word| word.len()).max().unwrap_or(0)
+}
+
+/// `value` as compact JSON text: a serde bound takes a JSON document.
+pub fn encode<T: serde::Serialize>(value: &T) -> String {
+	serde_json::to_string(value).expect("a JSON document serializes")
+}
+
+/// `doc` under `tag`, as a new document.
+pub fn tagged(doc: serde_json::Value, tag: &str) -> serde_json::Value {
+	serde_json::json!({ "tag": tag, "doc": doc })
+}
+
 /// A site: every field is `pub`, but a URL is a handle C cannot copy, so it is an object
 /// whose getter returns a clone.
 pub struct Site {
@@ -1061,6 +1126,7 @@ pub const GREETINGS: &[&str] = &["hi", "hello"];
 pub struct Trail {
 	points: Vec<Point>,
 	labels: Vec<Label>,
+	route: String,
 }
 
 impl Trail {
@@ -1076,6 +1142,7 @@ impl Trail {
 		Self {
 			points: points.to_vec(),
 			labels,
+			route: names.join("/"),
 		}
 	}
 
@@ -1088,6 +1155,38 @@ impl Trail {
 	pub fn labels(&self) -> &[Label] {
 		&self.labels
 	}
+
+	/// Its points one by one, as moq's `Hops::iter` returns them: an array of copies.
+	pub fn iter(&self) -> std::slice::Iter<'_, Point> {
+		self.points.iter()
+	}
+
+	/// Each name, split from its route, through an iterator only its bounds name.
+	pub fn names(&self) -> impl Iterator<Item = &str> {
+		// Splitting the empty route would yield one empty name.
+		(!self.route.is_empty())
+			.then(|| self.route.split('/'))
+			.into_iter()
+			.flatten()
+	}
+
+	/// The bytes of its route, which cross as a buffer.
+	pub fn bytes(&self) -> std::str::Bytes<'_> {
+		self.route.bytes()
+	}
+
+	/// Its labels, drained: every one is taken at the call, so none are left.
+	pub fn drain(&mut self) -> std::vec::Drain<'_, Label> {
+		self.labels.drain(..)
+	}
+}
+
+/// A counter for each name, counting from its index, last first.
+pub fn numbered(names: Vec<String>) -> impl Iterator<Item = Counter> {
+	let counters: Vec<_> = (names.iter().enumerate())
+		.map(|(i, name)| Counter::new(name, i as u64))
+		.collect();
+	counters.into_iter().rev()
 }
 
 /// Each address at the next port, one IPv4 and one IPv6.

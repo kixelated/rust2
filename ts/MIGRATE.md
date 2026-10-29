@@ -83,3 +83,4 @@
   `Log.clone$Clone`, `Version.encode` is `Version.encode$Encode_Version`, and
   `Wrap.fmt$Pair` is `Wrap.fmt$Debug_Pair`. A closure type in a suffix is named for where
   it is defined, `decode_closure0`.
+- `rt.sliceReverse` is gone: call the array's own `reverse`.

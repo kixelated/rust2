@@ -5,14 +5,17 @@
 //! of what they captured, traits, generic types, formatting, collections, UTF-8
 //! decoding, `&mut` to values JS copies, the standard library calls it maps, `Option`'s
 //! and `Result`'s combinators from core's MIR, `Option`s of values that can already be
-//! `undefined`, atomics, trait objects, one-time cells, mutexes, the defaults of std
-//! types, and the counts of shared pointers.
+//! `undefined`, atomics, trait objects, one-time cells, mutexes, `Cell`s, `RefCell`s,
+//! and read-write locks, the defaults of std types, the counts of shared pointers,
+//! arrays `array::from_fn` makes, and maps of `Option`s.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
 
 mod args;
+mod arrays;
 mod atomics;
+mod borrows;
 mod captures;
 mod cells;
 mod chars;
@@ -32,8 +35,10 @@ pub mod harness;
 mod ints;
 mod iters;
 mod keys;
+mod locals;
 mod locks;
 mod nested;
+mod pointers;
 mod refs;
 mod returns;
 mod shapes;

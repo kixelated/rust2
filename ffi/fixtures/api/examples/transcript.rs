@@ -371,6 +371,22 @@ fn main() {
 		api_lib::worth(None, Box::default())
 	);
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
+	let summed = api_lib::summed([Point { x: 1, y: 2 }, Point { x: -4, y: 6 }]);
+	let none = api_lib::summed([]);
+	println!("summed {} {} {} {}", summed.x, summed.y, none.x, none.y);
+	println!(
+		"longest {} {}",
+		api_lib::longest(["a".to_string(), "abc".to_string()]),
+		api_lib::longest([])
+	);
+	let doc: serde_json::Value = r#"{"b": [1, 2.5, null], "a": "\u00e9"}"#.parse().expect("a JSON document");
+	println!("json {}", api_lib::encode(&doc));
+	println!("timed text {}", api_lib::timed_text(&doc));
+	println!("tagged {}", api_lib::tagged(doc, "t"));
+	match "{\"a\":".parse::<serde_json::Value>() {
+		Ok(doc) => println!("json parse {doc}"),
+		Err(err) => println!("json parse err {err}"),
+	}
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);
 
@@ -381,6 +397,23 @@ fn main() {
 		&["a".to_string(), "b".to_string()],
 	);
 	println!("trail {:?} {:?}", trail.points(), trail.labels());
+	// Returned iterators, each collected at the call: drained labels are gone after.
+	let mut trail = trail;
+	println!(
+		"iterated {:?} {:?} {:?}",
+		trail.iter().collect::<Vec<_>>(),
+		trail.names().collect::<Vec<_>>(),
+		trail.bytes().collect::<Vec<_>>()
+	);
+	println!(
+		"drained {:?} then {:?}",
+		trail.drain().collect::<Vec<_>>(),
+		trail.labels()
+	);
+	let numbered: Vec<String> = api_lib::numbered(vec!["p".to_string(), "q".to_string()])
+		.map(|c| format!("{} {}", c.name(), c.get()))
+		.collect();
+	println!("numbered {}", numbered.join(", "));
 	let (v4, v6) = api_lib::nexts("127.0.0.1:8080".parse().unwrap(), "[::1%3]:443".parse().unwrap());
 	println!("nexts {} {} {} {}", v4.ip(), v4.port(), v6.port(), v6.scope_id());
 }

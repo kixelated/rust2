@@ -45,7 +45,7 @@ exclude = ["track::Producer::poll_closed"]
 # Another package exported into the same library, which the package builds with: its
 # own `exclude` and `rename`, by paths from its crate root.
 [crates.moq-pattern]
-exclude = ["Patterns::iter"]
+exclude = ["Pattern::new"]
 ```
 
 ## Rules
@@ -76,15 +76,18 @@ export's, and adds nothing; another crate's type is refused.
 | `Duration` | `<prefix>_duration` |
 | `SocketAddr`, `SocketAddrV4`, `SocketAddrV6` | `<prefix>_socket_addr`: its IP's bytes, port, and whether it is IPv6; one of the other family passed to `V4` or `V6` aborts |
 | `url::Url` | an object `<prefix>_url`, made by `<prefix>_url_parse`, which fails with the parse error's message, and printed by `_to_string` |
+| `serde_json::Value` | an object `<prefix>_json`, made by `<prefix>_json_parse` from JSON text, which fails with serde_json's message, and read back by `_to_text`; its contents are the caller's JSON library's to read |
 | `Vec<T>` and `&[T]` of any other `T` | `<prefix>_vec_<T>`: an array of `T`'s C values, viewed passed in and owned returned, a slice as a clone; of references only returned |
+| a returned iterator, such as `slice::Iter` or an `impl Iterator`, that no other rule maps, outside a future, made of core's and alloc's iterators over a slice, string, `Option`, `Result`, or collection, through `rev`, `chain`, `flatten`, `fuse`, `enumerate`, `peekable`, `copied`, or `cloned`, with no closure, function, or trait object inside | what `collect::<Vec<_>>()` makes of it: every item, taken at the call |
 | `Waker`, taken by value | `<prefix>_waker`, as a future's poll takes it |
 | `Range<T>`, `Bound<T>` of an integer | `<prefix>_range_<T>`, `<prefix>_bound_<T>`: a `<prefix>_bound` kind and a value |
 | `impl RangeBounds<T>` of an integer | `<prefix>_bounds_<T>`: its start and end bounds |
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>`, or a bound implying one, as a supertrait does | `X`, or `&X` and then `String` or `Vec<T>` where `X` is `str` or `[T]` |
-| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes, by its source parameter's bounds as above: `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes` |
-| another type parameter | the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
+| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes: a source parameter by its bounds as above, so `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes`, and any other source as it is, so `impl<'a, V> From<&'a V> for Timed<&'a V>` takes `&V` |
+| `impl IntoIterator<Item = X>`, where `X` is no type parameter | `Vec<X>` |
+| another type parameter | `serde_json::Value` for a serde `Serialize` or `Deserialize` bound, else the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
 
 A generic type infers the instances it exports at, with no config: the one at its
 defaults, if each type parameter has one; the one each inherent impl is of, such as
@@ -132,7 +135,8 @@ refused, and the census counts why.
   it finishes or is freed.
 - **Wakers** move into Rust, which calls `drop` once it lets go of the last clone, so a
   state machine polled with a waker, such as moq's `Driver`s through kio's `Waiter`, runs
-  from the caller's event loop.
+  from the caller's event loop. Rust may call `wake` and `drop` from any thread, as a
+  runtime's workers do.
 - **Callbacks** are a struct of a table and its data. Rust calls `free` once it drops the
   implementation, and may call the others from any thread. A callback takes scalars and
   buffers lent for the call, and returns a scalar.
@@ -202,7 +206,7 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
   loses nothing. `poll(waker)` polls once; `std::move(f).get()` blocks the thread;
   `std::move(f).then(exec, callback)` polls on an executor and calls back there, returning
   a `task` that cancels when destroyed, after which the callback has finished or never
-  runs; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
+  runs and the executor is never called again; and from C++20, `co_await std::move(f).via(exec)` resumes the coroutine on the
   executor. An executor is any callable taking a `void()` job to run once, later, on any
   thread: never inline, since a wake may come from inside Rust. Each wake that lands while
   the future polls polls it again, and a future has one poller at a time, since awaiting
@@ -215,22 +219,28 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 
 `<prefix>.kt` is Kotlin for the JVM and Android over the crate's JNI functions, which
 `--features kotlin` builds into the same library, loaded by `System.loadLibrary`. It needs
-kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes as a
-`ByteArray`, and anything else encoded into one as its C struct holds it.
+kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes passed
+in as a `ByteArray`, bytes returned as their owner, and anything else encoded into a
+`ByteArray` as its C struct holds it.
 
 - **Names** are in a package of the prefix: types in PascalCase without it, members in
   camelCase without their type's name (`moq.TrackProducer.appendGroup`). A keyword is
   quoted in backticks, and a member named as one Kotlin gives its type takes a trailing
   `_`. A constructor such as `new` stays a companion function: `Counter.new(1)`.
 - **Objects** are classes owning their handle, `AutoCloseable`, which `close()` frees once
-  no call holds it; a call after it throws. A `self` method, or passing the object by
+  no call holds it; a call after it throws. One never closed is closed once the GC
+  collects it, on a daemon thread a phantom reference queue feeds. A `self` method, or passing the object by
   value, closes it once the call returns. `Clone` is `clone()`, and `PartialEq` is `equals`.
   A field is a `val`, and its setter a function, `setFirst(value)`, since setting an object
   moves it in and closes its handle, which an assignment would hide.
 - **Records** are data classes, compared by their fields, and **enums** an `enum class`,
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
-- **Bytes** are `ByteArray`, strings `String`, `Option<T>` `T?`, a tuple `Pair`,
+- **Bytes** passed in are a `ByteArray`, copied, as are those Rust lends a closure or trait
+  method. Bytes Rust returns, or a record holds, are a `Bytes`, which lends Rust's buffer
+  as a read-only direct `ByteBuffer` until `close()` frees it, or, never closed, until the
+  GC collects that buffer; `Bytes(ByteArray)` holds Kotlin's for a record passed in.
+  Strings are `String`, `Option<T>` `T?`, a tuple `Pair`,
   `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
 - A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr`,
@@ -244,7 +254,8 @@ kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, by
   from any thread. An object it lends is closed once the call returns.
 - **Futures** are `suspend fun`s, which resume on the coroutine's dispatcher, as C++ resumes
   on its executor, and never inside a wake: an `Unconfined` one resumes on `Default`. Cancelling the coroutine frees the future and
-  loses nothing. Each call is its own future, so it has one poller.
+  loses nothing. Each call is its own future, so it has one poller. The call polls it once
+  before suspending, and makes the waker it parks on only if that poll pends.
 - A **waker** is a `Waker`, which Rust may call from any thread.
 - **The contract** is checked when the library loads, before any other call: a Kotlin
   file and a library from different builds throw.
@@ -293,6 +304,9 @@ moq's crates export through `target/moq-ffi`, an empty library on each that `jus
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
 track in one process, polling each read, scopes an origin to moq-pattern's patterns and
 hands it to a client to publish, polls its driver until the origin's last owner drops, reads an OpusHead into hang's catalog through moq-mux,
-publishes a binary track the catalog lists, and reads the catalog lent to C through
-`catalog::Producer::mutate`. `moq/moq.cpp` does the same through the C++ header, at
-C++17 without exceptions or RTTI, as OBS builds it, and `moq/moq.kt` through the Kotlin.
+sets and reads a field of the catalog lent to C through `catalog::Producer::mutate`, and
+serves a broadcast from a moq-tokio server bound to port 0 to a client that reads it over
+QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp` does the
+same through the C++ header, short of the catalog's field, at C++17 without exceptions or
+RTTI, as OBS builds it, serving on an executor's thread and blocking on each read, and
+`moq/moq.kt` through the Kotlin, serving in a coroutine and suspending on each read.

@@ -12,11 +12,9 @@ exclude = [
     "Consume",
     "DecodeError",
     "Driver",
-    "Hops::iter",
     "IntoBytes",
     "InvalidEpoch",
     "Path::from_static",
-    "Path::parts",
     "Server::accept",
     "Server::accept_request",
     "Timed",
@@ -24,7 +22,6 @@ exclude = [
     "Timestamp::as_millis",
     "Timestamp::as_nanos",
     "Timestamp::as_scale",
-    "Versions::iter",
     "announce::Announce",
     "announce::Consumer::poll_synced",
     "auth::EmptyToken",
@@ -44,7 +41,6 @@ exclude = [
     "track::Fetching",
     "track::Resolving",
     "track::Subscribing",
-    "track::Subscription::with_ranges",
     "transport::Error",
     "transport::MaybeSend",
     "transport::MaybeSync",
@@ -84,7 +80,7 @@ exclude = [
 
 # Exported with moq-net, whose signatures name their types, such as `Patterns` and `Instant`.
 [crates.moq-pattern]
-exclude = ["Pattern::captures", "Pattern::new", "Patterns::iter"]
+exclude = ["Pattern::captures"]
 
 [crates.moq-clock]
 exclude = [
@@ -310,8 +306,6 @@ exclude = [
     "catalog::Guard",
     "catalog::IntoRendition",
     "catalog::Producer::audio",
-    "catalog::Producer::json_snapshot",
-    "catalog::Producer::json_stream",
     "catalog::Producer::modify",
     "catalog::Producer::stats",
     "catalog::Producer::text",
@@ -325,10 +319,7 @@ exclude = [
     "catalog::Select",
     "catalog::Stream",
     "catalog::hang::CatalogExt",
-    "catalog::hang::Extra::get",
     "catalog::hang::Extra::iter",
-    "catalog::hang::Extra::remove",
-    "catalog::hang::Extra::set",
     "codec::aac::Config::parse",
     "codec::annexb::NalIterator",
     "codec::annexb::build_prefix",
@@ -336,12 +327,9 @@ exclude = [
     "codec::annexb::from_length_prefixed",
     "codec::annexb::length_prefixed_to_annexb",
     "codec::av1::Error",
-    "codec::av1::Import::decode",
     "codec::flac::Config",
     "codec::h264::Export",
-    "codec::h264::Import::decode",
     "codec::h265::Export",
-    "codec::h265::Import::decode",
     "codec::opus::Config::parse",
     "codec::opus::Mapping::new",
     "codec::opus::mapping::Config",
@@ -370,8 +358,6 @@ exclude = [
     "follow::Event",
     "follow::Instances",
     "json::Consumer",
-    "json::Snapshot",
-    "json::Stream",
 ]
 
 [crates.moq-mux.rename]

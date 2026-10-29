@@ -176,12 +176,17 @@ pub fn call<'tcx>(
 		return Ok(None);
 	};
 	// The runtime drops what std's would rather than return or keep, given what drops it.
-	let Some(lost) = discarded(std, owner, name) else {
-		return Ok(Some(e));
-	};
-	let Some(droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
+	let lost = discarded(std, owner, name).unwrap_or_default();
+	let Some(mut droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
 		return Ok(Some(Expr::undefined()));
 	};
+	// A map's value that can be `undefined`, whose `Option` `get` returns tells `None` apart.
+	if library::none_last(owner, name)
+		&& let Some(none) = library::sentinel_option(b.t, call).and_then(|inner| b.t.none_arg(inner))
+	{
+		droppers.resize(lost.len(), Expr::undefined());
+		droppers.push(none);
+	}
 	if droppers.is_empty() {
 		return Ok(Some(e));
 	}
@@ -265,15 +270,17 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 		|| (library::string(tcx, key) && library::string(tcx, by))
 }
 
-/// A key, value, or item type of `coll` that can be `undefined` in JS, so that an `Option`
-/// of it, as `get` returns, could not tell `None` from `Some`.
+/// A key or item type of `coll` that can be `undefined` in JS, so that an `Option` of it,
+/// as `first` returns, could not tell `None` from `Some`. A map's value can be: its
+/// `get`, `insert`, and `remove` take the `Option`'s `rt.None`.
 fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	let n = match std {
-		Std::HashMap | Std::BTreeMap | Std::Entry => 2,
-		Std::HashSet | Std::BTreeSet | Std::VecDeque => 1,
-		_ => 0,
-	};
-	(0..n).map(|i| arg(coll, i)).find(|&t| b.t.erases_to(t).undefined)
+	if !matches!(
+		std,
+		Std::HashMap | Std::BTreeMap | Std::Entry | Std::HashSet | Std::BTreeSet | Std::VecDeque
+	) {
+		return None;
+	}
+	Some(arg(coll, 0)).filter(|&key| b.t.erases_to(key).undefined)
 }
 
 /// Whether `call` lends a value a collection or an atomic holds that JS copies, which its
@@ -287,6 +294,7 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
 	let (methods, value): (&[&str], usize) = match std {
+		Std::Vec => (&["retain_mut", "dedup_by", "dedup_by_key"], 0),
 		Std::VecDeque => (&["get_mut", "front_mut", "back_mut", "iter_mut", "retain_mut"], 0),
 		Std::HashMap => (&["get_mut", "iter_mut", "values_mut", "retain"], 1),
 		Std::BTreeMap => (&["get_mut", "iter_mut", "values_mut", "range_mut", "retain"], 1),

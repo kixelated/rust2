@@ -177,7 +177,7 @@ pub fn call<'tcx>(
 		// A waker is the executor's, whose `clone` is its own.
 		("Clone", "clone") if self_std == Some(Std::Waker) => first(args).member("clone").call(vec![]),
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
-			Some(Std::Arc | Std::Mutex | Std::MutexGuard) => first(args).member("value"),
+			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
 			Some(Std::Pin) => first(args),
 			_ => return Err(args),
 		},
@@ -191,6 +191,37 @@ pub fn call<'tcx>(
 		// Mapped rather than lowered from core's MIR, so one of a lock unwraps its guard in place.
 		("Result", "unwrap_or_else") if call.args.types().nth(1).and_then(std_of) == Some(Std::PoisonError) => {
 			Expr::rt("resultUnwrapOrElse", args)
+		}
+		// A cell, or a lock, is its own guard.
+		("RefCell" | "RwLock", "new") => Expr::New(Box::new(Expr::Rt("RefCell".into())), args),
+		("RefCell", "borrow") => Expr::rt("refCellBorrow", args),
+		("RefCell", "borrow_mut") => Expr::rt("refCellBorrowMut", args),
+		("RefCell", "replace") => Expr::rt("refCellReplace", args),
+		("RefCell", "take") => {
+			let ty = call.args.type_at(0);
+			let f = super::collections::trait_fn(tcx, "Default", "default");
+			let value = b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), call.span, out);
+			Expr::rt("refCellReplace", vec![first(args), value])
+		}
+		// A panic aborts, so nothing poisons it.
+		("RwLock", "read") => Expr::result(true, Expr::rt("rwLockRead", args)),
+		("RwLock", "write") => Expr::result(true, Expr::rt("rwLockWrite", args)),
+		("RwLock", "try_read") => Expr::rt("rwLockTryRead", args),
+		("RwLock", "try_write") => Expr::rt("rwLockTryWrite", args),
+		("Cell", _) => return cell(b, call, name, args, out),
+		// A thread-local's value, which is never destroyed.
+		("LocalKey", "with") => {
+			let [key, f] = two(args);
+			f.call(vec![key.member("get").call(Vec::new())])
+		}
+		("LocalKey", "try_with") => {
+			let [key, f] = two(args);
+			Expr::result(true, f.call(vec![key.member("get").call(Vec::new())]))
+		}
+		// With the `Option`'s `None` where it is `rt.None`.
+		("LocalKey", "initialize_with") => {
+			let none = b.t.none_arg(call.args.type_at(0));
+			Expr::rt("localKeyInitializeWith", args.into_iter().chain(none).collect())
 		}
 		("Atomic", _) => return atomic(b, call, name, args),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
@@ -326,6 +357,39 @@ fn atomic<'tcx>(
 		// std's loop of compare-exchanges, which retries only if `f` changed the atomic.
 		"try_update" | "fetch_update" => exchange("atomicTryUpdate", args),
 		"update" => exchange("atomicUpdate", args),
+		_ => return Ok(None),
+	};
+	Ok(Some(e))
+}
+
+/// A `Cell<T>` method: its value, `v`, read, written, or replaced as std does. `Ok(None)`
+/// refuses it.
+fn cell<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	name: &str,
+	args: Vec<Expr>,
+	out: &mut Vec<Stmt>,
+) -> Result<Option<Expr>, Vec<Expr>> {
+	let tcx = b.t.tcx;
+	let ty = call.args.type_at(0);
+	let e = match name {
+		"new" => Expr::New(Box::new(Expr::Rt("Cell".into())), args),
+		"get" => b.t.copied(first(args).member("v"), ty, call.span),
+		"into_inner" => first(args).member("v"),
+		"replace" => Expr::rt("cellReplace", args),
+		// With what drops the value it replaces.
+		"set" => {
+			let Some(droppers) = b.t.droppers([ty], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			Expr::rt("cellSet", args.into_iter().chain(droppers).collect())
+		}
+		"take" => {
+			let f = super::collections::trait_fn(tcx, "Default", "default");
+			let value = b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), call.span, out);
+			Expr::rt("cellReplace", vec![first(args), value])
+		}
 		_ => return Ok(None),
 	};
 	Ok(Some(e))

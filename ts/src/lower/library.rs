@@ -59,6 +59,15 @@ pub enum Std {
 	PoisonError,
 	/// `rt.TryLockError<T>`, tagged as `Bound` is.
 	TryLockError,
+	/// `rt.RefCell`: a `RefCell` or an `RwLock`, which one thread can't tell apart, and
+	/// also its own guard, shared or exclusive.
+	RefCell,
+	Ref,
+	RefMut,
+	/// `rt.Cell<T>`, a place holding its value.
+	Cell,
+	/// `rt.LocalKey<T>`: a thread-local, a module's value.
+	LocalKey,
 	/// `rt.Atomic<T>`, a place holding its `bool` or integer.
 	Atomic,
 	/// `rt.AtomicOrdering`: its discriminant.
@@ -101,8 +110,10 @@ pub enum Std {
 	NonZero,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
-	/// Its pointee: what an async body passes its context in.
+	/// A raw pointer to its pointee, as `pointer` has it.
 	NonNull,
+	/// What it holds, or nothing yet, as `pointer` has it.
+	MaybeUninit,
 	/// No value: `never`.
 	Infallible,
 	/// `rt.HashMap`, and `rt.HashSet`, a map to `undefined`.
@@ -158,6 +169,14 @@ impl Std {
 			(sym::RcWeak, Self::Weak),
 			(sym::Mutex, Self::Mutex),
 			(sym::MutexGuard, Self::MutexGuard),
+			(sym::RefCell, Self::RefCell),
+			(sym::RwLock, Self::RefCell),
+			(rustc_span::Symbol::intern("RefCellRef"), Self::Ref),
+			(sym::RwLockReadGuard, Self::Ref),
+			(rustc_span::Symbol::intern("RefCellRefMut"), Self::RefMut),
+			(sym::RwLockWriteGuard, Self::RefMut),
+			(sym::Cell, Self::Cell),
+			(rustc_span::Symbol::intern("LocalKey"), Self::LocalKey),
 			(rustc_span::Symbol::intern("Atomic"), Self::Atomic),
 			(rustc_span::Symbol::intern("Waker"), Self::Waker),
 			(rustc_span::Symbol::intern("PinMacroHelper"), Self::Pin),
@@ -214,9 +233,12 @@ impl Std {
 			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["mem", "maybe_uninit", "MaybeUninit"] => Some(Self::MaybeUninit),
 			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
 			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
+			// A thread-local on wasm32 is never destroyed, so `try_with` never fails.
+			["thread", "local", "AccessError"] => Some(Self::Infallible),
 			["cmp", "Ordering"] => Some(Self::Ordering),
 			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
 			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
@@ -479,7 +501,8 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 }
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
-/// than mapping here: a method of `bool`, `Option`, `Result`, or `Poll`, or their `Clone`.
+/// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
+/// their `Clone`.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
 /// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
 /// as the runtime's panic.
@@ -497,7 +520,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	// `None` for `bool`'s.
 	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
 		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
-			std @ Some(Std::Option | Std::Result | Std::Poll) => std,
+			std @ Some(Std::Option | Std::Result | Std::Poll | Std::LocalKey) => std,
 			_ => return false,
 		},
 		ty::Bool => None,
@@ -532,8 +555,18 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		) | (
 			Some(Std::Result),
 			"unwrap" | "expect" | "unwrap_err" | "is_ok" | "is_err"
-		)
+		) | (Some(Std::LocalKey), "with" | "try_with" | "initialize_with")
 	) && !lock
+}
+
+/// The key `def_id` makes the value of, if it is what `thread_local!` declares in a key's
+/// own initializer to: a `const { .. }` key's `const`, or a lazy key's function.
+pub fn local_init(tcx: TyCtxt<'_>, def_id: DefId) -> Option<DefId> {
+	let key = tcx.opt_parent(def_id)?;
+	let is_key = tcx.def_kind(key) == DefKind::Const
+		&& matches!(tcx.type_of(key).instantiate_identity().skip_norm_wip().kind(),
+			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::LocalKey));
+	is_key.then_some(key)
 }
 
 pub struct Call<'tcx> {
@@ -555,7 +588,10 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
 		| ("Box", "new" | "pin")
-		| ("mem", "replace" | "take" | "swap")
+		| ("mem", "replace" | "take" | "swap" | "forget")
+		| ("ptr", "write" | "write_unaligned" | "write_volatile" | "replace")
+		| ("MaybeUninit", "new" | "write" | "assume_init")
+		| ("Box", "into_raw" | "leak" | "from_raw")
 		| ("hint", "must_use")
 		| ("From", "from")
 		| ("Into", "into")
@@ -568,6 +604,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Arc" | "Rc", "new_cyclic") => &[1],
+		("LocalKey", "with" | "try_with" | "initialize_with") => &[1],
 		_ => return None,
 	})
 }
@@ -589,22 +626,25 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
+				| ("ptr", "as_ref" | "as_mut")
 		)
 }
 
 /// Whether the runtime function `owner::name` maps to takes the `None` of the `Option` it
 /// makes or reads, where that is `rt.None`, last: after what drops its operands.
-fn none_last(owner: &str, name: &str) -> bool {
+pub(super) fn none_last(owner: &str, name: &str) -> bool {
 	matches!(
 		(owner, name),
-		("Option", "unwrap" | "expect") | ("slice", "first" | "get")
+		("Option", "unwrap" | "expect")
+			| ("slice", "first" | "get")
+			| ("HashMap" | "BTreeMap", "get" | "get_mut" | "insert" | "remove")
 	)
 }
 
 /// The type of the first `Some` whose `Option`'s `None` is `rt.None`, of those in the
 /// signature and bounds of the function `call` calls, over its type arguments: what the
 /// mapping of a std function would make or read with `undefined` for `None`.
-fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
+pub(super) fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = t.tcx;
 	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
 	let sig = tcx.instantiate_bound_regions_with_erased(sig);
@@ -654,7 +694,8 @@ struct Closures<'tcx> {
 /// drops is ordered against it; dropped where `discarded` says, by the type's index among
 /// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
 /// one that calls it through `FnOnce`, becomes `rt.once` of it, which drops it after the
-/// call, as rustc's shim does.
+/// call, as rustc's shim does. A reference to one is the closure in JS, so an iterator,
+/// which drops what it holds, keeps `rt.lent` of it instead.
 fn called_closures<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
@@ -672,24 +713,50 @@ fn called_closures<'tcx>(
 			continue;
 		};
 		let ty = call.args[param.index as usize].expect_ty();
-		let ty::Closure(_, closure) = ty.kind() else {
-			continue;
-		};
 		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
-		if !b.t.drops(ty) {
+		// Through any references and boxes, any reference of which lends it.
+		let (mut owned, mut lent) = (ty, false);
+		loop {
+			owned = match *owned.kind() {
+				ty::Ref(_, inner, _) => {
+					// A `&mut` to a function JS copies is its place: std calls the function it holds.
+					if b.t.place_pointee(owned).is_some() && i < args.len() {
+						let f = std::mem::replace(&mut args[i], Expr::undefined());
+						args[i] = f.member("v");
+					}
+					lent = true;
+					inner
+				}
+				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
+				_ => break,
+			};
+		}
+		let Some(called) = b.t.owned_fn(owned) else {
+			continue;
+		};
+		if !b.t.drops(owned) {
 			continue;
 		}
 		let mentions = |t: Ty<'tcx>| t.walk().any(|a| a.as_type() == Some(input));
 		if mentions(output) {
-			// An `rt.Iter` or `rt.PollFn` drops the closure it holds.
-			let held = matches!(output.kind(), ty::Adt(adt, args)
-				if (super::iter::holds_closure(tcx, adt.did()) || Std::of(tcx, adt.did()) == Some(Std::PollFn))
-					&& args.types().any(|a| a == input));
-			if !held {
+			// An `rt.Iter` drops the closure it holds, and an `rt.PollFn` one it owns.
+			let holder = match output.kind() {
+				ty::Adt(adt, args) if args.types().any(|a| a == input) => Some(adt.did()),
+				_ => None,
+			};
+			let iter = holder.is_some_and(|did| super::iter::holds_closure(tcx, did));
+			if lent && iter && i < args.len() {
+				let f = std::mem::replace(&mut args[i], Expr::undefined());
+				args[i] = Expr::rt("lent", vec![f]);
+			} else if !lent && !iter && holder.and_then(|did| Std::of(tcx, did)) != Some(Std::PollFn) {
 				closures.leaked = closures.leaked.or(Some(ty));
 			}
+			continue;
+		}
+		// Its owner drops a borrowed closure.
+		if lent {
 			continue;
 		}
 		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
@@ -708,8 +775,7 @@ fn called_closures<'tcx>(
 			closures.leaked = closures.leaked.or(Some(ty));
 			continue;
 		}
-		if bound == ty::ClosureKind::FnOnce && closure.as_closure().kind() != ty::ClosureKind::FnOnce && i < args.len()
-		{
+		if bound == ty::ClosureKind::FnOnce && called != ty::ClosureKind::FnOnce && i < args.len() {
 			let f = std::mem::replace(&mut args[i], Expr::undefined());
 			args[i] = Expr::rt("once", vec![f]);
 		}
@@ -750,13 +816,13 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 				.unwrap_or(ty)
 		})
 		.collect();
-	let called = |i: usize, ty: Ty<'tcx>| {
-		matches!(ty.kind(), ty::Closure(..)) && called_by(tcx, call.def_id, generic[i]).is_some()
-	};
 	inputs
 		.into_iter()
 		.enumerate()
-		.find(|&(i, ty)| !called(i, ty) && b.t.drops(ty))
+		.find(|&(i, ty)| {
+			let called = b.t.owned_fn(ty).is_some() && called_by(tcx, call.def_id, generic[i]).is_some();
+			!called && b.t.drops(ty)
+		})
 		.map(|(_, ty)| ty)
 }
 
@@ -776,6 +842,8 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
+			// `<*const T>::read` is `ptr::read`.
+			ty::RawPtr(..) => "ptr".into(),
 			ty::Dynamic(preds, ..) => format!("dyn {}", tcx.item_name(preds.principal_def_id()?)),
 			_ => return None,
 		};
@@ -846,6 +914,10 @@ fn mapping<'tcx>(
 		Ok(e) => return e,
 		Err(args) => args,
 	};
+	let args = match super::pointer::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
 	let args = match super::time::call(b, call, &owner, &name, args) {
 		Ok(e) => return e,
 		Err(args) => args,
@@ -866,6 +938,7 @@ fn mapping<'tcx>(
 			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
+			"trailing_zeros" => "trailingZeros",
 			"checked_add" => "checkedAdd",
 			"checked_sub" => "checkedSub",
 			"checked_mul" => "checkedMul",
@@ -1094,6 +1167,12 @@ fn mapping<'tcx>(
 		// A `NonZero` is its integer.
 		("NonZero", "get") => args.pop()?,
 		("NonZero", "new") => Expr::rt("nonZero", args),
+		// Of each width's own impl, which has no type argument to read the integer from.
+		("NonZero", "leading_zeros" | "trailing_zeros") => {
+			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
+			let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+			Int::of(unwrapped(tcx, self_ty))?.method(&super::camel(&name), args)
+		}
 		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
 		("Bound", "cloned") => {
 			let value = args.pop()?;
@@ -1191,9 +1270,11 @@ fn mapping<'tcx>(
 				false => return vec_clone(b, slice, elem, span),
 			}
 		}
-		("slice", "last") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
-		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
-		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
+		("slice", "last" | "swap") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		("slice", "reverse") => elements(args.pop()?, Ty::new_slice(tcx, targ(gargs, 0))).method("reverse", Vec::new()),
 		("slice", "contains") => {
 			let elem = targ(gargs, 0);
 			let [s, x] = <[Expr; 2]>::try_from(args).ok()?;
@@ -1209,9 +1290,13 @@ fn mapping<'tcx>(
 		(
 			"slice",
 			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
-		) if !is_u8(targ(gargs, 0)) => {
+		) => {
+			let elem = targ(gargs, 0);
 			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
 			match name.as_str() {
+				// A typed array sorts its numbers by value, and equal bytes are alike.
+				"sort" | "sort_unstable" if is_u8(elem) => values.remove(0).method("sort", Vec::new()),
 				"sort" | "sort_unstable" => {
 					values.push(super::collections::test_fn(b, targ(gargs, 0), "lt", span));
 					Expr::rt("sliceSort", values)
@@ -1304,31 +1389,43 @@ fn mapping<'tcx>(
 			}
 			Expr::rt("vecExtendFromSlice", values)
 		}
-		("Vec", "swap_remove") if !is_u8(targ(gargs, 0)) => Expr::rt("vecSwapRemove", args),
-		("Vec", "insert" | "remove" | "truncate") if !is_u8(targ(gargs, 0)) => {
-			Expr::rt_of("vec", &super::camel(&name)).call(args)
+		("Vec", "insert" | "remove" | "swap_remove") if is_u8(targ(gargs, 0)) => {
+			rt2(args, "byteVec", &super::camel(&name))
 		}
+		("Vec", "insert" | "remove" | "swap_remove" | "truncate") => rt2(args, "vec", &super::camel(&name)),
 		("Vec", "clear") => {
 			let mut values = args;
 			values.push(Expr::lit("0"));
 			Expr::rt("vecTruncate", values)
 		}
-		// What each takes by value is a closure, which it drops once done.
-		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") if !is_u8(targ(gargs, 0)) => {
+		// What each takes by value is a closure, which it drops once done. An element JS
+		// copies is lent to the closure as its place where it takes a `&mut`.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") => {
 			if let Some(ty) = dropping_operand(b, call) {
 				return Some(b.err(
 					span,
 					format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
 				));
 			}
+			let elem = targ(gargs, 0);
+			let of = match is_u8(elem) {
+				true => "byteVec",
+				false => "vec",
+			};
+			let lend = match b.t.needs_place(elem) {
+				true => "Mut",
+				false => "",
+			};
 			let mut values = args;
-			match name.as_str() {
-				"retain" | "retain_mut" => Expr::rt("vecRetain", values),
+			let f = match name.as_str() {
+				"retain" => "retain".to_string(),
+				"retain_mut" => format!("retain{lend}"),
+				"dedup" if is_u8(elem) => "dedup".to_string(),
 				"dedup" => {
-					values.push(super::collections::eq_fn(b, targ(gargs, 0), span));
-					Expr::rt("vecDedupBy", values)
+					values.push(super::collections::eq_fn(b, elem, span));
+					"dedupBy".to_string()
 				}
-				"dedup_by" => Expr::rt("vecDedupBy", values),
+				"dedup_by" => format!("dedupBy{lend}"),
 				_ => {
 					// `Vec<T, A>::dedup_by_key::<F, K>`.
 					let key = targ(gargs, 3);
@@ -1339,9 +1436,10 @@ fn mapping<'tcx>(
 						));
 					}
 					values.push(super::collections::eq_fn(b, key, span));
-					Expr::rt("vecDedupByKey", values)
+					format!("dedupByKey{lend}")
 				}
-			}
+			};
+			rt2(values, of, &f)
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;
@@ -1437,6 +1535,14 @@ fn mapping<'tcx>(
 			let env = b.t.typing_env_pub();
 			let layout = tcx.layout_of(env.as_query_input(targ(gargs, 0))).ok()?;
 			Expr::lit(layout.size.bytes().to_string())
+		}
+		("array", "from_fn") => {
+			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
+			let f = match targ(gargs, 0).kind() {
+				ty::Uint(ty::UintTy::U8) => "bytesFromFn",
+				_ => "arrayFromFn",
+			};
+			Expr::rt(f, vec![Expr::lit(n.to_string()), args.pop()?])
 		}
 		("fmt", "format") => {
 			let parts = args.pop()?;
@@ -1769,6 +1875,11 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 			Std::Box => part(b, args.type_at(0), out),
 			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),
+			Std::RefCell => Expr::New(
+				Box::new(Expr::Rt("RefCell".into())),
+				vec![part(b, args.type_at(0), out)],
+			),
+			Std::Cell => Expr::New(Box::new(Expr::Rt("Cell".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Weak => Expr::New(Box::new(Expr::Rt("Weak".into())), Vec::new()),
 			_ => return None,
 		},

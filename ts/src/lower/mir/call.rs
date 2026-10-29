@@ -291,12 +291,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
-			let f = self.operand(&callee.node, span, out);
-			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call drops it after,
-			// as rustc's shim does, where an `FnOnce` closure's body drops what it owns.
+			// A `&mut` to a function JS copies, such as a box of one, is its place: call what is there.
+			let f = match callee.node.place() {
+				Some(p) if self.b.t.place_pointee(p.ty(&self.mir.local_decls, tcx).ty).is_some() => {
+					self.place_expr(tcx.mk_place_deref(p), span, out)
+				}
+				_ => self.operand(&callee.node, span, out),
+			};
+			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call, or of a box of one,
+			// drops it after, as rustc's shim does, where an `FnOnce` closure's body drops
+			// what it owns.
 			if tcx.fn_trait_kind_from_def_id(trait_id) == Some(ty::ClosureKind::FnOnce)
-				&& let ty::Closure(_, closure) = callee_ty.kind()
-				&& closure.as_closure().kind() != ty::ClosureKind::FnOnce
+				&& self
+					.b
+					.t
+					.owned_fn(callee_ty)
+					.is_some_and(|kind| kind != ty::ClosureKind::FnOnce)
 				&& self.b.t.drops(callee_ty)
 			{
 				return Expr::rt("callOnce", [vec![f], values].concat());
@@ -310,11 +320,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let Some(err) = self.std_places(def_id, gargs, result, span) {
 					return err;
 				}
+				let takes_place = crate::lower::pointer::takes_place(tcx, def_id);
 				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
 				let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
 				inputs
 					.iter()
-					.map(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+					.map(|t| !takes_place && matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
 					.collect()
 			}
 		};
@@ -340,7 +351,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			args: gargs,
 			span,
 		};
-		if crate::lower::collections::place_call(self.b, &call) {
+		if crate::lower::collections::place_call(self.b, &call) || crate::lower::pointer::lends(tcx, def_id) {
 			return None;
 		}
 		let t = &*self.b.t;
@@ -566,6 +577,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
+			// Out of bounds is undefined, so the checked index's panic is one outcome of it.
+			("slice", "get_unchecked" | "get_unchecked_mut") => {
+				let slice = ty::Ty::new_slice(tcx, targ(0)?);
+				let gargs = tcx.mk_args(&[slice.into(), targ(1)?.into()]);
+				let name = match name.as_str() {
+					"get_unchecked" => "index",
+					_ => "index_mut",
+				};
+				self.index(name, gargs, args, dest, span, out)
+			}
 			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
 			// the place it borrows, as an index does.
 			("DerefMut", "deref_mut")
@@ -931,10 +952,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						if let Some(drop) = self.b.t.drop_value(f.clone(), f_ty, span) {
 							els.push(StmtKind::Expr(drop).at(None));
 						}
-						match f_ty.kind() {
-							ty::Closure(_, c)
-								if c.as_closure().kind() != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) =>
-							{
+						match self.b.t.owned_fn(f_ty) {
+							Some(kind) if kind != ty::ClosureKind::FnOnce && self.b.t.drops(f_ty) => {
 								Expr::rt("callOnce", vec![f])
 							}
 							_ => f.call(Vec::new()),

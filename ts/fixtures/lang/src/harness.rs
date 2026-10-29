@@ -2,9 +2,9 @@
 //! case and the rest is its input.
 
 use crate::{
-	args, atomics, captures, cells, chars, chunks, collections, combinators, counts, cows, defaults, durations, dyns,
-	edits, floats, fmt, generics, ints, iters, keys, locks, nested, refs, returns, shapes, splits, strs, utf8,
-	wrappers,
+	args, arrays, atomics, borrows, captures, cells, chars, chunks, collections, combinators, counts, cows, defaults,
+	durations, dyns, edits, floats, fmt, generics, ints, iters, keys, locals, locks, nested, pointers, refs, returns,
+	shapes, splits, strs, utf8, wrappers,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -91,12 +91,26 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("captures::captures", captures::captures),
 		("locks::locks", |_, data, out| locks::locks(data, out)),
 		("locks::relock", |_, data, out| locks::relock(data, out)),
+		("locals::locals", |_, data, out| locals::locals(data, out)),
+		("locks::rwlocks", |_, data, out| locks::rwlocks(data, out)),
+		("borrows::borrows", |_, data, out| borrows::borrows(data, out)),
 		("defaults::defaults", |_, data, out| defaults::defaults(data, out)),
 		("counts::arcs", |_, data, out| counts::arcs(data, out)),
 		("counts::rcs", |_, data, out| counts::rcs(data, out)),
 		("counts::cyclic_arcs", |_, data, out| counts::cyclic_arcs(data, out)),
 		("counts::cyclic_rcs", |_, data, out| counts::cyclic_rcs(data, out)),
 		("dyns::anys", |_, data, out| dyns::anys(data, out)),
+		("dyns::fns", |_, data, out| dyns::fns(data, out)),
+		("pointers::copies", |_, data, out| pointers::copies(data, out)),
+		("pointers::lists", |_, data, out| pointers::lists(data, out)),
+		("pointers::nested", |_, data, out| pointers::nested(data, out)),
+		("pointers::places", |_, data, out| pointers::places(data, out)),
+		("pointers::sentinels", |_, data, out| pointers::sentinels(data, out)),
+		("pointers::shared", |_, data, out| pointers::shared(data, out)),
+		("pointers::unchecked", |_, data, out| pointers::unchecked(data, out)),
+		("edits::bytes", edits::bytes),
+		("arrays::from_fns", |_, data, out| arrays::from_fns(data, out)),
+		("collections::optionals", collections::optionals),
 		("args::args", args::args),
 		("returns::returns", returns::returns),
 	]

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Kotlin returns bytes as a `Bytes`, not a `ByteArray`: Rust's buffer, lent uncopied as
+  `bytes.buffer`, a read-only direct `ByteBuffer`, until `bytes.close()` frees it. Read it
+  in `use { }`, or copy it out with `toByteArray()`. A record's bytes field is a `Bytes`
+  too: build one to pass in with `Bytes(byteArray)`. Arguments stay `ByteArray`. Kotlin's
+  objects and `Bytes` never closed are freed once the GC collects them, and an exported
+  type named `bytes` clashes with the runtime's `<prefix>_bytes`, which takes a `rename`.
+- A type parameter bounded by serde's `Serialize` or `Deserialize` takes
+  `serde_json::Value`, not `String`: C passes a `<prefix>_json` it parses from JSON text
+  with `<prefix>_json_parse`, not a buffer, and a generic type at such a parameter is
+  named by `json` (`moq_json_snapshot_json`), not `string`. An item that clashes with
+  `<prefix>_json` or its functions takes a `rename`.
 - A type parameter whose bounds imply bytes, through a supertrait such as moq's
   `IntoBytes: AsRef<[u8]>` or a `From` implementation such as moq's
   `impl<B: Into<Bytes>> From<B> for Timed<Bytes>`, exports as bytes rather than

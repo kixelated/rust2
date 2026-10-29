@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Result_u32s_u16, copy$u32s } from "./lib.ts";
-import { isSomeAnd$Option_u8_bools_closure0, isNoneOr$Option_u8_options_closure1, unwrapOr$Option_u8, unwrapOrElse$Option_String_owned_closure3, unwrapOrElse$Option_u8_options_closure9, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, unwrapOrDefault$Option_u8, map$Option_u8_String_owned_closure0, map$Option_u8_Vec_u8_owned_closure4, map$Option_u8_u32s_owned_closure9, map$Option_u8_u8_elements_closure8, inspect$Option_u8_options_closure11, mapOr$Option_u16_u8_hash_maps_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOrElse$Option_u8_u8_options_closure7_options_closure8, okOr$Option_u32s_u8, okOr$Option_u8_u16, okOr$Option_u8_u8, okOrElse$Option_Vec_u8_String_owned_closure5, okOrElse$Option_u8_u16_options_closure12, and$Option_u8_u8, andThen$Option_u8_u8_options_closure2, filter$Option_String_owned_closure1, filter$Option_u8_combinators_closure0, or$Option_u8, orElse$Option_String_owned_closure2, orElse$Option_u8_options_closure6, xor$Option_u8, zip$Option_u8_u8, clone$Clone_Option_String } from "./core/option.ts";
+import { isSomeAnd$Option_u8_bools_closure0, isNoneOr$Option_u8_options_closure1, unwrapOr$Option_u8, unwrapOrElse$Option_String_owned_closure3, unwrapOrElse$Option_u8_options_closure9, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, unwrapOrDefault$Option_u8, map$Option_u8_String_optionals_closure2_closure0, map$Option_u8_Vec_u8_owned_closure4, map$Option_u8_u32s_owned_closure9, map$Option_u8_u8_elements_closure8, inspect$Option_u8_options_closure11, mapOr$Option_u16_u8_hash_maps_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOrElse$Option_u8_u8_options_closure7_options_closure8, okOr$Option_u32s_u8, okOr$Option_u8_u16, okOr$Option_u8_u8, okOrElse$Option_Vec_u8_String_owned_closure5, okOrElse$Option_u8_u16_options_closure12, and$Option_u8_u8, andThen$Option_u8_u8_options_closure2, filter$Option_String_owned_closure1, filter$Option_u8_combinators_closure0, or$Option_u8, orElse$Option_String_owned_closure2, orElse$Option_u8_options_closure6, xor$Option_u8, zip$Option_u8_u8, clone$Clone_Option_String } from "./core/option.ts";
 import { isOkAnd$Result_u8_u16_results_closure5, isErrAnd$Result_u8_u16_results_closure6, ok$Result_u8_u16, err$Result_u8_u16, asRef$Result_u8_u16, map$Result_Vec_u8_String_Vec_u8_owned_closure6, map$Result_u8_u16_u8_options_closure13, mapOr$Result_u8_u16_u8_results_closure7, mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9, mapErr$Result_u32s_u8_u16_from, mapErr$Result_u8_u16_u16_results_closure14, inspect$Result_u8_u16_results_closure12, inspectErr$Result_u8_u16_results_closure13, unwrapOrDefault$Result_u8_u16, and$Result_u8_u16_u8, andThen$Result_u8_u16_u8_results_closure3, or$Result_u8_u16_u16, orElse$Result_u8_u16_u16_results_closure4, unwrapOr$Result_u8_u16, unwrapOrElse$Result_u8_u16_results_closure11, unwrapOrElse$Result_u8_u8_panics_closure1, copied$Result_u8_u16, clone$Clone_Result_Vec_u8_String } from "./core/result.ts";
 
 /** Run case `kind % 4` over `data`, whose bytes pick each `Some` or `None`, `Ok` or `Err`. */
@@ -136,7 +136,7 @@ export function results(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 /** Values JS shares where Rust clones or moves them. */
 export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVec): void {
 	let matched!: rt.Result<rt.u32[], rt.u16>;
-	const s: string | undefined = map$Option_u8_String_owned_closure0(a, (x2: rt.u8): string => {
+	const s: string | undefined = map$Option_u8_String_optionals_closure2_closure0(a, (x2: rt.u8): string => {
 		return rt.fmtToString((f: rt.Formatter) => rt.u8Display(x2, f));
 	});
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(unwrapOrDefault$Option_String(filter$Option_String_owned_closure1(clone$Clone_Option_String(s), (s2: string): boolean => {
@@ -144,7 +144,7 @@ export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVe
 	}))));
 	rt.byteVecPush(out, 124);
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(unwrapOrElse$Option_String_owned_closure3(orElse$Option_String_owned_closure2(s, (): string | undefined => {
-		return map$Option_u8_String_owned_closure0(b, (y2: rt.u8): string => {
+		return map$Option_u8_String_optionals_closure2_closure0(b, (y2: rt.u8): string => {
 			return rt.fmtToString((f: rt.Formatter) => rt.u8Display(y2, f));
 		});
 	}), (): string => {
