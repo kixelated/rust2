@@ -49,7 +49,6 @@ exclude = [
     "track::Fetching",
     "track::Resolving",
     "track::Subscribing",
-    "track::Subscription::with_ranges",
     "transport::Error",
     "transport::MaybeSend",
     "transport::MaybeSync",
@@ -89,7 +88,7 @@ exclude = [
 
 # Exported with moq-net, whose signatures name their types, such as `Patterns` and `Instant`.
 [crates.moq-pattern]
-exclude = ["Pattern::captures", "Pattern::new", "Pattern::segments", "Patterns::iter"]
+exclude = ["Pattern::captures", "Pattern::segments", "Patterns::iter"]
 
 [crates.moq-clock]
 exclude = [
@@ -350,12 +349,9 @@ exclude = [
     "codec::annexb::from_length_prefixed",
     "codec::annexb::length_prefixed_to_annexb",
     "codec::av1::Error",
-    "codec::av1::Import::decode",
     "codec::flac::Config",
     "codec::h264::Export",
-    "codec::h264::Import::decode",
     "codec::h265::Export",
-    "codec::h265::Import::decode",
     "codec::opus::Config::parse",
     "codec::opus::Mapping::new",
     "codec::opus::mapping::Config",

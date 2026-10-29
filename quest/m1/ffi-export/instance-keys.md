@@ -17,11 +17,16 @@ infers the instances it exports at, and the `instances` key is gone
 other two items: moq-net's `with_publisher` at `&origin::Producer`, and `DEFAULT_NAME` on
 hang's `Catalog<()>`. What remains is two type mappings.
 
-- `IntoIterator` as a `Vec` needs a `Vec` of records to map first.
-- `serde_json::Value` crosses the C ABI as something every generator can read; decide
-  its shape (JSON text is the obvious one) when the quest starts. The `T: Serialize`
-  parameter now takes `String` by the choice rules, which serializes one JSON string
-  rather than a document; moq's config excludes both methods until then.
+- `impl IntoIterator<Item = X>` takes a `Vec<X>`, which moq-net's `with_ranges` exports
+  through.
+- Decided with the maintainer on 2026-10-28: `serde_json::Value` crosses as JSON text, a
+  UTF-8 document string in every language, and callers use their own JSON library. A
+  `T: Serialize` parameter infers `serde_json::Value`, not `String`, so moq's config stops
+  excluding `json_snapshot` and `json_stream`. Malformed text from a caller is an error
+  result, never an abort.
+- Open: where that error goes. `json::Snapshot::update` and `json::Stream::append` return
+  moq-mux's `Error`, which has no `From<serde_json::Error>`, so a parse failure has no
+  home in the call's own result.
 - Report moq-ffi's coverage and the census before and after.
 
 Public API: the C names and types these methods export with.

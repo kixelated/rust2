@@ -970,6 +970,19 @@ pub fn sums(rows: Vec<Vec<u32>>) -> Vec<u32> {
 	rows.iter().map(|row| row.iter().sum()).collect()
 }
 
+/// The points added up, from anything that iterates them.
+pub fn summed(points: impl IntoIterator<Item = Point>) -> Point {
+	points.into_iter().fold(Point::default(), |sum, p| sum.offset(p.x, p.y))
+}
+
+/// The length of the longest word, naming its iterator.
+pub fn longest<I>(words: I) -> usize
+where
+	I: IntoIterator<Item = String>,
+{
+	words.into_iter().map(|word| word.len()).max().unwrap_or(0)
+}
+
 /// A site: every field is `pub`, but a URL is a handle C cannot copy, so it is an object
 /// whose getter returns a clone.
 pub struct Site {

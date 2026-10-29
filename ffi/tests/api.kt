@@ -303,6 +303,10 @@ fun script() {
 		check(runCatching { counter.get() }.exceptionOrNull() is IllegalStateException, "a counter moved in is closed")
 	}
 	println("sums ${sums(listOf(listOf(1u, 2u), emptyList(), listOf(3u)))}")
+	val summed = summed(listOf(Point(1, 2), Point(-4, 6)))
+	val noneSummed = summed(emptyList())
+	println("summed ${summed.x} ${summed.y} ${noneSummed.x} ${noneSummed.y}")
+	println("longest ${longest(listOf("a", "abc"))} ${longest(emptyList())}")
 	val site = Site.new(base)
 	site.home.use { a -> site.home.use { b -> println("site $a $b") } }
 }

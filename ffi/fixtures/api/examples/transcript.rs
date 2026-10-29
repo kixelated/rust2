@@ -368,6 +368,14 @@ fn main() {
 		api_lib::worth(None, Box::default())
 	);
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
+	let summed = api_lib::summed([Point { x: 1, y: 2 }, Point { x: -4, y: 6 }]);
+	let none = api_lib::summed([]);
+	println!("summed {} {} {} {}", summed.x, summed.y, none.x, none.y);
+	println!(
+		"longest {} {}",
+		api_lib::longest(["a".to_string(), "abc".to_string()]),
+		api_lib::longest([])
+	);
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);
 }

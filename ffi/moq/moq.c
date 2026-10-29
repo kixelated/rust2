@@ -290,6 +290,25 @@ int main(void) {
 	moq_mux_error_free(mux_err);
 	mux_err = NULL;
 
+	/* A subscription's ranges, from any iterable of them: an array, copied in. */
+	moq_track_range ranges[] = {
+	    moq_track_range_live(),
+	    moq_track_range_groups((moq_bounds_u64){.start = {.kind = MOQ_BOUND_INCLUDED, .value = 2},
+	                                            .end = {.kind = MOQ_BOUND_EXCLUDED, .value = 6}}),
+	};
+	moq_track_subscription *unranged = moq_track_subscription_default();
+	moq_track_subscription *ranged =
+	    moq_track_subscription_with_ranges(unranged, (moq_vec_track_range){.ptr = ranges, .len = 2});
+	moq_track_subscription_free(unranged);
+	moq_vec_track_range got = moq_track_subscription_ranges(ranged);
+	CHECK(got.len == 2 && moq_track_range_eq(&got.ptr[0], &ranges[0]));
+	CHECK(got.len == 2 && got.ptr[1].start.tag == MOQ_TRACK_ANCHOR_ABSOLUTE && got.ptr[1].start.absolute._0 == 2);
+	CHECK(got.len == 2 && got.ptr[1].end.some && got.ptr[1].end.value.absolute._0 == 6);
+	moq_vec_track_range_free(got);
+	moq_track_range_free(&ranges[0]);
+	moq_track_range_free(&ranges[1]);
+	moq_track_subscription_free(ranged);
+
 	/* A binary track the catalog lists, published through moq-mux's generic
 	 * `binary_snapshot` at the config C builds, by a catalog at moq-mux's untyped
 	 * extension, each instance named by the last segment of each argument. */

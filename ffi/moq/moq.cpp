@@ -172,6 +172,17 @@ int main() {
 	auto truncated = moq::codec_opus_audio_config(moq::view(head, 8));
 	CHECK(!truncated && !truncated.error().to_string().empty());
 
+	// A subscription's ranges, from any iterable of them: a vector.
+	{
+		moq::track_range live = moq::track_range::live();
+		moq::track_subscription ranged = moq::track_subscription::default_().with_ranges(
+		    {live, moq::track_range::groups({{MOQ_BOUND_INCLUDED, 2}, {MOQ_BOUND_EXCLUDED, 6}})});
+		std::vector<moq::track_range> got = ranged.ranges();
+		CHECK(got.size() == 2 && got[0] == live);
+		CHECK(got.size() == 2 && std::get<moq::track_anchor_absolute>(got[1].start)._0 == 2);
+		CHECK(got.size() == 2 && got[1].end && std::get<moq::track_anchor_absolute>(*got[1].end)._0 == 6);
+	}
+
 	// A binary track the catalog lists, published through moq-mux's generic
 	// `binary_snapshot` at the config C++ builds, by a catalog at moq-mux's untyped
 	// extension, each instance named by the last segment of each argument.

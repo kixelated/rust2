@@ -1849,8 +1849,9 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The types a type parameter may be exported as, best first, which typing takes the
-	/// first of: `X` for `impl Into<X>` or `impl AsRef<X>`, then `String`, `Bytes`, and
-	/// `Vec<u8>`, each that meets its bounds and maps.
+	/// first of: `X` for `impl Into<X>` or `impl AsRef<X>`, `Vec<X>` for
+	/// `impl IntoIterator<Item = X>`, then `String`, `Bytes`, and `Vec<u8>`, each that meets
+	/// its bounds and maps.
 	fn choose(&self, def_id: DefId, param: Ty<'tcx>, base: &[ty::GenericArg<'tcx>]) -> Result<Vec<Ty<'tcx>>, Why> {
 		let tcx = self.tcx;
 		let clauses = tcx.clauses_of(def_id);
@@ -1869,6 +1870,16 @@ impl<'tcx> Collector<'tcx> {
 				.as_type_outlives_clause()
 				.is_some_and(|pred| pred.skip_binder().0 == param)
 		});
+		let vec = |elem: Ty<'tcx>| {
+			let vec = tcx.get_diagnostic_item(sym::Vec)?;
+			let alloc = tcx.lang_items().global_alloc_ty()?;
+			let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
+			Some(Ty::new_adt(
+				tcx,
+				tcx.adt_def(vec),
+				tcx.mk_args(&[elem.into(), alloc.into()]),
+			))
+		};
 		let mut candidates = Vec::new();
 		for bound in &bounds {
 			let tr = bound.def_id();
@@ -1882,6 +1893,8 @@ impl<'tcx> Collector<'tcx> {
 				}
 			} else if Some(tr) == self.range_bounds {
 				candidates.extend(self.bounds(target()));
+			} else if tcx.is_diagnostic_item(sym::IntoIterator, tr) {
+				candidates.extend(self.items(&identity.clauses, param).and_then(vec));
 			}
 		}
 		if let Some(string) = tcx.lang_items().string() {
@@ -1890,16 +1903,7 @@ impl<'tcx> Collector<'tcx> {
 		if let Some(bytes) = self.bytes {
 			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
 		}
-		if let Some(vec) = tcx.get_diagnostic_item(sym::Vec) {
-			let alloc = tcx.lang_items().global_alloc_ty();
-			if let Some(alloc) = alloc {
-				let args = tcx.mk_args(&[
-					tcx.types.u8.into(),
-					Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty()).into(),
-				]);
-				candidates.push(Ty::new_adt(tcx, tcx.adt_def(vec), args));
-			}
-		}
+		candidates.extend(vec(tcx.types.u8));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
 		candidates
 			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));
@@ -1922,6 +1926,24 @@ impl<'tcx> Collector<'tcx> {
 			[_] => Err(why("callback bound", names.join(" + "))),
 			_ => Err(why("generic parameter", names.join(" + "))),
 		}
+	}
+
+	/// The `Item` that `clauses` bind `param`'s `IntoIterator` to, if it names no type
+	/// parameter, which a `Vec` of it then iterates as.
+	fn items(&self, clauses: &[ty::Unnormalized<'tcx, ty::Clause<'tcx>>], param: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		(clauses.iter())
+			.filter_map(|clause| clause.skip_norm_wip().as_projection_clause())
+			.map(|pred| pred.skip_binder())
+			.find(|pred| {
+				let term = pred.projection_term;
+				let item = term.expect_projection_def_id();
+				term.self_ty() == param
+					&& tcx.is_diagnostic_item(sym::IntoIterator, tcx.parent(item))
+					&& tcx.item_name(item) == sym::Item
+			})
+			.and_then(|pred| pred.term.as_type())
+			.filter(|item| !item.has_non_region_param())
 	}
 
 	/// The arguments with `param` of `def_id` as `candidate`, if its bounds hold there.

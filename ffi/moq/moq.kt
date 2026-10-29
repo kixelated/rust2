@@ -176,6 +176,13 @@ fun main() {
 		expect(e.message.isNotEmpty(), "a truncated head's error has a message")
 	}
 
+	// A subscription's ranges, from any iterable of them: a list.
+	val groups = TrackRange.groups(BoundsU64(BoundU64(Bound.INCLUDED, 2u), BoundU64(Bound.EXCLUDED, 6u)))
+	val ranged = TrackSubscription.default().withRanges(listOf(TrackRange.live(), groups)).ranges
+	expect(ranged == listOf(TrackRange.live(), groups), "a subscription keeps its ranges")
+	expect(groups.start == TrackAnchor.Absolute(2u), "groups start at their first")
+	expect(groups.end == TrackAnchor.Absolute(6u), "groups end before their end")
+
 	// A binary track the catalog lists, published through moq-mux's generic
 	// `binary_snapshot` at the config Kotlin builds, by a catalog at moq-mux's untyped
 	// extension, each instance named by the last segment of each argument.
