@@ -191,12 +191,14 @@ pub fn call<'tcx>(
 		}
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
-			// A pinned `Arc` is the `Arc`, which holds its value; a pinned reference to one is
-			// the `Arc` itself.
+			// A pin is its pointer, which derefs as it does: an `Arc` to the value it holds, and
+			// a reference to what it points at.
 			Some(Std::Pin) => match self_ty.map(|t| t.kind()) {
-				Some(ty::Adt(_, pin)) if matches!(pin.type_at(0).kind(), ty::Adt(arc, _) if Std::of(tcx, arc.did()) == Some(Std::Arc)) => {
-					first(args).member("value")
-				}
+				Some(ty::Adt(_, pin)) => match pin.type_at(0).kind() {
+					ty::Adt(arc, _) if Std::of(tcx, arc.did()) == Some(Std::Arc) => first(args).member("value"),
+					ty::Ref(..) if name == "deref" => b.t.pointee_value(pin.type_at(0), first(args)),
+					_ => first(args),
+				},
 				_ => first(args),
 			},
 			_ => return Err(args),

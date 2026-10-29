@@ -210,6 +210,9 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	// A mutable reference to each, read through the shared `Deref`.
 	out.extend_from_slice(&[through_arc(&mut Arc::clone(&held)), through(&mut pinned)]);
 	out.push(through_mutex(&mut locked_by(by)));
+	let mut owned = Arc::clone(&held);
+	let lent = Pin::new(&mut owned);
+	out.extend_from_slice(&[Arc::strong_count(&*lent) as u8, **lent]);
 	// Through a guard, taken and assigned.
 	let locked = Mutex::new(v);
 	let taken = std::mem::take(&mut *locked.lock().unwrap());
