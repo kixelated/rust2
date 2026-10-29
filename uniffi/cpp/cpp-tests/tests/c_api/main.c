@@ -358,39 +358,55 @@ typedef struct {
     CapiError *error;
     uint64_t value;
     char *text;
-    /* For the blocking-free test. */
+    int calls;
+    int cancels;
+    /* For the free-while-running test. */
     test_latch *entered;
     test_latch *release;
-    int finished;
 } result;
 
-static void on_sum(void *user_data, uint64_t value) {
+static void on_sum(void *user_data, bool cancelled, uint64_t value) {
     result *r = (result *)user_data;
+    r->calls++;
+    r->cancels += cancelled;
     r->value = value;
     test_latch_signal(r->done);
 }
 
-static void on_greet(void *user_data, CapiError *error, char *value) {
+static void on_greet(void *user_data, bool cancelled, CapiError *error, char *value) {
     result *r = (result *)user_data;
+    r->calls++;
+    r->cancels += cancelled;
     r->error = error;
     r->text = value;
     test_latch_signal(r->done);
 }
 
-static void on_next(void *user_data, CapiError *error, uint64_t value) {
+static void on_next(void *user_data, bool cancelled, CapiError *error, uint64_t value) {
     result *r = (result *)user_data;
+    r->calls++;
+    r->cancels += cancelled;
     r->error = error;
     r->value = value;
     test_latch_signal(r->done);
 }
 
-static void on_next_slow(void *user_data, CapiError *error, uint64_t value) {
+static void on_next_slow(void *user_data, bool cancelled, CapiError *error, uint64_t value) {
     result *r = (result *)user_data;
     (void)error;
+    r->calls++;
+    r->cancels += cancelled;
     r->value = value;
     test_latch_signal(r->entered);
     test_latch_wait(r->release);
-    r->finished = 1;
+    test_latch_signal(r->done);
+}
+
+static void on_wait(void *user_data, bool cancelled) {
+    result *r = (result *)user_data;
+    r->calls++;
+    r->cancels += cancelled;
+    test_latch_signal(r->done);
 }
 
 static void async_calls(void) {
@@ -398,10 +414,14 @@ static void async_calls(void) {
     CapiU64List list;
     CapiStore *store = capi_store_new("async");
     CapiTask *task;
+    test_latch *done = test_latch_new();
     result r;
+    result flush;
 
     memset(&r, 0, sizeof r);
-    r.done = test_latch_new();
+    r.done = done;
+    memset(&flush, 0, sizeof flush);
+    flush.done = test_latch_new();
 
     /* Ready on its first poll, yet still delivered on the dispatcher. */
     list.data = values;
@@ -430,17 +450,32 @@ static void async_calls(void) {
     CHECK(r.error == NULL && r.value == 42);
     capi_task_free(task);
 
-    /* Freeing a task whose callback is running elsewhere waits for the callback. */
+    /* Freeing a task whose callback is running elsewhere returns without a cancel. The
+     * dispatcher runs in order, so a cancel would arrive before the flush's result. */
+    memset(&r, 0, sizeof r);
+    r.done = done;
     r.entered = test_latch_new();
     r.release = test_latch_new();
     task = capi_store_next(store, on_next_slow, &r);
     capi_store_push(store, 7);
     test_latch_wait(r.entered);
-    test_latch_signal_from_thread(r.release);
     capi_task_free(task);
-    CHECK(r.finished);
+    test_latch_signal(r.release);
+    test_latch_wait(r.done);
+    task = capi_sum(&list, on_sum, &flush);
+    test_latch_wait(flush.done);
+    capi_task_free(task);
+    CHECK(r.calls == 1 && r.cancels == 0 && r.value == 7);
     test_latch_free(r.entered);
     test_latch_free(r.release);
+
+    /* Freeing a pending task calls back once, cancelled. */
+    memset(&r, 0, sizeof r);
+    r.done = done;
+    task = capi_store_wait_forever(store, on_wait, &r);
+    capi_task_free(task);
+    test_latch_wait(r.done);
+    CHECK(r.calls == 1 && r.cancels == 1);
 
     capi_store_close(store);
     task = capi_store_next(store, on_next, &r);
@@ -451,7 +486,8 @@ static void async_calls(void) {
 
     capi_task_free(NULL);
     capi_store_free(store);
-    test_latch_free(r.done);
+    test_latch_free(done);
+    test_latch_free(flush.done);
 }
 
 int main(void) {

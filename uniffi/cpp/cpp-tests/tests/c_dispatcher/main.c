@@ -55,36 +55,45 @@ static void stop(void *user_data) {
 
 typedef struct {
     int calls;
+    int cancels;
     uint64_t value;
     CapiError *error;
     CapiTask *task;
+    /* Another call's task, which the callback frees. */
+    CapiTask *other;
 } result;
 
-static void on_sum(void *user_data, uint64_t value) {
+static void on_sum(void *user_data, bool cancelled, uint64_t value) {
     result *r = (result *)user_data;
     r->calls++;
+    r->cancels += cancelled;
     r->value = value;
 }
 
-static void on_next(void *user_data, CapiError *error, uint64_t value) {
+static void on_next(void *user_data, bool cancelled, CapiError *error, uint64_t value) {
     result *r = (result *)user_data;
     r->calls++;
+    r->cancels += cancelled;
     r->error = error;
     r->value = value;
 }
 
-static void on_wait(void *user_data) {
+static void on_wait(void *user_data, bool cancelled) {
     result *r = (result *)user_data;
     r->calls++;
+    r->cancels += cancelled;
 }
 
-/* Frees its own task from inside the callback. */
-static void on_sum_free(void *user_data, uint64_t value) {
+/* Frees its own task, and the other one, from inside the callback. */
+static void on_sum_free(void *user_data, bool cancelled, uint64_t value) {
     result *r = (result *)user_data;
     r->calls++;
+    r->cancels += cancelled;
     r->value = value;
     capi_task_free(r->task);
     r->task = NULL;
+    capi_task_free(r->other);
+    r->other = NULL;
 }
 
 int main(void) {
@@ -122,23 +131,25 @@ int main(void) {
     CHECK(r.calls == 1 && r.error == NULL && r.value == 11);
     capi_task_free(r.task);
 
-    /* Freeing a pending task drops the Rust future, and its callback never runs. */
+    /* Freeing a pending task drops the Rust future, then calls back once, cancelled, from the
+     * host's loop. */
     memset(&r, 0, sizeof r);
     r.task = capi_store_wait_forever(store, on_wait, &r);
     CHECK(capi_pending_count() == 1);
     capi_task_free(r.task);
+    CHECK(r.calls == 0);
     drain();
     CHECK(capi_pending_count() == 0);
-    CHECK(r.calls == 0);
+    CHECK(r.calls == 1 && r.cancels == 1);
 
-    /* Freeing a task whose result is ready but not yet delivered also skips the callback. */
+    /* Freeing a task whose result is ready but not yet delivered cancels it instead. */
     memset(&r, 0, sizeof r);
     r.task = capi_sum(&list, on_sum, &r);
     capi_task_free(r.task);
     drain();
-    CHECK(r.calls == 0);
+    CHECK(r.calls == 1 && r.cancels == 1 && r.value == 0);
 
-    /* Freeing a task after its callback was queued, but before it ran, skips the callback. */
+    /* Freeing a task after its callback was queued, but before it ran, cancels it once. */
     memset(&r, 0, sizeof r);
     r.task = capi_sum(&list, on_sum, &r);
     CHECK(queued == 1);
@@ -146,15 +157,29 @@ int main(void) {
     CHECK(queued == 1 && r.calls == 0);
     capi_task_free(r.task);
     drain();
-    CHECK(r.calls == 0);
+    CHECK(r.calls == 1 && r.cancels == 1 && r.value == 0);
 
-    /* A callback may free its own task. */
-    memset(&r, 0, sizeof r);
-    r.task = capi_sum(&list, on_sum_free, &r);
-    drain();
-    CHECK(r.calls == 1 && r.value == 6 && r.task == NULL);
+    /* A callback may free its own task, which is no cancel, and another pending task, whose
+     * cancel runs later on the loop rather than inside the callback. */
+    {
+        result other;
+        memset(&other, 0, sizeof other);
+        memset(&r, 0, sizeof r);
+        r.other = capi_store_wait_forever(store, on_wait, &other);
+        drain();
+        r.task = capi_sum(&list, on_sum_free, &r);
+        CHECK(queued == 1);
+        run_one();
+        CHECK(queued == 1 && r.calls == 0 && other.calls == 0);
+        run_one();
+        CHECK(r.calls == 1 && r.cancels == 0 && r.value == 6 && r.task == NULL && r.other == NULL);
+        CHECK(other.calls == 0);
+        drain();
+        CHECK(r.calls == 1 && other.calls == 1 && other.cancels == 1);
+        CHECK(capi_pending_count() == 0);
+    }
 
-    /* Rejected work abandons the call: no callback, and the task still frees. */
+    /* Rejected work abandons the result, so freeing the task cancels it. */
     memset(&r, 0, sizeof r);
     accepting = false;
     r.task = capi_sum(&list, on_sum, &r);
@@ -162,8 +187,10 @@ int main(void) {
     CHECK(queued == 0);
     CHECK(r.calls == 0);
     capi_task_free(r.task);
+    drain();
+    CHECK(r.calls == 1 && r.cancels == 1);
 
-    /* Shutdown drains through the host, then no call calls back. */
+    /* Shutdown drains through the host, then no call calls back, not even cancelled. */
     memset(&r, 0, sizeof r);
     r.task = capi_store_next(store, on_next, &r);
     capi_shutdown_dispatcher();
