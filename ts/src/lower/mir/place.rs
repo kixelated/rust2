@@ -1250,10 +1250,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	fn static_value(&mut self, item: DefId, ty: Ty<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
 		let static_ty = tcx.type_of(item).instantiate_identity().skip_norm_wip();
+		// An `AtomicPtr`'s pointer has no `rt.Atomic`.
 		let int = match static_ty.kind() {
 			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Atomic) => args.type_at(0),
 			_ => return self.err(span, format!("a static of type `{static_ty}`")),
 		};
+		if !int.is_bool() && !int.is_integral() {
+			return self.err(span, format!("a static of type `{static_ty}`"));
+		}
 		if tcx.is_mutable_static(item) || ty.builtin_deref(true) != Some(static_ty) {
 			return self.err(span, format!("a constant of type `{ty}` into a static"));
 		}
