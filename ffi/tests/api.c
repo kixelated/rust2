@@ -66,6 +66,11 @@ static uint64_t visit(void *data, const api_cursor *cursor) {
 	return api_cursor_at(cursor) * 2;
 }
 
+static void print_visit(void *data, uint32_t at) {
+	(void)data;
+	printf("visit %u\n", at);
+}
+
 static uint32_t peek_tally(void *data, const api_tally *tally) {
 	(void)data;
 	return api_tally_bump(tally);
@@ -245,6 +250,7 @@ static int script(void) {
 	print("", api_counter_name(first), "\n");
 	api_counter_free(first);
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
+	printf("each %u\n", api_each(2, print_visit, NULL));
 	printf("offset %u\n", api_offset(seven, NULL, 3));
 	api_registry_free(registry);
 

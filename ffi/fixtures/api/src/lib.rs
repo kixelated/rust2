@@ -585,6 +585,12 @@ pub fn walk(steps: u64, mut visit: impl FnMut(&Cursor) -> u64) -> u64 {
 	(0..steps).map(|at| visit(&Cursor { at })).sum()
 }
 
+/// Each of `0..steps` passed to `visit`, which returns nothing; how many it visited.
+pub fn each(steps: u32, mut visit: impl FnMut(u32)) -> u32 {
+	(0..steps).for_each(&mut visit);
+	steps
+}
+
 /// The tally lent shared to `peek` for the call, on one thread, as it is not `Sync`.
 pub fn peek(tally: &Tally, peek: impl FnOnce(&Tally) -> u32) -> u32 {
 	peek(tally)
