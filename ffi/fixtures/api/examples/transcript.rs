@@ -378,6 +378,23 @@ fn main() {
 		&["a".to_string(), "b".to_string()],
 	);
 	println!("trail {:?} {:?}", trail.points(), trail.labels());
+	// Returned iterators, each collected at the call: drained labels are gone after.
+	let mut trail = trail;
+	println!(
+		"iterated {:?} {:?} {:?}",
+		trail.iter().collect::<Vec<_>>(),
+		trail.names().collect::<Vec<_>>(),
+		trail.bytes().collect::<Vec<_>>()
+	);
+	println!(
+		"drained {:?} then {:?}",
+		trail.drain().collect::<Vec<_>>(),
+		trail.labels()
+	);
+	let numbered: Vec<String> = api_lib::numbered(vec!["p".to_string(), "q".to_string()])
+		.map(|c| format!("{} {}", c.name(), c.get()))
+		.collect();
+	println!("numbered {}", numbered.join(", "));
 	let (v4, v6) = api_lib::nexts("127.0.0.1:8080".parse().unwrap(), "[::1%3]:443".parse().unwrap());
 	println!("nexts {} {} {} {}", v4.ip(), v4.port(), v6.port(), v6.scope_id());
 }

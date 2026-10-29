@@ -901,6 +901,7 @@ impl<'tcx> Collector<'tcx> {
 					err: Some(Type::String),
 					future: false,
 					eager: false,
+					collect: false,
 					access: Access::Parse,
 					instance: None,
 				}],
@@ -1343,6 +1344,7 @@ impl<'tcx> Collector<'tcx> {
 						err: None,
 						future: false,
 						eager: false,
+						collect: false,
 						access: Access::Field { shared, set },
 						instance: None,
 					};
@@ -1707,6 +1709,16 @@ impl<'tcx> Collector<'tcx> {
 			output = normalize(inner);
 			future = true;
 		}
+		// An iterator no other rule maps crosses as the array of its items, all taken at
+		// the call, as `collect` takes them; a future's stays refused.
+		let mut collect = false;
+		if !future
+			&& self.ret(output).is_err()
+			&& let Some(items) = self.items(output, env).and_then(|item| self.vec_of(normalize(item)))
+		{
+			output = items;
+			collect = true;
+		}
 		let (ok, err) = match output.kind() {
 			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
 				(self.ret(args.type_at(0)), Some(self.ty(args.type_at(1), Pos::Return)))
@@ -1733,6 +1745,7 @@ impl<'tcx> Collector<'tcx> {
 				err,
 				future,
 				eager: future && eager,
+				collect,
 				access: Access::Call,
 				instance,
 			}),
@@ -1890,16 +1903,7 @@ impl<'tcx> Collector<'tcx> {
 		if let Some(bytes) = self.bytes {
 			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
 		}
-		if let Some(vec) = tcx.get_diagnostic_item(sym::Vec) {
-			let alloc = tcx.lang_items().global_alloc_ty();
-			if let Some(alloc) = alloc {
-				let args = tcx.mk_args(&[
-					tcx.types.u8.into(),
-					Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty()).into(),
-				]);
-				candidates.push(Ty::new_adt(tcx, tcx.adt_def(vec), args));
-			}
-		}
+		candidates.extend(self.vec_of(tcx.types.u8));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
 		candidates
 			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));
@@ -2169,6 +2173,49 @@ impl<'tcx> Collector<'tcx> {
 		}
 	}
 
+	/// `Vec<item>`.
+	fn vec_of(&self, item: Ty<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let vec = tcx.get_diagnostic_item(sym::Vec)?;
+		let alloc = tcx.lang_items().global_alloc_ty()?;
+		let alloc = Ty::new_adt(tcx, tcx.adt_def(alloc), ty::List::empty());
+		Some(Ty::new_adt(
+			tcx,
+			tcx.adt_def(vec),
+			tcx.mk_args(&[item.into(), alloc.into()]),
+		))
+	}
+
+	/// What `ty` yields, if it is another crate's iterator, which a return crosses as what
+	/// `collect` takes from it. A range is a value, which crosses as itself or not at all.
+	fn items(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
+		let tcx = self.tcx;
+		let ty::Adt(adt, _) = ty.kind() else {
+			return None;
+		};
+		let lang = tcx.lang_items();
+		let ranges = [
+			lang.range_struct(),
+			lang.range_inclusive_struct(),
+			lang.range_from_struct(),
+		];
+		if self.exported(adt.did().krate) || ranges.contains(&Some(adt.did())) {
+			return None;
+		}
+		let iterator = tcx.get_diagnostic_item(sym::Iterator)?;
+		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
+		if !infcx
+			.type_implements_trait(iterator, [ty], param_env)
+			.must_apply_modulo_regions()
+		{
+			return None;
+		}
+		let item = tcx.get_diagnostic_item(sym::IteratorItem)?;
+		let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
+		tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(projection))
+			.ok()
+	}
+
 	/// What `ty` resolves to when awaited, if it is a future.
 	fn future_output(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
@@ -2423,6 +2470,7 @@ impl<'tcx> Collector<'tcx> {
 				err: None,
 				future: false,
 				eager: false,
+				collect: false,
 				access: Access::Const,
 				instance: None,
 			}),

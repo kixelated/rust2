@@ -1092,8 +1092,13 @@ impl Gen<'_> {
 			None => self.finish(function, ("", "", "")),
 		};
 		self.line(format!(
-			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> {ret} {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}\n\tlet result = {call};\n\t{finish}\n}}\n",
+			"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}({}) -> {ret} {{\n\tlet w = \"{name}\";\n\tlet _ = w;\n\t{body}\n\tlet result = {};\n\t{finish}\n}}\n",
 			params.join(", "),
+			match function.collect {
+				// An iterator's items, all taken now.
+				true => format!("::std::iter::Iterator::collect::<::std::vec::Vec<_>>({call})"),
+				false => call,
+			},
 		));
 	}
 }

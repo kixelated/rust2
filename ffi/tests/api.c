@@ -678,7 +678,49 @@ static int script(void) {
 	}
 	printf("]\n");
 	api_vec_label_free(labels);
+	/* Returned iterators, each collected at the call: drained labels are gone after. */
+	api_vec_point iter_points = api_trail_iter(trail);
+	printf("iterated [");
+	for (size_t i = 0; i < iter_points.len; i++) {
+		print(i == 0 ? "" : ", ", api_point_debug(&iter_points.ptr[i]), "");
+	}
+	api_vec_point_free(iter_points);
+	api_vec_string iter_names = api_trail_names(trail);
+	printf("] [");
+	for (size_t i = 0; i < iter_names.len; i++) {
+		printf("%s\"%.*s\"", i == 0 ? "" : ", ", (int)iter_names.ptr[i].len, (const char *)iter_names.ptr[i].ptr);
+	}
+	api_vec_string_free(iter_names);
+	api_buf iter_bytes = api_trail_bytes(trail);
+	printf("] [");
+	for (size_t i = 0; i < iter_bytes.len; i++) {
+		printf("%s%u", i == 0 ? "" : ", ", iter_bytes.ptr[i]);
+	}
+	printf("]\n");
+	api_buf_free(iter_bytes);
+	api_vec_label drained = api_trail_drain(trail);
+	printf("drained [");
+	for (size_t i = 0; i < drained.len; i++) {
+		print(i == 0 ? "" : ", ", api_label_debug(&drained.ptr[i]), "");
+	}
+	api_vec_label_free(drained);
+	api_vec_label left = api_trail_labels(trail);
+	printf("] then [");
+	for (size_t i = 0; i < left.len; i++) {
+		print(i == 0 ? "" : ", ", api_label_debug(&left.ptr[i]), "");
+	}
+	printf("]\n");
+	api_vec_label_free(left);
 	api_trail_free(trail);
+	api_buf numbered_names[] = {str("p"), str("q")};
+	api_vec_counter numbered = api_numbered((api_vec_string){.ptr = numbered_names, .len = 2});
+	printf("numbered");
+	for (size_t i = 0; i < numbered.len; i++) {
+		print(i == 0 ? " " : ", ", api_counter_name(numbered.ptr[i]), " ");
+		printf("%llu", (unsigned long long)api_counter_get(numbered.ptr[i]));
+	}
+	printf("\n");
+	api_vec_counter_free(numbered);
 	api_socket_addr at4 = {.ip = {127, 0, 0, 1}, .port = 8080};
 	api_socket_addr at6 = {.ip = {[15] = 1}, .port = 443, .v6 = true, .scope_id = 3};
 	api_socket_addr next4, next6;

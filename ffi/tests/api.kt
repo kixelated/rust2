@@ -310,7 +310,13 @@ fun script() {
 	println("shapes ${Shape.ALL.joinToString(", ", "[", "]") { it.debug() }} greetings ${GREETINGS.joinToString(", ", "[", "]") { "\"$it\"" }}")
 	Trail.new(listOf(Point(1, 2), Point(3, 4)), listOf("a", "b")).use { trail ->
 		println("trail ${trail.points().joinToString(", ", "[", "]") { it.debug() }} ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
+		// Returned iterators, each collected at the call: drained labels are gone after.
+		println("iterated ${trail.iter().joinToString(", ", "[", "]") { it.debug() }} ${trail.names().joinToString(", ", "[", "]") { "\"$it\"" }} ${trail.bytes().joinToString(", ", "[", "]") { it.toUByte().toString() }}")
+		println("drained ${trail.drain().joinToString(", ", "[", "]") { it.debug() }} then ${trail.labels().joinToString(", ", "[", "]") { it.debug() }}")
 	}
+	val numbered = numbered(listOf("p", "q"))
+	println("numbered ${numbered.joinToString(", ") { "${it.name()} ${it.get()}" }}")
+	numbered.forEach { it.close() }
 	val at4 = java.net.InetSocketAddress(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)), 8080)
 	val at6 = java.net.InetSocketAddress(java.net.Inet6Address.getByAddress(null, loopback, 3), 443)
 	val (next4, next6) = nexts(at4, at6)

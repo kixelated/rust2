@@ -335,3 +335,33 @@ pub fn peek_all(values: &[Opaque]) -> usize {
 pub fn none_opaque() -> &'static [Opaque] {
 	&[]
 }
+
+/// A range is a value, not an iterator to collect: one that maps to no range is refused.
+pub fn alphabet() -> std::ops::Range<char> {
+	'a'..'z'
+}
+
+/// A range with no end, which collecting would never finish.
+pub fn naturals() -> std::ops::RangeFrom<u64> {
+	0..
+}
+
+/// An iterator of handles with no clone to return.
+pub fn opaques() -> std::slice::Iter<'static, Opaque> {
+	[].iter()
+}
+
+/// An iterator inside a `Result`, which crosses only as a whole return.
+pub fn tried() -> Result<std::vec::IntoIter<u8>, String> {
+	Ok(Vec::new().into_iter())
+}
+
+/// An iterator a future resolves to.
+pub async fn eventually() -> std::vec::IntoIter<u8> {
+	Vec::new().into_iter()
+}
+
+/// A callback returning an iterator, which C would have to make.
+pub trait Source: Send + Sync {
+	fn items(&self) -> std::vec::IntoIter<u8>;
+}

@@ -1021,6 +1021,31 @@ impl Trail {
 	pub fn labels(&self) -> &[Label] {
 		&self.labels
 	}
+
+	/// Its points one by one, as moq's `Hops::iter` returns them: an array of copies.
+	pub fn iter(&self) -> std::slice::Iter<'_, Point> {
+		self.points.iter()
+	}
+
+	/// Each label's name, through an iterator only its bounds name.
+	pub fn names(&self) -> impl Iterator<Item = &str> {
+		self.labels.iter().map(|label| label.name.as_str())
+	}
+
+	/// The bytes of every name, which cross as a buffer.
+	pub fn bytes(&self) -> impl Iterator<Item = u8> + '_ {
+		self.labels.iter().flat_map(|label| label.name.bytes())
+	}
+
+	/// Its labels, drained: every one is taken at the call, so none are left.
+	pub fn drain(&mut self) -> std::vec::Drain<'_, Label> {
+		self.labels.drain(..)
+	}
+}
+
+/// A counter for each name, counting from its index, made as the iterator is read.
+pub fn numbered(names: Vec<String>) -> impl Iterator<Item = Counter> {
+	(names.into_iter().enumerate()).map(|(i, name)| Counter::new(&name, i as u64))
 }
 
 /// Each address at the next port, one IPv4 and one IPv6.

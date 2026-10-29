@@ -157,6 +157,9 @@ pub struct Function {
 	/// For a future, whether the call itself runs code, as a function that is not
 	/// `async` returning one does: the export calls it at once, and polls what it returns.
 	pub eager: bool,
+	/// Whether it returns another crate's iterator, whose items the export collects into
+	/// the array it returns.
+	pub collect: bool,
 	/// What it reads: Rust's function, a field it reads or writes, or a constant named as it is.
 	pub access: Access,
 	/// The instance it is, if a type parameter exports at several.
