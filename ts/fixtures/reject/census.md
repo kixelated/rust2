@@ -1,17 +1,18 @@
 # Census of `reject-fixture`
 
-- Refusals: 78
-- Function instances: 89
+- Refusals: 88
+- Function instances: 95
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 11 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
+| 14 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:382:2 |
 | 4 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:101:2 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:257:14 |
+| 3 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | fixtures/reject/src/lib.rs:543:13 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:85:2 |
 | 3 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
@@ -39,11 +40,13 @@
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:221:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:172:51 |
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:96:2 |
+| 1 | a cast from a pointer to `_` to one to `_`, which reads the bytes of one type as another | fixtures/reject/src/lib.rs:543:30 |
 | 1 | a coercion to `_` | fixtures/reject/src/lib.rs:341:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:80:2 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:413:12 |
+| 1 | a pointer's address, which JS has no counterpart of | fixtures/reject/src/lib.rs:548:20 |
 | 1 | a printable type must implement `Display` or `Debug` | fixtures/reject/src/lib.rs:92:1 |
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | fixtures/reject/src/lib.rs:496:26 |
@@ -51,10 +54,12 @@
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:268:52 |
+| 1 | comparing pointers to `_`, each a place JS makes of its own | fixtures/reject/src/lib.rs:584:2 |
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:400:53 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:268:52 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:360:16 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:377:4 |
+| 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | fixtures/reject/src/lib.rs:570:1 |
 
 ## By API
 
@@ -65,10 +70,11 @@ The type or module each refused type or path belongs to.
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:382:2 |
 | 6 | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
+| 6 | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 4 | `Iterator` | fixtures/reject/src/lib.rs:41:42 |
 | 4 | `std::sync::Arc` | fixtures/reject/src/lib.rs:101:2 |
-| 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:268:52 |
-| 3 | `u8` | fixtures/reject/src/lib.rs:80:2 |
+| 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:268:52 |
+| 4 | `u8` | fixtures/reject/src/lib.rs:80:2 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:369:13 |
 | 2 | `HashMap` | fixtures/reject/src/lib.rs:263:6 |
 | 2 | `Meters` | fixtures/reject/src/lib.rs:85:2 |
@@ -81,8 +87,10 @@ The type or module each refused type or path belongs to.
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:180:8 |
 | 2 | `std::pin::Pin` | fixtures/reject/src/lib.rs:116:2 |
 | 2 | `std::slice` | fixtures/reject/src/lib.rs:21:4 |
+| 2 | `std::std` | fixtures/reject/src/lib.rs:555:11 |
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:444:17 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:360:16 |
+| 1 | `Bits` | fixtures/reject/src/lib.rs:570:1 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:159:1 |
 | 1 | `Entry` | fixtures/reject/src/lib.rs:369:13 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:213:1 |
@@ -103,13 +111,13 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:166:14 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:420:2 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:126:11 |
+| 1 | `std::std::Layout` | fixtures/reject/src/lib.rs:553:15 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:121:2 |
 | 1 | `std::sync::Mutex` | fixtures/reject/src/lib.rs:536:12 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:470:40 |
 | 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:110:34 |
 | 1 | `str` | fixtures/reject/src/lib.rs:377:4 |
-| 1 | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:96:2 |
 | 1 | `value` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
@@ -122,6 +130,7 @@ The type or module each refused type or path belongs to.
 | 3 | unsupported type `_` | `f32` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:479:23 |
+| 2 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | `u32` | fixtures/reject/src/lib.rs:543:13 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:116:2 |
 | 2 | replacing the value behind a reference to `_` | `Meters` | fixtures/reject/src/lib.rs:85:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:444:17 |
@@ -143,12 +152,14 @@ The type or module each refused type or path belongs to.
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:221:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:172:51 |
 | 1 | a cast from `_` to `_` | `u64`, `f32` | fixtures/reject/src/lib.rs:96:2 |
+| 1 | a cast from a pointer to `_` to one to `_`, which reads the bytes of one type as another | `u32`, `u8` | fixtures/reject/src/lib.rs:543:30 |
 | 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:341:2 |
 | 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:506:30 |
 | 1 | a coercion to `_`, which is not supported yet | `std::sync::Weak` | fixtures/reject/src/lib.rs:470:40 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:80:2 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:226:13 |
+| 1 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | `std::vec::Vec` | fixtures/reject/src/lib.rs:565:10 |
 | 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:496:26 |
 | 1 | a zero-sized constant of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
@@ -159,6 +170,7 @@ The type or module each refused type or path belongs to.
 | 1 | arithmetic on `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | `Option` | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:268:52 |
+| 1 | comparing pointers to `_`, each a place JS makes of its own | `u32` | fixtures/reject/src/lib.rs:584:2 |
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:400:53 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:145:23 |
 | 1 | constructing `_` from another crate | `std::iter::Rev` | fixtures/reject/src/lib.rs:166:14 |
@@ -170,6 +182,7 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `Iterator::for_each` | fixtures/reject/src/lib.rs:370:16 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `str::contains` | fixtures/reject/src/lib.rs:377:4 |
 | 1 | replacing the value behind a reference to `_` | `[u16; 1]` | fixtures/reject/src/lib.rs:240:22 |
+| 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:570:1 |
 | 1 | unsupported call to `_` | `<f64 as std::fmt::Display>::fmt` | fixtures/reject/src/lib.rs:454:2 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:394:2 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:420:2 |
@@ -179,10 +192,13 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:180:8 |
 | 1 | unsupported call to `_` | `std::slice::copy_within` | fixtures/reject/src/lib.rs:336:4 |
 | 1 | unsupported call to `_` | `std::slice::sort` | fixtures/reject/src/lib.rs:21:4 |
+| 1 | unsupported call to `_` | `std::std::Layout::new` | fixtures/reject/src/lib.rs:553:15 |
+| 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:555:11 |
+| 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:558:3 |
 
 ## Spans
 
-<details><summary>unsupported call to `_` (11)</summary>
+<details><summary>unsupported call to `_` (14)</summary>
 
 - fixtures/reject/src/lib.rs:21:4: unsupported call to `std::slice::<impl [u8]>::sort`
 - fixtures/reject/src/lib.rs:74:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
@@ -195,6 +211,9 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:444:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:444:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
 - fixtures/reject/src/lib.rs:454:2: unsupported call to `<f64 as std::fmt::Display>::fmt`
+- fixtures/reject/src/lib.rs:553:15: unsupported call to `std::alloc::Layout::new::<u8>`
+- fixtures/reject/src/lib.rs:555:11: unsupported call to `std::alloc::alloc`
+- fixtures/reject/src/lib.rs:558:3: unsupported call to `std::alloc::dealloc`
 
 </details>
 
@@ -221,6 +240,14 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:257:14: a copy of a closure that changes what it captured
 - fixtures/reject/src/lib.rs:529:14: a copy of a closure that changes what it captured
 - fixtures/reject/src/lib.rs:530:14: a copy of a closure that changes what it captured
+
+</details>
+
+<details><summary>a raw pointer to `_` behind a reference, which is the object and not where it is kept (3)</summary>
+
+- fixtures/reject/src/lib.rs:543:13: a raw pointer to `u32` behind a reference, which is the object and not where it is kept
+- fixtures/reject/src/lib.rs:548:3: a raw pointer to `u32` behind a reference, which is the object and not where it is kept
+- fixtures/reject/src/lib.rs:565:10: a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept
 
 </details>
 
@@ -399,6 +426,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a cast from a pointer to `_` to one to `_`, which reads the bytes of one type as another (1)</summary>
+
+- fixtures/reject/src/lib.rs:543:30: a cast from a pointer to `u32` to one to `u8`, which reads the bytes of one type as another
+
+</details>
+
 <details><summary>a coercion to `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:341:2: a coercion to `std::sync::Arc<[u8]>`
@@ -426,6 +459,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a mutable reference into a `Result`'s payload, passed on or kept (1)</summary>
 
 - fixtures/reject/src/lib.rs:413:12: a mutable reference into a `Result`'s payload, passed on or kept
+
+</details>
+
+<details><summary>a pointer's address, which JS has no counterpart of (1)</summary>
+
+- fixtures/reject/src/lib.rs:548:20: a pointer's address, which JS has no counterpart of
 
 </details>
 
@@ -471,6 +510,12 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>comparing pointers to `_`, each a place JS makes of its own (1)</summary>
+
+- fixtures/reject/src/lib.rs:584:2: comparing pointers to `u32`, each a place JS makes of its own
+
+</details>
+
 <details><summary>constructing `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:400:53: constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>`
@@ -492,5 +537,11 @@ The type or module each refused type or path belongs to.
 <details><summary>passing `_`, which drops, to `_`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:377:4: passing `{closure@fixtures/reject/src/lib.rs:377:13: 377:27}`, which drops, to `str::contains`, which is not supported yet
+
+</details>
+
+<details><summary>union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart (1)</summary>
+
+- fixtures/reject/src/lib.rs:570:1: union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart
 
 </details>

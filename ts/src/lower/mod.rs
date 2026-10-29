@@ -1141,7 +1141,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Hasher
 					| library::Std::ThreadRng,
 				) => Some(ObjectKind::Class),
-				Some(library::Std::MaybeUninit) => self.object_kind(args.type_at(0)),
+				// A place, unless a pointer to what it holds is that object.
+				Some(library::Std::MaybeUninit) => match self.pointee(args.type_at(0)) {
+					pointer::Pointee::Object => self.object_kind(args.type_at(0)),
+					pointer::Pointee::Place => None,
+				},
 				Some(_) => None,
 				None if adt.is_struct() || adt.is_union() => Some(ObjectKind::Class),
 				None => None,

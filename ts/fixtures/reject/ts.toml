@@ -62,5 +62,11 @@ roots = [
     "missing",
     "generic_pending",
     "rebound_reference",
+    "reinterpreted",
+    "addressed",
+    "allocated",
+    "vec_pointer",
+    "bits",
+    "places_compared",
 ]
 printable = ["Meters"]

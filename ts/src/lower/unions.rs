@@ -173,13 +173,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// The slots `value`, a field of a union of type `ty`, puts in it: each part's
 	/// expression, by its slot.
-	pub fn into_slots(
-		&mut self,
-		value: Expr,
-		ty: Ty<'tcx>,
-		parts: &[Part],
-		span: Span,
-	) -> Vec<(String, Expr)> {
+	pub fn slots_of(&mut self, value: Expr, ty: Ty<'tcx>, parts: &[Part], span: Span) -> Vec<(String, Expr)> {
 		parts
 			.iter()
 			.map(|part| (part.slot.clone(), self.part_of(value.clone(), ty, &part.path, span)))
@@ -207,7 +201,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 
 	/// A `ty`, made of the parts in `parts` of the union `base`.
-	pub fn from_slots(&mut self, base: Expr, ty: Ty<'tcx>, parts: &[Part], span: Span) -> Expr {
+	pub fn of_slots(&mut self, base: Expr, ty: Ty<'tcx>, parts: &[Part], span: Span) -> Expr {
 		if let [part] = parts
 			&& part.path.is_empty()
 		{
@@ -224,7 +218,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				let values = (0..tys.len())
 					.map(|i| {
 						let part = within(i);
-						self.from_slots(base.clone(), tys[i], &part, span)
+						self.of_slots(base.clone(), tys[i], &part, span)
 					})
 					.collect();
 				let ts_ty = self.ty(ty, span);
@@ -246,7 +240,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					.enumerate()
 					.map(|(i, t)| {
 						let part = within(i);
-						self.from_slots(base.clone(), t, &part, span)
+						self.of_slots(base.clone(), t, &part, span)
 					})
 					.collect();
 				self.construct(info.sym, &ctor, &fields, values)

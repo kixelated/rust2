@@ -537,3 +537,49 @@ pub fn mutex_number(m: &mut std::sync::Mutex<u8>) -> u8 {
 	*n += 1;
 	*n
 }
+
+/// A pointer read as another type's bytes.
+pub fn reinterpreted(n: &u32) -> u8 {
+	unsafe { *(n as *const u32).cast::<u8>() }
+}
+
+/// A pointer's address, as an integer.
+pub fn addressed(n: &u32) -> usize {
+	(n as *const u32).addr()
+}
+
+/// Memory from the allocator, which has no JS object to point at.
+pub fn allocated() -> u8 {
+	let layout = std::alloc::Layout::new::<u8>();
+	unsafe {
+		let p = std::alloc::alloc(layout);
+		*p = 1;
+		let n = *p;
+		std::alloc::dealloc(p, layout);
+		n
+	}
+}
+
+/// A pointer to a `Vec`, whose JS array is its heap, not where Rust keeps the `Vec`.
+pub fn vec_pointer(v: &mut Vec<u8>) -> usize {
+	let p = &raw const *v;
+	unsafe { (*p).len() }
+}
+
+/// A union whose fields overlap in values JS keeps apart.
+pub union Bits {
+	pub int: u32,
+	pub float: f64,
+}
+
+pub fn bits(n: u32) -> u32 {
+	let b = Bits { int: n };
+	unsafe { b.int }
+}
+
+/// Two `rt.Place`s of one number, which are two objects.
+pub fn places_compared(n: &mut u32) -> bool {
+	let a = &raw mut *n;
+	let b = &raw mut *n;
+	a == b
+}

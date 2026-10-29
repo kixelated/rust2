@@ -306,11 +306,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let Some(err) = self.std_places(def_id, gargs, result, span) {
 					return err;
 				}
+				let takes_place = crate::lower::pointer::takes_place(tcx, def_id);
 				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
 				let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
 				inputs
 					.iter()
-					.map(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+					.map(|t| !takes_place && matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
 					.collect()
 			}
 		};
@@ -336,7 +337,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			args: gargs,
 			span,
 		};
-		if crate::lower::collections::place_call(self.b, &call) {
+		if crate::lower::collections::place_call(self.b, &call) || crate::lower::pointer::lends(tcx, def_id) {
 			return None;
 		}
 		let t = &*self.b.t;
@@ -561,6 +562,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
+			// Out of bounds is undefined, so the checked index's panic is one outcome of it.
+			("slice", "get_unchecked" | "get_unchecked_mut") => {
+				let slice = ty::Ty::new_slice(tcx, targ(0)?);
+				let gargs = tcx.mk_args(&[slice.into(), targ(1)?.into()]);
+				let name = match name.as_str() {
+					"get_unchecked" => "index",
+					_ => "index_mut",
+				};
+				self.index(name, gargs, args, dest, span, out)
+			}
 			// A `&mut` to a value JS copies, such as through a `MutexGuard`, reads and writes
 			// the place it borrows, as an index does.
 			("DerefMut", "deref_mut")

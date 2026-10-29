@@ -194,4 +194,39 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(x & 0xff, y & 0xff, pair.a & 0xff, pair.b & 0xff)));
 }
 
+/**
+ * Unchecked indexing, a boxed number behind a pointer, a `MaybeUninit` number, and a
+ * value dropped in place.
+ */
+export function unchecked(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const counts: rt.u32[] = Array.from({ length: 4 }, (): rt.u32 => {
+		return 0;
+	});
+	const boxed: rt.Place<rt.u32> = { v: 0 };
+	let slot: rt.u32 = (undefined as unknown) as rt.u32;
+	const uninit = rt.place(() => slot, (value) => slot = value);
+	uninit.v = 7;
+	uninit;
+	const held: rt.Arc<rt.u8> = new rt.Arc(0);
+	let dropped: rt.Arc<rt.u8> = rt.arcClone(held);
+	for (const byte of rt.byteSliceView(data)) {
+		const at: rt.usize = rt.u8Rem(byte, 4) as rt.usize;
+		const _23: rt.u32[] = counts;
+		const at2 = rt.idx(_23, at);
+		_23[at2] = rt.u32Add(_23[at2], 1);
+		boxed.v = rt.u32Add(boxed.v, byte as rt.u32);
+		const _28: rt.u32 = byte as rt.u32;
+		const _29: rt.Place<rt.u32> = rt.place(() => slot, (value2) => slot = value2);
+		_29.v = (_29.v ^ _28) >>> 0;
+		const _35: rt.u32[] = counts;
+		rt.byteVecPush(out, _35[rt.idx(_35, at)] & 0xff);
+	}
+	rt.byteVecPush(out, boxed.v & 0xff);
+	rt.byteVecPush(out, slot & 0xff);
+	rt.byteVecPush(out, held.strong & 0xff);
+	rt.drop(rt.place(() => dropped, (value3) => dropped = value3).v);
+	rt.byteVecPush(out, held.strong & 0xff);
+	rt.drop(held);
+}
+
 //# sourceMappingURL=pointers.ts.map

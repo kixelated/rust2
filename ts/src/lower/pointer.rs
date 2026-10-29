@@ -1,10 +1,10 @@
 //! Raw pointers, `NonNull`, and `MaybeUninit`.
 //!
-//! A raw pointer is what a `&mut` to its pointee is: the object it points at, where JS
-//! keeps the pointee where Rust does, as a tuple, an array, or the crate's own struct; or
-//! else an `rt.Place` of the value, which JS copies. Null is `rt.NULL`, and a dangling
-//! pointer `rt.DANGLING`. A pointer to any other object, such as a `Vec` or an `Arc`, is
-//! refused: its JS object is the heap behind it, not the place Rust keeps it.
+//! A raw pointer is what a `&mut` to its pointee is where JS keeps the pointee where Rust
+//! does: the object, a tuple's or array's or the crate's own struct's. To anything else it
+//! is an `rt.Place` of the place holding the value, as a `&mut` to a value JS copies is,
+//! which a `Vec` or an `Arc` also is here: its JS object is what it owns, not where Rust
+//! keeps it. Null is `rt.NULL`, and a dangling pointer `rt.DANGLING`.
 //!
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write, and one read out of it is a copy of it, so a later
@@ -31,29 +31,25 @@ pub enum Pointee {
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
-	/// What a raw pointer to `ty` is, or why there is none.
-	pub fn pointee(&self, ty: Ty<'tcx>) -> Result<Pointee, String> {
+	/// What a raw pointer to `ty` is.
+	pub fn pointee(&self, ty: Ty<'tcx>) -> Pointee {
 		// Only an instance decides what a parameter is.
 		if self.polymorphic() && ty.has_param() {
-			return Ok(Pointee::Object);
+			return Pointee::Object;
 		}
 		let ty = self.uninit_inner(ty);
-		let Some(kind) = self.object_kind(ty) else {
-			return Ok(Pointee::Place);
-		};
-		let object = match (kind, ty.kind()) {
-			(ObjectKind::Array | ObjectKind::Bytes, ty::Array(..) | ty::Tuple(_)) => true,
-			(ObjectKind::Class, ty::Adt(adt, _)) => {
-				(Std::of(self.tcx, adt.did()).is_none() && self.bound_drops(adt.did()).is_none())
-					|| Std::of(self.tcx, adt.did()) == Some(Std::Context)
-			}
+		let object = match (self.object_kind(ty), ty.kind()) {
+			(Some(ObjectKind::Array | ObjectKind::Bytes), ty::Array(..) | ty::Tuple(_)) => true,
+			// An async body passes its context as a pointer to it.
+			(Some(ObjectKind::Class), ty::Adt(adt, _)) => match Std::of(self.tcx, adt.did()) {
+				Some(std) => std == Std::Context,
+				None => self.bound_drops(adt.did()).is_none(),
+			},
 			_ => false,
 		};
 		match object {
-			true => Ok(Pointee::Object),
-			false => Err(format!(
-				"a raw pointer to `{ty}`, whose JS value is not where Rust keeps it"
-			)),
+			true => Pointee::Object,
+			false => Pointee::Place,
 		}
 	}
 
@@ -71,19 +67,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// The TypeScript type of a raw pointer or `NonNull` to `pointee`.
 	pub fn pointer_ty(&mut self, pointee: Ty<'tcx>, span: Span) -> Type {
 		match self.pointee(pointee) {
-			Ok(Pointee::Place) => Type::Rt("Place", vec![self.ty(pointee, span)]),
-			Ok(Pointee::Object) => self.ty(pointee, span),
-			Err(msg) => {
-				self.unrepresented(span, msg);
-				Type::Builtin("unknown")
-			}
+			Pointee::Place => Type::Rt("Place", vec![self.ty(pointee, span)]),
+			Pointee::Object => self.ty(pointee, span),
 		}
 	}
 
-	/// Whether `ty` is a raw pointer that is an `rt.Place`.
+	/// What `ty` points at, if it is a raw pointer that is an `rt.Place`.
 	pub fn raw_place(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		match ty.kind() {
-			ty::RawPtr(inner, _) if self.pointee(*inner) == Ok(Pointee::Place) => Some(*inner),
+			ty::RawPtr(inner, _) if self.pointee(*inner) == Pointee::Place => Some(*inner),
 			_ => None,
 		}
 	}
@@ -92,8 +84,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	fn uninit(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
 		let ts_ty = self.ty(ty, span);
 		let empty = match (self.pointee(ty), ty.kind()) {
-			(Ok(Pointee::Object), ty::Tuple(tys)) => Expr::Array(tys.iter().map(|_| Expr::undefined()).collect()),
-			(Ok(Pointee::Object), ty::Array(elem, len)) => {
+			(Pointee::Object, ty::Tuple(tys)) => Expr::Array(tys.iter().map(|_| Expr::undefined()).collect()),
+			(Pointee::Object, ty::Array(elem, len)) => {
 				let len = len.try_to_target_usize(self.tcx).unwrap_or(0);
 				match elem.kind() {
 					ty::Uint(ty::UintTy::U8) => {
@@ -102,7 +94,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					_ => Expr::New(Box::new(Expr::ident("Array")), vec![Expr::lit(len.to_string())]),
 				}
 			}
-			(Ok(Pointee::Object), ty::Adt(adt, _)) => {
+			(Pointee::Object, ty::Adt(adt, _)) => {
 				let info = self.adt(*adt, span);
 				match info.repr {
 					AdtRepr::Struct { ctor, fields } => {
@@ -119,6 +111,26 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 }
 
+/// Whether std's `def_id` is one this module maps that lends a place: it makes the
+/// `rt.Place` of the `&mut` it returns.
+pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if matches!(
+			(owner.as_str(), name.as_str()),
+			("MaybeUninit", "as_mut_ptr" | "write" | "assume_init_mut" | "assume_init_drop")
+				| ("NonNull" | "ptr", "as_mut")
+				| ("Box", "leak")
+		)
+	)
+}
+
+/// Whether std's `def_id` is one this module maps that takes the `rt.Place` a `&mut self`
+/// is, rather than what it points at: a `MaybeUninit`'s, which it points into.
+pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	matches!(super::library::key(tcx, def_id), Some((owner, _)) if owner == "MaybeUninit")
+}
+
 /// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or
 /// take a raw pointer: its mapping, `None` if it has none, or its arguments back if it is
 /// no such call.
@@ -133,18 +145,29 @@ pub fn call<'tcx>(
 	let span = call.span;
 	let gargs = call.args;
 	let pointee = || targ(gargs, 0);
-	let kind = |b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>| match b.t.pointee(ty) {
-		Ok(kind) => Some(kind),
-		Err(msg) => {
-			b.err(span, msg);
-			None
-		}
-	};
+	let kind = |b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>| Some(b.t.pointee(ty));
 	let mut args = args.into_iter();
 	let mut arg = || args.next().expect("an argument");
 	let e = match (owner, name) {
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") => Expr::Rt("DANGLING".into()),
+		// The same pointer, as one to what a `MaybeUninit` holds or the other way.
+		("ptr" | "NonNull", "cast") => {
+			let to = targ(gargs, 1);
+			match b.t.uninit_inner(pointee()) == b.t.uninit_inner(to) {
+				true => arg(),
+				false => b.err(
+					span,
+					format!(
+						"a cast from a pointer to `{}` to one to `{to}`, which reads the bytes of one type as another",
+						pointee()
+					),
+				),
+			}
+		}
+		("ptr" | "NonNull", "addr" | "expose_provenance" | "with_addr" | "map_addr" | "without_provenance") => {
+			b.err(span, "a pointer's address, which JS has no counterpart of")
+		}
 		("ptr", "is_null") => arg().binary("===", Expr::Rt("NULL".into())),
 		// The same pointer, as another type of the same pointee.
 		("ptr", "cast_const" | "cast_mut")
@@ -295,19 +318,19 @@ fn pointer_self<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'t
 
 /// The value `p`, a pointer to `ty`, points at, as a value of its own.
 fn read<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
+	let _ = span;
 	match b.t.pointee(ty) {
-		Ok(Pointee::Place) => p.member("v"),
-		Ok(Pointee::Object) => Expr::rt("ptrRead", vec![p]),
-		Err(msg) => b.err(span, msg),
+		Pointee::Place => p.member("v"),
+		Pointee::Object => Expr::rt("ptrRead", vec![p]),
 	}
 }
 
 /// The write of `value`, a `ty`, where `p` points.
 fn write<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
+	let _ = span;
 	match b.t.pointee(ty) {
-		Ok(Pointee::Place) => p.member("v").assign(value),
-		Ok(Pointee::Object) => Expr::rt("ptrWrite", vec![p, value]),
-		Err(msg) => b.err(span, msg),
+		Pointee::Place => p.member("v").assign(value),
+		Pointee::Object => Expr::rt("ptrWrite", vec![p, value]),
 	}
 }
 
@@ -316,12 +339,11 @@ fn write<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, value: Expr, ty: Ty<'tcx>, s
 pub fn compare<'tcx>(b: &mut Body<'_, '_, 'tcx>, x: Expr, y: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let null = |e: &Expr| matches!(e, Expr::Rt(n) if n == "NULL");
 	match b.t.pointee(ty) {
-		Ok(Pointee::Object) => x.binary("===", y),
-		Ok(Pointee::Place) if null(&x) || null(&y) => x.binary("===", y),
-		Ok(Pointee::Place) => b.err(
+		Pointee::Object => x.binary("===", y),
+		Pointee::Place if null(&x) || null(&y) => x.binary("===", y),
+		Pointee::Place => b.err(
 			span,
-			format!("comparing pointers to `{ty}`, whose `rt.Place`s of one place are two objects"),
+			format!("comparing pointers to `{ty}`, each a place JS makes of its own"),
 		),
-		Err(msg) => b.err(span, msg),
 	}
 }

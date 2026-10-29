@@ -12,6 +12,7 @@ use rustc_span::Span;
 use super::{Capture, Env, Fx, Slot};
 use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
+use crate::lower::pointer::Pointee;
 use crate::lower::{AdtRepr, byte_array, field_name};
 use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
 
@@ -69,14 +70,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				let pointee = place.ty(&self.mir.local_decls, tcx).ty;
 				match self.b.t.pointee(pointee) {
+					Pointee::Object => self.place_expr(*place, span, out),
 					// `&raw mut *p` is `p`.
-					Ok(crate::lower::pointer::Pointee::Place) => match place.projection.as_slice() {
+					Pointee::Place => match place.projection.as_slice() {
 						[rest @ .., mir::ProjectionElem::Deref]
-							if self
-								.b
-								.t
-								.place_pointee(Place::ty_from(place.local, rest, &self.mir.local_decls, tcx).ty)
-								.is_some() =>
+							if !self.box_pointer(place.local)
+								&& self
+									.b
+									.t
+									.place_pointee(Place::ty_from(place.local, rest, &self.mir.local_decls, tcx).ty)
+									.is_some() =>
 						{
 							let base = Place {
 								local: place.local,
@@ -84,13 +87,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							};
 							self.place_expr(base, span, out)
 						}
+						// A reference to an object is the object, not the place holding it.
+						[.., mir::ProjectionElem::Deref] if !self.box_pointer(place.local) => self.err(
+							span,
+							format!(
+								"a raw pointer to `{pointee}` behind a reference, which is the object and not where it is kept"
+							),
+						),
 						_ => {
 							let target = self.place_expr(*place, span, out);
 							self.make_place(*place, target, span, out)
 						}
 					},
-					Ok(crate::lower::pointer::Pointee::Object) => self.place_expr(*place, span, out),
-					Err(msg) => self.err(span, msg),
 				}
 			}
 			Rvalue::Reborrow(..) => self.err(span, "reborrowing a type by its `Reborrow` impl is not supported"),
@@ -448,7 +456,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						0 | 1 => value,
 						_ => self.path(value, "field", out),
 					};
-					let slots = self.b.t.into_slots(value, field_ty, &parts, span);
+					let slots = self.b.t.slots_of(value, field_ty, &parts, span);
 					let ts_ty = self.b.t.ty(ty, span);
 					return Some(crate::lower::unions::made(slots, ts_ty));
 				}

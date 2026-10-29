@@ -137,7 +137,6 @@ impl<V> List<V> {
 		let node = self.find(key)?;
 		unsafe { Some(&mut (*(*node.as_ptr()).entry.as_mut_ptr()).1) }
 	}
-
 }
 
 impl List<String> {
@@ -299,3 +298,29 @@ pub fn places(data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&[x as u8, y as u8, pair.a as u8, pair.b as u8]);
 }
 
+/// Unchecked indexing, a boxed number behind a pointer, a `MaybeUninit` number, and a
+/// value dropped in place.
+pub fn unchecked(data: &[u8], out: &mut Vec<u8>) {
+	let mut counts = [0u32; 4];
+	let boxed = Box::into_raw(Box::new(0u32));
+	let mut slot = MaybeUninit::<u32>::uninit();
+	slot.write(7);
+	let held = Arc::new(0u8);
+	let mut dropped = MaybeUninit::new(Arc::clone(&held));
+	for &byte in data {
+		let at = usize::from(byte % 4);
+		unsafe {
+			*counts.get_unchecked_mut(at) += 1;
+			*boxed += u32::from(byte);
+			*slot.as_mut_ptr() ^= u32::from(byte);
+			out.push(*counts.get_unchecked(at) as u8);
+		}
+	}
+	unsafe {
+		out.push(*Box::from_raw(boxed) as u8);
+		out.push(slot.assume_init_read() as u8);
+		out.push(Arc::strong_count(&held) as u8);
+		ptr::drop_in_place(dropped.as_mut_ptr());
+	}
+	out.push(Arc::strong_count(&held) as u8);
+}

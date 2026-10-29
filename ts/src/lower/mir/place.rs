@@ -189,7 +189,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let (parts, n, part_ty) =
 						self.union_part(*adt, field.as_usize(), field_ty, &place.projection[read + 1..], span);
 					consumed = n;
-					e = self.b.t.from_slots(e, part_ty, &parts, span);
+					e = self.b.t.of_slots(e, part_ty, &parts, span);
 				}
 				ProjectionElem::Deref => {
 					// Drop glue's pointer is the value it drops.
@@ -198,15 +198,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// A box's pointer is the box, which is its contents.
 					if self.b.t.place_pointee(ty).is_some() && !glue && !self.box_pointer(place.local) {
 						e = e.member("v");
-					}
-					// A raw pointer is what it points at, or its `rt.Place`.
-					if let ty::RawPtr(pointee, _) = ty.kind()
-						&& let Err(msg) = self.b.t.pointee(*pointee)
-						&& !matches!(self.slots[place.local], Slot::Alias(_))
-						&& !(matches!(self.env, Env::Shim) && place.local.as_u32() == 1)
-						&& !(self.box_pointer(place.local) && self.b.t.object_kind(*pointee).is_some())
-					{
-						return self.err(span, msg);
 					}
 				}
 				ProjectionElem::Field(field, _) => {
@@ -654,7 +645,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let value = self.path(value, "field", &mut out);
 			let target = self.place_expr(union, span, &mut out);
 			let target = self.path(target, "union", &mut out);
-			for (slot, part) in self.b.t.into_slots(value, ty, &parts, span) {
+			for (slot, part) in self.b.t.slots_of(value, ty, &parts, span) {
 				out.push(StmtKind::Expr(target.clone().member(slot).assign(part)).at(self.b.t.loc(span)));
 			}
 			return out;
@@ -680,8 +671,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let target = self.local_expr(place.local, span);
 			// A binding's value may keep what it holds where `Object.assign` can't reach.
 			let bound = matches!(pointee.kind(), ty::Adt(adt, _) if self.b.t.bound_drops(adt.did()).is_some());
-			let raw = matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..))
-				&& !self.box_pointer(place.local);
+			let raw =
+				matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..)) && !self.box_pointer(place.local);
 			let e = match self.b.t.object_kind(pointee) {
 				_ if raw => Some(Expr::rt("ptrWrite", vec![target, value.clone()])),
 				Some(ObjectKind::Class) if !shared(self, pointee) && !bound => {
