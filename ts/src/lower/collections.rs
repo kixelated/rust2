@@ -294,6 +294,7 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
 	let (methods, value): (&[&str], usize) = match std {
+		Std::Vec => (&["retain_mut", "dedup_by", "dedup_by_key"], 0),
 		Std::VecDeque => (&["get_mut", "front_mut", "back_mut", "iter_mut", "retain_mut"], 0),
 		Std::HashMap => (&["get_mut", "iter_mut", "values_mut", "retain"], 1),
 		Std::BTreeMap => (&["get_mut", "iter_mut", "values_mut", "range_mut", "retain"], 1),

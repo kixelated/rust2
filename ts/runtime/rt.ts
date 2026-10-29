@@ -95,6 +95,23 @@ export function place<T>(get: () => T, set: (value: T) => void): Place<T> {
 	return new Accessed(get, set);
 }
 
+// Raw pointers
+
+/** A null raw pointer, of any type: nothing reads through it. */
+export const NULL: never = null as never;
+
+/** A dangling raw pointer, `NonNull::dangling`, of any type: nothing reads through it. */
+export const DANGLING: never = /* @__PURE__ */ Object.freeze({}) as never;
+
+/**
+ * `ptr::write` of `value` through a pointer to an object: `value` copied into it, one
+ * object deep, so every pointer to it sees the write.
+ */
+export function ptrWrite<T extends object>(p: T, value: T): void {
+	if (ArrayBuffer.isView(p)) (p as unknown as Uint8Array).set(value as unknown as Uint8Array);
+	else Object.assign(p, value);
+}
+
 // Bindings
 
 /**
@@ -272,11 +289,6 @@ export function nonZero<T>(n: T): T | undefined {
 	return n === 0 ? undefined : n;
 }
 
-/** `reverse`, in place. */
-export function sliceReverse<T>(s: T[]): void {
-	s.reverse();
-}
-
 /** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
 export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
 	return s.length === 0 ? undefined : s[s.length - 1];
@@ -311,12 +323,12 @@ export function sliceSwap<T>(s: T[], a: number, b: number): void {
 }
 
 /** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
-export function sliceSortBy<T>(s: T[], cmp: (a: T, b: T) => Ordering): void {
+export function sliceSortBy<T>(s: { [i: number]: T; length: number }, cmp: (a: T, b: T) => Ordering): void {
 	sliceSort(s, (a, b) => cmp(a, b) === -1);
 }
 
 /** `sort_by_key` and `sort_unstable_by_key`: by `lt` of each element's `key`, as `sliceSort` sorts. */
-export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: K) => boolean): void {
+export function sliceSortByKey<T, K>(s: { [i: number]: T; length: number }, key: (item: T) => K, lt: (a: K, b: K) => boolean): void {
 	sliceSort(s, (a, b) => lt(key(a), key(b)));
 }
 
@@ -327,7 +339,7 @@ export function sliceSortByKey<T, K>(s: T[], key: (item: T) => K, lt: (a: K, b: 
  * JS's `sort`, which moves `undefined`, a `None`, to the end without comparing it, and
  * orders its calls differently in each engine.
  */
-export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
+export function sliceSort<T>(s: { [i: number]: T; length: number }, less: (a: T, b: T) => boolean): void {
 	const n = s.length;
 	const RUN = 16;
 	for (let lo = 0; lo < n; lo += RUN) {
@@ -363,33 +375,60 @@ export function sliceSort<T>(s: T[], less: (a: T, b: T) => boolean): void {
 }
 
 /**
- * `Vec::retain` and `retain_mut`: keeps each element `f` returns true for, in order, and
- * drops each other one once `f` rejects it.
+ * Keeps each of the first `n` elements of `a` that `keep` of its index returns true for,
+ * in order, and drops each other one once `keep` rejects it: how many it kept.
  */
-export function vecRetain<T>(v: T[], f: (item: T) => boolean, drop?: (item: T) => void): void {
+function retainAt<T>(a: { [i: number]: T }, n: number, keep: (i: number) => boolean, drop?: (item: T) => void): number {
 	let write = 0;
-	for (let read = 0; read < v.length; read++) {
-		const item = v[read];
-		if (f(item)) v[write++] = item;
-		else drop?.(item);
+	for (let read = 0; read < n; read++) {
+		if (keep(read)) a[write++] = a[read];
+		else drop?.(a[read]);
 	}
-	v.length = write;
+	return write;
+}
+
+/**
+ * Drops each of the first `n` elements of `a` that `same` of its index and the previous
+ * kept one's is true for, in order: how many it kept.
+ */
+function dedupAt<T>(a: { [i: number]: T }, n: number, same: (i: number, kept: number) => boolean, drop?: (item: T) => void): number {
+	if (n === 0) return 0;
+	let write = 1;
+	for (let read = 1; read < n; read++) {
+		if (same(read, write - 1)) drop?.(a[read]);
+		else a[write++] = a[read];
+	}
+	return write;
+}
+
+/** `Vec::retain`, and `retain_mut` of an element that is an object. */
+export function vecRetain<T>(v: T[], f: (item: T) => boolean, drop?: (item: T) => void): void {
+	v.length = retainAt(v, v.length, (i) => f(v[i]), drop);
+}
+
+/** `Vec::retain_mut` of an element JS copies, which `f` takes the place of. */
+export function vecRetainMut<T>(v: T[], f: (item: Place<T>) => boolean, drop?: (item: T) => void): void {
+	v.length = retainAt(v, v.length, (i) => f(new AtIndex(v, i)), drop);
 }
 
 /** `Vec::dedup_by`: drops each element `same(element, previous kept)` is true for, in order. */
 export function vecDedupBy<T>(v: T[], same: (a: T, b: T) => boolean, drop?: (item: T) => void): void {
-	let write = 1;
-	for (let read = 1; read < v.length; read++) {
-		const item = v[read];
-		if (same(item, v[write - 1])) drop?.(item);
-		else v[write++] = item;
-	}
-	if (write < v.length) v.length = write;
+	v.length = dedupAt(v, v.length, (i, j) => same(v[i], v[j]), drop);
+}
+
+/** `Vec::dedup_by` of an element JS copies, whose places `same` takes. */
+export function vecDedupByMut<T>(v: T[], same: (a: Place<T>, b: Place<T>) => boolean, drop?: (item: T) => void): void {
+	v.length = dedupAt(v, v.length, (i, j) => same(new AtIndex(v, i), new AtIndex(v, j)), drop);
 }
 
 /** `Vec::dedup_by_key`: as `vecDedupBy`, by `eq` of `key` of each element, then of the previous kept. */
 export function vecDedupByKey<T, K>(v: T[], key: (item: T) => K, eq: (a: K, b: K) => boolean, drop?: (item: T) => void): void {
 	vecDedupBy(v, (a, b) => eq(key(a), key(b)), drop);
+}
+
+/** `Vec::dedup_by_key` of an element JS copies, whose places `key` takes. */
+export function vecDedupByKeyMut<T, K>(v: T[], key: (item: Place<T>) => K, eq: (a: K, b: K) => boolean, drop?: (item: T) => void): void {
+	vecDedupByMut(v, (a, b) => eq(key(a), key(b)), drop);
 }
 
 /** `Vec::insert`: `item` at `i`, with those from `i` on moved up. */
@@ -499,6 +538,18 @@ export function byteSliceSplitAtChecked(s: ByteSlice, n: number): [ByteSlice, By
 /** `first`: the first byte, or `undefined` if empty. */
 export function byteSliceFirst(s: ByteSlice): number | undefined {
 	return s.length === 0 ? undefined : s.data[s.start];
+}
+
+/** `last`: the last byte, or `undefined` if empty. */
+export function byteSliceLast(s: ByteSlice): number | undefined {
+	return s.length === 0 ? undefined : s.data[s.start + s.length - 1];
+}
+
+/** `swap`, panicking on either index past the end, `a` first, as std's indexing does. */
+export function byteSliceSwap(s: ByteSlice, a: number, b: number): void {
+	const x = s.data[s.start + idx(s, a)];
+	s.data[s.start + a] = s.data[s.start + idx(s, b)];
+	s.data[s.start + b] = x;
 }
 
 /** `get`: the byte at `index`, or `undefined` past the end. */
@@ -663,6 +714,57 @@ export function byteVecTruncate(v: ByteVec, length: number): void {
 /** `Vec::clear`. */
 export function byteVecClear(v: ByteVec): void {
 	v.length = 0;
+}
+
+/** `Vec::insert`: `byte` at `i`, with those from `i` on moved up. */
+export function byteVecInsert(v: ByteVec, i: number, byte: number): void {
+	if (i > v.length) panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
+	reserve(v, 1);
+	v.data.copyWithin(i + 1, i, v.length);
+	v.data[i] = byte;
+	v.length++;
+}
+
+/** `Vec::remove`: the byte at `i`, with those after it moved down. */
+export function byteVecRemove(v: ByteVec, i: number): number {
+	if (i >= v.length) panic(`removal index (is ${i}) should be < len (is ${v.length})`);
+	const byte = v.data[i];
+	v.data.copyWithin(i, i + 1, v.length);
+	v.length--;
+	return byte;
+}
+
+/** `Vec::swap_remove`: the byte at `i`, with the last moved into its place. */
+export function byteVecSwapRemove(v: ByteVec, i: number): number {
+	if (i >= v.length) panic(`swap_remove index (is ${i}) should be < len (is ${v.length})`);
+	const byte = v.data[i];
+	v.data[i] = v.data[--v.length];
+	return byte;
+}
+
+/** `Vec::retain`. */
+export function byteVecRetain(v: ByteVec, f: (byte: number) => boolean): void {
+	v.length = retainAt(v.data, v.length, (i) => f(v.data[i]));
+}
+
+/** `Vec::retain_mut`, which `f` takes each byte's place in. */
+export function byteVecRetainMut(v: ByteVec, f: (byte: Place<number>) => boolean): void {
+	v.length = retainAt(v.data, v.length, (i) => f(new AtIndex(v.data, i)));
+}
+
+/** `Vec::dedup`. */
+export function byteVecDedup(v: ByteVec): void {
+	v.length = dedupAt(v.data, v.length, (i, j) => v.data[i] === v.data[j]);
+}
+
+/** `Vec::dedup_by`, whose places `same` takes. */
+export function byteVecDedupByMut(v: ByteVec, same: (a: Place<number>, b: Place<number>) => boolean): void {
+	v.length = dedupAt(v.data, v.length, (i, j) => same(new AtIndex(v.data, i), new AtIndex(v.data, j)));
+}
+
+/** `Vec::dedup_by_key`, whose places `key` takes. */
+export function byteVecDedupByKeyMut<K>(v: ByteVec, key: (byte: Place<number>) => K, eq: (a: K, b: K) => boolean): void {
+	byteVecDedupByMut(v, (a, b) => eq(key(a), key(b)));
 }
 
 // Strings

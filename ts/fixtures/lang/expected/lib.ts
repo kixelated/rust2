@@ -12,6 +12,11 @@ import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
 import type * as locks_Tally from "./locks.Tally.ts";
+import type * as Halves from "./pointers.Halves.ts";
+import type * as Inner from "./pointers.Inner.ts";
+import * as List from "./pointers.List.ts";
+import type * as Outer from "./pointers.Outer.ts";
+import type * as pointers_Pair from "./pointers.Pair.ts";
 import type * as Gauge from "./shapes.Gauge.ts";
 import type * as Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -54,6 +59,10 @@ export function copy$Gauge(v: Gauge.Gauge): Gauge.Gauge {
 	return { level: v.level };
 }
 
+export function copy$Halves(v: Halves.Halves): Halves.Halves {
+	return ({ at0: copy$MaybeUninit_u32s(v.at0) } as unknown) as Halves.Halves;
+}
+
 export function copy$Held(v: Held.Held): Held.Held {
 	return { at: copy$Point(v.at) };
 }
@@ -66,6 +75,10 @@ export function copy$Horizon(v: Horizon.Horizon): Horizon.Horizon {
 	return { exclude: copy$Option_Hop(v.exclude), local: v.local };
 }
 
+export function copy$Inner(v: Inner.Inner): Inner.Inner {
+	return { a: v.a, b: v.b };
+}
+
 export function copy$Lens(v: Lens.Lens): Lens.Lens {
 	return { slot: v.slot, n: v.n };
 }
@@ -76,6 +89,13 @@ export function copy$Level(v: Level.Level): Level.Level {
 
 export function copy$Mark(v: Mark.Mark): Mark.Mark {
 	return { at: v.at };
+}
+
+export function copy$MaybeUninit_u32s(v: rt.u32[]): rt.u32[] {
+	if (v === undefined) {
+		return v;
+	}
+	return v.slice();
 }
 
 export function copy$Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8]): [rt.Mutex<rt.u8>, rt.u8] {
@@ -92,6 +112,10 @@ export function copy$Option_Hop(v: Hop.Hop | undefined): Hop.Hop | undefined {
 
 export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined): [rt.Mutex<rt.u8>, rt.u8] | undefined {
 	return v === undefined ? v : copy$Mutex_u8_u8(v);
+}
+
+export function copy$Option_Pair(v: pointers_Pair.Pair | undefined): pointers_Pair.Pair | undefined {
+	return v === undefined ? v : copy$Pair$2(v);
 }
 
 export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | undefined {
@@ -114,8 +138,16 @@ export function copy$Option_usize_u8(v: [rt.usize, rt.u8] | undefined): [rt.usiz
 	return v === undefined ? v : copy$usize_u8(v);
 }
 
+export function copy$Outer(v: Outer.Outer): Outer.Outer {
+	return { inner: copy$Inner(v.inner), pair: copy$u32_u32(v.pair), n: v.n };
+}
+
 export function copy$Pair(v: Pair.Pair): Pair.Pair {
 	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$Pair$2(v: pointers_Pair.Pair): pointers_Pair.Pair {
+	return { a: v.a, b: v.b };
 }
 
 export function copy$Point(v: Point.Point): Point.Point {
@@ -192,8 +224,20 @@ export function copy$str_forabfnu8au8bmutstdvecVecu8s(v: [string, (a0: rt.u8, a1
 	return v.map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 
+export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
+	return [v[0], v[1]];
+}
+
 export function copy$u32s(v: rt.u32[]): rt.u32[] {
 	return v.slice();
+}
+
+export function copy$u32s_u8(v: [rt.u32[], rt.u8]): [rt.u32[], rt.u8] {
+	return [copy$u32s(v[0]), v[1]];
+}
+
+export function copy$u8_Arc_u8(v: [rt.u8, rt.Arc<rt.u8>]): [rt.u8, rt.Arc<rt.u8>] {
+	return [v[0], v[1]];
 }
 
 export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
@@ -201,6 +245,10 @@ export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Ho
 }
 
 export function copy$u8_Reverse_Option_u8(v: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] {
+	return [v[0], v[1]];
+}
+
+export function copy$u8_String(v: [rt.u8, string]): [rt.u8, string] {
 	return [v[0], v[1]];
 }
 
@@ -240,8 +288,20 @@ export function copy$u8s_u8s(v: [rt.ByteSlice, rt.ByteSlice]): [rt.ByteSlice, rt
 	return [v[0], v[1]];
 }
 
+export function copy$units(v: undefined[]): undefined[] {
+	return v.slice();
+}
+
 export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
+}
+
+export function drop$List_Arc_u8(_1: List.List<rt.Arc<rt.u8>>): void {
+	List.drop$Drop_Arc_u8(_1);
+}
+
+export function drop$List_String(_1: List.List<string>): void {
+	List.drop$Drop_String(_1);
 }
 
 export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
@@ -276,6 +336,10 @@ export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt
 	if (_1.tag === "Poisoned") {
 		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<rt.u32> })._0);
 	}
+}
+
+export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {

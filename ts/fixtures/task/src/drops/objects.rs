@@ -2,7 +2,8 @@
 //! struct's, an enum's glue, or nothing for a number, where the box goes out of scope,
 //! is replaced, or is consumed by `self: Box<Self>`. An `Arc<dyn Trait>`
 //! drops it with the last `Arc` of it, of the trait object or of the type it was made of.
-//! A `dyn Any` drops the same, and one downcast drops as the type it was made of.
+//! A `dyn Any` drops the same, and one downcast drops as the type it was made of. A
+//! `dyn Fn*` drops what its closure owns, and a call through `FnOnce` consumes it.
 
 use std::any::Any;
 use std::future::Future;
@@ -166,4 +167,130 @@ pub(super) fn anys(log: &Log, id: u32) {
 	log.note("dropped".into());
 	drop(b);
 	log.note(format!("slot {}", slot.downcast_ref::<Held>().is_some()));
+}
+
+/// Boxed and shared closures as `dyn Fn*`: each drops what it owns where the box or the
+/// last `Arc` goes, or, called through `FnOnce`, where its body or the call ends.
+pub(super) fn fns(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	// An `FnOnce` closure's body drops what it owns; uncalled, the box drops it.
+	let (a, b) = (guard(1), guard(2));
+	let moved: Box<dyn FnOnce() -> u32> = Box::new(move || {
+		let id = a.id();
+		drop(a);
+		id
+	});
+	let uncalled: Box<dyn FnOnce() -> u32> = Box::new(move || b.id());
+	log.note(format!("moved {}", moved()));
+	drop(uncalled);
+	// An `Fn` closure called once through `FnOnce`, boxed as one or upcast to one, drops
+	// what it owns after the call.
+	let c = guard(3);
+	let as_once: Box<dyn FnOnce() -> u32> = Box::new(move || c.id());
+	log.note(format!("once {}", as_once()));
+	let d = guard(4);
+	let up: Box<dyn Fn() -> u32> = Box::new(move || d.id() + 1);
+	let up: Box<dyn FnOnce() -> u32> = up;
+	log.note(format!("up {}", up()));
+	// A replaced box drops the old closure, and a `Vec` drops its boxes in order.
+	let e = guard(5);
+	let mut slot: Box<dyn FnMut() -> u32> = Box::new(move || e.id());
+	log.note(format!("slot {}", slot()));
+	let f = guard(6);
+	slot = Box::new(move || f.id());
+	log.note(format!("slot {}", slot()));
+	let (g, h) = (guard(7), guard(8));
+	let list: Vec<Box<dyn Fn() -> u32>> = vec![Box::new(move || g.id()), Box::new(move || h.id())];
+	let borrowed: &dyn Fn() -> u32 = &*list[1];
+	log.note(format!("list {}", borrowed() + list[0]()));
+	drop(list);
+	// Shared: the last `Arc` drops it.
+	let i = guard(9);
+	let shared: Arc<dyn Fn() -> u32> = Arc::new(move || i.id());
+	let other = shared.clone();
+	drop(shared);
+	log.note(format!("shared {}", other()));
+	drop(other);
+	log.note(format!("slot {}", slot()));
+	// A box of a reference drops only the reference, and a box of a box is the closure it
+	// holds, which a call through `FnOnce` consumes.
+	let j = guard(10);
+	let lent = move || j.id();
+	let boxed: Box<dyn Fn() -> u32 + '_> = Box::new(&lent);
+	log.note(format!("lent {}", boxed()));
+	drop(boxed);
+	log.note(format!("lent {}", lent()));
+	let k = guard(11);
+	let inner: Box<dyn Fn() -> u32> = Box::new(move || k.id());
+	let outer: Box<dyn FnOnce() -> u32> = Box::new(inner);
+	log.note(format!("outer {}", outer()));
+	drop(lent);
+	// An upcast of an `Arc` shares its count: the last clone of either drops it.
+	let m = guard(12);
+	let shared: Arc<dyn Fn() -> u32> = Arc::new(move || m.id());
+	let up: Arc<dyn FnOnce() -> u32> = shared.clone();
+	let again = up.clone();
+	drop(shared);
+	drop(up);
+	log.note(format!("up {}", Arc::strong_count(&again)));
+	drop(again);
+	log.note("gone".into());
+	// A box that a generic `FnOnce` call consumes drops what it holds as the call ends.
+	let (n, o) = (guard(13), guard(14));
+	let boxed: Box<dyn Fn() -> u32> = Box::new(move || n.id());
+	log.note(format!("run {}", run(boxed)));
+	log.note(format!("run {}", run(Box::new(move || o.id()))));
+	log.note("ran".into());
+	// So does one std's `Option::map` consumes, and an iterator's adaptor drops its own.
+	let (p, q) = (guard(15), guard(16));
+	let add: Box<dyn Fn(u32) -> u32> = Box::new(move |x| x + q.id());
+	log.note(format!("map {:?}", Some(1).map(add)));
+	let s = guard(18);
+	let scale: Box<dyn FnMut(&u32) -> u32> = Box::new(move |x| x * s.id());
+	let total: u32 = [1, 2].iter().map(scale).sum();
+	log.note(format!("sum {total}"));
+	let r = guard(17);
+	let init: Box<dyn Fn() -> u32> = Box::new(move || r.id());
+	let unused: Box<dyn Fn() -> u32> = Box::new(move || p.id());
+	let cell: std::cell::OnceCell<u32> = std::cell::OnceCell::default();
+	let got = *cell.get_or_init(init);
+	log.note(format!("cell {got}"));
+	log.note(format!("cell {}", cell.get_or_init(unused)));
+	let (u, v) = (guard(19), guard(20));
+	let fill: Box<dyn Fn() -> u32> = Box::new(move || u.id());
+	let skip: Box<dyn Fn() -> u32> = Box::new(move || v.id());
+	let mut lazy: Option<u32> = None;
+	log.note(format!("lazy {}", lazy.get_or_insert_with(fill)));
+	log.note(format!("lazy {}", lazy.get_or_insert_with(skip)));
+	// An adaptor drops the function it holds, but not one it borrows.
+	let w = guard(21);
+	let f = move |g: Guard| g.id() + w.id();
+	let borrowed: &dyn Fn(Guard) -> u32 = &f;
+	log.note(format!(
+		"borrowed {}",
+		vec![guard(22), guard(23)].into_iter().map(borrowed).sum::<u32>()
+	));
+	log.note(format!("by ref {}", vec![guard(24)].into_iter().map(&f).sum::<u32>()));
+	log.note(format!(
+		"twice {}",
+		vec![guard(26)].into_iter().map(&borrowed).sum::<u32>()
+	));
+	log.note(format!(
+		"boxed {}",
+		vec![guard(27)].into_iter().map(Box::new(&f)).sum::<u32>()
+	));
+	let x = guard(28);
+	let mut h: Box<dyn FnMut(Guard) -> u32> = Box::new(move |g| g.id() + x.id());
+	log.note(format!("mut {}", vec![guard(29)].into_iter().map(&mut h).sum::<u32>()));
+	let mut p: fn(u32) -> u32 = u32::from;
+	log.note(format!(
+		"pointer {}",
+		vec![1u32, 2].into_iter().map(&mut p).sum::<u32>()
+	));
+	log.note(format!("kept {}", f(guard(25))));
+}
+
+/// Call `f` once, which consumes it.
+fn run<F: FnOnce() -> u32>(f: F) -> u32 {
+	f()
 }

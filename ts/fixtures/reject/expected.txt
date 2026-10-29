@@ -6,10 +6,10 @@ unsupported type `f32` at fixtures/reject/src/lib.rs:7:14
 a scalar constant of type `f32` at fixtures/reject/src/lib.rs:8:2
 arithmetic on `f32` at fixtures/reject/src/lib.rs:8:2
 unsupported type `f32` at fixtures/reject/src/lib.rs:7:25
-`dyn std::ops::Fn(u8) -> u8`, a trait object of another crate's trait, which is not supported yet at fixtures/reject/src/lib.rs:11:16
+`dyn std::iter::Iterator<Item = u8>`, a trait object of another crate's trait, which is not supported yet at fixtures/reject/src/lib.rs:11:16
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:17:2
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:16:15
-unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:21:4
+unsupported call to `core::slice::<impl [u8]>::rotate_left` at fixtures/reject/src/lib.rs:21:4
 `Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:41:42
 `Maybe<()>` is not supported: its field `value` is `Option<T>`, typed `T | undefined`, whose `None` would be `rt.None` as `Option<()>` at fixtures/reject/src/lib.rs:31:2
 collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:36:43
@@ -74,6 +74,19 @@ an upcast from `dyn Keyed` to `dyn std::any::Any`, which is not supported yet at
 `std::any::Any::type_id` of `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:560:4
 unsupported call to `std::any::TypeId::of::<u8>` at fixtures/reject/src/lib.rs:560:17
 unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:560:2
+a cast from a pointer to `u32` to one to `u8`, which reads the bytes of one type as another at fixtures/reject/src/lib.rs:577:27
+a pointer's address, which JS has no counterpart of at fixtures/reject/src/lib.rs:582:17
+unsupported call to `std::alloc::Layout::new::<u8>` at fixtures/reject/src/lib.rs:587:15
+unsupported call to `std::alloc::alloc` at fixtures/reject/src/lib.rs:589:11
+unsupported call to `std::alloc::dealloc` at fixtures/reject/src/lib.rs:592:3
+a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept at fixtures/reject/src/lib.rs:599:10
+union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart at fixtures/reject/src/lib.rs:610:10
+comparing pointers to `u32`, each a place JS makes of its own at fixtures/reject/src/lib.rs:618:2
+a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:630:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:638:10
+a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:646:10
+comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:653:2
+a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:662:11
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:139:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:159:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:193:2
