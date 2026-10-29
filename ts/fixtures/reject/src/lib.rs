@@ -261,9 +261,9 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// `get`'s `None` and `Some(&None)` would both be `undefined`.
-pub fn optional(map: &std::collections::HashMap<u8, Option<u8>>) -> bool {
-	map.get(&1).is_some()
+/// A set's `get` of an item that can be `undefined`: its `None` and `Some(&None)` would both be.
+pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
+	set.get(&None).is_some()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.

@@ -1096,6 +1096,7 @@ pub const GREETINGS: &[&str] = &["hi", "hello"];
 pub struct Trail {
 	points: Vec<Point>,
 	labels: Vec<Label>,
+	route: String,
 }
 
 impl Trail {
@@ -1111,6 +1112,7 @@ impl Trail {
 		Self {
 			points: points.to_vec(),
 			labels,
+			route: names.join("/"),
 		}
 	}
 
@@ -1123,6 +1125,38 @@ impl Trail {
 	pub fn labels(&self) -> &[Label] {
 		&self.labels
 	}
+
+	/// Its points one by one, as moq's `Hops::iter` returns them: an array of copies.
+	pub fn iter(&self) -> std::slice::Iter<'_, Point> {
+		self.points.iter()
+	}
+
+	/// Each name, split from its route, through an iterator only its bounds name.
+	pub fn names(&self) -> impl Iterator<Item = &str> {
+		// Splitting the empty route would yield one empty name.
+		(!self.route.is_empty())
+			.then(|| self.route.split('/'))
+			.into_iter()
+			.flatten()
+	}
+
+	/// The bytes of its route, which cross as a buffer.
+	pub fn bytes(&self) -> std::str::Bytes<'_> {
+		self.route.bytes()
+	}
+
+	/// Its labels, drained: every one is taken at the call, so none are left.
+	pub fn drain(&mut self) -> std::vec::Drain<'_, Label> {
+		self.labels.drain(..)
+	}
+}
+
+/// A counter for each name, counting from its index, last first.
+pub fn numbered(names: Vec<String>) -> impl Iterator<Item = Counter> {
+	let counters: Vec<_> = (names.iter().enumerate())
+		.map(|(i, name)| Counter::new(name, i as u64))
+		.collect();
+	counters.into_iter().rev()
 }
 
 /// Each address at the next port, one IPv4 and one IPv6.

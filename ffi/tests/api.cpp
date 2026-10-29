@@ -548,6 +548,38 @@ int script() {
 		print(i == 0 ? "" : ", ", labels[i].debug(), "");
 	}
 	std::printf("]\n");
+	// Returned iterators, each collected at the call: drained labels are gone after.
+	auto iter_points = trail.iter();
+	std::printf("iterated [");
+	for (std::size_t i = 0; i < iter_points.size(); i++) {
+		print(i == 0 ? "" : ", ", iter_points[i].debug(), "");
+	}
+	std::printf("] ");
+	print_strings(trail.names());
+	auto iter_bytes = trail.bytes();
+	std::printf(" [");
+	for (std::size_t i = 0; i < iter_bytes.size(); i++) {
+		std::printf("%s%u", i == 0 ? "" : ", ", iter_bytes.data()[i]);
+	}
+	std::printf("]\n");
+	auto drained = trail.drain();
+	std::printf("drained [");
+	for (std::size_t i = 0; i < drained.size(); i++) {
+		print(i == 0 ? "" : ", ", drained[i].debug(), "");
+	}
+	auto left = trail.labels();
+	std::printf("] then [");
+	for (std::size_t i = 0; i < left.size(); i++) {
+		print(i == 0 ? "" : ", ", left[i].debug(), "");
+	}
+	std::printf("]\n");
+	auto numbered = api::numbered({"p", "q"});
+	std::printf("numbered");
+	for (std::size_t i = 0; i < numbered.size(); i++) {
+		print(i == 0 ? " " : ", ", numbered[i].name(), " ");
+		std::printf("%llu", static_cast<unsigned long long>(numbered[i].get()));
+	}
+	std::printf("\n");
 	api::socket_addr at4{};
 	at4.ip[0] = 127;
 	at4.ip[3] = 1;

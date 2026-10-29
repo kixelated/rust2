@@ -85,7 +85,6 @@ The type or module each refused type or path belongs to.
 | 3 | `(u32, u32)` | fixtures/reject/src/lib.rs:633:10 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:321:2 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:372:13 |
-| 2 | `HashMap` | fixtures/reject/src/lib.rs:266:6 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:91:20 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:482:23 |
 | 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:482:23 |
@@ -104,6 +103,8 @@ The type or module each refused type or path belongs to.
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:169:1 |
 | 1 | `Entry` | fixtures/reject/src/lib.rs:372:13 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:223:1 |
+| 1 | `HashMap` | fixtures/reject/src/lib.rs:289:6 |
+| 1 | `HashSet` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:297:9 |
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
@@ -153,7 +154,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:289:6 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:563:4 |
-| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashMap::get`, `Option` | fixtures/reject/src/lib.rs:266:6 |
+| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashSet::get`, `Option` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find`, `Option` | fixtures/reject/src/lib.rs:41:42 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:250:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:250:16 |
@@ -288,7 +289,7 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` of `_`, whose `None` is `rt.None`, which is not supported yet (2)</summary>
 
 - fixtures/reject/src/lib.rs:41:42: `Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
-- fixtures/reject/src/lib.rs:266:6: `HashMap::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
+- fixtures/reject/src/lib.rs:266:6: `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 
 </details>
 

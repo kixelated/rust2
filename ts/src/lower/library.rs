@@ -601,17 +601,19 @@ fn takes_none(owner: &str, name: &str) -> bool {
 
 /// Whether the runtime function `owner::name` maps to takes the `None` of the `Option` it
 /// makes or reads, where that is `rt.None`, last: after what drops its operands.
-fn none_last(owner: &str, name: &str) -> bool {
+pub(super) fn none_last(owner: &str, name: &str) -> bool {
 	matches!(
 		(owner, name),
-		("Option", "unwrap" | "expect") | ("slice", "first" | "get")
+		("Option", "unwrap" | "expect")
+			| ("slice", "first" | "get")
+			| ("HashMap" | "BTreeMap", "get" | "get_mut" | "insert" | "remove")
 	)
 }
 
 /// The type of the first `Some` whose `Option`'s `None` is `rt.None`, of those in the
 /// signature and bounds of the function `call` calls, over its type arguments: what the
 /// mapping of a std function would make or read with `undefined` for `None`.
-fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
+pub(super) fn sentinel_option<'tcx>(t: &Translator<'_, 'tcx>, call: &Call<'tcx>) -> Option<Ty<'tcx>> {
 	let tcx = t.tcx;
 	let sig = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
 	let sig = tcx.instantiate_bound_regions_with_erased(sig);
@@ -1495,6 +1497,14 @@ fn mapping<'tcx>(
 			let env = b.t.typing_env_pub();
 			let layout = tcx.layout_of(env.as_query_input(targ(gargs, 0))).ok()?;
 			Expr::lit(layout.size.bytes().to_string())
+		}
+		("array", "from_fn") => {
+			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
+			let f = match targ(gargs, 0).kind() {
+				ty::Uint(ty::UintTy::U8) => "bytesFromFn",
+				_ => "arrayFromFn",
+			};
+			Expr::rt(f, vec![Expr::lit(n.to_string()), args.pop()?])
 		}
 		("fmt", "format") => {
 			let parts = args.pop()?;
