@@ -30,15 +30,11 @@ is its own guard and counts its borrows: a conflicting borrow panics, and a conf
 lock aborts, each with wasm32's message. Their `get_mut`, `into_inner`, `try_borrow`,
 `Ref::map`, and `Ref::clone` are still refused.
 A `thread_local!` key is an `rt.LocalKey`, a module's value that makes its value on
-first use, as wasm32's `LazyStorage` does, and never drops it. A `RefCell` key's `set`
-and `with_borrow_mut` are still refused: std's bodies write through a `&mut`, which a
-body of std's can't yet.
-Left: `static` atomics, below, which a module's value, as a thread-local's, can hold.
+first use, as wasm32's `LazyStorage` does, and never drops it. A `static` atomic is a
+module's value too, an `rt.Atomic` of the value the static's memory starts with.
+Left: the counters' cost, below.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
-- A `static` atomic (`static NEXT: AtomicU64`, 2 in moq-net and 1 in kio) is still
-  refused as a constant of type `&Atomic`: a `static` with interior mutability needs one
-  module-level value that every use shares.
 - Measure the counter overhead on the [TS benchmark](/ts/README.md#bench).
 
 Public API: the translator's output for shared and interior-mutable types.

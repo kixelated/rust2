@@ -5,8 +5,8 @@
 //! types, formatting, collections, UTF-8 decoding, `&mut` to values JS copies, whole
 //! writes through a `&mut` to an object, the standard library calls it maps, `Option`'s
 //! and `Result`'s combinators from core's MIR, `Option`s of values that can already be
-//! `undefined`, atomics, trait objects, one-time cells, mutexes, `Cell`s, `RefCell`s, and
-//! read-write locks, the defaults of std types, the counts of shared pointers, arrays
+//! `undefined`, atomics, `static` ones included, trait objects, one-time cells, mutexes,
+//! `Cell`s, `RefCell`s, read-write locks, and thread-locals, the defaults of std types, the counts of shared pointers, arrays
 //! `array::from_fn` makes, and maps of
 //! `Option`s.
 //!
@@ -43,6 +43,7 @@ mod pointers;
 mod refs;
 mod shapes;
 mod splits;
+mod statics;
 mod strs;
 mod utf8;
 #[cfg(target_arch = "wasm32")]

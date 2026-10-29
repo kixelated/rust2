@@ -1966,6 +1966,13 @@ impl<'tcx> Collector<'tcx> {
 			})
 	}
 
+	/// `def_id`'s bounds at `base`, with each they imply, such as a supertrait's.
+	fn implied(&self, def_id: DefId, base: &[ty::GenericArg<'tcx>]) -> Vec<ty::Clause<'tcx>> {
+		let tcx = self.tcx;
+		let clauses = tcx.clauses_of(def_id).instantiate(tcx, tcx.mk_args(base)).clauses;
+		elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip())).collect()
+	}
+
 	/// The types a type parameter may be exported as, best first, which typing takes the
 	/// first of: `X` for each `Into<X>` or `AsRef<X>` its bounds imply, or `&X` and then
 	/// `String` or `Vec<T>` where `X` is `str` or `[T]`, `Vec<X>` for
@@ -1983,13 +1990,8 @@ impl<'tcx> Collector<'tcx> {
 			.filter(|pred| pred.self_ty().skip_binder() == param)
 			.collect();
 		// With the bounds they imply: `IntoBytes: AsRef<[u8]>` makes a parameter it bounds bytes.
-		let implied: Vec<_> = elaborate(tcx, identity.clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
-		// A parameter that must outlive the call cannot borrow what C lends for it.
-		let outlives = implied.iter().any(|clause| {
-			clause
-				.as_type_outlives_clause()
-				.is_some_and(|pred| pred.skip_binder().0 == param)
-		});
+		let implied = self.implied(def_id, base);
+		let outlives = must_outlive(&implied, param);
 		let string = tcx
 			.lang_items()
 			.string()
@@ -2147,19 +2149,17 @@ impl<'tcx> Collector<'tcx> {
 			}
 			let source = infcx.deeply_resolve_ignoring_regions(source);
 			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
-			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
-			let outlives = implied.iter().any(|clause| {
-				clause
-					.as_type_outlives_clause()
-					.is_some_and(|pred| infcx.deeply_resolve_ignoring_regions(pred.skip_binder().0) == source)
-			});
+			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
+				.map(|clause| infcx.deeply_resolve_ignoring_regions(clause))
+				.collect();
+			let outlives = must_outlive(&implied, source);
 			for bound in (implied.iter())
 				.filter_map(|clause| clause.as_trait_clause())
 				.filter(|bound| {
 					tcx.is_diagnostic_item(sym::Into, bound.def_id())
 						|| tcx.is_diagnostic_item(sym::AsRef, bound.def_id())
 				}) {
-				let bound = infcx.deeply_resolve_ignoring_regions(bound.skip_binder());
+				let bound = bound.skip_binder();
 				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
 				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&(x, outlives)) {
 					found.push((x, outlives));
@@ -2197,13 +2197,7 @@ impl<'tcx> Collector<'tcx> {
 		let at = |candidate: Ty<'tcx>| self.at(def_id, param, base, candidate);
 		// A lifetime bound, such as `'static`, which a reference to a value C passes for the
 		// call cannot meet, though `at` holds modulo regions.
-		let outlives = (tcx
-			.clauses_of(def_id)
-			.instantiate(tcx, tcx.mk_args(base))
-			.clauses
-			.iter())
-		.filter_map(|clause| clause.skip_norm_wip().as_type_outlives_clause())
-		.any(|pred| pred.skip_binder().0 == param);
+		let outlives = must_outlive(&self.implied(def_id, base), param);
 		let mut found: Vec<Ty<'tcx>> = Vec::new();
 		for ty in self.implementors(def_id, param) {
 			if outlives && ty.is_ref() {
@@ -3286,6 +3280,14 @@ fn docs(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 
 /// Whether `tr` is `Send`, `Sync`, or `Sized`, which a foreign implementation or a lent
 /// closure meets.
+/// Whether `implied`, bounds with each they imply, makes `param` outlive the call, so it
+/// cannot borrow what C lends for the call, as `impl Kept` cannot where `Kept: 'static`.
+fn must_outlive<'tcx>(implied: &[ty::Clause<'tcx>], param: Ty<'tcx>) -> bool {
+	(implied.iter())
+		.filter_map(|clause| clause.as_type_outlives_clause())
+		.any(|pred| pred.skip_binder().0 == param)
+}
+
 fn marker(tcx: TyCtxt<'_>, tr: DefId) -> bool {
 	[sym::Send, sym::Sync]
 		.iter()

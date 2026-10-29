@@ -852,6 +852,29 @@ pub fn kept(from: impl Seed<u64> + 'static) -> u64 {
 	from.seed()
 }
 
+/// Outlives what it is called with, as its supertrait says, and consumes itself, so no
+/// callback implements it.
+pub trait Kept: 'static {
+	fn kept(self) -> i32;
+}
+
+impl Kept for Point {
+	fn kept(self) -> i32 {
+		self.x - self.y
+	}
+}
+
+impl Kept for &'static Point {
+	fn kept(self) -> i32 {
+		self.y - self.x
+	}
+}
+
+/// As `kept`, with the bound that outlives the call implied by `Kept`: it takes a value.
+pub fn keep(kept: impl Kept) -> i32 {
+	kept.kept()
+}
+
 /// A generic record only a constant names, which infers its instance.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Boxed<T> {

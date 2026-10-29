@@ -297,6 +297,7 @@ fn main() {
 		api_lib::kept(Point { x: 1, y: -2 }),
 		api_lib::BOXED.value
 	);
+	println!("keep {}", api_lib::keep(Point { x: 1, y: -2 }));
 	let sides = Pair { left: 2u32, right: 5 };
 	println!("apply {}", api_lib::apply(sides, |side| side * 3));
 	println!("report {}", api_lib::report(sides, Print));
