@@ -28,6 +28,19 @@ export function drop$Drop(self: Guard): void {
 	rt.mutexUnlock(_5);
 }
 
+export function add$Tally(self: Guard, by: rt.u8): void {
+	self.id = rt.u8WrappingAdd(self.id, by);
+}
+
+export function count$Tally(self: Guard): rt.u32 {
+	return self.id as rt.u32;
+}
+
+/** Provided, and overridden by one impl. */
+export function scale$Tally(_self: Guard): rt.u32 {
+	return 2;
+}
+
 export { new_ as new };
 
 //# sourceMappingURL=crates_dep.Guard.ts.map

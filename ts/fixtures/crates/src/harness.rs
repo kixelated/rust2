@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use crates_dep::{Countdown, Guard, Point, Slots, Weigh};
+use crates_dep::{Countdown, Guard, Point, Slots, Tally, Weigh};
 
 /// The package's own type, which the dependency's generic function ranks.
 struct Item(u8);
@@ -10,6 +10,15 @@ struct Item(u8);
 impl Weigh for Item {
 	fn weight(&self) -> u32 {
 		self.0 as u32 % 7
+	}
+}
+
+impl Tally for Item {
+	fn add(&mut self, by: u8) {
+		self.0 ^= by;
+	}
+	fn count(&self) -> u32 {
+		u32::from(self.0)
 	}
 }
 
@@ -39,6 +48,25 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		drop(held);
 	}
 	out.extend(log.lock().unwrap().iter());
+	// Trait objects of the dependency's trait, of either crate's types, which drop what
+	// they hold where native Rust does.
+	if let [a, b, c, ..] = input {
+		let mut item = Item(*a);
+		let mut n = u32::from(*b);
+		let mut guard = Guard::new(*c, &log);
+		let sum = crates_dep::tally(&mut [&mut item, &mut n, &mut guard], *a);
+		out.extend(sum.to_le_bytes());
+		out.extend([item.0, n as u8]);
+		let mut boxed: Vec<Box<dyn Tally>> = vec![Box::new(guard), Box::new(item), Box::new(n)];
+		boxed.swap(0, 2);
+		boxed.truncate(2);
+		for t in &mut boxed {
+			t.add(*c);
+			out.push(t.count() as u8);
+		}
+		drop(boxed);
+		out.extend(log.lock().unwrap().iter());
+	}
 	for n in Countdown::new(input.len().min(4) as u8) {
 		out.push(n);
 	}
