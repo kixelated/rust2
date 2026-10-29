@@ -31,13 +31,13 @@ export class Name {
 	text: rt.Arc<string>;
 	rank: rt.u8 | undefined;
 
-	constructor(fields: { text: rt.Arc<string>; rank: rt.u8 | undefined }) {
-		this.text = fields.text;
-		this.rank = fields.rank;
+	constructor(text: rt.Arc<string>, rank: rt.u8 | undefined) {
+		this.text = text;
+		this.rank = rank;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.text);
+		this.text[Symbol.dispose]();
 	}
 }
 

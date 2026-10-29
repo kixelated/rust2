@@ -24,7 +24,7 @@ export function unwrapOr$Option_Guard(self: Guard.Guard | undefined, default_: G
 		_0 = self;
 	}
 	if (_5) {
-		rt.drop(default_);
+		default_[Symbol.dispose]();
 		return _0;
 	}
 	return _0;
@@ -168,7 +168,7 @@ export function mapOr$Option_u32_Guard_options_closure1(self: rt.u32 | undefined
 		_0 = f(self);
 	}
 	if (_9) {
-		rt.drop(default_);
+		default_[Symbol.dispose]();
 		return _0;
 	}
 	return _0;
@@ -203,7 +203,7 @@ export function okOr$Option_Guard_Guard(self: Guard.Guard | undefined, err: Guar
 		_0 = rt.Ok(self);
 	}
 	if (_6) {
-		rt.drop(err);
+		err[Symbol.dispose]();
 		return _0;
 	}
 	return _0;
@@ -220,7 +220,7 @@ export function filter$Option_Guard_options_closure3(self: Guard.Guard | undefin
 	if (self !== undefined) {
 		const x: Guard.Guard = self;
 		if (!predicate(x)) {
-			rt.drop(x);
+			x[Symbol.dispose]();
 		} else {
 			return x;
 		}
@@ -267,12 +267,12 @@ export function zip$Option_Guard_Guard(self: Guard.Guard | undefined, other: Gua
 	}
 	if (self !== undefined) {
 		if (_10) {
-			rt.drop(self);
+			self[Symbol.dispose]();
 		}
 	}
 	if (other !== undefined) {
 		if (_9) {
-			rt.drop(other);
+			other[Symbol.dispose]();
 		}
 	}
 	_9 = false;

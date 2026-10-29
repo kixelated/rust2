@@ -15,7 +15,7 @@ export class Log {
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this._0);
+		this._0[Symbol.dispose]();
 	}
 }
 

@@ -9,15 +9,15 @@ export class State {
 	producers: rt.usize;
 	waiters: WaiterList.WaiterList;
 
-	constructor(fields: { queue: rt.u64[]; closed: boolean; producers: rt.usize; waiters: WaiterList.WaiterList }) {
-		this.queue = fields.queue;
-		this.closed = fields.closed;
-		this.producers = fields.producers;
-		this.waiters = fields.waiters;
+	constructor(queue: rt.u64[], closed: boolean, producers: rt.usize, waiters: WaiterList.WaiterList) {
+		this.queue = queue;
+		this.closed = closed;
+		this.producers = producers;
+		this.waiters = waiters;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.waiters);
+		this.waiters[Symbol.dispose]();
 	}
 }
 
