@@ -52,6 +52,11 @@ export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A
 	return closure((...args: A) => callOnce(f, ...args), () => drop(f));
 }
 
+/** A function that calls `f` but never drops it, for a reference to a closure that something would drop. */
+export function lent<A extends unknown[], R>(f: (...args: A) => R): (...args: A) => R {
+	return (...args: A) => f(...args);
+}
+
 // Shared ownership
 
 /** `Arc<T>` and `Rc<T>`: every clone is this one object, counted, as are its `Weak`s. */

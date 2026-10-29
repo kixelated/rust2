@@ -18,6 +18,7 @@ import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
+import type * as Pair from "../pointers.Pair.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
@@ -396,6 +397,13 @@ export function mapOr$Option_Ordering_u8_order(self: rt.Ordering | undefined, de
 	return order(self);
 }
 
+export function mapOr$Option_Pair_u8_copies_closure0(self: Pair.Pair | undefined, default_: rt.u8, f: (a0: Pair.Pair) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Point_u8_known_closure0_closure0(self: Point.Point | undefined, default_: rt.u8, f: (a0: Point.Point) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -481,6 +489,13 @@ export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | unde
 }
 
 export function mapOr$Option_u64_u64_u8_borrows_closure1(self: [rt.u64, rt.u64] | undefined, default_: rt.u8, f: (a0: [rt.u64, rt.u64]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u8_Arc_u8_u8_shared_closure0(self: [rt.u8, rt.Arc<rt.u8>] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.Arc<rt.u8>]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -706,6 +721,16 @@ export function filter$Option_Option_u8_made_closure2(self: rt.u8 | undefined | 
 export function filter$Option_String_owned_closure1(self: string | undefined, predicate: (a0: string) => boolean): string | undefined {
 	if (self !== undefined) {
 		const x: string = self;
+		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$Option_u32_sentinels_closure0(self: rt.u32 | undefined, predicate: (a0: rt.u32) => boolean): rt.u32 | undefined {
+	if (self !== undefined) {
+		const x: rt.u32 = self;
 		if (predicate(x)) {
 			return x;
 		}

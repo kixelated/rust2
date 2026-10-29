@@ -335,3 +335,40 @@ pub fn peek_all(values: &[Opaque]) -> usize {
 pub fn none_opaque() -> &'static [Opaque] {
 	&[]
 }
+
+/// A conversion only from what outlives every call, which C cannot lend.
+impl From<&'static u32> for Excluded {
+	fn from(_: &'static u32) -> Self {
+		Excluded
+	}
+}
+
+/// Takes only a `'static` borrow, through `Excluded`'s `From`.
+pub fn stash(value: impl Into<Excluded>) -> u32 {
+	let _ = value.into();
+	0
+}
+
+/// Excluded, borrowing what it converts from.
+pub struct Held<'a>(pub &'a u32);
+
+impl<'a> From<&'a u32> for Held<'a> {
+	fn from(value: &'a u32) -> Self {
+		Held(value)
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the target's lifetime demands.
+pub fn hold(value: impl Into<Held<'static>>) -> u32 {
+	*value.into().0
+}
+
+/// Takes a borrow only for as long as `'static`, which its own lifetime bound demands.
+pub fn bound<'a: 'static>(value: impl Into<Held<'a>>) -> u32 {
+	*value.into().0
+}
+
+/// Takes a borrow only for as long as `'static`, which its parameter's bound demands.
+pub fn kept<'a>(value: impl Into<Held<'a>> + 'static) -> u32 {
+	*value.into().0
+}

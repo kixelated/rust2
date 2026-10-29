@@ -19,9 +19,11 @@ mod iter;
 mod library;
 mod mir;
 mod num;
+pub mod pointer;
 mod stock;
 mod task;
 mod time;
+pub mod unions;
 
 use std::collections::VecDeque;
 
@@ -268,6 +270,8 @@ pub enum AdtRepr {
 	Tags,
 	/// An enum: an object per variant, tagged by its name.
 	Union,
+	/// A union: an object of slots, and each field's parts in them, as `unions` has it.
+	Slots(unions::Fields),
 }
 
 /// A JS object that a `&mut` can change in place.
@@ -923,6 +927,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	fn define(&mut self, adt: AdtDef<'tcx>, span: Span) -> Adt {
 		let tcx = self.tcx;
 		let did = adt.did();
+		let mut overlay = Vec::new();
 		let repr = match () {
 			_ if adt.is_struct() => {
 				let variant = adt.non_enum_variant();
@@ -938,10 +943,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 			_ if adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty()) => AdtRepr::Tags,
 			_ if adt.is_enum() => AdtRepr::Union,
-			_ => {
-				self.err(span, format!("unions are not supported: `{}`", tcx.def_path_str(did)));
-				AdtRepr::Union
-			}
+			_ => match self.overlay(adt, span) {
+				Ok((fields, slots)) => {
+					overlay = slots;
+					AdtRepr::Slots(fields)
+				}
+				Err(msg) => {
+					self.err(span, msg);
+					AdtRepr::Slots(vec![Vec::new(); adt.non_enum_variant().fields.len()])
+				}
+			},
 		};
 		let kind = match repr {
 			AdtRepr::Struct { .. } => SymKind::Struct,
@@ -1030,6 +1041,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 				doc: self.doc(did),
 			},
+			AdtRepr::Slots(_) => Item::Union {
+				sym,
+				params,
+				ty: self.overlay_ty(overlay, span),
+				doc: self.doc(did),
+			},
 			AdtRepr::Union => {
 				let variants = adt
 					.variants()
@@ -1089,7 +1106,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, _) if self.bound_drops(adt.did()).is_some() => {
 				(!self.is_copy(ty)).then_some(ObjectKind::Class)
 			}
-			ty::Adt(adt, _) => match library::Std::of(self.tcx, adt.did()) {
+			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
 				Some(library::Std::Vec) => Some(ObjectKind::Vec),
 				Some(
 					library::Std::Formatter
@@ -1124,8 +1141,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Hasher
 					| library::Std::ThreadRng,
 				) => Some(ObjectKind::Class),
+				// A place, unless a pointer to what it holds is that object.
+				Some(library::Std::MaybeUninit) => match self.pointee(args.type_at(0)) {
+					pointer::Pointee::Object => self.object_kind(args.type_at(0)),
+					pointer::Pointee::Place => None,
+				},
 				Some(_) => None,
-				None if adt.is_struct() => Some(ObjectKind::Class),
+				None if adt.is_struct() || adt.is_union() => Some(ObjectKind::Class),
 				None => None,
 			},
 			// Its captures change through it, as a JS function's do.
@@ -1147,6 +1169,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	pub fn place_pointee(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		match ty.kind() {
 			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.needs_place(*inner) => Some(*inner),
+			ty::RawPtr(..) => self.raw_place(ty),
 			_ => None,
 		}
 	}
@@ -1197,6 +1220,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				);
 				Type::Builtin("unknown")
 			}
+			ty::RawPtr(inner, _) => self.pointer_ty(*inner, span),
 			ty::Ref(..) if bytes_ref(ty) => Type::Rt("ByteSlice", vec![]),
 			ty::Ref(_, inner, _) => self.ty(*inner, span),
 			ty::Array(elem, _) => match elem.kind() {
@@ -1233,6 +1257,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			{
 				Type::Rt("Fmt", vec![])
 			}
+			ty::Dynamic(..) if let Some(f) = self.dyn_fn(ty) => self.fn_ty(&f.inputs, f.output, span),
 			ty::Dynamic(..) => match self.object(ty, span) {
 				Some(object) => Type::Sym(object.sym, Vec::new()),
 				None => Type::Builtin("unknown"),
@@ -1422,7 +1447,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
-				library::Std::NonNull => self.ty(args.type_at(0), span),
+				library::Std::NonNull => self.pointer_ty(args.type_at(0), span),
+				library::Std::MaybeUninit => self.ty(args.type_at(0), span),
 				library::Std::Peekable => {
 					let item = self.iter_item(Ty::new_adt(tcx, adt, args));
 					Type::Rt("Peekable", vec![self.item_ty(item, span)])
@@ -1630,6 +1656,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::NonZero
 					| library::Std::PoisonError,
 				) => self.erases_to(args.type_at(0)),
+				// `undefined` while it holds nothing.
+				Some(library::Std::MaybeUninit) => Erased {
+					undefined: true,
+					..self.erases_to(args.type_at(0))
+				},
 				Some(library::Std::Option) => self.erases_to(args.type_at(0)).option(),
 				Some(library::Std::Poll) => self.erases_to(args.type_at(0)).poll(),
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {

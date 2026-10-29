@@ -641,6 +641,33 @@ static int script(void) {
 	api_vec_u32 sums = api_sums((api_vec_vec_u32){.ptr = rows, .len = 3});
 	printf("sums [%u, %u, %u]\n", sums.ptr[0], sums.ptr[1], sums.ptr[2]);
 	api_vec_u32_free(sums);
+	api_point summands[] = {{.x = 1, .y = 2}, {.x = -4, .y = 6}};
+	api_point summed = api_summed((api_vec_point){.ptr = summands, .len = 2});
+	api_point none_summed = api_summed((api_vec_point){.ptr = summands, .len = 0});
+	printf("summed %d %d %d %d\n", summed.x, summed.y, none_summed.x, none_summed.y);
+	api_buf longest_words[] = {str("a"), str("abc")};
+	size_t most = api_longest((api_vec_string){.ptr = longest_words, .len = 2});
+	size_t no_longest = api_longest((api_vec_string){.ptr = longest_words, .len = 0});
+	printf("longest %zu %zu\n", most, no_longest);
+
+	/* JSON crosses as a document, made from text and read back as text. */
+	api_json *doc;
+	if (!api_json_parse(str("{\"b\": [1, 2.5, null], \"a\": \"\\u00e9\"}"), &doc, &parse_err)) {
+		return 1;
+	}
+	print("json ", api_encode(doc), "\n");
+	print("timed text ", api_timed_text(doc), "\n");
+	api_json *tagged = api_tagged(doc, str("t"));
+	api_json_free(doc);
+	print("tagged ", api_json_to_text(tagged), "\n");
+	api_json_free(tagged);
+	api_json *broken;
+	if (api_json_parse(str("{\"a\":"), &broken, &parse_err)) {
+		print("json parse ", api_json_to_text(broken), "\n");
+		api_json_free(broken);
+	} else {
+		print("json parse err ", parse_err, "\n");
+	}
 
 	api_url *home;
 	if (!api_url_parse(str("https://example.com/a/b"), &home, &parse_err)) {
