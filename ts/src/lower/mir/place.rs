@@ -1245,43 +1245,52 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// The module value of the static `item`, which `ty` borrows whole, made the first time
-	/// from the value the static starts with: so far only an atomic's, as a static every use
-	/// shares and writes into, which the static's memory holds even when it is another crate's.
+	/// from the memory it starts with, which a static has even when it is another crate's:
+	/// an atomic's `rt.Atomic`, or an immutable one's bytes, one object every use shares.
 	fn static_value(&mut self, item: DefId, ty: Ty<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
 		let static_ty = tcx.type_of(item).instantiate_identity().skip_norm_wip();
-		// An `AtomicPtr`'s pointer has no `rt.Atomic`.
-		let int = match static_ty.kind() {
-			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Atomic) => args.type_at(0),
-			_ => return self.err(span, format!("a static of type `{static_ty}`")),
-		};
-		if !int.is_bool() && !int.is_integral() {
-			return self.err(span, format!("a static of type `{static_ty}`"));
-		}
 		if tcx.is_mutable_static(item) || ty.builtin_deref(true) != Some(static_ty) {
 			return self.err(span, format!("a constant of type `{ty}` into a static"));
 		}
-		let env = self.b.t.typing_env_pub();
-		let (Ok(alloc), Ok(layout)) = (
-			tcx.eval_static_initializer(item),
-			tcx.layout_of(env.as_query_input(int)),
-		) else {
+		let Ok(alloc) = tcx.eval_static_initializer(item) else {
 			return self.err(span, "a static that failed to evaluate");
 		};
-		let Ok(scalar) = alloc
-			.inner()
-			.read_scalar(&tcx, alloc_range(Size::ZERO, layout.size), false)
-		else {
-			return self.err(span, format!("a static of type `{static_ty}` that holds a pointer"));
+		let value = match static_ty.kind() {
+			// An `AtomicPtr`'s pointer has no `rt.Atomic`.
+			ty::Adt(adt, args)
+				if Std::of(tcx, adt.did()) == Some(Std::Atomic)
+					&& (args.type_at(0).is_bool() || args.type_at(0).is_integral()) =>
+			{
+				let int = args.type_at(0);
+				let env = self.b.t.typing_env_pub();
+				let Ok(layout) = tcx.layout_of(env.as_query_input(int)) else {
+					return self.err(span, format!("a static of type `{static_ty}`"));
+				};
+				let Ok(scalar) = alloc
+					.inner()
+					.read_scalar(&tcx, alloc_range(Size::ZERO, layout.size), false)
+				else {
+					return self.err(span, format!("a static of type `{static_ty}` that holds a pointer"));
+				};
+				let int = self.const_value(ConstValue::Scalar(scalar), int, span);
+				Expr::New(Box::new(Expr::Rt("Atomic".into())), vec![int])
+			}
+			ty::Array(elem, len)
+				if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) && len.try_to_target_usize(tcx).is_some() =>
+			{
+				let len = len.try_to_target_usize(tcx).unwrap() as usize;
+				bytes_lit(alloc.inner().inspect_with_uninit_and_ptr_outside_interpreter(0..len))
+			}
+			_ => return self.err(span, format!("a static of type `{static_ty}`")),
 		};
 		let (sym, new) = self.module_value(item);
 		if new {
-			let value = self.const_value(ConstValue::Scalar(scalar), int, span);
-			let ty = self.b.t.ty(static_ty, span);
+			let ty = self.b.t.ty(ty, span);
 			self.b.t.program.items.push(Item::Value {
 				sym,
 				ty,
-				value: Expr::New(Box::new(Expr::Rt("Atomic".into())), vec![value]),
+				value,
 				doc: None,
 			});
 		}
@@ -1351,18 +1360,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ConstValue::Scalar(Scalar::Ptr(ptr, _)) => {
 				let (prov, offset) = ptr.prov_and_relative_offset();
 				let alloc = match tcx.global_alloc(prov.alloc_id()) {
-					GlobalAlloc::Static(item) if matches!(ty.peel_refs().kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Atomic)) =>
-					{
+					GlobalAlloc::Static(item) => {
 						return match offset.bytes() {
 							0 => self.static_value(item, ty, span),
 							_ => self.err(span, format!("a constant of type `{ty}` into a static")),
 						};
-					}
-					GlobalAlloc::Static(item) if !tcx.is_mutable_static(item) => {
-						match tcx.eval_static_initializer(item) {
-							Ok(alloc) => alloc,
-							Err(_) => return self.err(span, "a static that failed to evaluate"),
-						}
 					}
 					GlobalAlloc::Memory(alloc) => alloc,
 					_ => return self.err(span, format!("a constant of type `{ty}`")),
@@ -1378,13 +1380,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					return self.err(span, format!("a constant of type `{ty}`"));
 				};
 				let start = offset.bytes() as usize;
-				let bytes = alloc
-					.inner()
-					.inspect_with_uninit_and_ptr_outside_interpreter(start..start + len as usize);
-				let items = bytes.iter().map(|b| Expr::lit(b.to_string())).collect();
-				Expr::rt(
-					"byteSliceFrom",
-					vec![Expr::ident("Uint8Array").member("of").call(items)],
+				bytes_lit(
+					alloc
+						.inner()
+						.inspect_with_uninit_and_ptr_outside_interpreter(start..start + len as usize),
 				)
 			}
 			ConstValue::Slice { .. } => {
@@ -1396,13 +1395,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						Ok(s) => Expr::Str(s.to_string()),
 						Err(_) => self.err(span, "a string constant that is not UTF-8"),
 					},
-					ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
-						let items = bytes.iter().map(|b| Expr::lit(b.to_string())).collect();
-						Expr::rt(
-							"byteSliceFrom",
-							vec![Expr::ident("Uint8Array").member("of").call(items)],
-						)
-					}
+					ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => bytes_lit(bytes),
 					_ => self.err(span, format!("a slice constant of type `{ty}`")),
 				}
 			}
@@ -1758,4 +1751,13 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		}
 		false
 	}
+}
+
+/// An `rt.ByteSlice` of `bytes`.
+fn bytes_lit(bytes: &[u8]) -> Expr {
+	let items = bytes.iter().map(|b| Expr::lit(b.to_string())).collect();
+	Expr::rt(
+		"byteSliceFrom",
+		vec![Expr::ident("Uint8Array").member("of").call(items)],
+	)
 }

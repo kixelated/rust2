@@ -12,6 +12,8 @@ export const WIDE: rt.Atomic<rt.i64> = /* @__PURE__ */ new rt.Atomic({ hi: -0x80
 
 export const SIZE: rt.Atomic<rt.usize> = /* @__PURE__ */ new rt.Atomic(7);
 
+export const TABLE: rt.ByteSlice = /* @__PURE__ */ rt.byteSliceFrom(Uint8Array.of(9, 8, 7, 6));
+
 /**
  * Each byte an operation on the statics; each puts what it read. First, what each holds,
  * which only the value it starts with can be.
@@ -58,12 +60,12 @@ export function statics(data: rt.ByteSlice, out: rt.ByteVec): void {
 				continue;
 			}
 		}
-		const _82: rt.ByteSlice = table();
-		const _83: rt.usize = rt.usizeRem(n as rt.usize, 4);
-		if (!(_83 < 4)) {
-			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _83);
+		const _83: rt.ByteSlice = table();
+		const _84: rt.usize = rt.usizeRem(n as rt.usize, 4);
+		if (!(_84 < 4)) {
+			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _84);
 		}
-		rt.byteVecPush(out, _82.data[_82.start + _83]);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_83.data[_83.start + _84], table() === table() ? 1 : 0)));
 	}
 	rt.atomicStore(COUNT, { hi: 0xffffffff, lo: 0xfffffffd } as rt.u64, 0);
 	rt.atomicStore(SIGNED, -128, 0);
@@ -74,7 +76,7 @@ export function statics(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 export function table(): rt.ByteSlice {
-	return rt.byteSliceFrom(Uint8Array.of(9, 8, 7, 6));
+	return TABLE;
 }
 
 /** The next id from a static in a function, as kio's `waiter` takes one; starts over if `reset`. */

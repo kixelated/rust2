@@ -43,7 +43,8 @@ pub fn statics(data: &[u8], out: &mut Vec<u8>) {
 				);
 			}
 			5 if n % 2 == 0 => out.push(next(false)),
-			_ => out.push(table()[usize::from(n) % 4]),
+			// One table, wherever it is borrowed.
+			_ => out.extend([table()[usize::from(n) % 4], u8::from(std::ptr::eq(table(), table()))]),
 		}
 	}
 	COUNT.store(u64::MAX - 2, Relaxed);
