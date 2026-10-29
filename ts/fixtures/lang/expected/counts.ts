@@ -159,13 +159,13 @@ export function arcs(dataData: Uint8Array, dataStart: number, dataLen: number, o
  * handles to itself; then kept, dropped, or dropped with a handle outside. Each puts what it read and what
  * dropped.
  */
-export function cyclicArcs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function cyclicArcs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let node!: rt.Arc<ArcNode.ArcNode>;
 	let _95: boolean = false;
 	const log: rt.Arc<rt.Mutex<rt.ByteVec>> = new rt.Arc(new rt.Mutex(new rt.ByteVec()));
 	const kept: rt.Arc<ArcNode.ArcNode>[] = [];
 	const outside: rt.Weak<ArcNode.ArcNode>[] = [];
-	for (const op of rt.byteSliceView(data)) {
+	for (const op of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const _15: rt.Arc<rt.Mutex<rt.ByteVec>> = rt.arcClone(log);
 		_95 = true;
 		const noisy: Noisy.Noisy = new Noisy.Noisy(op, _15);
@@ -250,13 +250,13 @@ export function cyclicArcs(data: rt.ByteSlice, out: rt.ByteVec): void {
  * handles to itself; then kept, dropped, or dropped with a handle outside. Each puts what it read and what
  * dropped.
  */
-export function cyclicRcs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function cyclicRcs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let node!: rt.Arc<RcNode.RcNode>;
 	let _95: boolean = false;
 	const log: rt.Arc<rt.Mutex<rt.ByteVec>> = new rt.Arc(new rt.Mutex(new rt.ByteVec()));
 	const kept: rt.Arc<RcNode.RcNode>[] = [];
 	const outside: rt.Weak<RcNode.RcNode>[] = [];
-	for (const op of rt.byteSliceView(data)) {
+	for (const op of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const _15: rt.Arc<rt.Mutex<rt.ByteVec>> = rt.arcClone(log);
 		_95 = true;
 		const noisy: Noisy.Noisy = new Noisy.Noisy(op, _15);

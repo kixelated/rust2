@@ -178,7 +178,7 @@ export function guarded(dataData: Uint8Array, dataStart: number, dataLen: number
 	const part2: Uint8Array = wideOut.p_1Data;
 	const part3: number = wideOut.p_1Start;
 	const part4: number = wideOut.p_1Len;
-	rt.drop(new Guard.Guard(new rt.ByteSlice(otherData, otherStart, otherLen), dataLen & 0xff));
+	new Guard.Guard(new rt.ByteSlice(otherData, otherStart, otherLen), dataLen & 0xff)[Symbol.dispose]();
 	if (err !== undefined) {
 		return err as Error.Error;
 	}
