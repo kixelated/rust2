@@ -66,7 +66,9 @@ fn api() {
 		.arg(out.join("Cargo.toml"))
 		.arg("--target-dir")
 		.arg(&target)
-		.args(["--features", "kotlin"]));
+		.args(["--features", "kotlin"])
+		// Glue the exporter writes builds without warnings.
+		.env("RUSTFLAGS", "-D warnings"));
 
 	let exe = scratch().join("api").join("api-test");
 	let cc = std::env::var_os("CC").unwrap_or_else(|| "cc".into());

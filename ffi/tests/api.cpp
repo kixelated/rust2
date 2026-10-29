@@ -192,6 +192,7 @@ int script() {
 	std::printf("set first %llu ", ull(registry.first().get()));
 	print("", registry.first().name(), "\n");
 	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
+	std::printf("each %u\n", api::each(2, [](std::uint32_t at) { std::printf("visit %u\n", at); }));
 	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
 
 	// A type generic only over lifetimes is a handle to its 'static form.
@@ -235,6 +236,9 @@ int script() {
 
 	print("", api::greet("x", api::shape::square), "\n");
 	std::printf("len %zu\n", api::len("abc"));
+	const std::uint8_t binary[] = {0xff, 0x00, 'a'};
+	print("hex ", api::hex(api::view(binary, sizeof binary)), "\n");
+	print("timed hex ", api::timed_hex(api::view(binary, sizeof binary)), "\n");
 	api::event events[] = {api::event_moved{p}, api::event_named{api::buf("n")}, api::event_done{}};
 	for (const auto &event : events) {
 		print("", api::describe(event), "\n");
@@ -503,6 +507,21 @@ int script() {
 
 	auto sums = api::sums({{1, 2}, {}, {3}});
 	std::printf("sums [%u, %u, %u]\n", sums[0], sums[1], sums[2]);
+	auto summed = api::summed({{1, 2}, {-4, 6}});
+	auto none_summed = api::summed({});
+	std::printf("summed %d %d %d %d\n", summed.x, summed.y, none_summed.x, none_summed.y);
+	std::printf("longest %zu %zu\n", api::longest({"a", "abc"}), api::longest({}));
+
+	api::json doc = api::json::parse(R"({"b": [1, 2.5, null], "a": "\u00e9"})").value();
+	print("json ", api::encode(doc), "\n");
+	print("timed text ", api::timed_text(doc), "\n");
+	api::json tagged = api::tagged(std::move(doc), "t");
+	print("tagged ", tagged.to_text(), "\n");
+	if (auto parsed = api::json::parse("{\"a\":")) {
+		print("json parse ", parsed->to_text(), "\n");
+	} else {
+		print("json parse err ", parsed.error(), "\n");
+	}
 
 	api::site site = api::site::new_(base);
 	print("site ", site.home().to_string(), " ");

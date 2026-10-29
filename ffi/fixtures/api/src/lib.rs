@@ -585,6 +585,12 @@ pub fn walk(steps: u64, mut visit: impl FnMut(&Cursor) -> u64) -> u64 {
 	(0..steps).map(|at| visit(&Cursor { at })).sum()
 }
 
+/// Each of `0..steps` passed to `visit`, which returns nothing; how many it visited.
+pub fn each(steps: u32, mut visit: impl FnMut(u32)) -> u32 {
+	(0..steps).for_each(&mut visit);
+	steps
+}
+
 /// The tally lent shared to `peek` for the call, on one thread, as it is not `Sync`.
 pub fn peek(tally: &Tally, peek: impl FnOnce(&Tally) -> u32) -> u32 {
 	peek(tally)
@@ -593,6 +599,79 @@ pub fn peek(tally: &Tally, peek: impl FnOnce(&Tally) -> u32) -> u32 {
 /// The length of a payload, borrowed for the call.
 pub fn len(payload: &[u8]) -> usize {
 	payload.len()
+}
+
+/// Converts into owned bytes, as moq's `IntoBytes` does: text implements it too, but its
+/// supertrait makes a parameter it bounds bytes, and owned ones, as it must be `'static`.
+pub trait Payload: AsRef<[u8]> + 'static {
+	fn into_bytes(self) -> Bytes;
+}
+
+impl Payload for Bytes {
+	fn into_bytes(self) -> Bytes {
+		self
+	}
+}
+
+impl Payload for Vec<u8> {
+	fn into_bytes(self) -> Bytes {
+		self.into()
+	}
+}
+
+impl Payload for String {
+	fn into_bytes(self) -> Bytes {
+		self.into()
+	}
+}
+
+impl Payload for &'static str {
+	fn into_bytes(self) -> Bytes {
+		Bytes::from_static(self.as_bytes())
+	}
+}
+
+impl Payload for &'static [u8] {
+	fn into_bytes(self) -> Bytes {
+		Bytes::from_static(self)
+	}
+}
+
+/// A payload's bytes in hex, which need not be UTF-8.
+pub fn hex(payload: impl Payload) -> String {
+	payload.into_bytes().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// A value and when it was stamped, as moq's `Timed` is, which bytes convert into.
+pub struct Timed<P> {
+	pub value: P,
+	pub at: Option<Stamp>,
+}
+
+impl<B: AsRef<[u8]>> From<B> for Timed<Bytes> {
+	fn from(value: B) -> Self {
+		Self {
+			value: Bytes::copy_from_slice(value.as_ref()),
+			at: None,
+		}
+	}
+}
+
+/// A timed payload's bytes in hex, which need not be UTF-8, owned as it is `'static`.
+pub fn timed_hex(payload: impl Into<Timed<Bytes>> + 'static) -> String {
+	hex(payload.into().value)
+}
+
+/// A reference stamped with no time, as moq's `Timed` converts one.
+impl<'a, V> From<&'a V> for Timed<&'a V> {
+	fn from(value: &'a V) -> Self {
+		Self { value, at: None }
+	}
+}
+
+/// A timed value's compact JSON text, taken as moq's JSON tracks take theirs.
+pub fn timed_text<'a, T: serde::Serialize + 'a>(value: impl Into<Timed<&'a T>>) -> String {
+	serde_json::to_string(value.into().value).expect("a JSON document serializes")
 }
 
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
@@ -968,6 +1047,29 @@ pub fn worth(some: Option<Vec<Counter>>, boxed: Box<Vec<Counter>>) -> u64 {
 /// Each row's sum.
 pub fn sums(rows: Vec<Vec<u32>>) -> Vec<u32> {
 	rows.iter().map(|row| row.iter().sum()).collect()
+}
+
+/// The points added up, from anything that iterates them.
+pub fn summed(points: impl IntoIterator<Item = Point>) -> Point {
+	points.into_iter().fold(Point::default(), |sum, p| sum.offset(p.x, p.y))
+}
+
+/// The length of the longest word, naming its iterator.
+pub fn longest<I>(words: I) -> usize
+where
+	I: IntoIterator<Item = String>,
+{
+	words.into_iter().map(|word| word.len()).max().unwrap_or(0)
+}
+
+/// `value` as compact JSON text: a serde bound takes a JSON document.
+pub fn encode<T: serde::Serialize>(value: &T) -> String {
+	serde_json::to_string(value).expect("a JSON document serializes")
+}
+
+/// `doc` under `tag`, as a new document.
+pub fn tagged(doc: serde_json::Value, tag: &str) -> serde_json::Value {
+	serde_json::json!({ "tag": tag, "doc": doc })
 }
 
 /// A site: every field is `pub`, but a URL is a handle C cannot copy, so it is an object

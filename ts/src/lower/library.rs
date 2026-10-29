@@ -101,8 +101,10 @@ pub enum Std {
 	NonZero,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
-	/// Its pointee: what an async body passes its context in.
+	/// A raw pointer to its pointee, as `pointer` has it.
 	NonNull,
+	/// What it holds, or nothing yet, as `pointer` has it.
+	MaybeUninit,
 	/// No value: `never`.
 	Infallible,
 	/// `rt.HashMap`, and `rt.HashSet`, a map to `undefined`.
@@ -214,6 +216,7 @@ impl Std {
 			["ops", "control_flow", "ControlFlow"] => Some(Self::ControlFlow),
 			["fmt", "rt", "Argument"] => Some(Self::Argument),
 			["ptr", "non_null", "NonNull"] => Some(Self::NonNull),
+			["mem", "maybe_uninit", "MaybeUninit"] => Some(Self::MaybeUninit),
 			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
 			["future", "pending", "Pending"] => Some(Self::Pending),
 			["convert", "Infallible"] => Some(Self::Infallible),
@@ -547,14 +550,18 @@ pub struct Call<'tcx> {
 /// What the mapping of `owner::name` may discard of the operands it takes by value, rather
 /// than move into its result or a closure, as it returns: the types, by their index among
 /// the call's type arguments, whose droppers its runtime function takes after its own
-/// arguments, as `unwrap_or` drops its fallback. `None` for any other mapping, which is
+/// arguments, as `unwrap_or` drops its fallback, or a function it always calls once
+/// through `FnOnce`, which that call consumes. `None` for any other mapping, which is
 /// refused an operand that drops. Iterators refuse their own.
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "unwrap" | "expect")
 		| ("Vec", "push")
 		| ("Box", "new" | "pin")
-		| ("mem", "replace" | "take" | "swap")
+		| ("mem", "replace" | "take" | "swap" | "forget")
+		| ("ptr", "write" | "write_unaligned" | "write_volatile" | "replace")
+		| ("MaybeUninit", "new" | "write" | "assume_init")
+		| ("Box", "into_raw" | "leak" | "from_raw")
 		| ("hint", "must_use")
 		| ("From", "from")
 		| ("Into", "into")
@@ -566,6 +573,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
+		("Arc" | "Rc", "new_cyclic") => &[1],
 		_ => return None,
 	})
 }
@@ -587,6 +595,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
+				| ("ptr", "as_ref" | "as_mut")
 		)
 }
 
@@ -774,6 +783,8 @@ pub fn key(tcx: TyCtxt<'_>, def_id: DefId) -> Option<(String, String)> {
 			ty::Bool => "bool".into(),
 			ty::Char => "char".into(),
 			ty::Int(_) | ty::Uint(_) | ty::Float(_) => self_ty.to_string(),
+			// `<*const T>::read` is `ptr::read`.
+			ty::RawPtr(..) => "ptr".into(),
 			ty::Dynamic(preds, ..) => format!("dyn {}", tcx.item_name(preds.principal_def_id()?)),
 			_ => return None,
 		};
@@ -841,6 +852,10 @@ fn mapping<'tcx>(
 		Err(args) => args,
 	};
 	let args = match super::dynamic::call(b, call, &owner, &name, args, out) {
+		Ok(e) => return e,
+		Err(args) => args,
+	};
+	let args = match super::pointer::call(b, call, &owner, &name, args, out) {
 		Ok(e) => return e,
 		Err(args) => args,
 	};
@@ -1189,9 +1204,11 @@ fn mapping<'tcx>(
 				false => return vec_clone(b, slice, elem, span),
 			}
 		}
-		("slice", "last") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceLast", args),
-		("slice", "reverse") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceReverse", args),
-		("slice", "swap") if !is_u8(targ(gargs, 0)) => Expr::rt("sliceSwap", args),
+		("slice", "last" | "swap") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		("slice", "reverse") => elements(args.pop()?, Ty::new_slice(tcx, targ(gargs, 0))).method("reverse", Vec::new()),
 		("slice", "contains") => {
 			let elem = targ(gargs, 0);
 			let [s, x] = <[Expr; 2]>::try_from(args).ok()?;
@@ -1207,9 +1224,13 @@ fn mapping<'tcx>(
 		(
 			"slice",
 			"sort" | "sort_unstable" | "sort_by" | "sort_unstable_by" | "sort_by_key" | "sort_unstable_by_key",
-		) if !is_u8(targ(gargs, 0)) => {
+		) => {
+			let elem = targ(gargs, 0);
 			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
 			match name.as_str() {
+				// A typed array sorts its numbers by value, and equal bytes are alike.
+				"sort" | "sort_unstable" if is_u8(elem) => values.remove(0).method("sort", Vec::new()),
 				"sort" | "sort_unstable" => {
 					values.push(super::collections::test_fn(b, targ(gargs, 0), "lt", span));
 					Expr::rt("sliceSort", values)
@@ -1302,31 +1323,43 @@ fn mapping<'tcx>(
 			}
 			Expr::rt("vecExtendFromSlice", values)
 		}
-		("Vec", "swap_remove") if !is_u8(targ(gargs, 0)) => Expr::rt("vecSwapRemove", args),
-		("Vec", "insert" | "remove" | "truncate") if !is_u8(targ(gargs, 0)) => {
-			Expr::rt_of("vec", &super::camel(&name)).call(args)
+		("Vec", "insert" | "remove" | "swap_remove") if is_u8(targ(gargs, 0)) => {
+			rt2(args, "byteVec", &super::camel(&name))
 		}
+		("Vec", "insert" | "remove" | "swap_remove" | "truncate") => rt2(args, "vec", &super::camel(&name)),
 		("Vec", "clear") => {
 			let mut values = args;
 			values.push(Expr::lit("0"));
 			Expr::rt("vecTruncate", values)
 		}
-		// What each takes by value is a closure, which it drops once done.
-		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") if !is_u8(targ(gargs, 0)) => {
+		// What each takes by value is a closure, which it drops once done. An element JS
+		// copies is lent to the closure as its place where it takes a `&mut`.
+		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key") => {
 			if let Some(ty) = dropping_operand(b, call) {
 				return Some(b.err(
 					span,
 					format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
 				));
 			}
+			let elem = targ(gargs, 0);
+			let of = match is_u8(elem) {
+				true => "byteVec",
+				false => "vec",
+			};
+			let lend = match b.t.needs_place(elem) {
+				true => "Mut",
+				false => "",
+			};
 			let mut values = args;
-			match name.as_str() {
-				"retain" | "retain_mut" => Expr::rt("vecRetain", values),
+			let f = match name.as_str() {
+				"retain" => "retain".to_string(),
+				"retain_mut" => format!("retain{lend}"),
+				"dedup" if is_u8(elem) => "dedup".to_string(),
 				"dedup" => {
-					values.push(super::collections::eq_fn(b, targ(gargs, 0), span));
-					Expr::rt("vecDedupBy", values)
+					values.push(super::collections::eq_fn(b, elem, span));
+					"dedupBy".to_string()
 				}
-				"dedup_by" => Expr::rt("vecDedupBy", values),
+				"dedup_by" => format!("dedupBy{lend}"),
 				_ => {
 					// `Vec<T, A>::dedup_by_key::<F, K>`.
 					let key = targ(gargs, 3);
@@ -1337,9 +1370,10 @@ fn mapping<'tcx>(
 						));
 					}
 					values.push(super::collections::eq_fn(b, key, span));
-					Expr::rt("vecDedupByKey", values)
+					format!("dedupByKey{lend}")
 				}
-			}
+			};
+			rt2(values, of, &f)
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;

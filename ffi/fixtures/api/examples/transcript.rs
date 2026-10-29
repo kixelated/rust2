@@ -120,6 +120,7 @@ fn main() {
 	registry.first = Counter::new("second", 3);
 	println!("set first {} {}", registry.first.get(), registry.first.name());
 	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
+	println!("each {}", api_lib::each(2, |at| println!("visit {at}")));
 	println!("offset {}", api_lib::offset(|| 7, 3));
 
 	let name = Name::owned("a".to_string());
@@ -151,6 +152,8 @@ fn main() {
 
 	println!("{}", api_lib::greet("x", Shape::Square));
 	println!("len {}", api_lib::len(b"abc"));
+	println!("hex {}", api_lib::hex(Bytes::from_static(b"\xff\x00a")));
+	println!("timed hex {}", api_lib::timed_hex(Bytes::from_static(b"\xff\x00a")));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}
@@ -368,6 +371,22 @@ fn main() {
 		api_lib::worth(None, Box::default())
 	);
 	println!("sums {:?}", api_lib::sums(vec![vec![1, 2], Vec::new(), vec![3]]));
+	let summed = api_lib::summed([Point { x: 1, y: 2 }, Point { x: -4, y: 6 }]);
+	let none = api_lib::summed([]);
+	println!("summed {} {} {} {}", summed.x, summed.y, none.x, none.y);
+	println!(
+		"longest {} {}",
+		api_lib::longest(["a".to_string(), "abc".to_string()]),
+		api_lib::longest([])
+	);
+	let doc: serde_json::Value = r#"{"b": [1, 2.5, null], "a": "\u00e9"}"#.parse().expect("a JSON document");
+	println!("json {}", api_lib::encode(&doc));
+	println!("timed text {}", api_lib::timed_text(&doc));
+	println!("tagged {}", api_lib::tagged(doc, "t"));
+	match "{\"a\":".parse::<serde_json::Value>() {
+		Ok(doc) => println!("json parse {doc}"),
+		Err(err) => println!("json parse err {err}"),
+	}
 	let site = api_lib::Site::new(base);
 	println!("site {} {}", site.home, site.home);
 

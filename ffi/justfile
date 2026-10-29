@@ -68,7 +68,9 @@ moq checkout="": (standin checkout)
     cargo run --locked --quiet -- --config moq/ffi.toml --manifest-path target/moq-ffi/Cargo.toml --out "$out"
     # The lockfile the check resolved with pins what the export depends on.
     cp target/moq-ffi/Cargo.lock "$out/Cargo.lock"
-    cargo build --quiet --release --manifest-path "$out/Cargo.toml" --features kotlin
+    # A later nightly makes this future-compat lint a hard error; fail on it in moq's crates
+    # and the glue now, while the pin can still move.
+    RUSTFLAGS="-D recursion_depth_exceeding_limit" cargo build --quiet --release --manifest-path "$out/Cargo.toml" --features kotlin
     cc -std=c11 -pedantic -Wall -Wextra -Werror -I "$out/include" moq/moq.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/moq-test
     target/moq-test
     # The C++ header at OBS's standard, without exceptions or RTTI.
