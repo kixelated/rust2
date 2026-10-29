@@ -706,9 +706,10 @@ impl<'a> Abi<'a> {
 					// A returned tuple of borrows holds clones, as a `Vec` does.
 					let owned: Vec<Type> = elements.iter().map(owned).collect();
 					let name = self.tuple(elements);
+					let layout = |elements: &[Type]| elements.iter().map(|e| self.ty(e)).collect::<Vec<_>>();
 					match tuples.get(&name) {
 						// Its name runs its elements' together, which two nestings can share.
-						Some(other) if *other != owned => mixed.push((name, owned)),
+						Some(other) if layout(other) != layout(&owned) => mixed.push((name, owned)),
 						Some(_) => {}
 						None => {
 							tuples.insert(name, owned);

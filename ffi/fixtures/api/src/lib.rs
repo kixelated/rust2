@@ -247,6 +247,17 @@ pub fn doubled(value: Option<(Option<u32>,)>) -> Option<(Option<u32>,)> {
 	value.map(|(n,)| (n.map(|n| n * 2),))
 }
 
+/// A title, for formal speech: a tuple of one borrowed string, whose C struct one of an
+/// owned string shares.
+pub fn title(formal: bool) -> Option<(&'static str,)> {
+	formal.then_some(("Dr",))
+}
+
+/// `name`, unless empty: a tuple of one owned string.
+pub fn named(name: &str) -> Option<(String,)> {
+	(!name.is_empty()).then(|| (name.to_string(),))
+}
+
 /// `pair` with its sides swapped: a tuple taken by value.
 pub fn swapped(pair: (String, u32)) -> (u32, String) {
 	(pair.1, pair.0)
@@ -352,6 +363,15 @@ pub fn end(limit: u64) -> Bound<u64> {
 /// the pair a `RangeBounds` parameter takes.
 pub fn ends(limit: u64) -> (Bound<u64>, Bound<u64>) {
 	(Bound::Included(0), end(limit))
+}
+
+/// `n` if below `limit`, or else the bounds it falls outside: an error is the pair a
+/// `RangeBounds` parameter takes, not a tuple.
+pub fn below(n: u64, limit: u64) -> Result<u64, (Bound<u64>, Bound<u64>)> {
+	match n < limit {
+		true => Ok(n),
+		false => Err(ends(limit)),
+	}
 }
 
 /// A record of a range and a bound, which C holds after the structs they are.

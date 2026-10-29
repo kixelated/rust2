@@ -1815,7 +1815,7 @@ impl<'tcx> Collector<'tcx> {
 		// refused.
 		let mut collect = false;
 		if !future
-			&& self.ty(output, Pos::Return).is_err()
+			&& self.ret(output).is_err()
 			&& let Some(items) = self
 				.collected(output, env)
 				.and_then(|item| self.vec_of(normalize(item)))
@@ -1824,11 +1824,10 @@ impl<'tcx> Collector<'tcx> {
 			collect = true;
 		}
 		let (ok, err) = match output.kind() {
-			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => (
-				self.ty(args.type_at(0), Pos::Return),
-				Some(self.ty(args.type_at(1), Pos::Return)),
-			),
-			_ => (self.ty(output, Pos::Return), None),
+			ty::Adt(adt, args) if tcx.is_diagnostic_item(sym::Result, adt.did()) => {
+				(self.ret(args.type_at(0)), Some(self.ty(args.type_at(1), Pos::Return)))
+			}
+			_ => (self.ret(output), None),
 		};
 		let ok = ok.map_err(|why| errs.push(why)).ok();
 		let err = match err {
@@ -2722,6 +2721,28 @@ impl<'tcx> Collector<'tcx> {
 		(held, lent)
 	}
 
+	/// What a function returns: a tuple returned whole, even a pair of bounds, is written
+	/// through an out pointer per element.
+	fn ret(&self, ty: Ty<'tcx>) -> Result<Type, Why> {
+		match ty.kind() {
+			ty::Tuple(list) if !list.is_empty() => self.tuple(ty, Pos::Return),
+			_ => self.ty(ty, Pos::Return),
+		}
+	}
+
+	/// The tuple `ty`, each element mapped as inside a value at `pos`.
+	fn tuple(&self, ty: Ty<'tcx>, pos: Pos) -> Result<Type, Why> {
+		let elements = (ty.tuple_fields().iter())
+			.map(|element| self.ty(element, pos.inner()))
+			.collect::<Result<Vec<_>, _>>()?;
+		// C lends nothing inside a value, and an element lowered back into one is a clone
+		// of what Rust lent.
+		if elements.iter().any(borrows) && !matches!(pos, Pos::Return | Pos::Returned) {
+			return Err(why("tuple of references", ty.to_string()));
+		}
+		Ok(Type::Tuple(elements))
+	}
+
 	/// `(Bound<T>, Bound<T>)`, which a `RangeBounds<T>` parameter takes.
 	fn bounds(&self, int: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
@@ -3040,25 +3061,13 @@ impl<'tcx> Collector<'tcx> {
 				}
 			}
 			ty::Tuple(list) => match list.as_slice() {
-				// Returned whole, the pair is a tuple, written through an out pointer each.
 				[start, end]
-					if pos != Pos::Return
-						&& start == end
+					if start == end
 						&& let Some(int) = self.bound_of(*start) =>
 				{
 					Type::Bounds(int)
 				}
-				list => {
-					let elements = (list.iter())
-						.map(|element| self.ty(*element, pos.inner()))
-						.collect::<Result<Vec<_>, _>>()?;
-					// C lends nothing inside a value, and an element lowered back into one is
-					// a clone of what Rust lent.
-					if elements.iter().any(borrows) && !matches!(pos, Pos::Return | Pos::Returned) {
-						return Err(why("tuple of references", ty.to_string()));
-					}
-					Type::Tuple(elements)
-				}
+				_ => self.tuple(ty, pos)?,
 			},
 			ty::Array(..) => return Err(why("array", ty.to_string())),
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),

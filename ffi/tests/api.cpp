@@ -229,6 +229,10 @@ int script() {
 			std::printf("doubled Some((None,))\n");
 		}
 	}
+	// A borrowed string and an owned one share a tuple struct.
+	print("title Some((\"", std::get<0>(*api::title(true)), "\",)) ");
+	std::printf("%s ", api::title(false) ? "Some" : "None");
+	print("named Some((\"", std::get<0>(*api::named("x")), "\",))\n");
 
 	// Each lent counter is a new handle to a clone.
 	api::registry registry = api::registry::new_(api::counter::new_("first", 1));
@@ -298,6 +302,17 @@ int script() {
 	std::printf(" ");
 	print_bound(ends_end);
 	std::printf("\n");
+	for (std::uint64_t n : {2, 5}) {
+		if (auto r = api::below(n, 3)) {
+			std::printf("below %llu\n", ull(*r));
+		} else {
+			std::printf("below err ");
+			print_bound(r.error().start);
+			std::printf(" ");
+			print_bound(r.error().end);
+			std::printf("\n");
+		}
+	}
 	api::window window{{2, 8}, api::end(5)};
 	std::printf("window %s %s ", yes(window.contains(4)), yes(window.contains(6)));
 	print("", window.debug(), "\n");

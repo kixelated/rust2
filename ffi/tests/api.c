@@ -294,6 +294,13 @@ static int script(void) {
 			printf("doubled Some((Some(%u),))\n", doubled.value._0.value);
 		}
 	}
+	/* A borrowed string and an owned one share a tuple struct. */
+	api_option_tuple_string formal = api_title(true);
+	api_option_tuple_string informal = api_title(false);
+	api_option_tuple_string named = api_named(str("x"));
+	print("title Some((\"", formal.value._0, "\",)) ");
+	printf("%s ", informal.some ? "Some" : "None");
+	print("named Some((\"", named.value._0, "\",))\n");
 
 	/* Each lent counter is a new handle to a clone. */
 	api_registry *registry = api_registry_new(api_counter_new(str("first"), 1));
@@ -382,6 +389,20 @@ static int script(void) {
 	printf(" ");
 	print_bound(ends_end);
 	printf("\n");
+	uint64_t belows[] = {2, 5};
+	for (int i = 0; i < 2; i++) {
+		uint64_t n;
+		api_bounds_u64 outside;
+		if (api_below(belows[i], 3, &n, &outside)) {
+			printf("below %llu\n", (unsigned long long)n);
+		} else {
+			printf("below err ");
+			print_bound(outside.start);
+			printf(" ");
+			print_bound(outside.end);
+			printf("\n");
+		}
+	}
 	api_window window = {.range = {.start = 2, .end = 8}, .end = api_end(5)};
 	printf("window %s %s ", api_window_contains(&window, 4) ? "true" : "false",
 		   api_window_contains(&window, 6) ? "true" : "false");

@@ -109,6 +109,8 @@ fun script() {
 		val doubled = doubled(value)
 		println(if (doubled == null) "doubled None" else "doubled Some((${doubled.first?.let { "Some($it)" } ?: "None"},))")
 	}
+	// A borrowed string and an owned one share a tuple struct.
+	println("title Some((\"${title(true)!!.first}\",)) ${if (title(false) == null) "None" else "Some"} named Some((\"${named("x")!!.first}\",))")
 
 	// Each lent counter is a new handle to a clone.
 	val registry = Registry.new(Counter.new("first", 1u))
@@ -157,6 +159,13 @@ fun script() {
 	println("end ${bound(end(3u))} ${bound(end(0u))}")
 	val (endsStart, endsEnd) = ends(3u)
 	println("ends ${bound(endsStart)} ${bound(endsEnd)}")
+	for (n in listOf(2uL, 5uL)) {
+		try {
+			println("below ${below(n, 3u)}")
+		} catch (e: BoundsU64Exception) {
+			println("below err ${bound(e.error.start)} ${bound(e.error.end)}")
+		}
+	}
 	val window = Window(RangeU64(2u, 8u), end(5u))
 	println("window ${window.contains(4u)} ${window.contains(6u)} ${window.debug()}")
 
