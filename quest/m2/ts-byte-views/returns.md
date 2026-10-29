@@ -39,11 +39,13 @@ most. One out slot per payload type, which a forwarded result already fills, avo
   already. A slot sits beside the first function in source order that writes it, so its
   place doesn't depend on the order translation reaches them. `?`'s `Err` assigns a
   result held as its parts, so a function with early returns writes the slot at each.
-- Chrome's `time/` convert workloads, 7-12% slower than `main` in single runs, are V8's
-  variance between realms, not parts: the same code differed as much between two workers
-  of one run (`time/u64` 60 against 55, `btree/256` 113 against 152), and over 12 launches
-  each the medians matched (`time/` 58.2 on `main`, 58.0 here), with the same instruction
-  counts and inlining. One realm's A/A route doesn't capture this, so compare those
-  workloads over repeated runs.
+- Measured from the translator's own output on 2026-10-29, four `just ts bench` runs against
+  `main` at ccd52a0e. Chrome took 0.79-0.81 of `main`'s time on varint decode and 0.79-0.81
+  on frame decode, and Node 0.68-0.78 and 0.71-0.72. No run's Chrome A/A came under 5% at the
+  max: 5.5%, 61%, 16%, and 5.1%, with medians of 0.6-2.0%. It doesn't land on those runs.
+- Open: Chrome's `time/u64` conversions took 1.11-1.17x `main`'s time in all four runs, with
+  that workload's A/A within 4%, and `btree/` 1.08-1.28x in three of them. That is the bundle,
+  not V8's variance between realms, as an earlier note here had it. Leading-ones varints of
+  8 bytes took 1.06-1.20x. Find out why before landing.
 
 Public API: the translator's output for byte slices.
