@@ -55,6 +55,14 @@ fn swap_windows(a: &mut Window, b: &mut Window) {
 	std::mem::swap(a, b);
 }
 
+/// A local's own `Vec` swapped with the one a parameter points at, each kept apart.
+fn swap_in(v: &mut Vec<Arc<u8>>, with: &Arc<u8>) -> Vec<Arc<u8>> {
+	let mut mine = vec![Arc::clone(with)];
+	std::mem::swap(&mut mine, v);
+	v.push(Arc::clone(with));
+	mine
+}
+
 /// A reference a closure copied, which holds the array it points at.
 fn replace_captured(a: &mut [u16; 2], to: u16) -> [u16; 2] {
 	let mut g = move || std::mem::replace(&mut *a, [to, to.wrapping_add(1)]);
@@ -187,6 +195,10 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 			1 => out.push(park(&mut w, b)),
 			2 => swap_all(&mut w.held, &mut other),
 			3 => refill(&mut other, &mut bytes, &one, b),
+			4 if b % 2 == 0 => {
+				let mine = swap_in(&mut other, &two);
+				counts(out, &[&one, &two], &mine);
+			}
 			_ => drop(take_all(&mut w.held)),
 		}
 	}

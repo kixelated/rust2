@@ -51,6 +51,5 @@ Public API: the translator's output for moq-net's model.
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
 - [std gaps kio reaches](/quest/m2/ts-model/kio-std.md) - `array::from_fn`, `Default` of arrays and `()`, maps of `Option`s, and `trailing_zeros`
 - [hashbrown as the runtime's map](/quest/m2/ts-model/hashbrown.md) - hashlink's `hashbrown` tables translate as `rt.HashMap`, with std's capacity
-- [A write through a mutable reference to a library object](/quest/m2/ts-model/library-place.md) - `*r = v` out of an `Option` writes the slot, not a copy, and `mem::take` of a `&mut Vec` and writes through guards and map lookups translate
 - [bytes' BytesMut, Buf, and BufMut](/quest/m2/ts-model/bytes.md) - map without config, so the model's `BytesMut` binding goes
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - kio's producers and consumers are futures

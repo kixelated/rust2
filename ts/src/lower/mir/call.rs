@@ -485,6 +485,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span, out)?;
 				let c = self.borrowed_place(&args[1].node, span, out)?;
+				// An object written in place gives a copy of what it held, so it goes first:
+				// a place given the object itself would share what then changes in it.
+				let (a, c) = match c.1.is_some_and(|p| self.in_object(p)) {
+					true => (c, a),
+					false => (a, c),
+				};
 				let old = self.swap_out(a, targ(0)?, c.0.clone(), "swapped", span, out);
 				self.set_borrowed(&c, old, span, out);
 				done(Expr::undefined(), false)
@@ -600,6 +606,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let values = self.operands(false, &[true], args, result, span, out);
 				let place = self.b.call_def(def_id, gargs, values, span, out);
 				if !place.is_path() {
+					if self.b.t.object_kind(*pointee).is_some() && !self.b.t.needs_place(*pointee) {
+						return done(place, true);
+					}
 					let msg = format!("`{}` of a value JS copies, which is no path", tcx.def_path_str(def_id));
 					return done(self.err(span, msg), true);
 				}

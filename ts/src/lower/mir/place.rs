@@ -669,7 +669,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// `*r = v` replaces the object `r` points at in place, which other references and
 		// captures share. An alias of a borrowed place assigns the place, and an `rt.Place`
 		// its `v`.
-		if let Some(pointee) = self.into_object(place) {
+		if let Some(pointee) = self.pointee_object(place) {
 			let target = self.local_expr(place.local, span);
 			let raw =
 				matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..)) && !self.box_pointer(place.local);
@@ -695,7 +695,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// no place known to hold it: neither an alias of a borrowed place, nor an `rt.Place`,
 	/// nor a closure's environment, nor an alias of a reference to no object, such as a
 	/// `&mut &str`, which only an alias of the place it borrows can be.
-	pub(super) fn into_object(&self, place: Place<'tcx>) -> Option<Ty<'tcx>> {
+	pub(super) fn pointee_object(&self, place: Place<'tcx>) -> Option<Ty<'tcx>> {
 		let [ProjectionElem::Deref] = place.projection.as_slice() else {
 			return None;
 		};
@@ -715,7 +715,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// value of it, not of bytes, is written into in place, with no place known to hold it.
 	pub(super) fn in_object(&self, place: Place<'tcx>) -> bool {
 		let raw = matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..));
-		self.into_object(place)
+		self.pointee_object(place)
 			.and_then(|pointee| self.write_in(pointee))
 			.is_some_and(|kind| kind != ObjectKind::Bytes && !raw)
 	}
