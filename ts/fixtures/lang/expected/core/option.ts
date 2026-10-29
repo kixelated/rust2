@@ -456,6 +456,13 @@ export function mapOr$Option_u32_u32_lent_closure4(self: rt.Place<rt.u32> | unde
 	return f(self);
 }
 
+export function mapOr$Option_u8_Option_u8_anys_closure0(self: rt.u8 | undefined, default_: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_u8_bool_take_largest_closure0(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
 		return default_;
