@@ -1081,10 +1081,9 @@ impl<'a> Header<'a> {
 		let mut names: Vec<String> = Vec::new();
 		for param in &function.params {
 			let (_, c_ty) = c_params.next().expect("each parameter has its C one");
-			let mut name = escape(&param.name);
-			while self.globals.contains(&name) || members.contains(&name) || names.contains(&name) {
-				name.push('_');
-			}
+			let name = parameter(&param.name, |name| {
+				self.globals.contains(name) || members.iter().chain(&names).any(|n| n == name)
+			});
 			names.push(name.clone());
 			if let (Type::Closure(lent, ret), Ty::Fn(c_lent, c_ret)) = (&param.ty, c_ty) {
 				c_params.next().expect("a closure has its data");
@@ -1286,6 +1285,31 @@ fn runtime_names() -> impl Iterator<Item = &'static str> {
 	std::iter::once("detail").chain(names)
 }
 
+/// The C++ name of the parameter `rust`, with `_` appended while `taken` holds it or it is
+/// a name the header gives its own locals and members.
+fn parameter(rust: &str, taken: impl Fn(&str) -> bool) -> String {
+	let mut name = escape(rust);
+	while taken(&name) || generated(&name) {
+		name.push('_');
+	}
+	name
+}
+
+/// Whether the header names its own locals and members `name`: the arena `a_`, a handle's
+/// `raw_`, a C value `c_…_`, and a trampoline's or lambda's `f_`, `data_`, `p0_`, `l0_`,
+/// `x0_`, or `c0_`.
+fn generated(name: &str) -> bool {
+	let Some(stem) = name.strip_suffix('_') else {
+		return false;
+	};
+	let numbered = |prefix: char| {
+		stem.strip_prefix(prefix)
+			.is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+	};
+	let c_value = stem.starts_with("c_") && !stem.ends_with('_');
+	matches!(stem, "a" | "raw" | "f" | "data") || c_value || "xcpl".chars().any(numbered)
+}
+
 /// How many lists `ty` nests, which names the element of each list's lambda apart from
 /// those of the lambdas around it.
 fn lists(ty: &Type) -> usize {
@@ -1480,5 +1504,25 @@ pub fn escape(name: &str) -> String {
 		Some(c) if c.is_ascii_digit() => format!("_{name}"),
 		_ if KEYWORDS.contains(&name) => format!("{name}_"),
 		_ => name.to_string(),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::parameter;
+
+	#[test]
+	fn parameters_keep_apart_from_what_they_would_hide() {
+		let taken = |name: &str| ["a", "size", "size_"].contains(&name);
+		// Past a namespace name, and past the arena `a_` the rename would reach.
+		assert_eq!(parameter("a", taken), "a__");
+		// Past a name already taken by the first rename.
+		assert_eq!(parameter("size", taken), "size__");
+		// A keyword escapes as before; a name like a generated one moves out of its way.
+		assert_eq!(parameter("new", taken), "new_");
+		assert_eq!(parameter("raw_", taken), "raw__");
+		assert_eq!(parameter("c_out_", taken), "c_out__");
+		assert_eq!(parameter("x1_", taken), "x1__");
+		assert_eq!(parameter("x_", taken), "x_");
 	}
 }

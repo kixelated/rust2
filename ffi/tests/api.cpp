@@ -17,6 +17,11 @@
 
 #include "api.hpp"
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 namespace {
 
 // Print a returned buffer.
@@ -826,6 +831,10 @@ int broken(const char *which) {
 } // namespace
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+	// The transcript's lines end as Rust's do, which text mode would turn into CRLF.
+	_setmode(_fileno(stdout), _O_BINARY);
+#endif
 	if (argc > 1 && std::strcmp(argv[1], "futures") == 0) {
 		return futures();
 	}
