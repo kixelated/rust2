@@ -366,24 +366,14 @@ pub trait Source: Send + Sync {
 	fn items(&self) -> std::vec::IntoIter<u8>;
 }
 
-/// Every other number from zero, which collecting would never finish either.
-pub fn evens() -> std::iter::StepBy<std::ops::RangeFrom<u64>> {
-	(0..).step_by(2)
-}
-
 /// One byte forever.
 pub fn ones() -> std::iter::Repeat<u8> {
 	std::iter::repeat(1)
 }
 
-/// Two bytes in turn, forever.
-pub fn alternating() -> impl Iterator<Item = u8> {
-	[0, 1].into_iter().cycle()
-}
-
-/// Bytes doubled by a closure, which a caller who stops early never runs on the rest.
-pub fn doubled() -> impl Iterator<Item = u8> {
-	vec![1, 2].into_iter().map(|byte| byte * 2)
+/// Words split where a closure says, which a caller who stops early never runs on the rest.
+pub fn words() -> impl Iterator<Item = &'static str> {
+	"a b".split(|c: char| c.is_whitespace())
 }
 
 /// Counts down to one, as its own code reads it.
@@ -420,37 +410,56 @@ pub fn launches() -> impl Iterator<Item = u8> {
 	vec![Start(1), Start(2)].into_iter().flatten()
 }
 
-/// A pump, which runs forever once a borrow of it is turned into an iterator.
-struct Pump;
+/// How often the code below ran.
+static RAN: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// A pump, which runs its own code each time a borrow of it is turned into an iterator.
+struct Pump([u8; 1]);
 
 impl<'a> IntoIterator for &'a Pump {
-	type Item = u8;
-	type IntoIter = std::iter::Repeat<u8>;
+	type Item = &'a u8;
+	type IntoIter = std::slice::Iter<'a, u8>;
 
-	fn into_iter(self) -> std::iter::Repeat<u8> {
-		std::iter::repeat(1)
+	fn into_iter(self) -> std::slice::Iter<'a, u8> {
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		self.0.iter()
 	}
 }
 
-static PUMPS: [Pump; 1] = [Pump];
+static PUMPS: [Pump; 1] = [Pump([1])];
 
 /// Each pump's bytes, through code only the items' borrows name.
-pub fn pumped() -> impl Iterator<Item = u8> {
+pub fn pumped() -> impl Iterator<Item = &'static u8> {
 	PUMPS.iter().flatten()
 }
-
-static DROPS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
 /// A token that counts its own drop.
 pub struct Token(pub u8);
 
 impl Drop for Token {
 	fn drop(&mut self) {
-		DROPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+		RAN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 	}
 }
 
 /// The second token: `skip` drops the first only as the iterator is read.
 pub fn skipped() -> impl Iterator<Item = Token> {
 	vec![Token(1), Token(2)].into_iter().skip(1)
+}
+
+/// The bytes in either set, which `union` compares as the iterator is read.
+pub fn merged() -> impl Iterator<Item = u8> {
+	static A: std::collections::BTreeSet<u8> = std::collections::BTreeSet::new();
+	static B: std::collections::BTreeSet<u8> = std::collections::BTreeSet::new();
+	A.union(&B).copied()
+}
+
+/// A map's values, which drops each key as the iterator is read.
+pub fn values() -> std::collections::btree_map::IntoValues<u8, u8> {
+	std::collections::BTreeMap::new().into_values()
+}
+
+/// As many zeros as the caller asks, held nowhere until made.
+pub fn zeros(n: usize) -> std::iter::RepeatN<u8> {
+	std::iter::repeat_n(0, n)
 }

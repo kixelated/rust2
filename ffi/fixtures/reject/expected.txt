@@ -49,17 +49,18 @@ fixtures/reject/src/lib.rs:350:1: rust2-ffi: cannot export fn `opaques`: borrowe
 fixtures/reject/src/lib.rs:355:1: rust2-ffi: cannot export fn `tried`: foreign type `std::vec::IntoIter`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:360:1: rust2-ffi: cannot export fn `eventually`: foreign type `std::vec::IntoIter`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:365:1: rust2-ffi: cannot export trait `Source`: callback signature `items`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:370:1: rust2-ffi: cannot export fn `evens`: foreign type `std::iter::StepBy`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:375:1: rust2-ffi: cannot export fn `ones`: foreign type `std::iter::Repeat`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:380:1: rust2-ffi: cannot export fn `alternating`: foreign type `std::iter::Cycle`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:385:1: rust2-ffi: cannot export fn `doubled`: foreign type `std::iter::Map`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:402:1: rust2-ffi: cannot export fn `launched`: foreign type `std::iter::Chain`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:370:1: rust2-ffi: cannot export fn `ones`: foreign type `std::iter::Repeat`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:375:1: rust2-ffi: cannot export fn `words`: foreign type `std::str::Split`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:392:1: rust2-ffi: cannot export fn `launched`: foreign type `std::iter::Chain`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:409:1: rust2-ffi: cannot export fn `launches`: foreign type `std::iter::Flatten`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:40:1: rust2-ffi: cannot export fn `peek`: reference to a handle inside a value `std::boxed::Box<Opaque>`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:419:1: rust2-ffi: cannot export fn `launches`: foreign type `std::iter::Flatten`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:438:1: rust2-ffi: cannot export fn `pumped`: foreign type `std::iter::Flatten`; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:445:1: rust2-ffi: cannot export struct `Token`: object no export returns; exclude it in the config to leave it out
-fixtures/reject/src/lib.rs:454:1: rust2-ffi: cannot export fn `skipped`: foreign type `std::iter::Skip`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:432:1: rust2-ffi: cannot export fn `pumped`: foreign type `std::iter::Flatten`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:437:1: rust2-ffi: cannot export struct `Token`: object no export returns; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:446:1: rust2-ffi: cannot export fn `skipped`: foreign type `std::iter::Skip`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:451:1: rust2-ffi: cannot export fn `merged`: foreign type `std::iter::Copied`; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:458:1: rust2-ffi: cannot export fn `values`: foreign type `std::collections::btree_map::IntoValues`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:45:1: rust2-ffi: cannot export static `COUNT`: static; exclude it in the config to leave it out
+fixtures/reject/src/lib.rs:463:1: rust2-ffi: cannot export fn `zeros`: foreign type `std::iter::RepeatN`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:49:1: rust2-ffi: cannot export macro `noop`: macro; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:57:1: rust2-ffi: cannot export fn `excluded`: excluded type `Excluded`; exclude it in the config to leave it out
 fixtures/reject/src/lib.rs:68:2: rust2-ffi: fn `reject_fixture::audio::encoder_finish` and fn `reject_fixture::audio_encoder::finish` are both `reject_audio_encoder_finish` in C

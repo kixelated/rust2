@@ -2271,20 +2271,60 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// What `ty` yields, if it is an iterator whose items a return can take at the call with
-	/// no caller able to tell: one only core's and alloc's code drives, through no closure,
-	/// function, or trait object, and that ends. A range is a value, which crosses as
-	/// itself or not at all.
+	/// no caller able to tell: one of core's and alloc's iterators over storage that already
+	/// exists, through adapters that neither make, drop, nor compare items, and no closure,
+	/// function, or trait object. Collecting it allocates no more than the storage holds and
+	/// runs no other crate's code but `Clone`, which a borrowed item crosses through anyway.
+	/// A range is a value, which crosses as itself or not at all.
 	fn items(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> Option<Ty<'tcx>> {
-		let tcx = self.tcx;
-		let lang = tcx.lang_items();
-		let ranges = [
-			lang.range_struct(),
-			lang.range_inclusive_struct(),
-			lang.range_from_struct(),
+		/// Their paths below the crate, which are the same in core and alloc as in std.
+		const DRAINED: &[&str] = &[
+			"array::IntoIter",
+			"collections::binary_heap::Drain",
+			"collections::binary_heap::IntoIter",
+			"collections::binary_heap::Iter",
+			"collections::btree_map::IntoIter",
+			"collections::btree_map::Iter",
+			"collections::btree_map::IterMut",
+			"collections::btree_map::Keys",
+			"collections::btree_map::Values",
+			"collections::btree_map::ValuesMut",
+			"collections::btree_set::IntoIter",
+			"collections::btree_set::Iter",
+			"collections::linked_list::IntoIter",
+			"collections::linked_list::Iter",
+			"collections::linked_list::IterMut",
+			"collections::vec_deque::Drain",
+			"collections::vec_deque::IntoIter",
+			"collections::vec_deque::Iter",
+			"collections::vec_deque::IterMut",
+			"iter::Chain",
+			"iter::Cloned",
+			"iter::Copied",
+			"iter::Enumerate",
+			"iter::Flatten",
+			"iter::Fuse",
+			"iter::Peekable",
+			"iter::Rev",
+			"option::IntoIter",
+			"option::Iter",
+			"option::IterMut",
+			"result::IntoIter",
+			"result::Iter",
+			"result::IterMut",
+			"slice::Iter",
+			"slice::IterMut",
+			"str::Bytes",
+			"str::CharIndices",
+			"str::Chars",
+			"str::Lines",
+			"str::Split",
+			"str::SplitWhitespace",
+			"string::Drain",
+			"vec::Drain",
+			"vec::IntoIter",
 		];
-		if !matches!(ty.kind(), ty::Adt(adt, _) if !ranges.contains(&Some(adt.did()))) {
-			return None;
-		}
+		let tcx = self.tcx;
 		let iterator = tcx.get_diagnostic_item(sym::Iterator)?;
 		let into_iterator = tcx.get_diagnostic_item(sym::IntoIterator)?;
 		let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(env);
@@ -2293,10 +2333,14 @@ impl<'tcx> Collector<'tcx> {
 				.type_implements_trait(tr, [ty], param_env)
 				.must_apply_modulo_regions()
 		};
-		if !implements(iterator, ty) {
+		if !matches!(ty.kind(), ty::Adt(..)) || !implements(iterator, ty) {
 			return None;
 		}
 		let std = |krate| matches!(tcx.crate_name(krate), sym::core | sym::alloc);
+		let drained = |did: DefId| {
+			let path = tcx.def_path_str(did);
+			std(did.krate) && path.split_once("::").is_some_and(|(_, path)| DRAINED.contains(&path))
+		};
 		let assoc = |tr, name: &str| {
 			let item = tcx
 				.associated_items(tr)
@@ -2317,103 +2361,46 @@ impl<'tcx> Collector<'tcx> {
 			ty::Instance::try_resolve(tcx, env, method, tcx.mk_args(&[ty.into()]))
 				.is_ok_and(|instance| instance.is_some_and(|instance| std(instance.def_id().krate)))
 		};
-		// Collecting these never ends.
-		let endless = |did: DefId| {
-			tcx.crate_name(did.krate) == sym::core
-				&& matches!(
-					tcx.item_name(did).as_str(),
-					"Repeat" | "Cycle" | "RangeFrom" | "RangeFromIter"
-				)
-		};
 		// Every type the iterator holds, and every item and iterator its adapters drive,
 		// which `ty`'s own arguments need not name: `Flatten` turns each item into its own.
 		let mut seen = rustc_data_structures::fx::FxHashSet::default();
-		let root = ty;
 		let mut queue = vec![ty];
 		while let Some(next_ty) = queue.pop() {
 			for ty in next_ty.walk().filter_map(|arg| arg.as_type()) {
 				if !seen.insert(ty) {
 					continue;
 				}
-				let plain = match ty.kind() {
-					ty::Adt(adt, _) => !endless(adt.did()),
-					ty::Bool
-					| ty::Char
-					| ty::Int(_)
-					| ty::Uint(_)
-					| ty::Float(_)
-					| ty::Str
-					| ty::Array(..)
-					| ty::Slice(_)
-					| ty::Ref(..)
-					| ty::Tuple(_) => true,
-					_ => false,
-				};
+				let plain = matches!(
+					ty.kind(),
+					ty::Adt(..)
+						| ty::Bool
+						| ty::Char
+						| ty::Int(_)
+						| ty::Uint(_)
+						| ty::Float(_)
+						| ty::Str
+						| ty::Array(..)
+						| ty::Slice(_)
+						| ty::Ref(..)
+						| ty::Tuple(_)
+				);
 				let (method, driven) = match (implements(iterator, ty), implements(into_iterator, ty)) {
 					(true, _) => (next, item),
 					(false, true) => (into_iter, into_iter_ty),
 					(false, false) if plain => continue,
 					(false, false) => return None,
 				};
-				if !plain || !by_std(method, ty) {
+				let listed = match ty.kind() {
+					ty::Adt(adt, _) => method != next || drained(adt.did()),
+					_ => plain,
+				};
+				if !listed || !by_std(method, ty) {
 					return None;
 				}
-				let driven = project(driven, ty)?;
-				// An adapter may drop what an iterator inside it yields, such as the items `skip`
-				// passes over, which the call would then drop before the caller reads any.
-				if method == next && ty != root && self.foreign_drop(driven, env) {
-					return None;
-				}
-				queue.push(driven);
+				queue.push(project(driven, ty)?);
 			}
 		}
 		project(item, ty)
-	}
-
-	/// Whether dropping `ty` may run a destructor outside core, alloc, and std.
-	fn foreign_drop(&self, ty: Ty<'tcx>, env: TypingEnv<'tcx>) -> bool {
-		let tcx = self.tcx;
-		let mut seen = rustc_data_structures::fx::FxHashSet::default();
-		let mut queue = vec![ty];
-		while let Some(ty) = queue.pop() {
-			if !seen.insert(ty) {
-				continue;
-			}
-			match ty.kind() {
-				ty::Bool
-				| ty::Char
-				| ty::Int(_)
-				| ty::Uint(_)
-				| ty::Float(_)
-				| ty::Str
-				| ty::Pat(..)
-				| ty::Never
-				| ty::Ref(..)
-				| ty::RawPtr(..)
-				| ty::FnDef(..)
-				| ty::FnPtr(..) => {}
-				ty::Array(elem, _) | ty::Slice(elem) => queue.push(*elem),
-				ty::Tuple(elems) => queue.extend(elems.iter()),
-				ty::Adt(adt, _) if adt.is_manually_drop() => {}
-				// `PhantomData<T>` is how a collection says it drops its `T`s.
-				ty::Adt(adt, args) if adt.is_phantom_data() => queue.push(args.type_at(0)),
-				ty::Adt(adt, args) => {
-					if adt.has_dtor(tcx)
-						&& !matches!(tcx.crate_name(adt.did().krate), sym::core | sym::alloc | sym::std)
-					{
-						return true;
-					}
-					for field in adt.all_fields() {
-						match tcx.try_normalize_erasing_regions(env, field.ty(tcx, args)) {
-							Ok(ty) => queue.push(ty),
-							Err(_) => return true,
-						}
-					}
-				}
-				_ => return true,
-			}
-		}
-		false
 	}
 
 	/// What `ty` resolves to when awaited, if it is a future.
