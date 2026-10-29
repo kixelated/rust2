@@ -697,6 +697,16 @@ export function filter$Option_String_owned_closure1(self: string | undefined, pr
 	return undefined;
 }
 
+export function filter$Option_u32_sentinels_closure0(self: rt.u32 | undefined, predicate: (a0: rt.u32) => boolean): rt.u32 | undefined {
+	if (self !== undefined) {
+		const x: rt.u32 = self;
+		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
 export function filter$Option_u8_combinators_closure0(self: rt.u8 | undefined, predicate: (a0: rt.u8) => boolean): rt.u8 | undefined {
 	if (self !== undefined) {
 		const x: rt.u8 = self;

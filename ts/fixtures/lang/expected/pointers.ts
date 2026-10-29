@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Halves, copy$MaybeUninit_u32s, copy$Option_Pair, copy$Outer, copy$Pair, copy$u32_u32, copy$u32s_u8, drop$List_Arc_u8, drop$List_String } from "./lib.ts";
-import { mapOr$Option_Pair_u8_copies_closure0, mapOr$Option_u8_Arc_u8_u8_shared_closure0 } from "./core/option.ts";
+import { mapOr$Option_Pair_u8_copies_closure0, mapOr$Option_u8_Arc_u8_u8_shared_closure0, filter$Option_u32_sentinels_closure0 } from "./core/option.ts";
 import type * as Halves from "./pointers.Halves.ts";
 import type * as Inner from "./pointers.Inner.ts";
 import type * as Links from "./pointers.Links.ts";
@@ -315,6 +315,37 @@ export function snapshot(v: rt.u32): [rt.u8, rt.u8] {
 	const before: [rt.u32[], rt.u8] = copy$u32s_u8(nest);
 	nest[0][0] = rt.u32Add(v, 4);
 	return [before[0][0] & 0xff, nest[0][0] & 0xff] as [rt.u8, rt.u8];
+}
+
+/**
+ * Null and dangling pointers to values JS keeps as `undefined`: an `Option` read through
+ * `as_ref`, and `()` written through a dangling pointer.
+ */
+export function sentinels(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let p!: rt.Place<rt.u32 | undefined>;
+	let _19!: rt.u8;
+	for (const byte of rt.byteSliceView(data)) {
+		let some: rt.u32 | undefined = filter$Option_u32_sentinels_closure0(byte as rt.u32, (v: rt.u32): boolean => {
+			return rt.u32Rem(v, 2) === 0;
+		});
+		if (rt.u8Rem(byte, 3) === 0) {
+			p = rt.NULL;
+		} else {
+			p = rt.place(() => some, (value) => some = value);
+		}
+		const pointer = p;
+		const _20: rt.u32 | undefined | rt.None = pointer === rt.NULL ? rt.None : pointer.v;
+		if (_20 === rt.None) {
+			_19 = 0;
+		} else if (_20 === undefined) {
+			_19 = 1;
+		} else {
+			_19 = rt.u8Add(2, rt.u32Rem(_20, 100) & 0xff);
+		}
+		rt.byteVecPush(out, _19);
+		const pointer2 = p;
+		rt.byteVecPush(out, ((pointer2 === rt.NULL ? rt.None : pointer2.v)) === rt.None ? 1 : 0);
+	}
 }
 
 //# sourceMappingURL=pointers.ts.map

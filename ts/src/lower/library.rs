@@ -593,6 +593,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				)
 				| ("DoubleEndedIterator", "next_back" | "nth_back")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
+				| ("ptr", "as_ref" | "as_mut")
 		)
 }
 

@@ -640,6 +640,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	pub(super) fn store(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> Vec<Stmt> {
 		let (place, value) = self.rebuilt(place, value, span);
 		let mut out = Vec::new();
+		// A raw pointer to a value of no bytes may dangle, and a write through it writes nothing.
+		if let [.., ProjectionElem::Deref] = place.projection.as_slice()
+			&& matches!(self.mir.local_decls[place.local].ty.kind(), ty::RawPtr(..))
+			&& self.b.t.zero_sized(place.ty(&self.mir.local_decls, self.tcx).ty)
+		{
+			return out;
+		}
 		// A union's field written whole is written into each slot it is kept in.
 		if let Some((union, parts)) = self.union_whole(place, span) {
 			let ty = place.ty(&self.mir.local_decls, self.tcx).ty;

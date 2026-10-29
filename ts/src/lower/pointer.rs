@@ -74,6 +74,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// Whether a `ty` has no bytes, so a write of one through any pointer, even a dangling
+	/// one, writes nothing.
+	pub fn zero_sized(&self, ty: Ty<'tcx>) -> bool {
+		let env = self.typing_env_pub();
+		self.tcx
+			.layout_of(env.as_query_input(ty))
+			.is_ok_and(|layout| layout.is_zst())
+	}
+
 	/// What `ty` points at, if it is a raw pointer that is an `rt.Place`.
 	pub fn raw_place(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		match ty.kind() {
@@ -247,13 +256,13 @@ pub fn call<'tcx>(
 		("ptr", "as_ref" | "as_mut") => {
 			let p = b.spill(arg(), "pointer", out);
 			let shared = name == "as_ref" && kind(b, pointee()) == Some(super::pointer::Pointee::Place);
-			let some = match shared {
-				true => p.clone().member("v"),
-				false => p.clone(),
+			let (some, none) = match shared {
+				true => (p.clone().member("v"), b.t.none(pointee())),
+				false => (p.clone(), Expr::undefined()),
 			};
 			Expr::Cond(
 				Box::new(p.binary("===", Expr::Rt("NULL".into()))),
-				Box::new(Expr::undefined()),
+				Box::new(none),
 				Box::new(some),
 			)
 		}
@@ -368,6 +377,9 @@ fn read<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, ty: Ty<'tcx>, span: Span) -> 
 /// The write of `value`, a `ty`, where `p` points.
 fn write<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let _ = span;
+	if b.t.zero_sized(ty) {
+		return Expr::undefined();
+	}
 	match b.t.pointee(ty) {
 		Pointee::Place => p.member("v").assign(value),
 		Pointee::Object => Expr::rt("ptrWrite", vec![p, value]),
