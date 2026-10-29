@@ -180,11 +180,11 @@ export function ints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 export function strings(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let flag!: boolean;
 	for (const _9 of rt.byteSliceView(rt.byteSliceRange(data, 0, rt.min(data.length, 3)))) {
-		const _15: rt.usize = rt.usizeRem(_9 as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+		const _15: rt.usize = rt.usizeRem(_9 as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 		if (!(_15 < 14)) {
 			rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _15);
 		}
-		const s: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"][_15];
+		const s: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"][_15];
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, s), (f: rt.Formatter) => rt.fmtStr(s, f)];
 		put(out, rt.fmtFormat([args2[0], "|", rt.fmtSpec({ width: 8 }, args2[0]), "|", rt.fmtSpec({ align: ">", width: 8 }, args2[0]), "|", rt.fmtSpec({ align: "^", width: 8 }, args2[0]), "|", rt.fmtSpec({ fill: "-", align: "<", width: 3 }, args2[0]), "|", args2[1], "|", rt.fmtSpec({ width: 12 }, args2[1]), "|", rt.fmtSpec({ alternate: true }, args2[1]), "|{", args2[0], "}"]));
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, s), (f: rt.Formatter) => rt.fmtStr(s, f)];
@@ -237,11 +237,11 @@ export function nested(data: rt.ByteSlice): Nested.Nested {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
 		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
 	};
-	const _5: rt.usize = rt.usizeRem(at(0) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+	const _5: rt.usize = rt.usizeRem(at(0) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 	if (!(_5 < 14)) {
 		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _5);
 	}
-	const _3: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"][_5];
+	const _3: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"][_5];
 	const _15: Point.Point = { x: rt.i32Sub(at(1) as rt.i32, 128), y: -7 };
 	const _23: rt.u8 = rt.u8Rem(at(2), 3);
 	if (_23 === 0) {
@@ -435,11 +435,11 @@ export function counts(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n: rt.usize = rt.min(data2.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data2, 0, n));
 	const v: rt.i64 = rt.i64FromBeBytes(buf);
-	const _39: rt.usize = rt.usizeRem(at(3) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+	const _39: rt.usize = rt.usizeRem(at(3) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 	if (!(_39 < 14)) {
 		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _39);
 	}
-	const s: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽", "😀 🇦", "ﾞﾟﾝ", "{}"][_39];
+	const s: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"][_39];
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.i64Display(v, f), rt.fmtCount(w), (f: rt.Formatter) => rt.i64LowerExp(v, f), rt.fmtCount(p), (f: rt.Formatter) => rt.fmtPad(f, s), (f: rt.Formatter) => rt.fmtPad(f, s), rt.fmtCount(p), (f: rt.Formatter) => rt.usizeDisplay(w, f), rt.fmtCount(w), (f: rt.Formatter) => rt.fmtStr(s, f)];
 	put(out, rt.fmtFormat([rt.fmtSpec({ width: rt.fmtCountOf(args2[1]) }, args2[0]), "|", rt.fmtSpec({ align: "<", width: rt.fmtCountOf(args2[1]) }, args2[2]), "|", rt.fmtSpec({ plus: true, zero: true, width: rt.fmtCountOf(args2[1]), precision: rt.fmtCountOf(args2[3]) }, args2[2]), "|", rt.fmtSpec({ precision: rt.fmtCountOf(args2[3]) }, args2[4]), "|", rt.fmtSpec({ align: "^", width: rt.fmtCountOf(args2[1]), precision: rt.fmtCountOf(args2[3]) }, args2[4]), "|", rt.fmtSpec({ precision: rt.fmtCountOf(args2[6]) }, args2[5]), "|", rt.fmtSpec({ align: ">", width: rt.fmtCountOf(args2[6]) }, args2[7]), "|", rt.fmtSpec({ width: rt.fmtCountOf(args2[8]), precision: rt.fmtCountOf(args2[6]) }, args2[5]), "|", rt.fmtSpec({ align: ">", width: rt.fmtCountOf(args2[3]) }, args2[9])]));
 	const log: rt.ByteVec = new rt.ByteVec();
