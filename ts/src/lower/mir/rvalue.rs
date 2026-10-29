@@ -601,9 +601,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut captures = Vec::with_capacity(ops.len());
 		for (field, op) in ops.iter_enumerated() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
-			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does.
+			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does,
+			// so it can replace an object there whole, as `mem::take` does.
 			if let Some(local) = op.place().and_then(|p| p.as_local())
-				&& self.points_at_place(local)
+				&& matches!(ty.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut))
+				&& self.alias_of_place(local)
 				&& let Slot::Alias(Some(target)) = &self.slots[local]
 			{
 				captures.push(Capture {
