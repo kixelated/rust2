@@ -1117,6 +1117,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Weak
 					| library::Std::Mutex
 					| library::Std::MutexGuard
+					| library::Std::RefCell
+					| library::Std::Ref
+					| library::Std::RefMut
+					| library::Std::Cell
 					| library::Std::Atomic
 					| library::Std::OnceCell
 					| library::Std::OnceLock
@@ -1399,6 +1403,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let inner = args.types().next().expect("a guarded type");
 					Type::Rt("Mutex", vec![self.ty(inner, span)])
 				}
+				library::Std::RefCell | library::Std::Ref | library::Std::RefMut => {
+					let inner = args.types().next().expect("a borrowed type");
+					Type::Rt("RefCell", vec![self.ty(inner, span)])
+				}
+				library::Std::Cell => Type::Rt("Cell", vec![self.ty(args.type_at(0), span)]),
 				library::Std::Atomic => Type::Rt("Atomic", vec![self.ty(args.type_at(0), span)]),
 				library::Std::AtomicOrdering => Type::Rt("AtomicOrdering", vec![]),
 				// With the `Option`'s `None` where it is `rt.None`.
