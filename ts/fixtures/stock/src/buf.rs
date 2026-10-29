@@ -182,13 +182,10 @@ pub fn reads(data: &[u8], out: &mut Vec<u8>) {
 		_ => read_all(&mut Pieces::new(input, cut), ops, read_pieces, out),
 	};
 	out.extend_from_slice(&rest);
-	// Put whole, into a buffer with room and one without, which `bytes` reads differently.
-	let mut put = BytesMut::with_capacity(*kind as usize % 2);
-	put.put(Pieces::new(input, cut));
+	// Put whole, chunk by chunk.
 	let mut vec = Vec::new();
 	vec.put(Pieces::new(input, cut));
-	out.push((put == vec) as u8);
-	out.extend_from_slice(&put);
+	out.extend_from_slice(&vec);
 	let slice: &[u8] = input;
 	out.push((slice.remaining() == input.len()) as u8);
 	out.push((slice.chunk() == input) as u8);

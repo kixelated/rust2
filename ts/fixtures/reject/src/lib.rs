@@ -434,6 +434,33 @@ pub fn bytes_mut_capacity(n: usize) -> usize {
 	buf.capacity()
 }
 
+/// `bytes` reads a `Buf` of the crate's own into a `BytesMut` by its `copy_to_bytes` only
+/// at zero capacity.
+pub fn bytes_mut_put(buf: &mut bytes::BytesMut, src: Counted) {
+	bytes::BufMut::put(buf, src);
+}
+
+/// A `Buf` whose `copy_to_bytes` differs from its `chunk` and `advance`.
+pub struct Counted(pub bytes::Bytes);
+
+impl bytes::Buf for Counted {
+	fn remaining(&self) -> usize {
+		self.0.remaining()
+	}
+
+	fn chunk(&self) -> &[u8] {
+		self.0.chunk()
+	}
+
+	fn advance(&mut self, cnt: usize) {
+		self.0.advance(cnt);
+	}
+
+	fn copy_to_bytes(&mut self, len: usize) -> bytes::Bytes {
+		bytes::Bytes::from(vec![0; len])
+	}
+}
+
 pub struct Part(pub u64);
 
 impl std::iter::Sum<Part> for std::time::Duration {

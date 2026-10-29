@@ -143,6 +143,7 @@ const VERBATIM: &[&str] = &[
 	"Binary",
 	"BufMut::put",
 	"Bytes::from_owner",
+	"BytesMut",
 	"Copy",
 	"Debug",
 	"DebugList::entries",

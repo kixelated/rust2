@@ -323,7 +323,9 @@ of them:
 - `Buf` and `BufMut` of a `Bytes`, a `BytesMut`, a `&[u8]`, and a `Vec<u8>` map: the
   required methods, `has_remaining`, `copy_to_slice`, `copy_to_bytes`, each `get_` and
   `put_` of an integer or `f64`, `put_slice`, `put_bytes`, and `put`, whose panics are
-  `bytes`'. `put` of the crate's own `Buf` reads it through its methods as `bytes` does.
+  `bytes`'. `put` of the crate's own `Buf` into a `Vec<u8>` reads it through its methods
+  as `bytes` does, and into a `BytesMut` is refused, as `bytes` picks those methods by its
+  capacity.
   The rest of `bytes`, such as the provided methods of the crate's own `Buf` and the impls
   forwarding through a `&mut` or a `Box`, translates from its MIR, refused where that is.
 - `rand::rng()` is an `rt.ThreadRng`, whose `random` of an integer or `bool` and

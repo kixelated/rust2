@@ -395,32 +395,6 @@ export function bytesMutCopyToSlice(b: BytesMut, dst: ByteSlice): void {
 	bytesMutAdvance(b, dst.length);
 }
 
-/**
- * `BufMut::put` into a `BytesMut` of a `Buf` the crate implements, through its methods.
- * Into no room, `bytes` takes `copy_to_bytes` of all of it; into some, each chunk in turn.
- */
-export function bytesMutPutBuf<B>(
-	b: BytesMut,
-	src: B,
-	hasRemaining: (src: B) => boolean,
-	remaining: (src: B) => usize,
-	chunk: (src: B) => ByteSlice,
-	advance: (src: B, cnt: usize) => void,
-	copyToBytes: (src: B, len: usize) => Bytes,
-): void {
-	if (!hasRemaining(src)) return;
-	if (b.cap === 0) {
-		bytesMutExtend(b, copyToBytes(src, remaining(src)));
-		return;
-	}
-	bytesMutReserve(b, remaining(src));
-	while (hasRemaining(src)) {
-		const s = chunk(src);
-		bytesMutExtend(b, s);
-		advance(src, s.length as usize);
-	}
-}
-
 // BufMut of Vec<u8>
 
 /** `BufMut::put` into a `Vec<u8>` of a `Buf` the crate implements, each chunk in turn. */

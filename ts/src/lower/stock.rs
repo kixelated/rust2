@@ -533,7 +533,8 @@ fn buf_mut<'tcx>(
 }
 
 /// `BufMut::put` of a `Buf` into a buffer the mapping writes: all of it, read whole from
-/// a buffer the mapping reads, and otherwise through its own methods, as `bytes` reads it.
+/// a buffer the mapping reads, and otherwise through its own methods, as `bytes` reads it
+/// into a `Vec<u8>`.
 fn put<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, buffer: Buffer, this: Expr, src: Expr) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	let ty = targ(call.args, 1);
@@ -552,6 +553,14 @@ fn put<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, buffer: Buffer, this
 	// can stand for.
 	if b.t.drops(ty) || b.t.needs_place(ty) {
 		let msg = format!("`BufMut::put` of `{ty}`, which is not supported");
+		return Some(b.err(call.span, msg));
+	}
+	// Into a `BytesMut`, `bytes` calls its `copy_to_bytes` or its `chunk` and `advance` by
+	// whether the capacity is zero.
+	if buffer == Buffer::BytesMut {
+		let msg = format!(
+			"`BufMut::put` of `{ty}` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported"
+		);
 		return Some(b.err(call.span, msg));
 	}
 	let buf = tcx
@@ -573,13 +582,10 @@ fn put<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, buffer: Buffer, this
 		method("chunk")?,
 		method("advance")?,
 	);
-	Some(match buffer {
-		Buffer::BytesMut => {
-			let copy = method("copy_to_bytes")?;
-			Expr::rt("bytesMutPutBuf", vec![this, src, has, remaining, chunk, advance, copy])
-		}
-		_ => Expr::rt("byteVecPutBuf", vec![this, src, has, remaining, chunk, advance]),
-	})
+	Some(Expr::rt(
+		"byteVecPutBuf",
+		vec![this, src, has, remaining, chunk, advance],
+	))
 }
 
 /// A `get_` or `put_` method's scalar, and whether its bytes are little-endian, as

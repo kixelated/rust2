@@ -241,14 +241,10 @@ export function reads(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rest = readAll$Pieces(Pieces.new(input, cut), new rt.ByteSlice(data.data, data.start + 2, mid), readPieces, out);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rest));
-		const put: rt.BytesMut = rt.bytesMutWithCapacity(rt.usizeRem(data.data[data.start] as rt.usize, 2));
-		const _42: Pieces.Pieces = Pieces.new(input, cut);
-		rt.bytesMutPutBuf(put, _42, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf, Pieces.copyToBytes$Buf);
 		const vec: rt.ByteVec = new rt.ByteVec();
-		const _46: Pieces.Pieces = Pieces.new(input, cut);
-		rt.byteVecPutBuf(vec, _46, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf);
-		rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(put), rt.byteVecSlice(vec)) ? 1 : 0);
-		rt.byteVecExtendFromSlice(out, rt.bytesMutView(put));
+		const _38: Pieces.Pieces = Pieces.new(input, cut);
+		rt.byteVecPutBuf(vec, _38, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf);
+		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(vec));
 		const slice: rt.ByteSlice = input;
 		rt.byteVecPush(out, slice.length === input.length ? 1 : 0);
 		rt.byteVecPush(out, rt.byteSliceEq(slice, input) ? 1 : 0);
