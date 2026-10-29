@@ -105,6 +105,7 @@ fun script() {
 	registry.setFirst(Counter.new("second", 3u))
 	println("set first ${registry.first.get()} ${registry.first.name()}")
 	println("walk ${walk(3u) { cursor -> cursor.at() * 2u }}")
+	println("each ${each(2u) { at -> println("visit $at") }}")
 	println("offset ${offset({ 7u }, 3u)}")
 
 	val name = Name.owned("a")
@@ -133,6 +134,9 @@ fun script() {
 
 	println(greet("x", Shape.SQUARE))
 	println("len ${len("abc".encodeToByteArray())}")
+	val binary = byteArrayOf(0xff.toByte(), 0, 'a'.code.toByte())
+	println("hex ${hex(binary)}")
+	println("timed hex ${timedHex(binary)}")
 	for (event in listOf(Event.Moved(p), Event.Named("n"), Event.Done)) {
 		println(describe(event))
 	}

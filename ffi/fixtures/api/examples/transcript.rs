@@ -120,6 +120,7 @@ fn main() {
 	registry.first = Counter::new("second", 3);
 	println!("set first {} {}", registry.first.get(), registry.first.name());
 	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
+	println!("each {}", api_lib::each(2, |at| println!("visit {at}")));
 	println!("offset {}", api_lib::offset(|| 7, 3));
 
 	let name = Name::owned("a".to_string());
@@ -151,6 +152,8 @@ fn main() {
 
 	println!("{}", api_lib::greet("x", Shape::Square));
 	println!("len {}", api_lib::len(b"abc"));
+	println!("hex {}", api_lib::hex(Bytes::from_static(b"\xff\x00a")));
+	println!("timed hex {}", api_lib::timed_hex(Bytes::from_static(b"\xff\x00a")));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}

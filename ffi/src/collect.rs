@@ -14,12 +14,15 @@ use std::collections::VecDeque;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{CrateNum, DefId};
 use rustc_infer::infer::TyCtxtInferExt;
+use rustc_infer::traits::util::elaborate;
 use rustc_infer::traits::{Obligation, ObligationCause};
+use rustc_middle::ty::fast_reject::{TreatParams, simplify_type};
 use rustc_middle::ty::{
 	self, GenericArgKind, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor, TypingEnv,
 };
-use rustc_span::{Span, sym};
+use rustc_span::{DUMMY_SP, Span, sym};
 use rustc_trait_selection::infer::InferCtxtExt;
+use rustc_trait_selection::traits::ObligationCtxt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
 
 use crate::ir::{
@@ -1863,7 +1866,8 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The types a type parameter may be exported as, best first, which typing takes the
-	/// first of: `X` for `impl Into<X>` or `impl AsRef<X>`, then `String`, `Bytes`, and
+	/// first of: `X` for each `Into<X>` or `AsRef<X>` its bounds imply, or `&X` and then
+	/// `String` or `Vec<T>` where `X` is `str` or `[T]`, then `String`, `Bytes`, and
 	/// `Vec<u8>`, each that meets its bounds and maps.
 	fn choose(&self, def_id: DefId, param: Ty<'tcx>, base: &[ty::GenericArg<'tcx>]) -> Result<Vec<Ty<'tcx>>, Why> {
 		let tcx = self.tcx;
@@ -1876,31 +1880,52 @@ impl<'tcx> Collector<'tcx> {
 			.filter_map(|clause| clause.as_trait_clause())
 			.filter(|pred| pred.self_ty().skip_binder() == param)
 			.collect();
+		// With the bounds they imply: `IntoBytes: AsRef<[u8]>` makes a parameter it bounds bytes.
+		let implied: Vec<_> = elaborate(tcx, identity.clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
 		// A parameter that must outlive the call cannot borrow what C lends for it.
-		let outlives = identity.clauses.iter().any(|clause| {
+		let outlives = implied.iter().any(|clause| {
 			clause
-				.skip_norm_wip()
 				.as_type_outlives_clause()
 				.is_some_and(|pred| pred.skip_binder().0 == param)
 		});
+		let string = tcx
+			.lang_items()
+			.string()
+			.map(|string| Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
 		let mut candidates = Vec::new();
-		for bound in &bounds {
+		let implied = (implied.iter())
+			.filter_map(|clause| clause.as_trait_clause())
+			.filter(|pred| pred.self_ty().skip_binder() == param);
+		for bound in implied {
 			let tr = bound.def_id();
 			let target = || bound.skip_binder().trait_ref.args.type_at(1);
 			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
-				let target = target();
-				match target.kind() {
-					ty::Str | ty::Slice(_) if outlives => {}
-					ty::Str | ty::Slice(_) => candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target)),
-					_ => candidates.push(target),
+				// An `Into` target that does not map takes what converts into it instead.
+				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
+					.then(|| self.sources(def_id, target()));
+				// A source that must outlive the call, or converts into a parameter that must, owns it.
+				let sources = into.into_iter().flatten().map(|(x, source)| (x, outlives || source));
+				for (target, outlives) in std::iter::once((target(), outlives)).chain(sources) {
+					let owned = match target.kind() {
+						ty::Str => string,
+						ty::Slice(elem) => self.vec_of(*elem),
+						_ => {
+							candidates.push(target);
+							continue;
+						}
+					};
+					// A borrow of what C lends, unless the parameter outlives the call, then the
+					// owned form, which meets bounds that only owned types implement.
+					if !outlives {
+						candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target));
+					}
+					candidates.extend(owned);
 				}
 			} else if Some(tr) == self.range_bounds {
 				candidates.extend(self.bounds(target()));
 			}
 		}
-		if let Some(string) = tcx.lang_items().string() {
-			candidates.push(Ty::new_adt(tcx, tcx.adt_def(string), ty::List::empty()));
-		}
+		candidates.extend(string);
 		if let Some(bytes) = self.bytes {
 			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
 		}
@@ -1927,6 +1952,64 @@ impl<'tcx> Collector<'tcx> {
 			[_] => Err(why("callback bound", names.join(" + "))),
 			_ => Err(why("generic parameter", names.join(" + "))),
 		}
+	}
+
+	/// What `impl Into<target>` takes through the `From` implementations into `target`
+	/// whose source is a type parameter: each `Into<X>` or `AsRef<X>` its bounds imply, and
+	/// whether they make it outlive the call, so `impl<B: Into<Bytes>> From<B> for
+	/// Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes.
+	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<(Ty<'tcx>, bool)> {
+		let tcx = self.tcx;
+		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
+			return Vec::new();
+		};
+		let Some(simple) = simplify_type(tcx, target, TreatParams::AsRigid) else {
+			return Vec::new();
+		};
+		let mut found = Vec::new();
+		for &imp in tcx
+			.trait_impls_of(from)
+			.non_blanket_impls()
+			.get(&simple)
+			.into_iter()
+			.flatten()
+		{
+			let (infcx, env) = tcx
+				.infer_ctxt()
+				.build_with_typing_env(TypingEnv::post_analysis(tcx, def_id));
+			let args = infcx.fresh_args_for_item(DUMMY_SP, imp);
+			let trait_ref = tcx.impl_trait_ref(imp).instantiate(tcx, args).skip_norm_wip();
+			let source = trait_ref.args.type_at(1);
+			let ocx = ObligationCtxt::new(&infcx);
+			if !source.is_ty_var()
+				|| ocx
+					.eq(&ObligationCause::dummy(), env, trait_ref.self_ty(), target)
+					.is_err()
+			{
+				continue;
+			}
+			let source = infcx.deeply_resolve_ignoring_regions(source);
+			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
+			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
+			let outlives = implied.iter().any(|clause| {
+				clause
+					.as_type_outlives_clause()
+					.is_some_and(|pred| infcx.deeply_resolve_ignoring_regions(pred.skip_binder().0) == source)
+			});
+			for bound in (implied.iter())
+				.filter_map(|clause| clause.as_trait_clause())
+				.filter(|bound| {
+					tcx.is_diagnostic_item(sym::Into, bound.def_id())
+						|| tcx.is_diagnostic_item(sym::AsRef, bound.def_id())
+				}) {
+				let bound = infcx.deeply_resolve_ignoring_regions(bound.skip_binder());
+				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
+				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&(x, outlives)) {
+					found.push((x, outlives));
+				}
+			}
+		}
+		found
 	}
 
 	/// The arguments with `param` of `def_id` as `candidate`, if its bounds hold there.

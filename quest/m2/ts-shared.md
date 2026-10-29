@@ -20,11 +20,12 @@ strong and weak references and drops its value with the last strong one, `rt.Wea
 upgrades while one is left, and `rt.Mutex` is its own guard, which a lock gives as
 `Ok`: the translator aborts on panic, as wasm32 does, so nothing poisons a mutex. A
 guard's drop unlocks it, `try_lock` while held gives `WouldBlock`, and a re-entrant
-`lock` panics with wasm32's message. `rt.Atomic` holds a `bool` or an integer, and its
+`lock` panics with wasm32's message. `new_cyclic` gives its function a `Weak` that
+upgrades once the function returns. `rt.Atomic` holds a `bool` or an integer, and its
 operations check their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold
 their `Option<T>`, and a `OnceLock` initialized from within its own initialization panics as wasm32's does;
 their `Clone`, `Debug`, `PartialEq`, `get_mut`, and `get_or_try_init` are still refused.
-Left: `Arc::new_cyclic` (moq-net's `resume`), `RwLock`, `Cell`, and `RefCell`.
+Left: `RwLock`, `Cell`, and `RefCell`.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
 - Keep Rust's failure modes where they are defined: a `RefCell` double borrow

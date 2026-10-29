@@ -135,9 +135,21 @@ export function arcClone<T>(arc: Arc<T>): Arc<T> {
 /** What a `Weak` that never upgrades points at, as `Weak::new`'s does: no strong count. */
 const DANGLING: Arc<never> = /* @__PURE__ */ dangling();
 
-function dangling(): Arc<never> {
-	const arc = new Arc<never>(undefined as never);
+function dangling<T>(): Arc<T> {
+	const arc = new Arc<T>(undefined as T);
 	arc.strong = 0;
+	return arc;
+}
+
+/**
+ * `Arc::new_cyclic`: the value `f` makes from a `Weak` of it, which upgrades only once `f`
+ * returns. That `Weak` then counts no more, as the one every strong `Arc` shares.
+ */
+export function arcNewCyclic<T>(f: (weak: Weak<T>) => T): Arc<T> {
+	const arc = dangling<T>();
+	arc.value = f(new Weak(arc));
+	arc.strong = 1;
+	arc.weak--;
 	return arc;
 }
 
