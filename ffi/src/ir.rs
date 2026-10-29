@@ -249,9 +249,10 @@ pub enum Type {
 	Path,
 	/// `std::path::PathBuf`
 	PathBuf,
-	/// `std::net::SocketAddr`
-	SocketAddr,
-	/// `Vec<T>` of any `T` but `u8`, which is [`Type::Vec`].
+	/// `std::net::SocketAddr`, or `SocketAddrV4` or `SocketAddrV6` for one family.
+	SocketAddr(Family),
+	/// `Vec<T>` of any `T` but `u8`, which is [`Type::Vec`], and behind a reference, `[T]`
+	/// too: C passes and returns either as an array.
 	List(Box<Type>),
 	/// `std::task::Waker`, only as a parameter taken by value.
 	Waker,
@@ -275,6 +276,15 @@ pub enum Type {
 	Bounds(Int),
 	/// A tuple, only as what a function returns.
 	Tuple(Vec<Type>),
+}
+
+/// The addresses a socket address type holds.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Family {
+	/// IPv4 or IPv6: `SocketAddr`.
+	Any,
+	V4,
+	V6,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
