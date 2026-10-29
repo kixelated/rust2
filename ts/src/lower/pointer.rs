@@ -83,6 +83,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.is_ok_and(|layout| layout.is_zst())
 	}
 
+	/// Whether a `ty` of no bytes is the value [`Self::shell`] makes of it: built of
+	/// tuples, arrays, structs, and `()`, with no enum to tag.
+	fn empty(&self, ty: Ty<'tcx>) -> bool {
+		match ty.kind() {
+			ty::Tuple(tys) => tys.iter().all(|t| self.empty(t)),
+			ty::Array(elem, _) => self.empty(*elem),
+			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
+				Some(Std::MaybeUninit) => self.empty(args.type_at(0)),
+				Some(_) => false,
+				None => adt.is_struct() && adt.all_fields().all(|f| self.empty(self.field_ty(f.did, args))),
+			},
+			_ => false,
+		}
+	}
+
 	/// What `ty` points at, if it is a raw pointer that is an `rt.Place`.
 	pub fn raw_place(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		match ty.kind() {
@@ -207,9 +222,16 @@ pub fn call<'tcx>(
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
 		// One to a value of no bytes points at one, which every read of it reads.
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.zero_sized(pointee()) => {
-			match kind(b, pointee()) {
-				Some(Pointee::Place) => Expr::Object(vec![(Key::Name("v".into()), b.t.shell(pointee(), span))]),
-				_ => b.t.uninit(pointee(), span),
+			match (b.t.empty(pointee()), kind(b, pointee())) {
+				(false, _) => b.err(
+					span,
+					format!(
+						"a dangling pointer to `{}`, a value of no bytes made of more than structs and tuples",
+						pointee()
+					),
+				),
+				(true, Some(Pointee::Place)) => Expr::Object(vec![(Key::Name("v".into()), b.t.shell(pointee(), span))]),
+				(true, _) => b.t.uninit(pointee(), span),
 			}
 		}
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") => Expr::Rt("DANGLING".into()),

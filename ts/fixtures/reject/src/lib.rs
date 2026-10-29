@@ -640,3 +640,12 @@ pub fn units_compared() -> bool {
 	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();
 	std::ptr::eq(unit(), unit())
 }
+
+pub enum Only {
+	One,
+}
+
+/// A dangling pointer to an enum of no bytes, whose value is its variant's tag.
+pub fn dangling_enum() -> bool {
+	unsafe { std::ptr::NonNull::<Only>::dangling().as_ptr().as_ref().is_some() }
+}

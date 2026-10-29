@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 94
-- Function instances: 102
+- Refusals: 95
+- Function instances: 103
 - Generic functions no instance reached, lowered over their type parameters: 6
 
 ## By construct
@@ -43,6 +43,7 @@
 | 1 | a cast from a pointer to `_` to one to `_`, which reads the bytes of one type as another | fixtures/reject/src/lib.rs:565:27 |
 | 1 | a coercion to `_` | fixtures/reject/src/lib.rs:341:2 |
 | 1 | a constant of type `_` | fixtures/reject/src/lib.rs:80:2 |
+| 1 | a dangling pointer to `_`, a value of no bytes made of more than structs and tuples | fixtures/reject/src/lib.rs:650:11 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a mutable reference into a `Result`'s payload, passed on or kept | fixtures/reject/src/lib.rs:413:12 |
@@ -106,6 +107,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:294:9 |
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
+| 1 | `Only` | fixtures/reject/src/lib.rs:650:11 |
 | 1 | `Span2` | fixtures/reject/src/lib.rs:618:10 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:506:30 |
@@ -169,6 +171,7 @@ The type or module each refused type or path belongs to.
 | 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:506:30 |
 | 1 | a coercion to `_`, which is not supported yet | `std::sync::Weak` | fixtures/reject/src/lib.rs:470:40 |
 | 1 | a constant of type `_` | `&u8` | fixtures/reject/src/lib.rs:80:2 |
+| 1 | a dangling pointer to `_`, a value of no bytes made of more than structs and tuples | `Only` | fixtures/reject/src/lib.rs:650:11 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:110:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:226:13 |
 | 1 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | `std::vec::Vec` | fixtures/reject/src/lib.rs:587:10 |
@@ -459,6 +462,12 @@ The type or module each refused type or path belongs to.
 <details><summary>a constant of type `_` (1)</summary>
 
 - fixtures/reject/src/lib.rs:80:2: a constant of type `&u8`
+
+</details>
+
+<details><summary>a dangling pointer to `_`, a value of no bytes made of more than structs and tuples (1)</summary>
+
+- fixtures/reject/src/lib.rs:650:11: a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples
 
 </details>
 

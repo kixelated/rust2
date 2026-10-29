@@ -74,5 +74,6 @@ roots = [
     "variable_reassigned",
     "element_pointer",
     "units_compared",
+    "dangling_enum",
 ]
 printable = ["Meters"]
