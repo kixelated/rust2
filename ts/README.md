@@ -320,9 +320,12 @@ of them:
   `truncate`, `clear`, `resize`, `reserve`, `extend_from_slice`, `unsplit`, `Clone`,
   `Deref`, `DerefMut`, `AsRef`, `AsMut`, `PartialEq` with bytes, `Default`, `Debug`, and
   `From` between it and `Bytes`, `Vec<u8>`, `&[u8]`, and `&str` map, panicking as `bytes`
-  does. Its capacity is refused, and so are `split_off`, `try_reclaim`, `try_unsplit`,
-  and `spare_capacity_mut`, which read it: `bytes`' depends on whether the other handles
-  of its storage dropped, such as a `Bytes` it froze, which nothing here counts.
+  does. A handle never split nor taken from a `Bytes` is a vector that grows and panics
+  as `Vec` does, counting the bytes it read past. Once its storage was shared, `bytes`'
+  capacity depends on whether the other handles of it dropped, such as a `Bytes` it froze,
+  which nothing here counts: its `reserve` throws past 512 MiB, counting what it read
+  past, where `bytes`' panic depends on that, and its capacity is refused, as are
+  `split_off`, `try_reclaim`, `try_unsplit`, and `spare_capacity_mut`, which read it.
 - `Buf` and `BufMut` of a `Bytes`, a `BytesMut`, a `&[u8]`, and a `Vec<u8>` map: the
   required methods, `has_remaining`, `copy_to_slice`, `copy_to_bytes`, each `get_` and
   `put_` of an integer or `f64`, `put_slice`, `put_bytes`, and `put`, whose panics are
@@ -625,7 +628,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   that each random value is in its range, every value of a small range drawn. It splits,
   freezes, grows, and writes a `BytesMut` by ops its input picks, ending with every
   piece's bytes, and reads and writes through `Buf` and `BufMut` generically, a buffer of
-  its own included.
+  its own included. `caller.ts` names the inputs that reserve at the edges of
+  `BytesMut`'s 512 MiB limit.
 - `bind` binds `buf::Blob`, a renamed dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
   pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match

@@ -19,6 +19,7 @@ fn cases() -> Vec<Case> {
 		crate::buf::reads,
 		crate::buf::writes,
 		crate::buf::edits,
+		crate::buf::reserves,
 	]
 }
 

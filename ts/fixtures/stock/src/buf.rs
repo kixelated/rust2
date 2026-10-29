@@ -24,20 +24,21 @@ pub fn bytes_mut(data: &[u8], out: &mut Vec<u8>) {
 			}
 			5 => buf.truncate(n % (buf.len() + 2)),
 			6 => buf.resize(n % 40, n as u8),
-			// Past what a buffer holds, by overflowing `usize` or not: each panics. Past
-			// `usize::MAX`, by the kind of storage, so into a handle sure of its kind: a new
-			// one, a vector, or one split, shared.
-			7 => match n % 4 {
-				0 => {
-					let mut fresh = BytesMut::from(ops.take(n % 6));
-					if n % 8 == 0 {
-						pieces.push(fresh.split_to(0));
-					}
-					fresh.reserve(usize::MAX - n);
-				}
-				1 => buf.reserve(isize::MAX as usize - buf.len() + 1),
-				_ => buf.reserve(n),
-			},
+			// Past what a vector holds, by overflowing `usize` or not, counting what it read
+			// past: each panics as `Vec` does. Storage that was shared throws there instead,
+			// so these reserve into a vector of their own.
+			7 if n % 2 == 0 => {
+				let mut fresh = BytesMut::from(ops.take(n % 6));
+				let read = n % (fresh.len() + 1);
+				fresh.advance(read);
+				let len = fresh.len();
+				fresh.reserve(match n % 3 {
+					0 => usize::MAX - n,
+					1 => isize::MAX as usize - len + 1,
+					_ => isize::MAX as usize + 1 - read - len,
+				});
+			}
+			7 => buf.reserve(n),
 			8 => {
 				if let Some(piece) = pieces.pop() {
 					buf.unsplit(piece);
@@ -119,6 +120,26 @@ fn read<B: Buf>(buf: &mut B, n: usize) -> u128 {
 			u32::from_be_bytes([0, dst[0], dst[1], dst[2]]).into()
 		}
 	}
+}
+
+/// `reserve` at the edges of `rt.BytesMut`'s limit for storage that was shared, 512 MiB
+/// counting what it read past: a vector of its own grows as `Vec` does on either side of
+/// it, and shared storage grows up to it. Only the inputs `caller.ts` names reach these,
+/// as each allocates that much.
+pub fn reserves(data: &[u8], out: &mut Vec<u8>) {
+	const LIMIT: usize = 1 << 29;
+	let &[b'e', b'd', b'g', b'e', kind, read] = data else {
+		return;
+	};
+	let mut buf = BytesMut::from(&b"edges"[..]);
+	let read = usize::from(read) % 5;
+	buf.advance(read);
+	let head = (kind % 2 == 1).then(|| buf.split_to(0));
+	let past = usize::from(kind / 2 % 2);
+	buf.reserve(LIMIT + past - read - buf.len());
+	buf.put_slice(b"!");
+	out.extend_from_slice(&buf);
+	out.push(head.is_some() as u8);
 }
 
 /// A buffer of the crate's own, in pieces: `Buf`'s provided methods read across them.

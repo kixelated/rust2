@@ -4,12 +4,14 @@ import * as rt from "./rt.ts";
 import * as Ops from "./buf.Ops.ts";
 import * as Pieces from "./buf.Pieces.ts";
 import { hasRemaining$Buf_Bytes, hasRemaining$Buf_BytesMut, remaining$Buf_Bytes, remaining$Buf_BytesMut } from "./bytes/buf/buf_impl.ts";
+import { then$bool_BytesMut_reserves_closure0 } from "./core/bool.ts";
 
 /**
  * A `BytesMut` split, frozen, grown, and written, ending with every piece's bytes: a
  * write to one that reached another would show.
  */
 export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _80!: rt.usize;
 	const ops: Ops.Ops = { _0: data };
 	const buf: rt.BytesMut = rt.bytesMutWithCapacity(rt.usizeRem(Ops.byte(ops) as rt.usize, 24));
 	const pieces: rt.BytesMut[] = [];
@@ -41,23 +43,27 @@ export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
 			} else if (_20 === 6) {
 				rt.bytesMutResize(buf, rt.usizeRem(n, 40), n & 0xff);
 			} else if (_20 === 7) {
-				const _60: rt.usize = rt.usizeRem(n, 4);
-				if (_60 === 0) {
-					const fresh: rt.BytesMut = rt.bytesMutFrom(Ops.take(ops, rt.usizeRem(n, 6)));
-					if (rt.usizeRem(n, 8) === 0) {
-						const _72: rt.BytesMut = rt.bytesMutSplitTo(fresh, 0);
-						pieces.push(_72);
-					}
-					rt.bytesMutReserve(fresh, rt.usizeSub(4294967295, n));
-				} else if (_60 === 1) {
-					rt.bytesMutReserve(buf, rt.usizeAdd(rt.usizeSub(2147483647, buf.length), 1));
-				} else {
+				if (!(rt.usizeRem(n, 2) === 0)) {
 					rt.bytesMutReserve(buf, n);
+				} else {
+					const fresh: rt.BytesMut = rt.bytesMutFrom(Ops.take(ops, rt.usizeRem(n, 6)));
+					const read: rt.usize = rt.usizeRem(n, rt.usizeAdd(fresh.length, 1));
+					rt.bytesMutAdvance(fresh, read);
+					const len: rt.usize = fresh.length;
+					const _81: rt.usize = rt.usizeRem(n, 3);
+					if (_81 === 0) {
+						_80 = rt.usizeSub(4294967295, n);
+					} else if (_81 === 1) {
+						_80 = rt.usizeAdd(rt.usizeSub(2147483647, len), 1);
+					} else {
+						_80 = rt.usizeSub(rt.usizeSub(rt.usizeAdd(2147483647, 1), read), len);
+					}
+					rt.bytesMutReserve(fresh, _80);
 				}
 			} else if (_20 === 8) {
-				const _87: rt.BytesMut | undefined = pieces.pop();
-				if (_87 !== undefined) {
-					rt.bytesMutUnsplit(buf, _87);
+				const _95: rt.BytesMut | undefined = pieces.pop();
+				if (_95 !== undefined) {
+					rt.bytesMutUnsplit(buf, _95);
 				}
 			} else if (_20 === 9) {
 				rt.bytesMutAdvance(buf, rt.usizeRem(n, rt.usizeAdd(buf.length, 2)));
@@ -67,27 +73,27 @@ export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.bytesMutTruncate(buf, 0);
 			} else if (_20 === 12) {
 				const buf2 = buf;
-				const _107: rt.BytesMut = rt.bytesMutSplitTo(buf2, buf2.length);
-				pieces.push(_107);
+				const _115: rt.BytesMut = rt.bytesMutSplitTo(buf2, buf2.length);
+				pieces.push(_115);
 			} else if (_20 === 13) {
-				const _110: rt.ByteSlice = rt.bytesMutFreeze(rt.bytesMutSplitTo(buf, rt.usizeRem(n, rt.usizeAdd(buf.length, 2))));
-				frozen.push(_110);
+				const _118: rt.ByteSlice = rt.bytesMutFreeze(rt.bytesMutSplitTo(buf, rt.usizeRem(n, rt.usizeAdd(buf.length, 2))));
+				frozen.push(_118);
 			} else if (_20 === 14) {
 				rt.bytesMutPutFill(buf, n & 0xff, rt.usizeRem(n, 9));
 			} else if (_20 === 15) {
 				if (!((buf.length === 0))) {
 					const at: rt.usize = rt.usizeRem(n, buf.length);
-					const _128: rt.ByteSlice = rt.bytesMutView(buf);
-					rt.idx(_128, at);
-					_128.data[_128.start + at] = _128.data[_128.start + at] ^ 255;
+					const _136: rt.ByteSlice = rt.bytesMutView(buf);
+					rt.idx(_136, at);
+					_136.data[_136.start + at] = _136.data[_136.start + at] ^ 255;
 				}
-				const _133: rt.BytesMut | undefined = rt.sliceLast(pieces);
-				if (_133 !== undefined) {
-					rt.bytesMutExtend(_133, rt.byteSliceFrom(Uint8Array.of(120, 121)));
+				const _141: rt.BytesMut | undefined = rt.sliceLast(pieces);
+				if (_141 !== undefined) {
+					rt.bytesMutExtend(_141, rt.byteSliceFrom(Uint8Array.of(120, 121)));
 				}
 			} else if (_20 === 16) {
-				const _142: rt.ByteSlice = rt.bytesCopyFromSlice(Ops.take(ops, rt.usizeRem(n, 5)));
-				rt.bytesMutPutStorage(buf, _142);
+				const _150: rt.ByteSlice = rt.bytesCopyFromSlice(Ops.take(ops, rt.usizeRem(n, 5)));
+				rt.bytesMutPutStorage(buf, _150);
 			} else {
 				const source: rt.BytesMut = rt.bytesMutFrom(Ops.take(ops, rt.usizeRem(n, 6)));
 				const first: rt.u8 = getU8Checked$Checked_BytesMut(source);
@@ -100,18 +106,18 @@ export function bytesMut(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const tail: rt.BytesMut = rt.bytesMutFrom(rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(116, 97, 105, 108)), 0));
 	rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(buf), rt.bytesMutView(tail)) ? 1 : 0);
-	const _171: rt.BytesMut = rt.bytesMutFrom(rt.bytesMutView(buf));
-	const _173: rt.ByteSlice = rt.byteSliceRange(rt.bytesMutView(buf), 0);
-	rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(_171), _173) ? 1 : 0);
-	const _184: rt.usize = buf.length;
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(buf), f), (f: rt.Formatter) => rt.usizeDisplay(_184, f)];
+	const _179: rt.BytesMut = rt.bytesMutFrom(rt.bytesMutView(buf));
+	const _181: rt.ByteSlice = rt.byteSliceRange(rt.bytesMutView(buf), 0);
+	rt.byteVecPush(out, rt.byteSliceEq(rt.bytesMutView(_179), _181) ? 1 : 0);
+	const _192: rt.usize = buf.length;
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(buf), f), (f: rt.Formatter) => rt.usizeDisplay(_192, f)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], "\n"])));
-	for (const _195 of pieces) {
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(_195), f)];
+	for (const _203 of pieces) {
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(rt.bytesMutView(_203), f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0], "\n"])));
 	}
-	for (const _214 of frozen) {
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(_214, f)];
+	for (const _222 of frozen) {
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(_222, f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args6[0], "\n"])));
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.bytesMutToByteVec(buf)));
@@ -219,6 +225,37 @@ export function read$BytesMut(buf: rt.BytesMut, n: rt.usize): rt.u128 {
 	const part = rt.usizeRem(n, 4);
 	rt.bytesMutCopyToSlice(buf, rt.byteSliceRange(rt.byteSliceFrom(dst), 0, part));
 	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
+}
+
+/**
+ * `reserve` at the edges of `rt.BytesMut`'s limit for storage that was shared, 512 MiB
+ * counting what it read past: a vector of its own grows as `Vec` does on either side of
+ * it, and shared storage grows up to it. Only the inputs `caller.ts` names reach these,
+ * as each allocates that much.
+ */
+export function reserves(data: rt.ByteSlice, out: rt.ByteVec): void {
+	if (data.length === 6) {
+		if (data.data[data.start] === 101) {
+			if (data.data[data.start + 1] === 100) {
+				if (data.data[data.start + 2] === 103) {
+					if (data.data[data.start + 3] === 101) {
+						const kind: rt.u8 = data.data[data.start + 4];
+						const read: rt.u8 = data.data[data.start + 5];
+						const buf: rt.BytesMut = rt.bytesMutFrom(rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(101, 100, 103, 101, 115)), 0));
+						const read2: rt.usize = rt.usizeRem(read as rt.usize, 5);
+						rt.bytesMutAdvance(buf, read2);
+						const head: rt.BytesMut | undefined = then$bool_BytesMut_reserves_closure0(rt.u8Rem(kind, 2) === 1, (): rt.BytesMut => {
+							return rt.bytesMutSplitTo(buf, 0);
+						});
+						rt.bytesMutReserve(buf, rt.usizeSub(rt.usizeSub(rt.usizeAdd(536870912, rt.u8Rem(rt.u8Div(kind, 2), 2) as rt.usize), read2), buf.length));
+						rt.bytesMutExtend(buf, rt.byteSliceFrom(Uint8Array.of(33)));
+						rt.byteVecExtendFromSlice(out, rt.bytesMutView(buf));
+						rt.byteVecPush(out, head !== undefined ? 1 : 0);
+					}
+				}
+			}
+		}
+	}
 }
 
 /**

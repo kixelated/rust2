@@ -23,6 +23,16 @@ import type { usize } from "./int.ts";
 /** `isize::MAX` on wasm32, the most bytes an allocation holds. */
 const ISIZE_MAX = 0x7fffffff;
 
+/**
+ * The most bytes, counting those read past, that a `BytesMut` whose storage was shared or
+ * taken reaches before `reserve` throws. Below it, `bytes`' storage stays under 1 GiB, so
+ * growing it panics nowhere, whichever handles dropped.
+ */
+const BYTES_MUT_UNSURE_LIMIT = 0x20000000;
+
+/** The furthest a `bytes` vector reads past its front before it becomes shared storage, on wasm32. */
+const MAX_VEC_POS = 0x7ffffff;
+
 /** `bytes::Bytes`. */
 export type Bytes = ByteSlice;
 
@@ -202,35 +212,35 @@ function widen(read: Uint8Array, size: number, signed: boolean): Uint8Array {
 
 /**
  * `bytes::BytesMut`: `length` bytes of `data` from `start`, with room up to `cap` before
- * the bytes another handle or a frozen `Bytes` holds. Its capacity isn't `bytes`', which
- * depends on whether the other handles of its storage dropped, so translation refuses
- * what reads it.
+ * the bytes another handle or a frozen `Bytes` holds. Once its storage was shared or
+ * taken from a `Bytes`, its capacity isn't `bytes`', which depends on whether other
+ * handles of that storage dropped, so translation refuses what reads it.
  */
 export class BytesMut {
 	data: Uint8Array;
+	/** How far into `data` it starts, which is at least as far as `bytes`' handle reads past. */
 	start: number;
 	length: number;
 	cap: number;
 	/**
-	 * Whether its storage is `bytes`' shared kind, which `split_to` makes and whose growth
-	 * panics apart from a vector's. `undefined` where `bytes`' kind depends on whether other
-	 * handles of its storage dropped, as once shared storage grows.
+	 * Whether it is a vector that was never shared nor taken, whose `start` and `cap` are
+	 * `bytes`' own, so it grows and panics as `Vec` does.
 	 */
-	shared: boolean | undefined;
+	exact: boolean;
 
-	constructor(data: Uint8Array, start: number, length: number, cap: number, shared: boolean | undefined) {
+	constructor(data: Uint8Array, start: number, length: number, cap: number, exact: boolean) {
 		this.data = data;
 		this.start = start;
 		this.length = length;
 		this.cap = cap;
-		this.shared = shared;
+		this.exact = exact;
 	}
 }
 
 /** `BytesMut::with_capacity`, `new` of 0. */
 export function bytesMutWithCapacity(capacity: usize): BytesMut {
 	if (capacity > ISIZE_MAX) panic("capacity overflow");
-	return new BytesMut(bytes(capacity), 0, 0, capacity, false);
+	return new BytesMut(bytes(capacity), 0, 0, capacity, true);
 }
 
 /** `BytesMut::zeroed`. */
@@ -240,7 +250,7 @@ export function bytesMutZeroed(len: usize): BytesMut {
 	return b;
 }
 
-/** A `BytesMut` of a copy of `s`: `From<&[u8]>`, `From<&str>`, `From<Bytes>`, and `Clone`. */
+/** A `BytesMut` of a copy of `s`: `From<&[u8]>`, `From<&str>`, and `Clone`. */
 export function bytesMutFrom(s: ByteSlice): BytesMut {
 	const b = bytesMutWithCapacity(s.length);
 	copyBytes(b.data, 0, s.data, s.start, s.length);
@@ -248,10 +258,13 @@ export function bytesMutFrom(s: ByteSlice): BytesMut {
 	return b;
 }
 
-/** `BytesMut::from` a `Bytes`, whose storage it takes where no other handle holds it. */
+/**
+ * `BytesMut::from` a `Bytes`, whose storage `bytes` takes where no other handle holds it,
+ * reading past as much of it as the `Bytes` did.
+ */
 export function bytesMutFromBytes(s: Bytes): BytesMut {
-	const b = bytesMutFrom(s);
-	b.shared = undefined;
+	const b = new BytesMut(bytes(s.start + s.length), s.start, s.length, s.length, false);
+	copyBytes(b.data, s.start, s.data, s.start, s.length);
 	return b;
 }
 
@@ -270,44 +283,59 @@ export function bytesMutToByteVec(b: BytesMut): ByteVec {
 	return byteSliceToByteVec(bytesMutView(b));
 }
 
-/** `BytesMut::reserve`: room for `additional` more bytes, panicking as `bytes` does past what a buffer holds. */
+/**
+ * `BytesMut::reserve`: room for `additional` more bytes. A vector grows and panics as `Vec`
+ * does, counting the bytes it read past. Storage that was shared or taken throws past
+ * `BYTES_MUT_UNSURE_LIMIT`, where `bytes`' panic depends on which handles dropped.
+ */
 export function bytesMutReserve(b: BytesMut, additional: usize): void {
+	if (!b.exact && b.start + b.length + additional > BYTES_MUT_UNSURE_LIMIT) {
+		throw new Error(
+			`rust2-ts: \`BytesMut::reserve\` past ${BYTES_MUT_UNSURE_LIMIT} bytes of storage that was shared, whose panic depends on whether other handles of it dropped`,
+		);
+	}
 	if (additional <= b.cap - b.length) return;
 	const needed = b.length + additional;
-	// A vector's own storage moves its bytes to the front where that alone makes the room.
-	if (!b.shared && b.start >= b.length && b.cap - b.length + b.start >= additional) {
+	if (!b.exact) {
+		// Never before `start`, which stays as far as `bytes`' handle reads past or further.
+		const cap = Math.max(needed, b.cap * 2, 8);
+		const data = bytes(b.start + cap);
+		copyBytes(data, b.start, b.data, b.start, b.length);
+		b.data = data;
+		b.cap = cap;
+		return;
+	}
+	// Its bytes move to the front where that alone makes the room.
+	if (b.start >= b.length && b.cap - b.length + b.start >= additional) {
 		b.data.copyWithin(0, b.start, b.start + b.length);
 		b.cap += b.start;
 		b.start = 0;
 		return;
 	}
-	if (needed > 0xffffffff) {
-		if (b.shared === undefined) {
-			throw new Error("rust2-ts: `BytesMut::reserve` past `usize::MAX`, whose panic depends on whether other handles of its storage dropped");
-		}
-		if (b.shared) panic("overflow");
-	}
-	// A vector grows past its offset, where a shared one starts afresh.
-	if ((b.shared ? needed : b.start + needed) > ISIZE_MAX) panic("capacity overflow");
-	const cap = Math.max(needed, b.cap * 2, 8);
-	const data = bytes(cap);
-	copyBytes(data, 0, b.data, b.start, b.length);
+	// `Vec::reserve` of the vector from the front of the storage.
+	const required = b.start + needed;
+	const total = Math.max((b.start + b.cap) * 2, required, 8);
+	if (required > ISIZE_MAX || total > ISIZE_MAX) panic("capacity overflow");
+	const data = bytes(total);
+	copyBytes(data, b.start, b.data, b.start, b.length);
 	b.data = data;
-	b.start = 0;
-	b.cap = cap;
-	// Shared storage stays shared if no other handle held it, and becomes a vector if one did.
-	if (b.shared) b.shared = undefined;
+	b.cap = total - b.start;
 }
 
 /**
  * `BufMut::put` of a `Bytes` or a `BytesMut`. At zero capacity `bytes` takes its storage,
- * of a kind that depends on its handles, and a vector's capacity is only approximate here.
+ * reading past as much of it as it did.
  */
 export function bytesMutPutStorage(b: BytesMut, s: Bytes): void {
 	if (s.length === 0) return;
-	const vector = b.shared === false;
+	if (b.exact ? b.cap === 0 : b.length === 0) {
+		const start = Math.max(b.start, s.start);
+		b.data = bytes(start + s.length);
+		b.start = start;
+		b.cap = s.length;
+		b.exact = false;
+	}
 	bytesMutExtend(b, s);
-	if (vector) b.shared = undefined;
 }
 
 /** `BytesMut::extend_from_slice`, and `BufMut::put_slice`. */
@@ -363,11 +391,11 @@ export function bytesMutResize(b: BytesMut, len: usize, value: number): void {
 /** `BytesMut::split_to`: the first `at` bytes, sharing the storage, leaving the rest. */
 export function bytesMutSplitTo(b: BytesMut, at: usize): BytesMut {
 	if (at > b.length) panic(`split_to out of bounds: ${at} <= ${b.length}`);
-	const head = new BytesMut(b.data, b.start, at, at, true);
+	const head = new BytesMut(b.data, b.start, at, at, false);
 	b.start += at;
 	b.length -= at;
 	b.cap -= at;
-	b.shared = true;
+	b.exact = false;
 	return head;
 }
 
@@ -378,11 +406,11 @@ export function bytesMutUnsplit(b: BytesMut, other: BytesMut): void {
 		b.start = other.start;
 		b.length = other.length;
 		b.cap = other.cap;
-		b.shared = other.shared;
+		b.exact = other.exact;
 		return;
 	}
 	if (other.cap === 0) return;
-	if (b.shared && other.shared && b.data === other.data && b.start + b.length === other.start) {
+	if (!b.exact && !other.exact && b.data === other.data && b.start + b.length === other.start) {
 		b.length += other.length;
 		b.cap += other.cap;
 		return;
@@ -396,6 +424,7 @@ export function bytesMutAdvance(b: BytesMut, cnt: usize): void {
 	b.start += cnt;
 	b.length -= cnt;
 	b.cap -= cnt;
+	if (b.start > MAX_VEC_POS) b.exact = false;
 }
 
 /** `Buf::get_*` of `BytesMut`: its first `n` bytes, the other way around if `le`, read past. */
