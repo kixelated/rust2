@@ -17,8 +17,8 @@ pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
-pub fn sorted(v: &mut [u8]) {
-	v.sort();
+pub fn rotated(v: &mut [u8]) {
+	v.rotate_left(1);
 }
 
 /// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`

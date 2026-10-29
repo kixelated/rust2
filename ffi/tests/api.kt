@@ -307,6 +307,19 @@ fun script() {
 		check(runCatching { counter.get() }.exceptionOrNull() is IllegalStateException, "a counter moved in is closed")
 	}
 	println("sums ${sums(listOf(listOf(1u, 2u), emptyList(), listOf(3u)))}")
+	val summed = summed(listOf(Point(1, 2), Point(-4, 6)))
+	val noneSummed = summed(emptyList())
+	println("summed ${summed.x} ${summed.y} ${noneSummed.x} ${noneSummed.y}")
+	println("longest ${longest(listOf("a", "abc"))} ${longest(emptyList())}")
+	val doc = Json.parse("""{"b": [1, 2.5, null], "a": "\u00e9"}""")
+	println("json ${encode(doc)}")
+	println("timed text ${timedText(doc)}")
+	tagged(doc, "t").use { tagged -> println("tagged ${tagged.toText()}") }
+	try {
+		Json.parse("{\"a\":").close()
+	} catch (e: StringException) {
+		println("json parse err ${e.error}")
+	}
 	val site = Site.new(base)
 	site.home.use { a -> site.home.use { b -> println("site $a $b") } }
 

@@ -9,7 +9,7 @@ unsupported type `f32` at fixtures/reject/src/lib.rs:7:25
 `dyn std::iter::Iterator<Item = u8>`, a trait object of another crate's trait, which is not supported yet at fixtures/reject/src/lib.rs:11:16
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:17:2
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:16:15
-unsupported call to `std::slice::<impl [u8]>::sort` at fixtures/reject/src/lib.rs:21:4
+unsupported call to `core::slice::<impl [u8]>::rotate_left` at fixtures/reject/src/lib.rs:21:4
 `Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:41:42
 `Maybe<()>` is not supported: its field `value` is `Option<T>`, typed `T | undefined`, whose `None` would be `rt.None` as `Option<()>` at fixtures/reject/src/lib.rs:31:2
 collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:36:43

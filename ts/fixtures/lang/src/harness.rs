@@ -104,6 +104,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::sentinels", |_, data, out| pointers::sentinels(data, out)),
 		("pointers::shared", |_, data, out| pointers::shared(data, out)),
 		("pointers::unchecked", |_, data, out| pointers::unchecked(data, out)),
+		("edits::bytes", edits::bytes),
 	]
 }
 

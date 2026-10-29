@@ -183,6 +183,13 @@ fun main() {
 		expect(e.message.isNotEmpty(), "a truncated head's error has a message")
 	}
 
+	// A subscription's ranges, from any iterable of them: a list.
+	val groups = TrackRange.groups(BoundsU64(BoundU64(Bound.INCLUDED, 2u), BoundU64(Bound.EXCLUDED, 6u)))
+	val ranged = TrackSubscription.default().withRanges(listOf(TrackRange.live(), groups)).ranges
+	expect(ranged == listOf(TrackRange.live(), groups), "a subscription keeps its ranges")
+	expect(groups.start == TrackAnchor.Absolute(2u), "groups start at their first")
+	expect(groups.end == TrackAnchor.Absolute(6u), "groups end before their end")
+
 	// A catalog at moq-mux's untyped extension, from the config Kotlin builds, whose generic
 	// `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
 	// the catalog to Kotlin.
@@ -195,6 +202,44 @@ fun main() {
 		if (lent.toJson().startsWith("{")) read++
 	}
 	expect(read == 1, "mutate lends the catalog once")
+
+	// A JSON track the catalog lists, published through moq-mux's generic `json_snapshot` at
+	// a JSON document, and a section Kotlin parses from text, set in the lent catalog and
+	// read back as text.
+	val status = catalog.jsonSnapshotConfig(publisher.createTrack("status", null), JsonConfig.default(), JsonOptions.default())
+	expect(status.name() == "status", "a JSON snapshot has its track's name")
+	expect(catalog.isClaimedJsonConfig("status"), "the JSON snapshot claims its name")
+	// A value Kotlin parses is published as the track's latest, which a subscriber reads
+	// back as JSON text.
+	Json.parse("""{"on": true}""").use { status.update(it) }
+	runBlocking {
+		val frame = status.consume().recvGroup()?.readFrame()
+		expect(frame?.payload?.decodeToString() == """{"on":true}""", "a subscriber reads the latest value")
+	}
+	catalog.mutate { lent ->
+		val sections = lent.ext
+		sections.set("app", Json.parse("""{"v": [1, true]}"""))
+		lent.setExt(sections)
+	}
+	var app: String? = null
+	catalog.mutate { lent ->
+		expect(lent.toJson().contains("\"status\""), "the catalog lists the JSON track")
+		app = lent.ext.get("app")?.use { it.toText() }
+	}
+	expect(app == """{"v":[1,true]}""", "the catalog reads its section back as text")
+	// Malformed text fails to parse, and a reserved section is moq-mux's error.
+	try {
+		Json.parse("""{"v":""").close()
+		expect(false, "malformed JSON fails to parse")
+	} catch (e: StringException) {
+		expect(e.error == "EOF while parsing a value at line 1 column 5", "a parse error is serde_json's")
+	}
+	try {
+		CatalogHangExtra.default().use { it.set("json", Json.parse("1")) }
+		expect(false, "a reserved section is an error")
+	} catch (e: MuxErrorException) {
+		expect(e.message == "reserved catalog section: json", "a reserved section is moq-mux's error")
+	}
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.
 	expect(ConnectError.UNAUTHORIZED.isAuth(), "unauthorized is an auth error")
