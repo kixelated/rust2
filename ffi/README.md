@@ -219,8 +219,9 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 
 `<prefix>.kt` is Kotlin for the JVM and Android over the crate's JNI functions, which
 `--features kotlin` builds into the same library, loaded by `System.loadLibrary`. It needs
-kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes as a
-`ByteArray`, and anything else encoded into one as its C struct holds it.
+kotlinx-coroutines. Each value crosses JNI as a scalar, a handle as a `Long`, bytes passed
+in as a `ByteArray`, bytes returned as their owner, and anything else encoded into a
+`ByteArray` as its C struct holds it.
 
 - **Names** are in a package of the prefix: types in PascalCase without it, members in
   camelCase without their type's name (`moq.TrackProducer.appendGroup`). A keyword is

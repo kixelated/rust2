@@ -342,7 +342,7 @@ fun main() {
 
 			val subscriber = remote.requestBroadcast("live", null).track("video").subscribe(null)
 			val frame = subscriber.recvGroup()?.readFrame()
-			expect(frame?.payload?.decodeToString() == "hello", "a session reads the frame the server serves")
+			expect(frame?.payload?.use { it.toByteArray().decodeToString() } == "hello", "a session reads the frame the server serves")
 
 			established.close_()
 			client.close_()
