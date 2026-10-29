@@ -3,7 +3,7 @@ roots = [
     "float",
     "dynamic",
     "nested",
-    "sorted",
+    "rotated",
     "iterators",
     "generic_unit",
     "collected",

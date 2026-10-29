@@ -1331,7 +1331,6 @@ fn mapping<'tcx>(
 				true => "byteVec",
 				false => "vec",
 			};
-			// Each that takes a `&mut` lends an element JS copies as its place.
 			let lend = match b.t.needs_place(elem) {
 				true => "Mut",
 				false => "",
