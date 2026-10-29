@@ -198,6 +198,36 @@ fun main() {
 	}
 	expect(listed == 1, "the catalog lists the snapshot's track")
 
+	// A JSON track the catalog lists, published through moq-mux's generic `json_snapshot` at
+	// a JSON document, and a section Kotlin parses from text, set in the lent catalog and
+	// read back as text.
+	val status = catalog.jsonSnapshotConfig(publisher.createTrack("status", null), JsonConfig.default(), JsonOptions.default())
+	expect(status.name() == "status", "a JSON snapshot has its track's name")
+	catalog.mutate { lent ->
+		val sections = lent.ext
+		sections.set("app", Json.parse("""{"v": [1, true]}"""))
+		lent.setExt(sections)
+	}
+	var app: String? = null
+	catalog.mutate { lent ->
+		expect(lent.toJson().contains("\"status\""), "the catalog lists the JSON track")
+		app = lent.ext.get("app")?.use { it.toText() }
+	}
+	expect(app == """{"v":[1,true]}""", "the catalog reads its section back as text")
+	// Malformed text fails to parse, and a reserved section is moq-mux's error.
+	try {
+		Json.parse("""{"v":""").close()
+		expect(false, "malformed JSON fails to parse")
+	} catch (e: StringException) {
+		expect(e.error == "EOF while parsing a value at line 1 column 5", "a parse error is serde_json's")
+	}
+	try {
+		CatalogHangExtra.default().use { it.set("json", Json.parse("1")) }
+		expect(false, "a reserved section is an error")
+	} catch (e: MuxErrorException) {
+		expect(e.message == "reserved catalog section: json", "a reserved section is moq-mux's error")
+	}
+
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.
 	expect(ConnectError.UNAUTHORIZED.isAuth(), "unauthorized is an auth error")
 	expect(ConnectError.UNAUTHORIZED.toString() == "unauthorized", "a connect error prints as Rust's")

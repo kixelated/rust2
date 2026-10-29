@@ -19,14 +19,16 @@ hang's `Catalog<()>`. What remains is two type mappings.
 
 - `impl IntoIterator<Item = X>` takes a `Vec<X>`, which moq-net's `with_ranges` exports
   through.
-- Decided with the maintainer on 2026-10-28: `serde_json::Value` crosses as JSON text, a
-  UTF-8 document string in every language, and callers use their own JSON library. A
-  `T: Serialize` parameter infers `serde_json::Value`, not `String`, so moq's config stops
-  excluding `json_snapshot` and `json_stream`. Malformed text from a caller is an error
-  result, never an abort.
-- Open: where that error goes. `json::Snapshot::update` and `json::Stream::append` return
-  moq-mux's `Error`, which has no `From<serde_json::Error>`, so a parse failure has no
-  home in the call's own result.
+- Decided with the maintainer on 2026-10-28, replacing an earlier plan to cross JSON as
+  text: `serde_json::Value` is a runtime JSON object, as `url::Url` is, never a string. It
+  has only a parse from JSON text, whose error is the only place a parse fails, and a
+  `to_text`; callers read its contents with their own JSON library. Every function keeps
+  its Rust signature, taking or returning the handle, so moq needs no change. A serde
+  `Serialize` or `Deserialize` bound infers `serde_json::Value`, not `String`.
+- `json::Snapshot::update` and `json::Stream::append` take `impl Into<Timed<&'a T>>`,
+  which needs [#197](https://github.com/kixelated/rust2/pull/197)'s `From`-impl rule
+  extended to a concrete source (`From<&'a V> for Timed<&'a V>` gives `&T`). Then moq's
+  tests publish a value on the JSON track and read it back.
 - Report moq-ffi's coverage and the census before and after.
 
 Public API: the C names and types these methods export with.

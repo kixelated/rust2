@@ -67,6 +67,45 @@ static void lists_stats(void *data, moq_hang_catalog_extra *catalog) {
 	moq_catalog_stats_free(stats);
 }
 
+/* Whether `buf` holds `s` anywhere. */
+static int contains(moq_buf buf, const char *s) {
+	size_t len = strlen(s);
+	for (size_t i = 0; i + len <= buf.len; i++) {
+		if (memcmp(buf.ptr + i, s, len) == 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* Sets the lent catalog's `app` section to the JSON document in data, in place. */
+static void sets_app(void *data, moq_hang_catalog_extra *catalog) {
+	moq_catalog_hang_extra *sections = moq_hang_catalog_extra_ext(catalog);
+	moq_mux_error *err = NULL;
+	CHECK(moq_catalog_hang_extra_set(sections, str("app"), data, &err));
+	moq_hang_catalog_extra_set_ext(catalog, sections);
+	moq_catalog_hang_extra_free(sections);
+}
+
+/* What C reads back from the lent catalog: its JSON, and its `app` section as text. */
+struct readback {
+	moq_buf json;
+	moq_buf app;
+};
+
+static void reads_back(void *data, moq_hang_catalog_extra *catalog) {
+	struct readback *back = data;
+	moq_hang_error *hang_err = NULL;
+	CHECK(moq_hang_catalog_extra_to_json(catalog, &back->json, &hang_err));
+	moq_catalog_hang_extra *sections = moq_hang_catalog_extra_ext(catalog);
+	moq_json *app = moq_catalog_hang_extra_get(sections, str("app"));
+	if (app != NULL) {
+		back->app = moq_json_to_text(app);
+		moq_json_free(app);
+	}
+	moq_catalog_hang_extra_free(sections);
+}
+
 static int wakes = 0;
 
 static void wake(void *data) {
@@ -342,6 +381,42 @@ int main(void) {
 	int listed_stats = 0;
 	CHECK(moq_catalog_producer_extra_mutate(catalog, lists_stats, &listed_stats, &mux_err));
 	CHECK(listed_stats == 1);
+	/* A JSON track the catalog lists, published through moq-mux's generic `json_snapshot`
+	 * at a JSON document, and a section C parses from text, set in the lent catalog and
+	 * read back as text. */
+	moq_track_producer *status = NULL;
+	CHECK(moq_broadcast_producer_create_track(publisher, str("status"), NULL, &status, &err));
+	moq_json_config *json_config = moq_json_config_default();
+	moq_json_options *json_options = moq_json_options_default();
+	moq_json_snapshot_json *status_snapshot = NULL;
+	CHECK(moq_catalog_producer_extra_json_snapshot_config(catalog, status, json_config, json_options, &status_snapshot,
+	                                                      &mux_err));
+	moq_json_config_free(json_config);
+	moq_json_options_free(json_options);
+	moq_track_producer_free(status);
+	CHECK(is(moq_json_snapshot_json_name(status_snapshot), "status"));
+	moq_json *app = NULL;
+	moq_buf json_err;
+	CHECK(moq_json_parse(str("{\"v\": [1, true]}"), &app, &json_err));
+	CHECK(moq_catalog_producer_extra_mutate(catalog, sets_app, app, &mux_err));
+	moq_json_free(app);
+	struct readback back = {0};
+	CHECK(moq_catalog_producer_extra_mutate(catalog, reads_back, &back, &mux_err));
+	CHECK(contains(back.json, "\"status\""));
+	moq_buf_free(back.json);
+	CHECK(is(back.app, "{\"v\":[1,true]}"));
+	/* Malformed text fails to parse, and a reserved section is moq-mux's error. */
+	CHECK(!moq_json_parse(str("{\"v\":"), &app, &json_err));
+	CHECK(is(json_err, "EOF while parsing a value at line 1 column 5"));
+	moq_catalog_hang_extra *sections = moq_catalog_hang_extra_default();
+	CHECK(moq_json_parse(str("1"), &app, &json_err));
+	CHECK(!moq_catalog_hang_extra_set(sections, str("json"), app, &mux_err));
+	CHECK(mux_err != NULL && is(moq_mux_error_to_string(mux_err), "reserved catalog section: json"));
+	moq_mux_error_free(mux_err);
+	mux_err = NULL;
+	moq_json_free(app);
+	moq_catalog_hang_extra_free(sections);
+	moq_json_snapshot_json_free(status_snapshot);
 	moq_binary_snapshot_free(snapshot);
 	moq_catalog_producer_extra_free(catalog);
 	moq_broadcast_producer_free(publisher);

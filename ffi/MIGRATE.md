@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- A type parameter bounded by serde's `Serialize` or `Deserialize` takes
+  `serde_json::Value`, not `String`: C passes a `<prefix>_json` it parses from JSON text
+  with `<prefix>_json_parse`, not a buffer, and a generic type at such a parameter is
+  named by `json` (`moq_json_snapshot_json`), not `string`. An item that clashes with
+  `<prefix>_json` or its functions takes a `rename`.
 - `&[T]` of any type and `SocketAddrV4` and `SocketAddrV6` map, so a struct or enum whose
   fields were refused only for the socket addresses is a value now, not an object, and
   an item that newly exports can clash with another's C name, which takes a `rename`.

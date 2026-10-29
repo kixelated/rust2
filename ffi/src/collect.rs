@@ -516,14 +516,18 @@ impl<'tcx> Collector<'tcx> {
 	}
 
 	/// The first type argument an instance is named by that cannot map as [`Self::arg`]
-	/// requires, which is `()`, a primitive, `String`, or an export's type.
+	/// requires, which is `()`, a primitive, `String`, a foreign object, or an export's type.
 	fn unarguable(&self, site: &Site<'tcx>) -> Option<Ty<'tcx>> {
 		let tcx = self.tcx;
 		site.args.types().take(site.explicit).find(|&ty| match ty.kind() {
 			ty::Tuple(list) => !list.is_empty(),
 			ty::Bool | ty::Char | ty::Float(_) => false,
 			ty::Int(_) | ty::Uint(_) => int(ty).is_none(),
-			ty::Adt(adt, _) => tcx.lang_items().string() != Some(adt.did()) && !self.exported(adt.did().krate),
+			ty::Adt(adt, _) => {
+				tcx.lang_items().string() != Some(adt.did())
+					&& !self.exported(adt.did().krate)
+					&& !self.foreign.iter().any(|&(ty, _)| ty == adt.did())
+			}
 			_ => true,
 		})
 	}

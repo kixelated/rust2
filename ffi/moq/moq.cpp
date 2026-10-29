@@ -206,6 +206,34 @@ int main() {
 			}
 		}));
 		CHECK(listed_state == 1);
+
+		// A JSON track the catalog lists, published through moq-mux's generic
+		// `json_snapshot` at a JSON document, and a section C++ parses from text, set in the
+		// lent catalog and read back as text.
+		auto status = publisher.create_track("status", std::nullopt);
+		CHECK(status);
+		auto status_snapshot = catalog->json_snapshot_config(std::move(*status), moq::json_config::default_(),
+		                                                     moq::json_options::default_());
+		CHECK(status_snapshot && is(status_snapshot->name(), "status"));
+		auto app = moq::json::parse(R"({"v": [1, true]})");
+		CHECK(app);
+		CHECK(catalog->mutate([&](moq::hang_catalog_extra &lent) {
+			moq::catalog_hang_extra sections = lent.ext();
+			CHECK(sections.set("app", std::move(*app)));
+			lent.set_ext(std::move(sections));
+		}));
+		CHECK(catalog->mutate([&](moq::hang_catalog_extra &lent) {
+			auto json = lent.to_json();
+			CHECK(json && json.value().str().find("\"status\"") != std::string_view::npos);
+			auto section = lent.ext().get("app");
+			CHECK(section && is(section->to_text(), R"({"v":[1,true]})"));
+		}));
+		// Malformed text fails to parse, and a reserved section is moq-mux's error.
+		auto broken = moq::json::parse(R"({"v":)");
+		CHECK(!broken && is(broken.error(), "EOF while parsing a value at line 1 column 5"));
+		moq::catalog_hang_extra sections = moq::catalog_hang_extra::default_();
+		auto reserved = sections.set("json", moq::json::parse("1").value());
+		CHECK(!reserved && is(reserved.error().to_string(), "reserved catalog section: json"));
 	}
 
 	// A session's config, filled in as Rust assigns it, and a nested field by getting a copy,
