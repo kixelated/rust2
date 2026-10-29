@@ -10,7 +10,7 @@
 //! would the closure itself.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Interner as _, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::Translator;
@@ -428,6 +428,11 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 				);
 			}
 			return value;
+		}
+		// A census over type parameters can't make the class: only an instance decides
+		// what the pointee is.
+		if self.t.polymorphic() && pointee.has_param() {
+			return Expr::undefined();
 		}
 		let held = match from.kind() {
 			ty::Ref(_, _, ty::Mutability::Mut) if self.t.needs_place(pointee) => Held::Place,

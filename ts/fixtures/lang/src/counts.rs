@@ -1,6 +1,7 @@
 //! Strong and weak counts of `Arc`s and `Rc`s and their `Weak`s, through every way one is
-//! made and dropped: cloned, downgraded, upgraded, made dangling, and held in a `Vec`, an
-//! `Option`, a struct, and a closure, of a value and of a trait object.
+//! made and dropped: cloned, downgraded, upgraded, made dangling, made holding handles to
+//! itself, and held in a `Vec`, an `Option`, a struct, and a closure, of a value and of a
+//! trait object.
 
 use std::rc::{self, Rc};
 use std::sync::{self, Arc, Mutex};
@@ -17,6 +18,13 @@ impl Drop for Noisy {
 	}
 }
 
+/// Puts what dropped since the last flush.
+fn flush(log: &Mutex<Vec<u8>>, out: &mut Vec<u8>) {
+	let mut log = log.lock().unwrap();
+	out.extend_from_slice(&log);
+	log.clear();
+}
+
 /// What a trait object of a `Noisy` reads.
 trait Id {
 	fn id(&self) -> u8;
@@ -29,10 +37,99 @@ impl Id for Noisy {
 }
 
 macro_rules! counts {
-	($name:ident, $holder:ident, $Ptr:ident, $weak:ident) => {
+	($name:ident, $holder:ident, $cyclic:ident, $node:ident, $Ptr:ident, $weak:ident) => {
 		/// Holds a handle that doesn't keep its value.
 		struct $holder<T> {
 			weak: $weak::Weak<T>,
+		}
+
+		/// Holds handles to itself, which `new_cyclic` gives it before it exists, and what
+		/// the first read then.
+		struct $node {
+			this: $weak::Weak<$node>,
+			more: Vec<$weak::Weak<$node>>,
+			noisy: Noisy,
+			seen: [u8; 3],
+		}
+
+		impl $node {
+			fn new(this: &$weak::Weak<$node>, noisy: Noisy, more: u8) -> Self {
+				Self {
+					this: this.clone(),
+					more: (0..more).map(|_| this.clone()).collect(),
+					noisy,
+					seen: [
+						this.upgrade().is_none() as u8,
+						$weak::Weak::strong_count(this) as u8,
+						$weak::Weak::weak_count(this) as u8,
+					],
+				}
+			}
+		}
+
+		/// Each byte a value made by `new_cyclic`, from a closure that moves what it owns,
+		/// reads it, reads it as an `Fn`, or owns nothing that drops, holding up to 3 more
+		/// handles to itself; then kept, dropped, or dropped with a handle outside. Each puts what it read and what
+		/// dropped.
+		pub fn $cyclic(data: &[u8], out: &mut Vec<u8>) {
+			let log = Arc::new(Mutex::new(Vec::new()));
+			let mut kept: Vec<$Ptr<$node>> = Vec::new();
+			let mut outside: Vec<$weak::Weak<$node>> = Vec::new();
+			for &op in data {
+				let noisy = Noisy {
+					id: op,
+					log: log.clone(),
+				};
+				let more = (op >> 2) % 4;
+				let node = match op % 4 {
+					0 => $Ptr::new_cyclic(move |this| $node::new(this, noisy, more)),
+					// Its capture drops once it is called.
+					1 => $Ptr::new_cyclic(move |this| {
+						let copy = Noisy {
+							id: noisy.id ^ 0x80,
+							log: noisy.log.clone(),
+						};
+						$node::new(this, copy, more)
+					}),
+					// An `Fn`, made before the call, so `new_cyclic` drops it after.
+					2 => {
+						let make = move |this: &$weak::Weak<$node>| {
+							let copy = Noisy {
+								id: noisy.id ^ 0x40,
+								log: noisy.log.clone(),
+							};
+							$node::new(this, copy, more)
+						};
+						$Ptr::new_cyclic(make)
+					}
+					_ => $Ptr::new_cyclic(|this| {
+						let fresh = Noisy {
+							id: 0xee,
+							log: log.clone(),
+						};
+						$node::new(this, fresh, more)
+					}),
+				};
+				out.extend(node.seen);
+				out.push($Ptr::strong_count(&node) as u8);
+				out.push($Ptr::weak_count(&node) as u8);
+				out.push(node.more.len() as u8);
+				out.push(node.this.upgrade().map_or(0xfd, |n| n.noisy.id));
+				out.push($weak::Weak::ptr_eq(&node.this, &$Ptr::downgrade(&node)) as u8);
+				out.push($Ptr::weak_count(&node) as u8);
+				match op >> 6 {
+					0 => kept.push(node),
+					1 => {
+						outside.push($Ptr::downgrade(&node));
+						drop(node);
+					}
+					_ => drop(node),
+				}
+				flush(&log, out);
+			}
+			drop(kept);
+			out.extend(outside.iter().map(|w| $weak::Weak::strong_count(w) as u8));
+			flush(&log, out);
 		}
 
 		/// Each byte an operation on pools of strong and weak handles, the rest of it the
@@ -117,5 +214,5 @@ macro_rules! counts {
 	};
 }
 
-counts!(arcs, ArcHolder, Arc, sync);
-counts!(rcs, RcHolder, Rc, rc);
+counts!(arcs, ArcHolder, cyclic_arcs, ArcNode, Arc, sync);
+counts!(rcs, RcHolder, cyclic_rcs, RcNode, Rc, rc);

@@ -6,8 +6,8 @@ import * as rt from "./rt.ts";
 export class Hook {
 	f: (a0: rt.u8) => rt.u32;
 
-	constructor(fields: { f: (a0: rt.u8) => rt.u32 }) {
-		this.f = fields.f;
+	constructor(f: (a0: rt.u8) => rt.u32) {
+		this.f = f;
 	}
 
 	[Symbol.dispose](): void {

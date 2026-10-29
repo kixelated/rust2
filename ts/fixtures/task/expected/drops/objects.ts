@@ -31,7 +31,7 @@ export function boxed(log: Log.Log, id: rt.u32): void {
 	parts.push(_13);
 	const _24: Part.Part = new Part.u32(7);
 	parts.push(_24);
-	const _28: Part.Part = new Part.Wrap_u32(new Wrap.Wrap({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), inner: 0 }));
+	const _28: Part.Part = new Part.Wrap_u32(new Wrap.Wrap(rt.u32Add(id, 4), Log.clone$Clone(log), 0));
 	parts.push(_28);
 	const _36: Part.Part = new Part.Held({ tag: "One", _0: guard(5) } as Held.Held);
 	parts.push(_36);
@@ -94,12 +94,12 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_25, f), (f: rt.Formatter) => rt.usizeDisplay(_29, f)];
 	Log.note(log, rt.fmtFormat(["held ", args2[0], " ", args2[1]]));
 	rt.arcDrop(held, drop$Held);
-	rt.drop(first);
+	first[Symbol.dispose]();
 	const part = second.strong;
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
 	Log.note(log, rt.fmtFormat(["count ", args4[0]]));
 	const kept: rt.Arc<Guard.Guard> = new rt.Arc(guard(3));
-	const wrap: rt.Arc<Wrap.Wrap<rt.u32>> = new rt.Arc(new Wrap.Wrap({ id: rt.u32Add(id, 4), log: Log.clone$Clone(log), inner: 0 }));
+	const wrap: rt.Arc<Wrap.Wrap<rt.u32>> = new rt.Arc(new Wrap.Wrap(rt.u32Add(id, 4), Log.clone$Clone(log), 0));
 	const parts: rt.Arc<Part.Part>[] = [];
 	const _63: rt.Arc<Wrap.Wrap<rt.u32>> = rt.arcClone(wrap);
 	parts.push(new rt.ArcDyn(_63, new Part.Wrap_u32(_63.value)));
@@ -110,7 +110,7 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const _77: rt.Arc<rt.u32> = new rt.Arc(7);
 	parts.push(new rt.ArcDyn(_77, new Part.u32(_77.value)));
 	const weak: rt.Weak<Part.Part> = new rt.Weak(parts[rt.idx(parts, 1)]);
-	rt.drop(second);
+	second[Symbol.dispose]();
 	const part2 = rt.iterFold(rt.iterMap(rt.iterSlice(parts), (p: rt.Arc<Part.Part>): rt.u32 => {
 		return p.value.id$Part();
 	}), 0, (a0: rt.u32, a1: rt.u32): rt.u32 => {
@@ -122,12 +122,12 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	rt.dropAll(parts);
 	const part3 = mapOr$Option_Arc_dyn_Part_u32_shared_closure3(rt.weakUpgrade(weak), 0, (p2: rt.Arc<Part.Part>): rt.u32 => {
 		const _03: rt.u32 = p2.value.id$Part();
-		rt.drop(p2);
+		p2[Symbol.dispose]();
 		return _03;
 	});
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 	Log.note(log, rt.fmtFormat(["weak ", args8[0]]));
-	rt.drop(kept);
+	kept[Symbol.dispose]();
 	const _122: rt.Arc<Part.Part> | undefined = rt.weakUpgrade(weak);
 	const part4 = _122 === undefined;
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part4, f)];
@@ -137,12 +137,12 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	const _132: rt.Arc<rt.Future<rt.u32>> = new rt.Arc(new sharedFuture(guard(6)));
 	const future: rt.Arc<rt.Future<rt.u32>> = new rt.ArcDyn(_132, _132.value);
 	const other: rt.Arc<rt.Future<rt.u32>> = rt.arcClone(future);
-	rt.drop(future);
+	future[Symbol.dispose]();
 	const part5 = other.strong;
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part5, f)];
 	Log.note(log, rt.fmtFormat(["future ", args12[0]]));
-	rt.drop(other);
-	rt.drop(weak);
+	other[Symbol.dispose]();
+	weak[Symbol.dispose]();
 }
 
 export class sharedFuture {
@@ -155,14 +155,14 @@ export class sharedFuture {
 
 	[Symbol.dispose](): void {
 		if (this.#state === 0) {
-			rt.drop(this.#captured);
+			this.#captured[Symbol.dispose]();
 		}
 	}
 
 	poll(_2: rt.Context): rt.Poll<rt.u32> {
 		if (this.#state === 0) {
 			const _4: rt.u32 = Guard.id(this.#captured);
-			rt.drop(this.#captured);
+			this.#captured[Symbol.dispose]();
 			this.#state = 1;
 			return _4;
 		}
@@ -216,7 +216,7 @@ export function anys(log: Log.Log, id: rt.u32): void {
 	const _90: rt.Arc<[Guard.Guard, Guard.Guard]> = new rt.Arc([guard(6), guard(7)] as [Guard.Guard, Guard.Guard]);
 	const hold: rt.Arc<Any.Any> = new rt.ArcDyn(_90, new Any.Guard_Guard(_90.value));
 	const clones: rt.Arc<Any.Any>[] = [rt.arcClone(hold), rt.arcClone(hold)];
-	rt.drop(hold);
+	hold[Symbol.dispose]();
 	const part3 = clones[0].strong;
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part3, f)];
 	Log.note(log, rt.fmtFormat(["clones ", args8[0]]));
@@ -230,7 +230,7 @@ export function anys(log: Log.Log, id: rt.u32): void {
 	Log.note(log, rt.fmtFormat(["typed ", args10[0]]));
 	drop$Option_Arc_Guard_Guard(typed);
 	Log.note(log, "dropped");
-	rt.drop(b);
+	b[Symbol.dispose]();
 	const _161: Any.Any = slot;
 	const part5 = ((_161 instanceof Any.Held ? _161.v : _161 instanceof Any.Held$Place ? _161.v.v : undefined)) !== undefined;
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
@@ -252,18 +252,18 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const captured = a;
 	const moved: () => rt.u32 = rt.closure((): rt.u32 => {
 		const id2: rt.u32 = Guard.id(captured);
-		rt.drop(captured);
+		captured[Symbol.dispose]();
 		return id2;
 	}, (): void => {
-		rt.drop(captured);
+		captured[Symbol.dispose]();
 	});
 	const captured2 = b;
 	const uncalled: () => rt.u32 = rt.closure((): rt.u32 => {
 		const _02: rt.u32 = Guard.id(captured2);
-		rt.drop(captured2);
+		captured2[Symbol.dispose]();
 		return _02;
 	}, (): void => {
-		rt.drop(captured2);
+		captured2[Symbol.dispose]();
 	});
 	const part = moved();
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
@@ -272,10 +272,10 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const captured3 = guard(3);
 	const part2 = rt.closure((): rt.u32 => {
 		const _03: rt.u32 = Guard.id(captured3);
-		rt.drop(captured3);
+		captured3[Symbol.dispose]();
 		return _03;
 	}, (): void => {
-		rt.drop(captured3);
+		captured3[Symbol.dispose]();
 	})();
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
 	Log.note(log, rt.fmtFormat(["once ", args4[0]]));
@@ -283,7 +283,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part3 = rt.once(rt.closure((): rt.u32 => {
 		return rt.u32Add(Guard.id(captured4), 1);
 	}, (): void => {
-		rt.drop(captured4);
+		captured4[Symbol.dispose]();
 	}))();
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 	Log.note(log, rt.fmtFormat(["up ", args6[0]]));
@@ -291,7 +291,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	let slot: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured5);
 	}, (): void => {
-		rt.drop(captured5);
+		captured5[Symbol.dispose]();
 	});
 	const part4 = rt.place(() => slot, (value) => slot = value).v();
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
@@ -300,7 +300,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const _88: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured6);
 	}, (): void => {
-		rt.drop(captured6);
+		captured6[Symbol.dispose]();
 	});
 	rt.drop(slot);
 	slot = _88;
@@ -314,13 +314,13 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const _113: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured7);
 	}, (): void => {
-		rt.drop(captured7);
+		captured7[Symbol.dispose]();
 	});
 	const captured8 = h;
 	const list: Array<() => rt.u32> = [_113, rt.closure((): rt.u32 => {
 		return Guard.id(captured8);
 	}, (): void => {
-		rt.drop(captured8);
+		captured8[Symbol.dispose]();
 	})];
 	const part6 = rt.u32Add(list[rt.idx(list, 1)](), list[rt.idx(list, 0)]());
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part6, f)];
@@ -330,15 +330,15 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const _143: rt.Arc<() => rt.u32> = new rt.Arc(rt.closure((): rt.u32 => {
 		return Guard.id(captured9);
 	}, (): void => {
-		rt.drop(captured9);
+		captured9[Symbol.dispose]();
 	}));
 	const shared_: rt.Arc<() => rt.u32> = new rt.ArcDyn(_143, _143.value);
 	const other: rt.Arc<() => rt.u32> = rt.arcClone(shared_);
-	rt.drop(shared_);
+	shared_[Symbol.dispose]();
 	const part7 = other.value();
 	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part7, f)];
 	Log.note(log, rt.fmtFormat(["shared ", args14[0]]));
-	rt.drop(other);
+	other[Symbol.dispose]();
 	const part8 = rt.place(() => slot, (value3) => slot = value3).v();
 	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part8, f)];
 	Log.note(log, rt.fmtFormat(["slot ", args16[0]]));
@@ -346,7 +346,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const lent: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured10);
 	}, (): void => {
-		rt.drop(captured10);
+		captured10[Symbol.dispose]();
 	});
 	const boxed_: () => rt.u32 = rt.lent(lent);
 	const part9 = boxed_();
@@ -360,7 +360,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part11 = rt.once(rt.closure((): rt.u32 => {
 		return Guard.id(captured11);
 	}, (): void => {
-		rt.drop(captured11);
+		captured11[Symbol.dispose]();
 	}))();
 	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part11, f)];
 	Log.note(log, rt.fmtFormat(["outer ", args22[0]]));
@@ -369,17 +369,17 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const _230: rt.Arc<() => rt.u32> = new rt.Arc(rt.closure((): rt.u32 => {
 		return Guard.id(captured12);
 	}, (): void => {
-		rt.drop(captured12);
+		captured12[Symbol.dispose]();
 	}));
 	const shared2: rt.Arc<() => rt.u32> = new rt.ArcDyn(_230, _230.value);
 	const up3: rt.Arc<() => rt.u32> = rt.arcClone(shared2);
 	const again: rt.Arc<() => rt.u32> = rt.arcClone(up3);
-	rt.drop(shared2);
-	rt.drop(up3);
+	shared2[Symbol.dispose]();
+	up3[Symbol.dispose]();
 	const part12 = again.strong;
 	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part12, f)];
 	Log.note(log, rt.fmtFormat(["up ", args24[0]]));
-	rt.drop(again);
+	again[Symbol.dispose]();
 	Log.note(log, "gone");
 	const _257: [Guard.Guard, Guard.Guard] = [guard(13), guard(14)];
 	const n: Guard.Guard = _257[0];
@@ -388,7 +388,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part13 = run$Box_dyn_Fn_unit_u32(rt.closure((): rt.u32 => {
 		return Guard.id(captured13);
 	}, (): void => {
-		rt.drop(captured13);
+		captured13[Symbol.dispose]();
 	}));
 	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part13, f)];
 	Log.note(log, rt.fmtFormat(["run ", args26[0]]));
@@ -396,7 +396,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part14 = run$Box_fns_closure20(rt.closure((): rt.u32 => {
 		return Guard.id(captured14);
 	}, (): void => {
-		rt.drop(captured14);
+		captured14[Symbol.dispose]();
 	}));
 	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part14, f)];
 	Log.note(log, rt.fmtFormat(["run ", args28[0]]));
@@ -407,7 +407,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const part15 = map$Option_u32_u32_Box_dyn_Fn_u32_u32(1, rt.closure((x: rt.u32): rt.u32 => {
 		return rt.u32Add(x, Guard.id(captured15));
 	}, (): void => {
-		rt.drop(captured15);
+		captured15[Symbol.dispose]();
 	}));
 	const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part15, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["map ", args30[0]]));
@@ -415,7 +415,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const scale: (a0: rt.u32) => rt.u32 = rt.closure((x2: rt.u32): rt.u32 => {
 		return rt.u32Mul(x2, Guard.id(captured16));
 	}, (): void => {
-		rt.drop(captured16);
+		captured16[Symbol.dispose]();
 	});
 	const part16 = rt.iterSum(rt.iterMap(rt.iterSlice([1, 2]), scale), rt.u32Add, 0, true);
 	const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part16, f)];
@@ -424,13 +424,13 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const init: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured17);
 	}, (): void => {
-		rt.drop(captured17);
+		captured17[Symbol.dispose]();
 	});
 	const captured18 = p;
 	const unused: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured18);
 	}, (): void => {
-		rt.drop(captured18);
+		captured18[Symbol.dispose]();
 	});
 	const cell: rt.OnceCell<rt.u32> = new rt.OnceCell(undefined);
 	const part17 = rt.onceGetOrInit(cell, rt.once(init), rt.drop);
@@ -446,13 +446,13 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const fill: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured19);
 	}, (): void => {
-		rt.drop(captured19);
+		captured19[Symbol.dispose]();
 	});
 	const captured20 = v;
 	const skip: () => rt.u32 = rt.closure((): rt.u32 => {
 		return Guard.id(captured20);
 	}, (): void => {
-		rt.drop(captured20);
+		captured20[Symbol.dispose]();
 	});
 	let lazy = undefined as rt.u32 | undefined;
 	if (lazy === undefined) {

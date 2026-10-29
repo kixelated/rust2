@@ -23,6 +23,7 @@ generic std gap is planned here even when moq never calls it.
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
 - [Checks on the differential harnesses](/quest/m3/ts-harness.md) - step lists that drift, literal op bytes, and `refs`'s coverage fail a test or get cases
+- [Edits of byte vectors and slices](/quest/m3/ts-byte-edits.md) - `retain`, `dedup`, `insert`, `remove`, and the rest translate on `Vec<u8>` and `[u8]` as on other elements
 - [Ordering in std](/quest/m3/ts-ordering.md) - `cmp::max`/`min`, `is_sorted`, and `BinaryHeap`, and #173's cost on integers measured
 - [Debug and Display of Arc and ranges](/quest/m3/ts-fmt-wrappers.md) - `Arc<T>` formats as `T`, and ranges as std's `Debug`
 - [Fold a match a bool decided](/quest/m3/ts-fold-bool.md) - `if matches!` and derived `==` drop a later match's dead arms

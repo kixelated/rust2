@@ -8,14 +8,14 @@ export class Pair<T> {
 	first: T;
 	second: Guard.Guard;
 
-	constructor(fields: { first: T; second: Guard.Guard }) {
-		this.first = fields.first;
-		this.second = fields.second;
+	constructor(first: T, second: Guard.Guard) {
+		this.first = first;
+		this.second = second;
 	}
 
 	[Symbol.dispose](): void {
 		rt.drop(this.first);
-		rt.drop(this.second);
+		this.second[Symbol.dispose]();
 	}
 }
 

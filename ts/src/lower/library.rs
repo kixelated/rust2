@@ -547,7 +547,8 @@ pub struct Call<'tcx> {
 /// What the mapping of `owner::name` may discard of the operands it takes by value, rather
 /// than move into its result or a closure, as it returns: the types, by their index among
 /// the call's type arguments, whose droppers its runtime function takes after its own
-/// arguments, as `unwrap_or` drops its fallback. `None` for any other mapping, which is
+/// arguments, as `unwrap_or` drops its fallback, or a function it always calls once
+/// through `FnOnce`, which that call consumes. `None` for any other mapping, which is
 /// refused an operand that drops. Iterators refuse their own.
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
@@ -566,6 +567,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
+		("Arc" | "Rc", "new_cyclic") => &[1],
 		_ => return None,
 	})
 }

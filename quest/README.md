@@ -19,8 +19,8 @@ Decided with the maintainer on 2026-10-23, when rust2 was planned from moq
 ([moq-dev/moq#6578](https://github.com/moq-dev/moq/pull/6578)):
 
 - One repository with three projects and one setup, copied from moq's reusable
-  parts: the nix flake and direnv, just, the quest tree, agent docs and hooks,
-  and the shared skills submodule.
+  parts: the nix flake and direnv, just, the quest tree, and agent docs and
+  hooks.
 - moq is the first consumer of each project, and pins rust2 as a flake input.
   moq's browser line still ships WASM first; the translator here does not
   replace that plan.

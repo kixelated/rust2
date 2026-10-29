@@ -9,7 +9,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 export PATH := if env("RUST2_TS_TOOLCHAIN", "") == "" { env("PATH") } else { env("RUST2_TS_TOOLCHAIN") / "bin:" + env("PATH") }
 
 # The moq revision `moq` translates by default.
-moq_rev := "c764acebb90b5c102a8ea90207dd125ae4fd326b"
+moq_rev := "30f25c04e6d0288d87893dc609ba582518be2cf6"
 
 default:
     @just --list

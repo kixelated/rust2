@@ -5,26 +5,26 @@ import { map$Option_Arc_Made_u64_get_closure0 } from "./core/option.ts";
 import type * as Made from "./defaults.Made.ts";
 
 export function default$Default(): Slot {
-	return new Slot({ weak: new rt.Weak() });
+	return new Slot(new rt.Weak());
 }
 
 /** A placeholder that upgrades once it points at something. */
 export class Slot {
 	weak: rt.Weak<Made.Made>;
 
-	constructor(fields: { weak: rt.Weak<Made.Made> }) {
-		this.weak = fields.weak;
+	constructor(weak: rt.Weak<Made.Made>) {
+		this.weak = weak;
 	}
 
 	[Symbol.dispose](): void {
-		rt.drop(this.weak);
+		this.weak[Symbol.dispose]();
 	}
 }
 
 export function get(self: Slot): rt.u64 | undefined {
 	return map$Option_Arc_Made_u64_get_closure0(rt.weakUpgrade(self.weak), (made: rt.Arc<Made.Made>): rt.u64 => {
 		const _02: rt.u64 = made.value.n;
-		rt.drop(made);
+		made[Symbol.dispose]();
 		return _02;
 	});
 }

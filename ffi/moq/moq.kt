@@ -75,7 +75,7 @@ fun main() {
 	scope.launch { frame = first.readFrame() }
 	q.drain()
 	expect(frame == null, "a read waits for a frame")
-	writer.writeFrame(null, "hello")
+	writer.writeFrame(null, "hello".encodeToByteArray())
 	expect(q.size == 1, "a frame's arrival wakes the read")
 	q.drain()
 	val hello = frame!!
@@ -89,18 +89,19 @@ fun main() {
 	val at = Timestamp.fromMillis(1500u)
 	expect(at.asSecs() == 1uL, "1500 ms is 1 s")
 	try {
-		writer.writeFrame(at, "late")
+		writer.writeFrame(at, "late".encodeToByteArray())
 		expect(false, "a timestamped frame on an untimed track is an error")
 	} catch (e: ErrorException) {
 		expect(e.message == "frame timestamp doesn't fit its track", "the late frame's error is Rust's")
 	}
 	expect(at.asSecs() == 1uL, "a copied timestamp stays usable")
 
-	// The last frame, then the group's end, which reads as null.
-	writer.writeFrame(null, "world")
+	// The last frame, bytes that are not UTF-8, then the group's end, which reads as null.
+	val world = byteArrayOf(0xff.toByte()) + "world".encodeToByteArray()
+	writer.writeFrame(null, world)
 	writer.finish()
 	runBlocking {
-		expect(first.readFrame()?.payload?.decodeToString() == "world", "the last frame reads")
+		expect(first.readFrame()?.payload?.contentEquals(world) == true, "the last frame reads")
 		expect(first.readFrame() == null, "a finished group reads null")
 	}
 
@@ -131,8 +132,14 @@ fun main() {
 		expect(path.asStr() == "room/alice", "a broadcast has its path")
 
 		// Paths own their segments, so Kotlin builds them, and relative ones, from a string.
-		val cam = Path.new("/cam/")
-		expect(cam.asStr() == "cam", "a path trims its slashes")
+		try {
+			Path.new("/cam/")
+			expect(false, "a path with an empty segment is an error")
+		} catch (e: PathInvalidException) {
+			expect(e.error == PathInvalid.EMPTY_SEGMENT, "an empty segment is its own error")
+		}
+		val cam = Path.new("cam")
+		expect(cam.asStr() == "cam", "a path builds from its segments")
 		val joined = path.join(cam)
 		expect(joined.asStr() == "room/alice/cam", "paths join")
 		expect(joined.stripPrefix(path) == cam, "a path strips its prefix")
@@ -176,20 +183,18 @@ fun main() {
 		expect(e.message.isNotEmpty(), "a truncated head's error has a message")
 	}
 
-	// A binary track the catalog lists, published through moq-mux's generic
-	// `binary_snapshot` at the config Kotlin builds, by a catalog at moq-mux's untyped
-	// extension, each instance named by the last segment of each argument.
+	// A catalog at moq-mux's untyped extension, from the config Kotlin builds, whose generic
+	// `is_claimed` is named by the last segment of its argument, and whose `mutate` lends
+	// the catalog to Kotlin.
 	val publisher = BroadcastInfo.new().produce()
 	val extra = CatalogConfig.default().withCatalogExtra(HangCatalogExtra.default())
 	val catalog = CatalogProducerExtra.new(publisher, extra)
-	val snapshot = catalog.binarySnapshotConfig(publisher.createTrack("state", null), BinaryConfig.default())
-	expect(snapshot.name() == "state", "a snapshot has its track's name")
-	snapshot.update("latest")
-	var listed = 0
+	expect(!catalog.isClaimedBinaryConfig("state"), "an unclaimed name is not claimed")
+	var read = 0
 	catalog.mutate { lent ->
-		if (lent.toJson().contains("state")) listed++
+		if (lent.toJson().startsWith("{")) read++
 	}
-	expect(listed == 1, "the catalog lists the snapshot's track")
+	expect(read == 1, "mutate lends the catalog once")
 
 	// moq-tokio's terminal connect errors, which moq-net's `Error` shares no names with.
 	expect(ConnectError.UNAUTHORIZED.isAuth(), "unauthorized is an auth error")
