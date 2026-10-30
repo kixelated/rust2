@@ -5,6 +5,7 @@ import { copy$Clip, copy$Pair } from "./lib.ts";
 import { unwrapOr$Option_char, unwrapOr$Option_u8 } from "./core/option.ts";
 import * as Bare from "./fmt.Bare.ts";
 import * as Braced from "./fmt.Braced.ts";
+import * as Capped from "./fmt.Capped.ts";
 import * as Clip from "./fmt.Clip.ts";
 import * as Fails from "./fmt.Fails.ts";
 import * as Hex from "./fmt.Hex.ts";
@@ -14,10 +15,12 @@ import * as Nested from "./fmt.Nested.ts";
 import * as Noted from "./fmt.Noted.ts";
 import * as Padded from "./fmt.Padded.ts";
 import * as Pair from "./fmt.Pair.ts";
+import * as Placed from "./fmt.Placed.ts";
 import * as Seq from "./fmt.Seq.ts";
 import * as Shared from "./fmt.Shared.ts";
 import * as Six from "./fmt.Six.ts";
 import * as Tup from "./fmt.Tup.ts";
+import * as Twice from "./fmt.Twice.ts";
 import * as Unit from "./fmt.Unit.ts";
 import * as Wide from "./fmt.Wide.ts";
 import * as Point from "./shapes.Point.ts";
@@ -709,6 +712,352 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rc[Symbol.dispose]();
 	nested_[Symbol.dispose]();
 	arc[Symbol.dispose]();
+}
+
+/**
+ * Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+ * first error.
+ */
+export function literals$Capped(w: rt.Place<Capped.Capped>, c: rt.char): rt.Result<undefined, rt.FmtError> {
+	if (Capped.writeStr$Write(w.v, "ab").ok) {
+		if (Capped.writeStr$Write(w.v, "").ok) {
+			if (Capped.writeStr$Write(w.v, "").ok) {
+				if (Capped.writeStr$Write(w.v, String.fromCodePoint(c)).ok) {
+					if (Capped.writeStr$Write(w.v, "cxd").ok) {
+						if (Capped.writeStr$Write(w.v, "😀").ok) {
+							if (Capped.writeStr$Write(w.v, "\n").ok) {
+								if (Capped.writeStr$Write(w.v, "{}").ok) {
+									if (Capped.writeStr$Write(w.v, "").ok) {
+										return Capped.writeStr$Write(w.v, "end\n");
+									}
+									return rt.Err(new rt.FmtError());
+								}
+								return rt.Err(new rt.FmtError());
+							}
+							return rt.Err(new rt.FmtError());
+						}
+						return rt.Err(new rt.FmtError());
+					}
+					return rt.Err(new rt.FmtError());
+				}
+				return rt.Err(new rt.FmtError());
+			}
+			return rt.Err(new rt.FmtError());
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/**
+ * Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+ * first error.
+ */
+export function literals$Capped$2(w: Capped.Capped, c: rt.char): rt.Result<undefined, rt.FmtError> {
+	if (Capped.writeStr$Write(w, "ab").ok) {
+		if (Capped.writeStr$Write(w, "").ok) {
+			if (Capped.writeStr$Write(w, "").ok) {
+				if (Capped.writeStr$Write(w, String.fromCodePoint(c)).ok) {
+					if (Capped.writeStr$Write(w, "cxd").ok) {
+						if (Capped.writeStr$Write(w, "😀").ok) {
+							if (Capped.writeStr$Write(w, "\n").ok) {
+								if (Capped.writeStr$Write(w, "{}").ok) {
+									if (Capped.writeStr$Write(w, "").ok) {
+										return Capped.writeStr$Write(w, "end\n");
+									}
+									return rt.Err(new rt.FmtError());
+								}
+								return rt.Err(new rt.FmtError());
+							}
+							return rt.Err(new rt.FmtError());
+						}
+						return rt.Err(new rt.FmtError());
+					}
+					return rt.Err(new rt.FmtError());
+				}
+				return rt.Err(new rt.FmtError());
+			}
+			return rt.Err(new rt.FmtError());
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/**
+ * Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+ * first error.
+ */
+export function literals$Formatter(w: rt.Formatter, c: rt.char): rt.Result<undefined, rt.FmtError> {
+	if (rt.fmtWriteStr(w, "ab").ok) {
+		if (rt.fmtWriteStr(w, "").ok) {
+			if (rt.fmtWriteStr(w, "").ok) {
+				if (rt.fmtWriteStr(w, String.fromCodePoint(c)).ok) {
+					if (rt.fmtWriteStr(w, "cxd").ok) {
+						if (rt.fmtWriteStr(w, "😀").ok) {
+							if (rt.fmtWriteStr(w, "\n").ok) {
+								if (rt.fmtWriteStr(w, "{}").ok) {
+									if (rt.fmtWriteStr(w, "").ok) {
+										return rt.fmtWriteStr(w, "end\n");
+									}
+									return rt.Err(new rt.FmtError());
+								}
+								return rt.Err(new rt.FmtError());
+							}
+							return rt.Err(new rt.FmtError());
+						}
+						return rt.Err(new rt.FmtError());
+					}
+					return rt.Err(new rt.FmtError());
+				}
+				return rt.Err(new rt.FmtError());
+			}
+			return rt.Err(new rt.FmtError());
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/**
+ * Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+ * first error.
+ */
+export function literals$String(w: rt.Place<rt.Place<string>>, c: rt.char): rt.Result<undefined, rt.FmtError> {
+	w.v.v = w.v.v + "ab";
+	if (rt.OK.ok) {
+		w.v.v = w.v.v + "";
+		if (rt.OK.ok) {
+			w.v.v = w.v.v + "";
+			if (rt.OK.ok) {
+				w.v.v = w.v.v + String.fromCodePoint(c);
+				if (rt.OK.ok) {
+					w.v.v = w.v.v + "cxd";
+					if (rt.OK.ok) {
+						w.v.v = w.v.v + "😀";
+						if (rt.OK.ok) {
+							w.v.v = w.v.v + "\n";
+							if (rt.OK.ok) {
+								w.v.v = w.v.v + "{}";
+								if (rt.OK.ok) {
+									w.v.v = w.v.v + "";
+									if (rt.OK.ok) {
+										w.v.v = w.v.v + "end\n";
+										return rt.OK;
+									}
+									return rt.Err(new rt.FmtError());
+								}
+								return rt.Err(new rt.FmtError());
+							}
+							return rt.Err(new rt.FmtError());
+						}
+						return rt.Err(new rt.FmtError());
+					}
+					return rt.Err(new rt.FmtError());
+				}
+				return rt.Err(new rt.FmtError());
+			}
+			return rt.Err(new rt.FmtError());
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/**
+ * Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+ * first error.
+ */
+export function literals$String$2(w: rt.Place<string>, c: rt.char): rt.Result<undefined, rt.FmtError> {
+	w.v = w.v + "ab";
+	if (rt.OK.ok) {
+		w.v = w.v + "";
+		if (rt.OK.ok) {
+			w.v = w.v + "";
+			if (rt.OK.ok) {
+				w.v = w.v + String.fromCodePoint(c);
+				if (rt.OK.ok) {
+					w.v = w.v + "cxd";
+					if (rt.OK.ok) {
+						w.v = w.v + "😀";
+						if (rt.OK.ok) {
+							w.v = w.v + "\n";
+							if (rt.OK.ok) {
+								w.v = w.v + "{}";
+								if (rt.OK.ok) {
+									w.v = w.v + "";
+									if (rt.OK.ok) {
+										w.v = w.v + "end\n";
+										return rt.OK;
+									}
+									return rt.Err(new rt.FmtError());
+								}
+								return rt.Err(new rt.FmtError());
+							}
+							return rt.Err(new rt.FmtError());
+						}
+						return rt.Err(new rt.FmtError());
+					}
+					return rt.Err(new rt.FmtError());
+				}
+				return rt.Err(new rt.FmtError());
+			}
+			return rt.Err(new rt.FmtError());
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/**
+ * Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+ * first error.
+ */
+export function literals$Twice(w: Twice.Twice, c: rt.char): rt.Result<undefined, rt.FmtError> {
+	if (Twice.writeStr$Write(w, "ab").ok) {
+		if (Twice.writeStr$Write(w, "").ok) {
+			if (Twice.writeStr$Write(w, "").ok) {
+				if (Twice.writeChar$Write(w, c).ok) {
+					if (Twice.writeStr$Write(w, "cxd").ok) {
+						if (Twice.writeChar$Write(w, 128512).ok) {
+							if (Twice.writeStr$Write(w, "\n").ok) {
+								if (Twice.writeStr$Write(w, "{}").ok) {
+									if (Twice.writeStr$Write(w, "").ok) {
+										return Twice.writeStr$Write(w, "end\n");
+									}
+									return rt.Err(new rt.FmtError());
+								}
+								return rt.Err(new rt.FmtError());
+							}
+							return rt.Err(new rt.FmtError());
+						}
+						return rt.Err(new rt.FmtError());
+					}
+					return rt.Err(new rt.FmtError());
+				}
+				return rt.Err(new rt.FmtError());
+			}
+			return rt.Err(new rt.FmtError());
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/** Placeholders with options, through a writer std's impl forwards to. */
+export function placed$Formatter(w: rt.Formatter, n: rt.u8): rt.Result<undefined, rt.FmtError> {
+	const _8: string = "q\"é";
+	const _9: rt.char = 223;
+	const _11: rt.i16 = rt.i16Sub(n as rt.i16, 100);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(n, f), (f: rt.Formatter) => rt.u8LowerHex(n, f), (f: rt.Formatter) => rt.fmtStr(_8, f), (f: rt.Formatter) => rt.fmtCharDisplay(_9, f), (f: rt.Formatter) => rt.i16Display(_11, f)];
+	if (rt.fmtWriteFmt(w, ["n=", rt.fmtSpec({ zero: true, width: 3 }, args2[0]), "|", rt.fmtSpec({ align: ">", width: 4 }, args2[1]), "|", args2[2], "|", rt.fmtSpec({ align: "<", width: 3 }, args2[3]), "|", rt.fmtSpec({ plus: true }, args2[4])]).ok) {
+		if (rt.fmtWriteStr(w, "é").ok) {
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Binary(n, f)];
+			return rt.fmtWriteFmt(w, [rt.fmtSpec({ alternate: true }, args4[0]), "\n"]);
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/** Placeholders with options, through a writer std's impl forwards to. */
+export function placed$String(w: rt.Place<rt.Place<rt.Place<string>>>, n: rt.u8): rt.Result<undefined, rt.FmtError> {
+	const _8: string = "q\"é";
+	const _9: rt.char = 223;
+	const _11: rt.i16 = rt.i16Sub(n as rt.i16, 100);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(n, f), (f: rt.Formatter) => rt.u8LowerHex(n, f), (f: rt.Formatter) => rt.fmtStr(_8, f), (f: rt.Formatter) => rt.fmtCharDisplay(_9, f), (f: rt.Formatter) => rt.i16Display(_11, f)];
+	const written_ = rt.fmtWriteString(w.v.v.v, ["n=", rt.fmtSpec({ zero: true, width: 3 }, args2[0]), "|", rt.fmtSpec({ align: ">", width: 4 }, args2[1]), "|", args2[2], "|", rt.fmtSpec({ align: "<", width: 3 }, args2[3]), "|", rt.fmtSpec({ plus: true }, args2[4])]);
+	w.v.v.v = written_.s;
+	if (written_.result.ok) {
+		w.v.v.v = w.v.v.v + "é";
+		if (rt.OK.ok) {
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Binary(n, f)];
+			const written2 = rt.fmtWriteString(w.v.v.v, [rt.fmtSpec({ alternate: true }, args4[0]), "\n"]);
+			w.v.v.v = written2.s;
+			return written2.result;
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/** Placeholders with options, through a writer std's impl forwards to. */
+export function placed$String$2(w: rt.Place<string>, n: rt.u8): rt.Result<undefined, rt.FmtError> {
+	const _8: string = "q\"é";
+	const _9: rt.char = 223;
+	const _11: rt.i16 = rt.i16Sub(n as rt.i16, 100);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(n, f), (f: rt.Formatter) => rt.u8LowerHex(n, f), (f: rt.Formatter) => rt.fmtStr(_8, f), (f: rt.Formatter) => rt.fmtCharDisplay(_9, f), (f: rt.Formatter) => rt.i16Display(_11, f)];
+	const written_ = rt.fmtWriteString(w.v, ["n=", rt.fmtSpec({ zero: true, width: 3 }, args2[0]), "|", rt.fmtSpec({ align: ">", width: 4 }, args2[1]), "|", args2[2], "|", rt.fmtSpec({ align: "<", width: 3 }, args2[3]), "|", rt.fmtSpec({ plus: true }, args2[4])]);
+	w.v = written_.s;
+	if (written_.result.ok) {
+		w.v = w.v + "é";
+		if (rt.OK.ok) {
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Binary(n, f)];
+			const written2 = rt.fmtWriteString(w.v, [rt.fmtSpec({ alternate: true }, args4[0]), "\n"]);
+			w.v = written2.s;
+			return written2.result;
+		}
+		return rt.Err(new rt.FmtError());
+	}
+	return rt.Err(new rt.FmtError());
+}
+
+/** Each result as a byte: 1 for `Ok`. */
+export function result(out: rt.ByteVec, r: rt.Result<undefined, rt.FmtError>): void {
+	rt.byteVecPush(out, r.ok ? 1 : 0);
+}
+
+/** `fmt::Write` for a `String`, through `&mut W`, and for the crate's own writers. */
+export function writes(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
+		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+	};
+	const c: rt.char = unwrapOr$Option_char(rt.charFromU32(rt.u32Mul(at(0) as rt.u32, 257)), 63);
+	let s: string = "";
+	const _19: rt.u8 = at(1);
+	const _23: string = "q\"é";
+	const _25: rt.u8 = at(2);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(_19, f), (f: rt.Formatter) => rt.fmtCharDisplay(c, f), (f: rt.Formatter) => rt.fmtStr(_23, f), (f: rt.Formatter) => rt.u8LowerHex(_25, f)];
+	const written_ = rt.fmtWriteString(s, ["a", args2[0], "b", rt.fmtSpec({ align: ">", width: 5 }, args2[1]), "|", args2[2], "|", args2[3]]);
+	s = written_.s;
+	result(out, written_.result);
+	s = s + "\n";
+	result(out, rt.OK);
+	s = s + String.fromCodePoint(c);
+	result(out, rt.OK);
+	s = s + "tail";
+	result(out, rt.OK);
+	const _52: Fails.Fails = { _0: at(3) };
+	const _57: rt.u8 = at(4);
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => Fails.fmt$Display(_52, f), (f: rt.Formatter) => rt.u8Display(_57, f)];
+	const written2 = rt.fmtWriteString(s, ["x", args4[0], "y", args4[1]]);
+	s = written2.s;
+	result(out, written2.result);
+	result(out, literals$String$2(rt.place(() => s, (value) => s = value), c));
+	const _71: rt.u8 = at(5);
+	result(out, placed$String$2(rt.place(() => s, (value2) => s = value2), _71));
+	let inner: rt.Place<string> = rt.place(() => s, (value3) => s = value3);
+	result(out, literals$String(rt.place(() => inner, (value4) => inner = value4), 223));
+	let _81: rt.Place<rt.Place<string>> = rt.place(() => inner, (value5) => inner = value5);
+	const _82: rt.u8 = at(6);
+	result(out, placed$String(rt.place(() => _81, (value6) => _81 = value6), _82));
+	put(out, s);
+	const _96: Placed.Placed = { _0: at(7) };
+	const _101: Placed.Placed = { _0: at(8) };
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => Placed.fmt$Display(_96, f), (f: rt.Formatter) => Placed.fmt$Display(_101, f)];
+	put(out, rt.fmtFormat([args6[0], "|", rt.fmtSpec({ align: ">", width: 30 }, args6[1])]));
+	const capped: Capped.Capped = { text: "", calls: 0, cap: rt.u8Rem(at(9), 40) as rt.usize };
+	result(out, literals$Capped$2(capped, c));
+	result(out, Capped.writeStr$Write(capped, String.fromCodePoint(c)));
+	result(out, Capped.writeStr$Write(capped, "z"));
+	let _131: Capped.Capped = capped;
+	result(out, literals$Capped(rt.place(() => _131, (value7) => _131 = value7), 233));
+	rt.byteVecPush(out, capped.calls);
+	put(out, capped.text);
+	const twice: Twice.Twice = { _0: "" };
+	result(out, literals$Twice(twice, c));
+	result(out, Twice.writeChar$Write(twice, 223));
+	put(out, twice._0);
 }
 
 //# sourceMappingURL=fmt.ts.map

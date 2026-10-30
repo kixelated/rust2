@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
 - Refusals: 105
-- Function instances: 120
+- Function instances: 121
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 17 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
+| 16 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:385:2 |
 | 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:42 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:260:14 |
@@ -38,6 +38,7 @@
 | 1 | `_` of `_`, which is not supported yet | fixtures/reject/src/lib.rs:599:4 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:321:2 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:575:12 |
+| 1 | `_` with a placeholder, or not made in place, written to `_`'s own `_`, which is not supported yet: std splits what a placeholder writes into `_` calls the runtime does not make | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:297:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:437:6 |
 | 1 | `f64::mul_add`, which rounds once, where JS would round twice | fixtures/reject/src/lib.rs:488:4 |
@@ -122,12 +123,15 @@ The type or module each refused type or path belongs to.
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `Only` | fixtures/reject/src/lib.rs:701:11 |
+| 1 | `Sink` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `Span2` | fixtures/reject/src/lib.rs:669:10 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:545:30 |
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:535:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:593:32 |
+| 1 | `fmt::Arguments` | fixtures/reject/src/lib.rs:74:10 |
+| 1 | `fmt::Write` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `poll` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:556:2 |
@@ -140,13 +144,13 @@ The type or module each refused type or path belongs to.
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | `std::std::Layout` | fixtures/reject/src/lib.rs:626:15 |
 | 1 | `std::str` | fixtures/reject/src/lib.rs:493:4 |
-| 1 | `std::string::String` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `std::sync::Mutex` | fixtures/reject/src/lib.rs:575:12 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:509:40 |
 | 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:96:34 |
 | 1 | `str` | fixtures/reject/src/lib.rs:380:4 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | `value` | fixtures/reject/src/lib.rs:31:2 |
+| 1 | `write_str` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
 
 ## By type or path
@@ -179,6 +183,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:250:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:321:2 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::sync::Mutex::get_mut` | fixtures/reject/src/lib.rs:575:12 |
+| 1 | `_` with a placeholder, or not made in place, written to `_`'s own `_`, which is not supported yet: std splits what a placeholder writes into `_` calls the runtime does not make | `fmt::Arguments`, `Sink`, `fmt::Write`, `write_str` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:297:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | `BytesMut::capacity` | fixtures/reject/src/lib.rs:437:6 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:231:30 |
@@ -225,7 +230,6 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:423:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:735:15 |
-| 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:354:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:599:17 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:190:8 |
@@ -239,10 +243,9 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (17)</summary>
+<details><summary>unsupported call to `_` (16)</summary>
 
 - fixtures/reject/src/lib.rs:21:4: unsupported call to `core::slice::<impl [u8]>::rotate_left`
-- fixtures/reject/src/lib.rs:74:10: unsupported call to `<std::string::String as std::fmt::Write>::write_fmt`
 - fixtures/reject/src/lib.rs:136:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
 - fixtures/reject/src/lib.rs:190:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 - fixtures/reject/src/lib.rs:339:4: unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>`
@@ -455,6 +458,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` with a mutable reference to a value JS copies, which its mapping would copy (1)</summary>
 
 - fixtures/reject/src/lib.rs:575:12: `std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy
+
+</details>
+
+<details><summary>`_` with a placeholder, or not made in place, written to `_`'s own `_`, which is not supported yet: std splits what a placeholder writes into `_` calls the runtime does not make (1)</summary>
+
+- fixtures/reject/src/lib.rs:74:10: `fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make
 
 </details>
 

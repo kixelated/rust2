@@ -132,6 +132,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("slices::parts", slices::parts),
 		("slices::drains", slices::drains),
 		("statics::onces", |_, data, out| statics::onces(data, out)),
+		("fmt::writes", |_, data, out| fmt::writes(data, out)),
 	]
 }
 
