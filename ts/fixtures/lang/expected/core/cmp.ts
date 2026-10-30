@@ -87,6 +87,10 @@ export function max$u8(v1: rt.u8, v2: rt.u8): rt.u8 {
 	return rt.max(v1, v2);
 }
 
+export function max$u8s(v1: Uint8Array, v2: Uint8Array): Uint8Array {
+	return rt.ordMax(v1, v2, rt.cmpLt(rt.cmpBytes));
+}
+
 export function maxBy$Item_cmps_closure1(v1: Item.Item, v2: Item.Item, compare: (a0: Item.Item, a1: Item.Item) => rt.Ordering): Item.Item {
 	let _0!: Item.Item;
 	let _10: boolean = false;

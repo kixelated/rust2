@@ -747,6 +747,12 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	*NAMED
 }
 
+/// Ranges of `Bound`s, which the runtime reads as unbounded where it reads no `start` or `end`.
+pub fn bound_ranges(v: &mut Vec<u8>, map: &std::collections::BTreeMap<u8, u8>) -> usize {
+	use std::ops::Bound::{Excluded, Included};
+	v.drain((Excluded(0), Included(2))).count() + map.range((Excluded(0), Included(2))).count()
+}
+
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
 /// `O` as this function's second type parameter: that refuses nothing.
 pub async fn generic_awaited<F: Fn() -> u8, O: std::future::Future<Output = u8>>(f: F, o: O) -> u8 {

@@ -27,8 +27,7 @@ moq-net still needs, by its census from MIR at the pinned revision:
   identity: `Polling` keeps `(Waker::data, Waker::vtable)` in a thread-local and compares
   it as an `Option` of that pair (`rs/kio/src/task.rs`), 10 of kio's refusals. `rt.Waker`
   has no identity a raw pointer can stand for, and a caller's own waker would have to give
-  one, so the runtime's waker shape is the maintainer's to decide. Its `Vec::drain` is left
-  to [the slice gaps](/quest/m3/ts-slice-gaps.md).
+  one, so the runtime's waker shape is the maintainer's to decide.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a
