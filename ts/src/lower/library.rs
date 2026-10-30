@@ -469,17 +469,22 @@ impl Inherited {
 	}
 }
 
-/// Whether `Clone` of `ty`, a `Copy` type, only copies: no `Clone` written by hand runs
-/// for it or anything in it, as a derived or std `Clone` clones each field.
+/// Whether `Clone` of `ty` only copies: `ty` is `Copy`, and no `Clone` written by hand
+/// runs for it or anything in it, as a derived or std `Clone` clones each field.
 pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	t.is_copy(ty) && clone_only_copies(t, ty)
+}
+
+/// Whether `Clone` of `ty`, a `Copy` type, only copies.
+fn clone_only_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = t.tcx;
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Ref(..) | ty::FnPtr(..) | ty::Never => true,
-		ty::Tuple(fields) => fields.iter().all(|field| clone_copies(t, field)),
-		ty::Array(elem, _) => clone_copies(t, *elem),
+		ty::Tuple(fields) => fields.iter().all(|field| clone_only_copies(t, field)),
+		ty::Array(elem, _) => clone_only_copies(t, *elem),
 		// A binding's `Clone` is its own.
 		ty::Adt(adt, _) if t.bound_drops(adt.did()).is_some() => false,
-		ty::Adt(adt, args) if !t.crates.translates(adt.did()) => args.types().all(|arg| clone_copies(t, arg)),
+		ty::Adt(adt, args) if !t.crates.translates(adt.did()) => args.types().all(|arg| clone_only_copies(t, arg)),
 		ty::Adt(adt, args) => {
 			let Some(clone) = tcx.lang_items().clone_fn() else {
 				return false;
@@ -492,7 +497,7 @@ pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool
 			derived
 				&& adt
 					.all_fields()
-					.all(|field| clone_copies(t, t.subst(args, field.ty(tcx, args).skip_norm_wip())))
+					.all(|field| clone_only_copies(t, t.subst(args, field.ty(tcx, args).skip_norm_wip())))
 		}
 		_ => false,
 	}
@@ -557,8 +562,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		// A `Clone` that only copies is the copy.
 		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
 			&& name == rustc_span::sym::clone
-			&& t.self_ty(instance)
-				.is_none_or(|ty| !(t.is_copy(ty) && clone_copies(t, ty)));
+			&& t.self_ty(instance).is_none_or(|ty| !clone_copies(t, ty));
 	}
 	// A `RefCell` key's `set` maps, as its body writes the cell in place.
 	let refcell_set = std == Some(Std::LocalKey)
@@ -1118,7 +1122,7 @@ fn mapping<'tcx>(
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Vec) => {
 					return vec_clone(b, value, args.type_at(0), span);
 				}
-				ty::Tuple(tys) if !(b.t.is_copy(ty) && clone_copies(b.t, ty)) => {
+				ty::Tuple(tys) if !clone_copies(b.t, ty) => {
 					let clones = tys.iter().map(|t| super::collections::clone_fn(b, t, span)).collect();
 					Expr::rt("tupleClone", vec![value, Expr::Array(clones)])
 				}
@@ -1141,7 +1145,7 @@ fn mapping<'tcx>(
 				ty::Adt(adt, _) if int_range(ty) => {
 					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
 				}
-				_ if b.t.is_copy(ty) && clone_copies(b.t, ty) => b.t.copied(value, ty, span),
+				_ if clone_copies(b.t, ty) => b.t.copied(value, ty, span),
 				_ => return None,
 			}
 		}
@@ -1152,10 +1156,44 @@ fn mapping<'tcx>(
 		("Option", "is_some") => args.pop()?.binary("!==", b.t.none(targ(gargs, 0))),
 		("Option", "is_none") => args.pop()?.binary("===", b.t.none(targ(gargs, 0))),
 		("Option", "as_ref" | "as_mut") => args.pop()?,
+		// `Option<&T>` or `Option<&mut T>` of the `T` it points at, through `T`'s `Clone`
+		// where that does more than copy, as std's `cloned` does.
 		("Option", "copied" | "cloned") => {
-			let option = b.t.sig(call.def_id, call.args).output();
+			let sig = b.t.sig(call.def_id, call.args);
+			let (option, inner) = (sig.output(), targ(gargs, 0));
+			let ty::Adt(_, of) = sig.inputs()[0].kind() else {
+				return None;
+			};
+			let reference = of.type_at(0);
 			let value = args.pop()?;
-			b.t.copied(value, option, span)
+			let copies = name == "copied" || clone_copies(b.t, inner);
+			let place = b.t.place_pointee(reference).is_some();
+			if copies && !place {
+				return Some(b.t.copied(value, option, span));
+			}
+			let value = match value.is_path() {
+				true => value,
+				false => b.spill(value, "option", out),
+			};
+			let some = b.t.pointee_value(reference, value.clone());
+			let some = match copies {
+				true => b.t.copied(some, inner, span),
+				false => {
+					let clone = super::collections::trait_fn(tcx, "Clone", "clone");
+					let mut body = Vec::new();
+					let some = b.call_def(clone, tcx.mk_args(&[inner.into()]), vec![some], span, &mut body);
+					match body.is_empty() {
+						true => some,
+						// Only once it is `Some`.
+						false => {
+							body.push(StmtKind::Return(Some(some.typed())).at(None));
+							Expr::Arrow(Vec::new(), b.t.ret_ty(inner, span), body).call(Vec::new())
+						}
+					}
+				}
+			};
+			let none = value.binary("===", b.t.none(reference));
+			Expr::Cond(Box::new(none), Box::new(b.t.none(inner)), Box::new(some))
 		}
 
 		// Results, whose other combinators lower from core's MIR.
