@@ -719,7 +719,9 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		| ("Into", "into")
 		// What a panic would drop, which aborts.
 		| ("Result", "unwrap" | "expect" | "unwrap_err")
-		| ("Vec", "insert") => &[],
+		| ("Vec", "insert")
+		// Each element moves into the closure.
+		| ("array", "map") => &[],
 		// `Vec<T>` drops each element `retain` rejects, `dedup` removes, and `truncate` and
 		// `clear` cut.
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
@@ -875,8 +877,8 @@ pub fn called_through<'tcx>(
 
 /// The closures `call` calls that own a value that drops, by what its mapping does with
 /// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
-/// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
-/// drops is ordered against it; dropped where `discarded` says, by the type's index among
+/// `Fn` or `FnMut` call it and nothing else it takes by value drops, or the mapping discards
+/// none of it, as then nothing it drops is ordered against it; dropped where `discarded` says, by the type's index among
 /// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
 /// one that calls it through `FnOnce`, becomes `rt.once` of it, which drops it after the
 /// call, as rustc's shim does. A reference to one is the closure in JS, so an iterator,
@@ -939,7 +941,11 @@ fn called_closures<'tcx>(
 		let discards = discarded.is_some_and(|d| d.contains(&index));
 		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
 		if bound != ty::ClosureKind::FnOnce && !kept && !discards && i < args.len() {
-			match dropping_operand(b, call) {
+			let dropping = match discarded {
+				Some([]) => None,
+				_ => dropping_operand(b, call),
+			};
+			match dropping {
 				None => closures.spent.push(args[i].clone()),
 				Some(_) => closures.leaked = closures.leaked.or(Some(ty)),
 			}
@@ -1934,6 +1940,24 @@ fn mapping<'tcx>(
 				_ => "arrayFromFn",
 			};
 			Expr::rt(f, vec![Expr::lit(n.to_string()), args.pop()?])
+		}
+		("array", "map") => {
+			let f = match targ(gargs, 2).kind() {
+				ty::Uint(ty::UintTy::U8) => "bytesMap",
+				_ => "arrayMap",
+			};
+			Expr::rt(f, args)
+		}
+		// Each element lent as `first_mut` lends it: an element JS copies as its place, an
+		// array of bytes as its view, and an object as itself.
+		("array", "each_ref" | "each_mut") => {
+			let elem = targ(gargs, 0);
+			let a = elements(args.pop()?, Ty::new_slice(tcx, elem));
+			match () {
+				_ if name == "each_mut" && b.t.needs_place(elem) => Expr::rt("arrayPlaces", vec![a]),
+				_ if super::byte_array(elem) => Expr::rt("arrayMap", vec![a, Expr::Rt("byteSliceFrom".into())]),
+				_ => Expr::rt("arrayFrom", vec![a]),
+			}
 		}
 		("fmt", "format") => {
 			let parts = args.pop()?;
