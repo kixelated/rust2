@@ -152,6 +152,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("strs::drains", strs::drains),
 		("strs::hinted", strs::hinted),
 		("pointers::made", |_, data, out| pointers::made(data, out)),
+		("arrays::as_slices", |_, data, out| arrays::as_slices(data, out)),
 	]
 }
 
