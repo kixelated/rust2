@@ -4,6 +4,8 @@
 //! so byte offsets and code units part. Predicates log each char they are called with, so
 //! where a search stops is output too.
 
+use std::ops::Bound;
+
 use crate::fmt::put;
 
 /// Separators, digits, and chars where a UTF-8 or UTF-16 length changes.
@@ -438,18 +440,20 @@ fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
 			put_seen(out, &seen);
 		}
 		9 => put(out, &s.split_off(i)),
-		10 => match b % 6 {
+		10 => match b % 7 {
 			0 => s.replace_range(i..j, &piece),
 			1 => s.replace_range(i.., &piece),
 			2 => s.replace_range(..j, &piece),
 			3 => s.replace_range(.., &piece),
 			4 => s.replace_range(i..=j, &piece),
-			_ => s.replace_range(..=j, &piece),
+			5 => s.replace_range(..=j, &piece),
+			_ => s.replace_range((Bound::Excluded(i), Bound::Included(j)), &piece),
 		},
-		11 => match b % 4 {
+		11 => match b % 5 {
 			0 => s.extend_from_within(i..j),
 			1 => s.extend_from_within(i..),
 			2 => s.extend_from_within(..=j),
+			3 => s.extend_from_within((Bound::Included(i), Bound::Excluded(j))),
 			_ => s.extend_from_within(..),
 		},
 		// Past `isize::MAX`, a capacity overflows; native Rust would allocate one up to it.

@@ -1329,10 +1329,20 @@ fn mapping<'tcx>(
 			};
 			rt2(values, "slice", &super::camel(name))
 		}
-		("slice", "windows" | "chunks") => match is_u8(targ(gargs, 0)) {
+		("slice", "windows" | "chunks" | "chunks_exact" | "rchunks" | "rchunks_exact") => match is_u8(targ(gargs, 0)) {
 			true => rt2(args, "byteSlice", &super::camel(&name)),
 			false => rt2(args, "slice", &super::camel(&name)),
 		},
+		// A part of bytes is a view already, and one of other values the runtime's view.
+		("slice", "chunks_mut" | "chunks_exact_mut" | "rchunks_mut" | "rchunks_exact_mut") => {
+			match is_u8(targ(gargs, 0)) {
+				true => rt2(args, "byteSlice", &super::camel(name.strip_suffix("_mut")?)),
+				false => rt2(args, "slice", &super::camel(&name)),
+			}
+		}
+		("ChunksExact" | "RChunksExact", "remainder") | ("ChunksExactMut" | "RChunksExactMut", "into_remainder") => {
+			Expr::rt("partsRemainder", args)
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
@@ -1565,12 +1575,18 @@ fn mapping<'tcx>(
 			};
 			rt2(values, of, &f)
 		}
-		// Of a range, which `Vec<T, A>::drain::<R>` takes.
-		("Vec", "drain") if let Some(msg) = super::collections::unread_range(b, call) => b.err(span, msg),
-		("Vec", "drain") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecDrain", args),
+		// Of a range, which `Vec<T, A>::drain::<R>` takes, and which `bounds` refuses if it
+		// drops, as the other operand is the vector.
 		("Vec", "drain") => {
-			let dropper = b.t.dropper(targ(gargs, 0), span);
-			Expr::rt("vecDrain", super::iter::tail(args, vec![dropper]))
+			let range = args.pop()?;
+			args.push(super::collections::bounds(b, call, range));
+			return Some(match is_u8(targ(gargs, 0)) {
+				true => Expr::rt("byteVecDrain", args),
+				false => {
+					let dropper = b.t.dropper(targ(gargs, 0), span);
+					Expr::rt("vecDrain", super::iter::tail(args, vec![dropper]))
+				}
+			});
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;

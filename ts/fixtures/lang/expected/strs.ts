@@ -565,7 +565,7 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 		s.v = edit_[0];
 		put(out, edit_[1]);
 	} else if (_24 === 10) {
-		const _67: rt.u8 = rt.u8Rem(b, 6);
+		const _67: rt.u8 = rt.u8Rem(b, 7);
 		if (_67 === 0) {
 			const _69: rt.Range<rt.usize> = new rt.Range(i, j);
 			s.v = rt.stringReplaceRange(s.v, _69, piece);
@@ -580,28 +580,33 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 		} else if (_67 === 4) {
 			const _80: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(i, j, rt.usizeStep);
 			s.v = rt.stringReplaceRange(s.v, _80, piece);
-		} else {
+		} else if (_67 === 5) {
 			const _83: { end: rt.usize; inclusive: true } = { end: j, inclusive: true };
 			s.v = rt.stringReplaceRange(s.v, _83, piece);
+		} else {
+			const _86: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] = [{ tag: "Excluded", _0: i } as rt.RangeBound<rt.usize>, { tag: "Included", _0: j } as rt.RangeBound<rt.usize>];
+			s.v = rt.stringReplaceRange(s.v, _86, piece);
 		}
 	} else if (_24 === 11) {
-		const _86: rt.u8 = rt.u8Rem(b, 4);
-		if (_86 === 0) {
+		const _91: rt.u8 = rt.u8Rem(b, 5);
+		if (_91 === 0) {
 			s.v = rt.stringExtendFromWithin(s.v, new rt.Range(i, j));
-		} else if (_86 === 1) {
+		} else if (_91 === 1) {
 			s.v = rt.stringExtendFromWithin(s.v, { start: i });
-		} else if (_86 === 2) {
+		} else if (_91 === 2) {
 			s.v = rt.stringExtendFromWithin(s.v, { end: j, inclusive: true });
+		} else if (_91 === 3) {
+			s.v = rt.stringExtendFromWithin(s.v, [{ tag: "Included", _0: i } as rt.RangeBound<rt.usize>, { tag: "Excluded", _0: j } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>]);
 		} else {
 			s.v = rt.stringExtendFromWithin(s.v, undefined);
 		}
 	} else if (_24 === 12) {
-		const _91: rt.u8 = rt.u8Rem(a, 4);
-		if (_91 === 0) {
+		const _99: rt.u8 = rt.u8Rem(a, 4);
+		if (_99 === 0) {
 			rt.stringReserve(s.v, rt.usizeSub(4294967295, b as rt.usize));
-		} else if (_91 === 1) {
-			const _96: rt.usize = rt.usizeAdd(rt.usizeAdd(rt.usizeSub(2147483647, rt.stringLen(s.v)), 1), rt.u8Rem(b, 2) as rt.usize);
-			rt.stringReserve(s.v, _96);
+		} else if (_99 === 1) {
+			const _104: rt.usize = rt.usizeAdd(rt.usizeAdd(rt.usizeSub(2147483647, rt.stringLen(s.v)), 1), rt.u8Rem(b, 2) as rt.usize);
+			rt.stringReserve(s.v, _104);
 		} else {
 			rt.stringReserve(s.v, a as rt.usize);
 			rt.stringReserve(s.v, b as rt.usize);

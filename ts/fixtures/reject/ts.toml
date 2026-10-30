@@ -80,7 +80,8 @@ roots = [
     "heap_optional",
     "places_sorted",
     "pointer_statics",
+    "spent_range",
     "bound_ranges",
-    "string_edits",
+    "string_retained",
 ]
 printable = ["Meters"]

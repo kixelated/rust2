@@ -248,7 +248,7 @@ export function at<T>(slice: ArrayLike<T>, index: number): T {
 }
 
 /** Panic unless `start..end` is in a slice of `length`, as std's range checks do. */
-function rangeCheck(length: number, start: number, end: number): void {
+export function rangeCheck(length: number, start: number, end: number): void {
 	if (start > length) panic(`range start index ${start} out of range for slice of length ${length}`);
 	if (end > length) panic(`range end index ${end} out of range for slice of length ${length}`);
 	if (start > end) panic(`slice index starts at ${start} but ends at ${end}`);
@@ -1027,6 +1027,14 @@ export function fmtWriteStr(f: Formatter, s: string): FmtResult {
 /** `Formatter::write_fmt`. */
 export function fmtWriteFmt(f: Formatter, args: Arguments): FmtResult {
 	return write(f.out, args);
+}
+
+/** `write!` into a `String`, `s`: `s` with what was written, even before an error, and the result. */
+export function fmtWriteString(s: string, args: Arguments): { s: string; result: FmtResult } {
+	const out = new StringWriter();
+	out.s = s;
+	const result = write(out, args);
+	return { s: out.s, result };
 }
 
 /** `Formatter::alternate`: whether the spec has `#`. */

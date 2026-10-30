@@ -553,11 +553,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					false,
 				)
 			}
-			("String", "replace_range" | "extend_from_within")
-				if let Some(msg) = crate::lower::collections::unread(self.b.t, targ(0)?) =>
-			{
-				done(self.err(span, msg), false)
-			}
 			// The edited string, from the runtime with what it takes after the string.
 			(
 				"String",
@@ -574,6 +569,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if name == "retain" {
 					let f = std::mem::replace(&mut values[1], Expr::undefined());
 					values[1] = library::called_through(self.b.t, targ(0)?, Some(f)).2?;
+				}
+				// A range std reads the bounds of, as `bounds` makes any `RangeBounds` one.
+				if matches!(name.as_str(), "replace_range" | "extend_from_within") {
+					let call = library::Call {
+						def_id,
+						args: gargs,
+						span,
+					};
+					let range = std::mem::replace(&mut values[1], Expr::undefined());
+					values[1] = crate::lower::collections::bounds(self.b, &call, range);
 				}
 				let edited = match name.as_str() {
 					"clear" => Expr::Str(String::new()),
@@ -600,6 +605,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let edit = self.path(Expr::rt(f, values), "edit", out);
 				self.set_borrowed(&place, edit.clone().index(Expr::lit("0")), span, out);
 				done(edit.index(Expr::lit("1")), false)
+			}
+			("Write", "write_str" | "write_char" | "write_fmt")
+				if tcx
+					.trait_of_assoc(def_id)
+					.is_some_and(|tr| tcx.is_diagnostic_item(rustc_span::Symbol::intern("FmtWrite"), tr))
+					&& !self.b.t.translated(def_id, gargs) =>
+			{
+				self.fmt_write(def_id, gargs, args, dest, span, out)
 			}
 			// A `Duration` never changes once made, so what the `&mut` borrows gets a new one.
 			// std's impls take a `Duration` or a `u32`: another is the crate's.
@@ -983,6 +996,114 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let err = self.err(span, format!("replacing the value behind a reference to `{pointee}`"));
 				Some((err, None))
 			}
+		}
+	}
+
+	/// A `fmt::Write` method of a `String`, a `Formatter`, or the crate's own writer, or of
+	/// std's impl for a `&mut W`, which calls `W`'s. A provided method of the crate's impl
+	/// writes through its `write_str`. `None` for any other writer.
+	fn fmt_write(
+		&mut self,
+		def_id: rustc_hir::def_id::DefId,
+		gargs: GenericArgsRef<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		dest: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Option<(Expr, bool)>> {
+		let tcx = self.tcx;
+		let name = tcx.item_name(def_id);
+		let name = name.as_str();
+		let self_ty = gargs.type_at(0);
+		// The writer, behind any `&mut`s.
+		let mut w = self_ty;
+		while let ty::Ref(_, inner, ty::Mutability::Mut) = *w.kind() {
+			w = inner;
+		}
+		let wargs = tcx.mk_args(&[w.into()]);
+		let write_str = crate::lower::collections::trait_fn(tcx, "FmtWrite", "write_str");
+		let std = self.b.t.std_of(w);
+		let own = self.b.t.translated(write_str, wargs);
+		if !matches!(std, Some(Std::String | Std::Formatter)) && !own {
+			return None;
+		}
+		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
+		let result = dest.ty(&self.mir.local_decls, tcx).ty;
+		let literal = match name {
+			"write_fmt" => self.literal_arguments(&args[1].node),
+			_ => None,
+		};
+		// The writer's `&mut`, read through each `&mut` std's impl forwards through.
+		let through = match args[0].node.place() {
+			Some(p) if self_ty.is_ref() => {
+				let value = self.place_expr(tcx.mk_place_deref(p), span, out);
+				Some(crate::lower::iter::peel_mut(self_ty, value).1)
+			}
+			_ => None,
+		};
+		// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
+		if std == Some(Std::String) {
+			let place = match through {
+				Some(value) => (self.path(value, "w", out).member("v"), None),
+				None => self.borrowed_place(&args[0].node, span, out)?,
+			};
+			let [arg] = <[Expr; 1]>::try_from(self.operands(true, &[], &args[1..], result, span, out)).ok()?;
+			let ok = Expr::Rt("OK".into());
+			let read = place.0.clone();
+			let (value, result) = match (name, literal) {
+				("write_char", _) => (read.binary("+", library::char_text(arg)), ok),
+				("write_fmt", Some(s)) => (read.binary("+", Expr::Str(s)), ok),
+				// What a placeholder wrote before an error stays written.
+				("write_fmt", None) => {
+					let written = self.path(Expr::rt("fmtWriteString", vec![read, arg]), "written", out);
+					(written.clone().member("s"), written.member("result"))
+				}
+				_ => (read.binary("+", arg), ok),
+			};
+			self.set_borrowed(&place, value, span, out);
+			return done(result, false);
+		}
+		let receiver = match through {
+			Some(value) => value,
+			None => self.operands(true, &[], &args[..1], result, span, out).pop()?,
+		};
+		let rest = self.operands(true, &[], &args[1..], result, span, out);
+		// The crate's impl writes this method itself.
+		if self.b.t.translated(def_id, wargs) {
+			let values = [vec![receiver], rest].concat();
+			return done(self.b.call_def(def_id, wargs, values, span, out), true);
+		}
+		let [arg] = <[Expr; 1]>::try_from(rest).ok()?;
+		if std == Some(Std::Formatter) {
+			let e = match (name, literal) {
+				("write_char", _) => Expr::rt("fmtWriteStr", vec![receiver, library::char_text(arg)]),
+				("write_fmt", Some(s)) => Expr::rt("fmtWriteStr", vec![receiver, Expr::Str(s)]),
+				("write_fmt", None) => Expr::rt("fmtWriteFmt", vec![receiver, arg]),
+				_ => Expr::rt("fmtWriteStr", vec![receiver, arg]),
+			};
+			return done(e, true);
+		}
+		// The provided `write_fmt` writes a literal with one `write_str`, as std's does.
+		let text = match (name, literal) {
+			("write_char", _) => library::char_text(arg),
+			("write_fmt", Some(s)) => Expr::Str(s),
+			_ => {
+				let msg = format!(
+					"`fmt::Arguments` with a placeholder, or not made in place, written to `{w}`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make"
+				);
+				return done(self.err(span, msg), true);
+			}
+		};
+		done(self.b.call_def(write_str, wargs, vec![receiver, text], span, out), true)
+	}
+
+	/// The one literal piece of a `fmt::Arguments` operand, held back where `format_args!`
+	/// made it.
+	fn literal_arguments(&self, op: &Operand<'tcx>) -> Option<String> {
+		let held = self.held(op.place()?.as_local()?)?;
+		match super::step::peel(&held.value) {
+			Expr::Array(parts) if let [Expr::Str(s)] = parts.as_slice() => Some(s.clone()),
+			_ => None,
 		}
 	}
 

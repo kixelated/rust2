@@ -645,6 +645,19 @@ fn btree<'tcx>(
 	let key = arg(coll, 0);
 	let value = if set { None } else { Some(arg(coll, 1)) };
 	let mut values = args;
+	if matches!(name, "range" | "range_mut") {
+		let range = values.pop()?;
+		values.push(bounds(b, call, range));
+		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
+		// does, and one holding the crate's own type by that type's `PartialEq` and
+		// `PartialOrd`.
+		let target = range_input(b, call).1;
+		let own = |t: Ty<'tcx>| matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
+		if target.walk().filter_map(|arg| arg.as_type()).any(own) {
+			values.push(eq_fn(b, target, span));
+			values.push(test_fn(b, target, "gt", span));
+		}
+	}
 	let last = |mut values: Vec<Expr>| {
 		values.push(Expr::lit("true"));
 		values
@@ -694,7 +707,6 @@ fn btree<'tcx>(
 			};
 			Expr::rt(f, super::iter::tail(values, droppers))
 		}
-		(_, "range" | "range_mut") if let Some(msg) = unread_range(b, call) => b.err(span, msg),
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
 		(_, "range_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRangeMut", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
@@ -854,8 +866,9 @@ fn deque<'tcx>(
 		}
 		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
-		(_, "drain") if let Some(msg) = unread_range(b, call) => b.err(span, msg),
 		(_, "drain") => {
+			let range = values.pop()?;
+			values.push(bounds(b, call, range));
 			let droppers = entry_droppers(b, coll, span);
 			Expr::rt("dequeDrain", super::iter::tail(values, droppers))
 		}
@@ -1253,22 +1266,66 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	matches!(elem.kind(), ty::Uint(ty::UintTy::U8))
 }
 
-/// Why the runtime can't read the range `call` takes last as an `rt.Bounds`, if it can't:
-/// it reads std's range types, not a tuple of `Bound`s or the crate's own `RangeBounds`.
-pub fn unread_range<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<String> {
-	unread(b.t, *b.t.sig(call.def_id, call.args).inputs().last()?)
+/// Makes `range`, the range `call` takes, what an `rt.Bounds` reads: std's range types
+/// and a pair of `Bound`s are already, and any other `RangeBounds` becomes `rt.boundsOf` of
+/// it and its `start_bound` and `end_bound`, which the runtime calls where std's does. A
+/// range that drops is refused, since std drops it once it has read the bounds.
+pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) -> Expr {
+	let tcx = b.t.tcx;
+	let span = call.span;
+	let (input, target) = range_input(b, call);
+	let ty = b.t.sig(call.def_id, call.args).inputs()[input];
+	if b.t.drops(ty) {
+		let (owner, name) = library::key(tcx, call.def_id).expect("a function of std");
+		return b.err(
+			span,
+			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
+		);
+	}
+	let pair = |t: &Ty<'tcx>| b.t.std_of(*t) == Some(Std::Bound);
+	match (ty.kind(), b.t.std_of(ty)) {
+		(
+			_,
+			Some(
+				Std::Range
+				| Std::RangeInclusive
+				| Std::RangeFrom
+				| Std::RangeTo
+				| Std::RangeToInclusive
+				| Std::RangeFull,
+			),
+		) => return range,
+		(ty::Tuple(tys), _) if tys.len() == 2 && tys.iter().all(|t| pair(&t)) => return range,
+		// Each instance decides.
+		_ if b.t.deferred(ty) => return range,
+		_ => {}
+	}
+	let args = tcx.mk_args(&[ty.into(), target.into()]);
+	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
+	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
+	Expr::rt("boundsOf", vec![range, start, end])
 }
 
-/// Why the runtime can't read `range` as an `rt.Bounds`, if it can't.
-pub fn unread<'tcx>(t: &super::Translator<'_, 'tcx>, range: Ty<'tcx>) -> Option<String> {
-	match t.std_of(range) {
-		Some(
-			Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull,
-		) => None,
-		_ => Some(format!(
-			"a range of `{range}`, whose bounds the runtime doesn't read, which is not supported yet"
-		)),
-	}
+/// Which of its inputs is the range `call` takes, and the `T` of the `RangeBounds<T>` it
+/// implements, from the function's own bound on its range's type.
+fn range_input<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> (usize, Ty<'tcx>) {
+	let tcx = b.t.tcx;
+	let bounds = tcx.parent(trait_fn(tcx, "RangeBounds", "start_bound"));
+	let sig = tcx
+		.fn_sig(call.def_id)
+		.instantiate_identity()
+		.skip_norm_wip()
+		.skip_binder();
+	let (input, target) = tcx
+		.param_env(call.def_id)
+		.caller_bounds()
+		.find_map(|clause| {
+			let tr = clause.as_trait_clause()?.skip_binder().trait_ref;
+			let input = sig.inputs().iter().position(|&ty| ty == tr.self_ty())?;
+			(tr.def_id == bounds).then(|| (input, tr.args.type_at(1)))
+		})
+		.expect("a range's bound");
+	(input, b.t.subst(call.args, target))
 }
 
 /// What `ty` holds if it is an `Arc`.

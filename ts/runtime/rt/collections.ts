@@ -14,10 +14,10 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { ByteSlice, type ByteVec, type None, type Place, panic } from "../rt.ts";
+import { ByteSlice, type ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, type Take } from "./iter.ts";
+import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, rangeInclusiveEndBound, rangeInclusiveStartBound, type Take } from "./iter.ts";
 import { type Arc, drop as dispose, dropAll, dropRange } from "./task.ts";
 
 // Ordering
@@ -1339,49 +1339,73 @@ export function btreeValues<K, V>(m: BTreeMap<K, V>, k?: (key: K) => void, v?: (
 
 /**
  * A range of keys or indices, as its value is: `a..b`, `a..=b`, `a..` as `{ start }`, `..b`
- * as `{ end }`, or `..` as `undefined`.
+ * as `{ end }`, `..` as `undefined`, and `(Bound<K>, Bound<K>)` as its pair. Any other
+ * `RangeBounds` is a function returning its `start_bound` and `end_bound`, called where
+ * std's calls them.
  */
 export type Bounds<K> =
 	| { readonly start: K; readonly end: K }
 	| RangeInclusive<K>
 	| { readonly start: K }
 	| { readonly end: K; readonly inclusive?: true }
+	| BoundPair<K>
+	| (() => BoundPair<K>)
 	| undefined;
 
-/** `RangeBounds`: the start, the end, and whether the end is in the range, as `..=end`'s is. */
-function bounds<K>(r: Bounds<K>): [{ key: K } | undefined, { key: K } | undefined, boolean] {
-	if (r === undefined) return [undefined, undefined, false];
-	// Exhausted by wrapping, an inclusive range excludes its start, as its `end_bound` says.
-	// A field test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
-	if ("exhausted" in r) return [{ key: r.lo }, { key: r.exhausted ? r.lo : r.hi }, !r.exhausted];
-	return ["start" in r ? { key: r.start } : undefined, "end" in r ? { key: r.end } : undefined, "inclusive" in r];
+type BoundPair<K> = readonly [RangeBound<K>, RangeBound<K>];
+
+const UNBOUNDED: RangeBound<never> = { tag: "Unbounded" };
+
+/** Another `RangeBounds`, `r`, as `Bounds` reads it: by `start` and then `end`, once read. */
+export function boundsOf<R, K>(r: R, start: (r: R) => RangeBound<K>, end: (r: R) => RangeBound<K>): () => BoundPair<K> {
+	return () => [start(r), end(r)];
 }
 
-/** `BTreeMap::range` and `range_mut`: the entries within `r`. */
-export function btreeRange<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, V]> {
-	return range(m, r, ENTRIES, "BTreeMap");
+/** `RangeBounds`: `start_bound`, then `end_bound`. */
+function bounds<K>(r: Bounds<K>): BoundPair<K> {
+	if (r === undefined) return [UNBOUNDED, UNBOUNDED];
+	if (typeof r === "function") return r();
+	if (Array.isArray(r)) return r as BoundPair<K>;
+	// A field test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
+	if ("exhausted" in r) return [rangeInclusiveStartBound(r), rangeInclusiveEndBound(r)];
+	const start: RangeBound<K> = "start" in r ? { tag: "Included", _0: r.start } : UNBOUNDED;
+	if (!("end" in r)) return [start, UNBOUNDED];
+	return [start, { tag: "inclusive" in r ? "Included" : "Excluded", _0: r.end }];
+}
+
+/**
+ * `BTreeMap::range` and `range_mut`: the entries within `r`. A key of the crate's own gives
+ * its `PartialEq::eq` and `PartialOrd::gt`, which std checks the ends by.
+ */
+export function btreeRange<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, eq?: Test<K>, gt?: Test<K>): Iter<[K, V]> {
+	return range(m, r, ENTRIES, "BTreeMap", eq, gt);
 }
 
 /** `range_mut` of values JS copies: each key within `r` and the place of its value. */
-export function btreeRangeMut<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, Place<V>]> {
-	return range(m, r, PLACES, "BTreeMap");
+export function btreeRangeMut<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, eq?: Test<K>, gt?: Test<K>): Iter<[K, Place<V>]> {
+	return range(m, r, PLACES, "BTreeMap", eq, gt);
 }
 
 /** `BTreeSet::range`: the keys within `r`. */
-export function btreeRangeKeys<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<K> {
-	return range(m, r, KEYS, "BTreeSet");
+export function btreeRangeKeys<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, eq?: Test<K>, gt?: Test<K>): Iter<K> {
+	return range(m, r, KEYS, "BTreeSet", eq, gt);
 }
 
-/** The items of `m` within `r`, checked as std checks it. */
-function range<K, V, T>(m: BTreeMap<K, V>, r: Bounds<K>, pick: Pick, name: string): Iter<T> {
+/** The items of `m` within `r`, checked as std checks it: by `eq` and `gt`, or by `m`'s order. */
+function range<K, V, T>(m: BTreeMap<K, V>, r: Bounds<K>, pick: Pick, name: string, eq?: Test<K>, gt?: Test<K>): Iter<T> {
 	if (!m.r) return new BTreeIter<K, V, T>(pick, m.t as Leaf<K, V>, 0, m.t as Leaf<K, V>, 0);
-	const [start, stop, inclusive] = bounds(r);
-	if (start !== undefined && stop !== undefined && m.c(start.key, stop.key) > 0) {
-		panic(`range start is greater than range end in ${name}`);
+	const [start, stop] = bounds(r);
+	if (start.tag !== "Unbounded" && stop.tag !== "Unbounded") {
+		const s = start._0;
+		const e = stop._0;
+		if (start.tag === "Excluded" && stop.tag === "Excluded" && (eq === undefined ? m.c(s, e) === 0 : eq(s, e))) {
+			panic(`range start and end are equal and excluded in ${name}`);
+		}
+		if (gt === undefined ? m.c(s, e) > 0 : gt(s, e)) panic(`range start is greater than range end in ${name}`);
 	}
-	const [fl, fi] = start === undefined ? [end(m, false), 0] : edge(m, start.key, false);
+	const [fl, fi] = start.tag === "Unbounded" ? [end(m, false), 0] : edge(m, start._0, start.tag === "Excluded");
 	const last = end(m, true);
-	const [bl, bi] = stop === undefined ? [last, last.k.length] : edge(m, stop.key, inclusive);
+	const [bl, bi] = stop.tag === "Unbounded" ? [last, last.k.length] : edge(m, stop._0, stop.tag === "Included");
 	return new BTreeIter<K, V, T>(pick, fl, fi, bl, bi);
 }
 
@@ -1916,14 +1940,26 @@ export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T
 
 /** `slice::range`: the start and end of `r` within `n` elements, panicking as std's does. */
 export function boundsRange(r: Bounds<number>, n: number): [number, number] {
-	const [lo, hi, inclusive] = bounds(r);
-	if (hi !== undefined && (inclusive ? hi.key >= n : hi.key > n)) panic(`range end index ${hi.key} out of range for slice of length ${n}`);
-	const end = hi === undefined ? n : inclusive ? hi.key + 1 : hi.key;
-	const start = lo === undefined ? 0 : lo.key;
-	if (start > end) {
-		panic(start > n ? `range start index ${start} out of range for slice of length ${n}` : `slice index starts at ${start} but ends at ${end}`);
+	const [lo, hi] = bounds(r);
+	let end = n;
+	if (hi.tag !== "Unbounded") {
+		end = hi._0;
+		if (hi.tag === "Included" ? end >= n : end > n) sliceIndexFail(0, end, n);
+		if (hi.tag === "Included") end++;
+	}
+	let start = 0;
+	if (lo.tag !== "Unbounded") {
+		start = lo._0;
+		if (lo.tag === "Excluded" ? start >= end : start > end) sliceIndexFail(start, end, n);
+		if (lo.tag === "Excluded") start++;
 	}
 	return [start, end];
+}
+
+/** std's `slice_index_fail`, which names the end where neither bound is out of order. */
+function sliceIndexFail(start: number, end: number, n: number): never {
+	rangeCheck(n, start, end);
+	return panic(`range end index ${end} out of range for slice of length ${n}`);
 }
 
 // `Vec::drain`, which leaves the vector only what comes before the range until the drain
