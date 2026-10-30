@@ -7,9 +7,13 @@ import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
 import type * as ArcNode from "../counts.ArcNode.ts";
+import type * as ArcShared from "../counts.ArcShared.ts";
+import type * as Counted from "../counts.Counted.ts";
 import type * as Id from "../counts.Id.ts";
 import type * as counts_Noisy from "../counts.Noisy.ts";
 import type * as RcNode from "../counts.RcNode.ts";
+import type * as RcShared from "../counts.RcShared.ts";
+import type * as Twin from "../counts.Twin.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
@@ -57,6 +61,13 @@ export function unwrapOr$Option_Nameds(self: Named.Named[] | undefined, default_
 }
 
 export function unwrapOr$Option_NonZero_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$Option_Twin(self: Twin.Twin | undefined, default_: Twin.Twin): Twin.Twin {
 	if (self === undefined) {
 		return default_;
 	}
@@ -336,6 +347,13 @@ export function inspect$Option_u8_options_closure11(self: rt.u8 | undefined, f: 
 	return self;
 }
 
+export function mapOr$Option_ArcShared_u8_cloned_arcs_closure4(self: ArcShared.ArcShared | undefined, default_: rt.u8, f: (a0: ArcShared.ArcShared) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Arc_ArcNode_u8_cyclic_arcs_closure4(self: rt.Arc<ArcNode.ArcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<ArcNode.ArcNode>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -358,6 +376,13 @@ export function mapOr$Option_Arc_dyn_Id_u8_arcs_closure1(self: rt.Arc<Id.Id> | u
 }
 
 export function mapOr$Option_Arc_u8_u8_objects_closure1(self: rt.Arc<rt.u8> | undefined, default_: rt.u8, f: (a0: rt.Arc<rt.u8>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Counted_u8_copies_closure6(self: Counted.Counted | undefined, default_: rt.u8, f: (a0: Counted.Counted) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -427,7 +452,7 @@ export function mapOr$Option_Noisy_u8_locals_closure18(self: locals_Noisy.Noisy 
 	return f(self);
 }
 
-export function mapOr$Option_Option_u8_u8_refs_closure2_closure0(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
+export function mapOr$Option_Option_u8_u8_copies_closure3(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
 	if (self === rt.None) {
 		return default_;
 	}
@@ -476,6 +501,13 @@ export function mapOr$Option_Rank_Tally_u8_hash_maps_closure11(self: [Rank.Rank,
 	return f(self);
 }
 
+export function mapOr$Option_RcShared_u8_cloned_rcs_closure4(self: RcShared.RcShared | undefined, default_: rt.u8, f: (a0: RcShared.RcShared) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Rc_RcNode_u8_cyclic_rcs_closure4(self: rt.Arc<RcNode.RcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<RcNode.RcNode>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -505,6 +537,13 @@ export function mapOr$Option_Tally_u8_hash_maps_closure10(self: Tally.Tally | un
 }
 
 export function mapOr$Option_Tilt_u8_ranked_closure11_closure0(self: Tilt.Tilt | undefined, default_: rt.u8, f: (a0: Tilt.Tilt) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Vec_Arc_Noisy_u8_cloned_arcs_closure9(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, default_: rt.u8, f: (a0: rt.Arc<counts_Noisy.Noisy>[]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -775,10 +814,46 @@ export function andThen$Option_u8_u8_options_closure2(self: rt.u8 | undefined, f
 	return f(self);
 }
 
+export function filter$Option_ArcShared_cloned_arcs_closure5(self: ArcShared.ArcShared | undefined, predicate: (a0: ArcShared.ArcShared) => boolean): ArcShared.ArcShared | undefined {
+	if (self !== undefined) {
+		const x: ArcShared.ArcShared = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$Option_Arc_Noisy_cloned_arcs_closure2(self: rt.Arc<counts_Noisy.Noisy> | undefined, predicate: (a0: rt.Arc<counts_Noisy.Noisy>) => boolean): rt.Arc<counts_Noisy.Noisy> | undefined {
+	if (self !== undefined) {
+		const x: rt.Arc<counts_Noisy.Noisy> = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
+			return x;
+		}
+	}
+	return undefined;
+}
+
 export function filter$Option_Box_Named_edits_closure30(self: Named.Named | undefined, predicate: (a0: Named.Named) => boolean): Named.Named | undefined {
 	if (self !== undefined) {
 		const x: Named.Named = self;
 		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$Option_Noisy_cloned_arcs_closure7(self: counts_Noisy.Noisy | undefined, predicate: (a0: counts_Noisy.Noisy) => boolean): counts_Noisy.Noisy | undefined {
+	if (self !== undefined) {
+		const x: counts_Noisy.Noisy = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
 			return x;
 		}
 	}
@@ -795,10 +870,34 @@ export function filter$Option_Option_u8_made_closure2(self: rt.u8 | undefined | 
 	return rt.None;
 }
 
+export function filter$Option_RcShared_cloned_rcs_closure5(self: RcShared.RcShared | undefined, predicate: (a0: RcShared.RcShared) => boolean): RcShared.RcShared | undefined {
+	if (self !== undefined) {
+		const x: RcShared.RcShared = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
+			return x;
+		}
+	}
+	return undefined;
+}
+
 export function filter$Option_String_owned_closure1(self: string | undefined, predicate: (a0: string) => boolean): string | undefined {
 	if (self !== undefined) {
 		const x: string = self;
 		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$Option_Vec_Arc_Noisy_cloned_arcs_closure10(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, predicate: (a0: rt.Arc<counts_Noisy.Noisy>[]) => boolean): rt.Arc<counts_Noisy.Noisy>[] | undefined {
+	if (self !== undefined) {
+		const x: rt.Arc<counts_Noisy.Noisy>[] = self;
+		if (!predicate(x)) {
+			rt.dropAll(x);
+		} else {
 			return x;
 		}
 	}
