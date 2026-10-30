@@ -1471,10 +1471,11 @@ impl<'a> Gen<'a> {
 		let rust_args: Vec<String> = args.iter().flat_map(|a| a.rust_args.clone()).collect();
 		let after: Vec<String> = args.iter().flat_map(|a| a.after.clone()).collect();
 
-		// A tuple of one returned whole is its element, written through its one out pointer.
-		let ok = match strip_refs(&function.ok) {
-			Type::Tuple(mut elements) if elements.len() == 1 => elements.remove(0),
-			ok => ok,
+		// A tuple of one returned whole is its element, written through its one out pointer;
+		// one behind a reference or `Box` is returned as a struct, so stays a tuple.
+		let ok = match &function.ok {
+			Type::Tuple(elements) if elements.len() == 1 => strip_refs(&elements[0]),
+			ok => strip_refs(ok),
 		};
 		let ret_kt = self.kt(&ok);
 		let err = function.err.as_ref().map(strip_refs);

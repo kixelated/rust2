@@ -135,6 +135,10 @@ fn main() {
 	for value in [None, Some((None,)), Some((Some(3),))] {
 		println!("doubled {:?}", api_lib::doubled(value));
 	}
+	let lent = (vec![1, 2],);
+	let (lent,) = api_lib::lent_back(&lent);
+	let (boxed,) = *api_lib::boxed_tuple(vec![3]);
+	println!("lent back {lent:?} boxed {boxed:?}");
 	println!(
 		"title {:?} {:?} named {:?}",
 		api_lib::title(true),

@@ -229,6 +229,22 @@ int script() {
 			std::printf("doubled Some((None,))\n");
 		}
 	}
+	// A borrowed or boxed tuple of one is a tuple, not its element.
+	{
+		std::uint8_t lent_bytes[] = {1, 2};
+		std::uint8_t boxed_bytes[] = {3};
+		auto [lent] = api::lent_back(std::make_tuple(api::view(lent_bytes, 2)));
+		auto [boxed] = api::boxed_tuple(api::view(boxed_bytes, 1));
+		const api::buf *both[] = {&lent, &boxed};
+		for (int i = 0; i < 2; i++) {
+			std::printf("%s[", i == 0 ? "lent back " : " boxed ");
+			for (std::size_t j = 0; j < both[i]->size(); j++) {
+				std::printf("%s%u", j == 0 ? "" : ", ", both[i]->data()[j]);
+			}
+			std::printf("]");
+		}
+		std::printf("\n");
+	}
 	// A borrowed string and an owned one share a tuple struct.
 	print("title Some((\"", std::get<0>(*api::title(true)), "\",)) ");
 	std::printf("%s ", api::title(false) ? "Some" : "None");

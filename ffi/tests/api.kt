@@ -109,6 +109,10 @@ fun script() {
 		val doubled = doubled(value)
 		println(if (doubled == null) "doubled None" else "doubled Some((${doubled.first?.let { "Some($it)" } ?: "None"},))")
 	}
+	// A borrowed or boxed tuple of one is a tuple, not its element.
+	val lentOne = lentBack(Tuple1(byteArrayOf(1, 2))).first.use { it.toByteArray().toList() }
+	val boxedOne = boxedTuple(byteArrayOf(3)).first.use { it.toByteArray().toList() }
+	println("lent back $lentOne boxed $boxedOne")
 	// A borrowed string and an owned one share a tuple struct.
 	println("title Some((\"${title(true)!!.first}\",)) ${if (title(false) == null) "None" else "Some"} named Some((\"${named("x")!!.first}\",))")
 

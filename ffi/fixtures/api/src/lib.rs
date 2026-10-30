@@ -258,6 +258,17 @@ pub fn named(name: &str) -> Option<(String,)> {
 	(!name.is_empty()).then(|| (name.to_string(),))
 }
 
+/// `value` lent back: a borrowed tuple of one, returned as a clone, is a tuple, not its
+/// element, as only a tuple returned whole is.
+pub fn lent_back(value: &(Vec<u8>,)) -> &(Vec<u8>,) {
+	value
+}
+
+/// `bytes` in a boxed tuple of one, which is a tuple too.
+pub fn boxed_tuple(bytes: Vec<u8>) -> Box<(Vec<u8>,)> {
+	Box::new((bytes,))
+}
+
 /// `pair` with its sides swapped: a tuple taken by value.
 pub fn swapped(pair: (String, u32)) -> (u32, String) {
 	(pair.1, pair.0)

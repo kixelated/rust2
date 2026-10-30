@@ -294,6 +294,21 @@ static int script(void) {
 			printf("doubled Some((Some(%u),))\n", doubled.value._0.value);
 		}
 	}
+	/* A borrowed or boxed tuple of one is a tuple struct, not its element. */
+	uint8_t lent_bytes[] = {1, 2};
+	uint8_t boxed_bytes[] = {3};
+	api_tuple_bytes lent_one = api_lent_back((api_tuple_bytes){._0 = {.ptr = lent_bytes, .len = 2}});
+	api_tuple_bytes boxed_one = api_boxed_tuple((api_buf){.ptr = boxed_bytes, .len = 1});
+	api_buf both[] = {lent_one._0, boxed_one._0};
+	for (int i = 0; i < 2; i++) {
+		printf("%s[", i == 0 ? "lent back " : " boxed ");
+		for (size_t j = 0; j < both[i].len; j++) {
+			printf("%s%u", j == 0 ? "" : ", ", both[i].ptr[j]);
+		}
+		printf("]");
+		api_buf_free(both[i]);
+	}
+	printf("\n");
 	/* A borrowed string and an owned one share a tuple struct. */
 	api_option_tuple_string formal = api_title(true);
 	api_option_tuple_string informal = api_title(false);
