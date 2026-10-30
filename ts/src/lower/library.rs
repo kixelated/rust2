@@ -1316,10 +1316,20 @@ fn mapping<'tcx>(
 			};
 			rt2(values, "slice", &super::camel(name))
 		}
-		("slice", "windows" | "chunks") => match is_u8(targ(gargs, 0)) {
+		("slice", "windows" | "chunks" | "chunks_exact" | "rchunks" | "rchunks_exact") => match is_u8(targ(gargs, 0)) {
 			true => rt2(args, "byteSlice", &super::camel(&name)),
 			false => rt2(args, "slice", &super::camel(&name)),
 		},
+		// A part of bytes is a view already, and one of other values the runtime's view.
+		("slice", "chunks_mut" | "chunks_exact_mut" | "rchunks_mut" | "rchunks_exact_mut") => {
+			match is_u8(targ(gargs, 0)) {
+				true => rt2(args, "byteSlice", &super::camel(name.strip_suffix("_mut")?)),
+				false => rt2(args, "slice", &super::camel(&name)),
+			}
+		}
+		("ChunksExact" | "RChunksExact", "remainder") | ("ChunksExactMut" | "RChunksExactMut", "into_remainder") => {
+			Expr::rt("partsRemainder", args)
+		}
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;

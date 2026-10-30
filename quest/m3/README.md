@@ -29,6 +29,7 @@ generic std gap is planned here even when moq never calls it.
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
 - [Byte arrays compared for equality and hashed](/quest/m3/ts-byte-keys.md) - `==` of byte arrays, and byte arrays, slices, and vectors as hash keys, translate
 - [Ranges of Bounds](/quest/m3/ts-bound-ranges.md) - drains and B-tree ranges of a `(Bound, Bound)` translate
-- [The rest of a slice's chunks](/quest/m3/ts-slice-chunks.md) - `chunks_exact`, `rchunks`, and the mutable chunks translate
+- [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate
+- [Mutable subslices of other values](/quest/m3/ts-mut-subslices.md) - `&mut v[a..b]` and `split_at_mut` of other than bytes translate, writing through
 - [Iterator consumers over items whose None is rt.None](/quest/m3/ts-option-items.md) - `nth`, `last`, and `find` of an iterator of `Option` keep `None` apart from `Some(None)`
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does

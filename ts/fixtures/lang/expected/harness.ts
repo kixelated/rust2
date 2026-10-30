@@ -33,7 +33,7 @@ import { orders, bytes as orders_bytes } from "./orders.ts";
 import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels } from "./pointers.ts";
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
-import { parts, drains } from "./slices.ts";
+import { parts, chunked, drains } from "./slices.ts";
 import { splits } from "./splits.ts";
 import { statics, cells as statics_cells, onces } from "./statics.ts";
 import { strs, slices } from "./strs.ts";
@@ -161,7 +161,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		random(data56, out57);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::formats", formats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::parses", parses] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["orders::bytes", (_2157: rt.u8, data57: rt.ByteSlice, out58: rt.ByteVec): void => {
 		orders_bytes(data57, out58);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::parts", parts] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::drains", drains] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["statics::onces", (_2158: rt.u8, data58: rt.ByteSlice, out59: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::parts", parts] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::drains", drains] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::chunked", chunked] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["statics::onces", (_2158: rt.u8, data58: rt.ByteSlice, out59: rt.ByteVec): void => {
 		onces(data58, out59);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::writes", (_2159: rt.u8, data59: rt.ByteSlice, out60: rt.ByteVec): void => {
 		writes(data59, out60);
