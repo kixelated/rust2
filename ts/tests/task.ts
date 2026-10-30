@@ -393,6 +393,6 @@ export const cases: Uint8Array[] = [
 	// What one-time cells drop.
 	...Array.from({ length: 6 }, (_, arg) => script(["cells", arg])),
 	// Each scenario of adaptors' closures that drop, folded either way.
-	...Array.from({ length: 33 }, (_, arg) => script(["folded", arg])),
+	...Array.from({ length: 34 }, (_, arg) => script(["folded", arg])),
 	...Array.from({ length: 9 }, (_, arg) => script(["rfolded", arg])),
 ];

@@ -2,12 +2,12 @@
 
 import * as rt from "../rt.ts";
 import { drop$Guard_u64, drop$usize_Guard } from "../lib.ts";
-import { thenSome$0zvoczk, thenSome$1af3oea, then$1xpp3sz, then$0ea5h05 } from "../core/bool.ts";
-import { map$1raha9y, map$0lq7mno, map$14zg54s } from "../core/option.ts";
+import { thenSome$0zvoczk, thenSome$1af3oea, then$1xpp3sz, then$06wuxll, then$0ea5h05 } from "../core/bool.ts";
+import { map$1raha9y, map$0lq7mno, map$0ccnsmq, map$14zg54s, mapOr$01ozsk3 } from "../core/option.ts";
 import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
 
-/** Run scenario `arg % 33`. Items are guards 1 to 7; what closures own, 10 and up. */
+/** Run scenario `arg % 34`. Items are guards 1 to 7; what closures own, 10 and up. */
 export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let f!: Guard.Guard;
 	let _1086: boolean = false;
@@ -23,7 +23,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	const c: Guard.Guard = _10[0];
 	_1085 = true;
 	const d: Guard.Guard = _10[1];
-	const _17: rt.u8 = rt.u8Rem(arg, 33);
+	const _17: rt.u8 = rt.u8Rem(arg, 34);
 	if (_17 === 0) {
 		const _21: rt.Iter<Guard.Guard> = rt.iterSlice(guards(1, 5), rt.drop);
 		_1086 = false;
@@ -881,6 +881,8 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		options(log, id);
 	} else if (_17 === 32) {
 		reducers(log, id);
+	} else if (_17 === 33) {
+		closures(log, id);
 	} else {
 		const _986: rt.Iter<Guard.Guard> = rt.iterSlice(guards(1, 6), rt.drop);
 		_1086 = false;
@@ -1409,6 +1411,202 @@ export function reducers(log: Log.Log, id: rt.u32): void {
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["first ", args4[0]]));
 	rt.dropAll(held);
+}
+
+/**
+ * Closures that own a guard and return an `Option<Option<Guard>>`, whose `Some(None)` is
+ * an item: each drops what it rejects as it returns, and with its adaptor, after the
+ * source it reads.
+ */
+export function closures(log: Log.Log, id: rt.u32): void {
+	const guard: (a0: rt.u32) => Guard.Guard = (n2: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
+	};
+	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+	};
+	const _12: [Guard.Guard, Guard.Guard, Guard.Guard, Guard.Guard, Guard.Guard] = [guard(10), guard(11), guard(12), guard(13), guard(14)];
+	const c: Guard.Guard = _12[0];
+	const d: Guard.Guard = _12[1];
+	const e: Guard.Guard = _12[2];
+	const f: Guard.Guard = _12[3];
+	const h: Guard.Guard = _12[4];
+	const pick: (a0: Guard.Guard) => Guard.Guard | undefined | rt.None = (g: Guard.Guard): Guard.Guard | undefined | rt.None => {
+		let _03!: Guard.Guard | undefined | rt.None;
+		let _142: boolean = false;
+		_142 = true;
+		const _35: rt.u32 = rt.u32Rem(rt.u32Sub(Guard.id(g), id), 3);
+		if (_35 === 0) {
+			_03 = rt.None;
+		} else if (_35 === 1) {
+			_03 = undefined;
+		} else {
+			_142 = false;
+			_03 = g;
+		}
+		if (_142) {
+			g[Symbol.dispose]();
+			return _03;
+		}
+		return _03;
+	};
+	const _33: rt.Iter<Guard.Guard> = rt.iterSlice(guards(1, 7), rt.drop);
+	const captured = c;
+	const captured2 = pick;
+	const part2 = rt.iterToArray(rt.iterMap(rt.iterFilterMap(_33, rt.closure((g2: Guard.Guard): Guard.Guard | undefined | rt.None => {
+		const _92: rt.u32 = Guard.id(g2);
+		const _127: rt.u32 = Guard.id(captured);
+		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_92, f), (f: rt.Formatter) => rt.u32Display(_127, f)];
+		Log.note(log, rt.fmtFormat(["filter_map ", args16[0], " ", args16[1]]));
+		return captured2(g2);
+	}, (): void => {
+		captured[Symbol.dispose]();
+	}), rt.None), (o: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o, (g3: Guard.Guard): rt.u32 => {
+			const _06: rt.u32 = Guard.id(g3);
+			g3[Symbol.dispose]();
+			return _06;
+		});
+	}), "next");
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part2, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug))];
+	Log.note(log, rt.fmtFormat(["kept ", args2[0]]));
+	const part3 = rt.iterFold(rt.iterFilterMap(rt.iterSlice(guards(1, 7), rt.drop), pick, rt.None), 0, (n3: rt.u32, o2: Guard.Guard | undefined): rt.u32 => {
+		return rt.u32Add(rt.u32Mul(n3, 10), mapOr$01ozsk3(o2, 9, (g4: Guard.Guard): rt.u32 => {
+			const _08: rt.u32 = rt.u32Sub(Guard.id(g4), id);
+			g4[Symbol.dispose]();
+			return _08;
+		}));
+	}, true);
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
+	Log.note(log, rt.fmtFormat(["folded ", args4[0]]));
+	const _67: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 8), rt.drop);
+	const captured3 = d;
+	const captured4 = pick;
+	const whiles: rt.Iter<Guard.Guard | undefined> = rt.iterMapWhile(_67, rt.closure((g5: Guard.Guard): Guard.Guard | undefined | rt.None => {
+		const _93: rt.u32 = Guard.id(g5);
+		const _128: rt.u32 = Guard.id(captured3);
+		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_93, f), (f: rt.Formatter) => rt.u32Display(_128, f)];
+		Log.note(log, rt.fmtFormat(["map_while ", args18[0], " ", args18[1]]));
+		return captured4(g5);
+	}, (): void => {
+		captured3[Symbol.dispose]();
+	}), rt.None);
+	const first: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.iterToOption(whiles.next(), rt.None), (o3: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o3, (g6: Guard.Guard): rt.u32 => {
+			const _011: rt.u32 = Guard.id(g6);
+			g6[Symbol.dispose]();
+			return _011;
+		});
+	});
+	const second: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.iterToOption(whiles.next(), rt.None), (o4: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o4, (g7: Guard.Guard): rt.u32 => {
+			const _013: rt.u32 = Guard.id(g7);
+			g7[Symbol.dispose]();
+			return _013;
+		});
+	});
+	rt.drop(whiles);
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(first, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(second, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["whiles ", args6[0], " ", args6[1]]));
+	const _94: rt.Iter<Guard.Guard> = rt.iterSlice(guards(3, 7), rt.drop);
+	const captured5 = e;
+	const captured6 = pick;
+	const _98: (a0: Guard.Guard) => Guard.Guard | undefined | rt.None = rt.closure((g8: Guard.Guard): Guard.Guard | undefined | rt.None => {
+		const _96: rt.u32 = Guard.id(g8);
+		const _1210: rt.u32 = Guard.id(captured5);
+		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_96, f), (f: rt.Formatter) => rt.u32Display(_1210, f)];
+		Log.note(log, rt.fmtFormat(["find_map ", args20[0], " ", args20[1]]));
+		return captured6(g8);
+	}, (): void => {
+		captured5[Symbol.dispose]();
+	});
+	const found: Guard.Guard | undefined | rt.None = rt.dropAfter(_98, () => rt.iterFindMap(_94, _98, rt.None));
+	rt.drop(_94);
+	const part6 = map$0ccnsmq(found, (o5: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o5, (g9: Guard.Guard): rt.u32 => {
+			const _016: rt.u32 = Guard.id(g9);
+			g9[Symbol.dispose]();
+			return _016;
+		});
+	});
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part6, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["found ", args8[0]]));
+	let captured7 = guards(1, 6);
+	const captured8 = f;
+	const made: rt.Iter<Guard.Guard | undefined> = rt.iterFromFn(rt.closure((): Guard.Guard | undefined | rt.None => {
+		const _310: Guard.Guard | undefined = captured7.pop();
+		if (_310 !== undefined) {
+			const g10: Guard.Guard = _310;
+			const _144: rt.u32 = Guard.id(g10);
+			const _177: rt.u32 = Guard.id(captured8);
+			const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_144, f), (f: rt.Formatter) => rt.u32Display(_177, f)];
+			Log.note(log, rt.fmtFormat(["from_fn ", args22[0], " ", args22[1]]));
+			return thenSome$0zvoczk(rt.u32Rem(Guard.id(g10), 2) === 0, g10);
+		}
+		return rt.None;
+	}, (): void => {
+		rt.dropAll(captured7);
+		captured8[Symbol.dispose]();
+	}), rt.None);
+	const first2: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.iterToOption(made.next(), rt.None), (o6: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o6, (g11: Guard.Guard): rt.u32 => {
+			const _019: rt.u32 = Guard.id(g11);
+			g11[Symbol.dispose]();
+			return _019;
+		});
+	});
+	const second2: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.iterToOption(made.next(), rt.None), (o7: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o7, (g12: Guard.Guard): rt.u32 => {
+			const _021: rt.u32 = Guard.id(g12);
+			g12[Symbol.dispose]();
+			return _021;
+		});
+	});
+	rt.drop(made);
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(first2, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(second2, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["made ", args10[0], " ", args10[1]]));
+	const captured9 = id;
+	const captured10 = h;
+	const walked: rt.Iter<Guard.Guard | undefined> = rt.iterSuccessors(undefined as Guard.Guard | undefined | rt.None, rt.closure((prev: Guard.Guard | undefined): Guard.Guard | undefined | rt.None => {
+		const next: rt.u32 = mapOr$01ozsk3(prev, 5, (g13: Guard.Guard): rt.u32 => {
+			return rt.u32Add(rt.u32Sub(Guard.id(g13), captured9), 1);
+		});
+		const _1310: rt.u32 = Guard.id(captured10);
+		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(next, f), (f: rt.Formatter) => rt.u32Display(_1310, f)];
+		Log.note(log, rt.fmtFormat(["successors ", args24[0], " ", args24[1]]));
+		return then$06wuxll(next < 8, (): Guard.Guard | undefined => {
+			return Guard.new(rt.u32Add(captured9, next), Log.clone$Clone(log));
+		});
+	}, (): void => {
+		captured10[Symbol.dispose]();
+	}), rt.drop, rt.None);
+	const first3: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.iterToOption(walked.next(), rt.None), (o8: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o8, (g14: Guard.Guard): rt.u32 => {
+			const _026: rt.u32 = Guard.id(g14);
+			g14[Symbol.dispose]();
+			return _026;
+		});
+	});
+	const second3: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.iterToOption(walked.next(), rt.None), (o9: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$1raha9y(o9, (g15: Guard.Guard): rt.u32 => {
+			const _028: rt.u32 = Guard.id(g15);
+			g15[Symbol.dispose]();
+			return _028;
+		});
+	});
+	rt.drop(walked);
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(first3, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(second3, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["walked ", args12[0], " ", args12[1]]));
+	const part7 = rt.ownedCount(rt.iterSuccessors(undefined as Guard.Guard | undefined | rt.None, (prev2: Guard.Guard | undefined): Guard.Guard | undefined | rt.None => {
+		const next2: rt.u32 = mapOr$01ozsk3(prev2, 5, (g16: Guard.Guard): rt.u32 => {
+			return rt.u32Add(rt.u32Sub(Guard.id(g16), id), 1);
+		});
+		return then$06wuxll(next2 < 8, (): Guard.Guard | undefined => {
+			return Guard.new(rt.u32Add(id, next2), Log.clone$Clone(log));
+		});
+	}, rt.drop, rt.None), rt.drop);
+	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part7, f)];
+	Log.note(log, rt.fmtFormat(["walked ", args14[0]]));
 }
 
 //# sourceMappingURL=folds.ts.map

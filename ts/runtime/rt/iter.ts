@@ -216,6 +216,7 @@ export function iterToOption<T>(item: T | Done, none?: None): T | undefined | No
 /** An `Option`, as `next` returns it. */
 export function iterFromOption<T>(option: T | undefined): T | Done;
 export function iterFromOption<T>(option: T | None, none: None): T | Done;
+export function iterFromOption<T>(option: T | undefined | None, none?: None): T | Done;
 export function iterFromOption<T>(option: T | undefined | None, none?: None): T | Done {
 	return option === none ? DONE : (option as T);
 }
@@ -345,16 +346,20 @@ export function iterEmpty<T>(): Iter<T> {
 }
 
 /** `iter::from_fn`, whose closure returns an `Option`, and drops with it. */
-export function iterFromFn<T>(f: () => T | undefined): Iter<T> {
-	return new FromNext(f, (f) => iterFromOption(f()), dispose);
+export function iterFromFn<T>(f: () => T | undefined): Iter<T>;
+export function iterFromFn<T>(f: () => T | None, none: None): Iter<T>;
+export function iterFromFn<T>(f: () => T | undefined | None, none?: None): Iter<T> {
+	return new FromNext(f, (f) => iterFromOption(f(), none), dispose);
 }
 
 /**
  * `iter::successors`: `first`, then `succ` of each item, called as that item is yielded.
  * The item it holds next drops by `drop`, and then `succ`, as std's fields drop.
  */
-export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>): Iter<T> {
-	return new SuccessorsIter(first, succ, drop);
+export function iterSuccessors<T>(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>): Iter<T>;
+export function iterSuccessors<T>(first: T | None, succ: (item: T) => T | None, drop: Drop<T> | undefined, none: None): Iter<T>;
+export function iterSuccessors<T>(first: T | undefined | None, succ: (item: T) => T | undefined | None, drop?: Drop<T>, none?: None): Iter<T> {
+	return new SuccessorsIter(first, succ, drop, none);
 }
 
 /** An `impl Iterator` of the translated crate, which `next` calls the `next` of, and `drop` drops. */
@@ -400,8 +405,10 @@ export function iterFilter<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<
 }
 
 /** `Iterator::filter_map`. */
-export function iterFilterMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U> {
-	return new FilterMapIter(it, f);
+export function iterFilterMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U>;
+export function iterFilterMap<T, U>(it: Iter<T>, f: (item: T) => U | None, none: None): Iter<U>;
+export function iterFilterMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined | None, none?: None): Iter<U> {
+	return new FilterMapIter(it, f, none);
 }
 
 /** `Iterator::enumerate`. */
@@ -450,8 +457,10 @@ export function iterTakeWhile<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Dr
 }
 
 /** `Iterator::map_while`. */
-export function iterMapWhile<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U> {
-	return new MapWhileIter(it, f);
+export function iterMapWhile<T, U>(it: Iter<T>, f: (item: T) => U | undefined): Iter<U>;
+export function iterMapWhile<T, U>(it: Iter<T>, f: (item: T) => U | None, none: None): Iter<U>;
+export function iterMapWhile<T, U>(it: Iter<T>, f: (item: T) => U | undefined | None, none?: None): Iter<U> {
+	return new MapWhileIter(it, f, none);
 }
 
 /** `Iterator::step_by`, panicking on a step of 0, and dropping what it steps over by `drop`. */
@@ -604,13 +613,15 @@ export function iterFind<T>(it: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>
 }
 
 /** `Iterator::find_map`. */
-export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U | undefined {
+export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined): U | undefined;
+export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | None, none: None): U | None;
+export function iterFindMap<T, U>(it: Iter<T>, f: (item: T) => U | undefined | None, none?: None): U | undefined | None {
 	const folded = it.folded();
 	for (let item = folded.next(); item !== DONE; item = folded.next()) {
 		const found = f(item);
-		if (found !== undefined) return found;
+		if (found !== none) return found;
 	}
-	return undefined;
+	return none;
 }
 
 /** `DoubleEndedIterator::rfind`, dropping what `f` rejects by `drop`. */
@@ -1266,35 +1277,38 @@ class FromNext<S, T> extends Iter<T> implements Disposable {
 
 /** `Successors`, holding the item it yields next, which drops once, as `Calling` does. */
 class SuccessorsIter<T> extends Iter<T> implements Disposable {
-	private item: T | undefined;
-	private readonly succ: (item: T) => T | undefined;
+	private item: T | undefined | None;
+	private readonly succ: (item: T) => T | undefined | None;
 	private readonly drop: Drop<T> | undefined;
+	/** The `Option`'s `None`. */
+	private readonly none: None | undefined;
 	private dropped = false;
 
-	constructor(first: T | undefined, succ: (item: T) => T | undefined, drop?: Drop<T>) {
+	constructor(first: T | undefined | None, succ: (item: T) => T | undefined | None, drop?: Drop<T>, none?: None) {
 		super();
 		this.item = first;
 		this.succ = succ;
 		this.drop = drop;
+		this.none = none;
 	}
 
 	next(): T | Done {
 		const item = this.item;
-		if (item === undefined) return DONE;
-		this.item = this.succ(item);
-		return item;
+		if (item === this.none) return DONE;
+		this.item = this.succ(item as T);
+		return item as T;
 	}
 
 	override lower(): number {
-		return this.item === undefined ? 0 : 1;
+		return this.item === this.none ? 0 : 1;
 	}
 
 	[Symbol.dispose](): void {
 		if (this.dropped) return;
 		this.dropped = true;
 		const item = this.item;
-		this.item = undefined;
-		if (item !== undefined) this.drop?.(item);
+		this.item = this.none;
+		if (item !== this.none) this.drop?.(item as T);
 		dispose(this.succ);
 	}
 }
@@ -1439,16 +1453,19 @@ class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 	}
 }
 
-class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
+class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | None> {
+	/** The `Option`'s `None` that `f` returns. */
+	private readonly none: None | undefined;
 
-	constructor(inner: Iter<T>, f: (item: T) => U | undefined) {
+	constructor(inner: Iter<T>, f: (item: T) => U | undefined | None, none?: None) {
 		super(inner, f);
+		this.none = none;
 	}
 
 	next(): U | Done {
 		for (let item = this.inner.next(); item !== DONE; item = this.inner.next()) {
 			const mapped = this.f(item);
-			if (mapped !== undefined) return mapped;
+			if (mapped !== this.none) return mapped as U;
 		}
 		return DONE;
 	}
@@ -1456,7 +1473,7 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 	override nextBack(): U | Done {
 		for (let item = this.inner.nextBack(); item !== DONE; item = this.inner.nextBack()) {
 			const mapped = this.f(item);
-			if (mapped !== undefined) return mapped;
+			if (mapped !== this.none) return mapped as U;
 		}
 		return DONE;
 	}
@@ -1472,8 +1489,8 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
 
 	/** std's `filter_map_fold`: `g` of each value `f` makes. */
 	private filterMapFold<A>(g: (acc: A, item: U) => A): (acc: A, item: T) => A {
-		const f = this.f;
-		return mapFold(f, (acc, mapped: U | undefined) => (mapped === undefined ? acc : g(acc, mapped)));
+		const [f, none] = [this.f, this.none];
+		return mapFold(f, (acc, mapped: U | undefined | None) => (mapped === none ? acc : g(acc, mapped as U)));
 	}
 }
 
@@ -2014,15 +2031,18 @@ class TakeWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 }
 
 /** `MapWhile`, which reads on after `f` returns `None` if called again, as std's does. */
-class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined> {
+class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined | None> {
+	/** The `Option`'s `None` that `f` returns. */
+	private readonly none: None | undefined;
 
-	constructor(inner: Iter<T>, f: (item: T) => U | undefined) {
+	constructor(inner: Iter<T>, f: (item: T) => U | undefined | None, none?: None) {
 		super(inner, f);
+		this.none = none;
 	}
 
 	next(): U | Done {
 		const item = this.inner.next();
-		return item === DONE ? DONE : iterFromOption(this.f(item));
+		return item === DONE ? DONE : iterFromOption(this.f(item), this.none);
 	}
 }
 
