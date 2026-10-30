@@ -100,5 +100,6 @@ roots = [
     "closure_replaced",
     "made_part_replaced",
     "uninit_part_replaced",
+    "byte_extended",
 ]
 printable = ["Meters"]

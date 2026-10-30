@@ -9,6 +9,7 @@ use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use super::{Fx, Slot};
+use crate::lower::collections::holds_bytes_ref;
 use crate::lower::fmt::{self, Piece};
 use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
@@ -163,22 +164,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if t.translated(def_id, gargs) || !gargs.types().any(owns_bytes) {
 			return false;
 		}
+		// A collection's mapping lends the bytes it holds as slices, and finds a key by one.
+		if let Some(lends) = crate::lower::collections::lends_call(t, def_id, gargs) {
+			return !lends;
+		}
 		let self_ty = gargs.types().next();
-		// A lookup only reads the key it is given, so only what it returns can hold a slice.
-		let mut lookup = false;
 		// Mappings that make the slice, or take it.
 		if let Some((owner, name)) = library::key(tcx, def_id) {
 			let handled = match (owner.as_str(), name.as_str()) {
 				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
 				// The runtime compares and hashes bytes in whichever form it is given them.
 				("PartialOrd" | "Ord" | "PartialEq", _) | ("Hash", "hash") => true,
-				(
-					"HashMap" | "HashSet" | "BTreeMap" | "BTreeSet",
-					"get" | "get_mut" | "contains_key" | "contains" | "remove" | "take",
-				) => {
-					lookup = true;
-					false
-				}
 				("slice", "iter" | "iter_mut") => true,
 				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
 				_ => false,
@@ -214,9 +210,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				item => std::iter::once(ty).chain(item).any(holds_bytes_ref),
 			}
 		};
-		if lookup {
-			return refs(sig.output());
-		}
 		sig.inputs_and_output.iter().any(refs) || gargs.types().any(refs)
 	}
 
@@ -1545,11 +1538,6 @@ fn owns_bytes(ty: Ty<'_>) -> bool {
 		ty::Adt(_, args) | ty::Alias(_, ty::AliasTy { args, .. }) => args.types().any(owns_bytes),
 		_ => false,
 	}
-}
-
-/// Whether `ty` holds a `&[u8; N]`, as a closure's signature does if it takes one.
-fn holds_bytes_ref(ty: Ty<'_>) -> bool {
-	ty.walk().any(|arg| arg.as_type().is_some_and(crate::lower::bytes_ref))
 }
 
 /// The element type of a slice, array, or `Vec`.

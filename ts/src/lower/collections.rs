@@ -7,14 +7,15 @@
 //! B-tree orders every key by its translated `Ord`. Each value a collection stores is its
 //! own copy, as in Rust.
 
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_hir::def_id::DefId;
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty};
 use rustc_span::Span;
 
 use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Stmt};
+use crate::ts::{Expr, Param, Stmt, StmtKind};
 
 /// A call of a standard library function on these types, or its arguments back if it is
 /// none of theirs.
@@ -194,6 +195,16 @@ pub fn call<'tcx>(
 			}
 		}
 	}
+	// What std hands a closure of the bytes the collection holds, lent as it returns them.
+	if lending(std) {
+		let inputs = b.t.sig(call.def_id, call.args).inputs().to_vec();
+		for (value, input) in args.iter_mut().zip(inputs).skip(1) {
+			if let Some((params, _)) = closure_sig(tcx, input) {
+				let f = std::mem::replace(value, Expr::undefined());
+				*value = lend_closure(b, f, &params, span, out);
+			}
+		}
+	}
 	let e = match std {
 		Std::HashMap | Std::HashSet => hash(b, coll, call, owner, name, args, out),
 		Std::BTreeMap | Std::BTreeSet => btree(b, coll, call, owner, name, args),
@@ -221,16 +232,172 @@ pub fn call<'tcx>(
 		droppers.resize(lost.len(), Expr::undefined());
 		droppers.push(none);
 	}
-	if droppers.is_empty() {
-		return Ok(Some(e));
-	}
-	Ok(Some(match e {
-		Expr::Call(f, mut args) => {
+	let e = match e {
+		Expr::Call(f, mut args) if !droppers.is_empty() => {
 			args.extend(droppers);
 			Expr::Call(f, args)
 		}
 		e => e,
+	};
+	Ok(Some(match lending(std) {
+		true => lend(b, b.t.sig(call.def_id, call.args).output(), e, span),
+		false => e,
 	}))
+}
+
+/// Whether the mappings of a collection of type `std` hand out the bytes it holds as
+/// [`lend`] makes them: in what each returns and hands a closure.
+fn lending(std: Std) -> bool {
+	matches!(
+		std,
+		Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet | Std::Entry | Std::VecDeque | Std::BinaryHeap
+	)
+}
+
+/// Whether `def_id`, a method of a collection [`lending`] the bytes it holds, takes and
+/// returns them only where its mapping and [`lend`] make each what translated code reads:
+/// a `[u8; N]` it holds is a `Uint8Array`, where a `&[u8; N]` is an `rt.ByteSlice`. `None`
+/// if it is no such method.
+pub fn lends_call<'tcx>(t: &Translator<'_, 'tcx>, def_id: DefId, args: GenericArgsRef<'tcx>) -> Option<bool> {
+	let tcx = t.tcx;
+	// An inherent method's type, or a trait method's `Self`.
+	let coll = match tcx.inherent_impl_of_assoc(def_id) {
+		Some(imp) => {
+			let generics = tcx.generics_of(imp).count();
+			tcx.type_of(imp).instantiate(tcx, &args[..generics]).skip_norm_wip()
+		}
+		None => args.types().next()?.peel_refs(),
+	};
+	let ty::Adt(_, held) = coll.kind() else {
+		return None;
+	};
+	if !t.std_of(coll).is_some_and(lending) {
+		return None;
+	}
+	// One it holds as a reference to bytes, which a reference to one it holds is too.
+	if held.types().any(holds_bytes_ref) {
+		return Some(false);
+	}
+	let sig = t.sig(def_id, args);
+	let taken = sig.inputs().iter().skip(1).all(|&input| match closure_sig(tcx, input) {
+		Some((params, output)) => params.iter().all(|&p| lends(t, p).is_some()) && !holds_bytes_ref(output),
+		// A key looked up or compared by a reference to its bytes, which the runtime reads in
+		// either form, or what holds none, nor yields any as `extend` takes what it stores.
+		None => {
+			let yielded = super::iter::iter_of(t, input).and_then(|iter| t.iter_item(iter));
+			super::bytes_ref(input)
+				|| (lends(t, input) == Some(false) && yielded.is_none_or(|item| lends(t, item) == Some(false)))
+		}
+	});
+	Some(taken && lends(t, sig.output()).is_some())
+}
+
+/// Whether a `ty` a collection hands out holds a `&[u8; N]` of bytes it holds: `Some(true)`
+/// if it does, by itself or in a tuple, an `Option`, or an iterator's items, which [`lend`]
+/// reaches, `Some(false)` if it holds none, and `None` if it holds one [`lend`] cannot reach.
+fn lends<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<bool> {
+	let parts = match ty.kind() {
+		ty::Ref(_, inner, _) if super::byte_array(*inner) => return Some(true),
+		// A reference to a `&[u8; N]` it holds, which is the `rt.ByteSlice` already.
+		ty::Ref(_, inner, _) if super::bytes_ref(*inner) => return Some(false),
+		ty::Tuple(parts) => parts.to_vec(),
+		_ if t.std_of(ty) == Some(Std::Option) => vec![arg(ty, 0)],
+		_ => match t.iter_item(ty) {
+			Some(item) => vec![item],
+			None => return (!holds_bytes_ref(ty)).then_some(false),
+		},
+	};
+	parts
+		.into_iter()
+		.try_fold(false, |any, part| Some(lends(t, part)? || any))
+}
+
+/// Whether `ty` holds a `&[u8; N]`, as a closure's signature does if it takes one.
+pub fn holds_bytes_ref(ty: Ty<'_>) -> bool {
+	ty.walk().any(|arg| arg.as_type().is_some_and(super::bytes_ref))
+}
+
+/// The parameter types and output of a closure or function `ty`.
+fn closure_sig<'tcx>(tcx: ty::TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<(Vec<Ty<'tcx>>, Ty<'tcx>)> {
+	let (sig, tupled) = match ty.kind() {
+		ty::Closure(_, args) => (args.as_closure().sig(), true),
+		ty::FnDef(..) | ty::FnPtr(..) => (ty.fn_sig(tcx), false),
+		_ => return None,
+	};
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let params = match (tupled, sig.inputs()) {
+		(true, [params]) => params.tuple_fields().to_vec(),
+		(_, params) => params.to_vec(),
+	};
+	Some((params, sig.output()))
+}
+
+/// `value`, a `ty` as a collection's runtime function hands it out, as translated code
+/// reads it: each `&[u8; N]` in it, of bytes the collection holds as a `Uint8Array`, an
+/// `rt.ByteSlice` of them, as `&[u8; N]` is elsewhere. It shares them, which nothing
+/// writes through a `&`, and a `&mut` writes where the collection holds them.
+fn lend<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Expr {
+	if lends(b.t, ty) != Some(true) {
+		return value;
+	}
+	if let Some(inner) = option_of(b, ty) {
+		let f = lend_fn(b, inner, span);
+		return Expr::rt("optionMap", vec![value, f]);
+	}
+	if !matches!(ty.kind(), ty::Ref(..) | ty::Tuple(_))
+		&& let Some(item) = b.t.iter_item(ty)
+	{
+		let f = lend_fn(b, item, span);
+		return Expr::rt("iterMap", vec![value, f]);
+	}
+	if let ty::Tuple(parts) = ty.kind()
+		&& value.is_path()
+	{
+		let parts: Vec<Expr> = (parts.iter().enumerate())
+			.map(|(i, part)| lend(b, part, value.clone().index(Expr::lit(i.to_string())), span))
+			.collect();
+		return Expr::Array(parts);
+	}
+	lend_fn(b, ty, span).call(vec![value])
+}
+
+/// A function that [`lend`]s a `ty`.
+fn lend_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+	if matches!(ty.kind(), ty::Ref(..)) && lends(b.t, ty) == Some(true) {
+		return Expr::Rt("byteSliceFrom".into());
+	}
+	let name = b.fresh("held");
+	let body = lend(b, ty, Expr::ident(&name), span);
+	let param = Param { name, ty: None };
+	Expr::Arrow(
+		vec![param],
+		b.t.ty(ty, span),
+		vec![StmtKind::Return(Some(body)).at(None)],
+	)
+}
+
+/// `f`, a closure std calls with `params`, given each as [`lend`] makes it.
+fn lend_closure<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	f: Expr,
+	params: &[Ty<'tcx>],
+	span: Span,
+	out: &mut Vec<Stmt>,
+) -> Expr {
+	if !params.iter().any(|&p| lends(b.t, p) == Some(true)) {
+		return f;
+	}
+	// Made once, as std takes it.
+	let f = match f.is_path() {
+		true => f,
+		false => b.spill(f, "f", out),
+	};
+	let names: Vec<String> = params.iter().map(|_| b.fresh("held")).collect();
+	let values = (params.iter().zip(&names))
+		.map(|(&p, name)| lend(b, p, Expr::ident(name), span))
+		.collect();
+	let params = names.into_iter().map(|name| Param { name, ty: None }).collect();
+	Expr::Lambda(params, Box::new(f.call(values)))
 }
 
 /// What a method of a collection of type `std` may drop rather than return or keep, as the
@@ -289,7 +456,10 @@ fn lookup_ty<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, call: &Call<'tcx>, owner: &
 		return None;
 	}
 	match (owner, name) {
-		("Index", "index") => Some(library::targ(call.args, 1)),
+		("Index", "index") => match library::targ(call.args, 1).kind() {
+			ty::Ref(_, by, _) => Some(*by),
+			_ => None,
+		},
 		(
 			_,
 			"get" | "get_mut" | "get_key_value" | "contains_key" | "contains" | "remove" | "remove_entry" | "take"
@@ -427,6 +597,7 @@ fn hash<'tcx>(
 		(_, "get" | "get_mut") if !set => Expr::rt("hashGet", values),
 		(_, "get") => Expr::rt("hashKey", flagged(values, false, none)),
 		(_, "take") => Expr::rt("hashKey", flagged(values, true, none)),
+		(_, "get_key_value") => Expr::rt("hashGetKeyValue", values),
 		(_, "insert") if set => Expr::rt("hashAdd", values),
 		(_, "insert") => Expr::rt("hashInsert", values),
 		(_, "remove") if set => Expr::rt("hashDelete", values),
@@ -707,6 +878,7 @@ fn btree<'tcx>(
 		(_, "contains_key" | "contains") => Expr::rt("btreeContains", values),
 		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("btreeGet", values),
+		(_, "get") => Expr::rt("btreeGetKey", values),
 		(_, "get_key_value") => Expr::rt("btreeGetKeyValue", values),
 		(_, "insert") if set => Expr::rt("btreeAdd", values),
 		(_, "insert") => Expr::rt("btreeInsert", values),
@@ -991,10 +1163,7 @@ fn heap<'tcx>(
 			let droppers = entry_droppers(b, coll, span);
 			Expr::rt("heapDrain", super::iter::tail(values, droppers))
 		}
-		(_, "iter") => {
-			let by_ref = Ty::new_imm_ref(b.t.tcx, b.t.tcx.lifetimes.re_erased, coll);
-			into_iter(b, by_ref, values.pop()?, span)?
-		}
+		(_, "iter") => Expr::rt("heapIter", values),
 		(_, "reserve" | "reserve_exact" | "shrink_to_fit" | "shrink_to") => {
 			discard(values, out);
 			Expr::undefined()
@@ -1576,10 +1745,6 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		Std::HashMap if places(1) => "hashIterMut",
 		Std::BTreeMap if places(1) => "btreeIterMut",
 		Std::VecDeque if places(0) => "dequeIterMut",
-		// A heap's elements in order, as its `Vec`'s, which by reference are borrowed.
-		Std::BinaryHeap if ty.is_ref() => {
-			return Some(super::iter::by_ref(Expr::rt("heapIter", vec![value]), arg(coll, 0)));
-		}
 		Std::BinaryHeap => "heapIter",
 		Std::HashMap => "hashIter",
 		Std::HashSet => "hashKeys",
@@ -1588,11 +1753,16 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		Std::VecDeque => "dequeIter",
 		_ => return None,
 	};
-	let droppers = match ty.is_ref() {
-		true => Vec::new(),
-		false => entry_droppers(b, coll, span),
-	};
-	Some(Expr::rt(name, super::iter::tail(vec![value], droppers)))
+	if !ty.is_ref() {
+		let droppers = entry_droppers(b, coll, span);
+		return Some(Expr::rt(name, super::iter::tail(vec![value], droppers)));
+	}
+	// What it holds, borrowed.
+	let iter = Expr::rt(name, vec![value]);
+	Some(match super::iter::iter_of(b.t, ty) {
+		Some(into) => lend(b, into, iter, span),
+		None => iter,
+	})
 }
 
 /// `collect` into a collection of type `ty` from `iter`, an iterator of type `from`.
