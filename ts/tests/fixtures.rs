@@ -570,6 +570,44 @@ fn census() {
 	);
 }
 
+/// One target directory keeps what it checked against each sysroot apart: a crate
+/// checked against another std is never loaded. Switching sysroots checks a registry
+/// dependency again, and switching back checks none. The other sysroot is the same std by
+/// another path, which is all that tells sysroots apart.
+#[test]
+fn sysroot() {
+	let Some(std) = std::env::var("RUST2_TS_SYSROOT").ok().filter(|dir| !dir.is_empty()) else {
+		// Each target directory checks its own std instead.
+		return;
+	};
+	let name = Path::new(&std).file_name().unwrap().to_str().unwrap();
+	let other = format!("{std}/../{name}");
+	let dir = scratch().join("sysroot");
+	let _ = std::fs::remove_dir_all(&dir);
+	let checked = |sysroot: &str| {
+		let output = Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
+			.arg("--config")
+			.arg(fixture("reject").join("census.toml"))
+			.arg("--census")
+			.arg(dir.join("census.md"))
+			.env("CARGO_TARGET_DIR", dir.join("build"))
+			.env("RUST2_TS_SYSROOT", sysroot)
+			.output()
+			.expect("running rust2-ts");
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		assert!(output.status.success(), "the census against {sysroot} failed:\n{stderr}");
+		stderr
+			.lines()
+			.filter_map(|line| line.trim_start().strip_prefix("Checking "))
+			.map(|line| line.split(' ').next().unwrap().to_string())
+			.collect::<Vec<_>>()
+	};
+	let all = checked(&std);
+	assert!(all.iter().any(|c| c == "bytes"), "bytes was not checked: {all:?}");
+	assert_eq!(checked(&other), all, "switching to {other} kept a crate checked against {std}");
+	assert_eq!(checked(&std), ["reject-fixture"], "switching back to {std} checked its crates again");
+}
+
 /// Selects the fixture's own getrandom backend, which `rand::rng()` seeds from natively:
 /// wasm32 has no OS to read. Only getrandom's flags change, so nothing else rebuilds.
 const GETRANDOM: &str = r#"profile.dev.package.getrandom.rustflags=["--cfg", 'getrandom_backend="custom"']"#;
