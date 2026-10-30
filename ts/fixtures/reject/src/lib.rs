@@ -36,9 +36,9 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 	v.iter().map(|&b| (b > 1).then_some(())).collect()
 }
 
-/// `into_inner` of a shared value that can be `undefined`: its `None` and `Some(None)` would both be.
-pub fn inner_option(value: std::sync::Arc<Option<u8>>) -> bool {
-	std::sync::Arc::into_inner(value).is_some()
+/// `scan` of items that can be `undefined`: its closure's `None` and `Some(None)` would both be.
+pub fn scanned(v: &[u8]) -> usize {
+	v.iter().scan(Vec::<u8>::new(), |_, &b| Some((b > 1).then_some(b))).count()
 }
 
 pub struct Noisy(pub u8);
@@ -253,9 +253,9 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// `into_inner` of a shared `()`: its `None` and `Some(())` would both be `undefined`.
-pub fn inner_unit(value: std::rc::Rc<()>) -> bool {
-	std::rc::Rc::into_inner(value).is_some()
+/// `scan` of `()`s: its closure's `None` and `Some(())` would both be `undefined`.
+pub fn scanned_unit(v: &[u8]) -> usize {
+	v.iter().scan(Vec::<u8>::new(), |_, _| Some(())).count()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.

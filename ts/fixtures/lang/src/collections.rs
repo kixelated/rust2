@@ -404,6 +404,17 @@ pub fn sets(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			out.push(sorted.first().copied().unwrap_or(0xff) as u8);
 			out.push(sorted.last().copied().unwrap_or(0xff) as u8);
+			let probe = data.first().map_or(0, |&b| b as u16 % 24);
+			for v in [
+				hashed.replace(probe),
+				sorted.replace(probe),
+				sorted.get(&probe).copied(),
+			] {
+				out.push(v.unwrap_or(0xff) as u8);
+			}
+			for v in [hashed.take(&probe), sorted.take(&probe), sorted.take(&probe)] {
+				out.push(v.unwrap_or(0xff) as u8);
+			}
 			let firsts: Vec<u16> = sorted.range(4..12).copied().collect();
 			out.push(firsts.len() as u8);
 			hashed.retain(|v| v % 3 != 0);
@@ -418,6 +429,23 @@ pub fn sets(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				out.push(nibbles.insert(Nibble(b)) as u8);
 				out.push(seen.insert(Nibble(b)) as u8);
 			}
+			// The equal key each holds apart from the one given: `replace` keeps the new one.
+			let held = |n: Option<Nibble>| n.map_or(0xee, |n| n.0);
+			let lent = |n: Option<&Nibble>| n.map_or(0xee, |n| n.0);
+			for &b in data.iter().rev() {
+				match b % 3 {
+					0 => out.extend([
+						held(nibbles.replace(Nibble(b ^ 0x30))),
+						held(seen.replace(Nibble(b ^ 0x30))),
+					]),
+					1 => out.extend([
+						held(nibbles.take(&Nibble(b ^ 0x50))),
+						held(seen.take(&Nibble(b ^ 0x50))),
+					]),
+					_ => out.extend([lent(nibbles.get(&Nibble(b ^ 0x70))), lent(seen.get(&Nibble(b ^ 0x70)))]),
+				}
+			}
+			out.extend(seen.get(&Nibble(0)).map(|n| n.0));
 			for n in &nibbles {
 				out.push(n.0);
 			}
@@ -623,6 +651,10 @@ pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 			pairs.pop_front();
 		}
 	}
+	// The item at an index, or none past the end, the end's moved into its place.
+	let at = data.last().map_or(0, |&b| b as usize % 6);
+	out.push(q.swap_remove_back(at).unwrap_or(0xe8));
+	out.push(q.swap_remove_front(at).unwrap_or(0xe7));
 	touch(&mut q).shrink_to_fit();
 	touch(&mut q).reserve(1);
 	out.push(q.len() as u8);
@@ -651,6 +683,10 @@ pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 		t.n ^= 0xff;
 	}
 	out.extend(tallies.iter().map(|t| t.n as u8));
+	out.extend(copy.iter().map(|t| t.n as u8));
+	for t in [copy.swap_remove_front(at), copy.swap_remove_back(at)] {
+		out.push(t.map_or(0xe6, |t| t.n as u8));
+	}
 	out.extend(copy.iter().map(|t| t.n as u8));
 	q.extend(data.iter().copied());
 	q.insert(q.len() / 2, 0x42);

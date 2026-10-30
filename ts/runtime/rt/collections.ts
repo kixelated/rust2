@@ -335,7 +335,7 @@ class AtKey<K, V> implements Place<V> {
 
 /** An entry whose key is a JS object, in the chain of its hash. */
 interface Slot<K, V> {
-	readonly k: K;
+	k: K;
 	v: V;
 	next: Slot<K, V> | undefined;
 }
@@ -460,6 +460,26 @@ function add<K, V>(m: HashMap<K, V>, key: K, value: V, hash = (m.h as Hashing<K>
 	m.o.set(hash, s);
 	m.n++;
 	return s;
+}
+
+/** `HashSet::replace`: the equal key the set held, which `key` takes the place of, or else `none`, with `key` added. */
+export function hashReplace<K>(m: HashSet<K>, key: K): K | undefined;
+export function hashReplace<K>(m: HashSet<K>, key: K, none: None): K | None;
+export function hashReplace<K>(m: HashSet<K>, key: K, none?: None): K | None | undefined {
+	if (!hashed(m, key)) {
+		if (m.p.has(key)) return key;
+		m.p.set(key, undefined);
+		return none;
+	}
+	const hash = (m.h as Hashing<K>).hash(key);
+	const s = slot(m, key, hash);
+	if (s === undefined) {
+		add(m, key, undefined, hash);
+		return none;
+	}
+	const old = s.k;
+	s.k = key;
+	return old;
 }
 
 /** `HashSet::insert`: whether `key` was not there yet. An equal key already there stays, and `key` drops. */
@@ -945,11 +965,32 @@ export function btreeGetKeyValue<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | unde
 	return i < 0 ? undefined : [l.k[i], l.v[i]];
 }
 
-/** `BTreeSet::get`: the equal key the set holds. */
-export function btreeGetKey<K, V>(m: BTreeMap<K, V>, key: K): K | undefined {
+/** `BTreeSet::get`, and `BTreeSet::take` if `take`: the equal key the set holds, or else `none`. */
+export function btreeKey<K, V>(m: BTreeMap<K, V>, key: K, take?: boolean): K | undefined;
+export function btreeKey<K, V>(m: BTreeMap<K, V>, key: K, take: boolean, none: None): K | None;
+export function btreeKey<K, V>(m: BTreeMap<K, V>, key: K, take = false, none?: None): K | None | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
-	return i < 0 ? undefined : l.k[i];
+	if (i < 0) return none;
+	const held = l.k[i];
+	if (take) removeAt(m, l, i);
+	return held;
+}
+
+/** `BTreeSet::replace`: the equal key the set held, which `key` takes the place of, or else `none`, with `key` added. */
+export function btreeReplace<K>(m: BTreeSet<K>, key: K): K | undefined;
+export function btreeReplace<K>(m: BTreeSet<K>, key: K, none: None): K | None;
+export function btreeReplace<K>(m: BTreeSet<K>, key: K, none?: None): K | None | undefined {
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	if (i < 0) {
+		insertAt(m, l, ~i, key, undefined);
+		return none;
+	}
+	const old = l.k[i];
+	l.k[i] = key;
+	if (bounding(l, i)) rebound(m, key, old);
+	return old;
 }
 
 export function btreeContains<K, V>(m: BTreeMap<K, V>, key: K): boolean {
@@ -1019,13 +1060,40 @@ export function btreeAdd<K>(m: BTreeSet<K>, key: K, k?: (key: K) => void): boole
 /** Takes the key and value at index `i` of `l` out, and merges the leaf if too small. */
 function removeAt<K, V>(m: BTreeMap<K, V>, l: Leaf<K, V>, i: number): void {
 	const key = l.k[i];
+	const bound = bounding(l, i);
 	m.n--;
 	take(l.k, i);
 	take(l.v, i);
 	if (l.k.length < MIN && m.h > 0) settle(m, key);
+	if (bound) rebound(m, key, key);
 }
 
-/** `BTreeMap::remove_entry`, and `BTreeSet::take`. */
+/**
+ * Whether index `i` of `l` may hold a key a branch bounds a child by: a leaf's first,
+ * but for the first leaf's, whose bounds no lookup reads, as `pop_first` takes.
+ */
+function bounding<K, V>(l: Leaf<K, V>, i: number): boolean {
+	return i === 0 && l.prev !== undefined;
+}
+
+/**
+ * Bounds each child by its first key where `old`, a key the tree gave back, which may
+ * change as it drops, bounds it: on the path to `key`, which `old` is equal to.
+ */
+function rebound<K, V>(m: BTreeMap<K, V>, key: K, old: K): void {
+	let node = m.t;
+	for (let h = m.h; h > 0; h--) {
+		const b = node as Branch<K, V>;
+		const j = child(b, key, m.c);
+		node = b.c[j];
+		if (b.k[j] !== old) continue;
+		let first = node;
+		for (let d = h - 1; d > 0; d--) first = (first as Branch<K, V>).c[0];
+		b.k[j] = first.k[0];
+	}
+}
+
+/** `BTreeMap::remove_entry`. */
 export function btreeRemoveEntry<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
@@ -1943,6 +2011,19 @@ function retainDeque<T>(q: VecDeque<T>, f: (item: T | Place<T>) => boolean, lend
 export function dequeContains<T>(q: VecDeque<T>, item: T, eq: (a: T, b: T) => boolean): boolean {
 	for (let i = 0; i < q.n; i++) if (eq(q.b[at(q, i)] as T, item)) return true;
 	return false;
+}
+
+/**
+ * `swap_remove_front`, and with `back`, `swap_remove_back`: the item at `i`, with the
+ * front or back item moved into its place, or else `none`.
+ */
+export function dequeSwapRemove<T>(q: VecDeque<T>, i: number, back?: boolean): T | undefined;
+export function dequeSwapRemove<T>(q: VecDeque<T>, i: number, back: boolean, none: None): T | None;
+export function dequeSwapRemove<T>(q: VecDeque<T>, i: number, back = false, none?: None): T | None | undefined {
+	if (i >= q.n) return none;
+	const [j, end] = [at(q, i), at(q, back ? q.n - 1 : 0)];
+	[q.b[j], q.b[end]] = [q.b[end], q.b[j]];
+	return (back ? dequePopBack(q) : dequePopFront(q)) as T;
 }
 
 /** `remove`: the item at `i`, with those after it moved up, or else `none`. */
