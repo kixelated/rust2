@@ -101,7 +101,17 @@ pub fn call<'tcx>(
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				// The library maps the integers', `bool`'s, and byte slices'.
+				let rhs = library::targ(call.args, 1);
+				let slice = |t: Ty<'tcx>| matches!(t.kind(), ty::Slice(_)) && bytes(b, t);
+				if slice(t) && slice(rhs) {
+					return Err(args);
+				}
 				let t = peel(b, t);
+				// Bytes of any form against any other, as the runtime reads each.
+				if bytes(b, t) && bytes(b, peel(b, rhs)) {
+					let eq = Expr::rt("eqBytes", args);
+					return Ok(Some(if name == "eq" { eq } else { eq.not() }));
+				}
 				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !std_key(b, t) {
 					return Err(args);
 				}
@@ -145,7 +155,20 @@ pub fn call<'tcx>(
 			format!("`{coll}` holds `{elem}`, which is `undefined` as `None` is, which is not supported"),
 		)));
 	}
-	if let Some(by) = lookup_ty(b, std, call, owner, name)
+	let by = lookup_ty(b, std, call, owner, name);
+	// A `[u8; N]` key is a typed array, but the reference a lookup takes is an `rt.ByteSlice`,
+	// so a view of its bytes stands in. A range holds the keys themselves.
+	if let Some(by) = by
+		&& !matches!(name, "range" | "range_mut")
+		&& bytes(b, peel(b, by))
+	{
+		let key = peel(b, arg(coll, 0));
+		let key = arc_of(b, key).map_or(key, |inner| peel(b, inner));
+		if let (true, Some(at)) = (super::byte_array(key), args.get_mut(1)) {
+			*at = Expr::rt("byteSliceView", vec![std::mem::replace(at, Expr::undefined())]);
+		}
+	}
+	if let Some(by) = by
 		&& !same_key(b, arg(coll, 0), by)
 	{
 		// An `Arc`'s `Hash`, `Eq`, and `Ord` are its value's, so the value it is looked up by
@@ -267,12 +290,14 @@ fn lookup_ty<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, call: &Call<'tcx>, owner: &
 }
 
 /// Whether a key of type `by` is a JS value that hashes, compares, and orders as one of
-/// type `key` does: the same type through references and boxes, or a string either way.
+/// type `key` does: the same type through references and boxes, a string either way, or
+/// bytes of any form, which the runtime reads alike.
 fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let (key, by) = (peel(b, key), peel(b, by));
 	tcx.erase_and_anonymize_regions(key) == tcx.erase_and_anonymize_regions(by)
 		|| (library::string(tcx, key) && library::string(tcx, by))
+		|| (bytes(b, key) && bytes(b, by))
 }
 
 /// A key or item type of `coll` that can be `undefined` in JS, so that an `Option` of it,
@@ -1413,6 +1438,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			)
 		}
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![eq_fn(b, elem, span)]),
+		_ if bytes(b, ty) => Expr::Rt("eqBytes".into()),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
 			let mut values = vec![eq_fn(b, inner, span)];
 			// std's `Arc` finds itself equal before comparing a value that is `Eq`.
@@ -1463,6 +1489,8 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			}
 			Expr::rt("hashSlice", vec![hash_fn(b, elem, hasher, span)])
 		}
+		// Its length, then its bytes, whichever form it is: a `[u8; N]` hashes as a slice.
+		_ if bytes(b, ty) => Expr::Rt("hashBytes".into()),
 		ty::Adt(adt, _) if b.t.own(adt.did()) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)

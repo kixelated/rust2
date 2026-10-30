@@ -2,10 +2,11 @@
 //! `None` first, and `Arc`s, which compare as what they hold; lookups through `Borrow`;
 //! the references to values a map holds that JS copies, changed in place; and the `!=`,
 //! `<`, `<=`, `>`, and `>=` a type's `PartialEq` and `PartialOrd` inherit or override.
+//! Then bytes of each form, equal to one another and found by one another.
 
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
-use std::collections::{BTreeMap, HashMap, btree_map, hash_map};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
@@ -609,4 +610,78 @@ fn places(data: &[u8], out: &mut Vec<u8>) {
 		out.push(*a);
 		out.push(*b);
 	}
+}
+
+/// Bytes compared and found as keys: a `[u8; N]`, a `&[u8]`, or a `Vec<u8>`, equal to
+/// another form holding the same bytes, alone or in a tuple, an `Option`, or an `Arc`,
+/// and a key found by a `&[u8]` it borrows as, in hash and B-tree collections alike.
+pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let cut = data.len().min(6);
+	for w in data.windows(2) {
+		let (a, b) = ([w[0] % 3, w[1] % 3], [w[1] % 3, w[0] % 3]);
+		out.extend([
+			(a == b) as u8,
+			(a != b) as u8,
+			(&a == &b) as u8,
+			(Some(a) == Some(b)) as u8,
+		]);
+		out.extend([((a, w[0]) == (b, w[1])) as u8, (a.to_vec() == b.to_vec()) as u8]);
+		out.extend([
+			(a[..] == b[..]) as u8,
+			(a.to_vec() == a) as u8,
+			(&a[..] == b.to_vec()) as u8,
+		]);
+		out.extend([
+			(a.to_vec() == &b[..]) as u8,
+			(a == b[..]) as u8,
+			(Arc::new(a) == Arc::new(b)) as u8,
+		]);
+	}
+	let mut arrays: HashMap<[u8; 2], usize> = HashMap::new();
+	let mut vecs: HashMap<Vec<u8>, usize> = HashMap::new();
+	let mut slices: HashMap<&[u8], usize> = HashMap::new();
+	let mut nested: HashMap<(Option<[u8; 2]>, Vec<u8>), usize> = HashMap::new();
+	let mut shared: HashMap<Arc<Vec<u8>>, usize> = HashMap::new();
+	let mut arcs: HashMap<Arc<[u8; 2]>, usize> = HashMap::new();
+	let mut tree: BTreeMap<[u8; 2], usize> = BTreeMap::new();
+	let mut ordered: BTreeSet<Vec<u8>> = BTreeSet::new();
+	for (i, w) in data.windows(2).enumerate() {
+		let key = [w[0] % 4, w[1] % 4];
+		let s = &data[i..(i + kind as usize % 3).min(data.len())];
+		out.push(arrays.insert(key, i).map_or(0xcc, |old| old as u8));
+		out.push(vecs.insert(s.to_vec(), i).map_or(0xcc, |old| old as u8));
+		out.push(slices.insert(s, i).map_or(0xcc, |old| old as u8));
+		let opt = (w[0] % 3 != 0).then_some(key);
+		out.push(nested.insert((opt, s.to_vec()), i).map_or(0xcc, |old| old as u8));
+		out.push(shared.insert(Arc::new(s.to_vec()), i).map_or(0xcc, |old| old as u8));
+		out.push(arcs.insert(Arc::new(key), i).map_or(0xcc, |old| old as u8));
+		out.push(tree.insert(key, i).map_or(0xcc, |old| old as u8));
+		out.push(ordered.insert(s.to_vec()) as u8);
+	}
+	for i in 0..=cut {
+		for j in i..=cut {
+			let s = &data[i..j];
+			out.push(vecs.get(s).map_or(0xdd, |v| *v as u8));
+			out.push(slices.get(s).map_or(0xdd, |v| *v as u8));
+			out.push(vecs.contains_key(&s.to_vec()) as u8);
+			out.push(shared.get(&Arc::new(s.to_vec())).map_or(0xdd, |v| *v as u8));
+			let key = [data.get(i).map_or(0, |b| b % 4), data.get(j).map_or(0, |b| b % 4)];
+			out.push(arrays.get(&key).map_or(0xdd, |v| *v as u8));
+			out.push(arcs.get(&key).map_or(0xdd, |v| *v as u8));
+			out.push(tree.get(&key).map_or(0xdd, |v| *v as u8));
+			out.push(ordered.contains(s) as u8);
+			if s.len() >= 2 {
+				let two = &s[..2];
+				out.push(arrays.get(two).map_or(0xdd, |v| *v as u8));
+				out.push(tree.get(two).map_or(0xdd, |v| *v as u8));
+			}
+			out.push(nested.get(&(Some(key), s.to_vec())).map_or(0xdd, |v| *v as u8));
+			out.push(nested.get(&(None, s.to_vec())).map_or(0xdd, |v| *v as u8));
+		}
+	}
+	out.push(vecs.remove(&[][..]).map_or(0xee, |v| v as u8));
+	out.push(vecs.len() as u8);
+	let set: HashSet<Vec<u8>> = data.chunks(2).map(<[u8]>::to_vec).collect();
+	out.push(set.len() as u8);
+	out.push(set.contains(&data[..data.len().min(2)]) as u8);
 }

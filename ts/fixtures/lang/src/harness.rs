@@ -135,6 +135,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("statics::onces", |_, data, out| statics::onces(data, out)),
 		("fmt::writes", |_, data, out| fmt::writes(data, out)),
 		("bounds::bounds", bounds::bounds),
+		("hashes::bytes", |_, data, out| hashes::bytes(data, out)),
+		("keys::bytes", keys::bytes),
 	]
 }
 

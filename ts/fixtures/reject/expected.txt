@@ -38,8 +38,8 @@ an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/rej
 `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:250:38
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:260:14
 `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:266:6
-hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:271:52
-comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:271:52
+hashing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:271:75
+comparing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:271:75
 `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:289:6
 unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:339:4
 a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:344:2
@@ -98,6 +98,7 @@ a constant of type `&u32`, a pointer into memory translation can't name at fixtu
 passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fixtures/reject/src/lib.rs:772:4
 passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:772:29
 passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:772:56
+`std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:804:6
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:149:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:169:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:203:2

@@ -267,8 +267,8 @@ pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.
-pub fn byte_keys() -> usize {
-	let map: std::collections::HashMap<Vec<u8>, u8> = std::collections::HashMap::new();
+pub fn set_keys() -> usize {
+	let map: std::collections::HashMap<std::collections::BTreeSet<u8>, u8> = std::collections::HashMap::new();
 	map.len()
 }
 
@@ -797,4 +797,9 @@ impl std::fmt::Write for Sink {
 		self.0 = self.0.wrapping_add(s.len() as u8);
 		Ok(())
 	}
+}
+
+/// A lookup by a byte array translates, but this one hands back the set's own key.
+pub fn byte_key(set: &std::collections::HashSet<[u8; 2]>, key: [u8; 2]) -> u8 {
+	set.get(&key).map_or(0, |k| k[0])
 }

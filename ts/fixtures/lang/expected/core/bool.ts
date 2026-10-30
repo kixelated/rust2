@@ -87,6 +87,13 @@ export function thenSome$0d5am30(self: boolean, t: rt.u8): rt.u8 | undefined {
 	return t;
 }
 
+export function thenSome$0rsp0eu(self: boolean, t: Uint8Array): Uint8Array | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return t;
+}
+
 export function thenSome$1j8foe9(self: boolean, _: undefined): undefined | rt.None {
 	if (!self) {
 		return rt.None;
