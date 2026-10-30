@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 129
+- Refusals: 127
 - Function instances: 153
 - Generic functions no instance reached, lowered over their type parameters: 10
 
@@ -25,7 +25,6 @@
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:512:23 |
 | 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:503:40 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:171:1 |
-| 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:157:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:151:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:366:13 |
 | 2 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:486:32 |
@@ -106,7 +105,6 @@ The type or module each refused type or path belongs to.
 | 2 | `std::any::TypeId` | fixtures/reject/src/lib.rs:593:2 |
 | 2 | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:265:75 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:244:16 |
-| 2 | `std::iter::Map` | fixtures/reject/src/lib.rs:157:23 |
 | 2 | `std::mem::MaybeUninit` | fixtures/reject/src/lib.rs:1027:19 |
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:192:8 |
 | 2 | `std::std` | fixtures/reject/src/lib.rs:622:11 |
@@ -148,7 +146,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::collections::VecDeque` | fixtures/reject/src/lib.rs:901:27 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:184:51 |
 | 1 | `std::iter::Extend` | fixtures/reject/src/lib.rs:1035:6 |
-| 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:178:14 |
+| 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:233:30 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:486:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:486:32 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:417:2 |
@@ -234,8 +232,6 @@ The type or module each refused type or path belongs to.
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:832:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | `u32` | fixtures/reject/src/lib.rs:651:2 |
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:397:53 |
-| 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:157:23 |
-| 1 | constructing `_` from another crate | `std::iter::Rev` | fixtures/reject/src/lib.rs:178:14 |
 | 1 | hashing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:265:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | `std::vec::Vec`, `Batched` | fixtures/reject/src/lib.rs:357:16 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:151:2 |
@@ -427,13 +423,6 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:171:1: an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet
 - fixtures/reject/src/lib.rs:225:1: an iterator of the crate implementing `FusedIterator`, which is not supported yet
-
-</details>
-
-<details><summary>constructing `_` from another crate (2)</summary>
-
-- fixtures/reject/src/lib.rs:157:23: constructing `std::iter::Map<Folds, {closure@fixtures/reject/src/lib.rs:157:12: 157:15}>` from another crate
-- fixtures/reject/src/lib.rs:178:14: constructing `std::iter::Rev<Backs>` from another crate
 
 </details>
 

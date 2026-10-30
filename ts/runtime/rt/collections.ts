@@ -33,6 +33,7 @@ import {
 	rangeInclusiveStartBound,
 	type SizeHint,
 	type Take,
+	dequeReserve,
 	vecCapacity,
 	vecGrow,
 	vecReserveExact,
@@ -782,15 +783,18 @@ function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Ta
 
 /**
  * `extending` a `Vec` or `VecDeque` holding `len`, which with elements `size` bytes each
- * reserves as `iterExtend` does: a `trusted` iterator up front, and any other by `next`.
+ * reserves as `iterExtend` does: a `trusted` iterator up front, and any other by `next`,
+ * a `deque`'s at its first item too.
  */
-function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) => void, take?: Take, size?: number, trusted = false): C {
+function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) => void, take?: Take, size?: number, trusted = false, deque = false): C {
 	if (size === undefined || trusted) {
 		if (size !== undefined) vecReserveExact(items, len, size);
 		return extending(c, items, add, take);
 	}
 	let cap = vecCapacity(len, size);
 	for (let item = items.next(); item !== DONE; item = items.next()) {
+		if (deque) dequeReserve(items, len);
+		deque = false;
 		if (len === cap) cap = vecGrow(items, cap, size);
 		add(item);
 		len++;
@@ -2621,7 +2625,7 @@ class ByteVecDrain extends Iter<number> implements Disposable {
  * says and reserves as `iterExtend` does.
  */
 export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take, size?: number, trusted = false): VecDeque<T> {
-	return vecExtending(q, q.n, items, (item) => dequePushBack(q, item), take, size, trusted);
+	return vecExtending(q, q.n, items, (item) => dequePushBack(q, item), take, size, trusted, true);
 }
 
 /** `clone`, with each item through its `Clone`, or as itself without one. */

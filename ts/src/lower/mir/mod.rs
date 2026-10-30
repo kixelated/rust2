@@ -828,40 +828,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
-	/// unassigned since it holds nothing: JS needs it made, as the crate's or as std's
-	/// `fmt::Error` and `ParseBoolError` are.
+	/// A zero-sized value that nothing assigns, the result included, which MIR leaves
+	/// unassigned since it holds nothing: JS needs it made, as a constant of it is. A
+	/// closure's is declared once instead, in [`Self::lower`].
 	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
-		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
+		if self.defs[local] != 0 || self.is_arg(local) || self.uses[local] == 0 || ty.is_closure() {
 			return None;
 		}
-		if let ty::Array(elem, len) = ty.kind()
-			&& len.try_to_target_usize(self.tcx) == Some(0)
-		{
-			return Some(match elem.kind() {
-				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
-				_ => Expr::As(
-					Box::new(Expr::Array(Vec::new())),
-					self.b.t.ty(ty, self.local_span(local)),
-				),
-			});
-		}
-		let ty::Adt(adt, args) = ty.kind() else {
-			return None;
-		};
-		if !adt.is_struct() || adt.all_fields().next().is_some() {
+		let env = self.b.t.typing_env_pub();
+		let layout = self.tcx.layout_of(env.as_query_input(ty)).ok()?;
+		if !layout.is_zst() || layout.is_uninhabited() {
 			return None;
 		}
-		use crate::lower::library::Std;
-		if matches!(Std::of(self.tcx, adt.did()), Some(Std::FmtError | Std::ParseBoolError)) {
-			let span = self.local_span(local);
-			return Some(self.adt(adt.did(), rustc_abi::FIRST_VARIANT, args, Vec::new(), ty, span));
-		}
-		if !self.b.t.own(adt.did()) {
-			return None;
-		}
-		let info = self.b.t.adt(*adt, self.local_span(local));
-		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
+		let span = self.local_span(local);
+		Some(self.const_value(mir::ConstValue::ZeroSized, ty, span))
 	}
 
 	/// Whether `local` is a box's pointer, as a box's dereference reads it.

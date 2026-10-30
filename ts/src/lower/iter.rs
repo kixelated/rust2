@@ -750,6 +750,78 @@ fn std_iter_path(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> Option<Vec<String>> {
 	Some(library::std_path(tcx, adt.did())).filter(|p| !p.is_empty())
 }
 
+/// The function or `Iterator` method named for `ty`, one of std's iterators of zero-sized
+/// fields, as `from_fn` makes a `FromFn` and `map` a `Map`, and its generic arguments: what
+/// MIR reads as a constant, rather than from that call, makes it of its fields in order.
+pub(super) fn maker<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<(DefId, ty::GenericArgsRef<'tcx>)> {
+	let tcx = t.tcx;
+	let ty::Adt(adt, args) = ty.kind() else {
+		return None;
+	};
+	if !library::is_std(tcx, adt.did()) || !adt.is_struct() || !t.zero_sized(ty) {
+		return None;
+	}
+	let item = t.iter_item(ty)?;
+	let name = tcx
+		.item_name(adt.did())
+		.as_str()
+		.chars()
+		.enumerate()
+		.fold(String::new(), |mut name, (i, c)| {
+			if c.is_uppercase() && i > 0 {
+				name.push('_');
+			}
+			name.extend(c.to_lowercase());
+			name
+		});
+	let iterator = tcx.get_diagnostic_item(rustc_span::sym::Iterator)?;
+	let method = (tcx.associated_items(iterator))
+		.filter_by_name_unhygienic(rustc_span::Symbol::intern(&name))
+		.find(|i| i.is_fn())
+		.map(|i| i.def_id);
+	let make = method.or_else(|| super::bind::resolve_in(tcx, tcx.parent(adt.did()), &[&name]))?;
+	if !matches!(
+		tcx.def_kind(make),
+		rustc_hir::def::DefKind::Fn | rustc_hir::def::DefKind::AssocFn
+	) || ty::GenericArgs::identity_for_item(tcx, make).consts().next().is_some()
+	{
+		return None;
+	}
+	// What its result names, and the item for what it doesn't, as `map`'s `B` is.
+	let output = tcx
+		.fn_sig(make)
+		.instantiate_identity()
+		.skip_norm_wip()
+		.skip_binder()
+		.output();
+	let mut found = Vec::new();
+	bind_params(output, ty, &mut found);
+	let gargs = ty::GenericArgs::for_item(tcx, make, |param, _| match param.kind {
+		ty::GenericParamDefKind::Lifetime => tcx.lifetimes.re_erased.into(),
+		_ => (found.iter())
+			.find(|&&(index, _)| index == param.index)
+			.map_or(item, |&(_, ty)| ty)
+			.into(),
+	});
+	let sig = tcx.fn_sig(make).instantiate(tcx, gargs).skip_norm_wip();
+	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let fields = adt.non_enum_variant().fields.iter().map(|f| t.field_ty(f.did, args));
+	(sig.output() == ty && sig.inputs().iter().copied().eq(fields)).then_some((make, gargs))
+}
+
+/// The type parameters `pattern` names, with what `ty` has in their place.
+fn bind_params<'tcx>(pattern: Ty<'tcx>, ty: Ty<'tcx>, found: &mut Vec<(u32, Ty<'tcx>)>) {
+	match (pattern.kind(), ty.kind()) {
+		(ty::Param(param), _) => found.push((param.index, ty)),
+		(ty::Adt(a, pattern_args), ty::Adt(b, args)) if a == b => {
+			for (p, t) in pattern_args.types().zip(args.types()) {
+				bind_params(p, t, found);
+			}
+		}
+		_ => {}
+	}
+}
+
 /// Whether std's iterator `did` holds a closure that its `rt.Iter` drops after the iterator
 /// it wraps, as std's fields order them.
 pub(super) fn holds_closure(tcx: ty::TyCtxt<'_>, did: DefId) -> bool {

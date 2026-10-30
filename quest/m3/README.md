@@ -33,6 +33,6 @@ generic std gap is planned here even when moq never calls it.
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A VecDeque's Debug](/quest/m3/ts-deque-debug.md) - `{:?}` of a `VecDeque` translates, writing std's list
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
-- [Zero-sized values made out of sight](/quest/m3/ts-zero-sized.md) - unit structs and empty arrays returned, and std adaptors of only zero-sized fields, translate
+- [std's impls of its zero-sized types](/quest/m3/ts-zero-sized-impls.md) - `PhantomData`'s derived impls translate, and `()` is a hash or B-tree key
 - [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
