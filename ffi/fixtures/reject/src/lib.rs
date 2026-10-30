@@ -401,6 +401,21 @@ pub fn lender(value: impl Into<Lender<'static>>) -> u32 {
 	*value.into().0.0
 }
 
+/// Excluded, what converts into a `Held<'b>` for a `'b` that outlives its own `'a`.
+pub struct Outlived<'a>(pub Held<'a>);
+
+impl<'a, 'b: 'a, T: Into<Held<'b>>> From<T> for Outlived<'a> {
+	fn from(value: T) -> Self {
+		Outlived(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which its target's lifetime passes on
+/// through a lifetime bound.
+pub fn outlived(value: impl Into<Outlived<'static>>) -> u32 {
+	*value.into().0.0
+}
+
 /// Excluded, a `'static` borrow, from what converts into one.
 pub struct Pinned(pub &'static u32);
 

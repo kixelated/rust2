@@ -2196,13 +2196,26 @@ impl<'tcx> Collector<'tcx> {
 			{
 				continue;
 			}
-			// The self type matches `target` but for its lifetimes, which line up in order.
+			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
+			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
+				.map(|clause| infcx.deeply_resolve_ignoring_regions(clause))
+				.collect();
+			// The self type matches `target` but for its lifetimes, which line up in order. A
+			// lifetime that outlives a `'static` one, as `'b: 'a` makes `'b`, is `'static` too.
 			let ours = infcx.deeply_resolve_ignoring_regions(trait_ref.self_ty());
-			let pinned: Vec<_> = (ours.walk().zip(target.walk()))
+			let mut pinned: Vec<_> = (ours.walk().zip(target.walk()))
 				.filter_map(|(ours, theirs)| Some((ours.as_region()?, theirs.as_region()?)))
 				.filter(|&(_, theirs)| theirs.is_static() || statics.contains(&theirs))
 				.map(|(ours, _)| ours)
 				.collect();
+			while let Some(long) = (implied.iter())
+				.filter_map(|clause| clause.as_region_outlives_clause())
+				.map(|pred| pred.skip_binder())
+				.find(|pred| (pred.1.is_static() || pinned.contains(&pred.1)) && !pinned.contains(&pred.0))
+				.map(|pred| pred.0)
+			{
+				pinned.push(long);
+			}
 			let pin = |ty: Ty<'tcx>| {
 				ty::fold_regions(tcx, infcx.deeply_resolve_ignoring_regions(ty), |r, _| {
 					if r.is_bound() {
@@ -2220,7 +2233,7 @@ impl<'tcx> Collector<'tcx> {
 			if !source.is_ty_var() {
 				let x = pin(source);
 				let lasting = x.walk().any(|arg| arg.as_region().is_some_and(|r| r.is_static()))
-					|| (tcx.clauses_of(imp).instantiate(tcx, args).clauses.iter()).any(|clause| {
+					|| (clauses.iter()).any(|clause| {
 						let clause = clause.skip_norm_wip();
 						clause.as_type_outlives_clause().is_some() || clause.as_region_outlives_clause().is_some()
 					});
@@ -2230,10 +2243,6 @@ impl<'tcx> Collector<'tcx> {
 				continue;
 			}
 			let source = infcx.deeply_resolve_ignoring_regions(source);
-			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
-			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
-				.map(|clause| infcx.deeply_resolve_ignoring_regions(clause))
-				.collect();
 			let outlives = must_outlive(&implied, source);
 			for bound in (implied.iter())
 				.filter_map(|clause| clause.as_trait_clause())
