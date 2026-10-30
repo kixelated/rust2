@@ -75,6 +75,9 @@ pub enum Std {
 	/// `rt.OnceCell<T>` and `rt.OnceLock<T>`: the `Option<T>` each holds.
 	OnceCell,
 	OnceLock,
+	/// `rt.LazyCell<T>` and `rt.LazyLock<T>`: the function that makes the value, then the value.
+	LazyCell,
+	LazyLock,
 	/// `rt.Waker`.
 	Waker,
 	/// `rt.Context`: its waker.
@@ -249,6 +252,8 @@ impl Std {
 			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
 			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
 			["sync", "once_lock", "OnceLock"] => Some(Self::OnceLock),
+			["cell", "lazy", "LazyCell"] => Some(Self::LazyCell),
+			["sync", "lazy_lock", "LazyLock"] => Some(Self::LazyLock),
 			["cmp", "Reverse"] => Some(Self::Reverse),
 			["collections", "binary_heap", "PeekMut"] => Some(Self::PeekMut),
 			["ops", "range", "Bound"] => Some(Self::Bound),

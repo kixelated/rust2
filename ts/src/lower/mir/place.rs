@@ -4,11 +4,11 @@
 //! struct is a member of the same object. A reference assigned once from a place that
 //! stays put reads as that place, which is how a `&mut` to a number changes the number.
 
-use rustc_abi::{FieldIdx, Size, VariantIdx};
+use rustc_abi::{BackendRepr, FieldIdx, Size, VariantIdx};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, DefIndex};
-use rustc_middle::mir::interpret::{GlobalAlloc, GlobalId, Scalar, alloc_range};
+use rustc_middle::mir::interpret::{AllocId, GlobalAlloc, GlobalId, Scalar, alloc_range};
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, ConstValue, Local, Operand, Place, PlaceTy, ProjectionElem};
 use rustc_middle::ty::{self, Instance, Ty, TyCtxt, TypeVisitableExt};
@@ -1116,10 +1116,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					instance,
 					promoted: uv.promoted,
 				};
-				match tcx.const_eval_global_id_for_typeck(env, cid, span) {
-					Ok(Ok(valtree)) => self.b.value(ty, valtree, span),
-					Ok(Err(_)) => self.err(span, format!("a constant of type `{ty}`, which has no value tree")),
-					Err(_) => self.err(span, "a constant that failed to evaluate"),
+				// A cell's value tree is only its value, so one holding a cell, and one with no
+				// value tree, is read from the memory it evaluated to.
+				let freeze = ty.has_param() || ty.is_freeze(tcx, env);
+				match freeze.then(|| tcx.const_eval_global_id_for_typeck(env, cid, span)) {
+					Some(Ok(Ok(valtree))) => self.b.value(ty, valtree, span),
+					Some(Err(_)) => self.err(span, "a constant that failed to evaluate"),
+					None | Some(Ok(Err(_))) => match tcx.const_eval_global_id(env, cid, span) {
+						Ok(val) => self.const_value(val, ty, span),
+						Err(_) => self.err(span, "a constant that failed to evaluate"),
+					},
 				}
 			}
 			mir::Const::Val(val, ty) => self.const_value(val, ty, span),
@@ -1262,47 +1268,64 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// The module value of the static `item`, which `ty` borrows whole, made the first time
 	/// from the memory it starts with, which a static has even when it is another crate's:
-	/// an atomic's `rt.Atomic`, or an immutable one's bytes, one object every use shares.
+	/// one value every use shares, which only its cells change.
 	fn static_value(&mut self, item: DefId, ty: Ty<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
 		let static_ty = tcx.type_of(item).instantiate_identity().skip_norm_wip();
-		if tcx.is_mutable_static(item) || ty.builtin_deref(true) != Some(static_ty) {
+		if tcx.is_mutable_static(item) {
+			return self.err(span, "a mutable static, which any code may write");
+		}
+		let static_ty = tcx.erase_and_anonymize_regions(static_ty);
+		if ty.builtin_deref(true).map(|t| tcx.erase_and_anonymize_regions(t)) != Some(static_ty) {
 			return self.err(span, format!("a constant of type `{ty}` into a static"));
+		}
+		// A raw pointer to a value JS copies is a place, which the value is not.
+		if self.b.t.raw_place(ty).is_some() {
+			return self.err(
+				span,
+				format!("a constant of type `{ty}` into a static of a value JS copies"),
+			);
+		}
+		if let Some(&sym) = self.b.t.values.get(&item) {
+			return self.static_use(sym);
 		}
 		let Ok(alloc) = tcx.eval_static_initializer(item) else {
 			return self.err(span, "a static that failed to evaluate");
 		};
-		let value = match static_ty.kind() {
-			// An `AtomicPtr`'s pointer has no `rt.Atomic`.
-			ty::Adt(adt, args)
-				if Std::of(tcx, adt.did()) == Some(Std::Atomic)
-					&& (args.type_at(0).is_bool() || args.type_at(0).is_integral()) =>
-			{
-				let int = args.type_at(0);
-				let env = self.b.t.typing_env_pub();
-				let Ok(layout) = tcx.layout_of(env.as_query_input(int)) else {
-					return self.err(span, format!("a static of type `{static_ty}`"));
-				};
-				let Ok(scalar) = alloc
-					.inner()
-					.read_scalar(&tcx, alloc_range(Size::ZERO, layout.size), false)
-				else {
-					return self.err(span, format!("a static of type `{static_ty}` that holds a pointer"));
-				};
-				let int = self.const_value(ConstValue::Scalar(scalar), int, span);
-				Expr::New(Box::new(Expr::Rt("Atomic".into())), vec![int])
-			}
-			ty::Array(elem, len)
-				if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) && len.try_to_target_usize(tcx).is_some() =>
-			{
-				let len = len.try_to_target_usize(tcx).unwrap() as usize;
-				bytes_lit(alloc.inner().inspect_with_uninit_and_ptr_outside_interpreter(0..len))
-			}
-			_ => return self.err(span, format!("a static of type `{static_ty}`")),
+		if !self.b.t.reading.insert(item) {
+			return self.err(span, "a static whose value points into itself, before it is made");
+		}
+		// rustc reads a constant's memory only if it is immutable, so read an immutable copy.
+		let mut memory = alloc.inner().clone();
+		memory.mutability = rustc_ast::Mutability::Not;
+		let alloc_id = tcx.reserve_and_set_memory_alloc(tcx.mk_const_alloc(memory));
+		let val = ConstValue::Indirect {
+			alloc_id,
+			offset: Size::ZERO,
 		};
+		let value = match byte_array(static_ty) {
+			true => Expr::rt("byteSliceFrom", vec![self.const_value(val, static_ty, span)]),
+			false => self.const_value(val, static_ty, span),
+		};
+		self.b.t.reading.remove(&item);
 		let (sym, new) = self.module_value(item);
 		if new {
 			let ty = self.b.t.ty(ty, span);
+			// Another static or a class it reads may not be made yet when its module is: one of
+			// a later line, or of a module that imports this one, as Rust's modules may. It is
+			// then made on first use, which nothing can tell from being made first.
+			let syms = &self.b.t.program.syms;
+			let mut reads = false;
+			value.eager_syms(&mut |id| reads |= matches!(syms[id].kind, SymKind::Value | SymKind::Struct));
+			let (value, ty) = match reads {
+				true => {
+					self.b.t.deferred.insert(sym);
+					let make = Expr::Arrow(Vec::new(), ty.clone(), vec![StmtKind::Return(Some(value)).at(None)]);
+					let lazy = Expr::New(Box::new(Expr::Rt("LazyCell".into())), vec![make]);
+					(lazy, crate::ts::Type::Rt("LazyCell", vec![ty]))
+				}
+				false => (value, ty),
+			};
 			self.b.t.program.items.push(Item::Value {
 				sym,
 				ty,
@@ -1310,11 +1333,24 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				doc: None,
 			});
 		}
-		Expr::Sym(sym)
+		self.static_use(sym)
 	}
 
-	fn const_value(&mut self, val: ConstValue, ty: Ty<'tcx>, span: Span) -> Expr {
+	/// A use of the static `sym`: its module value, or what that makes on first use.
+	fn static_use(&self, sym: SymId) -> Expr {
+		match self.b.t.deferred.contains(&sym) {
+			true => Expr::Sym(sym).member("force").call(Vec::new()),
+			false => Expr::Sym(sym),
+		}
+	}
+
+	/// The value of a constant `val` of type `ty`: a fresh one at each use, as Rust copies a
+	/// constant there.
+	pub(super) fn const_value(&mut self, val: ConstValue, ty: Ty<'tcx>, span: Span) -> Expr {
 		let tcx = self.tcx;
+		if let Some(value) = self.cell_value(val, ty, span) {
+			return value;
+		}
 		// An aggregate, field by field.
 		if let ty::Adt(..) | ty::Tuple(_) | ty::Array(..) = ty.kind()
 			&& !matches!(ty.kind(), ty::Tuple(tys) if tys.is_empty())
@@ -1358,6 +1394,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => self.err(span, format!("a zero-sized constant of type `{ty}`")),
 			},
 			ConstValue::Scalar(Scalar::Int(int)) => match ty.kind() {
+				ty::RawPtr(..) if int.is_null() => Expr::Rt("NULL".into()),
+				ty::RawPtr(..) => self.err(span, format!("a constant of type `{ty}` made from an integer")),
 				ty::Bool => Expr::lit((int.to_bits_unchecked() != 0).to_string()),
 				ty::Char => Expr::lit(int.to_u32().to_string()),
 				_ if crate::lower::float::is(ty) => crate::lower::float::lit(f64::from_bits(int.to_u64())),
@@ -1383,17 +1421,24 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						};
 					}
 					GlobalAlloc::Memory(alloc) => alloc,
+					GlobalAlloc::Function { instance } if offset.bytes() == 0 => {
+						return self.fn_pointer(instance, span);
+					}
 					_ => return self.err(span, format!("a constant of type `{ty}`")),
 				};
 				// `&[u8; N]`, such as a byte string.
 				let ty::Ref(_, inner, _) = ty.kind() else {
-					return self.err(span, format!("a pointer constant of type `{ty}`"));
+					return self.err(
+						span,
+						format!("a pointer constant of type `{ty}` into memory translation can't name"),
+					);
 				};
+				let unnamed = format!("a constant of type `{ty}`, a pointer into memory translation can't name");
 				let ty::Array(elem, len) = inner.kind() else {
-					return self.err(span, format!("a constant of type `{ty}`"));
+					return self.err(span, unnamed);
 				};
 				let (Some(len), ty::Uint(ty::UintTy::U8)) = (len.try_to_target_usize(tcx), elem.kind()) else {
-					return self.err(span, format!("a constant of type `{ty}`"));
+					return self.err(span, unnamed);
 				};
 				let start = offset.bytes() as usize;
 				bytes_lit(
@@ -1415,7 +1460,66 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					_ => self.err(span, format!("a slice constant of type `{ty}`")),
 				}
 			}
-			ConstValue::Indirect { .. } => self.err(span, format!("a constant of type `{ty}` held in memory")),
+			ConstValue::Indirect { alloc_id, offset } => match self.loaded(alloc_id, offset, ty) {
+				Some(val) => self.const_value(val, ty, span),
+				None => self.err(span, format!("a constant of type `{ty}` held in memory")),
+			},
+		}
+	}
+
+	/// The value a `ty` that is no aggregate holds at `offset` in `alloc_id`, as rustc would
+	/// give it outside of memory: nothing, a scalar, or a slice from the start of another.
+	fn loaded(&self, alloc_id: AllocId, offset: Size, ty: Ty<'tcx>) -> Option<ConstValue> {
+		let tcx = self.tcx;
+		let env = self.b.t.typing_env_pub();
+		let layout = tcx.layout_of(env.as_query_input(ty)).ok()?;
+		if layout.is_zst() {
+			return Some(ConstValue::ZeroSized);
+		}
+		let GlobalAlloc::Memory(alloc) = tcx.global_alloc(alloc_id) else {
+			return None;
+		};
+		match layout.backend_repr {
+			BackendRepr::Scalar(_) => self
+				.scalar(ConstValue::Indirect { alloc_id, offset }, ty)
+				.map(ConstValue::Scalar),
+			// A `&str` or `&[T]`: its pointer, to the start of another allocation, and length.
+			BackendRepr::ScalarPair { .. } if matches!(ty.builtin_deref(false)?.kind(), ty::Str | ty::Slice(_)) => {
+				let size = tcx.data_layout.pointer_size();
+				let ptr = alloc.inner().read_scalar(&tcx, alloc_range(offset, size), true).ok()?;
+				let len = alloc
+					.inner()
+					.read_scalar(&tcx, alloc_range(offset + size, size), false)
+					.ok()?;
+				let Scalar::Ptr(ptr, _) = ptr else {
+					return None;
+				};
+				let (prov, start) = ptr.prov_and_relative_offset();
+				(start == Size::ZERO).then(|| ConstValue::Slice {
+					alloc_id: prov.alloc_id(),
+					meta: len.to_target_usize(&tcx).discard_err().unwrap_or(0),
+				})
+			}
+			_ => None,
+		}
+	}
+
+	/// A function pointer's value: the function or closure `instance` calls.
+	fn fn_pointer(&mut self, instance: Instance<'tcx>, span: Span) -> Expr {
+		let tcx = self.tcx;
+		match instance.def {
+			ty::InstanceKind::Item(def_id) if tcx.is_closure_like(def_id) => {
+				self.bare_closure(def_id, instance.args, span)
+			}
+			ty::InstanceKind::Item(def_id) | ty::InstanceKind::Shim(ty::ShimKind::Reify(def_id, _)) => {
+				self.b.fn_value(def_id, instance.args, span)
+			}
+			// A closure coerced to a function pointer calls it once.
+			ty::InstanceKind::Shim(ty::ShimKind::ClosureOnce { .. }) => match instance.args.type_at(0).kind() {
+				ty::Closure(def_id, args) => self.bare_closure(*def_id, args, span),
+				_ => self.err(span, format!("a pointer to `{instance}`")),
+			},
+			_ => self.err(span, format!("a pointer to `{instance}`")),
 		}
 	}
 
