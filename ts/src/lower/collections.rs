@@ -960,9 +960,9 @@ fn btree<'tcx>(
 	let mut values = args;
 	let mut ranged = None;
 	if matches!(name, "range" | "range_mut") {
-		let range = values.pop()?;
-		ranged = Some(bounds(b, call, range));
-		values.push(ranged.as_ref()?.bounds.clone());
+		let range = bounds(b, call, values.pop()?);
+		values.push(range.bounds.clone());
+		ranged = Some(range);
 		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
 		// does, and one holding the crate's own or a bound type by that type's `PartialEq`
 		// and `PartialOrd`.
