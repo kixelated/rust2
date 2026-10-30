@@ -76,6 +76,19 @@ export type IntErrorKind = "Empty" | "InvalidDigit" | "PosOverflow" | "NegOverfl
 /** `core::num::ParseIntError`: why an integer didn't parse. */
 export type ParseIntError = { readonly kind: IntErrorKind };
 
+/** `core::char::CharErrorKind`: why a `char` didn't parse, by variant name. */
+export type CharErrorKind = "EmptyString" | "TooManyChars";
+
+/** `core::char::ParseCharError`: why a `char` didn't parse. */
+export type ParseCharError = { readonly kind: CharErrorKind };
+
+/** `char`'s `FromStr`: the string's only char, or why it holds none or more. */
+export function charFromStr(s: string): Result<char, ParseCharError> {
+	if (s === "") return Err({ kind: "EmptyString" });
+	const c = s.codePointAt(0) as char;
+	return s.length === (c > 0xffff ? 2 : 1) ? Ok(c) : Err({ kind: "TooManyChars" });
+}
+
 const TWO32 = 4294967296;
 const MAX_SAFE = 0x1fffffffffffff;
 

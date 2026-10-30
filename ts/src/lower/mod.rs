@@ -1437,6 +1437,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
 				library::Std::ParseIntError => Type::Rt("ParseIntError", vec![]),
 				library::Std::IntErrorKind => Type::Rt("IntErrorKind", vec![]),
+				library::Std::ParseBoolError => Type::Rt("ParseBoolError", vec![]),
+				library::Std::ParseCharError => Type::Rt("ParseCharError", vec![]),
 				library::Std::ParseFloatError => Type::Rt("ParseFloatError", vec![]),
 				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),

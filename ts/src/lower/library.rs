@@ -39,6 +39,10 @@ pub enum Std {
 	ParseIntError,
 	/// `rt.IntErrorKind`: the variant's name.
 	IntErrorKind,
+	/// `rt.ParseBoolError`.
+	ParseBoolError,
+	/// `rt.ParseCharError`: `{ kind }`, its `CharErrorKind`'s name.
+	ParseCharError,
 	ParseFloatError,
 	TryFromFloatSecsError,
 	/// `rt.Formatter`.
@@ -245,6 +249,8 @@ impl Std {
 			["str", "error", "Utf8Error"] => Some(Self::Utf8Error),
 			["num", "error", "ParseIntError"] => Some(Self::ParseIntError),
 			["num", "error", "IntErrorKind"] => Some(Self::IntErrorKind),
+			["str", "error", "ParseBoolError"] => Some(Self::ParseBoolError),
+			["char", "convert", "ParseCharError"] => Some(Self::ParseCharError),
 			["fmt", "Formatter"] => Some(Self::Formatter),
 			["fmt", "Arguments"] => Some(Self::Arguments),
 			["fmt", "Error"] => Some(Self::FmtError),
@@ -537,8 +543,8 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
 /// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
 /// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, or what
-/// parses an integer: `str::parse` of one, its `FromStr`, `from_str_radix`, and what they
-/// call, `char::to_digit` and the radix's panic among it.
+/// parses an integer, a `NonZero`, or a `bool`: `str::parse` of one, its `FromStr`,
+/// `from_str_radix`, and what they call, `char::to_digit` and the radix's panic among it.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
 /// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
 /// as the runtime's panic.
@@ -567,14 +573,25 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return false;
 	};
 	let name = tcx.item_name(did);
-	let parses = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
-		ty::Int(_) | ty::Uint(_) => {
+	// An integer or a `NonZero` of one, which parse alike.
+	let int = |ty: Ty<'tcx>| match ty.kind() {
+		ty::Int(_) | ty::Uint(_) => true,
+		ty::Adt(adt, _) => Std::of(tcx, adt.did()) == Some(Std::NonZero),
+		_ => false,
+	};
+	let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+	let parses = match self_ty.kind() {
+		_ if int(self_ty) => {
 			matches!(
 				name.as_str(),
 				"from_str" | "from_str_radix" | "from_ascii_bytes_radix_impl"
 			)
 		}
-		ty::Str => name.as_str() == "parse" && Int::of(instance.args.type_at(0)).is_some(),
+		ty::Str if name.as_str() == "parse" => {
+			let target = instance.args.type_at(0);
+			int(target) || target.is_bool()
+		}
+		ty::Bool => name.as_str() == "from_str",
 		ty::Char => name.as_str() == "to_digit",
 		_ => false,
 	};
@@ -582,7 +599,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return true;
 	}
 	// `None` for `bool`'s.
-	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+	let std = match self_ty.kind() {
 		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
 			std @ Some(Std::Option | Std::Result | Std::Poll | Std::LocalKey) => std,
 			_ => return false,
@@ -1676,6 +1693,8 @@ fn mapping<'tcx>(
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
 			Expr::rt_of("f64", "fromStr").call(args)
 		}
+		// A `char`'s steps through its chars by `&mut`, which no body of std's may.
+		("str", "parse") | ("FromStr", "from_str") if targ(gargs, 0).is_char() => Expr::rt("charFromStr", args),
 		("String" | "str", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("str", "chars") => Expr::rt("strChars", args),
 		("str", "bytes") => Expr::rt("strBytes", args),
