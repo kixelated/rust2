@@ -72,9 +72,12 @@ pub fn as_slices(data: &[u8], out: &mut Vec<u8>) {
 			0 => {
 				let s = bytes.as_mut_slice();
 				s[i % 4] = op;
-				s.reverse();
+				s.rotate_left(1);
 			}
-			1 => wide.as_mut_slice()[i % 3] = u16::from(op) << 7,
+			1 => {
+				wide.as_mut_slice()[i % 3] = u16::from(op) << 7;
+				wide.as_mut_slice().rotate_right(1);
+			}
 			2 => words.as_mut_slice()[i % 2].push(char::from(b'a' + op % 26)),
 			// An element of one array as a slice, as the slice of the outer array lends it.
 			3 => {
@@ -85,14 +88,12 @@ pub fn as_slices(data: &[u8], out: &mut Vec<u8>) {
 			}
 			4 => {
 				let all = pairs.as_mut_slice();
-				let pair = all[i % 2].as_mut_slice();
-				pair[0] = u32::from(op);
-				pair[1] = u32::from(op) << 20;
+				all[i % 2].as_mut_slice().copy_from_slice(&[u32::from(op), u32::from(op) << 20]);
 				all.swap(0, 1);
 			}
 			5 => {
 				none.as_mut_slice().reverse();
-				empty.as_mut_slice().copy_from_slice(&[]);
+				empty.as_mut_slice().fill(op);
 				out.push(none.as_slice().len() as u8 + empty.as_slice().len() as u8);
 			}
 			6 => written(&mut bytes, &mut wide, op),
@@ -123,4 +124,5 @@ fn written(bytes: &mut [u8; 4], wide: &mut [u16; 3], op: u8) {
 	let w = wide.as_mut_slice();
 	w[0] = u16::from(op);
 	w.swap(1, 2);
+	w[1..].fill(u16::from(op) + 1);
 }

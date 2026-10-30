@@ -123,51 +123,46 @@ export function asSlices(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _26: rt.usize = rt.usizeRem(i, 4);
 			rt.idx(s, _26);
 			s.data[s.start + _26] = op;
-			rt.byteSliceView(s).reverse();
+			rt.byteSliceRotateLeft(s, 1);
 		} else if (_22 === 1) {
 			const _32: rt.u16 = op as rt.u16;
 			const _35: rt.u16[] = wide;
 			const _37: rt.usize = rt.usizeRem(i, 3);
 			rt.idx(_35, _37);
 			_35[_37] = (_32 << 7) & 0xffff;
+			rt.sliceRotateRight(wide, 1);
 		} else if (_22 === 2) {
-			const _43: string[] = words;
-			const _45: rt.usize = rt.usizeRem(i, 2);
-			rt.idx(_43, _45);
-			_43[_45] = _43[_45] + String.fromCodePoint(rt.u8Add(97, rt.u8Rem(op, 26)) as rt.char);
+			const _46: string[] = words;
+			const _48: rt.usize = rt.usizeRem(i, 2);
+			rt.idx(_46, _48);
+			_46[_48] = _46[_48] + String.fromCodePoint(rt.u8Add(97, rt.u8Rem(op, 26)) as rt.char);
 		} else if (_22 === 3) {
-			const _56: Uint8Array[] = grid;
-			const _58: rt.usize = rt.usizeRem(i, 3);
-			rt.idx(_56, _58);
-			const row: rt.ByteSlice = rt.byteSliceFrom(_56[_58]);
-			const _63: rt.ByteSlice = row;
-			const _64: rt.usize = rt.usizeRem(i, 2);
-			rt.idx(_63, _64);
-			_63.data[_63.start + _64] = op;
-			const _70: rt.ByteSlice = row;
-			const _72: rt.usize = rt.usizeRem(rt.usizeAdd(i, 1), 2);
-			rt.idx(_70, _72);
-			const read: rt.u8 = _70.data[_70.start + _72];
-			const _78: rt.usize = rt.usizeRem(rt.usizeAdd(i, 1), 3);
-			if (!(_78 < 3)) {
-				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _78);
+			const _59: Uint8Array[] = grid;
+			const _61: rt.usize = rt.usizeRem(i, 3);
+			rt.idx(_59, _61);
+			const row: rt.ByteSlice = rt.byteSliceFrom(_59[_61]);
+			const _66: rt.ByteSlice = row;
+			const _67: rt.usize = rt.usizeRem(i, 2);
+			rt.idx(_66, _67);
+			_66.data[_66.start + _67] = op;
+			const _73: rt.ByteSlice = row;
+			const _75: rt.usize = rt.usizeRem(rt.usizeAdd(i, 1), 2);
+			rt.idx(_73, _75);
+			const read: rt.u8 = _73.data[_73.start + _75];
+			const _81: rt.usize = rt.usizeRem(rt.usizeAdd(i, 1), 3);
+			if (!(_81 < 3)) {
+				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _81);
 			}
-			grid[_78][0] = grid[_78][0] ^ read;
+			grid[_81][0] = grid[_81][0] ^ read;
 		} else if (_22 === 4) {
 			const all: rt.u32[][] = pairs;
-			const _89: rt.usize = rt.usizeRem(i, 2);
-			rt.idx(all, _89);
-			const pair: rt.u32[] = all[_89];
-			const _94: rt.u32 = op as rt.u32;
-			rt.idx(pair, 0);
-			pair[0] = _94;
-			const _99: rt.u32 = op as rt.u32;
-			rt.idx(pair, 1);
-			pair[1] = (_99 << 20) >>> 0;
+			const _93: rt.usize = rt.usizeRem(i, 2);
+			rt.idx(all, _93);
+			rt.sliceCopyFromSlice(all[_93], [op as rt.u32, (((op as rt.u32)) << 20) >>> 0]);
 			rt.sliceSwap(all, 0, 1);
 		} else if (_22 === 5) {
 			(([] as rt.u16[])).reverse();
-			rt.byteSliceCopyFromSlice(rt.byteSliceFrom(Uint8Array.of()), rt.byteSliceFrom(Uint8Array.of()));
+			rt.byteSliceFill(rt.byteSliceFrom(Uint8Array.of()), op);
 			rt.byteVecPush(out, rt.u8Add((([] as rt.u16[])).length & 0xff, rt.byteSliceFrom(Uint8Array.of()).length & 0xff));
 		} else if (_22 === 6) {
 			written(rt.byteSliceFrom(bytes), wide, op);
@@ -178,14 +173,14 @@ export function asSlices(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(bytes));
 		}
 	}
-	const _145: rt.ByteSlice = rt.byteSliceFrom(bytes);
-	const _148: rt.u16[] = wide;
-	const _151: string[] = words;
-	const _154: Uint8Array[] = grid;
-	const _157: rt.u32[][] = pairs;
-	const _160: rt.u16[] = [];
-	const _163: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of());
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_145), f, rt.u8Debug), (f: rt.Formatter) => rt.fmtList(_148, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtList(_151, f, rt.fmtStr), (f: rt.Formatter) => rt.fmtList(_154, f, (value: Uint8Array, f: rt.Formatter) => rt.fmtList(value, f, rt.u8Debug)), (f: rt.Formatter) => rt.fmtList(_157, f, (value: rt.u32[], f: rt.Formatter) => rt.fmtList(value, f, rt.u32Debug)), (f: rt.Formatter) => rt.fmtList(_160, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_163), f, rt.u8Debug)];
+	const _143: rt.ByteSlice = rt.byteSliceFrom(bytes);
+	const _146: rt.u16[] = wide;
+	const _149: string[] = words;
+	const _152: Uint8Array[] = grid;
+	const _155: rt.u32[][] = pairs;
+	const _158: rt.u16[] = [];
+	const _161: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of());
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_143), f, rt.u8Debug), (f: rt.Formatter) => rt.fmtList(_146, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtList(_149, f, rt.fmtStr), (f: rt.Formatter) => rt.fmtList(_152, f, (value: Uint8Array, f: rt.Formatter) => rt.fmtList(value, f, rt.u8Debug)), (f: rt.Formatter) => rt.fmtList(_155, f, (value: rt.u32[], f: rt.Formatter) => rt.fmtList(value, f, rt.u32Debug)), (f: rt.Formatter) => rt.fmtList(_158, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_161), f, rt.u8Debug)];
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6]])));
 }
 
@@ -201,6 +196,7 @@ export function written(bytes: rt.ByteSlice, wide: rt.u16[], op: rt.u8): void {
 	rt.idx(w, 0);
 	w[0] = _16;
 	rt.sliceSwap(w, 1, 2);
+	rt.sliceRangeMut(w, 1).fill(rt.u16Add(op as rt.u16, 1));
 }
 
 //# sourceMappingURL=arrays.ts.map
