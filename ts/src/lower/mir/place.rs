@@ -560,6 +560,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
+				Some(Std::ParseIntError) => base.member("kind"),
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
@@ -1080,6 +1081,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Bound | Std::TryLockError) => scrut
 						.clone()
 						.member("tag")
+						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
+					Some(Std::IntErrorKind) => scrut
+						.clone()
 						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}
