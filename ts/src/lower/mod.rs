@@ -1110,7 +1110,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Poll
 					| library::Std::Result
 					| library::Std::ControlFlow
-					| library::Std::Ordering,
+					| library::Std::Ordering
+					| library::Std::IntErrorKind,
 				) => true,
 				Some(_) => false,
 				None => adt.is_enum() && adt.variants().len() > 1,
@@ -1429,6 +1430,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+				library::Std::ParseIntError => Type::Rt("ParseIntError", vec![]),
+				library::Std::IntErrorKind => Type::Rt("IntErrorKind", vec![]),
 				library::Std::ParseFloatError => Type::Rt("ParseFloatError", vec![]),
 				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),

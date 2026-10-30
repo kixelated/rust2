@@ -488,8 +488,8 @@ pub fn fma(a: f64) -> f64 {
 	a.mul_add(2.0, 1.0)
 }
 
-/// Integer parsing is not translated yet.
-pub fn int_parsed(s: &str) -> Result<u32, std::num::ParseIntError> {
+/// Parsing a `char` is not translated yet.
+pub fn char_parsed(s: &str) -> Result<char, std::char::ParseCharError> {
 	s.parse()
 }
 

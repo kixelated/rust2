@@ -22,7 +22,6 @@ generic std gap is planned here even when moq never calls it.
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
 - [fmt::Write](/quest/m3/ts-fmt-write.md) - `write!` into a `String`, through a `&mut`, and a crate's own `fmt::Write` impl translate
 - [String's edits](/quest/m3/ts-string-edits.md) - `push_str`, `clear`, and `String`'s other edits in place translate
-- [Integer parsing](/quest/m3/ts-int-parse.md) - `str::parse` and `from_str_radix` of each integer translate with `ParseIntError`
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies

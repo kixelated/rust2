@@ -68,7 +68,8 @@ from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
-`Option`'s, `Result`'s, and `Poll`'s methods and `cmp::max` and `min`, goes in a module under its crate's name, as
+`Option`'s, `Result`'s, and `Poll`'s methods, `cmp::max` and `min`, and an integer's `str::parse` and
+`from_str_radix`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
 functions that the package's types make, so a module at the package's root named for a
@@ -173,7 +174,9 @@ argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers, `e` and `E` for `f6
 prints std's digits: the shortest that read back as it, the greater of two as close where
 JS's would take the even one, or its exact value rounded half to even to a precision,
 where `toFixed` rounds half up. `str::parse::<f64>` takes std's grammar, not `Number`'s,
-and rounds to the nearest double. `Debug` of a string or `char` escapes by
+and rounds to the nearest double. An integer's `str::parse` and `from_str_radix` are core's
+own, over the string's UTF-8 bytes; its `ParseIntError` is `rt.ParseIntError`, `{ kind }`,
+whose `IntErrorKind` is the variant's name. `Debug` of a string or `char` escapes by
 std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
