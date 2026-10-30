@@ -117,6 +117,7 @@ pub fn call<'tcx>(
 				}
 				let kind = b.t.std_of(t) == Some(Std::ErrorKind);
 				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
+					|| library::nothing(tcx, t)
 					|| bytes(b, t)
 					|| !(std_key(b, t) || kind)
 					|| !alike(b, t, rhs)
@@ -802,6 +803,7 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 	let key = peel(b, key);
 	let primitive = match key.kind() {
 		ty::Bool | ty::Char | ty::Str => true,
+		_ if library::nothing(b.t.tcx, key) => true,
 		ty::Int(_) | ty::Uint(_) => !Int::of(key)?.big(),
 		ty::Adt(..) if library::string(b.t.tcx, key) => true,
 		ty::Adt(adt, _) if b.t.own(adt.did()) && fieldless(*adt) => derived_eq(b, key),
@@ -1571,7 +1573,8 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
 		// A float is no key, but its `PartialEq` and `PartialOrd` are the runtime's.
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => true,
-		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
+		_ if library::nothing(b.t.tcx, ty) => true,
+		ty::Tuple(tys) => tys.iter().all(held),
 		_ if let Some(elem) = elements_of(b, ty) => held(elem),
 		_ if bytes(b, ty) => true,
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
@@ -1702,7 +1705,8 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationCmp".into()),
-		ty::Tuple(tys) if !tys.is_empty() => {
+		_ if library::nothing(tcx, ty) => Expr::Rt("cmpNothing".into()),
+		ty::Tuple(tys) => {
 			let fns = tys.iter().map(|t| cmp_fn(b, t, partial, span)).collect();
 			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
 		}
@@ -1743,11 +1747,12 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			int.func("eq")
 		}
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => Expr::Rt("same".into()),
+		_ if library::nothing(tcx, ty) => Expr::Rt("same".into()),
 		ty::Adt(..) if library::string(tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::ErrorKind)) => {
 			Expr::Rt("same".into())
 		}
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
-		ty::Tuple(tys) if !tys.is_empty() => {
+		ty::Tuple(tys) => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
 			Expr::rt("eqTuple", vec![Expr::Array(fns)])
 		}
@@ -1803,7 +1808,8 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		// Its derived `Hash` writes its `i8` discriminant.
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hash8".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationHash".into()),
-		ty::Tuple(tys) if !tys.is_empty() => {
+		_ if library::nothing(tcx, ty) => Expr::Rt("hashNothing".into()),
+		ty::Tuple(tys) => {
 			let fns = tys.iter().map(|t| hash_fn(b, t, hasher, span)).collect();
 			Expr::rt("hashTuple", vec![Expr::Array(fns)])
 		}

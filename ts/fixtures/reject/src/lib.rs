@@ -31,11 +31,6 @@ pub fn generic_unit(value: Option<()>) -> bool {
 	Maybe { value }.value.is_some()
 }
 
-/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
-pub fn collected(v: &[u8]) -> Option<Vec<()>> {
-	v.iter().map(|&b| (b > 1).then_some(())).collect()
-}
-
 /// `scan` of items that can be `undefined`: its closure's `None` and `Some(None)` would both be.
 pub fn scanned(v: &[u8]) -> usize {
 	v.iter()

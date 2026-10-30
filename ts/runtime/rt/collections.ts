@@ -72,6 +72,11 @@ export function cmpStr(a: string, b: string): Ordering {
 	return a.length < b.length ? -1 : 1;
 }
 
+/** `Ord::cmp` of what holds nothing, as `()` and `PhantomData`: always `Equal`. */
+export function cmpNothing(_a: undefined, _b: undefined): Ordering {
+	return 0;
+}
+
 /**
  * `Ord::cmp` of tuples, or `PartialOrd::partial_cmp`, from each field's: the first that
  * is not `Equal`, as `None` is not.

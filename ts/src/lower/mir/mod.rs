@@ -596,7 +596,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(name) => super::camel(name.as_str()),
 					None => format!("_{}", local.as_u32()),
 				};
-				let base = match self.uses[local] == 0 && local.as_usize() <= mir.arg_count {
+				let param = local.as_usize() <= mir.arg_count;
+				let base = match param && (self.uses[local] == 0 || !self.reads_value(local)) {
 					// A parameter nothing reads, which `noUnusedParameters` wants marked.
 					true if !base.starts_with('_') => format!("_{base}"),
 					_ => base,
@@ -814,6 +815,38 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			Rvalue::Aggregate(_, ops) => ops.iter().for_each(|op| self.operand_use(op)),
 			Rvalue::ThreadLocalRef(_) | Rvalue::WrapUnsafeBinder(..) => {}
 		}
+	}
+
+	/// Whether anything reads `local` but for a part of it that holds nothing, whose value
+	/// is `undefined` wherever it is, so a mapping may leave the read out.
+	fn reads_value(&self, local: Local) -> bool {
+		use rustc_middle::mir::visit::{PlaceContext, Visitor};
+		struct Reads<'a, 'tcx> {
+			mir: &'a mir::Body<'tcx>,
+			tcx: TyCtxt<'tcx>,
+			local: Local,
+			found: bool,
+		}
+		impl<'tcx> Visitor<'tcx> for Reads<'_, 'tcx> {
+			fn visit_place(&mut self, place: &Place<'tcx>, cx: PlaceContext, _: mir::Location) {
+				let nothing = !place.projection.is_empty()
+					&& crate::lower::library::nothing(self.tcx, place.ty(&self.mir.local_decls, self.tcx).ty);
+				let indexes = place
+					.projection
+					.iter()
+					.any(|elem| elem == mir::ProjectionElem::Index(self.local));
+				self.found |=
+					!matches!(cx, PlaceContext::NonUse(_)) && ((place.local == self.local && !nothing) || indexes);
+			}
+		}
+		let mut reads = Reads {
+			mir: self.mir,
+			tcx: self.tcx,
+			local,
+			found: false,
+		};
+		reads.visit_body(self.mir);
+		reads.found
 	}
 
 	/// Whether a `ty` has no JS value: `()`, a function item, or `..`.

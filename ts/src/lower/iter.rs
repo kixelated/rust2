@@ -936,6 +936,12 @@ fn collect<'tcx>(
 	span: Span,
 ) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	// `()`'s reads every item, each a `()` too, by `for_each`.
+	if ty.is_unit() {
+		let drops = iter_drops(b, from, span);
+		let each = Expr::Lambda(Vec::new(), Box::new(Expr::undefined()));
+		return Some(Expr::rt("iterForEach", tail(vec![iter, each], vec![drops])));
+	}
 	let ty::Adt(adt, args) = ty.kind() else {
 		return None;
 	};
@@ -957,15 +963,6 @@ fn collect<'tcx>(
 				return None;
 			};
 			let value = item_args.type_at(0);
-			// The runtime ends at the first `undefined` item, and returns `undefined` for `None`.
-			if std == Std::Option
-				&& let Some(some) = [value, args.type_at(0)]
-					.into_iter()
-					.find(|&t| b.t.erases_to(t).undefined)
-			{
-				let msg = format!("collecting `Option<{some}>`, whose `None` is `rt.None`, which is not supported yet");
-				b.t.err(span, msg);
-			}
 			let value_ty = b.t.ty(value, span);
 			// What it collects from is what `from` yields up to the first `Err` or `None`, which
 			// std's collects in place of `from`'s source as it would `from`, but never trusts
@@ -975,13 +972,19 @@ fn collect<'tcx>(
 				name: "values".into(),
 				ty: Some(Type::Rt("Iter", vec![value_ty])),
 			};
-			let collect = match std {
-				Std::Result => "iterCollectResult",
-				_ => "iterCollectOption",
-			};
 			let dropper = b.t.dropper(args.type_at(0), span);
-			let args = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
-			Some(Expr::rt(collect, tail(args, vec![dropper])))
+			let collected = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
+			Some(match std {
+				Std::Result => Expr::rt("iterCollectResult", tail(collected, vec![dropper])),
+				// The items' `None`, and the result's, each `rt.None` where `undefined` is a value.
+				_ => {
+					let nones = [value, args.type_at(0)].map(|t| b.t.none(t));
+					Expr::rt(
+						"iterCollectOption",
+						tail(collected, [vec![dropper], nones.into()].concat()),
+					)
+				}
+			})
 		}
 		// From chars or text, as `extend` of an empty one, but for an owned string's, which
 		// the rest extend once `next` gives it. A `Cow<str>` and a `Box<str>` own the `String`

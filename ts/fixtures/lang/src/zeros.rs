@@ -1,9 +1,14 @@
 //! Zero-sized values, which MIR never assigns and reads as constants: unit structs, empty
 //! arrays and arrays of zero-sized elements, structs of zero-sized fields, enums of one
 //! variant, `PhantomData`, closures that capture nothing, and std's iterators made of
-//! them, as results, as values, in collections, and as they drop.
+//! them, as results, as values, in collections, and as they drop; and std's impls of its
+//! own, as `#[derive]` calls them on a field, and of `()` as a key and a collected item.
 
-use std::marker::PhantomData;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::iter::Empty;
+use std::marker::{PhantomData, PhantomPinned};
+use std::ops::RangeFull;
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -183,6 +188,152 @@ pub fn zeros(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(empty.size_hint().0 as u8);
 			out.push(empty.count() as u8);
 			out.push(std::iter::empty::<&u8>().copied().rev().filter(|_| true).count() as u8);
+		}
+	}
+}
+
+/// Each derivable impl, on fields of std's zero-sized types beside one that isn't.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct Tagged<T> {
+	n: u8,
+	of: PhantomData<T>,
+	pin: PhantomPinned,
+	unit: (),
+}
+
+/// `PhantomData` of several types, whose `Debug` names each.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct Names(
+	PhantomData<u8>,
+	PhantomData<String>,
+	PhantomData<(i64, bool)>,
+	PhantomData<&'static str>,
+	PhantomData<[u16; 3]>,
+	PhantomData<Vec<Option<char>>>,
+	PhantomData<fn(u8) -> u8>,
+	PhantomData<Unit>,
+	PhantomData<Tagged<()>>,
+	PhantomData<()>,
+);
+
+/// `..` and `Empty`, whose impls are std's own, of what each has.
+#[derive(Clone, Debug, Default)]
+struct Rest(RangeFull, Empty<u8>);
+
+/// `DefaultHasher::new`'s hash of `value`.
+fn hash<T: Hash + ?Sized>(value: &T) -> u64 {
+	let mut h = DefaultHasher::new();
+	value.hash(&mut h);
+	h.finish()
+}
+
+/// [`hash`] of `value`, little-endian.
+fn digest<T: Hash + ?Sized>(value: &T, out: &mut Vec<u8>) {
+	out.extend_from_slice(&hash(value).to_le_bytes());
+}
+
+/// The impls `#[derive]` calls on `PhantomData`, `PhantomPinned`, and `()` fields.
+pub fn impls(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let tags: Vec<Tagged<String>> = data
+		.iter()
+		.map(|&n| Tagged {
+			n,
+			..Default::default()
+		})
+		.collect();
+	match kind % 4 {
+		0 => {
+			let t = tags.first().cloned().unwrap_or_default();
+			let copied = Tagged::<u8> {
+				n: t.n,
+				..Default::default()
+			};
+			let again = copied;
+			out.extend(format!("{t:?} {copied:?} {again:#?} {:#?}", Names::default()).bytes());
+			let rest = Rest::default().clone();
+			out.extend(format!("{rest:?} {rest:#?} {:>9?}|{:<9?}|", PhantomPinned, PhantomData::<u8>).bytes());
+			out.push(rest.1.count() as u8);
+		}
+		// Order, beside the hashes it must agree with.
+		1 => {
+			let mut sorted = tags.clone();
+			sorted.sort();
+			out.extend(sorted.iter().map(|t| t.n));
+			// Equal by `Ord` exactly when equal by `PartialEq` and by hash.
+			for pair in tags.windows(2) {
+				let (a, b) = (&pair[0], &pair[1]);
+				out.push(a.cmp(b) as u8 | u8::from(a == b) << 2 | u8::from(a.partial_cmp(b) == Some(a.cmp(b))) << 3);
+				out.push(u8::from(a.cmp(b).is_eq() == (hash(a) == hash(b))));
+			}
+			out.push(u8::from(PhantomData::<u8> == PhantomData) | u8::from(PhantomPinned == PhantomPinned) << 1);
+			out.push(PhantomData::<String>.cmp(&PhantomData) as u8);
+			out.push(().cmp(&()) as u8);
+		}
+		2 => {
+			for t in &tags {
+				digest(t, out);
+				digest(&t.n, out);
+			}
+			digest(&(), out);
+			digest(&PhantomData::<u64>, out);
+			digest(&PhantomPinned, out);
+			digest(&.., out);
+			digest(&Names::default(), out);
+		}
+		_ => {
+			let names = Names::default().clone();
+			out.push(u8::from(names == Names::default()));
+			out.push(u8::from(names.cmp(&Names::default()).is_eq()));
+			out.push(u8::from(tags.iter().all(|t| t.clone() == *t)));
+			out.push(u8::from(Rest::default().0 == ..));
+		}
+	}
+}
+
+/// `()` as a hash and B-tree key and as `collect::<Option<_>>`'s item.
+pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match kind % 3 {
+		0 => {
+			let mut hash = HashSet::new();
+			let mut tree = BTreeSet::new();
+			for &b in data {
+				if b & 1 == 0 {
+					out.push(u8::from(hash.insert(())) | u8::from(tree.insert(())) << 1);
+				} else {
+					out.push(u8::from(hash.remove(&())) | u8::from(tree.remove(&())) << 1);
+				}
+				out.push(hash.len() as u8 | (tree.len() as u8) << 4);
+			}
+			out.push(u8::from(hash.contains(&())) | u8::from(tree.contains(&())) << 1);
+			out.push(u8::from(tree.first() == tree.last()));
+		}
+		1 => {
+			let mut map = HashMap::new();
+			let mut tree = BTreeMap::new();
+			for &b in data {
+				if b & 3 == 3 {
+					out.extend(map.remove(&()).map(|v: u8| [1, v]).unwrap_or([0, 0]));
+					out.extend(tree.remove(&()).map(|v: u8| [1, v]).unwrap_or([0, 0]));
+				} else {
+					out.extend(map.insert((), b).map(|v| [1, v]).unwrap_or([0, 0]));
+					out.extend(tree.insert((), b).map(|v| [1, v]).unwrap_or([0, 0]));
+				}
+				out.push(map.len() as u8 | (tree.len() as u8) << 4);
+				out.push(map.get(&()).copied().unwrap_or(0));
+			}
+		}
+		// `None` midway stops the collection there.
+		_ => {
+			let units: Option<Vec<()>> = data.iter().map(|&b| (b != 0).then_some(())).collect();
+			out.extend(units.map(|v| [1, v.len() as u8]).unwrap_or([0, 0]));
+			let count = data
+				.iter()
+				.map(|&b| (b != 0).then_some(()))
+				.inspect(|_| out.push(9))
+				.collect::<Option<Vec<()>>>();
+			out.push(u8::from(count.is_some()));
+			let all: Option<()> = data.iter().map(|&b| (b < 0x80).then_some(())).collect();
+			out.push(u8::from(all.is_some()));
 		}
 	}
 }

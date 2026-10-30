@@ -16,7 +16,7 @@
 //! the crate's own `RangeBounds`, the equality of `Result`s and std's errors, inclusive
 //! ranges read through each adaptor, iterators' size hints, the capacity overflows
 //! collections reserving by them panic with, and zero-sized values, which MIR never
-//! assigns.
+//! assigns, with std's impls of them.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.

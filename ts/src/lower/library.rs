@@ -353,6 +353,28 @@ impl Flow {
 	}
 }
 
+/// Whether `ty` holds nothing, so its value is `undefined`: `()`, `PhantomData`,
+/// `PhantomPinned`, or `..`, whose impls each compare equal and hash nothing.
+pub fn nothing<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	match ty.kind() {
+		ty::Tuple(tys) => tys.is_empty(),
+		ty::Adt(adt, _) => {
+			adt.is_phantom_data() || pinned(tcx, adt.did()) || Std::of(tcx, adt.did()) == Some(Std::RangeFull)
+		}
+		_ => false,
+	}
+}
+
+/// Whether `did` is `PhantomPinned`.
+pub fn pinned(tcx: TyCtxt<'_>, did: DefId) -> bool {
+	tcx.is_diagnostic_item(rustc_span::Symbol::intern("PhantomPinned"), did)
+}
+
+/// Whether `did` is `iter::Empty`, an `rt.Iter` that holds nothing.
+pub fn empty_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
+	is_std(tcx, did) && std_path(tcx, did) == ["iter", "sources", "empty", "Empty"]
+}
+
 /// Whether a `ty`'s value is a JS string: a `str`, a `String`, or a `Cow<str>`.
 pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
@@ -1248,9 +1270,9 @@ fn mapping<'tcx>(
 				span,
 			)
 		}
-		// Every `()` is equal, and no `!` is ever compared.
+		// Every value of a type holding nothing is equal, and no `!` is ever compared.
 		("PartialEq", "eq" | "ne")
-			if unwrapped(tcx, targ(gargs, 0)).is_unit() || unwrapped(tcx, targ(gargs, 0)).is_never() =>
+			if nothing(tcx, unwrapped(tcx, targ(gargs, 0))) || unwrapped(tcx, targ(gargs, 0)).is_never() =>
 		{
 			Expr::lit(if name == "eq" { "true" } else { "false" })
 		}
@@ -1313,6 +1335,8 @@ fn mapping<'tcx>(
 				ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::FromUtf8Error) => {
 					Expr::rt("fromUtf8ErrorClone", vec![value])
 				}
+				// Another that holds nothing.
+				ty::Adt(adt, _) if empty_iter(tcx, adt.did()) => b.zero_sized_std(ty, Vec::new(), span).ok()?,
 				// Through the reference, a slice of the bytes.
 				_ if super::byte_array(ty) => Expr::rt("byteSliceToArray", vec![value]),
 				ty::Adt(adt, _) if int_range(ty) => {
@@ -2277,7 +2301,8 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 		b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out)
 	};
 	Some(match ty.kind() {
-		ty::Tuple(parts) if parts.is_empty() => Expr::undefined(),
+		_ if nothing(tcx, ty) => Expr::undefined(),
+		ty::Adt(adt, _) if empty_iter(tcx, adt.did()) => b.zero_sized_std(ty, Vec::new(), span).ok()?,
 		ty::Tuple(parts) => Expr::Array(parts.iter().map(|t| part(b, t, out)).collect()),
 		ty::Array(elem, n) => {
 			let n = n.try_to_target_usize(tcx)?;

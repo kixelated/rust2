@@ -1107,7 +1107,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 			}
 		};
-		self.program.items.push(item);
+		self.program.items.push(unnamed_params(item));
 		self.drop_glue(adt, &info, span);
 		info
 	}
@@ -1574,7 +1574,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.ty(inner, span);
 		}
 		// Nothing, as its value is.
-		if adt.is_phantom_data() {
+		if library::nothing(tcx, Ty::new_adt(tcx, adt, args)) {
 			return Type::Builtin("undefined");
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
@@ -1716,7 +1716,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// seen through the wrappers that erase to their contents.
 	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
-			ty::Tuple(tys) if tys.is_empty() => Erased {
+			_ if library::nothing(self.tcx, ty) => Erased {
 				undefined: true,
 				..Erased::default()
 			},
@@ -1727,11 +1727,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// An `rt.Place`, which is an object.
 			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
-			// Nothing, as `()` is.
-			ty::Adt(adt, _) if adt.is_phantom_data() => Erased {
-				undefined: true,
-				..Erased::default()
-			},
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
 				Some(
 					library::Std::Box
@@ -1750,10 +1745,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
 					self.erases_to(args.type_at(1)).option()
 				}
-				Some(library::Std::RangeFull) => Erased {
-					undefined: true,
-					..Erased::default()
-				},
 				_ => Erased::default(),
 			},
 			_ => Erased::default(),
@@ -1922,6 +1913,22 @@ pub fn camel(name: &str) -> String {
 		out.push('_');
 	}
 	out
+}
+
+/// `item` with each type parameter its type never names marked unused, as TS wants of
+/// one only a `PhantomData` held.
+fn unnamed_params(mut item: Item) -> Item {
+	let (params, types): (&mut Vec<String>, Vec<&Type>) = match &mut item {
+		Item::Struct { params, fields, .. } => (params, fields.iter().map(|f| &f.ty).collect()),
+		Item::Union { params, ty, .. } => (params, vec![&*ty]),
+		_ => return item,
+	};
+	for param in params.iter_mut() {
+		if !types.iter().any(|t| t.names(param)) {
+			*param = format!("_{param}");
+		}
+	}
+	item
 }
 
 /// A field's property name: `camelCase`, or `_0` for a tuple field.
