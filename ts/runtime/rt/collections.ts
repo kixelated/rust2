@@ -1373,31 +1373,35 @@ function bounds<K>(r: Bounds<K>): BoundPair<K> {
 	return [start, { tag: "inclusive" in r ? "Included" : "Excluded", _0: r.end }];
 }
 
-/** `BTreeMap::range` and `range_mut`: the entries within `r`. */
-export function btreeRange<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, V]> {
-	return range(m, r, ENTRIES, "BTreeMap");
+/**
+ * `BTreeMap::range` and `range_mut`: the entries within `r`. A key of the crate's own gives
+ * its `PartialEq::eq` and `PartialOrd::gt`, which std checks the ends by.
+ */
+export function btreeRange<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, eq?: Test<K>, gt?: Test<K>): Iter<[K, V]> {
+	return range(m, r, ENTRIES, "BTreeMap", eq, gt);
 }
 
 /** `range_mut` of values JS copies: each key within `r` and the place of its value. */
-export function btreeRangeMut<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<[K, Place<V>]> {
-	return range(m, r, PLACES, "BTreeMap");
+export function btreeRangeMut<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, eq?: Test<K>, gt?: Test<K>): Iter<[K, Place<V>]> {
+	return range(m, r, PLACES, "BTreeMap", eq, gt);
 }
 
 /** `BTreeSet::range`: the keys within `r`. */
-export function btreeRangeKeys<K, V>(m: BTreeMap<K, V>, r: Bounds<K>): Iter<K> {
-	return range(m, r, KEYS, "BTreeSet");
+export function btreeRangeKeys<K, V>(m: BTreeMap<K, V>, r: Bounds<K>, eq?: Test<K>, gt?: Test<K>): Iter<K> {
+	return range(m, r, KEYS, "BTreeSet", eq, gt);
 }
 
-/** The items of `m` within `r`, checked as std checks it. */
-function range<K, V, T>(m: BTreeMap<K, V>, r: Bounds<K>, pick: Pick, name: string): Iter<T> {
+/** The items of `m` within `r`, checked as std checks it: by `eq` and `gt`, or by `m`'s order. */
+function range<K, V, T>(m: BTreeMap<K, V>, r: Bounds<K>, pick: Pick, name: string, eq?: Test<K>, gt?: Test<K>): Iter<T> {
 	if (!m.r) return new BTreeIter<K, V, T>(pick, m.t as Leaf<K, V>, 0, m.t as Leaf<K, V>, 0);
 	const [start, stop] = bounds(r);
 	if (start.tag !== "Unbounded" && stop.tag !== "Unbounded") {
-		const order = m.c(start._0, stop._0);
-		if (order === 0 && start.tag === "Excluded" && stop.tag === "Excluded") {
+		const s = start._0;
+		const e = stop._0;
+		if (start.tag === "Excluded" && stop.tag === "Excluded" && (eq === undefined ? m.c(s, e) === 0 : eq(s, e))) {
 			panic(`range start and end are equal and excluded in ${name}`);
 		}
-		if (order > 0) panic(`range start is greater than range end in ${name}`);
+		if (gt === undefined ? m.c(s, e) > 0 : gt(s, e)) panic(`range start is greater than range end in ${name}`);
 	}
 	const [fl, fi] = start.tag === "Unbounded" ? [end(m, false), 0] : edge(m, start._0, start.tag === "Excluded");
 	const last = end(m, true);

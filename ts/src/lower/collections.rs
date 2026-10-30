@@ -648,6 +648,13 @@ fn btree<'tcx>(
 	if matches!(name, "range" | "range_mut") {
 		let range = values.pop()?;
 		values.push(bounds(b, call, range));
+		// std checks the ends by `==` and `>`, which a std key does as its `Ord` does, and
+		// the crate's own by its `PartialEq` and `PartialOrd`.
+		let target = range_target(b, call);
+		if !std_key(b, target) {
+			values.push(eq_fn(b, target, span));
+			values.push(test_fn(b, target, "gt", span));
+		}
 	}
 	let last = |mut values: Vec<Expr>| {
 		values.push(Expr::lit("true"));
@@ -1291,7 +1298,17 @@ pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) 
 		_ if b.t.deferred(ty) => return range,
 		_ => {}
 	}
-	// `R: RangeBounds<T>` of the function's own `R`, which says what `T` is.
+	let target = range_target(b, call);
+	let args = tcx.mk_args(&[ty.into(), target.into()]);
+	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
+	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
+	Expr::rt("boundsOf", vec![range, start, end])
+}
+
+/// The `T` of the `RangeBounds<T>` that the range `call` takes last implements, from the
+/// function's own bound on its range's type.
+fn range_target<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Ty<'tcx> {
+	let tcx = b.t.tcx;
 	let bounds = tcx.parent(trait_fn(tcx, "RangeBounds", "start_bound"));
 	let sig = tcx
 		.fn_sig(call.def_id)
@@ -1307,11 +1324,7 @@ pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) 
 			(tr.def_id == bounds && tr.self_ty() == own).then(|| tr.args.type_at(1))
 		})
 		.expect("a range's bound");
-	let target = b.t.subst(call.args, target);
-	let args = tcx.mk_args(&[ty.into(), target.into()]);
-	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
-	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
-	Expr::rt("boundsOf", vec![range, start, end])
+	b.t.subst(call.args, target)
 }
 
 /// What `ty` holds if it is an `Arc`.

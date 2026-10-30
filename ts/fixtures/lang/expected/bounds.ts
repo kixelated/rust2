@@ -139,8 +139,8 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _49: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] = [bound$usize(s, i), bound$usize(e, j)];
 			rt.iterExtendBytes(out, rt.iterRev(rt.byteVecDrain(bytes, _49)), "fold");
 			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(bytes)));
-			const words: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4))), (_217: rt.u8): rt.u32 => {
-				return rt.u32Add(_217 as rt.u32, 1000);
+			const words: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4))), (_214: rt.u8): rt.u32 => {
+				return rt.u32Add(_214 as rt.u32, 1000);
 			}));
 			const drain: rt.Iter<rt.u32> = rt.vecDrain(words, range);
 			rt.iterExtendBytes(out, rt.iterOption(map$0a57co2(rt.iterToOption(drain.nextBack()), (w: rt.u32): rt.u8 => {
@@ -148,17 +148,17 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			})));
 			rt.byteVecPush(out, drain.len() & 0xff);
 			rt.drop(drain);
-			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(words), (_220: rt.u32): rt.u8 => {
-				return _220 & 0xff;
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(words), (_216: rt.u32): rt.u8 => {
+				return _216 & 0xff;
 			}));
 		} else if (_28 === 1) {
 			const _78: Asked.Asked<rt.usize> = asked$usize(s, e, i, j);
 			const drain2: rt.Iter<Item.Item> = rt.vecDrain(items, rt.boundsOf(_78, Asked.startBound$RangeBounds_usize_usize, Asked.endBound$RangeBounds_usize_usize), rt.drop);
 			flush(out);
 			rt.iterExtendBytes(out, rt.iterOption(map$1iekgsb(rt.iterToOption(drain2.next()), (x5: Item.Item): rt.u8 => {
-				const _010: rt.u8 = x5.tag;
+				const _08: rt.u8 = x5.tag;
 				x5[Symbol.dispose]();
-				return _010;
+				return _08;
 			})));
 			flush(out);
 			rt.drop(drain2);
@@ -187,9 +187,9 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _117: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] = [bound$usize$2(s, i), bound$usize$2(e, j)];
 			const drain3: rt.Iter<Item.Item> = rt.dequeDrain(queue, _117, rt.drop);
 			rt.iterExtendBytes(out, rt.iterOption(map$1iekgsb(rt.iterToOption(drain3.nextBack()), (x2: Item.Item): rt.u8 => {
-				const _07: rt.u8 = x2.tag;
+				const _05: rt.u8 = x2.tag;
 				x2[Symbol.dispose]();
-				return _07;
+				return _05;
 			})));
 			flush(out);
 			rt.drop(drain3);
@@ -208,8 +208,8 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}));
 			rt.dequeDrop(queue, rt.drop);
 		} else if (_28 === 3) {
-			const _155: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4)))), (_214: [rt.usize, rt.u8]): [rt.u8, rt.u8] => {
-				return [_214[1], _214[0] & 0xff] as [rt.u8, rt.u8];
+			const _155: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4)))), (_25: [rt.usize, rt.u8]): [rt.u8, rt.u8] => {
+				return [_25[1], _25[0] & 0xff] as [rt.u8, rt.u8];
 			});
 			const map: rt.BTreeMap<rt.u8, rt.u8> = rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _155, true);
 			const range2: [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>] = [bound$u8$2(s, a), bound$u8$2(e, b)];
@@ -223,8 +223,8 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.byteVecPush(out, _165[1]);
 			}
 			const _180: [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>] = [bound$u8(s, a), bound$u8(e, b)];
-			rt.iterExtendBytes(out, rt.iterOption(map$1hdkvwd(rt.iterToOption(rt.btreeRange(map, _180).nextBack()), (_216: [rt.u8, rt.u8]): rt.u8 => {
-				return _216[0];
+			rt.iterExtendBytes(out, rt.iterOption(map$1hdkvwd(rt.iterToOption(rt.btreeRange(map, _180).nextBack()), (_210: [rt.u8, rt.u8]): rt.u8 => {
+				return _210[0];
 			})));
 			const iter4: rt.Iter<[rt.u8, rt.Place<rt.u8>]> = rt.btreeRangeMut(map, range2);
 			while (true) {
@@ -259,27 +259,34 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _238: [Key.Key, Key.Key] = [{ _0: a }, { _0: b }];
 			const a2: Key.Key = _238[0];
 			const b2: Key.Key = _238[1];
-			const _242: rt.Iter<Key.Key> = rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4))), (_25: rt.u8): Key.Key => {
-				return { _0: _25 };
-			});
-			rt.iterExtendBytes(out, rt.iterMap(rt.btreeRangeKeys(rt.btreeExtendKeys(rt.btreeNew(Key.cmp$Ord) as rt.BTreeSet<Key.Key>, _242, true), [bound$Key(s, a2), bound$Key(e, b2)] as [rt.RangeBound<Key.Key>, rt.RangeBound<Key.Key>]), (k2: Key.Key): rt.u8 => {
-				return k2._0;
-			}));
-			const _254: rt.Iter<[Key.Key, rt.u8]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4)))), (_210: [rt.usize, rt.u8]): [Key.Key, rt.u8] => {
-				const n2: rt.usize = _210[0];
-				const _53: Key.Key = { _0: _210[1] };
-				return [_53, n2 & 0xff] as [Key.Key, rt.u8];
-			});
-			const map2: rt.BTreeMap<Key.Key, rt.u8> = rt.btreeExtend(rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, rt.u8>, _254, true);
-			const _260: [rt.RangeBound<Key.Key>, rt.RangeBound<Key.Key>] = [bound$Key(s, a2), bound$Key(e, b2)];
-			const iter5: rt.Iter<[Key.Key, rt.Place<rt.u8>]> = rt.btreeRangeMut(map2, _260);
+			const set3: rt.BTreeSet<Key.Key> = rt.btreeNew(Key.cmp$Ord) as rt.BTreeSet<Key.Key>;
+			const map2: rt.BTreeMap<Key.Key, rt.u8> = rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, rt.u8>;
+			const iter5: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 4))));
 			while (true) {
-				const _266: [Key.Key, rt.Place<rt.u8>] | rt.Done = iter5.next();
-				if (_266 === rt.DONE) {
+				const _247: [rt.usize, rt.u8] | rt.Done = iter5.next();
+				if (_247 === rt.DONE) {
 					break;
 				}
-				_266[1].v = _266[1].v ^ 128;
+				const n2: rt.usize = _247[0];
+				const k: rt.u8 = _247[1];
+				rt.btreeAdd(set3, { _0: k });
+				rt.btreeInsert(map2, { _0: k }, n2 & 0xff);
 			}
+			const _263: [rt.RangeBound<Key.Key>, rt.RangeBound<Key.Key>] = [bound$Key(s, a2), bound$Key(e, b2)];
+			rt.iterExtendBytes(out, rt.iterMap(rt.btreeRangeKeys(set3, _263, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), (k2: Key.Key): rt.u8 => {
+				return k2._0;
+			}));
+			flush(out);
+			const _272: [rt.RangeBound<Key.Key>, rt.RangeBound<Key.Key>] = [bound$Key(s, a2), bound$Key(e, b2)];
+			const iter6: rt.Iter<[Key.Key, rt.Place<rt.u8>]> = rt.btreeRangeMut(map2, _272, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd));
+			while (true) {
+				const _278: [Key.Key, rt.Place<rt.u8>] | rt.Done = iter6.next();
+				if (_278 === rt.DONE) {
+					break;
+				}
+				_278[1].v = _278[1].v ^ 128;
+			}
+			flush(out);
 			rt.iterExtendBytes(out, rt.btreeValues(map2));
 		}
 		flush(out);

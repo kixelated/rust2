@@ -53,9 +53,17 @@ impl<T> RangeBounds<T> for Asked<T> {
 	}
 }
 
-/// A key the crate orders by its own `Ord`, high to low, as rangemap's keys are by theirs.
-#[derive(PartialEq, Eq)]
+/// A key the crate orders by its own `Ord`, high to low, as rangemap's keys are by theirs,
+/// which logs each `==` and `partial_cmp`: 0xe9 and 0xc9.
+#[derive(Eq)]
 struct Key(u8);
+
+impl PartialEq for Key {
+	fn eq(&self, other: &Self) -> bool {
+		log(0xe9);
+		self.0 == other.0
+	}
+}
 
 impl Ord for Key {
 	fn cmp(&self, other: &Self) -> Ordering {
@@ -65,6 +73,7 @@ impl Ord for Key {
 
 impl PartialOrd for Key {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		log(0xc9);
 		Some(self.cmp(other))
 	}
 }
@@ -183,15 +192,22 @@ pub fn bounds(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(within(&set, asked(s, e, a, b)) as u8);
 			flush(out);
 		}
-		// Keys the crate orders, ranged by references to them, as rangemap ranges.
+		// Keys the crate orders, ranged by references to them, as rangemap ranges, whose ends
+		// std checks by `==` and `>`.
 		_ => {
 			let (a, b) = (Key(a), Key(b));
-			let set: BTreeSet<Key> = data.iter().map(|&k| Key(k)).collect();
+			let mut set = BTreeSet::new();
+			let mut map = BTreeMap::new();
+			for (n, &k) in data.iter().enumerate() {
+				set.insert(Key(k));
+				map.insert(Key(k), n as u8);
+			}
 			out.extend(set.range((bound(s, &a), bound(e, &b))).map(|k| k.0));
-			let mut map: BTreeMap<Key, u8> = data.iter().enumerate().map(|(n, &k)| (Key(k), n as u8)).collect();
+			flush(out);
 			for (_, v) in map.range_mut((bound(s, &a), bound(e, &b))) {
 				*v ^= 0x80;
 			}
+			flush(out);
 			out.extend(map.values());
 		}
 	}
