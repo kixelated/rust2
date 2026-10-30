@@ -26,7 +26,6 @@ generic std gap is planned here even when moq never calls it.
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
 - [A B-tree's drop order](/quest/m3/ts-btree-drop.md) - dropping a whole `BTreeMap` or `BTreeSet` drops its entries node by node, as std's does
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
-- [Set operations](/quest/m3/ts-set-ops.md) - `union`, `intersection`, `difference`, and `symmetric_difference` of hash and B-tree sets translate
 - [References to byte arrays std takes](/quest/m3/ts-byte-refs-taken.md) - `extend` by references to arrays, adaptors' closures over held arrays, and a collection of both forms translate
 - [Equality of std containers of unlike elements](/quest/m3/ts-eq-unlike.md) - `==` and `next_if_eq` of a `Vec<Left>` against a `&[Right]`, and of `VecDeque` against `Vec`, translate
 - [mul_add rounded once](/quest/m3/ts-mul-add.md) - `f64::mul_add` and `f32::mul_add` translate, rounding once as std's fused multiply-add does
@@ -34,6 +33,7 @@ generic std gap is planned here even when moq never calls it.
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A VecDeque's Debug](/quest/m3/ts-deque-debug.md) - `{:?}` of a `VecDeque` translates, writing std's list
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
+- [An array's map](/quest/m3/ts-array-map.md) - `<[T; N]>::map` translates, calling its closure on each element in order
 - [Zero-sized values made out of sight](/quest/m3/ts-zero-sized.md) - unit structs and empty arrays returned, and std adaptors of only zero-sized fields, translate
 - [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once

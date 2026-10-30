@@ -39,7 +39,8 @@ pub fn call<'tcx>(
 			| ("Clone", "clone", Some(std), Some(t))
 			| ("Index" | "IndexMut", "index" | "index_mut", Some(std), Some(t))
 			| ("Extend", "extend", Some(std), Some(t))
-			| ("From", "from", Some(std), Some(t)) => (std, t.peel_refs()),
+			| ("From", "from", Some(std), Some(t))
+			| ("BitOr" | "BitAnd" | "Sub" | "BitXor", _, Some(std), Some(t)) => (std, t.peel_refs()),
 			// Comparing and hashing a key of a std type.
 			("Ord", "cmp", ..) | ("PartialOrd", "partial_cmp", ..) if let Some(t) = self_ty => {
 				let t = peel(b, t);
@@ -278,11 +279,16 @@ pub fn lends_call<'tcx>(t: &Translator<'_, 'tcx>, def_id: DefId, args: GenericAr
 	if held.types().any(holds_bytes_ref) {
 		return Some(false);
 	}
+	let name = tcx.item_name(def_id);
+	let other_set =
+		set_op("", name.as_str()).is_some() || matches!(name.as_str(), "bitor" | "bitand" | "sub" | "bitxor");
 	let sig = t.sig(def_id, args);
 	let taken = sig.inputs().iter().skip(1).all(|&input| match closure_sig(tcx, input) {
 		Some((params, output)) => params.iter().all(|&p| lends(t, p).is_some()) && !holds_bytes_ref(output),
 		// A key looked up or compared by a reference to its bytes, which the runtime reads in
-		// either form, or what holds none, nor yields any as `extend` takes what it stores.
+		// either form, the other set of a set operation, which it reads as it holds, or what
+		// holds none, nor yields any as `extend` takes what it stores.
+		None if other_set && input.peel_refs() == coll => true,
 		None => {
 			let yielded = super::iter::iter_of(t, input).and_then(|iter| t.iter_item(iter));
 			super::bytes_ref(input)
@@ -634,6 +640,16 @@ fn hash<'tcx>(
 			)
 		}
 		(_, "entry") => Expr::rt("entry", values),
+		(_, name) if let Some(f) = set_op("hash", name) => Expr::rt(f, values),
+		("BitOr" | "BitAnd" | "Sub" | "BitXor", _) => {
+			let keys = set_op_keys(b, coll, "hash", owner, values, span)?;
+			let target = hash_new(b, coll, span)?;
+			let max = hash_max(b, coll, span);
+			Expr::rt(
+				"hashExtendKeys",
+				vec![target, keys, Expr::undefined(), Expr::undefined(), max],
+			)
+		}
 		(_, "reserve" | "shrink_to_fit") => {
 			discard(values, out);
 			Expr::undefined()
@@ -659,6 +675,46 @@ fn hash<'tcx>(
 		_ => return None,
 	};
 	Some(e)
+}
+
+/// The runtime's function of a set's operation or test `name`, of the runtime's `prefix`
+/// for its type: `hashUnion` of a `HashSet`'s `union`.
+fn set_op(prefix: &str, name: &str) -> Option<String> {
+	let op = match name {
+		"union" => "Union",
+		"intersection" => "Intersection",
+		"difference" => "Difference",
+		"symmetric_difference" => "SymmetricDifference",
+		"is_subset" => "IsSubset",
+		"is_superset" => "IsSuperset",
+		"is_disjoint" => "IsDisjoint",
+		_ => return None,
+	};
+	Some(format!("{prefix}{op}"))
+}
+
+/// What the set operator of trait `owner` builds a set of type `coll` from, as std's: its
+/// operation of the two sets in `values`, each key cloned.
+fn set_op_keys<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	coll: Ty<'tcx>,
+	prefix: &str,
+	owner: &str,
+	values: Vec<Expr>,
+	span: Span,
+) -> Option<Expr> {
+	let name = match owner {
+		"BitOr" => "union",
+		"BitAnd" => "intersection",
+		"Sub" => "difference",
+		_ => "symmetric_difference",
+	};
+	let keys = Expr::rt(set_op(prefix, name)?, values);
+	let clone = clone_fn(b, arg(coll, 0), span);
+	Some(match clone == Expr::undefined() {
+		true => keys,
+		false => Expr::rt("iterMap", vec![keys, clone]),
+	})
 }
 
 /// `extend` of `target`, a hash collection of type `coll`, from `source`, an iterator of
@@ -976,6 +1032,12 @@ fn btree<'tcx>(
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
 		(_, "entry") => Expr::rt("entry", values),
 		(_, "split_off") => Expr::rt("btreeSplitOff", values),
+		(_, name) if let Some(f) = set_op("btree", name) => Expr::rt(f, values),
+		("BitOr" | "BitAnd" | "Sub" | "BitXor", _) => {
+			let keys = set_op_keys(b, coll, "btree", owner, values, span)?;
+			let target = btree_new(b, coll, span);
+			Expr::rt("btreeFromSorted", vec![target, keys])
+		}
 		("Index", "index") => Expr::rt("btreeIndex", values),
 		("Clone", "clone") => {
 			let k = clone_fn(b, key, span);
