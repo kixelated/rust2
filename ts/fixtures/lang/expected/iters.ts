@@ -424,7 +424,7 @@ export function peekedOthers(data: rt.ByteSlice, out: rt.ByteVec): void {
 	};
 	const words: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): string => {
 		return _3(_2);
-	}));
+	}), undefined, 12, true);
 	const _12: string | undefined = rt.sliceFirst(words);
 	const first: string = unwrapOrDefault$165pyh5(_12 === undefined ? undefined : _12);
 	const it: rt.Peekable<string> = rt.iterPeekable(rt.iterSlice(words.slice()));
@@ -565,7 +565,7 @@ export function peekedOthers(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}), 170, (b9: rt.Place<rt.u8>): rt.u8 => {
 		return b9.v;
 	}));
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(bytes)));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(bytes)), undefined, true);
 	const it11: rt.Peekable<Quarter.Quarter> = rt.iterPeekable(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_210: rt.u8): Quarter.Quarter => {
 		return { _0: _210, _1: calls };
 	}));
