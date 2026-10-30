@@ -201,6 +201,7 @@ int script() {
 	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
 	std::printf("each %u\n", api::each(2, [](std::uint32_t at) { std::printf("visit %u\n", at); }));
 	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
+	std::printf("shift %u\n", api::shift([] { return 7u; }, 4));
 
 	// A type generic only over lifetimes is a handle to its 'static form.
 	{

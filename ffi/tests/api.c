@@ -252,6 +252,7 @@ static int script(void) {
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
 	printf("each %u\n", api_each(2, print_visit, NULL));
 	printf("offset %u\n", api_offset(seven, NULL, 3));
+	printf("shift %u\n", api_shift(seven, NULL, 4));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */

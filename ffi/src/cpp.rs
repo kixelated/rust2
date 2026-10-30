@@ -1089,8 +1089,10 @@ impl<'a> Header<'a> {
 				c_params.next().expect("a closure has its data");
 				let f = format!("F{}", templates.len());
 				params.push(format!("{f} &&{name}"));
-				prelude.push(self.closure(&f, &name, (lent, ret), (c_lent, c_ret)));
-				args.push(format!("c_{name}_"));
+				// Named by its type, not its parameter, so no renamed parameter takes the name.
+				let trampoline = format!("c_{}_", f.to_lowercase());
+				prelude.push(self.closure(&f, &trampoline, (lent, ret), (c_lent, c_ret)));
+				args.push(trampoline);
 				args.push(format!(
 					"const_cast<void *>(static_cast<const void *>(::std::addressof({name})))"
 				));
@@ -1178,10 +1180,10 @@ impl<'a> Header<'a> {
 		(declaration, member)
 	}
 
-	/// The trampoline C calls for the closure parameter `name`, of type `f`, taking `lent`
-	/// and returning `ret`, which C declares as `c_lent` and `c_ret`: it lends each object
-	/// as its class.
-	fn closure(&self, f: &str, name: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
+	/// The trampoline C calls for a closure parameter of type `f`, as the local `local`,
+	/// taking `lent` and returning `ret`, which C declares as `c_lent` and `c_ret`: it lends
+	/// each object as its class.
+	fn closure(&self, f: &str, local: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
 		let abi = self.abi;
 		let d = self.d();
 		let c_params: Vec<String> = std::iter::once("void *data_".to_string())
@@ -1222,7 +1224,7 @@ impl<'a> Header<'a> {
 			ret => format!("return {};", self.lower(ret, &call)),
 		});
 		format!(
-			"auto c_{name}_ = []({}) noexcept -> {} {{\n\t\t{}\n\t}};",
+			"auto {local} = []({}) noexcept -> {} {{\n\t\t{}\n\t}};",
 			c_params.join(", "),
 			decl(abi, c_ret, ""),
 			body.join("\n\t\t")
@@ -1296,8 +1298,8 @@ fn parameter(rust: &str, taken: impl Fn(&str) -> bool) -> String {
 }
 
 /// Whether the header names its own locals and members `name`: the arena `a_`, a handle's
-/// `raw_`, a C value `c_…_`, and a trampoline's or lambda's `f_`, `data_`, `p0_`, `l0_`,
-/// `x0_`, or `c0_`.
+/// `raw_`, a C value or a closure's trampoline `c_…_`, and a trampoline's or lambda's `f_`,
+/// `data_`, `p0_`, `l0_`, `x0_`, or `c0_`.
 fn generated(name: &str) -> bool {
 	let Some(stem) = name.strip_suffix('_') else {
 		return false;
