@@ -392,7 +392,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}), _378);
 	const keys: [rt.u8, rt.u8][] = rt.iterToArray(rt.iterMap(rt.hashIter(sets), (_22: [rt.u8, rt.BTreeSet<rt.u8>]): [rt.u8, rt.u8] => {
 		return [_22[0], rt.btreeLen(_22[1]) & 0xff] as [rt.u8, rt.u8];
-	}), undefined, 2);
+	}), "next", 2);
 	rt.sliceSort(keys, rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
 	for (const _394 of keys) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_394[0], _394[1])));
@@ -450,7 +450,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, requeue(q, map, _519) & 0xff);
 	}
 	rt.iterExtendBytes(out, rt.dequeIter(q), undefined, true);
-	rt.iterExtendBytes(out, rt.hashValues(map));
+	rt.iterExtendBytes(out, rt.hashValues(map), "next");
 	const weak: rt.Weak<rt.u8> = new rt.Weak();
 	relink(weak, two);
 	rt.byteVecPush(out, mapOr$1q3ff8g(rt.weakUpgrade(weak), 238, (a3: rt.Arc<rt.u8>): rt.u8 => {

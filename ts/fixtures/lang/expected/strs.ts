@@ -197,7 +197,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					} else {
 						for (const _190 of rt.iterToArray(rt.iterMap(rt.strMatchIndices(s, "/"), (_2: [rt.usize, string]): rt.usize => {
 							return _2[0];
-						}), undefined, 4)) {
+						}), "next", 4)) {
 							putOffset(out, _190);
 						}
 						break b0;
@@ -356,7 +356,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					});
 					put(out, rt.strSlice(s, part5));
 				} else if (_8 === 5) {
-					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), undefined, 8);
+					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
 					put(out, parts.join(p));
 					put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
 						return part3;
@@ -1184,8 +1184,8 @@ export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const s: string = text(data);
-	const chars: rt.char[] = rt.iterToArray(rt.strChars(s), undefined, 4);
-	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), undefined, 8);
+	const chars: rt.char[] = rt.iterToArray(rt.strChars(s), "next", 4);
+	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
 	const nexts: rt.Cell<rt.u8> = new rt.Cell(0);
 	const named: Named.Named = { name: text(rt.byteSliceRange(data, 0, rt.usizeDiv(data.length, 2))) };
 	const _21: rt.u8 = rt.u8Rem(kind, 4);
