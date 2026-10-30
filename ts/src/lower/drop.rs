@@ -65,8 +65,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
-				// A `Vec`'s drain moves the vector's tail back as it drops.
-				None if library::std_path(tcx, adt.did()) == ["vec", "drain", "Drain"] => true,
+				// A `Vec`'s drain moves the vector's tail back as it drops, and a `String`'s takes
+				// the drained text out of it.
+				None if {
+					let path = library::std_path(tcx, adt.did());
+					path == ["vec", "drain", "Drain"] || path == ["string", "Drain"]
+				} =>
+				{
+					true
+				}
 				None | Some(Std::Peekable) if self.std_iter(ty) => match adt.has_dtor(tcx) {
 					// What owns its items, an `IntoIter` or a `Drain`, drops those it still holds.
 					true => args.types().any(|t| self.drops(t)),

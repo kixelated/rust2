@@ -21,7 +21,7 @@
 
 import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
-import { type Limbs, lt as wideLt, type Step } from "./int.ts";
+import { intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
 
 /** What `next` returns once an iterator is exhausted, which no item is. */
@@ -35,6 +35,11 @@ const USIZE_MAX = 0xffffffff;
 
 /** What drops a value. */
 type Drop<T> = (value: T) => void;
+
+/** `a + b`, saturating at `usize::MAX` as std's size hints do. */
+function satAdd(a: number, b: number): number {
+	return Math.min(a + b, USIZE_MAX);
+}
 
 /**
  * What only the iterators std implements these traits for have, which Rust calls only
@@ -85,6 +90,15 @@ export abstract class Iter<T> implements Iterable<T> {
 	/** What std's `try_fold` reads it by: itself, but for an inclusive range, which steps its own way. */
 	folded(): Iter<T> {
 		return this;
+	}
+
+	/**
+	 * `size_hint`'s lower bound, which std's `String` reserves before it reads chars: exact
+	 * for a range and what adapts one, the only iterators whose bound reaches `isize::MAX`,
+	 * and else 0.
+	 */
+	lower(): number {
+		return 0;
 	}
 
 	/**
@@ -490,16 +504,19 @@ export function iterPeekable<T>(it: Iter<T>, drop?: Drop<T>): Peekable<T> {
  * source drops once it ends unless it is `fused`, as `fuse` does.
  */
 export function iterFlatMap<T, V>(it: Iter<T>, f: (item: T) => Iter<V>): Iter<V>;
-export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused?: boolean): Iter<V>;
-export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused = false): Iter<V> {
-	return new FlattenIter(new MapIter(it, f), into ?? (itself as (value: U) => Iter<V>), fused);
+export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused?: boolean, size?: number): Iter<V>;
+export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused = false, size?: number): Iter<V> {
+	return new FlattenIter(new MapIter(it, f), into ?? (itself as (value: U) => Iter<V>), fused, size);
 }
 
-/** `flatten`: `into` makes each item an iterator, as `IntoIterator` does, and `fused` is as `flat_map`'s. */
+/**
+ * `flatten`: `into` makes each item an iterator, as `IntoIterator` does, `fused` is as
+ * `flat_map`'s, and `size` is each item's length if it is an array.
+ */
 export function iterFlatten<V>(it: Iter<Iter<V>>): Iter<V>;
-export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused?: boolean): Iter<V>;
-export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused = false): Iter<V> {
-	return new FlattenIter(it, into ?? (itself as (value: T) => Iter<V>), fused);
+export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused?: boolean, size?: number): Iter<V>;
+export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused = false, size?: number): Iter<V> {
+	return new FlattenIter(it, into ?? (itself as (value: T) => Iter<V>), fused, size);
 }
 
 // Consumers. Each that takes an iterator by value that `drops` takes it as std's does: by
@@ -1050,6 +1067,10 @@ class SliceIter<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	[Symbol.dispose](): void {
 		if (this.drop === undefined) return;
 		const from = this.front;
@@ -1097,6 +1118,10 @@ class SliceMutIter<T> extends Iter<Place<T>> {
 
 	override len(): number {
 		return this.back - this.front;
+	}
+
+	override lower(): number {
+		return this.len();
 	}
 
 	override advanceBy(n: number): number {
@@ -1169,6 +1194,10 @@ class PartsIter<S> extends Iter<S> {
 		return this.back - this.front;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	override advanceBy(n: number): number {
 		const step = Math.min(n, this.back - this.front);
 		this.front += step;
@@ -1209,6 +1238,10 @@ class OptionIter<T> extends Iter<T> implements Disposable {
 
 	override len(): number {
 		return this.some ? 1 : 0;
+	}
+
+	override lower(): number {
+		return this.len();
 	}
 
 	[Symbol.dispose](): void {
@@ -1266,6 +1299,10 @@ class SuccessorsIter<T> extends Iter<T> implements Disposable {
 		return item as T;
 	}
 
+	override lower(): number {
+		return this.item === undefined ? 0 : 1;
+	}
+
 	[Symbol.dispose](): void {
 		if (this.dropped) return;
 		this.dropped = true;
@@ -1286,6 +1323,10 @@ class Borrowed<T> extends Iter<T> {
 	constructor(inner: Iter<T>) {
 		super();
 		this.inner = inner;
+	}
+
+	override lower(): number {
+		return this.inner.lower();
 	}
 
 	next(): T | Done {
@@ -1325,6 +1366,10 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 
 	constructor(inner: Iter<T>, f: (item: T) => U) {
 		super(inner, f);
+	}
+
+	override lower(): number {
+		return this.inner.lower();
 	}
 
 	next(): U | Done {
@@ -1452,6 +1497,10 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | Non
 class EnumerateIter<T> extends Adaptor<T, [number, T]> {
 	index = 0;
 
+	override lower(): number {
+		return this.inner.lower();
+	}
+
 	next(): [number, T] | Done {
 		const item = this.inner.next();
 		return item === DONE ? DONE : [this.index++, item];
@@ -1528,6 +1577,10 @@ class ChainIter<T> extends Iter<T> implements Disposable {
 		const b = this.b;
 		this.b = undefined;
 		dispose(b);
+	}
+
+	override lower(): number {
+		return satAdd(this.a?.lower() ?? 0, this.b?.lower() ?? 0);
 	}
 
 	next(): T | Done {
@@ -1662,6 +1715,10 @@ class ZipIter<A, B> extends Iter<[A, B]> implements Disposable {
 		return Math.min(this.a.len(), this.b.len());
 	}
 
+	override lower(): number {
+		return Math.min(this.a.lower(), this.b.lower());
+	}
+
 	[Symbol.dispose](): void {
 		dispose(this.a);
 		dispose(this.b);
@@ -1696,6 +1753,10 @@ class TrustedZipIter<A, B> extends ZipIter<A, B> {
 }
 
 class RevIter<T> extends Adaptor<T, T> {
+	override lower(): number {
+		return this.inner.lower();
+	}
+
 	next(): T | Done {
 		return this.inner.nextBack();
 	}
@@ -1742,6 +1803,10 @@ class SkipIter<T> extends Adaptor<T, T> {
 		super(inner);
 		this.n = n;
 		this.drop = drop;
+	}
+
+	override lower(): number {
+		return Math.max(this.inner.lower() - this.n, 0);
 	}
 
 	next(): T | Done {
@@ -1826,6 +1891,10 @@ class TakeIter<T> extends Adaptor<T, T> {
 		super(inner);
 		this.n = n;
 		this.drop = drop;
+	}
+
+	override lower(): number {
+		return this.n === 0 ? 0 : Math.min(this.inner.lower(), this.n);
 	}
 
 	next(): T | Done {
@@ -2007,7 +2076,15 @@ class StepByIter<T> extends Adaptor<T, T> {
 	}
 
 	override len(): number {
-		const n = this.inner.len();
+		return this.size(this.inner.len());
+	}
+
+	override lower(): number {
+		return this.size(this.inner.lower());
+	}
+
+	/** How many of `n` items it yields. */
+	private size(n: number): number {
 		if (this.firstTake) return n === 0 ? 0 : 1 + Math.floor((n - 1) / (this.step + 1));
 		return Math.floor(n / (this.step + 1));
 	}
@@ -2074,6 +2151,10 @@ class StepByIter<T> extends Adaptor<T, T> {
 }
 
 class InspectIter<T> extends Calling<T, T, (item: T) => void> {
+	override lower(): number {
+		return this.inner.lower();
+	}
+
 	next(): T | Done {
 		return this.inspect(this.inner.next());
 	}
@@ -2120,6 +2201,10 @@ class FuseIter<T> extends Iter<T> implements Disposable {
 		super();
 		this.inner = inner;
 		this.fused = fused;
+	}
+
+	override lower(): number {
+		return this.inner?.lower() ?? 0;
 	}
 
 	/** `item`, dropping its iterator first if it ended there and is not fused. */
@@ -2183,14 +2268,24 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 	outer: Iter<T> | undefined;
 	readonly into: (value: T) => Iter<V>;
 	readonly fused: boolean;
+	/** How many items each of its source's has, if each is an array. */
+	readonly size: number | undefined;
 	front: Iter<V> | undefined;
 	back: Iter<V> | undefined;
 
-	constructor(outer: Iter<T>, into: (value: T) => Iter<V>, fused: boolean) {
+	constructor(outer: Iter<T>, into: (value: T) => Iter<V>, fused: boolean, size?: number) {
 		super();
 		this.outer = outer;
 		this.into = into;
 		this.fused = fused;
+		this.size = size;
+	}
+
+	/** std's: what its front and back hold, and its source's arrays, if it knows their size. */
+	override lower(): number {
+		const held = satAdd(this.front?.lower() ?? 0, this.back?.lower() ?? 0);
+		if (this.size === undefined) return held;
+		return satAdd((this.outer?.lower() ?? 0) * this.size, held);
 	}
 
 	/** The source's next item, or `DONE`, which drops it unless it is fused. */
@@ -2362,6 +2457,12 @@ export class Peekable<T> extends Adaptor<T, T> {
 		return item;
 	}
 
+	/** std's: none past a peeked end, and one more than its iterator's for a peeked item. */
+	override lower(): number {
+		if (!this.peeked) return this.inner.lower();
+		return this.item === DONE ? 0 : satAdd(this.inner.lower(), 1);
+	}
+
 	next(): T | Done {
 		if (!this.peeked) return this.inner.next();
 		return this.take();
@@ -2514,6 +2615,13 @@ function step<T>(n: T, by: number, int: Step<T> | undefined): T | undefined {
 	return over ? undefined : sum;
 }
 
+/** std's `Step::steps_between` of `a` and `b`, at most `b`, saturating at `usize::MAX`. */
+function stepsBetween<T>(a: T, b: T): number {
+	if (typeof a === "number" && typeof b === "number") return Math.min(b - a, USIZE_MAX);
+	const n = intToBig(b as number | Limbs) - intToBig(a as number | Limbs);
+	return n < USIZE_MAX ? Number(n) : USIZE_MAX;
+}
+
 /**
  * `ops::Range`: `start..end`, which iterates its integers by moving `start`. A 64- or
  * 128-bit range takes its type's `Step`, `rt.u64Step`, to step past 2^53.
@@ -2568,6 +2676,10 @@ export class Range<T> extends Iter<T> {
 	override len(): number {
 		return lt(this.start, this.end) ? Number(this.end) - Number(this.start) : 0;
 	}
+
+	override lower(): number {
+		return lt(this.start, this.end) ? stepsBetween(this.start, this.end) : 0;
+	}
 }
 
 /** `Range::is_empty`. */
@@ -2621,6 +2733,10 @@ export class RangeInclusive<T> extends Iter<T> {
 
 	override len(): number {
 		return rangeInclusiveIsEmpty(this) ? 0 : Number(this.hi) - Number(this.lo) + 1;
+	}
+
+	override lower(): number {
+		return rangeInclusiveIsEmpty(this) ? 0 : satAdd(stepsBetween(this.lo, this.hi), 1);
 	}
 
 	/** std's `nth`: `start` moves past the item, wrapping if it overflows, which ends the range. */

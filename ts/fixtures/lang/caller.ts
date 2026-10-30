@@ -373,4 +373,34 @@ const ranges = [0, 1, 2, 3, 4].flatMap((n) => {
  */
 const reducers = [[], [9], [9, 9], [8, 4, 12, 0x40, 0x80]].map((bytes) => Uint8Array.of(op("iters::reducers"), 0, ...bytes));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...ranges, ...reducers];
+/**
+ * `edits` of each kind over zero to four items, at every three bounds up to one past the
+ * end, so parts are empty, at the end, backwards, and out of bounds.
+ */
+const editsSlicesOp = op("slices::edits");
+const sliceEdits = [0, 1, 2, 3, 4].flatMap((n) =>
+	Array.from({ length: 8 * (n + 2) ** 3 }, (_, i) => {
+		const [kind, a, b, c] = [i % 8, Math.floor(i / 8) % (n + 2), Math.floor(i / 8 / (n + 2)) % (n + 2), Math.floor(i / 8 / (n + 2) ** 2)];
+		return Uint8Array.of(editsSlicesOp, kind, a, b, c, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
+	}),
+);
+
+/**
+ * `strs::drains` of each range and way to end the drain on `aé\u{800}😀`, at every byte
+ * offset into it and up to two past its end, reading none, two from either end, or three
+ * from the back.
+ */
+const drainsOp = op("strs::drains");
+const drains = Array.from({ length: 32 * 13 * 13 }, (_, i) => {
+	const [form, a, b] = [i % 32, Math.floor(i / 32) % 13, Math.floor(i / 416)];
+	return Uint8Array.of(drainsOp, 4, 2, 7, 9, 14, form, a, b, [0, 0x0a, 0x1f][(form + a + b) % 3]);
+});
+
+/** `strs::iters` of each kind, on no text, text of each UTF-8 width, and parts between `/`s, empty ones too. */
+const iters = Array.from({ length: 12 }, (_, kind) => [[], [2, 7, 9, 14], [0, 2, 0, 0, 7, 9], [14, 0]].map((data) => Uint8Array.of(op("strs::iters"), kind, ...data))).flat();
+
+/** `strs::hinted` of each adaptor and each pair of range lengths, each way, on `aé` alone. */
+const hintedOp = op("strs::hinted");
+const hinted = Array.from({ length: 10 * 7 * 21 }, (_, i) => Uint8Array.of(hintedOp, i % 10, Math.floor(i / 10) % 7, Math.floor(i / 70)));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted];
