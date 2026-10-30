@@ -36,9 +36,9 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 	v.iter().map(|&b| (b > 1).then_some(())).collect()
 }
 
-/// The runtime's `find` takes `None` to be `undefined`, which `Some(None)` is.
+/// The runtime's `find_map` takes `None` to be `undefined`, which `Some(None)` is.
 pub fn iterators(v: &[u8]) -> bool {
-	v.iter().map(|&b| (b > 1).then_some(b)).find(Option::is_none).is_some()
+	v.iter().find_map(|&b| Some(b.checked_sub(1))).is_some()
 }
 
 pub struct Noisy(pub u8);

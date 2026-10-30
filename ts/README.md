@@ -607,7 +607,7 @@ that drops given to a std function that drops it beside another value that drops
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
 a collection's key or item of a type that can be `undefined`, as `()` and `Option` can (a map's value can be), a std
 function without a mapping of its own that makes or reads an `Option` whose `None` is
-`rt.None`, as `find` over `Option`s does, an `Option` of an `Option` of `()` or another
+`rt.None`, as `find_map` to `Option`s does, an `Option` of an `Option` of `()` or another
 `Option`, an instance of a generic type whose field is an `Option` of a type parameter
 that can be `undefined`, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
