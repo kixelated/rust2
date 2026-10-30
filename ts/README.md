@@ -214,7 +214,8 @@ one `&s[a..b]` takes, which reads the string up to it and panics as std does ins
 char. A JS string can't change in place, so `String`'s edits, `push_str`, `truncate`,
 `insert`, `retain`, `replace_range`, and the rest, assign the edited one to the local or
 field the `&mut` borrows, taking and checking byte offsets as std does. `extend` and
-`collect` read their iterator by `for_each`, as std's do. A `drain` holds the `&mut`'s
+`collect` read their iterator by `for_each`, as std's do, and of chars first reserve its
+size hint's lower bound, which panics past `isize::MAX`. A `drain` holds the `&mut`'s
 place and writes the string without the drained text as it drops, so one that
 `mem::forget` leaks leaves it as it was, as std's does. A `String` keeps no capacity:
 `with_capacity`, `reserve`, and `shrink_to_fit` do nothing, and `capacity` is refused. A `Cow<str>` is its text, borrowed or owned, so

@@ -37,7 +37,7 @@ import { copies as shapes_copies, order, discriminants, loops, patterns, closure
 import { parts, chunked, subslices, drains, ranges as slices_ranges } from "./slices.ts";
 import { splits } from "./splits.ts";
 import { statics, cells as statics_cells, onces } from "./statics.ts";
-import { strs, slices, edits as strs_edits, parses as strs_parses, iters, drains as strs_drains } from "./strs.ts";
+import { strs, slices, edits as strs_edits, parses as strs_parses, iters, drains as strs_drains, hinted } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
 
@@ -90,7 +90,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		refs(data21, out21);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::counts", (_2121: rt.u8, data22: rt.ByteSlice, out22: rt.ByteVec): void => {
 		counts(data22, out22);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_2122: rt.u8, _372: rt.ByteSlice, out23: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_2122: rt.u8, _375: rt.ByteSlice, out23: rt.ByteVec): void => {
 		rounding(out23);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::skips", skips] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["wrappers::wrappers", wrappers] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["edits::edits", edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["utf8::decodes", decodes] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::floats", floats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["atomics::atomics", atomics] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::overrides", overrides] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::dyns", (_2123: rt.u8, data23: rt.ByteSlice, out24: rt.ByteVec): void => {
 		dyns(data23, out24);
@@ -172,7 +172,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		hashes_bytes(data61, out62);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::bytes", keys_bytes] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::parses", strs_parses] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["pointers::rebound", (_2162: rt.u8, data62: rt.ByteSlice, out63: rt.ByteVec): void => {
 		rebound(data62, out63);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::ranges", slices_ranges] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::iters", iters] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::drains", strs_drains] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::ranges", slices_ranges] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::iters", iters] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::drains", strs_drains] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::hinted", hinted] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 
 /** Run one case. */

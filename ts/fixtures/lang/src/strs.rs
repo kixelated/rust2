@@ -830,3 +830,52 @@ pub fn drains(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		put(out, &named.name);
 	}
 }
+
+/// Range lengths whose size hint, through `hinted`'s adaptors, is either a few chars or
+/// past where `isize::MAX` bytes of text start: std's `String` would reserve any between,
+/// up to 2 GiB.
+const HINTED: [u32; 7] = [0, 5, 8, 9, 0x7fff_fffd, 0x8000_0000, u32::MAX];
+
+/// Chars from ranges as long as `data`'s first two bytes pick, through the adaptors `kind`
+/// picks, into a `String` holding `aé` and the text of the rest: std's reserves the size
+/// hint's lower bound first, which panics past `isize::MAX` before it reads a char, and
+/// else the chars panic with `consumed` past the eighth.
+pub fn hinted(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let pick = |i: usize| HINTED[usize::from(data.get(i).copied().unwrap_or(0)) % HINTED.len()];
+	let (n, m) = (pick(0), pick(1));
+	let mut t = String::from("aé");
+	t.push_str(&text(data.get(2..).unwrap_or(&[])));
+	let calls = std::cell::Cell::new(0usize);
+	let f = |_: u32| {
+		calls.set(calls.get() + 1);
+		assert!(calls.get() <= 8, "consumed");
+		ALPHABET[calls.get()]
+	};
+	match kind % 8 {
+		0 => t.extend((0..n).map(f)),
+		1 => t = (0..=n).chain(0..n).map(f).collect(),
+		2 => t.extend(
+			(0..u64::from(n) << 8 | u64::from(m))
+				.map(|i| f(i as u32))
+				.skip(m as usize),
+		),
+		3 => t.extend((0..n).map(f).take(m as usize)),
+		// Only twice the longest is past `isize::MAX` stepped by two.
+		4 => t.extend(
+			(0..n)
+				.step_by(if n == u32::MAX { 1 + m as usize % 2 } else { 1 })
+				.map(f),
+		),
+		5 => match m % 2 {
+			0 => t.extend((0..n).map(f).chain((0..m).map(f))),
+			_ => t.extend((0..n).zip(0..m).map(|(i, _)| f(i))),
+		},
+		6 => t.extend((0..n).flat_map(|i| [f(i), f(i)])),
+		_ => {
+			let mut chars = (0..n).map(f).enumerate().map(|(_, c)| c).rev().fuse().peekable();
+			put_char(out, chars.peek().copied());
+			t.extend(chars);
+		}
+	}
+	put(out, &t);
+}

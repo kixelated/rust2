@@ -30,7 +30,7 @@ generic std gap is planned here even when moq never calls it.
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
 - [References to byte-array keys a collection yields](/quest/m3/ts-byte-key-refs.md) - `keys`, `iter`, `get_key_value`, and `HashSet::get` of a `[u8; N]` key translate
 - [An array as a slice](/quest/m3/ts-array-as-slice.md) - `<[T; N]>::as_slice` and `as_mut_slice` translate
-- [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - `size_hint` translates, and a collect or extend that reserves past `isize::MAX` panics as std's does
+- [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - `size_hint` translates, and `Vec`'s collect and extend panic past `isize::MAX` as std's do
 - [reduce, max_by, min_by, and Peekable's next_if_eq and peek_mut](/quest/m3/ts-iter-reducers.md) - the iterator consumers std returns an item from that have no mapping translate
 - [Closures that return an Option whose None is rt.None](/quest/m3/ts-option-closures.md) - `find_map`, `filter_map`, and `map_while` to `Option<Option<u8>>` keep `None` apart from `Some(None)`
 - [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate

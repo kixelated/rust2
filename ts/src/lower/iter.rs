@@ -574,14 +574,16 @@ pub fn call<'tcx>(
 			flattens(b, inner, span);
 			let into = into_fn(b, targ(1)?, span)?.unwrap_or_else(Expr::undefined);
 			let fused = fused(b, self_ty, Some(targ(2)?));
-			method("flatMap", tail(rest, vec![into, fused]))
+			let size = array_size(b, targ(1)?);
+			method("flatMap", tail(rest, vec![into, fused, size]))
 		}
 		"flatten" => {
 			let inner = iter_of(b.t, item)?;
 			flattens(b, inner, span);
 			let into = into_fn(b, item, span)?.unwrap_or_else(Expr::undefined);
 			let fused = fused(b, self_ty, None);
-			method("flatten", tail(Vec::new(), vec![into, fused]))
+			let size = array_size(b, item);
+			method("flatten", tail(Vec::new(), vec![into, fused, size]))
 		}
 		"copied" | "cloned" => {
 			let ty::Ref(_, inner, _) = item.kind() else {
@@ -637,6 +639,21 @@ fn fused<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, held: Option<Ty<'tcx>>)
 		true => "true",
 		false => "false",
 	})
+}
+
+/// How many items `ty` has, if it is an array or a reference to one, which std's `flatten`
+/// counts toward its size hint: else `undefined`.
+fn array_size<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Expr {
+	let ty = match *ty.kind() {
+		ty::Ref(_, inner, _) => inner,
+		_ => ty,
+	};
+	match ty.kind() {
+		ty::Array(_, len) => len
+			.try_to_target_usize(b.t.tcx)
+			.map_or_else(Expr::undefined, |n| Expr::lit(n.to_string())),
+		_ => Expr::undefined(),
+	}
 }
 
 /// The path of the std type `ty` is, if it is one.

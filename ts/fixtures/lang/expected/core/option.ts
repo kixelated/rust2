@@ -127,6 +127,13 @@ export function unwrapOr$0x6fy3l(self: [rt.u8, rt.u8] | undefined, default_: [rt
 	return self;
 }
 
+export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.ByteSlice): rt.ByteSlice {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$14m5xjm(self: [rt.usize, rt.u8] | undefined, default_: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	if (self === undefined) {
 		return default_;

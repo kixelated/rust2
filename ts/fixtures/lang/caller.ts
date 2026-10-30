@@ -373,4 +373,8 @@ const drains = Array.from({ length: 32 * 13 * 13 }, (_, i) => {
 /** `strs::iters` of each kind, on no text, text of each UTF-8 width, and parts between `/`s, empty ones too. */
 const iters = Array.from({ length: 12 }, (_, kind) => [[], [2, 7, 9, 14], [0, 2, 0, 0, 7, 9], [14, 0]].map((data) => Uint8Array.of(op("strs::iters"), kind, ...data))).flat();
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...drains, ...iters];
+/** `strs::hinted` of each adaptor and each pair of range lengths, on `aé` alone. */
+const hintedOp = op("strs::hinted");
+const hinted = Array.from({ length: 8 * 7 * 7 }, (_, i) => Uint8Array.of(hintedOp, i % 8, Math.floor(i / 8) % 7, Math.floor(i / 56)));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...drains, ...iters, ...hinted];

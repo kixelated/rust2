@@ -455,8 +455,12 @@ export function stringSplitOff(s: string, i: usize): [string, string] {
 // `String` from and into iterators. Each reads the iterator by `for_each`, as std's does,
 // which `drops` makes its own `fold`.
 
-/** `Extend<char>` and `Extend<&char>` of `s`, and `collect` of chars from `""`: `s` and each char. */
+/**
+ * `Extend<char>` and `Extend<&char>` of `s`, and `collect` of chars from `""`: `s` and each
+ * char, once it reserved the iterator's lower bound, which panics past `isize::MAX`.
+ */
 export function stringExtendChars(s: string, it: Iter<char>, drops = false): string {
+	stringReserve(s, it.lower());
 	iterForEach(
 		it,
 		(c) => {
