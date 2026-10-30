@@ -899,6 +899,74 @@ pub fn byte_key(set: &std::collections::HashSet<[u8; 2]>, key: [u8; 2]) -> u8 {
 	set.get(&key).map_or(0, |k| k[0])
 }
 
+/// `next_if_eq` compares the item to another type by `PartialEq<str>`, not the item's own.
+pub fn peeked_str(v: Vec<String>) -> bool {
+	v.into_iter().peekable().next_if_eq("a").is_some()
+}
+
+pub struct Plain {
+	pub at: (u32, u32),
+}
+
+fn put<T>(slot: &mut T, value: T) {
+	*slot = value;
+}
+
+/// A pointer to a part kept as an object, which a generic body reached at its struct
+/// replaces with another object.
+pub fn put_replaced(n: u32) -> u32 {
+	let mut plain = Plain { at: (n, n) };
+	let p = &raw mut plain.at;
+	put(&mut plain, Plain { at: (0, 0) });
+	unsafe { (*p).0 }
+}
+
+#[derive(Default)]
+pub struct Track {
+	pub at: (u32, u32),
+}
+
+pub struct Bin<T>(std::cell::UnsafeCell<T>);
+
+pub trait Reset {
+	fn reset(&self);
+}
+
+impl<T: Default> Reset for Bin<T> {
+	fn reset(&self) {
+		unsafe { *self.0.get() = T::default() };
+	}
+}
+
+/// A pointer to a part kept as an object, which a generic body reached only through a trait
+/// object replaces with another object.
+pub fn object_replaced(n: u32) -> u32 {
+	let bin = Bin(std::cell::UnsafeCell::new(Track { at: (n, n) }));
+	let p = unsafe { &raw mut (*bin.0.get()).at };
+	let object: &dyn Reset = &bin;
+	object.reset();
+	unsafe { (*p).0 }
+}
+
+#[derive(Default)]
+pub struct Lane {
+	pub at: (u32, u32),
+}
+
+fn resetter<T: Default>(slot: *mut T) -> impl FnOnce() {
+	move || unsafe { *slot = T::default() }
+}
+
+/// A pointer to a part kept as an object, which a generic closure reached at its struct
+/// replaces with another object.
+pub fn closure_replaced(n: u32) -> u32 {
+	let mut lane = Lane { at: (n, n) };
+	let whole = &raw mut lane;
+	let p = unsafe { &raw mut (*whole).at };
+	resetter(whole)();
+	unsafe { (*p).0 }
+}
+
 /// A `clone_from` of its own, which `fill` calls for each slot but the last.
 pub struct Reused(Vec<u8>);
 

@@ -7,12 +7,12 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::log::Log;
 use crate::model::Guard;
 
-/// Run scenario `arg % 32`. Items are guards 1 to 7; what closures own, 10 and up.
+/// Run scenario `arg % 33`. Items are guards 1 to 7; what closures own, 10 and up.
 pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
 	let (c, d) = (guard(10), guard(11));
-	match arg % 32 {
+	match arg % 33 {
 		0 => {
 			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).count();
 			let sum: u32 = guards(5, 8).into_iter().map(move |g| g.id() - id + d.id() - id).sum();
@@ -381,6 +381,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 			log.note(format!("rev {n} {}", c.id()));
 		}
 		31 => options(log, id),
+		32 => reducers(log, id),
 		_ => {
 			let n: u32 = guards(1, 6)
 				.into_iter()
@@ -568,4 +569,41 @@ fn options(log: &Log, id: u32) {
 		.map(move |g| (g.id() != e.id()).then_some(g.id()))
 		.min();
 	log.note(format!("options {odd:?} {none:?} {least:?}"));
+}
+
+/// `max_by`, `min_by`, and `reduce` of items that drop, by what drops when: each loser as
+/// it loses, and the iterator with the closure it holds once it ends, at once if empty.
+fn reducers(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	let (c, d) = (guard(10), guard(11));
+	let most = guards(1, 6)
+		.into_iter()
+		.map(move |g| {
+			log.note(format!("map {} {}", g.id(), c.id()));
+			g
+		})
+		.max_by(|a, b| (a.id() % 2).cmp(&(b.id() % 2)));
+	let least = guards(1, 6).into_iter().min_by(|a, b| (a.id() % 3).cmp(&(b.id() % 3)));
+	let kept = guards(1, 4).into_iter().reduce(|a, b| {
+		log.note(format!("reduce {} {}", a.id(), b.id()));
+		if b.id() % 2 == 0 { b } else { a }
+	});
+	let none = guards(4, 4)
+		.into_iter()
+		.map(move |g| g.id() + d.id())
+		.reduce(|a, b| a + b);
+	let ids = |g: Option<Guard>| g.map(|g| g.id());
+	log.note(format!(
+		"reducers {:?} {:?} {:?} {none:?}",
+		ids(most),
+		ids(least),
+		ids(kept)
+	));
+	// A comparator that owns a guard, dropped as `min_by` returns.
+	let (held, e) = (guards(1, 3), guard(12));
+	let first = held
+		.iter()
+		.min_by(move |a, b| (a.id() + e.id()).cmp(&(b.id() + e.id())));
+	log.note(format!("first {:?}", first.map(Guard::id)));
 }

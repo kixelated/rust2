@@ -718,7 +718,8 @@ fn takes_none(owner: &str, name: &str) -> bool {
 			) | (
 				"Iterator",
 				"next" | "nth" | "last" | "find" | "max" | "min" | "max_by_key" | "min_by_key"
-			) | ("Peekable", "peek" | "next_if")
+			) | ("Iterator", "max_by" | "min_by" | "reduce")
+				| ("Peekable", "peek" | "next_if" | "next_if_eq")
 				| (
 					"OnceCell" | "OnceLock",
 					"get" | "set" | "get_or_init" | "take" | "into_inner"

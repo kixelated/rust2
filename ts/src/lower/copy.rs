@@ -51,13 +51,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			_ => return false,
 		};
-		object && self.writes.into.contains(self.tcx, ty) || parts.into_iter().any(|t| self.changes(t))
+		object
+			&& self
+				.writes
+				.contains(&self.writes.into, self.tcx, ty, self.polymorphic())
+			|| parts.into_iter().any(|t| self.changes(t))
 	}
 
 	/// Whether the crate may give a part of a `ty` kept as a JS object another object: by
 	/// a write of the part, or of the whole value one object deep.
 	pub fn replaced(&self, ty: Ty<'tcx>) -> bool {
-		self.writes.replaced.contains(self.tcx, ty)
+		self.writes
+			.contains(&self.writes.replaced, self.tcx, ty, self.polymorphic())
 	}
 
 	/// `value`, a `ty` read out of where it is kept, as a value of its own, as Rust's read
@@ -304,40 +309,55 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// at; or by anything code it doesn't read can do with a mutable reference or pointer to
 /// one, which counts as a write: one a parameter of a std function the crate names takes,
 /// or one kept anywhere but in a local, whose uses tell. Bodies are read as written, over
-/// their own type parameters, so a write into a type parameter stands for every type its
-/// bounds let it be.
+/// their own type parameters, so a write into a type parameter stands for the type each
+/// instance of the body that translation reaches gives it, or in a census lowering a
+/// function over its own type parameters, for every type its bounds let it be.
 #[derive(Default)]
 pub struct Writes<'tcx> {
-	pub into: Types<'tcx>,
+	into: Types<'tcx>,
 	/// The types a part of which, kept as a JS object, the code may give another object:
 	/// by a write of the part, as `p.x = Inner {..}`; by a write of the whole value, which
 	/// goes one object deep, as `*r = v` does; or by a call of a std function, as a
 	/// mutable reference to the type may do with any part of it.
-	pub replaced: Types<'tcx>,
+	replaced: Types<'tcx>,
+	/// The bodies read.
+	read: FxHashSet<DefId>,
+	/// The arguments of each body's instances that translation reached, without type
+	/// parameters.
+	reached: FxHashMap<DefId, Vec<ty::GenericArgsRef<'tcx>>>,
 }
 
 /// Types, each without type parameters or over those of the body naming it.
 #[derive(Default)]
-pub struct Types<'tcx> {
+struct Types<'tcx> {
 	/// Each type without type parameters, an array as a slice of its element, since the
 	/// two share storage in JS.
 	concrete: FxHashSet<Ty<'tcx>>,
 	/// Each type over the type parameters of the body writing it, and that body.
 	generic: FxIndexSet<(DefId, Ty<'tcx>)>,
-	/// What [`Types::contains`] found of each type it was asked about.
-	found: RefCell<FxHashMap<Ty<'tcx>, bool>>,
+	/// What [`Writes::contains`] found of each type it was asked about, and whether it was
+	/// asked over type parameters.
+	found: RefCell<FxHashMap<(Ty<'tcx>, bool), bool>>,
 }
 
 impl<'tcx> Writes<'tcx> {
-	/// The writes of every function, closure, and coroutine body of `bodies` that `own`
-	/// says translates, and of the closures and coroutines they hold: a binding stands in
-	/// for any other, which counts as code it doesn't read.
-	pub fn of_bodies(tcx: TyCtxt<'tcx>, bodies: impl IntoIterator<Item = DefId>, own: &dyn Fn(DefId) -> bool) -> Self {
+	/// The writes of every function, closure, and coroutine body of `bodies` and of
+	/// `reached`, the instances translation reached, that `own` says translates, and of the
+	/// closures and coroutines they hold: a binding stands in for any other, which counts
+	/// as code it doesn't read.
+	pub fn of_bodies(
+		tcx: TyCtxt<'tcx>,
+		bodies: impl IntoIterator<Item = DefId>,
+		reached: &FxHashSet<ty::Instance<'tcx>>,
+		own: &dyn Fn(DefId) -> bool,
+	) -> Self {
 		let mut writes = Writes::default();
-		let mut queue: Vec<DefId> = bodies.into_iter().collect();
-		let mut seen = FxHashSet::default();
+		for instance in reached.iter().filter(|instance| !instance.args.has_param()) {
+			writes.reached.entry(instance.def_id()).or_default().push(instance.args);
+		}
+		let mut queue: Vec<DefId> = bodies.into_iter().chain(reached.iter().map(|i| i.def_id())).collect();
 		while let Some(def_id) = queue.pop() {
-			if !seen.insert(def_id) || !own(def_id) {
+			if !writes.read.insert(def_id) || !own(def_id) {
 				continue;
 			}
 			let body = match tcx.def_kind(def_id) {
@@ -366,6 +386,58 @@ impl<'tcx> Writes<'tcx> {
 		}
 		writes
 	}
+
+	/// Whether translation must run again to judge the writes `instance` reaches: its body
+	/// is unread, or writes a type over its type parameters and these arguments are new.
+	pub fn unread(&self, instance: ty::Instance<'tcx>) -> bool {
+		let def_id = instance.def_id();
+		if !self.read.contains(&def_id) {
+			return true;
+		}
+		let writes = |types: &Types<'tcx>| types.generic.iter().any(|&(body, _)| body == def_id);
+		!instance.args.has_param()
+			&& (writes(&self.into) || writes(&self.replaced))
+			&& !self
+				.reached
+				.get(&def_id)
+				.is_some_and(|args| args.contains(&instance.args))
+	}
+
+	/// Whether `ty` is one of `types`. Over type parameters, as a census lowers some
+	/// functions, it may be, and a write into a type parameter counts for every type its
+	/// bounds allow; otherwise for the type each reached instance gives it.
+	fn contains(&self, types: &Types<'tcx>, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, polymorphic: bool) -> bool {
+		let ty = tcx.erase_and_anonymize_regions(ty);
+		let stored = storage(tcx, ty);
+		if ty.has_param() || types.concrete.contains(&stored) {
+			return true;
+		}
+		if let Some(&found) = types.found.borrow().get(&(ty, polymorphic)) {
+			return found;
+		}
+		let found = types.generic.iter().any(|&(def_id, written)| match polymorphic {
+			// A parameter can be the array itself, as in `*dst = value` with `dst: &mut T`, and
+			// its slice pattern can be any array of that element.
+			true => {
+				instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored)
+			}
+			false => self.reached.get(&def_id).is_some_and(|reached| {
+				reached.iter().any(|&args| {
+					let written = EarlyBinder::bind(tcx, written);
+					// One that doesn't normalize counts.
+					tcx.try_instantiate_and_normalize_erasing_regions(
+						args,
+						ty::TypingEnv::fully_monomorphized(),
+						written,
+					)
+					.ok()
+					.is_none_or(|written| storage(tcx, written) == stored)
+				})
+			}),
+		});
+		types.found.borrow_mut().insert((ty, polymorphic), found);
+		found
+	}
 }
 
 impl<'tcx> Types<'tcx> {
@@ -375,26 +447,6 @@ impl<'tcx> Types<'tcx> {
 			true => _ = self.generic.insert((def_id, ty)),
 			false => _ = self.concrete.insert(ty),
 		}
-	}
-
-	/// Whether `ty` is one of them. Over type parameters, as a census lowers some
-	/// functions, it may be.
-	pub fn contains(&self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
-		let ty = tcx.erase_and_anonymize_regions(ty);
-		let stored = storage(tcx, ty);
-		if ty.has_param() || self.concrete.contains(&stored) {
-			return true;
-		}
-		if let Some(&found) = self.found.borrow().get(&ty) {
-			return found;
-		}
-		// A parameter can be the array itself, as in `*dst = value` with `dst: &mut T`, and
-		// its slice pattern can be any array of that element.
-		let found = self.generic.iter().any(|&(def_id, written)| {
-			instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored)
-		});
-		self.found.borrow_mut().insert(ty, found);
-		found
 	}
 }
 

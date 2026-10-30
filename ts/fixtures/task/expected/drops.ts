@@ -792,7 +792,7 @@ export function arcs(log: Log.Log, id: rt.u32): void {
 }
 
 /**
- * Run scenario `arg % 32` of what std's by-value consumers drop of adaptors that hold
+ * Run scenario `arg % 33` of what std's by-value consumers drop of adaptors that hold
  * closures that drop.
  */
 export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
