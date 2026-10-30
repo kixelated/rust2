@@ -1889,11 +1889,20 @@ fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'
 }
 
 /// `t` and `u` through the references std's `PartialEq` of two references forwards
-/// through, one of each at a time, while JS holds both as what they point at.
+/// through, one of each at a time, while JS holds both as what they point at. A crate's
+/// own impl of two references is where they stop.
 fn peel_pair<'tcx>(b: &Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>) -> (Ty<'tcx>, Ty<'tcx>) {
+	let tcx = b.t.tcx;
+	let forwards = || {
+		let eq = trait_fn(tcx, "PartialEq", "eq");
+		Instance::try_resolve(tcx, b.t.typing_env_pub(), eq, tcx.mk_args(&[t.into(), u.into()]))
+			.ok()
+			.flatten()
+			.is_some_and(|instance| library::is_std(tcx, instance.def_id()))
+	};
 	match (t.kind(), u.kind()) {
 		(ty::Ref(_, t_in, _), ty::Ref(_, u_in, _))
-			if b.t.place_pointee(t).is_none() && b.t.place_pointee(u).is_none() =>
+			if b.t.place_pointee(t).is_none() && b.t.place_pointee(u).is_none() && forwards() =>
 		{
 			peel_pair(b, *t_in, *u_in)
 		}

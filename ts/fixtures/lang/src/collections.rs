@@ -1214,6 +1214,16 @@ impl<'a> PartialEq<&Left<'a>> for Left<'_> {
 	}
 }
 
+/// An item only a reference to compares, by the crate's impl of two references, which
+/// std's of references would otherwise forward from.
+struct Odd(u16);
+
+impl PartialEq<&Right> for &Odd {
+	fn eq(&self, other: &&Right) -> bool {
+		self.0 % 2 == other.0 % 2
+	}
+}
+
 /// The other way, by the remainder by 4, with `ne`'s default.
 impl<'a> PartialEq<Left<'a>> for Right {
 	fn eq(&self, other: &Left<'a>) -> bool {
@@ -1296,6 +1306,8 @@ pub fn unlike_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	put_eq(mine.iter().collect::<Vec<_>>() == refs, &log, out);
 	let others = lefts();
 	put_eq(mine == others.iter().collect::<Vec<_>>(), &log, out);
+	let odds: Vec<Odd> = data.iter().map(|&b| Odd(b.into())).collect();
+	put_eq(odds.iter().collect::<Vec<_>>() == refs, &log, out);
 
 	// Wrapped around: the first half pushed to the front backwards, the rest to the back.
 	let half = data.len() / 2;

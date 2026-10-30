@@ -9,6 +9,7 @@ import * as Fussy from "./collections.Fussy.ts";
 import type * as Holder from "./collections.Holder.ts";
 import * as Left from "./collections.Left.ts";
 import * as Nibble from "./collections.Nibble.ts";
+import * as Odd from "./collections.Odd.ts";
 import * as Pair from "./collections.Pair.ts";
 import * as Rank from "./collections.Rank.ts";
 import * as Right from "./collections.Right.ts";
@@ -3667,111 +3668,115 @@ export function unlikeEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 	})(_204, refs), log, out);
 	const _216: Left.Left[] = rt.iterToArray(rt.iterSlice(lefts()), undefined, 4, true);
 	putEq(rt.eqSeq(Left.eq$PartialEq_Left)(mine, _216), log, out);
+	const _227: Odd.Odd[] = rt.iterToArray(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_211: rt.u8): Odd.Odd => {
+		return { _0: _211 as rt.u16 };
+	}), undefined, 2, true)), undefined, 4, true);
+	putEq(rt.eqSeq(Odd.eq$PartialEq_Right)(_227, refs), log, out);
 	const half: rt.usize = rt.usizeDiv(data.length, 2);
 	const q: rt.VecDeque<Left.Left> = rt.dequeNew() as rt.VecDeque<Left.Left>;
 	const iter: rt.Iter<rt.u8> = rt.iterRev(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, half))));
 	while (true) {
-		const _231: rt.u8 | rt.Done = iter.next();
-		if (_231 === rt.DONE) {
+		const _243: rt.u8 | rt.Done = iter.next();
+		if (_243 === rt.DONE) {
 			break;
 		}
-		const _237: Left.Left = { _0: _231 as rt.u16, _1: log };
-		rt.dequePushFront(q, _237);
+		const _249: Left.Left = { _0: _243 as rt.u16, _1: log };
+		rt.dequePushFront(q, _249);
 	}
-	for (const _244 of rt.byteSliceView(rt.byteSliceRange(data, half))) {
-		const _250: Left.Left = { _0: _244 as rt.u16, _1: log };
-		rt.dequePushBack(q, _250);
+	for (const _256 of rt.byteSliceView(rt.byteSliceRange(data, half))) {
+		const _262: Left.Left = { _0: _256 as rt.u16, _1: log };
+		rt.dequePushBack(q, _262);
 	}
-	const _257: Right.Right[] = rights;
-	putEq(rt.eqSeq((a26: Left.Left, b24: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a26, b24);
-	})(q, _257), log, out);
-	putEq(rt.eqSeq((a27: Left.Left, b25: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a27, b25);
-	})(q, rights), log, out);
 	const _269: Right.Right[] = rights;
-	putEq(!rt.eqSeq((a28: Left.Left, b26: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a28, b26);
+	putEq(rt.eqSeq((a26: Left.Left, b25: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a26, b25);
 	})(q, _269), log, out);
-	const _277: Right.Right[] = rights;
-	putEq(rt.eqSeq((a29: Left.Left, b27: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a29, b27);
-	})(q, _277), log, out);
-	const _284: Right.Right[] = pair();
-	putEq(rt.eqSeq((a30: Left.Left, b28: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a30, b28);
-	})(q, _284), log, out);
-	const _292: Right.Right[] = pair();
-	putEq(rt.eqSeq((a31: Left.Left, b29: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a31, b29);
-	})(q, _292), log, out);
-	const _300: Right.Right[] = pair();
-	putEq(rt.eqSeq((a32: Left.Left, b30: Right.Right): boolean => {
-		return !Left.ne$PartialEq_Right(a32, b30);
-	})(q, _300), log, out);
+	putEq(rt.eqSeq((a27: Left.Left, b26: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a27, b26);
+	})(q, rights), log, out);
+	const _281: Right.Right[] = rights;
+	putEq(!rt.eqSeq((a28: Left.Left, b27: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a28, b27);
+	})(q, _281), log, out);
+	const _289: Right.Right[] = rights;
+	putEq(rt.eqSeq((a29: Left.Left, b28: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a29, b28);
+	})(q, _289), log, out);
+	const _296: Right.Right[] = pair();
+	putEq(rt.eqSeq((a30: Left.Left, b29: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a30, b29);
+	})(q, _296), log, out);
+	const _304: Right.Right[] = pair();
+	putEq(rt.eqSeq((a31: Left.Left, b30: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a31, b30);
+	})(q, _304), log, out);
+	const _312: Right.Right[] = pair();
+	putEq(rt.eqSeq((a32: Left.Left, b31: Right.Right): boolean => {
+		return !Left.ne$PartialEq_Right(a32, b31);
+	})(q, _312), log, out);
 	const bytes: rt.VecDeque<rt.u8> = rt.dequeNew() as rt.VecDeque<rt.u8>;
 	const iter3: rt.Iter<rt.u8> = rt.iterRev(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, half))));
 	while (true) {
-		const _310: rt.u8 | rt.Done = iter3.next();
-		if (_310 === rt.DONE) {
+		const _322: rt.u8 | rt.Done = iter3.next();
+		if (_322 === rt.DONE) {
 			break;
 		}
-		rt.dequePushFront(bytes, _310);
+		rt.dequePushFront(bytes, _322);
 	}
-	const _318: rt.ByteSlice = rt.byteSliceRange(data, half);
-	rt.dequeExtend(bytes, rt.iterSlice(rt.byteSliceView(_318)), undefined, 1, true);
-	const stepped: rt.ByteVec = rt.iterToByteVec(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_211: [rt.usize, rt.u8]): rt.u8 => {
-		return _211[1] ^ (_211[0] === byEq ? 1 : 0);
+	const _330: rt.ByteSlice = rt.byteSliceRange(data, half);
+	rt.dequeExtend(bytes, rt.iterSlice(rt.byteSliceView(_330)), undefined, 1, true);
+	const stepped: rt.ByteVec = rt.iterToByteVec(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_212: [rt.usize, rt.u8]): rt.u8 => {
+		return _212[1] ^ (_212[0] === byEq ? 1 : 0);
 	}), undefined, true);
 	putEq(rt.eqSeq(rt.same)(bytes, stepped), log, out);
 	putEq(rt.eqSeq(rt.same)(bytes, data), log, out);
-	const _339: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 0));
-	putEq(rt.eqSeq(rt.same)(bytes, _339), log, out);
-	const _346: rt.Iter<rt.u16> = rt.iterMap(rt.dequeIter(bytes), (_212: rt.u8): rt.u16 => {
-		return _212 as rt.u16;
+	const _351: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 0));
+	putEq(rt.eqSeq(rt.same)(bytes, _351), log, out);
+	const _358: rt.Iter<rt.u16> = rt.iterMap(rt.dequeIter(bytes), (_214: rt.u8): rt.u16 => {
+		return _214 as rt.u16;
 	});
-	const wide_: rt.VecDeque<rt.u16> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u16>, _346, undefined, 2, true);
+	const wide_: rt.VecDeque<rt.u16> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u16>, _358, undefined, 2, true);
 	const wrapped: rt.VecDeque<rt.u16> = rt.dequeNew() as rt.VecDeque<rt.u16>;
 	const iter4: rt.Iter<rt.u8> = rt.iterRev(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(stepped))));
 	while (true) {
-		const _356: rt.u8 | rt.Done = iter4.next();
-		if (_356 === rt.DONE) {
+		const _368: rt.u8 | rt.Done = iter4.next();
+		if (_368 === rt.DONE) {
 			break;
 		}
-		rt.dequePushFront(wrapped, _356 as rt.u16);
+		rt.dequePushFront(wrapped, _368 as rt.u16);
 	}
 	putEq(rt.eqSeq(rt.same)(wide_, wrapped), log, out);
-	const _371: rt.VecDeque<rt.u16>[] = [rt.dequeClone(wide_, undefined)];
-	const _376: rt.VecDeque<rt.u16>[] = [wrapped];
-	putEq(rt.eqSeq(rt.eqSeq(rt.same))(_371, _376), log, out);
+	const _383: rt.VecDeque<rt.u16>[] = [rt.dequeClone(wide_, undefined)];
+	const _388: rt.VecDeque<rt.u16>[] = [wrapped];
+	putEq(rt.eqSeq(rt.eqSeq(rt.same))(_383, _388), log, out);
 	const it: rt.Peekable<Left.Left[]> = rt.iterPeekable(rt.iterSlice([lefts(), lefts(), lefts()]));
-	const exact: Right.Right[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_214: rt.u8): Right.Right => {
-		return { _0: _214 as rt.u16 };
+	const exact: Right.Right[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_215: rt.u8): Right.Right => {
+		return { _0: _215 as rt.u16 };
 	}), undefined, 2, true);
-	putEq(rt.peekableNextIfEq(it, exact, (a030: Left.Left[], a130: Right.Right[]): boolean => {
-		return rt.eqSeq((a33: Left.Left, b34: Right.Right): boolean => {
-			return !Left.ne$PartialEq_Right(a33, b34);
-		})(a030, a130);
+	putEq(rt.peekableNextIfEq(it, exact, (a031: Left.Left[], a131: Right.Right[]): boolean => {
+		return rt.eqSeq((a33: Left.Left, b35: Right.Right): boolean => {
+			return !Left.ne$PartialEq_Right(a33, b35);
+		})(a031, a131);
 	}) !== undefined, log, out);
-	putEq(rt.peekableNextIfEq(it, rights, (a032: Left.Left[], a132: Right.Right[]): boolean => {
-		return rt.eqSeq((a34: Left.Left, b35: Right.Right): boolean => {
-			return !Left.ne$PartialEq_Right(a34, b35);
-		})(a032, a132);
+	putEq(rt.peekableNextIfEq(it, rights, (a033: Left.Left[], a133: Right.Right[]): boolean => {
+		return rt.eqSeq((a34: Left.Left, b36: Right.Right): boolean => {
+			return !Left.ne$PartialEq_Right(a34, b36);
+		})(a033, a133);
 	}) !== undefined, log, out);
-	const _414: Right.Right[] = rt.sliceRange(exact, 0, half);
-	putEq(rt.peekableNextIfEq(it, _414, (a034: Left.Left[], a134: Right.Right[]): boolean => {
-		return rt.eqSeq((a35: Left.Left, b36: Right.Right): boolean => {
-			return !Left.ne$PartialEq_Right(a35, b36);
-		})(a034, a134);
+	const _426: Right.Right[] = rt.sliceRange(exact, 0, half);
+	putEq(rt.peekableNextIfEq(it, _426, (a035: Left.Left[], a135: Right.Right[]): boolean => {
+		return rt.eqSeq((a35: Left.Left, b37: Right.Right): boolean => {
+			return !Left.ne$PartialEq_Right(a35, b37);
+		})(a035, a135);
 	}) !== undefined, log, out);
 	rt.byteVecPush(out, rt.iterCount(it) & 0xff);
 	const it2: rt.Peekable<rt.VecDeque<rt.u8>> = rt.iterPeekable(rt.iterSlice([rt.dequeClone(bytes, undefined), bytes]));
-	const _435: rt.ByteVec = rt.byteSliceToByteVec(data);
-	putEq(rt.peekableNextIfEq(it2, _435, (a036: rt.VecDeque<rt.u8>, a136: rt.ByteVec): boolean => {
-		return rt.eqSeq(rt.same)(a036, a136);
-	}) !== undefined, log, out);
-	putEq(rt.peekableNextIfEq(it2, stepped, (a037: rt.VecDeque<rt.u8>, a137: rt.ByteVec): boolean => {
+	const _447: rt.ByteVec = rt.byteSliceToByteVec(data);
+	putEq(rt.peekableNextIfEq(it2, _447, (a037: rt.VecDeque<rt.u8>, a137: rt.ByteVec): boolean => {
 		return rt.eqSeq(rt.same)(a037, a137);
+	}) !== undefined, log, out);
+	putEq(rt.peekableNextIfEq(it2, stepped, (a038: rt.VecDeque<rt.u8>, a138: rt.ByteVec): boolean => {
+		return rt.eqSeq(rt.same)(a038, a138);
 	}) !== undefined, log, out);
 	rt.byteVecPush(out, rt.iterCount(it2) & 0xff);
 }
