@@ -76,6 +76,7 @@ roots = [
     "element_pointer",
     "cell_replaced",
     "cell_reassigned",
+    "cell_field_replaced",
     "units_compared",
     "dangling_enum",
     "blank_bytes",

@@ -232,8 +232,8 @@ pub fn pointees(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Vec<bo
 }
 
 /// A call of std's raw pointer, `NonNull`, `MaybeUninit`, `UnsafeCell`, or `Box` functions
-/// that make or take a raw pointer: its mapping, `None` if it has none, or its arguments back if it is
-/// no such call.
+/// that make or take a raw pointer: its mapping, `None` if it has none, or its arguments
+/// back if it is no such call.
 pub fn call<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,

@@ -8,7 +8,7 @@
 //! every static as it found it, or reads only what it holds whatever ran before, so a fresh
 //! instance and a reused one agree.
 
-use std::cell::{LazyCell, UnsafeCell};
+use std::cell::{Cell, LazyCell, UnsafeCell};
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::rc::Rc;
@@ -168,6 +168,12 @@ const LAZY: LazyCell<u8> = LazyCell::new(|| FORCED.fetch_add(1, Relaxed) + 10);
 /// Uninitialized, as moq-net's `UNINIT` frame is.
 const EMPTY: MaybeUninit<u16> = MaybeUninit::uninit();
 
+/// Each use a cell of its own.
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const TALLY: Cell<u8> = Cell::new(250);
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const PAIR: UnsafeCell<(u8, u8)> = UnsafeCell::new((1, 2));
+
 /// Each byte an operation on statics and constants read from memory; each puts what it read.
 pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(COUNTER.name.as_bytes());
@@ -183,6 +189,9 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	// Every lazy static, forced from either path, has run its function once.
 	let (made, from) = &*SECOND;
 	out.extend([*made, FIRST[0], from[0], FIRST[1]]);
+	let tally = TALLY;
+	tally.set(tally.get().wrapping_add(10));
+	out.extend([tally.get(), TALLY.get(), PAIR.into_inner().1]);
 	for &op in data {
 		let n = op / 8;
 		match op % 8 {

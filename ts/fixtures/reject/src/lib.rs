@@ -704,6 +704,21 @@ pub fn cell_reassigned(n: u32) -> u32 {
 	unsafe { *p + cell.into_inner() }
 }
 
+pub struct Hits {
+	pub count: std::cell::UnsafeCell<u32>,
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` in a struct, which a
+/// write of the whole field replaces.
+pub fn cell_field_replaced(n: u32) -> u32 {
+	let mut hits = Hits {
+		count: std::cell::UnsafeCell::new(n),
+	};
+	let p = hits.count.get();
+	hits.count = std::cell::UnsafeCell::new(0);
+	unsafe { *p + *hits.count.get_mut() }
+}
+
 /// Two pointers to values of no bytes, which Rust may put anywhere.
 pub fn units_compared() -> bool {
 	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();

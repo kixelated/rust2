@@ -143,53 +143,57 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _31: rt.u8 = slice.data[rt.idx(slice, 0)];
 	const _35: rt.ByteVec = FIRST.force();
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_26, _27, _31, _35.data[rt.idx(_35, 1)])));
+	const tally: rt.Cell<rt.u8> = new rt.Cell(250);
+	const _40: rt.u8 = rt.u8WrappingAdd(tally.v, 10);
+	rt.cellSet(tally, _40);
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(tally.v, new rt.Cell(250).v, new rt.Cell([1, 2] as [rt.u8, rt.u8]).v[1])));
 	for (const op of rt.byteSliceView(data)) {
 		const n2: rt.u8 = rt.u8Div(op, 8);
-		const _46: rt.u8 = rt.u8Rem(op, 8);
-		if (_46 === 0) {
+		const _61: rt.u8 = rt.u8Rem(op, 8);
+		if (_61 === 0) {
 			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicFetch(COUNTER.hits, rt.u32WrappingAdd, rt.u32Rem(n2 as rt.u32, COUNTER.limit), 3)).reverse()));
 			continue;
 		}
-		if (_46 === 1) {
+		if (_61 === 1) {
 			rt.byteVecPush(out, rt.atomicSwap(a.locked, rt.u8Rem(n2, 2) === 0, 2) ? 1 : 0);
 			continue;
 		}
-		if (_46 === 2) {
+		if (_61 === 2) {
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(a.count, rt.u8WrappingAdd, n2, 0), rt.atomicLoad(b.count, 0), rt.atomicLoad(_19.count, 0))));
 			continue;
 		}
-		if (_46 === 3) {
+		if (_61 === 3) {
 			rt.byteVecPush(out, rt.atomicLoad(b.locked, 0) ? 1 : 0);
 			continue;
 		}
-		if (_46 === 4) {
+		if (_61 === 4) {
 			const node: Node.Node = { value: n2 };
 			const old: Node.Node = rt.atomicSwap(SLOT, node, 3);
 			rt.byteVecPush(out, old === rt.NULL ? 1 : 0);
 			rt.byteVecPush(out, rt.atomicLoad(SLOT, 2).value);
-			const _94: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, old, rt.NULL, 3, 2);
-			if (_94.ok) {
+			const _109: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, old, rt.NULL, 3, 2);
+			if (_109.ok) {
 				rt.byteVecPush(out, 253);
 			} else {
-				rt.byteVecPush(out, _94.error === node ? 1 : 0);
+				rt.byteVecPush(out, _109.error === node ? 1 : 0);
 			}
-			const _103: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, node, rt.NULL, 3, 2);
-			if (_103.ok) {
-				rt.byteVecPush(out, _103.value.value);
+			const _118: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, node, rt.NULL, 3, 2);
+			if (_118.ok) {
+				rt.byteVecPush(out, _118.value.value);
 			} else {
 				rt.byteVecPush(out, 252);
 			}
 			rt.byteVecPush(out, rt.atomicLoad(SLOT, 0) === rt.NULL ? 1 : 0);
 			continue;
 		}
-		if (_46 === 5) {
-			const _119: [rt.u8, rt.u32] = rt.onceGetOrInit(ONCE, (): [rt.u8, rt.u32] => {
+		if (_61 === 5) {
+			const _134: [rt.u8, rt.u32] = rt.onceGetOrInit(ONCE, (): [rt.u8, rt.u32] => {
 				return [3, 9] as [rt.u8, rt.u32];
 			});
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_119[0], _119[1] & 0xff, ONCE.v !== undefined ? 1 : 0)));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_134[0], _134[1] & 0xff, ONCE.v !== undefined ? 1 : 0)));
 			continue;
 		}
-		if (_46 === 6) {
+		if (_61 === 6) {
 			const x: rt.LazyCell<rt.u8> = new rt.LazyCell((): rt.u8 => {
 				return rt.u8Add(rt.atomicFetch(FORCED, rt.u8WrappingAdd, 1, 0), 10);
 			});
@@ -201,7 +205,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, rt.atomicSwap(FORCED, 0, 0));
 			continue;
 		}
-		if (_46 === 7) {
+		if (_61 === 7) {
 			if (rt.u8Rem(n2, 2) === 0) {
 				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED.force(), rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0), read())));
 				rt.atomicStore(LATER, 40, 0);
@@ -216,9 +220,9 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (!(i < 3)) {
 			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
 		}
-		const _177: rt.u16 = rt.u16Mul(n2 as rt.u16, 300);
+		const _192: rt.u16 = rt.u16Mul(n2 as rt.u16, 300);
 		const uninit = rt.place(() => slots[i], (value) => slots[i] = value);
-		uninit.v = _177;
+		uninit.v = _192;
 		uninit;
 		if (!(i < 3)) {
 			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
