@@ -52,4 +52,3 @@ Every generator on the C ABI:
 - [Tuples inside other types](/quest/m1/ffi-export/tuples.md) - a tuple crosses as an iterator's or `Vec`'s item, in an `Option`, or as a field, so hang's `ranked` exports
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings on Android](/quest/m1/ffi-export/kotlin-android.md) - an R8 keep rule for JNI's lookups, and an emulator run in CI
-- [Kotlin payload reads at JNI's cost](/quest/m1/ffi-export/kotlin-reads.md) - a Kotlin payload read stops paying `NewDirectByteBuffer`'s ~100 ns, if the maintainer lets `Bytes` copy

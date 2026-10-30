@@ -534,10 +534,10 @@ impl Drop for Token {
 	}
 }
 
-/// Bytes whose drop counts in [`dropped`], as a token's does.
-pub fn token_bytes(id: u32) -> Bytes {
+/// `len` bytes of `id`'s low byte, whose drop counts in [`dropped`], as a token's does.
+pub fn token_bytes(id: u32, len: u32) -> Bytes {
 	// The token is held only for its drop.
-	struct Owner(#[allow(dead_code)] Token, [u8; 4]);
+	struct Owner(#[allow(dead_code)] Token, Vec<u8>);
 
 	impl AsRef<[u8]> for Owner {
 		fn as_ref(&self) -> &[u8] {
@@ -545,7 +545,7 @@ pub fn token_bytes(id: u32) -> Bytes {
 		}
 	}
 
-	Bytes::from_owner(Owner(Token::new(id), id.to_le_bytes()))
+	Bytes::from_owner(Owner(Token::new(id), vec![id as u8; len as usize]))
 }
 
 /// A payload and its sequence number: a record, whose bytes cross in both ways.

@@ -237,9 +237,11 @@ in as a `ByteArray`, bytes returned as their owner, and anything else encoded in
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
 - **Bytes** passed in are a `ByteArray`, copied, as are those Rust lends a closure or trait
-  method. Bytes Rust returns, or a record holds, are a `Bytes`, which lends Rust's buffer
-  as a read-only direct `ByteBuffer` until `close()` frees it, or, never closed, until the
-  GC collects that buffer; `Bytes(ByteArray)` holds Kotlin's for a record passed in.
+  method. Bytes Rust returns, or a record holds, are a `Bytes`, a read-only `ByteBuffer`:
+  up to 1 KiB copied, and longer ones lending Rust's buffer as a direct one until `close()`
+  frees it, or, never closed, until the GC collects that buffer, since a copy undercuts
+  `NewDirectByteBuffer` only that far; `Bytes(ByteArray)` holds Kotlin's for a record
+  passed in.
   Strings are `String`, `Option<T>` `T?`, a tuple `Pair`,
   `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
