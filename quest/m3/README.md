@@ -25,7 +25,7 @@ generic std gap is planned here even when moq never calls it.
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
 - [A B-tree's drop order](/quest/m3/ts-btree-drop.md) - dropping a whole `BTreeMap` or `BTreeSet` drops its entries node by node, as std's does
-- [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
+- [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's consumers, zips, flattens, and collects drop as std's do
 - [References to byte arrays std takes](/quest/m3/ts-byte-refs-taken.md) - `extend` by references to arrays, adaptors' closures over held arrays, and a collection of both forms translate
 - [std accessors with no mapping](/quest/m3/ts-unmapped-accessors.md) - `VecDeque::swap_remove_*`, `HashSet::replace`, `BTreeSet::get`, `take`, and `replace`, `Vec::pop_if`, and `Arc` and `Rc::into_inner` translate
 - [Equality of std containers of unlike elements](/quest/m3/ts-eq-unlike.md) - `==` and `next_if_eq` of a `Vec<Left>` against a `&[Right]`, and of `VecDeque` against `Vec`, translate

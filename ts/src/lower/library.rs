@@ -719,7 +719,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		| ("Into", "into")
 		// What a panic would drop, which aborts.
 		| ("Result", "unwrap" | "expect" | "unwrap_err")
-		| ("Vec", "insert") => &[],
+		| ("Vec", "insert")
+		| ("RangeInclusive", "new") => &[],
 		// `Vec<T>` drops each element `retain` rejects, `dedup` removes, and `truncate` and
 		// `clear` cut.
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
@@ -858,7 +859,8 @@ pub fn called_through<'tcx>(
 }
 
 /// The closures `call` calls that own a value that drops, by what its mapping does with
-/// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
+/// each: kept by the iterator it returns, if `iter::holds_closure`; dropped by the mapping,
+/// if `released`, as `iter::releases` says; dropped as it returns, if
 /// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
 /// drops is ordered against it; dropped where `discarded` says, by the type's index among
 /// the call's type arguments; or else leaked. A closure that `Fn` or `FnMut` call, given to
@@ -869,6 +871,7 @@ fn called_closures<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
 	discarded: Option<&[usize]>,
+	released: bool,
 	args: &mut [Expr],
 ) -> Closures<'tcx> {
 	let tcx = b.t.tcx;
@@ -912,8 +915,8 @@ fn called_closures<'tcx>(
 			}
 			continue;
 		}
-		// Its owner drops a borrowed closure.
-		if lent {
+		// Its owner drops a borrowed closure, and the mapping a released one.
+		if lent || released {
 			continue;
 		}
 		let index = call.args[..param.index as usize]
@@ -1024,7 +1027,8 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	}
 	let discarded = discards(&owner, &name);
 	let mut args = args;
-	let closures = called_closures(b, call, discarded, &mut args);
+	let released = super::iter::releases(&owner, &name);
+	let closures = called_closures(b, call, discarded, released, &mut args);
 	let mut e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
 	if let Some(ty) = closures.leaked {
 		return Some(b.err(
@@ -1771,18 +1775,17 @@ fn mapping<'tcx>(
 			};
 			rt2(values, of, &f)
 		}
-		// Of a range, which `Vec<T, A>::drain::<R>` takes, and which `bounds` refuses if it
-		// drops, as the other operand is the vector.
+		// Of a range, which `Vec<T, A>::drain::<R>` takes, as the other operand is the vector.
 		("Vec", "drain") => {
-			let range = args.pop()?;
-			args.push(super::collections::bounds(b, call, range));
-			return Some(match is_u8(targ(gargs, 0)) {
+			let ranged = super::collections::bounds(b, call, args.pop()?);
+			args.push(ranged.bounds.clone());
+			return Some(ranged.after(match is_u8(targ(gargs, 0)) {
 				true => Expr::rt("byteVecDrain", args),
 				false => {
 					let dropper = b.t.dropper(targ(gargs, 0), span);
 					Expr::rt("vecDrain", super::iter::tail(args, vec![dropper]))
 				}
-			});
+			}));
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;
@@ -1826,9 +1829,9 @@ fn mapping<'tcx>(
 		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
 		// Of the place the `&mut` is, which it writes as it drops, and of a range, as `Vec::drain`.
 		("String", "drain") => {
-			let range = args.pop()?;
-			args.push(super::collections::bounds(b, call, range));
-			Expr::rt("stringDrain", args)
+			let ranged = super::collections::bounds(b, call, args.pop()?);
+			args.push(ranged.bounds.clone());
+			return Some(ranged.after(Expr::rt("stringDrain", args)));
 		}
 		("Drain", "as_str") => Expr::rt("stringDrainAsStr", args),
 		("ParseIntError", "kind") => args.pop()?.member("kind"),

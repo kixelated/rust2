@@ -40,10 +40,13 @@ export function callOnce<A extends unknown[], R>(f: (...args: A) => R, ...args: 
 	return r;
 }
 
-/** `call()`, then `f` drops: a std function that calls `f` and keeps nothing of it drops it as it returns. */
-export function dropAfter<R>(f: unknown, call: () => R): R {
-	const r = call();
-	drop(f);
+/**
+ * `call(f)`, then `f` dropped by `by`: a std function that calls `f`, or reads a range `f`,
+ * and keeps nothing of it drops it as it returns.
+ */
+export function dropAfter<T, R>(f: T, call: (f: T) => R, by: (f: T) => void = drop): R {
+	const r = call(f);
+	by(f);
 	return r;
 }
 

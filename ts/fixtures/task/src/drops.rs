@@ -23,6 +23,7 @@ macro_rules! list {
 
 mod closures;
 mod folds;
+mod inside;
 mod iters;
 mod objects;
 mod once;
@@ -630,6 +631,12 @@ pub fn folded(log: &Log, id: u32, arg: u8) {
 /// beside another.
 pub fn rfolded(log: &Log, id: u32, arg: u8) {
 	folds::rfolded(log, id, arg);
+}
+
+/// Run scenario `arg % 9` of where std drops values inside its iterators and formatting.
+/// Two panic: one in a `for_each`, and a drain past the end, each with std's message.
+pub fn inside(log: &Log, id: u32, arg: u8) {
+	inside::inside(log, id, arg);
 }
 
 /// Run scenario `arg % 9` of what a `Vec`'s edits, its, a tuple's, and a box's `clone`,
