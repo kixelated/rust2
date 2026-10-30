@@ -169,6 +169,7 @@ const VERBATIM: &[&str] = &[
 	"become",
 	"bool",
 	"break",
+	"clone_from",
 	"collect",
 	"copy_nonoverlapping",
 	"dyn Future",
