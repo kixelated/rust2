@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { then$0havnzo } from "./core/bool.ts";
-import { unwrapOr$1iemzn8, map$0gl6wke, mapOr$147z9gi, mapOr$16umieg } from "./core/option.ts";
+import { unwrapOr$1iemzn8, unwrapOr$0r2bmpr, map$0gl6wke, mapOr$147z9gi, mapOr$16umieg } from "./core/option.ts";
 import { put } from "./fmt.ts";
 import * as Named from "./strs.Named.ts";
 
@@ -461,6 +461,222 @@ export function escape(parts: string[]): string {
 			}
 			path = path + String.fromCodePoint(ch);
 		}
+	}
+}
+
+/**
+ * A byte offset into `s` from `b`: mostly where a char starts or the end, and otherwise
+ * any offset up to two past the end, inside a char or out of bounds.
+ */
+export function offset(s: string, b: rt.u8): rt.usize {
+	let _21!: rt.usize;
+	if (!((b & 112) === 0)) {
+		let skip: rt.usize = rt.usizeRem(b as rt.usize, rt.usizeAdd(rt.iterCount(rt.strChars(s)), 1));
+		const _19: rt.usize = rt.stringLen(s);
+		let iterStart: rt.usize = 0;
+		const iterEnd: rt.usize = _19;
+		while ((_21 = iterStart++) < iterEnd) {
+			const i: rt.usize = _21;
+			if (rt.strIsCharBoundary(s, i)) {
+				if (!(skip === 0)) {
+					skip = rt.usizeSub(skip, 1);
+				} else {
+					return i;
+				}
+			}
+		}
+		return rt.stringLen(s);
+	}
+	return rt.usizeRem(b as rt.usize, rt.usizeAdd(rt.stringLen(s), 3));
+}
+
+/** `String::retain` by a function behind a `&mut`, behind two, and boxed behind one. */
+export function retainBy(s: rt.Place<string>, f: rt.Place<(a0: rt.char) => boolean>, how: rt.u8): void {
+	const _4: rt.u8 = rt.u8Rem(how, 3);
+	if (_4 === 0) {
+		s.v = rt.stringRetain(s.v, f.v);
+	} else if (_4 === 1) {
+		let _7: rt.Place<(a0: rt.char) => boolean> = f;
+		s.v = rt.stringRetain(s.v, rt.place(() => _7, (value) => _7 = value).v.v);
+	} else {
+		s.v = rt.stringRetain(s.v, f.v);
+	}
+}
+
+export function odd(c: rt.char): boolean {
+	return rt.u32Rem(c as rt.u32, 2) === 1;
+}
+
+/** One edit of `s` by `op`, taking offsets and text from `a` and `b`, through a `&mut`. */
+export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt.ByteVec): void {
+	let capacity!: rt.usize;
+	const part = rt.u8Rem(a, 4) as rt.usize;
+	const piece: string = text(rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(a, b, a ^ b)), 0, part));
+	const _17: [rt.usize, rt.usize] = [offset(s.v, a), offset(s.v, b)];
+	const i: rt.usize = _17[0];
+	const j: rt.usize = _17[1];
+	const _24: rt.u8 = rt.u8Rem(op, 14);
+	if (_24 === 0) {
+		s.v = s.v + piece;
+	} else if (_24 === 1) {
+		s.v = s.v + piece;
+	} else if (_24 === 2) {
+		if (!(rt.u8Rem(a, 4) === 0)) {
+			const _35: rt.usize = rt.u8Rem(b, 16) as rt.usize;
+			if (!(_35 < 16)) {
+				rt.panic("index out of bounds: the len is " + 16 + " but the index is " + _35);
+			}
+			s.v = s.v + String.fromCodePoint([47, 92, 97, 48, 57, 127, 128, 233, 2047, 2048, 55295, 57344, 65535, 65536, 128512, 1114111][_35]);
+		} else {
+			s.v = "";
+		}
+	} else if (_24 === 3) {
+		s.v = rt.stringTruncate(s.v, i);
+	} else if (_24 === 4) {
+		const edit3 = rt.stringPop(s.v);
+		s.v = edit3[0];
+		putChar(out, edit3[1]);
+	} else if (_24 === 5) {
+		const edit2 = rt.stringRemove(s.v, i);
+		s.v = edit2[0];
+		putChar(out, edit2[1]);
+	} else if (_24 === 6) {
+		const _44: rt.usize = rt.u8Rem(b, 16) as rt.usize;
+		if (!(_44 < 16)) {
+			rt.panic("index out of bounds: the len is " + 16 + " but the index is " + _44);
+		}
+		s.v = rt.stringInsertStr(s.v, i, String.fromCodePoint([47, 92, 97, 48, 57, 127, 128, 233, 2047, 2048, 55295, 57344, 65535, 65536, 128512, 1114111][_44]));
+	} else if (_24 === 7) {
+		s.v = rt.stringInsertStr(s.v, i, piece);
+	} else if (_24 === 8) {
+		if (!(rt.u8Rem(b, 2) === 1)) {
+			const seen: rt.char[] = [];
+			s.v = rt.stringRetain(s.v, (c: rt.char): boolean => {
+				seen.push(c);
+				return rt.u32Rem(c as rt.u32, 3) !== rt.u8Rem(a, 3) as rt.u32;
+			});
+			putSeen(out, seen);
+		} else {
+			let f: (a0: rt.char) => boolean = odd;
+			retainBy(s, rt.place(() => f, (value) => f = value), a);
+		}
+	} else if (_24 === 9) {
+		const edit_ = rt.stringSplitOff(s.v, i);
+		s.v = edit_[0];
+		put(out, edit_[1]);
+	} else if (_24 === 10) {
+		const _67: rt.u8 = rt.u8Rem(b, 7);
+		if (_67 === 0) {
+			const _69: rt.Range<rt.usize> = new rt.Range(i, j);
+			s.v = rt.stringReplaceRange(s.v, _69, piece);
+		} else if (_67 === 1) {
+			const _72: { start: rt.usize } = { start: i };
+			s.v = rt.stringReplaceRange(s.v, _72, piece);
+		} else if (_67 === 2) {
+			const _75: { end: rt.usize } = { end: j };
+			s.v = rt.stringReplaceRange(s.v, _75, piece);
+		} else if (_67 === 3) {
+			s.v = rt.stringReplaceRange(s.v, undefined, piece);
+		} else if (_67 === 4) {
+			const _80: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(i, j, rt.usizeStep);
+			s.v = rt.stringReplaceRange(s.v, _80, piece);
+		} else if (_67 === 5) {
+			const _83: { end: rt.usize; inclusive: true } = { end: j, inclusive: true };
+			s.v = rt.stringReplaceRange(s.v, _83, piece);
+		} else {
+			const _86: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] = [{ tag: "Excluded", _0: i } as rt.RangeBound<rt.usize>, { tag: "Included", _0: j } as rt.RangeBound<rt.usize>];
+			s.v = rt.stringReplaceRange(s.v, _86, piece);
+		}
+	} else if (_24 === 11) {
+		const _91: rt.u8 = rt.u8Rem(b, 5);
+		if (_91 === 0) {
+			s.v = rt.stringExtendFromWithin(s.v, new rt.Range(i, j));
+		} else if (_91 === 1) {
+			s.v = rt.stringExtendFromWithin(s.v, { start: i });
+		} else if (_91 === 2) {
+			s.v = rt.stringExtendFromWithin(s.v, { end: j, inclusive: true });
+		} else if (_91 === 3) {
+			s.v = rt.stringExtendFromWithin(s.v, [{ tag: "Included", _0: i } as rt.RangeBound<rt.usize>, { tag: "Excluded", _0: j } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>]);
+		} else {
+			s.v = rt.stringExtendFromWithin(s.v, undefined);
+		}
+	} else if (_24 === 12) {
+		const _99: rt.u8 = rt.u8Rem(a, 4);
+		if (_99 === 0) {
+			rt.stringReserve(s.v, rt.usizeSub(4294967295, b as rt.usize));
+		} else if (_99 === 1) {
+			const _104: rt.usize = rt.usizeAdd(rt.usizeAdd(rt.usizeSub(2147483647, rt.stringLen(s.v)), 1), rt.u8Rem(b, 2) as rt.usize);
+			rt.stringReserve(s.v, _104);
+		} else {
+			rt.stringReserve(s.v, a as rt.usize);
+			rt.stringReserve(s.v, b as rt.usize);
+		}
+	} else {
+		if (rt.u8Rem(a, 4) === 0) {
+			capacity = rt.usizeAdd(rt.usizeAdd(2147483647, 1), rt.u8Rem(b, 2) as rt.usize);
+		} else {
+			capacity = a as rt.usize;
+		}
+		let fresh: string = rt.stringWithCapacity(capacity);
+		fresh = fresh + s.v;
+		s.v = fresh;
+	}
+}
+
+/**
+ * `String`'s edits in place, three bytes each, on text of chars of every UTF-8 width:
+ * through a `&mut String`, on a local, and on a field, each printed after each edit.
+ * An offset off a char boundary or out of bounds panics as std's does.
+ */
+export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	const mid: number = rt.min(data.length, rt.u8Rem(kind, 8) as rt.usize);
+	if (mid > data.length) {
+		rt.panic("mid > len");
+	}
+	const head: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, mid);
+	let s: string = text(head);
+	const named: Named.Named = { name: text(head) };
+	const iter: rt.Iter<rt.ByteSlice> = rt.byteSliceChunks(new rt.ByteSlice(data.data, data.start + mid, data.length - mid), 3);
+	while (true) {
+		const _18: rt.ByteSlice | rt.Done = iter.next();
+		if (_18 === rt.DONE) {
+			break;
+		}
+		rt.idx(_18, 0);
+		const _25: Uint8Array = Uint8Array.of(_18.data[_18.start], unwrapOr$0r2bmpr(rt.byteSliceGet(_18, 1), 0), unwrapOr$0r2bmpr(rt.byteSliceGet(_18, 2), 16));
+		const op: rt.u8 = _25[0];
+		const a: rt.u8 = _25[1];
+		const b: rt.u8 = _25[2];
+		const _39: rt.u8 = rt.u8Div(op, 64);
+		if (_39 === 0) {
+			edit(rt.place(() => named.name, (value2) => named.name = value2), op, a, b, out);
+		} else if (_39 === 1) {
+			const _42: rt.u8 = rt.u8Rem(op, 6);
+			if (_42 === 0) {
+				s = s + "é/";
+			} else if (_42 === 1) {
+				const _47: rt.usize = offset(s, a);
+				s = rt.stringTruncate(s, _47);
+			} else if (_42 === 2) {
+				const edit2 = rt.stringPop(s);
+				s = edit2[0];
+				putChar(out, edit2[1]);
+			} else if (_42 === 3) {
+				const _53: rt.usize = offset(s, a);
+				s = rt.stringInsertStr(s, _53, "😀");
+			} else if (_42 === 4) {
+				const _61: rt.usize = offset(s, a);
+				const edit_ = rt.stringSplitOff(s, _61);
+				s = edit_[0];
+				put(out, edit_[1]);
+			} else {
+				s = "";
+			}
+		} else {
+			edit(rt.place(() => s, (value) => s = value), op, a, b, out);
+		}
+		put(out, s);
+		put(out, named.name);
 	}
 }
 

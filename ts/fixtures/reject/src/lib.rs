@@ -797,6 +797,12 @@ pub fn spent_range(
 	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
 }
 
+/// A closure that owns a value that drops, which `String::retain` would call but never drop.
+pub fn string_retained(s: &mut String) {
+	let n = Noisy(1);
+	s.retain(move |c| c as u8 != (&n).0);
+}
+
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
 /// `O` as this function's second type parameter: that refuses nothing.
 pub async fn generic_awaited<F: Fn() -> u8, O: std::future::Future<Output = u8>>(f: F, o: O) -> u8 {

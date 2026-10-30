@@ -209,8 +209,11 @@ A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a sear
 closure, which it calls on each char it reads, in the order std reads them. An offset it
 returns, from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does, and so does
 one `&s[a..b]` takes, which reads the string up to it and panics as std does inside a
-char. A JS string can't change in place, so `String::push` assigns a longer one to the
-local or field the `&mut` borrows. A `Cow<str>` is its text, borrowed or owned, so
+char. A JS string can't change in place, so `String`'s edits, `push_str`, `truncate`,
+`insert`, `retain`, `replace_range`, and the rest, assign the edited one to the local or
+field the `&mut` borrows, taking and checking byte offsets as std does. A `String` keeps no
+capacity: `with_capacity`, `reserve`, and `shrink_to_fit` do nothing, and `capacity` is
+refused. A `Cow<str>` is its text, borrowed or owned, so
 `to_mut` borrows the `Cow`'s own place, and code that tells its variants apart, a `match`
 on them or `Cow::is_borrowed`, is refused.
 
@@ -613,7 +616,7 @@ copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
 a pointer's address (`{:p}`), `write!` with a placeholder into
-the crate's own `fmt::Write`, a `str` pattern other than a
+the crate's own `fmt::Write`, `String::extend` and `drain`, a `str` pattern other than a
 `char`, a `&str`, a predicate, or chars, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
