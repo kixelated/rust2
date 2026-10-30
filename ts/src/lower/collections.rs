@@ -1213,10 +1213,12 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 pub fn unread_range<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<String> {
 	let range = *b.t.sig(call.def_id, call.args).inputs().last()?;
 	match b.t.std_of(range) {
-		Some(Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull) => {
-			None
-		}
-		_ => Some(format!("a range of `{range}`, whose bounds the runtime doesn't read, which is not supported yet")),
+		Some(
+			Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull,
+		) => None,
+		_ => Some(format!(
+			"a range of `{range}`, whose bounds the runtime doesn't read, which is not supported yet"
+		)),
 	}
 }
 
