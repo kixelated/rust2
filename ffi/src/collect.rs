@@ -2206,9 +2206,13 @@ impl<'tcx> Collector<'tcx> {
 				}) {
 				let into = tcx.is_diagnostic_item(sym::Into, bound.def_id());
 				let bound = bound.skip_binder();
-				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
+				let x = bound.trait_ref.args.type_at(1);
+				// A target naming `'static`, as `Into<Held<'static>>` does, which erasing it forgets,
+				// takes only what outlives the call.
+				let lasting = outlives || x.walk().any(|arg| arg.as_region().is_some_and(|r| r.is_static()));
+				let x = tcx.erase_and_anonymize_regions(x);
 				if bound.self_ty() == source && !x.has_non_region_infer() {
-					found.push((x, outlives, imp, into));
+					found.push((x, lasting, imp, into));
 				}
 			}
 		}

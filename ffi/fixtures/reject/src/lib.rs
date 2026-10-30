@@ -373,6 +373,20 @@ pub fn kept<'a>(value: impl Into<Held<'a>> + 'static) -> u32 {
 	*value.into().0
 }
 
+/// Excluded, what converts into a `Held<'static>`.
+pub struct Holder(pub Held<'static>);
+
+impl<T: Into<Held<'static>>> From<T> for Holder {
+	fn from(value: T) -> Self {
+		Holder(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which a level of its conversion demands.
+pub fn holder(value: impl Into<Holder>) -> u32 {
+	*value.into().0.0
+}
+
 /// Excluded, a name from a string, or from bytes that need not be UTF-8.
 pub struct Called(pub String);
 
