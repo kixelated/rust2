@@ -648,10 +648,12 @@ fn btree<'tcx>(
 	if matches!(name, "range" | "range_mut") {
 		let range = values.pop()?;
 		values.push(bounds(b, call, range));
-		// std checks the ends by `==` and `>`, which a std key does as its `Ord` does, and
-		// the crate's own by its `PartialEq` and `PartialOrd`.
+		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
+		// does, and one holding the crate's own type by that type's `PartialEq` and
+		// `PartialOrd`.
 		let target = range_target(b, call);
-		if !std_key(b, target) {
+		let own = |t: Ty<'tcx>| matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
+		if target.walk().filter_map(|arg| arg.as_type()).any(own) {
 			values.push(eq_fn(b, target, span));
 			values.push(test_fn(b, target, "gt", span));
 		}

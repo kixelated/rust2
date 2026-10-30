@@ -209,6 +209,14 @@ pub fn bounds(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			flush(out);
 			out.extend(map.values());
+			// Held in a std type, which compares by it.
+			let mut pairs = BTreeSet::new();
+			for &k in data {
+				pairs.insert((k, Key(k)));
+			}
+			let (a, b) = ((a.0, a), (b.0, b));
+			out.extend(pairs.range((bound(s, &a), bound(e, &b))).map(|(k, _)| *k));
+			flush(out);
 		}
 	}
 	flush(out);
