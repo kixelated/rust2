@@ -101,6 +101,46 @@ export function eq$0pe0qmq(self: rt.Result<rt.i128, rt.ParseIntError>, other: rt
 	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
+export function eq$0pee78b(self: rt.Result<rt.i128, never>, other: rt.Result<rt.i128, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.i128Eq(self.value, (other as { ok: true; value: rt.i128 }).value);
+	}
+	return true;
+}
+
+export function eq$1mi4cle(self: rt.Result<rt.i16, never>, other: rt.Result<rt.i16, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.i16 }).value;
+	}
+	return true;
+}
+
+export function eq$1ukayff(self: rt.Result<rt.i32, never>, other: rt.Result<rt.i32, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.i32 }).value;
+	}
+	return true;
+}
+
+export function eq$1hy1is1(self: rt.Result<rt.i64, never>, other: rt.Result<rt.i64, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.i64Eq(self.value, (other as { ok: true; value: rt.i64 }).value);
+	}
+	return true;
+}
+
 export function eq$1mpp8xa(self: rt.Result<rt.i8, rt.ParseIntError>, other: rt.Result<rt.i8, rt.ParseIntError>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
 		return false;
@@ -121,6 +161,26 @@ export function eq$0grmb7g(self: rt.Result<rt.i8, rt.TryFromIntError>, other: rt
 	return eq$1nf2rde(self.error, (other as { ok: false; error: rt.TryFromIntError }).error);
 }
 
+export function eq$1hd8lo9(self: rt.Result<rt.i8, never>, other: rt.Result<rt.i8, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.i8 }).value;
+	}
+	return true;
+}
+
+export function eq$0w2dfat(self: rt.Result<rt.isize, never>, other: rt.Result<rt.isize, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.isize }).value;
+	}
+	return true;
+}
+
 export function eq$0rj0czq(self: rt.Result<string, rt.Utf8Error>, other: rt.Result<string, rt.Utf8Error>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
 		return false;
@@ -129,6 +189,16 @@ export function eq$0rj0czq(self: rt.Result<string, rt.Utf8Error>, other: rt.Resu
 		return self.value === (other as { ok: true; value: string }).value;
 	}
 	return eq$1v93ipo(self.error, (other as { ok: false; error: rt.Utf8Error }).error);
+}
+
+export function eq$06vyx9e(self: rt.Result<rt.u128, never>, other: rt.Result<rt.u128, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.u128Eq(self.value, (other as { ok: true; value: rt.u128 }).value);
+	}
+	return true;
 }
 
 export function eq$08241oi(self: rt.Result<rt.u16, never>, other: rt.Result<rt.u16, never>): boolean {
@@ -141,6 +211,16 @@ export function eq$08241oi(self: rt.Result<rt.u16, never>, other: rt.Result<rt.u
 	return true;
 }
 
+export function eq$0nbftnc(self: rt.Result<rt.u32, never>, other: rt.Result<rt.u32, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u32 }).value;
+	}
+	return true;
+}
+
 export function eq$0bl30vt(self: rt.Result<rt.u64, rt.ParseIntError>, other: rt.Result<rt.u64, rt.ParseIntError>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
 		return false;
@@ -149,6 +229,16 @@ export function eq$0bl30vt(self: rt.Result<rt.u64, rt.ParseIntError>, other: rt.
 		return rt.u64Eq(self.value, (other as { ok: true; value: rt.u64 }).value);
 	}
 	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$1gq81ib(self: rt.Result<rt.u64, never>, other: rt.Result<rt.u64, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.u64Eq(self.value, (other as { ok: true; value: rt.u64 }).value);
+	}
+	return true;
 }
 
 export function eq$1fkhuzl(self: rt.Result<rt.u8, rt.IntErrorKind>, other: rt.Result<rt.u8, rt.IntErrorKind>): boolean {
@@ -171,6 +261,16 @@ export function eq$0p1bb4y(self: rt.Result<rt.u8, rt.ParseIntError>, other: rt.R
 	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
+export function eq$12e5exx(self: rt.Result<rt.u8, never>, other: rt.Result<rt.u8, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u8 }).value;
+	}
+	return true;
+}
+
 export function eq$03gbayb(self: rt.Result<undefined, rt.FmtError>, other: rt.Result<undefined, rt.FmtError>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
 		return false;
@@ -179,6 +279,16 @@ export function eq$03gbayb(self: rt.Result<undefined, rt.FmtError>, other: rt.Re
 		return true;
 	}
 	return eq$08q6k9m(self.error, (other as { ok: false; error: rt.FmtError }).error);
+}
+
+export function eq$1xhgva4(self: rt.Result<rt.usize, never>, other: rt.Result<rt.usize, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.usize }).value;
+	}
+	return true;
 }
 
 export function isOkAnd$0jj0nkw(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {
