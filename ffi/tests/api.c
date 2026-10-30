@@ -462,7 +462,7 @@ static int script(void) {
 	/* Generic functions and methods, at each implementation of the trait bounding them, by
 	   reference, which leaves C its handle. */
 	api_counter *from_point = api_counter_seeded_point(str("p"), (api_point){.x = -3, .y = 4});
-	api_counter *from_size = api_counter_seeded_size(str("s"), (api_size){.width = 5, .height = 6});
+	api_counter *from_size = api_counter_from_size(str("s"), (api_size){.width = 5, .height = 6});
 	api_counter *from_counter = api_counter_seeded_counter(str("c"), from_point);
 	/* Two instances whose arguments share a last segment: one takes its module too. */
 	api_counter *from_polar = api_counter_seeded_polar_point(str("q"), (api_polar_point){.turns = 1, .distance = 2});

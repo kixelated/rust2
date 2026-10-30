@@ -20,9 +20,10 @@ exclude = [
     "Timed",
 ]
 
-# The field `Retry::limit`, whose name its method takes, and one instance of `Pair`, whose
-# other instances keep their names.
+# The field `Retry::limit`, whose name its method takes, and one instance each of `Pair`
+# and `Counter::seeded`, whose other instances keep their names.
 [rename]
+"Counter::seeded<dep_fixture::Size>" = "counter_from_size"
 "field@Retry::limit" = "retry_limit_setting"
 "Pair<dep_fixture::Size, u8>" = "size_tag"
 

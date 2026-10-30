@@ -240,7 +240,7 @@ fun script() {
 	// Generic functions and methods, at each implementation of the trait bounding them, by
 	// reference, which leaves Kotlin its handle.
 	val fromPoint = Counter.seededPoint("p", Point(-3, 4))
-	val fromSize = Counter.seededSize("s", Size(5u, 6u))
+	val fromSize = Counter.fromSize("s", Size(5u, 6u))
 	val fromCounter = Counter.seededCounter("c", fromPoint)
 	val fromPolar = Counter.seededPolarPoint("q", PolarPoint(1u, 2u))
 	println(

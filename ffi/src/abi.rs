@@ -164,7 +164,10 @@ impl<'a> Abi<'a> {
 				break;
 			}
 		}
-		segments.extend(rest.iter().map(|segment| snake(segment.split('<').next().unwrap_or(segment))));
+		segments.extend(
+			rest.iter()
+				.map(|segment| snake(segment.split('<').next().unwrap_or(segment))),
+		);
 		(segments, alone)
 	}
 

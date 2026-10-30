@@ -382,7 +382,7 @@ int script() {
 		// by reference, which leaves C++ its handle. Two arguments sharing a last segment
 		// name their instances apart by the module of one.
 		api::counter from_point = api::counter::seeded_point("p", {-3, 4});
-		api::counter from_size = api::counter::seeded_size("s", {5, 6});
+		api::counter from_size = api::counter::from_size("s", {5, 6});
 		api::counter from_counter = api::counter::seeded_counter("c", from_point);
 		api::counter from_polar = api::counter::seeded_polar_point("q", {1, 2});
 		std::printf("seeded %llu %llu %llu %llu past %llu seeds %llu\n", ull(from_point.get()), ull(from_size.get()),
