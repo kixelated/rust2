@@ -609,9 +609,16 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, d
 /**
  * `is_sorted_by`: whether `compare` holds of each item and the next, read by `next` and
  * then as `all` folds, stopping at the first it fails. Each item drops by `drop` as the
- * next replaces it, or after the one it failed against; then `it`, if `drops`.
+ * next replaces it, or after the one it failed against; then `compare` by `dropCompare`,
+ * as `all` drops it, the last item, and `it`, if `drops`.
  */
-export function iterIsSortedBy<T>(it: Iter<T>, compare: (a: T, b: T) => boolean, drops = false, drop?: Drop<T>): boolean {
+export function iterIsSortedBy<T>(
+	it: Iter<T>,
+	compare: (a: T, b: T) => boolean,
+	drops = false,
+	drop?: Drop<T>,
+	dropCompare?: Drop<(a: T, b: T) => boolean>,
+): boolean {
 	let last = it.next();
 	let sorted = true;
 	if (last !== DONE) {
@@ -625,8 +632,9 @@ export function iterIsSortedBy<T>(it: Iter<T>, compare: (a: T, b: T) => boolean,
 			drop?.(last);
 			last = item;
 		}
-		drop?.(last);
 	}
+	dropCompare?.(compare);
+	if (last !== DONE) drop?.(last);
 	if (drops) dispose(it);
 	return sorted;
 }

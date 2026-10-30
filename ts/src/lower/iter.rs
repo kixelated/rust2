@@ -500,7 +500,10 @@ pub fn call<'tcx>(
 					)
 				}
 			};
-			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(each, span)];
+			let mut droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(each, span)];
+			if name == "is_sorted_by" {
+				droppers.push(b.t.dropper(targ(1)?, span));
+			}
 			Some(Expr::rt("iterIsSortedBy", tail(vec![items, compare], droppers)))
 		}
 		"rposition" => method(&camel, rest),

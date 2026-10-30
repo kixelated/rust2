@@ -143,6 +143,15 @@ fn sorted(data: &[u8], out: &mut Vec<u8>) {
 		out.push(items().is_sorted_by_key(|x| Reverse(x.key)) as u8);
 		out.push(items().collect::<Vec<_>>().into_iter().is_sorted() as u8);
 		flush(out);
+		// A function that owns an item drops as std's `all` drops it: before the last item
+		// and the iterator.
+		let owned = || item(200, 0);
+		let (g, h, k) = (owned(), owned(), owned());
+		out.push(items().is_sorted_by(move |a, b| (&g).key <= a.key && a.key <= b.key) as u8);
+		let v = items().collect::<Vec<_>>();
+		out.push(v.into_iter().is_sorted_by(move |a, b| a.key <= b.key + (&h).key) as u8);
+		out.push(items().is_sorted_by_key(move |x| x.key + (&k).key) as u8);
+		flush(out);
 		let strings: Vec<String> = bytes.iter().map(|b| (b % 16).to_string()).collect();
 		out.extend([
 			bytes.is_sorted() as u8,
@@ -167,10 +176,14 @@ fn heaps(data: &[u8], out: &mut Vec<u8>) {
 		match op % 12 {
 			0..=2 => heap.push(item(i, v)),
 			3 => out.push(heap.pop().map_or(0xff, |x| x.tag)),
-			// `DerefMut` sifts the top once it drops, but of a heap of one.
+			// `DerefMut` sifts the top once it drops, but of a heap of one, and forgotten,
+			// leaves the top alone in the heap.
 			4 => {
 				if let Some(mut top) = heap.peek_mut() {
 					top.key = v % 8;
+					if v & 0x10 != 0 {
+						std::mem::forget(top);
+					}
 				}
 			}
 			// `Deref` alone sifts nothing, and `PeekMut::pop` pops.

@@ -2144,8 +2144,8 @@ export class PeekMut<T> implements Place<T> {
 	readonly le: Test<T>;
 	readonly ge: Test<T>;
 	readonly lt: Test<T>;
-	/** Whether its drop sifts, as std's sets `original_len`. */
-	s = false;
+	/** The heap's elements `DerefMut` hid behind a heap of the top alone, as std's `set_len(1)` does, so a forgotten guard leaks them as std's does. */
+	t: T[] | undefined;
 
 	constructor(h: BinaryHeap<T>, le: Test<T>, ge: Test<T>, lt: Test<T>) {
 		this.h = h;
@@ -2168,19 +2168,33 @@ export function heapPeekMut<T>(h: BinaryHeap<T>, le: Test<T>, ge: Test<T>, lt: T
 	return h.d.length === 0 ? undefined : new PeekMut(h, le, ge, lt);
 }
 
-/** `PeekMut`'s `DerefMut`, which marks it to sift as it drops if the heap holds more than the one element. */
+/** `PeekMut`'s `DerefMut`, which hides the rest of a heap of more than the one element until the guard drops. */
 export function peekMutDerefMut<T>(p: PeekMut<T>): void {
-	if (p.h.d.length > 1) p.s = true;
+	const d = p.h.d;
+	if (d.length > 1) {
+		p.t = d;
+		p.h.d = [d[0]];
+	}
+}
+
+/** The elements `DerefMut` hid back in the heap, with the top as written; whether there were any. */
+function peekMutRestore<T>(p: PeekMut<T>): boolean {
+	const t = p.t;
+	if (t === undefined) return false;
+	t[0] = p.h.d[0];
+	p.h.d = t;
+	p.t = undefined;
+	return true;
 }
 
 /** `PeekMut`'s drop: the element sifted down from the top, if `DerefMut` lent it. */
 export function peekMutDrop<T>(p: PeekMut<T>): void {
-	if (p.s) siftDownRange(p.h.d, 0, p.h.d.length, p.le, p.ge, p.lt);
+	if (peekMutRestore(p)) siftDownRange(p.h.d, 0, p.h.d.length, p.le, p.ge, p.lt);
 }
 
 /** `PeekMut::pop`: the heap's `pop`, which leaves the drop nothing to sift. */
 export function peekMutPop<T>(p: PeekMut<T>): T {
-	p.s = false;
+	peekMutRestore(p);
 	return heapPop(p.h, p.le) as T;
 }
 

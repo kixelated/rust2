@@ -632,6 +632,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Arc" | "Rc", "new_cyclic") => &[1],
+		// `is_sorted_by::<F>` drops its comparator before the last item, as `all` takes it.
+		("Iterator", "is_sorted_by") => &[1],
 		("LocalKey", "with" | "try_with" | "initialize_with" | "with_borrow_mut") => &[1],
 		_ => return None,
 	})
@@ -787,19 +789,20 @@ fn called_closures<'tcx>(
 		if lent {
 			continue;
 		}
+		let index = call.args[..param.index as usize]
+			.iter()
+			.filter(|a| a.as_type().is_some())
+			.count();
+		let discards = discarded.is_some_and(|d| d.contains(&index));
 		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
-		if bound != ty::ClosureKind::FnOnce && !kept && i < args.len() {
+		if bound != ty::ClosureKind::FnOnce && !kept && !discards && i < args.len() {
 			match dropping_operand(b, call) {
 				None => closures.spent.push(args[i].clone()),
 				Some(_) => closures.leaked = closures.leaked.or(Some(ty)),
 			}
 			continue;
 		}
-		let index = call.args[..param.index as usize]
-			.iter()
-			.filter(|a| a.as_type().is_some())
-			.count();
-		if !discarded.is_some_and(|d| d.contains(&index)) {
+		if !discards {
 			closures.leaked = closures.leaked.or(Some(ty));
 			continue;
 		}
