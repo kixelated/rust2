@@ -785,6 +785,50 @@ pub fn rooted_name(rooted: impl Into<Rooted>) -> String {
 	rooted.into().0.0
 }
 
+/// Text copied from a borrow, so `'static` whatever it borrowed.
+pub struct Copied<'a>(String, std::marker::PhantomData<&'a ()>);
+
+impl<'a> From<&'a str> for Copied<'static> {
+	fn from(text: &'a str) -> Self {
+		Self(text.to_string(), std::marker::PhantomData)
+	}
+}
+
+/// What converts into a `Copied<'static>`, which a borrow C lends does.
+pub struct Stored(Copied<'static>);
+
+impl<T: Into<Copied<'static>>> From<T> for Stored {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// The text a `Stored` takes, through a target whose lifetime its source does not borrow for.
+pub fn stored_text(stored: impl Into<Stored>) -> String {
+	stored.into().0.0
+}
+
+/// A label's name, layered over a `Vec` of its first type once more for each conversion,
+/// until its second type is no longer `u8`.
+pub struct Layer<T, U>(String, std::marker::PhantomData<(T, U)>);
+
+impl From<Label> for Layer<u8, u8> {
+	fn from(label: Label) -> Self {
+		Self(label.name, std::marker::PhantomData)
+	}
+}
+
+impl<T, S: Into<Layer<Vec<T>, T>> + Copy> From<S> for Layer<T, u8> {
+	fn from(value: S) -> Self {
+		Self(value.into().0, std::marker::PhantomData)
+	}
+}
+
+/// The name a `Layer<u8, u8>` takes, through a chain that grows twice and ends.
+pub fn layer_name(layer: impl Into<Layer<u8, u8>>) -> String {
+	layer.into().0
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }

@@ -2119,39 +2119,41 @@ impl<'tcx> Collector<'tcx> {
 	/// `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` makes `impl Into<Timed<Bytes>>`
 	/// bytes, and an `Into<X>` whose `X` does not map takes what converts into `X` in turn,
 	/// each target once, which ends a cycle. Any other source is taken as it is. A chain
-	/// through an implementation again at a larger target, which grows without end, is refused.
+	/// longer than the crate's recursion limit, past which rustc proves no conversion
+	/// either, grows without end and is refused.
 	fn sources(&self, def_id: DefId, target: Ty<'tcx>, outlives: bool) -> Result<Vec<(Ty<'tcx>, bool, DefId)>, Why> {
 		let tcx = self.tcx;
 		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
 		let (statics, _) = self.borrows(def_id, sig.skip_binder());
-		// Each target, with whether what converts into it must outlive the call, and the
-		// target it converts into and through which implementation.
-		let mut targets = vec![(target, outlives, None::<(usize, DefId)>)];
+		// Each target, with whether what converts into it must outlive the call, and how
+		// many conversions it is from the parameter.
+		let root = target;
+		let mut targets = vec![(target, outlives, 0)];
 		let mut found = Vec::new();
 		let mut i = 0;
-		while let Some(&(target, outlives, _)) = targets.get(i) {
+		while let Some(&(target, outlives, depth)) = targets.get(i) {
 			for (x, lasting, imp, into) in self.hop(def_id, target, &statics) {
 				let outlives = outlives || lasting;
-				// A source that must outlive the call, or converts into a parameter that must, owns
-				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not
-				// taken. A target it converts through may name a lifetime, as `Scoped<'static>` does.
-				let lent = outlives && x.walk().any(|arg| arg.as_region().is_some());
 				if into && !self.maps(x, Pos::Param) {
-					let mut at = i;
-					while let Some((next, via)) = targets[at].2 {
-						if via == imp && target.walk().count() > targets[next].0.walk().count() {
-							return Err(Why {
-								construct: "growing conversion",
-								detail: x.to_string(),
-								note: Some((tcx.def_span(imp), format!("converts from `{x}` into `{target}`"))),
-							});
-						}
-						at = next;
+					if !tcx.recursion_limit().value_within_limit(depth + 1) {
+						return Err(Why {
+							construct: "growing conversion",
+							detail: root.to_string(),
+							note: Some((tcx.def_span(imp), "applies past the recursion limit".to_string())),
+						});
 					}
 					if !targets.iter().any(|&(y, o, _)| (y, o) == (x, outlives)) {
-						targets.push((x, outlives, Some((i, imp))));
+						targets.push((x, outlives, depth + 1));
 					}
-				} else if !lent && !found.iter().any(|&(y, o, _)| (y, o) == (x, outlives)) {
+					continue;
+				}
+				// A source that borrows for `'static`, or must outlive the call, or converts into a
+				// parameter that must, owns it, so one that borrows, as `&'a u32` into
+				// `impl Into<Held<'a>> + 'static`, is not taken. A target it converts through may
+				// name a lifetime, as `Scoped<'static>` does.
+				let regions: Vec<_> = x.walk().filter_map(|arg| arg.as_region()).collect();
+				let lent = regions.iter().any(|r| r.is_static()) || (outlives && !regions.is_empty());
+				if !lent && !found.iter().any(|&(y, o, _)| (y, o) == (x, outlives)) {
 					found.push((x, outlives, imp));
 				}
 			}
@@ -2162,8 +2164,9 @@ impl<'tcx> Collector<'tcx> {
 
 	/// The sources of the `From` implementations into `target`, each with whether it must
 	/// outlive the call, its implementation, and whether a type parameter's `Into` bound
-	/// names it, so what converts into it converts into `target` too. `statics` are the
-	/// lifetimes the export makes `'static`.
+	/// names it, so what converts into it converts into `target` too. Each names `'static`
+	/// where `target` ties a lifetime to `'static` or to one of `statics`, which the export
+	/// makes `'static`, as `Held<'static>` ties the `'a` of `From<&'a u32> for Held<'a>`.
 	fn hop(&self, def_id: DefId, target: Ty<'tcx>, statics: &[ty::Region<'tcx>]) -> Vec<(Ty<'tcx>, bool, DefId, bool)> {
 		let tcx = self.tcx;
 		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
@@ -2172,7 +2175,6 @@ impl<'tcx> Collector<'tcx> {
 		let Some(simple) = simplify_type(tcx, target, TreatParams::AsRigid) else {
 			return Vec::new();
 		};
-		let regions = |ty: Ty<'tcx>| ty.walk().filter_map(|arg| arg.as_region()).collect::<Vec<_>>();
 		let mut found = Vec::new();
 		for &imp in tcx
 			.trait_impls_of(from)
@@ -2194,22 +2196,35 @@ impl<'tcx> Collector<'tcx> {
 			{
 				continue;
 			}
+			// The self type matches `target` but for its lifetimes, which line up in order.
+			let ours = infcx.deeply_resolve_ignoring_regions(trait_ref.self_ty());
+			let pinned: Vec<_> = (ours.walk().zip(target.walk()))
+				.filter_map(|(ours, theirs)| Some((ours.as_region()?, theirs.as_region()?)))
+				.filter(|&(_, theirs)| theirs.is_static() || statics.contains(&theirs))
+				.map(|(ours, _)| ours)
+				.collect();
+			let pin = |ty: Ty<'tcx>| {
+				ty::fold_regions(tcx, infcx.deeply_resolve_ignoring_regions(ty), |r, _| {
+					if r.is_bound() {
+						r
+					} else if r.is_static() || pinned.contains(&r) {
+						tcx.lifetimes.re_static
+					} else {
+						tcx.lifetimes.re_erased
+					}
+				})
+			};
 			// Any other source is taken as it is: `impl<'a, V> From<&'a V> for Timed<&'a V>`
 			// makes `impl Into<Timed<&'a T>>` take `&T`. One that may have to outlive the call,
-			// by naming `'static`, by a lifetime bound, or by a lifetime the target ties to one
-			// the export makes `'static`, as `impl Into<Held<'static>>` does, takes nothing C lends.
+			// by naming `'static` or by a lifetime bound, takes nothing C lends.
 			if !source.is_ty_var() {
-				let lasting = regions(source).iter().any(|r| r.is_static())
-					|| (!regions(source).is_empty() && regions(target).iter().any(|r| statics.contains(r)))
+				let x = pin(source);
+				let lasting = x.walk().any(|arg| arg.as_region().is_some_and(|r| r.is_static()))
 					|| (tcx.clauses_of(imp).instantiate(tcx, args).clauses.iter()).any(|clause| {
 						let clause = clause.skip_norm_wip();
 						clause.as_type_outlives_clause().is_some() || clause.as_region_outlives_clause().is_some()
 					});
-				if lasting {
-					continue;
-				}
-				let x = tcx.erase_and_anonymize_regions(infcx.deeply_resolve_ignoring_regions(source));
-				if !x.has_non_region_infer() {
+				if !lasting && !x.has_non_region_infer() {
 					found.push((x, false, imp, false));
 				}
 				continue;
@@ -2228,15 +2243,9 @@ impl<'tcx> Collector<'tcx> {
 				}) {
 				let into = tcx.is_diagnostic_item(sym::Into, bound.def_id());
 				let bound = bound.skip_binder();
-				let x = bound.trait_ref.args.type_at(1);
-				// A target naming `'static`, as `Into<Held<'static>>` does, or a lifetime that `target`
-				// may tie to one, which erasing it forgets, takes only what outlives the call.
-				let lasting = outlives
-					|| regions(x).iter().any(|r| r.is_static())
-					|| (!regions(x).is_empty() && regions(target).iter().any(|r| r.is_static() || statics.contains(r)));
-				let x = tcx.erase_and_anonymize_regions(x);
+				let x = pin(bound.trait_ref.args.type_at(1));
 				if bound.self_ty() == source && !x.has_non_region_infer() {
-					found.push((x, lasting, imp, into));
+					found.push((x, outlives, imp, into));
 				}
 			}
 		}

@@ -168,6 +168,13 @@ fn main() {
 		ttl: None,
 	};
 	println!("rooted {}", api_lib::rooted_name(rooted));
+	println!("stored {}", api_lib::stored_text("stored"));
+	let layer = Label {
+		name: "layer".to_string(),
+		at: None,
+		ttl: None,
+	};
+	println!("layer {}", api_lib::layer_name(layer));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}
