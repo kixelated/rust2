@@ -182,7 +182,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	});
 	if let Some(mir) = resume {
 		let ret = mir.return_ty();
-		let mut b = Body::new(t, args);
+		let mut b = Body::new(t);
 		let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
 		let params = fx.params();
 		let body = fx.lower();
@@ -217,7 +217,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 				t.typing_env_pub(),
 				EarlyBinder::bind(tcx, drop),
 			);
-			let mut b = Body::new(t, args);
+			let mut b = Body::new(t);
 			let mut fx = Fx::new(&mut b, &mir, Env::Coroutine, span);
 			fx.lower()
 		}

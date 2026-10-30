@@ -746,3 +746,21 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	let _ = SLOT.compare_exchange(p, std::ptr::null_mut(), Relaxed, Relaxed);
 	*NAMED
 }
+
+/// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
+/// `O` as this function's second type parameter: that refuses nothing.
+pub async fn generic_awaited<F: Fn() -> u8, O: std::future::Future<Output = u8>>(f: F, o: O) -> u8 {
+	f() + awaited(o).await
+}
+
+async fn awaited<O: std::future::Future<Output = u8>>(o: O) -> u8 {
+	let mut o = std::pin::pin!(o);
+	std::future::poll_fn(|cx| poll_pinned(o.as_mut(), cx)).await
+}
+
+fn poll_pinned<O: std::future::Future>(
+	o: std::pin::Pin<&mut O>,
+	cx: &mut std::task::Context<'_>,
+) -> std::task::Poll<O::Output> {
+	o.poll(cx)
+}
