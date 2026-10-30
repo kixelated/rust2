@@ -122,6 +122,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("counts::cloned_arcs", |_, data, out| counts::cloned_arcs(data, out)),
 		("counts::cloned_rcs", |_, data, out| counts::cloned_rcs(data, out)),
 		("counts::copies", |_, data, out| counts::copies(data, out)),
+		("statics::cells", |_, data, out| statics::cells(data, out)),
+		("iters::returned", |_, data, out| iters::returned(data, out)),
 		("hashes::values", hashes::values),
 		("hashes::random", |_, data, out| hashes::random(data, out)),
 	]

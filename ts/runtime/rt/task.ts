@@ -660,6 +660,55 @@ export function onceGetOrInit<T>(cell: OnceCell<T, None | undefined>, f: () => T
 	return value;
 }
 
+/**
+ * `LazyCell<T>`: the function that makes its value until the first `force` runs it, once,
+ * and then that value. Forced from within that function, it panics as std's does.
+ */
+export class LazyCell<T> {
+	#f: (() => T) | undefined;
+	#value: T | undefined;
+	/** Whether `force` made the value, which `undefined` can't tell where `T` can be it. */
+	#init = false;
+
+	constructor(f: () => T) {
+		this.#f = f;
+	}
+
+	/** `force` and `Deref::deref`: the value, which the function makes the first time. */
+	force(): T {
+		if (this.#init) return this.#value as T;
+		const f = this.#f;
+		if (f === undefined) this.recursive();
+		this.#f = undefined;
+		this.#value = f();
+		this.#init = true;
+		return this.#value;
+	}
+
+	/** Panics as a `force` from within the function does. */
+	protected recursive(): never {
+		panic("LazyCell instance has previously been poisoned");
+	}
+
+	/** `drop`: of its value, or of the function if `force` never ran it. */
+	drop(dropValue?: (value: T) => void, dropF?: (f: () => T) => void): void {
+		if (this.#init) dropValue?.(this.#value as T);
+		else if (this.#f !== undefined) dropF?.(this.#f);
+	}
+}
+
+/** `LazyLock<T>`, which panics as wasm32's `Once` does when forced from within its function. */
+export class LazyLock<T> extends LazyCell<T> {
+	protected override recursive(): never {
+		panic("one-time initialization may not be performed recursively");
+	}
+}
+
+/** Drops a `LazyCell` or `LazyLock` by `dropValue` and `dropF`. */
+export function lazyDrop<T>(lazy: LazyCell<T>, dropValue?: (value: T) => void, dropF?: (f: () => T) => void): void {
+	lazy.drop(dropValue, dropF);
+}
+
 // Futures
 
 /** `Poll::Pending`; `Poll::Ready(v)` is `v` itself. */

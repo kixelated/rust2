@@ -564,6 +564,13 @@ export function mapOr$Option_Vec_u8_u8_library_closure5(self: rt.ByteVec | undef
 	return f(self);
 }
 
+export function mapOr$Option_char_u32_from(self: rt.char | undefined, default_: rt.u32, _: (a0: rt.char) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self as rt.u32;
+}
+
 export function mapOr$Option_u16_u16_edits_closure21(self: rt.u16 | undefined, default_: rt.u16, f: (a0: rt.u16) => rt.u16): rt.u16 {
 	if (self === undefined) {
 		return default_;
