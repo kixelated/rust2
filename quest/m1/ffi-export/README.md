@@ -51,4 +51,3 @@ Every generator on the C ABI:
 - [Sessions on sans-IO QUIC](/quest/m1/ffi-export/session-quic.md) - bindings move UDP datagrams and drive the session's poll themselves, over moq's runtime-free QUIC driver once it lands
 - [C++ bindings on MSVC and Clang](/quest/m1/ffi-export/cpp.md) - the C++ header built and tested beyond GCC on Linux
 - [Kotlin bindings on Android](/quest/m1/ffi-export/kotlin-android.md) - an R8 keep rule for JNI's lookups, and an emulator run in CI
-- [Kotlin payload reads at JNI's cost](/quest/m1/ffi-export/kotlin-reads.md) - a Kotlin payload read stops paying `NewDirectByteBuffer`'s ~100 ns, if the maintainer lets `Bytes` copy

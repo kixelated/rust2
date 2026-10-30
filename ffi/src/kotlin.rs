@@ -125,11 +125,12 @@ pub fn generate(abi: &Abi<'_>, packages: &str, contract: u64) -> Result<Output, 
 
 const IMPORTS: &[&str] = &["kotlin.coroutines.resume", "kotlin.time.toDuration"];
 
-/// The bytes Rust returns, lent rather than copied.
+/// The bytes Rust returns, copied when short and otherwise lent.
 const BYTES: &str = "/**
- * Bytes Rust returned, lent without a copy: [buffer] reads them until [close] frees them,
- * after which reading it is undefined. Unclosed, they are freed once the GC collects
- * [buffer], so keep it, not only a slice or duplicate of it, while reading.
+ * Bytes Rust returned: up to 1 KiB copied, and longer ones lent without a copy, which
+ * [buffer] reads until [close] frees them, after which reading it is undefined. Unclosed,
+ * lent ones are freed once the GC collects [buffer], so keep it, not only a slice or
+ * duplicate of it, while reading.
  */
 class Bytes private constructor(buffer: java.nio.ByteBuffer, owner: Long) : AutoCloseable {
 \t/** Bytes Kotlin holds, as a record Rust takes needs, which [close] leaves readable. */
@@ -497,8 +498,8 @@ impl<'a> Gen<'a> {
 				(Some(decode), false, _) => format!("{e}!!.{decode}"),
 				(None, true, true) => e.to_string(),
 				(None, false, true) => format!("{e}!!"),
-				(None, true, false) => format!("{e}.let {{ o -> if (o == 0L) null else Bytes(o) }}"),
-				(None, false, false) => format!("Bytes({e})"),
+				(None, true, false) => format!("Native.owned({e})"),
+				(None, false, false) => format!("Native.owned({e})!!"),
 			},
 			_ => {
 				let r = self.fresh("r");
@@ -1590,8 +1591,8 @@ impl<'a> Gen<'a> {
 		} else {
 			let c_ret = export.call.ret.clone();
 			let (jni, native) = match c_ret {
-				// Bytes cross as their owner.
-				Ty::Buf if !string(&ok) => ("jlong", "Long"),
+				// Bytes cross copied or as their owner.
+				Ty::Buf if !string(&ok) => ("jobject", "Any?"),
 				_ => jni_type(&c_ret, &ok),
 			};
 			let params: Vec<(&str, &str)> = native_params.iter().map(|(j, k)| (*j, k.as_str())).collect();
@@ -1604,7 +1605,7 @@ impl<'a> Gen<'a> {
 				Ty::Enum(_) => "ret".to_string(),
 				Ty::Handle { .. } => "ret as usize as jlong".to_string(),
 				Ty::Buf if string(&ok) => "rt::owned(env, ret)".to_string(),
-				Ty::Buf => "rt::hand(ret)".to_string(),
+				Ty::Buf => "rt::hand(env, ret)".to_string(),
 				_ => format!(
 					"{{ let mut w = rt::Writer::default(); {}; w.array(env) }}",
 					put(&ok, "ret")

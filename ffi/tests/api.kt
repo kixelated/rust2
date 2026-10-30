@@ -531,16 +531,31 @@ fun broken(which: String) {
 }
 
 // What frees an object or bytes nobody closed: the GC, once each is collected, and only
-// what closing did not free already.
+// what closing did not free already. Rust's bytes up to 1 KiB cross copied, freed at the
+// call, and longer ones lent until closed or collected.
 fun owned() {
-	val packet = nextPacket(Packet(1u, Bytes("seq".encodeToByteArray())))
-	check(packet.seq == 2u && packet.payload.text() == "seq", "a record's bytes cross both ways")
-	val read = tokenBytes(0u).also { it.close() }
-	check(runCatching { read.toByteArray() }.isFailure, "closed bytes refuse a read")
+	for (n in 1023..1025) {
+		val payload = ByteArray(n) { it.toByte() }
+		val packet = nextPacket(Packet(1u, Bytes(payload)))
+		check(packet.seq == 2u && packet.payload.use { it.toByteArray() }.contentEquals(payload), "a record's $n bytes cross both ways")
+	}
+	var freed = dropped()
+	for (n in 1023u..1025u) {
+		val bytes = tokenBytes(n, n)
+		if (n <= 1024u) freed++
+		check(dropped() == freed, "$n bytes are freed at the call only if copied")
+		check(bytes.toByteArray().contentEquals(ByteArray(n.toInt()) { n.toByte() }), "$n bytes read back")
+		bytes.close()
+		if (n > 1024u) freed++
+		check(dropped() == freed, "closing $n bytes frees them")
+		bytes.close()
+		check(dropped() == freed, "closing $n bytes again frees nothing")
+		check(runCatching { bytes.toByteArray() }.isFailure, "closed $n bytes refuse a read")
+	}
 
 	val before = dropped()
 	Token.new(1u).close()
-	tokenBytes(2u).close()
+	tokenBytes(2u, 1025u).close()
 	check(dropped() == before + 2u, "closing frees at once")
 	unclosed()
 	val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
@@ -553,10 +568,11 @@ fun owned() {
 	check(dropped() == before + 4u, "the GC frees each once")
 }
 
-// In its own frame, so nothing on the caller's keeps them reachable.
+// In its own frame, so nothing on the caller's keeps them reachable. The bytes are long
+// enough to be lent.
 fun unclosed() {
 	Token.new(3u)
-	tokenBytes(4u)
+	tokenBytes(4u, 1025u)
 }
 
 fun main(args: Array<String>) {
