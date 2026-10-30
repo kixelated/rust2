@@ -248,7 +248,7 @@ export function at<T>(slice: ArrayLike<T>, index: number): T {
 }
 
 /** Panic unless `start..end` is in a slice of `length`, as std's range checks do. */
-function rangeCheck(length: number, start: number, end: number): void {
+export function rangeCheck(length: number, start: number, end: number): void {
 	if (start > length) panic(`range start index ${start} out of range for slice of length ${length}`);
 	if (end > length) panic(`range end index ${end} out of range for slice of length ${length}`);
 	if (start > end) panic(`slice index starts at ${start} but ends at ${end}`);

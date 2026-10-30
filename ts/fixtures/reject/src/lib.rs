@@ -747,8 +747,23 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	*NAMED
 }
 
-/// Ranges of `Bound`s, which the runtime reads as unbounded where it reads no `start` or `end`.
-pub fn bound_ranges(v: &mut Vec<u8>, map: &std::collections::BTreeMap<u8, u8>) -> usize {
-	use std::ops::Bound::{Excluded, Included};
-	v.drain((Excluded(0), Included(2))).count() + map.range((Excluded(0), Included(2))).count()
+/// A range that drops, which std drops once it has read the range's bounds.
+pub struct Spent;
+
+impl Drop for Spent {
+	fn drop(&mut self) {}
+}
+
+impl std::ops::RangeBounds<usize> for Spent {
+	fn start_bound(&self) -> std::ops::Bound<&usize> {
+		std::ops::Bound::Unbounded
+	}
+
+	fn end_bound(&self) -> std::ops::Bound<&usize> {
+		std::ops::Bound::Unbounded
+	}
+}
+
+pub fn spent_range(v: &mut Vec<u8>) -> usize {
+	v.drain(Spent).count()
 }

@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 105
-- Function instances: 117
+- Refusals: 104
+- Function instances: 120
 - Generic functions no instance reached, lowered over their type parameters: 7
 
 ## By construct
@@ -20,11 +20,11 @@
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:518:23 |
 | 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:509:40 |
-| 2 | a range of `_`, whose bounds the runtime doesn't read, which is not supported yet | fixtures/reject/src/lib.rs:753:4 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:169:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:13 |
+| 2 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:380:4 |
 | 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:428:2 |
@@ -71,7 +71,6 @@
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:403:53 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:271:52 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:363:16 |
-| 1 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:380:4 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | fixtures/reject/src/lib.rs:643:1 |
 | 1 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:492:31 |
 
@@ -92,7 +91,6 @@ The type or module each refused type or path belongs to.
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:321:2 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:289:6 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:372:13 |
-| 2 | `(std::ops::Bound, std::ops::Bound)` | fixtures/reject/src/lib.rs:753:4 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:91:20 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:518:23 |
 | 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:518:23 |
@@ -123,8 +121,10 @@ The type or module each refused type or path belongs to.
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `Only` | fixtures/reject/src/lib.rs:701:11 |
 | 1 | `Span2` | fixtures/reject/src/lib.rs:669:10 |
+| 1 | `Spent` | fixtures/reject/src/lib.rs:768:4 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:545:30 |
+| 1 | `Vec` | fixtures/reject/src/lib.rs:768:4 |
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:535:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:593:32 |
@@ -158,7 +158,6 @@ The type or module each refused type or path belongs to.
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:518:23 |
-| 2 | a range of `_`, whose bounds the runtime doesn't read, which is not supported yet | `(std::ops::Bound, std::ops::Bound)` | fixtures/reject/src/lib.rs:753:4 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:126:2 |
 | 2 | replacing the value behind a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:483:17 |
@@ -217,6 +216,7 @@ The type or module each refused type or path belongs to.
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:203:2 |
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `Entry::or_insert_with` | fixtures/reject/src/lib.rs:372:13 |
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `Iterator::for_each` | fixtures/reject/src/lib.rs:373:16 |
+| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `Vec::drain` | fixtures/reject/src/lib.rs:768:4 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `str::contains` | fixtures/reject/src/lib.rs:380:4 |
 | 1 | replacing the value behind a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:131:2 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:643:1 |
@@ -345,13 +345,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>a range of `_`, whose bounds the runtime doesn't read, which is not supported yet (2)</summary>
-
-- fixtures/reject/src/lib.rs:753:4: a range of `(std::ops::Bound<usize>, std::ops::Bound<usize>)`, whose bounds the runtime doesn't read, which is not supported yet
-- fixtures/reject/src/lib.rs:753:52: a range of `(std::ops::Bound<u8>, std::ops::Bound<u8>)`, whose bounds the runtime doesn't read, which is not supported yet
-
-</details>
-
 <details><summary>an iterator of the crate implementing `_`, which is not supported yet (2)</summary>
 
 - fixtures/reject/src/lib.rs:169:1: an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet
@@ -377,6 +370,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:372:13: passing `{closure@fixtures/reject/src/lib.rs:372:28: 372:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet
 - fixtures/reject/src/lib.rs:373:16: passing `{closure@fixtures/reject/src/lib.rs:373:25: 373:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet
+
+</details>
+
+<details><summary>passing `_`, which drops, to `_`, which is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:380:4: passing `{closure@fixtures/reject/src/lib.rs:380:13: 380:27}`, which drops, to `str::contains`, which is not supported yet
+- fixtures/reject/src/lib.rs:768:4: passing `Spent`, which drops, to `Vec::drain`, which is not supported yet
 
 </details>
 
@@ -653,12 +653,6 @@ The type or module each refused type or path belongs to.
 <details><summary>hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:363:16: hashing `std::vec::Vec<Batched>` through `Batched`'s own `Hash::hash_slice`, which is not supported yet
-
-</details>
-
-<details><summary>passing `_`, which drops, to `_`, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:380:4: passing `{closure@fixtures/reject/src/lib.rs:380:13: 380:27}`, which drops, to `str::contains`, which is not supported yet
 
 </details>
 

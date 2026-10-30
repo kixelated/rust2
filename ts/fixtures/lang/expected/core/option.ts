@@ -3,6 +3,7 @@
 import * as rt from "../rt.ts";
 import { copy$u8s_u8s } from "../lib.ts";
 import type * as Noisy from "../borrows.Noisy.ts";
+import type * as Item from "../bounds.Item.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
@@ -23,7 +24,7 @@ import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
 import type * as locals_Noisy from "../locals.Noisy.ts";
-import type * as Item from "../orders.Item.ts";
+import type * as orders_Item from "../orders.Item.ts";
 import type * as Pair from "../pointers.Pair.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
@@ -244,6 +245,13 @@ export function map$Option_Hop_u64_u64_options_closure0(self: Hop.Hop | undefine
 	return f(self);
 }
 
+export function map$Option_Item_u8_bounds_closure4(self: Item.Item | undefined, f: (a0: Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_Item_u8_drains_closure10(self: slices_Item.Item | undefined, f: (a0: slices_Item.Item) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -286,7 +294,7 @@ export function map$Option_u16s_u8_digest_words(self: rt.u16[] | undefined, _: (
 	return digestWords(self);
 }
 
-export function map$Option_u32_u8_drains_closure5(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8): rt.u8 | undefined {
+export function map$Option_u32_u8_bounds_closure2(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -329,6 +337,13 @@ export function map$Option_u8_u32s_owned_closure9(self: rt.u8 | undefined, f: (a
 }
 
 export function map$Option_u8_u8_elements_closure8(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8_u8_u8_bounds_closure9(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -433,7 +448,7 @@ export function mapOr$Option_Hop_u64_options_closure2(self: Hop.Hop | undefined,
 	return f(self);
 }
 
-export function mapOr$Option_Item_u8_heaps_closure1(self: Item.Item | undefined, default_: rt.u8, f: (a0: Item.Item) => rt.u8): rt.u8 {
+export function mapOr$Option_Item_u8_heaps_closure1(self: orders_Item.Item | undefined, default_: rt.u8, f: (a0: orders_Item.Item) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
