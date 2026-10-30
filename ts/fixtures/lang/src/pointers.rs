@@ -521,7 +521,14 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 				let p = pair.get();
 				unsafe { *p = Duo((*p).1, (*p).0) };
 				pair.get_mut().1 ^= 0x80;
-				out.extend([before.0, before.1, between.0, between.1, pair.get_mut().0, pair.get_mut().1]);
+				out.extend([
+					before.0,
+					before.1,
+					between.0,
+					between.1,
+					pair.get_mut().0,
+					pair.get_mut().1,
+				]);
 			}
 			3 => {
 				unsafe { (*text.get()).push(char::from(b'a' + n % 26)) };
