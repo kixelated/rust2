@@ -660,6 +660,26 @@ export function onceGetOrInit<T>(cell: OnceCell<T, None | undefined>, f: () => T
 	return value;
 }
 
+/** `Once`: a `OnceLock` that holds `true` once its function has run. */
+export type Once = OnceLock<true>;
+
+/** `OnceState`: the `Once` running the function given it, which nothing poisons, as a panic aborts. */
+export type OnceState = Once;
+
+/**
+ * `Once::call_once` and `call_once_force`: runs `f` if `once` has not run one, or else
+ * drops it by `dropF`. Run again from within `f`, it panics as `recursive` does.
+ */
+export function onceCall(once: Once, f: (state: OnceState) => void, dropF?: (f: (state: OnceState) => void) => void): void {
+	if (once.v) dropF?.(f);
+	else onceGetOrInit(once, () => (f(once), true));
+}
+
+/** `OnceState::is_poisoned`: never, as a panic aborts rather than poison a `Once`. */
+export function onceIsPoisoned(_state: OnceState): boolean {
+	return false;
+}
+
 /**
  * `LazyCell<T>`: the function that makes its value until the first `force` runs it, once,
  * and then that value. Forced from within that function, it panics as std's does.

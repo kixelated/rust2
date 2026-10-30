@@ -292,4 +292,11 @@ const locks = [[0, 1, 5, 6, 2, 7, 3, 8, 3, 0, 1], [4, 0, 4, 1], [2, 9, 2, 10, 4,
 	(bytes) => Uint8Array.of(op("locks::locks"), 0, ...bytes),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks];
+/**
+ * `statics::onces` scripts: a `Once` forced, called, and forced again, which drops the
+ * function it never runs, each static's, and each `call_once` and `call_once_force` run
+ * again from within itself.
+ */
+const onces = [[1, 0, 1, 7], [0, 6, 1, 2, 3, 4, 5, 11], [2, 14, 8], [9], [3, 15]].map((bytes) => Uint8Array.of(op("statics::onces"), 0, ...bytes));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces];
