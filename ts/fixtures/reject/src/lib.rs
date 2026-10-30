@@ -68,10 +68,10 @@ pub fn pointer(n: u8) -> String {
 	format!("{:p}", &n)
 }
 
-/// `fmt::Write` for a `String`, which has no mapping.
-pub fn written(s: &mut String, n: u8) {
+/// A placeholder written to the crate's own `fmt::Write`, which sees each call std makes.
+pub fn written(w: &mut Sink, n: u8) {
 	use std::fmt::Write;
-	let _ = write!(s, "{n}");
+	let _ = write!(w, "{n}");
 }
 
 static mut COUNT: u8 = 0;
@@ -780,10 +780,29 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	*NAMED
 }
 
-/// Ranges of `Bound`s, which the runtime reads as unbounded where it reads no `start` or `end`.
-pub fn bound_ranges(v: &mut Vec<u8>, map: &std::collections::BTreeMap<u8, u8>) -> usize {
-	use std::ops::Bound::{Excluded, Included};
-	v.drain((Excluded(0), Included(2))).count() + map.range((Excluded(0), Included(2))).count()
+/// A range that drops, which std drops once it has read the range's bounds.
+pub struct Spent;
+
+impl Drop for Spent {
+	fn drop(&mut self) {}
+}
+
+impl std::ops::RangeBounds<usize> for Spent {
+	fn start_bound(&self) -> std::ops::Bound<&usize> {
+		std::ops::Bound::Unbounded
+	}
+
+	fn end_bound(&self) -> std::ops::Bound<&usize> {
+		std::ops::Bound::Unbounded
+	}
+}
+
+pub fn spent_range(
+	v: &mut Vec<u8>,
+	q: &mut std::collections::VecDeque<u8>,
+	map: &std::collections::BTreeMap<usize, u8>,
+) -> usize {
+	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
 }
 
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
@@ -802,4 +821,13 @@ fn poll_pinned<O: std::future::Future>(
 	cx: &mut std::task::Context<'_>,
 ) -> std::task::Poll<O::Output> {
 	o.poll(cx)
+}
+
+pub struct Sink(u8);
+
+impl std::fmt::Write for Sink {
+	fn write_str(&mut self, s: &str) -> std::fmt::Result {
+		self.0 = self.0.wrapping_add(s.len() as u8);
+		Ok(())
+	}
 }

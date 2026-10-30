@@ -707,9 +707,122 @@ pub fn printed(data: &[u8]) -> Vec<u8> {
 }
 
 /// A root only the `stable_names` test adds, reaching another instance of what `run`
-/// reaches one of: a generic method's, a closure's, and an impl's of another trait.
+/// reaches one of: a generic method's, a closure's, an impl's of another trait, and a std
+/// function's that merges with one `run` reaches and sorts before it.
 pub fn added(out: &mut Vec<u8>) {
 	out.push(Wrap::new(1u8).into_inner());
+	out.push(1u8.partial_cmp(&2).map_or(7, |o| o as i8 as u8));
 	let mapped = Wrap::new(2u8).map(|b| Pair(b, 0));
 	put(out, &format!("{mapped:?} {:?}", Padded("added")));
+}
+
+/// A writer of the crate's own that fails a `write_str` past `cap` bytes, and counts each.
+pub struct Capped {
+	text: String,
+	calls: u8,
+	cap: usize,
+}
+
+impl fmt::Write for Capped {
+	fn write_str(&mut self, s: &str) -> fmt::Result {
+		self.calls += 1;
+		if self.text.len() + s.len() > self.cap {
+			return Err(fmt::Error);
+		}
+		for c in s.chars() {
+			self.text.push(c);
+		}
+		Ok(())
+	}
+}
+
+/// A writer of the crate's own that writes each `char` twice through its own `write_char`.
+pub struct Twice(String);
+
+impl fmt::Write for Twice {
+	fn write_str(&mut self, s: &str) -> fmt::Result {
+		for c in s.chars() {
+			self.0.push(c);
+		}
+		Ok(())
+	}
+
+	fn write_char(&mut self, c: char) -> fmt::Result {
+		self.0.push(c);
+		self.0.push(c);
+		Ok(())
+	}
+}
+
+/// Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+/// first error.
+fn literals<W: fmt::Write>(mut w: W, c: char) -> fmt::Result {
+	w.write_str("ab")?;
+	write!(w, "")?;
+	write!(w, "{}", "")?;
+	w.write_char(c)?;
+	write!(w, "c{}d", "x")?;
+	w.write_char('😀')?;
+	writeln!(w)?;
+	write!(w, "{{}}")?;
+	w.write_str("")?;
+	writeln!(w, "end")
+}
+
+/// Placeholders with options, through a writer std's impl forwards to.
+fn placed<W: fmt::Write>(mut w: W, n: u8) -> fmt::Result {
+	write!(w, "n={n:03}|{n:>4x}|{:?}|{:<3}|{:+}", "q\"é", 'ß', i16::from(n) - 100)?;
+	w.write_char('é')?;
+	writeln!(w, "{n:#b}")
+}
+
+/// `Display` through a `Formatter` as a writer, which takes no options from the placeholder.
+pub struct Placed(u8);
+
+impl fmt::Display for Placed {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		placed(&mut *f, self.0)?;
+		literals(f, 'é')
+	}
+}
+
+/// Each result as a byte: 1 for `Ok`.
+fn result(out: &mut Vec<u8>, r: fmt::Result) {
+	out.push(r.is_ok() as u8);
+}
+
+/// `fmt::Write` for a `String`, through `&mut W`, and for the crate's own writers.
+pub fn writes(data: &[u8], out: &mut Vec<u8>) {
+	use std::fmt::Write as _;
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let c = char::from_u32(u32::from(at(0)) * 0x101).unwrap_or('?');
+	let mut s = String::new();
+	result(out, write!(s, "a{}b{:>5}|{:?}|{:x}", at(1), c, "q\"é", at(2)));
+	result(out, writeln!(s));
+	result(out, s.write_char(c));
+	result(out, s.write_str("tail"));
+	// An error from a placeholder stops after what it wrote, before the next piece.
+	result(out, write!(s, "x{}y{}", Fails(at(3)), at(4)));
+	result(out, literals(&mut s, c));
+	result(out, placed(&mut s, at(5)));
+	let mut inner = &mut s;
+	result(out, literals(&mut inner, 'ß'));
+	result(out, placed(&mut &mut inner, at(6)));
+	put(out, &s);
+	put(out, &format!("{}|{:>30}", Placed(at(7)), Placed(at(8))));
+	let mut capped = Capped {
+		text: String::new(),
+		calls: 0,
+		cap: usize::from(at(9) % 40),
+	};
+	result(out, literals(&mut capped, c));
+	result(out, capped.write_char(c));
+	result(out, write!(capped, "z"));
+	result(out, literals(&mut &mut capped, 'é'));
+	out.push(capped.calls);
+	put(out, &capped.text);
+	let mut twice = Twice(String::new());
+	result(out, literals(&mut twice, c));
+	result(out, twice.write_char('ß'));
+	put(out, &twice.0);
 }

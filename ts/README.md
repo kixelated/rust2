@@ -69,7 +69,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods and `cmp::max` and `min`, goes in a module under its crate's name, as
-`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
+`core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
 functions that the package's types make, so a module at the package's root named for a
 crate translation reaches is refused, and so are two versions of one crate it reaches.
@@ -95,6 +95,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
+| a range a drain or a B-tree's `range` takes | itself, or of a type other than std's ranges and a pair of `Bound`s, `rt.boundsOf` of it and its `start_bound` and `end_bound`, which the runtime calls where std's does |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque`, `BinaryHeap` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `PeekMut<T>` | `rt.PeekMut<T>`, the `rt.Place` of a heap's greatest element, which sifts it down as it drops once `DerefMut` lent it |
 | `Ordering`, `DefaultHasher`, `RandomState` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher`; `rt.RandomState`, the keys of the `DefaultHasher` it builds, never changed once made |
@@ -129,7 +130,9 @@ crate translation reaches is refused, and so are two versions of one crate it re
 
 An `rt.ByteSlice` is a range of a `Uint8Array`: its `data`, from `start`, for `length`
 bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it gets as
-`rt.byteSliceView(slice)`, a view of it.
+`rt.byteSliceView(slice)`, a view of it. A mutable chunk of other values, as
+`chunks_mut` lends it, is a `Proxy` of an array whose elements are the slice's, read and
+written where they are, since a JS array has no views.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
@@ -179,7 +182,11 @@ std's Unicode tables, which the runtime carries, not the engine's. A caller prin
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
-`import * as DecodeError from "./coding/decode.DecodeError.ts"`.
+`import * as DecodeError from "./coding/decode.DecodeError.ts"`. `fmt::Write` translates for a
+`String`, a `Formatter`, and the crate's own writers, and through a `&mut` to any of them.
+A crate's own provided `write_char` and `write_fmt` call its `write_str` once, as std's
+do. A placeholder written to such a writer is refused: std splits what it writes into
+calls the runtime doesn't make.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
@@ -208,7 +215,9 @@ Functions and members are camelCase. Functions are monomorphized: each instance 
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
 its own, as in `roundtripLite$Group`, `Wrap.get$Wrap_Pair`, `Pair.fmt$Debug`, and
 `DecodeError.from$From_BoundsExceeded`. The suffix is there even when no other instance
-is, so reaching one renames nothing. A closure type goes by where it is defined,
+is, so reaching one renames nothing. An instance of a generic std function is suffixed
+instead by a hash of its text, with what it calls by name, as `map$1cf8u0y`: instances that print the
+same are one function, whichever of them translation reaches. A closure type goes by where it is defined,
 `methods_closure1` for `methods::{closure#1}`, and instances whose suffixes still match,
 such as of two types of one name, are numbered `$2` on in the order of their full type
 arguments. Types are translated once, generically, so a function of a generic type is one
@@ -600,8 +609,8 @@ copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
-a pointer's address (`{:p}`), writing to a
-`String` with `write!`, a `str` pattern other than a
+a pointer's address (`{:p}`), `write!` with a placeholder into
+the crate's own `fmt::Write`, a `str` pattern other than a
 `char`, a `&str`, a predicate, or chars, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a

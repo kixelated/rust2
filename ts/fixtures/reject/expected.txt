@@ -17,7 +17,7 @@ collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet a
 `into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet at fixtures/reject/src/lib.rs:53:13
 a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:61:10: 61:18}` at fixtures/reject/src/lib.rs:62:2
 `Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:68:11
-unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:74:10
+`fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make at fixtures/reject/src/lib.rs:74:10
 a mutable static, which any code may write at fixtures/reject/src/lib.rs:80:11
 `Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` at fixtures/reject/src/lib.rs:91:20
 a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is at fixtures/reject/src/lib.rs:96:34
@@ -98,8 +98,9 @@ a dangling pointer to `Only`, a value of no bytes made of more than structs and 
 unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted` at fixtures/reject/src/lib.rs:768:15
 comparing pointers to `u32` in an atomic, which JS has no address of at fixtures/reject/src/lib.rs:779:15
 a constant of type `&u32`, a pointer into memory translation can't name at fixtures/reject/src/lib.rs:780:3
-a range of `(std::ops::Bound<usize>, std::ops::Bound<usize>)`, whose bounds the runtime doesn't read, which is not supported yet at fixtures/reject/src/lib.rs:786:4
-a range of `(std::ops::Bound<u8>, std::ops::Bound<u8>)`, whose bounds the runtime doesn't read, which is not supported yet at fixtures/reject/src/lib.rs:786:52
+passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fixtures/reject/src/lib.rs:805:4
+passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:805:29
+passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:805:56
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:149:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:169:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:203:2

@@ -16,7 +16,3 @@ neither, so this is m3 under the all-of-std decision.
 - `truncate` and `insert_str` panic off a char boundary, with std's message.
 
 Public API: the translator's output.
-
-## Related
-
-- [fmt::Write](/quest/m3/ts-fmt-write.md) - `String`'s `write_str` is `push_str`

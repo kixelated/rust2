@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Bound_u64 } from "./lib.ts";
-import { unwrapOr$Option_NonZero_u64, unwrapOr$Option_u8, mapOr$Option_usize_u8_consumers_closure8 } from "./core/option.ts";
+import { unwrapOr$1tvry1i, unwrapOr$0r2bmpr, mapOr$02k4ito } from "./core/option.ts";
 import { put } from "./fmt.ts";
 import * as Scale from "./wrappers.Scale.ts";
 import * as Tally from "./wrappers.Tally.ts";
@@ -48,8 +48,8 @@ export function bounds$Bound_u64_Bound_u64(out: rt.ByteVec, r: [rt.RangeBound<rt
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -78,8 +78,8 @@ export function bounds$RangeFrom_u64(out: rt.ByteVec, r: { start: rt.u64 }): voi
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -108,8 +108,8 @@ export function bounds$RangeFull(out: rt.ByteVec, _: undefined): void {
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -138,8 +138,8 @@ export function bounds$RangeInclusive_u64(out: rt.ByteVec, r: rt.RangeInclusive<
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -168,8 +168,8 @@ export function bounds$RangeToInclusive_u64(out: rt.ByteVec, r: { end: rt.u64; i
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -198,8 +198,8 @@ export function bounds$RangeTo_u64(out: rt.ByteVec, r: { end: rt.u64 }): void {
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -228,8 +228,8 @@ export function bounds$Range_u64(out: rt.ByteVec, r: rt.Range<rt.u64>): void {
 	} else {
 		end = undefined;
 	}
-	putU64(out, unwrapOr$Option_NonZero_u64(start, 0));
-	putU64(out, unwrapOr$Option_NonZero_u64(end, 0));
+	putU64(out, unwrapOr$1tvry1i(start, 0));
+	putU64(out, unwrapOr$1tvry1i(end, 0));
 	rt.byteVecPush(out, rt.u8Add(start !== undefined ? 1 : 0, rt.u8Mul(2, end !== undefined ? 1 : 0)));
 }
 
@@ -262,7 +262,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		return rt.u64Mul(b3 as rt.u64, 7);
 	};
 	const at: (a0: rt.usize) => rt.u8 = (i3: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i3), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i3), 0);
 	};
 	const part = at(0);
 	const _9: rt.u64 = _5(part);
@@ -303,7 +303,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			return true;
 		}) !== undefined ? 1 : 0);
 		const placed: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		rt.byteVecPush(out, mapOr$Option_usize_u8_consumers_closure8(rt.iterPosition(placed, (x5: rt.u64): boolean => {
+		rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(placed, (x5: rt.u64): boolean => {
 			return rt.u64Eq(x5, rt.u64Add(lo, 1));
 		}), 238, (i7: rt.usize): rt.u8 => {
 			return i7 & 0xff;
@@ -321,10 +321,10 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		putU64(out, rt.iterCount(rt.iterBorrow(top2)) as rt.u64);
 		bounds$RangeInclusive_u64(out, top2);
 		const last: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		putU64(out, unwrapOr$Option_NonZero_u64(rt.iterLast(rt.iterBorrow(last)), 238));
+		putU64(out, unwrapOr$1tvry1i(rt.iterLast(rt.iterBorrow(last)), 238));
 		bounds$RangeInclusive_u64(out, last);
 		const most: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		putU64(out, unwrapOr$Option_NonZero_u64(rt.iterMax(rt.iterBorrow(most), rt.lt), 238));
+		putU64(out, unwrapOr$1tvry1i(rt.iterMax(rt.iterBorrow(most), rt.lt), 238));
 		bounds$RangeInclusive_u64(out, most);
 		const collected: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		rt.byteVecPush(out, rt.iterToArray(rt.iterBorrow(collected)).length & 0xff);
@@ -471,7 +471,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			const n2: rt.u64 = n;
 			putU64(out, n2);
 			putU64(out, n2);
-			const _519: rt.u64 = unwrapOr$Option_NonZero_u64(rt.nonZero(b), n2);
+			const _519: rt.u64 = unwrapOr$1tvry1i(rt.nonZero(b), n2);
 			const _516: boolean = rt.u64Eq(n2, _519);
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(n2, f), (f: rt.Formatter) => rt.u64Debug(n2, f), (f: rt.Formatter) => rt.fmtBool(_516, f)];
 			put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]]));
