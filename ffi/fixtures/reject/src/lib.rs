@@ -387,6 +387,35 @@ pub fn holder(value: impl Into<Holder>) -> u32 {
 	*value.into().0.0
 }
 
+/// Excluded, what converts into a `Held<'a>`, at the lifetime the parameter names.
+pub struct Lender<'a>(pub Held<'a>);
+
+impl<'a, T: Into<Held<'a>>> From<T> for Lender<'a> {
+	fn from(value: T) -> Self {
+		Lender(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the target ties a level's lifetime to.
+pub fn lender(value: impl Into<Lender<'static>>) -> u32 {
+	*value.into().0.0
+}
+
+/// Excluded, what converts into one of a `Vec` of its type, and so into ever larger ones.
+pub struct Grows<T>(pub Vec<T>);
+
+impl<T, U: Into<Grows<Vec<T>>> + Copy> From<U> for Grows<T> {
+	fn from(value: U) -> Self {
+		let _ = value.into();
+		Grows(Vec::new())
+	}
+}
+
+/// Takes what converts into a `Grows`, a chain that grows without end.
+pub fn grows(value: impl Into<Grows<u8>>) -> usize {
+	value.into().0.len()
+}
+
 /// Excluded, a name from a string, or from bytes that need not be UTF-8.
 pub struct Called(pub String);
 

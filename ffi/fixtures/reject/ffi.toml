@@ -1,7 +1,7 @@
 package = "reject-fixture"
 prefix = "reject"
 # An exclusion leaves an item or an instance out, so nothing refuses it.
-exclude = ["Called", "Caller", "Cell<u16>", "Excluded", "Held", "Holder"]
+exclude = ["Called", "Caller", "Cell<u16>", "Excluded", "Grows", "Held", "Holder", "Lender"]
 
 # A field that is none: `min` names nothing of `Limit`.
 [rename]
