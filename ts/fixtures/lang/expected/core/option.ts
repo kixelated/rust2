@@ -349,18 +349,18 @@ export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt
 	return f(self);
 }
 
-export function map$1xk4yz1(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return digest(self);
-}
-
 export function map$0c2keyb(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
+}
+
+export function map$1xk4yz1(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return digest(self);
 }
 
 export function map$0at3a41(self: undefined | rt.None, f: (a0: undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {

@@ -9,8 +9,8 @@
 //! `Cell`s, `RefCell`s, read-write locks, and thread-locals, the defaults of std types,
 //! the counts of shared pointers, arrays `array::from_fn` makes, maps of `Option`s,
 //! values held back past a write of a variable they name, what `Hash` writes into
-//! `DefaultHasher` and `RandomState`, slices' `windows` and `chunks`, `Vec::drain`, and
-//! the order of bytes.
+//! `DefaultHasher` and `RandomState`, slices' `windows` and chunks, mutable ones written
+//! through, `Vec::drain`, and the order of bytes.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
