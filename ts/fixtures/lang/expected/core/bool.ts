@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import * as Made from "../defaults.Made.ts";
+import type * as Void from "../shapes.Void.ts";
 
 export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | undefined {
 	if (!self) {
@@ -13,6 +14,13 @@ export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | u
 export function thenSome$1d6toqn(self: boolean, t: undefined): undefined | rt.None {
 	if (!self) {
 		return rt.None;
+	}
+	return t;
+}
+
+export function thenSome$0ztng9q(self: boolean, t: rt.Result<rt.u16, Void.Void>): rt.Result<rt.u16, Void.Void> | undefined {
+	if (!self) {
+		return undefined;
 	}
 	return t;
 }
