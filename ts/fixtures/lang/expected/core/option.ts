@@ -349,18 +349,18 @@ export function map$Option_u8_u8_u8_u8_lent_closure2(self: [rt.u8, rt.u8] | unde
 	return f(self);
 }
 
+export function map$Option_u8s_u8_chunked_closure2(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_u8s_u8_digest(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return digest(self);
-}
-
-export function map$Option_u8s_u8_parts_closure1(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
 }
 
 export function map$Option_unit_Option_u8_made_closure3(self: undefined | rt.None, f: (a0: undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
