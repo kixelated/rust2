@@ -33,7 +33,7 @@ import { lists, shared as pointers_shared, places, unchecked, nested as pointers
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
-import { statics, cells as statics_cells } from "./statics.ts";
+import { statics, cells as statics_cells, onces } from "./statics.ts";
 import { strs, slices } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
@@ -155,6 +155,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		statics_cells(data54, out55);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::returned", (_2155: rt.u8, data55: rt.ByteSlice, out56: rt.ByteVec): void => {
 		returned(data55, out56);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["statics::onces", (_2156: rt.u8, data56: rt.ByteSlice, out57: rt.ByteVec): void => {
+		onces(data56, out57);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 

@@ -1,18 +1,20 @@
 //! `static` atomics, each one value every use shares: of every kind, at module level and
 //! in a function, as kio's `waiter` keeps its ids, starting from a value of the type's
 //! extremes. Statics of any type, read from the memory rustc evaluated: a struct holding
-//! an atomic, an `AtomicPtr` as parking_lot keeps its table in, std's `OnceLock` and
-//! `LazyLock`, and one pointing at a static of a module that reads it back; and `const`s
-//! holding cells, each use of which is a value of its own, as lock_api's `RawMutex::INIT`
-//! is. Each case leaves every static as it found it, or reads only what it holds whatever
-//! ran before, so a fresh instance and a reused one agree.
+//! an atomic, an `AtomicPtr` as parking_lot keeps its table in, std's `OnceLock`,
+//! `LazyLock`, and `Once`, one in a struct as crossbeam-epoch keeps its collector, and one
+//! pointing at a static of a module that reads it back; and `const`s holding cells, each
+//! use of which is a value of its own, as lock_api's `RawMutex::INIT` is. Each case leaves
+//! every static as it found it, or reads only what it holds whatever ran before, so a fresh
+//! instance and a reused one agree.
 
 use std::cell::LazyCell;
 use std::mem::MaybeUninit;
 use std::ptr;
+use std::rc::Rc;
 use std::sync::atomic::Ordering::{AcqRel, Acquire, Relaxed, SeqCst};
 use std::sync::atomic::{AtomicBool, AtomicI8, AtomicI64, AtomicPtr, AtomicU8, AtomicU32, AtomicU64, AtomicUsize};
-use std::sync::{LazyLock, OnceLock};
+use std::sync::{LazyLock, Once, OnceLock};
 
 static COUNT: AtomicU64 = AtomicU64::new(u64::MAX - 2);
 static SIGNED: AtomicI8 = AtomicI8::new(-128);
@@ -244,4 +246,84 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 		}
 	}
 	COUNTER.hits.store(u32::MAX - 1, Relaxed);
+}
+
+/// A value a `Once` guards, as crossbeam-epoch keeps its collector: written in
+/// `call_once`'s function, and read once `is_completed` says it ran.
+struct Slot {
+	once: Once,
+	value: AtomicU32,
+}
+
+impl Slot {
+	const fn new() -> Self {
+		Self {
+			once: Once::new(),
+			value: AtomicU32::new(0),
+		}
+	}
+
+	fn get_or_init(&self, f: impl FnOnce() -> u32) -> u32 {
+		if !self.once.is_completed() {
+			self.once.call_once(|| self.value.store(f(), Relaxed));
+		}
+		self.value.load(Relaxed)
+	}
+}
+
+/// Filled by the first call that gets here, with the value every call gives.
+static COLLECTOR: Slot = Slot::new();
+
+/// Run by the first call that gets here.
+static STARTED: Once = Once::new();
+
+/// Each byte an operation on a `Once`, its own or a static's; each puts what it saw. One
+/// whose function runs again from within it panics, as wasm32's does, if its byte is odd.
+pub fn onces(data: &[u8], out: &mut Vec<u8>) {
+	let once = Once::new();
+	// Owned by each function `call_once` drops uncalled.
+	let owned = Rc::new(());
+	for &op in data {
+		let n = op / 6;
+		match op % 6 {
+			0 => {
+				out.push(u8::from(once.is_completed()));
+				once.call_once(|| out.push(n));
+				out.push(u8::from(once.is_completed()));
+			}
+			1 => {
+				let held = Rc::clone(&owned);
+				once.call_once_force(|state| {
+					out.extend([u8::from(state.is_poisoned()), u8::from(once.is_completed()), n]);
+					drop(held);
+				});
+				out.push(Rc::strong_count(&owned) as u8);
+			}
+			2 => {
+				let fresh = Once::new();
+				fresh.call_once(|| {
+					out.push(u8::from(fresh.is_completed()));
+					if n % 2 == 1 {
+						fresh.call_once(|| out.push(0xee));
+					}
+				});
+				out.push(u8::from(fresh.is_completed()));
+			}
+			3 if n % 2 == 1 => {
+				let fresh = Once::new();
+				fresh.call_once_force(|_| fresh.call_once_force(|_| out.push(0xee)));
+			}
+			3 => {
+				STARTED.call_once(|| {});
+				out.push(u8::from(STARTED.is_completed()));
+			}
+			4 => out.extend(COLLECTOR.get_or_init(|| 0x0102_0304).to_le_bytes()),
+			_ => {
+				// The first function given runs, and the second never does.
+				let slot = Slot::new();
+				out.push(slot.get_or_init(|| u32::from(n)) as u8);
+				out.push(slot.get_or_init(|| 0xee) as u8);
+			}
+		}
+	}
 }

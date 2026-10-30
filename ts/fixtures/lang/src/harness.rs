@@ -124,6 +124,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("counts::copies", |_, data, out| counts::copies(data, out)),
 		("statics::cells", |_, data, out| statics::cells(data, out)),
 		("iters::returned", |_, data, out| iters::returned(data, out)),
+		("statics::onces", |_, data, out| statics::onces(data, out)),
 	]
 }
 

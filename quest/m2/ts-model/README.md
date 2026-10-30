@@ -47,7 +47,7 @@ Public API: the translator's output for moq-net's model.
 ## Required
 
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
-- [A std Once in a static](/quest/m2/ts-model/once.md) - crossbeam-epoch's own `OnceLock` static translates over an `rt.Once`
+- [std's UnsafeCell](/quest/m2/ts-model/unsafe-cell.md) - crossbeam-epoch's own `OnceLock` static translates, its `Once` already does
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
 - [hashbrown as the runtime's map](/quest/m2/ts-model/hashbrown.md) - hashlink's `hashbrown` tables translate as `rt.HashMap`, with std's capacity
