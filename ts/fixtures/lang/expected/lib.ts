@@ -250,6 +250,10 @@ export function copy$u64_u64(v: [rt.u64, rt.u64]): [rt.u64, rt.u64] {
 	return [v[0], v[1]];
 }
 
+export function copy$u64s(v: rt.u64[]): rt.u64[] {
+	return v.slice();
+}
+
 export function copy$u8_Arc_u8(v: [rt.u8, rt.Arc<rt.u8>]): [rt.u8, rt.Arc<rt.u8>] {
 	return [v[0], v[1]];
 }

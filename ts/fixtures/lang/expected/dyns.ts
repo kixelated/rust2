@@ -160,28 +160,28 @@ export function counts$Hits(arcs: rt.Arc<Hits.Hits>[]): string {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Hits.Hits>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	})).join(",");
+	}), undefined, 12, true).join(",");
 }
 
 export function counts$Square(arcs: rt.Arc<Square.Square>[]): string {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Square.Square>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	})).join(",");
+	}), undefined, 12, true).join(",");
 }
 
 export function counts$dyn_Named(arcs: rt.Arc<Named.Named>[]): string {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Named.Named>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	})).join(",");
+	}), undefined, 12, true).join(",");
 }
 
 export function counts$dyn_Shape(arcs: rt.Arc<Shape.Shape>[]): string {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Shape.Shape>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	})).join(",");
+	}), undefined, 12, true).join(",");
 }
 
 export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
@@ -245,7 +245,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const objects: rt.Arc<Shape.Shape>[] = rt.iterToArray(rt.iterMap(new rt.Range(0, 3), (_2: rt.i32): rt.Arc<Shape.Shape> => {
 			const _34: rt.Arc<Hits.Hits> = rt.arcClone(hits);
 			return new rt.ArcDyn(_34, new Shape.Hits(_34.value));
-		}));
+		}), undefined, 8, true);
 		const sum: rt.u32 = rt.iterFold(rt.iterSlice(objects), 0, (sum2: rt.u32, s2: rt.Arc<Shape.Shape>): rt.u32 => {
 			return rt.u32WrappingAdd(sum2, s2.value.area$Shape());
 		});
@@ -278,10 +278,10 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			const _112: rt.Arc<Square.Square> = new rt.Arc({ side: x as rt.u16 });
 			return new rt.ArcDyn(_112, new Named.Square(_112.value));
-		}));
+		}), undefined, 8, true);
 		const kept: rt.Arc<Named.Named>[] = rt.iterToArray(rt.iterMap(rt.iterStepBy(rt.iterSlice(tris), 2), (a0: rt.Arc<Named.Named>): rt.Arc<Named.Named> => {
 			return rt.arcClone(a0);
-		}));
+		}), undefined, 8, true);
 		for (const _292 of tris) {
 			const _304: string = _292.value.label$Named();
 			const _307: rt.u32 = _292.value.area$Shape();
@@ -294,7 +294,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _322 of kept) {
 			_322.value.tally$Shape(rt.place(() => total_, (value) => total_ = value));
 		}
-		const _337: string = counts$dyn_Named(rt.iterToArray(rt.iterSlice(kept)));
+		const _337: string = counts$dyn_Named(rt.iterToArray(rt.iterSlice(kept), undefined, 4, true));
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(total_, f), (f: rt.Formatter) => rt.fmtPad(f, _337)];
 		put(out, rt.fmtFormat([args24[0], " ", args24[1]]));
 		rt.dropAll(kept);

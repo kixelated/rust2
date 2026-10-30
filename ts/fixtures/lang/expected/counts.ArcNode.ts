@@ -31,7 +31,7 @@ function new_(this_: rt.Weak<ArcNode>, noisy: Noisy.Noisy, more: rt.u8): ArcNode
 	const _4: rt.Weak<ArcNode> = rt.weakClone(this_);
 	const _5: rt.Weak<ArcNode>[] = rt.iterToArray(rt.iterMap(new rt.Range(0, more), (_2: rt.u8): rt.Weak<ArcNode> => {
 		return rt.weakClone(this_);
-	}));
+	}), undefined, 4, true);
 	const _13: rt.Arc<ArcNode> | undefined = rt.weakUpgrade(this_);
 	const _0: ArcNode = new ArcNode(_4, _5, noisy, Uint8Array.of(_13 === undefined ? 1 : 0, this_.arc.strong & 0xff, rt.weakWeakCount(this_) & 0xff));
 	rt.drop(_13);

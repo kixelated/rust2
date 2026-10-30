@@ -380,7 +380,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const lenses: Lens.Lens[] = [];
 	lenses.push(copy$Lens(lens));
 	const _114: rt.Iter<Lens.Lens> = rt.iterSlice([lens]);
-	rt.iterExtend(lenses, rt.iterMap(_114, copy$Lens));
+	rt.iterExtend(lenses, rt.iterMap(_114, copy$Lens), undefined, 8, true);
 	const iter4: rt.Iter<Lens.Lens> = rt.iterCopied(rt.iterSlice(lenses), copy$Lens);
 	while (true) {
 		const _124: Lens.Lens | rt.Done = iter4.next();

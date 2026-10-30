@@ -157,7 +157,7 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.btreeKeys(ordered), (n2: Nibble.Nibble): rt.u8 => {
 		return Nibble.get(n2);
-	}));
+	}), undefined, true);
 }
 
 //# sourceMappingURL=harness.ts.map
