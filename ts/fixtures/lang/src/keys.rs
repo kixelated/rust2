@@ -1060,7 +1060,9 @@ fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -
 	let mut vecs: HashMap<Vec<T>, u8> = HashMap::new();
 	let mut lists: BTreeSet<Vec<T>> = BTreeSet::new();
 	for (i, &b) in data.iter().enumerate() {
-		out.push(pairs.insert((b % 2, make(b)), i as u8).unwrap_or(0xcc));
+		let pair = (b % 2, make(b));
+		out.push(((&pair < &(1, make(2))) as u8) << 1 | (pair <= (0, make(3))) as u8);
+		out.push(pairs.insert(pair, i as u8).unwrap_or(0xcc));
 		out.push(options.insert((b % 3 != 0).then(|| make(b))) as u8);
 		out.push(vecs.insert(make(b).to_vec(), i as u8).unwrap_or(0xcc));
 		out.push(lists.insert(make(b / 2).to_vec()) as u8);
