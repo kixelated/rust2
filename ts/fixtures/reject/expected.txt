@@ -17,7 +17,7 @@ collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet a
 a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:61:10: 61:18}` at fixtures/reject/src/lib.rs:62:2
 `Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:68:11
 unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:74:10
-a `static mut`, which any code may write at fixtures/reject/src/lib.rs:80:11
+a mutable static, which any code may write at fixtures/reject/src/lib.rs:80:11
 `Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` at fixtures/reject/src/lib.rs:91:20
 a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is at fixtures/reject/src/lib.rs:96:34
 an assignment through a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:102:2

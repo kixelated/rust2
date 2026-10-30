@@ -1273,7 +1273,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tcx = self.tcx;
 		let static_ty = tcx.type_of(item).instantiate_identity().skip_norm_wip();
 		if tcx.is_mutable_static(item) {
-			return self.err(span, "a `static mut`, which any code may write");
+			return self.err(span, "a mutable static, which any code may write");
 		}
 		let static_ty = tcx.erase_and_anonymize_regions(static_ty);
 		if ty.builtin_deref(true).map(|t| tcx.erase_and_anonymize_regions(t)) != Some(static_ty) {
