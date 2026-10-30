@@ -266,8 +266,9 @@ fun script() {
 	val swapped = pair.swap()
 	println("pair ${swapped.left} ${swapped.right} sum ${pair.sum()} ${pair.debug()} ${pair == swapped}")
 	println("even ${pair.even()} ${PairU32(7u, 7u).even()}")
-	val sized = tag(Size(1u, 2u), 3u)
-	val flipped = sized.swap()
+	// An instance renamed alone, beside another of `Pair` that keeps its name.
+	val sized: SizeTag = tag(Size(1u, 2u), 3u)
+	val flipped: PairU8Size = sized.swap()
 	println("sized ${flipped.left} ${flipped.right.width} ${flipped.debug()}")
 	val beside = PairU32(258u, 9u).besideSize(sized.left)
 	println("beside ${beside.left} ${beside.debug()}")
@@ -281,7 +282,7 @@ fun script() {
 	// Generic functions and methods, at each implementation of the trait bounding them, by
 	// reference, which leaves Kotlin its handle.
 	val fromPoint = Counter.seededPoint("p", Point(-3, 4))
-	val fromSize = Counter.seededSize("s", Size(5u, 6u))
+	val fromSize = Counter.fromSize("s", Size(5u, 6u))
 	val fromCounter = Counter.seededCounter("c", fromPoint)
 	val fromPolar = Counter.seededPolarPoint("q", PolarPoint(1u, 2u))
 	println(

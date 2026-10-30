@@ -462,7 +462,8 @@ int script() {
 	print("", pair.debug(), " ");
 	std::printf("%s\n", yes(pair == swapped));
 	std::printf("even %s %s\n", yes(pair.even()), yes(api::pair_u32{7, 7}.even()));
-	api::pair_size_u8 sizes = api::tag({1, 2}, 3);
+	// An instance renamed alone, beside another of `Pair` that keeps its name.
+	api::size_tag sizes = api::tag({1, 2}, 3);
 	api::pair_u8_size flipped = sizes.swap();
 	std::printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", flipped.debug(), "\n");
@@ -484,7 +485,7 @@ int script() {
 		// by reference, which leaves C++ its handle. Two arguments sharing a last segment
 		// name their instances apart by the module of one.
 		api::counter from_point = api::counter::seeded_point("p", {-3, 4});
-		api::counter from_size = api::counter::seeded_size("s", {5, 6});
+		api::counter from_size = api::counter::from_size("s", {5, 6});
 		api::counter from_counter = api::counter::seeded_counter("c", from_point);
 		api::counter from_polar = api::counter::seeded_polar_point("q", {1, 2});
 		std::printf("seeded %llu %llu %llu %llu past %llu seeds %llu\n", ull(from_point.get()), ull(from_size.get()),
