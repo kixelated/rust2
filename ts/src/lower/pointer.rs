@@ -9,8 +9,11 @@
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
 //! a `&mut`, so a pointer to a part kept as an object is refused wherever the crate may
-//! give that part another object. A value read out is a copy of what the crate writes
-//! into in place, so a later write leaves it be.
+//! give that part another object. One to a variable's object is refused wherever the
+//! function may give the variable another after: by assigning it, by writing it whole
+//! through an alias of a borrow of it, or by `mem::replace`, `swap`, or `take` of one. A
+//! value read out is a copy of what the crate writes into in place, so a later write
+//! leaves it be.
 //!
 //! A `MaybeUninit<T>` is a `T`: `undefined` where JS copies a `T` and it holds none yet,
 //! or an object whose parts hold none yet where a pointer to it is the object. An
