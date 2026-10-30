@@ -52,7 +52,6 @@ roots = [
     "owned_bytes",
     "bytes_mut_capacity",
     "bytes_mut_put",
-    "fma",
     "addr_parsed",
     "weak_object",
     "generic_object",

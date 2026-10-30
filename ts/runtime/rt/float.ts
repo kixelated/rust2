@@ -239,6 +239,77 @@ export const f64Add = (a: f64, b: f64): f64 => a + b;
 /** `f64`'s `*`, which `Iterator::product` folds with. */
 export const f64Mul = (a: f64, b: f64): f64 => a * b;
 
+/** 2^27 + 1, which splits a double into two halves whose products are exact: Veltkamp's split. */
+const SPLIT = 134217729;
+
+/**
+ * `f64::mul_add`: `a * b + c` rounded once, as compiler-builtins' `fma` is. Dekker's
+ * product and Knuth's TwoSum make it exact as three doubles, which Boldo and Melquiond's
+ * emulation adds with one rounding. Where a step could overflow or lose bits to
+ * subnormals, the significands' exact sum rounds instead.
+ */
+export function f64MulAdd(a: f64, b: f64, c: f64): f64 {
+	const p = a * b;
+	const m = Math.abs(p);
+	// The split doesn't overflow, the product's exponents sum to at least -970 so its error
+	// is a double, and `p + c` doesn't overflow. NaN fails each.
+	if (Math.abs(a) < 2 ** 996 && Math.abs(b) < 2 ** 996 && m >= 2 ** -968 && m < 2 ** 1021 && Math.abs(c) < 2 ** 1021) {
+		let t = a * SPLIT;
+		const ah = t - (t - a);
+		const al = a - ah;
+		t = b * SPLIT;
+		const bh = t - (t - b);
+		const bl = b - bh;
+		// `p + pl` is `a * b`, and `s + sl` is `p + c`.
+		const pl = ah * bh - p + ah * bl + al * bh + al * bl;
+		const s = p + c;
+		const sl = error(p, c, s);
+		const l = sl + pl;
+		// Where `s` is inexact, `c` didn't cancel half of `p`, so `s`'s last place is far
+		// above the subnormals' and `l`'s odd bit sticks below it.
+		return s + odd(l, error(sl, pl, l));
+	}
+	return mulAddExact(a, b, c);
+}
+
+/** The rounding error of `s`, the double nearest `a + b`, exactly: Knuth's TwoSum. */
+function error(a: number, b: number, s: number): number {
+	const bb = s - a;
+	return a - (s - bb) + (b - bb);
+}
+
+/**
+ * `s + e` rounded to odd, from `s`, its nearest double, and `e`, the exact error: `s`'s odd
+ * neighbor toward `e` if `s` is even and `e` isn't 0. The odd last bit records that bits
+ * were lost, so a rounding to at least two fewer bits gives what rounding `s + e` would.
+ */
+function odd(s: number, e: number): number {
+	if (e === 0) return s;
+	const view = bytes();
+	view.setFloat64(0, s);
+	return view.getUint32(4) & 1 ? s : step(s, e > 0);
+}
+
+/** `a * b + c` rounded once from the operands' exact significands. */
+function mulAddExact(a: number, b: number, c: number): number {
+	// A product that is infinite, NaN, or exactly zero adds as JS's does, and an infinite
+	// `c` wins over a product that would only overflow.
+	if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0 || b === 0) return a * b + c;
+	if (!Number.isFinite(c)) return c;
+	const [ma, ea] = significand(a);
+	const [mb, eb] = significand(b);
+	const [mc, ec] = significand(c);
+	const sign = (x: number) => (x < 0 ? -1n : 1n);
+	// The sum in units of the lesser term's last place.
+	const e = Math.min(ea + eb, ec);
+	const n = sign(a) * sign(b) * ((ma * mb) << BigInt(ea + eb - e)) + sign(c) * (mc << BigInt(ec - e));
+	// Terms that cancel exactly make +0.0, as rounding to nearest does.
+	if (n === 0n) return 0;
+	const magnitude = n < 0n ? -n : n;
+	const x = e >= 0 ? quotient(magnitude << BigInt(e), 1n, F64) : quotient(magnitude, 1n << BigInt(-e), F64);
+	return n < 0n ? -x : x;
+}
+
 /** `clamp`, which panics with both bounds' `Debug` unless `min <= max`. */
 function clamp(x: number, min: number, max: number, debug: (x: number, f: Formatter) => FmtResult): number {
 	if (!(min <= max)) {
@@ -382,6 +453,17 @@ export const f32Add = (a: f32, b: f32): f32 => Math.fround(a + b);
 /** `f32`'s `*`, which `Iterator::product` folds with. */
 export const f32Mul = (a: f32, b: f32): f32 => Math.fround(a * b);
 
+/**
+ * `f32::mul_add`, rounded once as compiler-builtins' `fmaf` is: a double holds `a * b`
+ * exactly, and the sum rounded to odd has 29 more bits than a single, so `Math.fround`
+ * rounds it as it would the exact sum.
+ */
+export function f32MulAdd(a: f32, b: f32, c: f32): f32 {
+	const p = a * b;
+	const s = p + c;
+	return Math.fround(Number.isFinite(s) ? odd(s, error(p, c, s)) : s);
+}
+
 /** `f32::clamp`. */
 export const f32Clamp = (x: f32, min: f32, max: f32): f32 => clamp(x, min, max, f32Debug);
 
@@ -440,16 +522,20 @@ function fractionBits(x: number): number {
 	return Math.max(0, 1075 - Math.max(biased, 1) - zeros);
 }
 
-/** `x`'s exact digits, without trailing zeros, which a double, and so a single, always has: its significand times a power of two. */
-function exact(x: number): [string, number] {
+/** A finite double's magnitude as its integer significand and the power of two that scales it. */
+function significand(x: number): [bigint, number] {
 	const view = bytes();
 	view.setFloat64(0, x);
-	const bits = view.getBigUint64(0);
+	const bits = view.getBigUint64(0) & 0x7fff_ffff_ffff_ffffn;
 	const biased = Number(bits >> 52n);
-	const significand = biased === 0 ? bits : (bits & 0xf_ffff_ffff_ffffn) | 0x10_0000_0000_0000n;
-	const e = Math.max(biased, 1) - 1075;
+	return [biased === 0 ? bits : (bits & 0xf_ffff_ffff_ffffn) | 0x10_0000_0000_0000n, Math.max(biased, 1) - 1075];
+}
+
+/** `x`'s exact digits, without trailing zeros, which a double, and so a single, always has: its significand times a power of two. */
+function exact(x: number): [string, number] {
+	const [m, e] = significand(x);
 	// m * 2^-k is m * 5^k / 10^k.
-	const all = (e >= 0 ? significand << BigInt(e) : significand * 5n ** BigInt(-e)).toString();
+	const all = (e >= 0 ? m << BigInt(e) : m * 5n ** BigInt(-e)).toString();
 	return [all.slice(0, end(all, "0")), all.length + Math.min(e, 0)];
 }
 
