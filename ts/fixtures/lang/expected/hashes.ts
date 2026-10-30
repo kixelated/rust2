@@ -388,7 +388,7 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		digest$u8_str_u64([n & 0xff, "pair", rt.u64Cast(w(4, 8))] as [rt.u8, string, rt.u64], out);
 		const words: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_23: rt.u8): rt.u16 => {
 			return rt.u16Mul(_23 as rt.u16, 257);
-		}));
+		}), undefined, 2, true);
 		digest$Vec_u16(words, out);
 		digest$u16s(rt.sliceRange(words, rt.usizeDiv(words.length, 2)), out);
 		digest$u32s([n, (n ^ 1) >>> 0, n >>> 3], out);
@@ -400,7 +400,7 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const n2: rt.u64 = rt.u64Cast(w(0, 8));
 		digest$Packet({ id: n2, flags: unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), name: unwrapOr$01jdcm7(rt.strFromUtf8(data), "?"), tags: rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u16 => {
 			return _2 as rt.u16;
-		})), next: thenSome$0n2gkz4(rt.u64Rem(n2, 3) !== 0, rt.u64Low(n2) | 0) }, out);
+		}), undefined, 2, true), next: thenSome$0n2gkz4(rt.u64Rem(n2, 3) !== 0, rt.u64Low(n2) | 0) }, out);
 		const _188: rt.u64 = rt.u64Rem(n2, 3);
 		if (_188 === 0) {
 			shape = { tag: "Dot" } as Shape.Shape;
@@ -498,7 +498,7 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const keys: rt.u64[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u64 => {
 		return rt.u64Mul(_2 as rt.u64, 1103823438081);
-	}));
+	}), undefined, 8, true);
 	rt.sliceSortByKey(keys, (k2: rt.u64): rt.u64 => {
 		return rt.hashOne(other.state, k2, rt.hash64);
 	}, rt.lt);

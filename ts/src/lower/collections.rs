@@ -3,9 +3,9 @@
 //!
 //! A hash collection holds a key that is a JS primitive as its own JS map key, which JS
 //! compares as Rust's `Eq` does for numbers, strings, and booleans, and finds any other
-//! key through its translated `Hash` and `Eq`, which `rt.hashing` makes it carry. A
-//! B-tree orders every key by its translated `Ord`. Each value a collection stores is its
-//! own copy, as in Rust.
+//! key through its translated or bound `Hash` and `Eq`, which `rt.hashing` makes it carry.
+//! A B-tree orders every key by its translated or bound `Ord`. Each value a collection
+//! stores is its own copy, as in Rust.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty};
@@ -673,11 +673,57 @@ fn hash_extend<'tcx>(
 	let mut droppers = entry_droppers(b, coll, span);
 	// By `for_each`.
 	droppers.push(super::iter::iter_take(b, iter, true, span));
+	droppers.push(hash_max(b, coll, span));
 	let f = match b.t.std_of(coll) {
 		Some(Std::HashSet) => "hashExtendKeys",
 		_ => "hashExtend",
 	};
 	Expr::rt(f, super::iter::tail(vec![target, source], droppers))
+}
+
+/// The most entries a hash collection of type `coll` holds on wasm32, past which hashbrown's
+/// `reserve` panics: what its table of `(K, V)`, or `(K, ())`, takes as `capacity_to_buckets`
+/// and `calculate_layout_for` allow, with 8-byte groups.
+fn hash_max<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, span: Span) -> Expr {
+	let (size, align) = match super::iter::layout(b, stored(b, coll), span) {
+		Ok(layout) => layout,
+		Err(e) => return e,
+	};
+	const GROUP: u64 = 8;
+	let ctrl_align = align.max(GROUP);
+	let fits = |cap: u64| -> bool {
+		if cap == 0 {
+			return true;
+		}
+		let buckets = if cap < 15 {
+			let cap = cap.max(if size <= 1 { 7 } else { 3 });
+			if cap < 4 {
+				4
+			} else if cap < 8 {
+				8
+			} else {
+				16
+			}
+		} else {
+			match cap.checked_mul(8).filter(|&n| n <= u64::from(u32::MAX)) {
+				Some(n) => (n / 7).next_power_of_two(),
+				None => return false,
+			}
+		};
+		let len = (size * buckets).div_ceil(ctrl_align) * ctrl_align + buckets + GROUP;
+		len <= u64::from(i32::MAX as u32) - (ctrl_align - 1)
+	};
+	// The greatest capacity that fits, of which every smaller one does.
+	let (mut lo, mut hi) = (0, u64::from(u32::MAX));
+	while lo < hi {
+		let mid = lo + (hi - lo).div_ceil(2);
+		if fits(mid) {
+			lo = mid;
+		} else {
+			hi = mid - 1;
+		}
+	}
+	Expr::lit(lo.to_string())
 }
 
 /// An empty hash collection of type `coll`, which finds its keys as their type needs.
@@ -712,13 +758,14 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 		return None;
 	};
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
-	// A fieldless enum is a JS string, which its own `Eq` may tell apart where JS can't,
-	// as is the `Some` of an `Option` of one, and a `Reverse` of one.
+	// A fieldless enum is a JS string, and a bound value may be any primitive, which its
+	// own `Eq` may tell apart where JS can't, as is the `Some` of an `Option` of one, and a
+	// `Reverse` of one.
 	let mut held = key;
 	while let Some(inner) = option_of(b, held).or_else(|| reverse_of(b, held)) {
 		held = peel(b, inner);
 	}
-	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt)) {
+	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt) || b.t.bound_drops(adt.did()).is_some()) {
 		values.push(Expr::lit("true"));
 	}
 	Some(Some(Expr::rt("hashing", values)))
@@ -726,6 +773,12 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 
 fn fieldless(adt: ty::AdtDef<'_>) -> bool {
 	adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty())
+}
+
+/// Whether `ty` compares, orders, and hashes by its own impls, which translate or which its
+/// binding's exports stand in for, rather than as the runtime does std's.
+fn local<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	matches!(ty.kind(), ty::Adt(adt, _) if b.t.own(adt.did()) || b.t.bound_drops(adt.did()).is_some())
 }
 
 /// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples,
@@ -738,7 +791,7 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
 		_ if let Some(elem) = elements_of(b, ty) => own_ne(b, elem),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_ne(b, inner),
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -758,7 +811,7 @@ fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 	match ty.kind() {
 		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let f = trait_fn(tcx, "PartialOrd", test);
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -858,11 +911,10 @@ fn btree<'tcx>(
 		let range = values.pop()?;
 		values.push(bounds(b, call, range));
 		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
-		// does, and one holding the crate's own type by that type's `PartialEq` and
-		// `PartialOrd`.
+		// does, and one holding the crate's own or a bound type by that type's `PartialEq`
+		// and `PartialOrd`.
 		let target = range_input(b, call).1;
-		let own = |t: Ty<'tcx>| matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
-		if target.walk().filter_map(|arg| arg.as_type()).any(own) {
+		if target.walk().filter_map(|arg| arg.as_type()).any(|t| local(b, t)) {
 			values.push(eq_fn(b, target, span));
 			values.push(test_fn(b, target, "gt", span));
 		}
@@ -943,7 +995,8 @@ fn btree<'tcx>(
 		}
 		("From", "from") => {
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
-			btree_collect(b, coll, source, iter, span)
+			let trusted = super::iter::implements(b.t, iter, "TrustedLen");
+			btree_collect(b, coll, source, iter, trusted, span)
 		}
 		_ => return None,
 	};
@@ -953,8 +1006,16 @@ fn btree<'tcx>(
 /// `collect` and `from` into an empty B-tree of type `coll`, from `source`, an iterator of
 /// type `iter`, which keep the last of equal keys, as std's sorted bulk build does. Of
 /// entries that drop, std's collects into a `Vec` first, and then drops each but the last
-/// of equal keys in the order a stable sort leaves them.
-fn btree_collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, source: Expr, iter: Ty<'tcx>, span: Span) -> Expr {
+/// of equal keys in the order a stable sort leaves them. The `Vec` reserves as for a
+/// `TrustedLen` iterator if `trusted`.
+fn btree_collect<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	coll: Ty<'tcx>,
+	source: Expr,
+	iter: Ty<'tcx>,
+	trusted: bool,
+	span: Span,
+) -> Expr {
 	let set = b.t.std_of(coll) == Some(Std::BTreeSet);
 	let target = btree_new(b, coll, span);
 	let key = arg(coll, 0);
@@ -966,6 +1027,8 @@ fn btree_collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, source: Expr,
 		// Into a `Vec` first.
 		let folds = super::iter::implements(b.t, iter, "TrustedLen");
 		droppers.push(super::iter::iter_take(b, iter, folds, span));
+		droppers.push(super::iter::size_of(b, stored(b, coll), span));
+		droppers.push(Expr::lit(trusted.to_string()));
 		let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
 		return Expr::rt(f, super::iter::tail(vec![target, source], droppers));
 	}
@@ -978,7 +1041,7 @@ fn btree_collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, source: Expr,
 			),
 		);
 	}
-	let entries = super::iter::to_array(b, source, iter, stored(b, coll), span);
+	let entries = super::iter::to_array(b, source, iter, stored(b, coll), trusted, span);
 	let droppers = entry_droppers(b, coll, span);
 	let f = if set { "btreeCollectKeys" } else { "btreeCollect" };
 	Expr::rt(f, super::iter::tail(vec![target, entries], droppers))
@@ -999,6 +1062,8 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
+		// A binding's, hand-written even where the Rust impl is derived.
+		ty::Adt(adt, _) if b.t.bound_drops(adt.did()).is_some() => true,
 		ty::Adt(adt, args) if b.t.own(adt.did()) => {
 			let derived = |tr: &str, item: &str, args: &[ty::GenericArg<'tcx>]| {
 				let f = trait_fn(tcx, tr, item);
@@ -1094,10 +1159,15 @@ fn deque<'tcx>(
 				"From" => deque_new(b, coll, span),
 				_ => values.pop()?,
 			};
-			// Of a `TrustedLen` iterator, by `for_each`.
-			let folds = super::iter::implements(b.t, iter, "TrustedLen");
-			let take = super::iter::iter_take(b, iter, folds, span);
-			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], vec![take]))
+			// Of a `TrustedLen` iterator, by `for_each`, reserving its upper bound first.
+			let trusted = super::iter::implements(b.t, iter, "TrustedLen");
+			let take = super::iter::iter_take(b, iter, trusted, span);
+			let reserve = vec![
+				take,
+				super::iter::size_of(b, item, span),
+				Expr::lit(trusted.to_string()),
+			];
+			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], reserve))
 		}
 		_ => return None,
 	};
@@ -1186,19 +1256,24 @@ fn heap<'tcx>(
 		}
 		("Extend", "extend") | ("From", "from") => {
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
+			let trusted = super::iter::implements(b.t, iter, "TrustedLen");
 			if owner == "From" {
-				let d = super::iter::to_array(b, source, iter, item, span);
+				let d = super::iter::to_array(b, source, iter, item, trusted, span);
 				return Some(Expr::rt(
 					"heapFrom",
 					[vec![d], heap_tests(b, item, true, span)].concat(),
 				));
 			}
-			// Into its vector, of a `TrustedLen` iterator by `for_each`.
-			let folds = super::iter::implements(b.t, iter, "TrustedLen");
-			let take = super::iter::iter_take(b, iter, folds, span);
+			// Into its vector, of a `TrustedLen` iterator by `for_each`, reserving as it does.
+			let take = super::iter::iter_take(b, iter, trusted, span);
 			let mut args = vec![values.pop()?, source];
 			args.extend(heap_tests(b, item, true, span));
-			Expr::rt("heapExtend", super::iter::tail(args, vec![take]))
+			let reserve = vec![
+				take,
+				super::iter::size_of(b, item, span),
+				Expr::lit(trusted.to_string()),
+			];
+			Expr::rt("heapExtend", super::iter::tail(args, reserve))
 		}
 		_ => return None,
 	};
@@ -1424,7 +1499,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	// What a std type holds may be the crate's, which compares and hashes by its own impls.
 	let held = |t: Ty<'tcx>| {
 		let t = peel(b, t);
-		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()))
+		std_key(b, t) || b.t.deferred(t) || local(b, t)
 	};
 	match ty.kind() {
 		// A float is no key, but its `PartialEq` and `PartialOrd` are the runtime's.
@@ -1575,11 +1650,11 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
 		// Whichever form it has, as the key it is or the operand a reference passes.
 		_ if bytes(b, ty) => Expr::Rt("cmpBytes".into()),
-		ty::Adt(adt, _) if b.t.own(adt.did()) && partial => {
+		_ if local(b, ty) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
@@ -1637,9 +1712,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			}
 			Expr::rt("eqArc", values)
 		}
-		ty::Adt(adt, _)
-			if b.t.own(adt.did()) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) =>
-		{
+		ty::Adt(..) if local(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
@@ -1683,7 +1756,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		}
 		// Its length, then its bytes, whichever form it is: a `[u8; N]` hashes as a slice.
 		_ if bytes(b, ty) => Expr::Rt("hashBytes".into()),
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
 		}
@@ -1697,11 +1770,8 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 fn own_hash_slice<'tcx>(b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>, hasher: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let elem = peel(b, elem);
-	let ty::Adt(adt, _) = elem.kind() else {
-		return false;
-	};
 	let f = trait_fn(tcx, "Hash", "hash_slice");
-	b.t.own(adt.did())
+	local(b, elem)
 		&& Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[elem.into(), hasher.into()]))
 			.ok()
 			.flatten()
@@ -1765,19 +1835,27 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 	})
 }
 
-/// `collect` into a collection of type `ty` from `iter`, an iterator of type `from`.
-pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from: Ty<'tcx>, span: Span) -> Option<Expr> {
+/// `collect` into a collection of type `ty` from `iter`, an iterator of type `from`, which
+/// std's reserves for as it does a `TrustedLen` one if `trusted`.
+pub fn collect<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	ty: Ty<'tcx>,
+	iter: Expr,
+	from: Ty<'tcx>,
+	trusted: bool,
+	span: Span,
+) -> Option<Expr> {
 	let std = b.t.std_of(ty)?;
 	Some(match std {
 		Std::HashMap | Std::HashSet => {
 			let target = hash_new(b, ty, span)?;
 			hash_extend(b, ty, target, iter, from, span)
 		}
-		Std::BTreeMap | Std::BTreeSet => btree_collect(b, ty, iter, from, span),
+		Std::BTreeMap | Std::BTreeSet => btree_collect(b, ty, iter, from, trusted, span),
 		// std's collects into a `Vec`, and rebuilds it in place.
 		Std::BinaryHeap => {
 			let item = arg(ty, 0);
-			let d = super::iter::to_array(b, iter, from, item, span);
+			let d = super::iter::to_array(b, iter, from, item, trusted, span);
 			Expr::rt("heapFrom", [vec![d], heap_tests(b, item, true, span)].concat())
 		}
 		// std's collects into a `Vec` first.
@@ -1787,9 +1865,14 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from:
 			if !b.t.drops(item) {
 				let folds = super::iter::implements(b.t, from, "TrustedLen");
 				let take = super::iter::iter_take(b, from, folds, span);
-				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], vec![take]))
+				let reserve = vec![
+					take,
+					super::iter::size_of(b, item, span),
+					Expr::lit(trusted.to_string()),
+				];
+				Expr::rt("dequeExtend", super::iter::tail(vec![target, iter], reserve))
 			} else {
-				let items = super::iter::to_array(b, iter, from, item, span);
+				let items = super::iter::to_array(b, iter, from, item, trusted, span);
 				Expr::rt("dequeExtend", vec![target, Expr::rt("iterSlice", vec![items])])
 			}
 		}

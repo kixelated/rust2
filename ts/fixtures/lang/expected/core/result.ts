@@ -573,6 +573,13 @@ export function unwrapOr$0hnup9g(self: rt.Result<rt.u16, rt.u16>, default_: rt.u
 	return default_;
 }
 
+export function unwrapOr$0u9zzk3(self: rt.Result<rt.u32, rt.TryFromIntError>, default_: rt.u32): rt.u32 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
 export function unwrapOr$1dnnsw8(self: rt.Result<rt.u32, rt.u32>, default_: rt.u32): rt.u32 {
 	if (self.ok) {
 		return self.value;

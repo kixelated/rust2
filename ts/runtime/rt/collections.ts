@@ -17,7 +17,22 @@
 import { ByteSlice, type ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, rangeInclusiveEndBound, rangeInclusiveStartBound, type Take } from "./iter.ts";
+import {
+	DONE,
+	type Done,
+	exactHint,
+	Iter,
+	iterMap,
+	iterSlice,
+	type RangeInclusive,
+	rangeInclusiveEndBound,
+	rangeInclusiveStartBound,
+	type SizeHint,
+	type Take,
+	vecCapacity,
+	vecGrow,
+	vecReserveExact,
+} from "./iter.ts";
 import { type Arc, drop as dispose, dropAll, dropRange } from "./task.ts";
 
 // Ordering
@@ -668,8 +683,8 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		return this.left;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -742,10 +757,42 @@ function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Ta
 }
 
 /**
- * `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`. Of
- * equal keys, the first stays and each later one drops, then the value it replaced.
+ * `extending` a `Vec` or `VecDeque` holding `len`, which with elements `size` bytes each
+ * reserves as `iterExtend` does: a `trusted` iterator up front, and any other by `next`.
  */
-export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void, take?: Take): HashMap<K, V> {
+function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) => void, take?: Take, size?: number, trusted = false): C {
+	if (size === undefined || trusted) {
+		if (size !== undefined) vecReserveExact(items, len, size);
+		return extending(c, items, add, take);
+	}
+	let cap = vecCapacity(len, size);
+	for (let item = items.next(); item !== DONE; item = items.next()) {
+		if (len === cap) cap = vecGrow(items, cap, size);
+		add(item);
+		len++;
+	}
+	if (take !== undefined) dispose(items);
+	return c;
+}
+
+/**
+ * hashbrown's reserve before it extends `m` by `items`: the lower bound, or half of it
+ * rounded up if `m` holds any, which panics past `max` entries, the most its table holds.
+ */
+function hashReserve<K, V>(m: HashMap<K, V>, items: Iter<unknown>, max: number | undefined): void {
+	if (max === undefined) return;
+	const lower = items.sizeHint()[0];
+	const n = hashLen(m);
+	if (n + (n === 0 ? lower : Math.ceil(lower / 2)) > max) panic("Hash table capacity overflow");
+}
+
+/**
+ * `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`, which
+ * reserves first as `hashReserve` does. Of equal keys, the first stays and each later one
+ * drops, then the value it replaced.
+ */
+export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void, take?: Take, max?: number): HashMap<K, V> {
+	hashReserve(m, items, max);
 	const add = (item: [K, V]) => {
 		const old = hashInsert(m, item[0], item[1], k);
 		if (old !== undefined) v?.(old);
@@ -754,7 +801,8 @@ export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key
 }
 
 /** `extend` of a set with keys, and `collect` into one, as `hashExtend`: a key already there drops. */
-export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, take?: Take): HashSet<K> {
+export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, take?: Take, max?: number): HashSet<K> {
+	hashReserve(m, keys, max);
 	return extending(m, keys, (key) => hashAdd(m, key, k), take);
 }
 
@@ -1325,9 +1373,9 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 		return this.n;
 	}
 
-	override lower(): number {
-		// A range's count is unknown, and std's hint of one is 0.
-		return Math.max(this.n, 0);
+	override sizeHint(): SizeHint {
+		// A range's count is unknown, and std's hint of one is `(0, None)`.
+		return this.n < 0 ? [0, undefined] : exactHint(this.n);
 	}
 
 	[Symbol.dispose](): void {
@@ -1472,7 +1520,8 @@ function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): [Leaf<K, V>, numb
  * `extend` of a map with `[key, value]`s, which keeps an equal key already there and drops
  * the one given, then the value it replaced, and takes `items` as `take` says. With
  * `last`, `collect` and `from` of entries that drop nothing into an empty one, which keep
- * the last of equal keys, as `btreeCollect` does.
+ * the last of equal keys, as `btreeCollect` does, and reserve as the `Vec` of `size`-byte
+ * entries std's collects into first does, as `iterExtend`.
  */
 export function btreeExtend<K, V>(
 	m: BTreeMap<K, V>,
@@ -1481,6 +1530,8 @@ export function btreeExtend<K, V>(
 	k?: (key: K) => void,
 	v?: (value: V) => void,
 	take?: Take,
+	size?: number,
+	trusted = false,
 ): BTreeMap<K, V> {
 	const add = (item: [K, V]) => {
 		if (!last) {
@@ -1496,11 +1547,11 @@ export function btreeExtend<K, V>(
 			l.v[i] = item[1];
 		}
 	};
-	return extending(m, items, add, take);
+	return vecExtending(m, 0, items, add, take, size, trusted);
 }
 
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
-export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, take?: Take): BTreeSet<K> {
+export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, take?: Take, size?: number, trusted = false): BTreeSet<K> {
 	const add = (key: K) => {
 		if (!last) {
 			btreeAdd(m, key, k);
@@ -1511,7 +1562,7 @@ export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, 
 		if (i < 0) insertAt(m, l, ~i, key, undefined);
 		else l.k[i] = key;
 	};
-	return extending(m, keys, add, take);
+	return vecExtending(m, 0, keys, add, take, size, trusted);
 }
 
 /**
@@ -1943,8 +1994,8 @@ class DequeIter<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -1995,8 +2046,8 @@ class DequePlaces<T> extends Iter<Place<T>> {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 }
 
@@ -2109,8 +2160,8 @@ class VecDrain<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -2162,8 +2213,8 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -2174,9 +2225,12 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 	}
 }
 
-/** `extend`, and `collect` into a deque through `dequeNew`, which takes `items` as `take` says. */
-export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take): VecDeque<T> {
-	return extending(q, items, (item) => dequePushBack(q, item), take);
+/**
+ * `extend`, and `collect` into a deque through `dequeNew`, which takes `items` as `take`
+ * says and reserves as `iterExtend` does.
+ */
+export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take, size?: number, trusted = false): VecDeque<T> {
+	return vecExtending(q, q.n, items, (item) => dequePushBack(q, item), take, size, trusted);
 }
 
 /** `clone`, with each item through its `Clone`, or as itself without one. */
@@ -2254,10 +2308,13 @@ export function heapAppend<T>(h: BinaryHeap<T>, other: BinaryHeap<T>, le: Test<T
 	rebuildTail(h.d, start, le, ge, lt);
 }
 
-/** `extend`, taking `items` as `take` says, and then the heap rebuilt past what it held. */
-export function heapExtend<T>(h: BinaryHeap<T>, items: Iter<T>, le: Test<T>, ge: Test<T>, lt: Test<T>, take?: Take): BinaryHeap<T> {
+/**
+ * `extend`, taking `items` as `take` says and reserving as its `Vec`'s `iterExtend` does,
+ * and then the heap rebuilt past what it held.
+ */
+export function heapExtend<T>(h: BinaryHeap<T>, items: Iter<T>, le: Test<T>, ge: Test<T>, lt: Test<T>, take?: Take, size?: number, trusted = false): BinaryHeap<T> {
 	const start = h.d.length;
-	extending(h, items, (item) => h.d.push(item), take);
+	vecExtending(h, start, items, (item) => h.d.push(item), take, size, trusted);
 	rebuildTail(h.d, start, le, ge, lt);
 	return h;
 }

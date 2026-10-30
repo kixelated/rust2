@@ -223,7 +223,11 @@ An iterator over a slice, array, or `Vec`, or a small range, that only its `next
 moves read steps in place, as two variables: the array and an index into it, or the
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
 std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
-an `rt.Iter` with `for ... of`.
+an `rt.Iter` with `for ... of`. Each `rt.Iter`'s `sizeHint` is std's `size_hint`, its upper
+bound `undefined` for `None`, and a `collect` or `extend` into a `Vec`, `VecDeque`,
+`BinaryHeap`, B-tree, or hash collection reserves by it where std's does, panicking with
+std's capacity overflow past the most it holds. Capacity isn't modeled, so a collection
+an `extend` starts from is taken as full.
 
 A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
 `char`, a `&str`, a predicate, or an array or slice of chars, as in `rt.strSplit(s, "/")`, takes the text or the
@@ -443,8 +447,7 @@ generic bound type's value at each of its instantiations translation reaches.
 A type with a representation of its own, std's or a well-known crate's, can't be bound.
 
 Translation can't see into a bound type, so a field, variant, or constructor of one is
-refused, as are iterating one, keying a collection by one, and assigning a whole one
-through a `&mut`. Its value is never `undefined` or `rt.Pending`, which `None` and
+refused, as are iterating one and assigning a whole one through a `&mut`. Its value is never `undefined` or `rt.Pending`, which `None` and
 `Poll::Pending` are, and is an object unless the Rust type is `Copy`. A `&mut` to one
 passes that object, which the binding's functions change in place. Where the type is
 `Copy`, such a `&mut` is refused, since JS shares the value where Rust copies it, and a
@@ -459,6 +462,15 @@ so its export is typed `: undefined`. A missing or mismatched binding fails the
 translation at the Rust item's span, and the output is removed. Only the binding files translation reaches are copied, so one imports
 another only where translation reaches both. A binding inside the output is refused, since
 a translation replaces it.
+
+A bound type keys a collection, alone or in a tuple, `Option`, or `Arc`, by the exports of
+its Rust impls: `hash$Hash(self, state: rt.Hasher): undefined` and `eq$PartialEq` for a
+`HashMap` or `HashSet`, `cmp$Ord` for a `BTreeMap` or `BTreeSet`, and
+`partialCmp$PartialOrd` too for a B-tree's `range`. A derived impl's are the same exports.
+Each must agree with the Rust impl: `hash` writes what it writes, through `rt.hash8` to
+`rt.hash128`, `rt.hashStr`, and `rt.hashBytes`, so values `eq` finds equal hash alike, and
+`cmp` orders as it does. A collection finds even a bound value that is a JS primitive by
+these, never by `===`. A missing one fails at its impl, as any missing export does.
 
 A bound type with `drop = true` drops where Rust drops it, through its
 `[Symbol.dispose]`, which `tsc` checks it has. Without it, dropping one does nothing JS
@@ -713,7 +725,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   its own included. `caller.ts` names the inputs that reserve at the edges of
   `BytesMut`'s 512 MiB limit.
 - `bind` binds `buf::Blob`, a renamed dependency's type with `unsafe` inside, and a function and a type of its own that read through raw
-  pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. Its
+  pointers, the type dropping an `Arc` where Rust drops it, to the TS in `bind/`. It keys
+  hash and B-tree collections by `Blob` and by `key::Nibble`, a JS number equal to another
+  by its low bits alone, through their bindings' `Hash`, `Eq`, and `Ord`. Its
   differential test runs them against native Rust. `wrong.toml` binds TS that doesn't match
   the Rust signatures, which `tsc` refuses at each item, with the errors in `wrong.txt`.
   `refused.toml` holds bindings the config can't make, with the errors in `refused.txt`.

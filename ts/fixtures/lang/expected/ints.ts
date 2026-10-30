@@ -2644,12 +2644,12 @@ export function edges(max: rt.u128, min: rt.u128, bits: rt.usize, radix: rt.u32)
 			return b;
 		}
 		return rt.u8Sub(b, 32);
-	}));
+	}), undefined, true);
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, top)];
 	const _54: string = rt.fmtFormat(["-", args8[0]]);
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, past)];
 	const _53: string[] = [_54, rt.fmtFormat(["000", args10[0]]), rt.resultUnwrap(rt.stringFromUtf8(upper), rt.fmtFromUtf8ErrorDebug)];
-	rt.iterExtend(all, rt.iterSlice(_53));
+	rt.iterExtend(all, rt.iterSlice(_53), undefined, 12, true);
 	if (rt.u128Gt(min, 0)) {
 		const _77: [string, string] = [digits(min, radix), succ(digits(min, radix), radix)];
 		const bottom: string = _77[0];
@@ -2662,7 +2662,7 @@ export function edges(max: rt.u128, min: rt.u128, bits: rt.usize, radix: rt.u32)
 		const _104: string = rt.fmtFormat(["-000", args16[0]]);
 		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, below)];
 		const _85: string[] = [_86, _95, _104, rt.fmtFormat(["-00", args18[0]])];
-		rt.iterExtend(all, rt.iterSlice(_85));
+		rt.iterExtend(all, rt.iterSlice(_85), undefined, 12, true);
 	}
 	const unchecked: rt.usize = rt.usizeSub(rt.usizeDiv(bits, 4), rt.u128Gt(min, 0) ? 1 : 0);
 	const _131: rt.usize = rt.usizeSub(radix as rt.usize, 1);
@@ -2687,7 +2687,7 @@ export function edges(max: rt.u128, min: rt.u128, bits: rt.usize, radix: rt.u32)
 		}
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, run)];
 		const _158: string[] = [rt.fmtFormat(["-", args20[0]]), run];
-		rt.iterExtend(all, rt.iterSlice(_158));
+		rt.iterExtend(all, rt.iterSlice(_158), undefined, 12, true);
 	}
 	const _172: rt.usize = rt.usizeRem(radix as rt.usize, 36);
 	if (!(_172 < 36)) {
@@ -2707,7 +2707,7 @@ export function edges(max: rt.u128, min: rt.u128, bits: rt.usize, radix: rt.u32)
 	const _203: string = rt.fmtFormat(["1", args22[0]]);
 	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDisplay(stray, f)];
 	const _202: string[] = [_203, rt.fmtFormat([args24[0]])];
-	rt.iterExtend(all, rt.iterSlice(_202));
+	rt.iterExtend(all, rt.iterSlice(_202), undefined, 12, true);
 	return all;
 }
 

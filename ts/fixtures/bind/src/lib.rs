@@ -1,10 +1,12 @@
 //! Items outside the subset, bound to hand-written TypeScript: `buf::Blob`, a renamed
 //! dependency's type that contains `unsafe`, and the crate's own function and type that
-//! read through raw pointers, one of them dropping where Rust drops it.
+//! read through raw pointers, one of them dropping where Rust drops it, and a key whose own
+//! `Hash`, `Eq`, and `Ord` a JS number's `===` would break.
 //!
 //! `harness::run` is the entry point both sides of the differential test run.
 
 pub mod harness;
+pub mod key;
 pub mod raw;
 /// A second path to the function, which a binding can't also name.
 pub use raw::checksum;

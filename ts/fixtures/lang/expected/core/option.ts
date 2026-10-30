@@ -17,6 +17,7 @@ import type * as Twin from "../counts.Twin.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
+import type * as Big from "../hints.Big.ts";
 import type * as Quarter from "../iters.Quarter.ts";
 import type * as Tilt from "../iters.Tilt.ts";
 import { side, order } from "../keys.ts";
@@ -683,6 +684,13 @@ export function mapOr$1unqgn7(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, de
 	return f(self);
 }
 
+export function mapOr$1cxlmys(self: Big.Big[] | undefined, default_: rt.usize, f: (a0: Big.Big[]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$1kiffmd(self: rt.u16[] | undefined, default_: rt.u8, f: (a0: rt.u16[]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -690,7 +698,35 @@ export function mapOr$1kiffmd(self: rt.u16[] | undefined, default_: rt.u8, f: (a
 	return f(self);
 }
 
+export function mapOr$1umcrqz(self: rt.u32[] | undefined, default_: rt.usize, f: (a0: rt.u32[]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0pdoq6p(self: [rt.u64, rt.u8][] | undefined, default_: rt.usize, f: (a0: [rt.u64, rt.u8][]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$1a3irjf(self: rt.ByteVec | undefined, default_: rt.u8, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0amk6zv(self: [rt.u8, rt.u8, rt.u8][] | undefined, default_: rt.usize, f: (a0: [rt.u8, rt.u8, rt.u8][]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$08xwngs(self: rt.ByteVec | undefined, default_: rt.usize, f: (a0: rt.ByteVec) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}

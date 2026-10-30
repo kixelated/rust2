@@ -16,7 +16,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		return Guard.new(rt.u32Add(id, n24), Log.clone$Clone(log));
 	};
 	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
-		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard), undefined, 8, true);
 	};
 	const _10: [Guard.Guard, Guard.Guard] = [guard(10), guard(11)];
 	_1086 = true;
@@ -193,7 +193,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			return g68;
 		}, (): void => {
 			captured56[Symbol.dispose]();
-		})), "next");
+		})), "next", 8, true);
 		const _174: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 7), rt.drop);
 		_1085 = false;
 		const captured57 = d;
@@ -201,7 +201,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			return [g69, Guard.id(captured57) as rt.u64] as [Guard.Guard, rt.u64];
 		}, (): void => {
 			captured57[Symbol.dispose]();
-		})), "fold");
+		})), "fold", 16, true);
 		const _185: rt.usize = same.length;
 		const _188: rt.usize = wider.length;
 		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_185, f), (f: rt.Formatter) => rt.usizeDisplay(_188, f)];
@@ -221,7 +221,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		}, (): void => {
 			captured54[Symbol.dispose]();
 		}));
-		const queue: rt.VecDeque<Guard.Guard> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Guard.Guard>, rt.iterSlice(rt.iterToArray(_196, "next")));
+		const queue: rt.VecDeque<Guard.Guard> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Guard.Guard>, rt.iterSlice(rt.iterToArray(_196, "next", 8, true)));
 		const _204: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 7), rt.drop);
 		_1085 = false;
 		const captured55 = d;
@@ -230,7 +230,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		}, (): void => {
 			captured55[Symbol.dispose]();
 		}));
-		const tree: rt.BTreeMap<rt.u32, Guard.Guard> = rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Guard.Guard>, rt.iterToArray(_203, "fold"), undefined, rt.drop);
+		const tree: rt.BTreeMap<rt.u32, Guard.Guard> = rt.btreeCollect(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Guard.Guard>, rt.iterToArray(_203, "fold", 12, true), undefined, rt.drop);
 		const _215: rt.usize = queue.n;
 		const _218: rt.usize = rt.btreeLen(tree);
 		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_215, f), (f: rt.Formatter) => rt.usizeDisplay(_218, f)];
@@ -251,7 +251,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		}, (): void => {
 			captured52[Symbol.dispose]();
 		}));
-		rt.iterExtend(v, _230, "fold");
+		rt.iterExtend(v, _230, "fold", 8, true);
 		const tree2: rt.BTreeMap<rt.u32, Guard.Guard> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, Guard.Guard>;
 		const _240: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 7), rt.drop);
 		_1085 = false;
@@ -937,7 +937,7 @@ export function rfolded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		return Guard.new(rt.u32Add(id, n7), Log.clone$Clone(log));
 	};
 	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
-		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard), undefined, 8, true);
 	};
 	const _11: [Guard.Guard, Guard.Guard, Guard.Guard] = [guard(10), guard(11), guard(12)];
 	const c: Guard.Guard = _11[0];
@@ -1281,7 +1281,7 @@ export function options(log: Log.Log, id: rt.u32): void {
 		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 	};
 	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
-		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard), undefined, 8, true);
 	};
 	const _10: [Guard.Guard, Guard.Guard, Guard.Guard] = [guard(10), guard(11), guard(12)];
 	const c: Guard.Guard = _10[0];
@@ -1334,7 +1334,7 @@ export function reducers(log: Log.Log, id: rt.u32): void {
 		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 	};
 	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
-		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard), undefined, 8, true);
 	};
 	const _9: [Guard.Guard, Guard.Guard] = [guard(10), guard(11)];
 	const c: Guard.Guard = _9[0];
@@ -1423,7 +1423,7 @@ export function closures(log: Log.Log, id: rt.u32): void {
 		return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(log));
 	};
 	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
-		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard), undefined, 8, true);
 	};
 	const _12: [Guard.Guard, Guard.Guard, Guard.Guard, Guard.Guard, Guard.Guard] = [guard(10), guard(11), guard(12), guard(13), guard(14)];
 	const c: Guard.Guard = _12[0];
@@ -1467,7 +1467,7 @@ export function closures(log: Log.Log, id: rt.u32): void {
 			g3[Symbol.dispose]();
 			return _06;
 		});
-	}), "next");
+	}), "next", 8);
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part2, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug))];
 	Log.note(log, rt.fmtFormat(["kept ", args2[0]]));
 	const part3 = rt.iterFold(rt.iterFilterMap(rt.iterSlice(guards(1, 7), rt.drop), pick, rt.None), 0, (n3: rt.u32, o2: Guard.Guard | undefined): rt.u32 => {
