@@ -449,7 +449,7 @@ pub fn call<'tcx>(
 			Some(Expr::rt("durationSum", tail(vec![recv.clone()], vec![drops])))
 		}
 		// std's float sum starts from -0.0, so a sum of none, or of -0.0s, is -0.0.
-		"sum" | "product" if super::float::is(targ(1)?) => {
+		"sum" | "product" if let Some(float) = super::float::Float::of(targ(1)?) => {
 			let (op, unit) = match name {
 				"sum" => ("add", -0.0),
 				_ => ("mul", 1.0),
@@ -457,7 +457,7 @@ pub fn call<'tcx>(
 			let drops = iter_drops(b, self_ty, span);
 			method(
 				name,
-				tail(vec![Expr::rt_of("f64", op), super::float::lit(unit)], vec![drops]),
+				tail(vec![Expr::rt_of(float.name(), op), float.lit(unit)], vec![drops]),
 			)
 		}
 		"sum" | "product" => {

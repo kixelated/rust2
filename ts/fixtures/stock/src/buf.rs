@@ -100,7 +100,7 @@ impl<B: Buf> Checked for B {
 
 /// A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes.
 fn read<B: Buf>(buf: &mut B, n: usize) -> u128 {
-	match n % 14 {
+	match n % 15 {
 		0 => buf.get_u8().into(),
 		1 => buf.get_i8() as u128,
 		2 => buf.get_u16().into(),
@@ -114,6 +114,7 @@ fn read<B: Buf>(buf: &mut B, n: usize) -> u128 {
 		10 => buf.get_uint(n % 10).into(),
 		11 => buf.get_int_le(n % 10) as u128,
 		12 => buf.get_f64().to_bits().into(),
+		13 => buf.get_f32_le().to_bits().into(),
 		_ => {
 			let mut dst = [0; 3];
 			buf.copy_to_slice(&mut dst[..n % 4]);
@@ -296,7 +297,7 @@ fn write_all<B: BufMut>(buf: &mut B, data: &[u8]) {
 		data = rest;
 		let (op, n) = (*op, *n);
 		let v = u64::from(n) * 0x0101_0101_0101_0101;
-		match op % 15 {
+		match op % 16 {
 			0 => buf.put_u8(n),
 			1 => buf.put_i8(n as i8),
 			2 => buf.put_u16(v as u16),
@@ -311,6 +312,7 @@ fn write_all<B: BufMut>(buf: &mut B, data: &[u8]) {
 			11 => buf.put_slice(&[op, n]),
 			12 => buf.put_bytes(n, n as usize % 7),
 			13 => buf.put(Bytes::from_static(b"put")),
+			14 => buf.put_f32(f32::from(n) / 3.0),
 			_ => buf.put_f64(f64::from(n) / 3.0),
 		}
 	}

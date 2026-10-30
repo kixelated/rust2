@@ -238,7 +238,7 @@ pub fn std_impl<'tcx>(
 			};
 			Int::of(ty)?.method(method, vec![value, f])
 		}
-		_ if super::float::is(ty) => {
+		_ if let Some(float) = super::float::Float::of(ty) => {
 			let method = match tr {
 				Trait::Display => "display",
 				Trait::Debug => "debug",
@@ -246,7 +246,7 @@ pub fn std_impl<'tcx>(
 				Trait::UpperExp => "upperExp",
 				_ => return None,
 			};
-			Expr::rt_of("f64", method).call(vec![value, f])
+			Expr::rt_of(float.name(), method).call(vec![value, f])
 		}
 		ty::Bool if text => rt("bool", vec![value, f]),
 		ty::Char if tr == Trait::Display => rt("charDisplay", vec![value, f]),

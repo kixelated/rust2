@@ -2,9 +2,9 @@
 //! output is written.
 
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
-#![feature(cow_is_borrowed)]
+#![feature(cow_is_borrowed, f16)]
 
-pub fn float(a: f32) -> f32 {
+pub fn float(a: f16) -> f16 {
 	a * 2.0
 }
 
@@ -82,9 +82,9 @@ pub fn statics() -> u8 {
 
 pub struct Meters(pub u64);
 
-pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
+pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f16 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
-	(*t).into() as f32
+	(*t).into() as f16
 }
 
 /// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.

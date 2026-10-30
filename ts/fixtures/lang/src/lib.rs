@@ -51,6 +51,7 @@ mod orders;
 mod pointers;
 mod refs;
 mod shapes;
+mod singles;
 mod slices;
 mod splits;
 mod statics;
