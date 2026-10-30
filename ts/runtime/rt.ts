@@ -9,7 +9,7 @@ import type { Ordering } from "./rt/collections.ts";
 import type { ParseFloatError } from "./rt/float.ts";
 import { type char, type ParseCharError, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Range, RangeInclusive } from "./rt/iter.ts";
-import { dropAll, type Pending } from "./rt/task.ts";
+import { drop as dispose, dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
 import { UNPRINTABLE } from "./rt/unicode.ts";
@@ -1571,9 +1571,13 @@ export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	return b;
 }
 
-/** `DebugList::entries`. */
-export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>): DebugList {
-	for (const item of items) debugListEntry(b, (f) => debug(item, f));
+/** `DebugList::entries`: each item written and then dropped by `drop`, and then `items` dropped, as std's `for` does. */
+export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>, drop?: (value: T) => void): DebugList {
+	for (const item of items) {
+		debugListEntry(b, (f) => debug(item, f));
+		drop?.(item);
+	}
+	dispose(items);
 	return b;
 }
 
@@ -1712,9 +1716,25 @@ export function fmtResult<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, r.ok ? "Ok" : "Err"), field));
 }
 
-/** `Debug` of a slice, array, or `Vec`. */
+/** `Debug` of a slice, array, `Vec`, `VecDeque`, or `BinaryHeap`. */
 export function fmtList<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
 	return debugListFinish(debugListEntries(fmtDebugList(f), items, debug));
+}
+
+/** `Debug` of a set: std's `DebugSet` is its `DebugList` in braces. */
+export function fmtSet<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	const b = debugListEntries({ fmt: f, result: f.out.writeStr("{"), hasFields: false }, items, debug);
+	if (b.result.ok) b.result = f.out.writeStr("}");
+	return b.result;
+}
+
+/** `Debug` of a map: a set of entries, each its key and value apart by `": "` in one indented field. */
+export function fmtMap<K, V>(entries: Iterable<[K, V]>, f: Formatter, key: Debug<K>, value: Debug<V>): FmtResult {
+	return fmtSet(entries, f, ([k, v], f) => {
+		let r = key(k, f);
+		if (r.ok) r = f.out.writeStr(": ");
+		return r.ok ? value(v, f) : r;
+	});
 }
 
 /** `Debug` of a range: each bound present, written with the formatter's options, around `dots`, which none pads. */

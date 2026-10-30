@@ -786,25 +786,30 @@ export function iterReduce<T>(it: Iter<T>, f: (acc: T, item: T) => T, drops = fa
 	return none;
 }
 
-/** `Iterator::fold`. */
-export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, drops = false): A {
+/**
+ * `Iterator::fold`. If it `owns` `f`, a closure that drops, `f` drops as the fold ends,
+ * before `it`, as std's drops the closure it was given.
+ */
+export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, drops = false, owns = false): A {
 	if (!drops) {
 		const folded = it.folded();
 		let acc = init;
 		for (let item = folded.next(); item !== DONE; item = folded.next()) acc = f(acc, item);
+		if (owns) dispose(f);
 		return acc;
 	}
-	return it.fold(init, f);
+	return it.fold(init, f, owns ? () => dispose(f) : undefined);
 }
 
-/** `Iterator::for_each`. */
-export function iterForEach<T>(it: Iter<T>, f: (item: T) => void, drops = false): void {
+/** `Iterator::for_each`, which drops `f` if it `owns` it, as `iterFold` does. */
+export function iterForEach<T>(it: Iter<T>, f: (item: T) => void, drops = false, owns = false): void {
 	if (!drops) {
 		const folded = it.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) f(item);
+		if (owns) dispose(f);
 		return;
 	}
-	it.fold<void>(undefined, (_, item) => f(item));
+	it.fold<void>(undefined, (_, item) => f(item), owns ? () => dispose(f) : undefined);
 }
 
 /** `sum`, adding with an integer type's checked `add`, so overflow panics as Rust's does. */

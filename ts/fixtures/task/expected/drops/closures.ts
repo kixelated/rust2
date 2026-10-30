@@ -606,14 +606,13 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	const o: Guard.Guard = guard(28);
 	const _369: rt.Iter<rt.u32> = rt.iterSlice([1, 2]);
 	const captured17 = o;
-	const _372: (a0: rt.u32) => undefined = rt.closure((_214: rt.u32): undefined => {
+	rt.iterForEach(_369, rt.closure((_214: rt.u32): undefined => {
 		const part7 = rt.u32Add(_214, Guard.id(captured17));
 		const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part7, f)];
 		Log.note(log, rt.fmtFormat(["each ", args32[0]]));
 	}, (): void => {
 		captured17[Symbol.dispose]();
-	});
-	rt.dropAfter(_372, () => rt.iterForEach(_369, _372));
+	}), undefined, true);
 	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(sum, f)];
 	Log.note(log, rt.fmtFormat(["sum ", args20[0]]));
 	const _386: [Guard.Guard, Guard.Guard, Guard.Guard] = [guard(44), guard(45), guard(46)];
