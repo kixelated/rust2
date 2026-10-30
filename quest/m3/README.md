@@ -31,6 +31,8 @@ generic std gap is planned here even when moq never calls it.
 - [References to byte-array keys a collection yields](/quest/m3/ts-byte-key-refs.md) - `keys`, `iter`, `get_key_value`, and `HashSet::get` of a `[u8; N]` key translate
 - [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - `size_hint` translates, and `Vec`'s collect and extend panic past `isize::MAX` as std's do
 - [Peekable::next_if_eq against another type](/quest/m3/ts-next-if-eq-other.md) - `next_if_eq` with an expected value of another type than the item, such as a `&str` of `String` items, translates
+- [A closure's () result as a value](/quest/m3/ts-unit-closures.md) - a closure returning `()` whose result is a value, as in a `Vec<()>` collected from `map`, type-checks
+- [std accessors with no mapping](/quest/m3/ts-unmapped-accessors.md) - `VecDeque::swap_remove_*`, `HashSet::replace`, `BTreeSet::get`, `take`, and `replace`, `Vec::pop_if`, and `Arc` and `Rc::into_inner` translate
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
