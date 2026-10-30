@@ -310,4 +310,16 @@ const bounds = Array.from({ length: 6 * 9 * 36 }, (_, n) => {
 	return [Uint8Array.of(boundsOp, kind, ends % 3, Math.floor(ends / 3), a, b, 1, 3, 2, 5), Uint8Array.of(boundsOp, kind, ends % 3, Math.floor(ends / 3), a, b)];
 }).flat();
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds];
+/**
+ * `subslices` of each kind over zero to four items, at every pair of bounds up to one past
+ * the end, so parts are empty, at the end, backwards, and out of bounds.
+ */
+const subslicesOp = op("slices::subslices");
+const subslices = [0, 1, 2, 3, 4].flatMap((n) =>
+	Array.from({ length: 8 * (n + 2) ** 2 }, (_, i) => {
+		const [kind, a, b] = [i % 8, Math.floor(i / 8) % (n + 2), Math.floor(i / 8 / (n + 2))];
+		return Uint8Array.of(subslicesOp, kind, a, b, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
+	}),
+);
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...subslices];

@@ -269,6 +269,218 @@ pub fn chunked(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	out.push(digest_pairs(&pairs));
 }
 
+/// Writes through a mutable subslice, which may be empty, as each element type allows.
+fn poke_words(i: usize, s: &mut [u16]) {
+	let n = s.len();
+	if let Some(w) = s.first_mut() {
+		*w = w.wrapping_add(i as u16 + 1);
+	}
+	if let Some(w) = s.last_mut() {
+		*w ^= 0x0f0f;
+	}
+	s.reverse();
+	for (j, w) in s.iter_mut().enumerate() {
+		*w = w.wrapping_mul(3).wrapping_add(j as u16);
+	}
+	if n > 1 {
+		s.swap(0, n - 1);
+		s[n / 2] = s[n / 2].wrapping_add(0x0101);
+	}
+}
+
+fn poke_pairs(i: usize, s: &mut [Pair]) {
+	if let Some(p) = s.first_mut() {
+		p.a = p.a.wrapping_add(i as u8);
+	}
+	if let Some(p) = s.last_mut() {
+		*p = Pair {
+			a: p.b as u8,
+			b: p.a as u16 * 7,
+		};
+	}
+	s.sort();
+	if s.len() > 1 {
+		s.swap(0, s.len() / 2);
+	}
+	for p in s.iter_mut() {
+		p.b = p.b.wrapping_add(1);
+	}
+}
+
+fn poke_array(s: &mut [u32]) {
+	for (j, x) in s.iter_mut().enumerate() {
+		*x = x.wrapping_mul(31).wrapping_add(j as u32);
+	}
+	s.reverse();
+}
+
+/// `&mut` of a range of a `Vec`, an array, and a slice, of other than bytes, nested, and
+/// `split_at_mut`, `split_first_mut`, and `split_last_mut` of those and of bytes, at
+/// bounds from the first two bytes, which may be out of bounds or backwards, which
+/// panics; with what is written through each part landing in what it came from.
+pub fn subslices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let [a, b, data @ ..] = data else {
+		return;
+	};
+	let reach = data.len() + 2;
+	let (a, b) = (*a as usize % reach, *b as usize % reach);
+	let mut bytes = data.to_vec();
+	let mut words: Vec<u16> = data.iter().map(|&b| b as u16 * 257).collect();
+	let mut pairs: Vec<Pair> = data.iter().map(|&b| Pair { a: b, b: b as u16 * 3 }).collect();
+	let mut array = [0u32; 5];
+	for (x, &b) in array.iter_mut().zip(data) {
+		*x = b as u32 * 65599;
+	}
+	match kind % 8 {
+		0 => {
+			poke_words(0, &mut words[a..b]);
+			poke_pairs(0, &mut pairs[a..b]);
+			poke_array(&mut array[a.min(5)..b.min(5)]);
+		}
+		1 => {
+			poke_words(1, &mut words[..b]);
+			poke_words(2, &mut words[a..]);
+			poke_pairs(1, &mut pairs[a..]);
+			poke_pairs(2, &mut pairs[..]);
+			let s = words.as_mut_slice();
+			poke_words(3, &mut s[..b]);
+			poke_array(&mut array[a..]);
+		}
+		// A part of a part, and writes to the outer part around the inner one's.
+		2 => {
+			let outer = &mut words[a / 2..];
+			poke_words(4, &mut outer[..b / 2]);
+			if let Some(w) = outer.last_mut() {
+				*w = 0xbeef;
+			}
+			let outer = &mut pairs[..b];
+			let inner = &mut outer[a / 2..];
+			let n = inner.len();
+			poke_pairs(3, &mut inner[1.min(n)..]);
+			outer.reverse();
+		}
+		// Both halves written, then an element of one swapped with one of the other.
+		3 => {
+			let (l, r) = words.split_at_mut(a);
+			poke_words(5, l);
+			poke_words(6, r);
+			if let (Some(x), Some(y)) = (l.last_mut(), r.first_mut()) {
+				std::mem::swap(x, y);
+			}
+			let (l, r) = pairs.split_at_mut(b);
+			poke_pairs(4, r);
+			poke_pairs(5, l);
+			if let (Some(x), Some(y)) = (l.first_mut(), r.last_mut()) {
+				std::mem::swap(x, y);
+			}
+			let (l, r) = array.split_at_mut(a.min(5));
+			poke_array(r);
+			poke_array(l);
+		}
+		// At 0 and at the length, where one half is empty, and past it, checked.
+		4 => {
+			match words.split_at_mut_checked(a) {
+				Some((l, r)) => {
+					l.reverse();
+					poke_words(7, r);
+				}
+				None => out.push(0xee),
+			}
+			let n = pairs.len();
+			let (l, r) = pairs.split_at_mut(0);
+			poke_pairs(6, r);
+			out.push(l.len() as u8);
+			let (l, r) = pairs.split_at_mut(n);
+			poke_pairs(7, l);
+			out.push(r.len() as u8);
+			let n = words.len();
+			let (l, r) = words.split_at_mut(n);
+			poke_words(8, l);
+			out.push(r.len() as u8);
+			// A split of a split's half.
+			let (l, r) = words.split_at_mut(a.min(n));
+			let (rl, rr) = r.split_at_mut(b.min(n - a.min(n)));
+			poke_words(9, rr);
+			poke_words(10, l);
+			poke_words(11, rl);
+		}
+		5 => {
+			if let Some((first, rest)) = words.split_first_mut() {
+				*first = first.wrapping_add(rest.len() as u16);
+				poke_words(12, rest);
+			}
+			if let Some((last, rest)) = words.split_last_mut() {
+				*last ^= 0x5a5a;
+				if let Some((first, _)) = rest.split_first_mut() {
+					*first = *last;
+				}
+			}
+			if let Some((first, rest)) = pairs.split_first_mut() {
+				first.b = rest.len() as u16;
+				poke_pairs(8, rest);
+				if let Some(p) = rest.first_mut() {
+					*first = *p;
+				}
+			}
+			if let Some((last, rest)) = pairs.split_last_mut() {
+				*last = Pair { a: 1, b: 2 };
+				poke_pairs(9, rest);
+			}
+			if let Some((last, rest)) = array.split_last_mut() {
+				*last = rest.len() as u32;
+				poke_array(rest);
+			}
+		}
+		// A slice pattern's rest, of a slice and of an array.
+		6 => {
+			if let [first, mid @ .., last] = words.as_mut_slice() {
+				std::mem::swap(first, last);
+				poke_words(13, mid);
+			}
+			if let [rest @ .., _] = pairs.as_mut_slice() {
+				poke_pairs(10, rest);
+			}
+			if let [_, rest @ ..] = &mut array {
+				poke_array(rest);
+				rest[3] = 7;
+			}
+			let [_, middle @ .., _] = &mut array;
+			middle.swap(0, 2);
+		}
+		_ => {
+			let (l, r) = bytes.split_at_mut(a);
+			l.reverse();
+			if let Some(x) = r.first_mut() {
+				*x ^= 0xff;
+			}
+			if let Some(x) = l.first_mut() {
+				*x = x.wrapping_add(1);
+			}
+			if let Some((first, rest)) = bytes.split_first_mut() {
+				*first = rest.len() as u8;
+				rest.reverse();
+			}
+			if let Some((last, rest)) = bytes.split_last_mut() {
+				*last = last.wrapping_mul(3);
+				if let Some(x) = rest.last_mut() {
+					*x = 0x11;
+				}
+			}
+			match bytes.split_at_mut_checked(b) {
+				Some((l, r)) => {
+					r.reverse();
+					out.push(l.len() as u8);
+				}
+				None => out.push(0xee),
+			}
+		}
+	}
+	out.extend(&bytes);
+	out.extend(words.iter().map(|&w| (w ^ w >> 8) as u8));
+	out.push(digest_pairs(&pairs));
+	out.extend(array.iter().map(|&x| (x ^ x >> 13) as u8));
+}
+
 /// `Vec::drain` of a range from the first two bytes, which may be out of bounds or
 /// backwards, which panics, of the rest as items, bytes, and integers: what it yields, and
 /// what each drops and keeps as the drain drops, or as it is forgotten.

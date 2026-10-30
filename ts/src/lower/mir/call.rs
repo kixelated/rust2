@@ -373,7 +373,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// place a `&mut dyn Any` wraps, a `RefCell` key's value, or an `Arc`'s.
 		let lends = match library::key(tcx, def_id) {
 			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
-				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut")
+				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut" | "split_first_mut" | "split_last_mut")
 				| ("dyn Any", "downcast_mut")
 				| ("LocalKey", "with_borrow_mut")
 				| ("Arc" | "Rc", "get_mut" | "make_mut") => true,
@@ -1285,10 +1285,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Some((place, true)))
 			}
 			None => {
-				if name == "index_mut" && !matches!(elem_ty.kind(), ty::Uint(ty::UintTy::U8)) {
-					// A JS array has no views, so a mutable subslice would be a copy.
-					return None;
-				}
 				// The range's bounds are taken apart before the slice is read, while they are
 				// still held back.
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
@@ -1296,12 +1292,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					ty::Adt(..) => library::vec_view(base, elem_ty),
 					_ => base,
 				};
+				// All of a mutable slice of other values is the slice itself.
+				let full =
+					matches!(index_ty.kind(), ty::Adt(adt, _) if self.tcx.item_name(adt.did()).as_str() == "RangeFull");
+				if full && !bytes && name == "index_mut" {
+					return Some(Some((base, true)));
+				}
 				let base = self.path(base, "slice", out);
 				let mut values = vec![base, start];
 				values.extend(end);
-				let range = match bytes {
-					true => "byteSliceRange",
-					false => "sliceRange",
+				// A range of bytes is a view already, and one of other values lent mutably the
+				// runtime's view, as a JS array has none of its own.
+				let range = match (bytes, name) {
+					(true, _) => "byteSliceRange",
+					(false, "index_mut") => "sliceRangeMut",
+					(false, _) => "sliceRange",
 				};
 				Some(Some((Expr::rt(range, values), true)))
 			}
