@@ -139,6 +139,7 @@ fun script() {
 	println("walk ${walk(3u) { cursor -> cursor.at() * 2u }}")
 	println("each ${each(2u) { at -> println("visit $at") }}")
 	println("offset ${offset({ 7u }, 3u)}")
+	println("shift ${shift({ 7u }, 4u)}")
 
 	val name = Name.owned("a")
 	val joined = name.join(Name.owned("b"))

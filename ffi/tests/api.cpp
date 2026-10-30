@@ -17,6 +17,11 @@
 
 #include "api.hpp"
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 namespace {
 
 // Print a returned buffer.
@@ -276,6 +281,7 @@ int script() {
 	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
 	std::printf("each %u\n", api::each(2, [](std::uint32_t at) { std::printf("visit %u\n", at); }));
 	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
+	std::printf("shift %u\n", api::shift([] { return 7u; }, 4));
 
 	// A type generic only over lifetimes is a handle to its 'static form.
 	{
@@ -923,6 +929,10 @@ int broken(const char *which) {
 } // namespace
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+	// The transcript's lines end as Rust's do, which text mode would turn into CRLF.
+	_setmode(_fileno(stdout), _O_BINARY);
+#endif
 	if (argc > 1 && std::strcmp(argv[1], "futures") == 0) {
 		return futures();
 	}

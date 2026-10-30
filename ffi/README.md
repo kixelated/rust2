@@ -185,7 +185,8 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 - **Names** are the C names without the prefix, in a namespace of it: `moq_track_producer`
   is `moq::track_producer`, and its method `moq_track_producer_append_group` is
   `moq::track_producer::append_group`. A keyword takes a trailing `_` (`counter::new_`),
-  as does a member named as its class or one of its fields.
+  as does a member named as its class or one of its fields, and a parameter named as a
+  member or as anything in the namespace, which it would hide.
 - **Objects** are classes owning their handle, move-only unless `Clone`, whose copy
   clones. `&self` methods are `const`, and `self` methods are `&&`, so a call that moves
   the value out reads `std::move(c).into_label()`. A handle taken by value is moved into,
@@ -289,6 +290,7 @@ refusal, which is a bug in the exporter's inference rather than in the crate.
 ```bash
 just ffi test     # export the fixtures, build them, and drive api from C, C++, and Kotlin
 just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
+just ffi moq-cpp  # the same export, running only moq/moq.cpp
 just ffi census   # census each into target/census
 nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C, C++, and Kotlin, and moq's rs/moq-c
 ```
@@ -313,3 +315,10 @@ QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp
 same through the C++ header, short of the catalog's field, at C++17 without exceptions or
 RTTI, as OBS builds it, serving on an executor's thread and blocking on each read, and
 `moq/moq.kt` through the Kotlin, serving in a coroutine and suspending on each read.
+
+The C++ builds take `CXX`, or `c++`, with every warning an error and `-Wshadow`, which
+stands in for MSVC's warnings that a name hides another. On Windows they take MSVC's `cl`
+from a developer environment, at `/W4` with `/permissive-`, and `/std:c++latest` for 23.
+They link what rustc prints a program linking the library needs. Nightly runs
+`just ffi test cpp` and `just ffi moq-cpp` with Clang on Linux and macOS and with MSVC on
+Windows.
