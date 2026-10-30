@@ -1,8 +1,8 @@
 no item `lopsided` in the crate
 no item `missing` in the crate
 no item `bound_ranges` in the crate
-a root must not be generic at fixtures/reject/src/lib.rs:87:1
-a printable type must implement `Display` or `Debug` at fixtures/reject/src/lib.rs:85:1
+a root must not be generic at fixtures/reject/src/lib.rs:78:1
+a printable type must implement `Display` or `Debug` at fixtures/reject/src/lib.rs:76:1
 unsupported type `f16` at fixtures/reject/src/lib.rs:7:14
 a scalar constant of type `f16` at fixtures/reject/src/lib.rs:8:2
 arithmetic on `f16` at fixtures/reject/src/lib.rs:8:2
@@ -15,111 +15,106 @@ unsupported type `f16` at fixtures/reject/src/lib.rs:7:25
 `Iterator::scan` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:42:4
 `Maybe<()>` is not supported: its field `value` is `Option<T>`, typed `T | undefined`, whose `None` would be `rt.None` as `Option<()>` at fixtures/reject/src/lib.rs:31:2
 collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:36:43
-`into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet at fixtures/reject/src/lib.rs:55:13
-a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:63:10: 63:18}` at fixtures/reject/src/lib.rs:64:2
-`Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:70:11
-`fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make at fixtures/reject/src/lib.rs:76:10
-a mutable static, which any code may write at fixtures/reject/src/lib.rs:82:11
-`Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` at fixtures/reject/src/lib.rs:93:20
-a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is at fixtures/reject/src/lib.rs:98:34
-an assignment through a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:104:2
-replacing the value behind a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:133:2
-replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<std::future::PollFn<for<'a, 'b> fn(&'a mut std::task::Context<'b>) -> std::task::Poll<u8>>>>` at fixtures/reject/src/lib.rs:112:2
-an assignment through a reference to `std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output = u8>>>` at fixtures/reject/src/lib.rs:128:2
-replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<[u8; 2]>>` at fixtures/reject/src/lib.rs:120:2
-unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:138:11
-a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:184:15: 184:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold` at fixtures/reject/src/lib.rs:184:51
-unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:192:8
-a `zip` of `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:233:15: 233:19}>` and `std::ops::Range<i32>`, which std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:233:30
-an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:238:2
-`std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:244:16
-`std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:244:38
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:254:14
-`Iterator::scan` of `Option<()>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:260:11
-hashing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:265:75
-comparing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:265:75
-`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:283:6
-`slice::clone_from_slice` of `Reused`, whose `clone_from` is its own, which is not supported yet at fixtures/reject/src/lib.rs:333:4
-a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:338:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:379:2
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:381:27
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:380:30
-a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:386:2
-`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:390:18
-unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:391:2
-constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:397:53
-hashing `std::vec::Vec<Batched>` through `Batched`'s own `Hash::hash_slice`, which is not supported yet at fixtures/reject/src/lib.rs:357:16
-passing `{closure@fixtures/reject/src/lib.rs:366:28: 366:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:366:13
-passing `{closure@fixtures/reject/src/lib.rs:367:25: 367:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet at fixtures/reject/src/lib.rs:367:16
-passing `{closure@fixtures/reject/src/lib.rs:374:13: 374:27}`, which drops, to `str::contains`, which is not supported yet at fixtures/reject/src/lib.rs:374:4
-unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:477:17
-unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:477:38
-a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:410:12
-unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:417:2
-`Bytes::from_owner` of `std::sync::Arc<[u8]>`, which would drop with the last clone of what it makes, which is not supported at fixtures/reject/src/lib.rs:422:2
-`BytesMut::capacity`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:431:6
-`BufMut::put` of `Counted` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:437:2
-unsupported call to `core::str::<impl str>::parse::<std::net::Ipv4Addr>` at fixtures/reject/src/lib.rs:482:4
-unsupported type `std::net::Ipv4Addr` from another crate at fixtures/reject/src/lib.rs:481:32
-unsupported type `std::net::AddrParseError` from another crate at fixtures/reject/src/lib.rs:481:32
-a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:498:40
-`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:507:23
-`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:508:4
-a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:524:26
-a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:534:30
-`std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:564:12
-`Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:545:2
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:557:14
-a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:558:14
-an upcast from `dyn Keyed` to `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:582:32
-`std::any::Any::type_id` of `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:588:4
-unsupported call to `std::any::TypeId::of::<u8>` at fixtures/reject/src/lib.rs:588:17
-unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:588:2
-a cast from a pointer to `u32` to one to `u8`, which reads the bytes of one type as another at fixtures/reject/src/lib.rs:605:27
-a pointer's address, which JS has no counterpart of at fixtures/reject/src/lib.rs:610:17
-unsupported call to `std::alloc::Layout::new::<u8>` at fixtures/reject/src/lib.rs:615:15
-unsupported call to `std::alloc::alloc` at fixtures/reject/src/lib.rs:617:11
-unsupported call to `std::alloc::dealloc` at fixtures/reject/src/lib.rs:620:3
-a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept at fixtures/reject/src/lib.rs:627:10
-union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart at fixtures/reject/src/lib.rs:638:10
-comparing pointers to `u32`, each a place JS makes of its own at fixtures/reject/src/lib.rs:646:2
-a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:658:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:666:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:674:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:683:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:691:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:700:10
-a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:708:10
-a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:719:2
-a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:729:10
-a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:737:15
-a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:746:15
-a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:759:15
-a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:770:21
-comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:778:2
-a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:787:11
-`Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported at fixtures/reject/src/lib.rs:811:2
-unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted` at fixtures/reject/src/lib.rs:816:15
-comparing pointers to `u32` in an atomic, which JS has no address of at fixtures/reject/src/lib.rs:827:15
-a constant of type `&u32`, a pointer into memory translation can't name at fixtures/reject/src/lib.rs:828:3
-passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fixtures/reject/src/lib.rs:853:4
-passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:853:29
-passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:853:56
-passing `{closure@fixtures/reject/src/lib.rs:859:11: 859:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:859:4
-`std::collections::HashMap::<K, V, S, A>::into_keys` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:891:6
-unsupported call to `<std::collections::VecDeque<u8> as std::cmp::PartialEq<std::vec::Vec<u8>>>::eq` at fixtures/reject/src/lib.rs:896:27
-unsupported call to `<std::vec::Vec<Left> as std::cmp::PartialEq<&[Right]>>::eq` at fixtures/reject/src/lib.rs:911:27
-a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:926:10
-a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:952:19
-a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:972:19
-a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1008:10
-a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1009:10
-a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1010:58
-a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1022:19
-a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1023:19
-`std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:1030:6
-overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:151:2
-an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:171:1
-overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:205:2
-an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:225:1
-`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:291:9
+a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:54:10: 54:18}` at fixtures/reject/src/lib.rs:55:2
+`Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:61:11
+`fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make at fixtures/reject/src/lib.rs:67:10
+a mutable static, which any code may write at fixtures/reject/src/lib.rs:73:11
+`Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` at fixtures/reject/src/lib.rs:84:20
+a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is at fixtures/reject/src/lib.rs:89:34
+an assignment through a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:95:2
+replacing the value behind a reference to `std::sync::MutexGuard<'_, u8>` at fixtures/reject/src/lib.rs:124:2
+replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<std::future::PollFn<for<'a, 'b> fn(&'a mut std::task::Context<'b>) -> std::task::Poll<u8>>>>` at fixtures/reject/src/lib.rs:103:2
+an assignment through a reference to `std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output = u8>>>` at fixtures/reject/src/lib.rs:119:2
+replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<[u8; 2]>>` at fixtures/reject/src/lib.rs:111:2
+unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:129:11
+a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:175:15: 175:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold` at fixtures/reject/src/lib.rs:175:51
+unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:183:8
+a `zip` of `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:224:15: 224:19}>` and `std::ops::Range<i32>`, which std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:224:30
+an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:229:2
+`std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:235:16
+`std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:235:38
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:245:14
+`Iterator::scan` of `Option<()>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:251:11
+hashing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:256:75
+comparing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:256:75
+`HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:274:6
+`slice::clone_from_slice` of `Reused`, whose `clone_from` is its own, which is not supported yet at fixtures/reject/src/lib.rs:324:4
+a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:329:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:369:2
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:371:27
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:370:30
+a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string at fixtures/reject/src/lib.rs:376:2
+`std::borrow::Cow<'_, [u8]>` is not supported yet at fixtures/reject/src/lib.rs:380:18
+unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref` at fixtures/reject/src/lib.rs:381:2
+constructing `std::borrow::Cow<'_, std::sync::Arc<u8>>` at fixtures/reject/src/lib.rs:387:53
+hashing `std::vec::Vec<Batched>` through `Batched`'s own `Hash::hash_slice`, which is not supported yet at fixtures/reject/src/lib.rs:348:16
+passing `{closure@fixtures/reject/src/lib.rs:357:28: 357:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet at fixtures/reject/src/lib.rs:357:13
+passing `{closure@fixtures/reject/src/lib.rs:364:13: 364:27}`, which drops, to `str::contains`, which is not supported yet at fixtures/reject/src/lib.rs:364:4
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>` at fixtures/reject/src/lib.rs:467:17
+unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>` at fixtures/reject/src/lib.rs:467:38
+a mutable reference into a `Result`'s payload, passed on or kept at fixtures/reject/src/lib.rs:400:12
+unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:407:2
+`Bytes::from_owner` of `std::sync::Arc<[u8]>`, which would drop with the last clone of what it makes, which is not supported at fixtures/reject/src/lib.rs:412:2
+`BytesMut::capacity`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:421:6
+`BufMut::put` of `Counted` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:427:2
+unsupported call to `core::str::<impl str>::parse::<std::net::Ipv4Addr>` at fixtures/reject/src/lib.rs:472:4
+unsupported type `std::net::Ipv4Addr` from another crate at fixtures/reject/src/lib.rs:471:32
+unsupported type `std::net::AddrParseError` from another crate at fixtures/reject/src/lib.rs:471:32
+a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:488:40
+`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:497:23
+`dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:498:4
+a trait object of `[u8; 4]`, which is not supported yet at fixtures/reject/src/lib.rs:514:26
+a coercion to `&Tail<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:524:30
+`std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:554:12
+`Waiting<std::task::Poll<u8>>` is not supported: its field `poll` is `Poll<T>`, typed `rt.Poll<T>`, whose `Pending` would be `rt.OuterPending` as `Poll<std::task::Poll<u8>>` at fixtures/reject/src/lib.rs:535:2
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:547:14
+a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:548:14
+an upcast from `dyn Keyed` to `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:572:32
+`std::any::Any::type_id` of `dyn std::any::Any`, which is not supported yet at fixtures/reject/src/lib.rs:578:4
+unsupported call to `std::any::TypeId::of::<u8>` at fixtures/reject/src/lib.rs:578:17
+unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq` at fixtures/reject/src/lib.rs:578:2
+a cast from a pointer to `u32` to one to `u8`, which reads the bytes of one type as another at fixtures/reject/src/lib.rs:595:27
+a pointer's address, which JS has no counterpart of at fixtures/reject/src/lib.rs:600:17
+unsupported call to `std::alloc::Layout::new::<u8>` at fixtures/reject/src/lib.rs:605:15
+unsupported call to `std::alloc::alloc` at fixtures/reject/src/lib.rs:607:11
+unsupported call to `std::alloc::dealloc` at fixtures/reject/src/lib.rs:610:3
+a raw pointer to `std::vec::Vec<u8>` behind a reference, which is the object and not where it is kept at fixtures/reject/src/lib.rs:617:10
+union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart at fixtures/reject/src/lib.rs:628:10
+comparing pointers to `u32`, each a place JS makes of its own at fixtures/reject/src/lib.rs:636:2
+a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:648:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:656:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:664:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:673:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:681:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:690:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:698:10
+a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:709:2
+a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:719:10
+a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:727:15
+a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:736:15
+a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:749:15
+a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:760:21
+comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:768:2
+a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:777:11
+`Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported at fixtures/reject/src/lib.rs:801:2
+unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted` at fixtures/reject/src/lib.rs:806:15
+comparing pointers to `u32` in an atomic, which JS has no address of at fixtures/reject/src/lib.rs:817:15
+a constant of type `&u32`, a pointer into memory translation can't name at fixtures/reject/src/lib.rs:818:3
+passing `{closure@fixtures/reject/src/lib.rs:824:11: 824:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:824:4
+`std::collections::HashMap::<K, V, S, A>::into_keys` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:856:6
+unsupported call to `<std::collections::VecDeque<u8> as std::cmp::PartialEq<std::vec::Vec<u8>>>::eq` at fixtures/reject/src/lib.rs:861:27
+unsupported call to `<std::vec::Vec<Left> as std::cmp::PartialEq<&[Right]>>::eq` at fixtures/reject/src/lib.rs:876:27
+a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:891:10
+a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:917:19
+a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:937:19
+a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:973:10
+a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:974:10
+a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:975:58
+a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:987:19
+a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:988:19
+`std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:995:6
+overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:142:2
+an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:162:1
+overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:196:2
+an iterator of the crate implementing `FusedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:216:1
+`Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:282:9

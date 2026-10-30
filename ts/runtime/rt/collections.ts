@@ -695,13 +695,41 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		return s;
 	}
 
+	/**
+	 * The next item, `into_keys`' and `into_values`' with the other half dropped before it
+	 * is returned, as std's `next` drops it.
+	 */
 	next(): T | Done {
 		if (this.left === 0) return DONE;
 		this.left--;
 		if (this.pick === PLACES) return this.place() as T;
 		const entry = this.entry();
 		if (this.pick === ENTRIES) return entry as T;
-		return (this.pick === KEYS ? entry[0] : entry[1]) as unknown as T;
+		if (this.pick === KEYS) {
+			this.v?.(entry[1]);
+			return entry[0] as unknown as T;
+		}
+		this.k?.(entry[0]);
+		return entry[1] as unknown as T;
+	}
+
+	/** std's `fold` of `into_keys` and `into_values`: the other half drops after `f` has its item. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, release?: () => void): A {
+		if (this.pick !== KEYS && this.pick !== VALUES) return super.fold(acc, f, release);
+		const keys = this.pick === KEYS;
+		while (this.left > 0) {
+			this.left--;
+			const [key, value] = this.entry();
+			if (keys) {
+				acc = f(acc, key as unknown as T);
+				this.v?.(value);
+			} else {
+				acc = f(acc, value as unknown as T);
+				this.k?.(key);
+			}
+		}
+		release?.();
+		return acc;
 	}
 
 	override len(): number {
@@ -731,14 +759,14 @@ export function hashIter<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (valu
 	return new HashIter<K, V, [K, V]>(m, ENTRIES, k, v);
 }
 
-/** `keys` of a map and `iter` of a set, and with what drops each key, `into_keys` of values that don't drop and `into_iter`. */
-export function hashKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void): Iter<K> {
-	return new HashIter<K, V, K>(m, KEYS, k);
+/** `keys` of a map and `iter` of a set, and with what drops each key and value, `into_keys` and `into_iter`. */
+export function hashKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<K> {
+	return new HashIter<K, V, K>(m, KEYS, k, v);
 }
 
-/** `values` and `values_mut`, and with what drops each value, `into_values` of keys that don't drop. */
-export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void): Iter<V> {
-	return new HashIter<K, V, V>(m, VALUES, undefined, v);
+/** `values` and `values_mut`, and with what drops each value and key, `into_values`. */
+export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void, k?: (key: K) => void): Iter<V> {
+	return new HashIter<K, V, V>(m, VALUES, k, v);
 }
 
 /** `iter_mut` of values JS copies: each key and the place of its value, in `hashIter`'s order. */
@@ -2472,6 +2500,12 @@ export function boundsRange(r: Bounds<number>, n: number): [number, number] {
 		if (lo.tag === "Excluded") start++;
 	}
 	return [start, end];
+}
+
+/** `slice::range` itself: `r` within `n` elements, as `{ start, end }`, panicking as std's does. */
+export function boundsChecked(r: Bounds<number>, n: number): { start: number; end: number } {
+	const [start, end] = boundsRange(r, n);
+	return { start, end };
 }
 
 /**

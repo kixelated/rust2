@@ -49,15 +49,6 @@ impl Drop for Noisy {
 	fn drop(&mut self) {}
 }
 
-/// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
-pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
-	let mut sum = 0;
-	for k in m.into_keys() {
-		sum += k;
-	}
-	sum
-}
-
 /// An async closure is a coroutine closure, not an async body.
 pub fn async_closure() -> u8 {
 	let f = async || 1u8;
@@ -359,12 +350,11 @@ pub fn batched(v: Vec<Batched>) -> usize {
 	set.len()
 }
 
-/// Closures that own a value that drops, which `or_insert_with` would call but never drop
-/// if the key is there, and which `for_each` drops before the items it doesn't reach.
-pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
-	let (a, b) = (Noisy(1), Noisy(2));
+/// A closure that owns a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there.
+pub fn called_closure(m: &mut std::collections::HashMap<u8, Noisy>) {
+	let b = Noisy(2);
 	m.entry(1).or_insert_with(move || b);
-	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
 /// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
@@ -826,31 +816,6 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	// Two `rt.Place`s of one place are two objects, which `===` can't tell are one.
 	let _ = SLOT.compare_exchange(p, std::ptr::null_mut(), Relaxed, Relaxed);
 	*NAMED
-}
-
-/// A range that drops, which std drops once it has read the range's bounds.
-pub struct Spent;
-
-impl Drop for Spent {
-	fn drop(&mut self) {}
-}
-
-impl std::ops::RangeBounds<usize> for Spent {
-	fn start_bound(&self) -> std::ops::Bound<&usize> {
-		std::ops::Bound::Unbounded
-	}
-
-	fn end_bound(&self) -> std::ops::Bound<&usize> {
-		std::ops::Bound::Unbounded
-	}
-}
-
-pub fn spent_range(
-	v: &mut Vec<u8>,
-	q: &mut std::collections::VecDeque<u8>,
-	map: &std::collections::BTreeMap<usize, u8>,
-) -> usize {
-	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
 }
 
 /// A closure that owns a value that drops, which `String::retain` would call but never drop.

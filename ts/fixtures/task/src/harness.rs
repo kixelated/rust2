@@ -143,6 +143,9 @@ fn steps() -> Vec<(&'static str, Step)> {
 				exec.spawn(model::front(channels[c].consumer(), guard));
 			}
 		}),
+		("inside", |log, exec, _, arg| {
+			drops::inside(log, 1000 * exec.len() as u32, arg)
+		}),
 	]
 }
 

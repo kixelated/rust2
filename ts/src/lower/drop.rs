@@ -61,7 +61,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::BinaryHeap
 					| Std::Bound
 					| Std::TryLockError
-					| Std::Reverse,
+					| Std::Reverse
+					| Std::Range
+					| Std::RangeInclusive
+					| Std::RangeFrom
+					| Std::RangeTo
+					| Std::RangeToInclusive,
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
@@ -317,6 +322,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Std::VecDeque => ("dequeDrop", vec![value, each(self, 0)?]),
 				Std::BinaryHeap => ("heapDrop", vec![value, each(self, 0)?]),
 				Std::PeekMut => ("peekMutDrop", vec![value]),
+				// Its bounds, in the order std's fields are, `rt.RangeInclusive`'s by its own names.
+				Std::Range | Std::RangeInclusive => {
+					let (lo, hi) = match std {
+						Std::Range => ("start", "end"),
+						_ => ("lo", "hi"),
+					};
+					let bounds = Expr::Array(vec![value.clone().member(lo), value.member(hi)]);
+					let mut args = vec![bounds];
+					if !self.disposable(arg(0), span) {
+						args.push(self.drop_fn(arg(0), span)?);
+					}
+					("dropAll", args)
+				}
+				Std::RangeFrom => return self.drop_value(value.member("start"), arg(0), span),
+				Std::RangeTo | Std::RangeToInclusive => return self.drop_value(value.member("end"), arg(0), span),
 				// A vacant entry holds the key it was given; an occupied one dropped it as
 				// `entry` found the map's.
 				Std::Entry => match self.tcx.item_name(adt.did()).as_str() {
