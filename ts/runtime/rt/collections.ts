@@ -22,7 +22,11 @@ import {
 	type Done,
 	exactHint,
 	Iter,
+	iterChain,
+	iterEmpty,
+	iterFilter,
 	iterMap,
+	iterOnce,
 	iterSlice,
 	type RangeInclusive,
 	rangeInclusiveEndBound,
@@ -814,6 +818,50 @@ export function hashClone<K, V>(m: HashMap<K, V>, key: (k: K) => K = itself, val
 		for (let s: Slot<K, V> | undefined = first; s !== undefined; s = s.next) add(out, key(s.k), value(s.v));
 	}
 	return out;
+}
+
+// Set operations of hash sets, as std's: each walks one set's keys in the runtime's
+// order, which picks which set's key of two equal ones it yields.
+
+/** `HashSet::union`: each key of the larger, `a` of two as large, then each of the other's that it lacks. */
+export function hashUnion<K>(a: HashSet<K>, b: HashSet<K>): Iter<K> {
+	const [large, small] = hashLen(a) >= hashLen(b) ? [a, b] : [b, a];
+	return iterChain(hashKeys(large), hashDifference(small, large));
+}
+
+/** `HashSet::intersection`: each key of the smaller, `a` of two as large, that the other holds. */
+export function hashIntersection<K>(a: HashSet<K>, b: HashSet<K>): Iter<K> {
+	const [small, large] = hashLen(a) <= hashLen(b) ? [a, b] : [b, a];
+	return iterFilter(hashKeys(small), (key) => hashContains(large, key));
+}
+
+/** `HashSet::difference`: each key of `a` that `b` lacks. */
+export function hashDifference<K>(a: HashSet<K>, b: HashSet<K>): Iter<K> {
+	return iterFilter(hashKeys(a), (key) => !hashContains(b, key));
+}
+
+/** `HashSet::symmetric_difference`: `a`'s difference from `b`, then `b`'s from `a`. */
+export function hashSymmetricDifference<K>(a: HashSet<K>, b: HashSet<K>): Iter<K> {
+	return iterChain(hashDifference(a, b), hashDifference(b, a));
+}
+
+/** `HashSet::is_subset`: whether `b` holds each key of `a`. */
+export function hashIsSubset<K>(a: HashSet<K>, b: HashSet<K>): boolean {
+	if (hashLen(a) > hashLen(b)) return false;
+	for (const key of hashKeys(a)) if (!hashContains(b, key)) return false;
+	return true;
+}
+
+/** `HashSet::is_superset`: whether `a` holds each key of `b`. */
+export function hashIsSuperset<K>(a: HashSet<K>, b: HashSet<K>): boolean {
+	return hashIsSubset(b, a);
+}
+
+/** `HashSet::is_disjoint`: whether the larger lacks each key of the smaller, `a` of two as large. */
+export function hashIsDisjoint<K>(a: HashSet<K>, b: HashSet<K>): boolean {
+	const [small, large] = hashLen(a) <= hashLen(b) ? [a, b] : [b, a];
+	for (const key of hashKeys(small)) if (hashContains(large, key)) return false;
+	return true;
 }
 
 // BTreeMap and BTreeSet
@@ -1611,6 +1659,268 @@ export function btreeClone<K, V>(m: BTreeMap<K, V>, key: (k: K) => K = itself, v
 	build(out, keys, values);
 	out.r = m.n > 0;
 	return out;
+}
+
+// Set operations of B-trees, as std's: each merges both sets' keys in order, or of sets
+// whose sizes differ by `TIPPING` times or more, looks up each of the smaller's in the
+// larger, which picks which set's key of two equal ones it yields.
+
+/** std's `ITER_PERFORMANCE_TIPPING_SIZE_DIFF`. */
+const TIPPING = 16;
+
+/** The first and last keys of `m`, which holds some. */
+function ends<K>(m: BTreeSet<K>): [K, K] {
+	return [btreeFirstKey(m) as K, btreeFirstKey(m, true) as K];
+}
+
+/**
+ * std's `MergeIterInner`: the keys of `a` and `b` in order, a step at a time, holding back
+ * the greater of two that differ.
+ */
+abstract class Merge<K> extends Iter<K> {
+	private readonly a: Iter<K>;
+	private readonly b: Iter<K>;
+	private readonly c: (a: K, b: K) => Ordering;
+	/** The key held back, and whether it is `a`'s. */
+	private held: K | Done = DONE;
+	private heldA = false;
+
+	constructor(a: BTreeSet<K>, b: BTreeSet<K>) {
+		super();
+		this.a = btreeKeys(a);
+		this.b = btreeKeys(b);
+		this.c = a.c;
+	}
+
+	/** The next key of each, or `DONE` for one that ended or is held back. */
+	protected nexts(): [K | Done, K | Done] {
+		const held = this.held;
+		this.held = DONE;
+		const x = held !== DONE && this.heldA ? held : this.a.next();
+		const y = held !== DONE && !this.heldA ? held : this.b.next();
+		if (x === DONE || y === DONE) return [x, y];
+		const order = this.c(x, y);
+		if (order === 0) return [x, y];
+		this.held = order < 0 ? y : x;
+		this.heldA = order > 0;
+		return order < 0 ? [x, DONE] : [DONE, y];
+	}
+
+	/** How many keys each has left, the one held back included. */
+	protected lens(): [number, number] {
+		const held = this.held === DONE ? 0 : 1;
+		return [this.a.len() + (this.heldA ? held : 0), this.b.len() + (this.heldA ? 0 : held)];
+	}
+}
+
+class Union<K> extends Merge<K> {
+	next(): K | Done {
+		const [x, y] = this.nexts();
+		return x !== DONE ? x : y;
+	}
+
+	override sizeHint(): SizeHint {
+		const [a, b] = this.lens();
+		return [Math.max(a, b), a + b];
+	}
+}
+
+class SymmetricDifference<K> extends Merge<K> {
+	next(): K | Done {
+		for (;;) {
+			const [x, y] = this.nexts();
+			if (x === DONE || y === DONE) return x !== DONE ? x : y;
+		}
+	}
+
+	override sizeHint(): SizeHint {
+		const [a, b] = this.lens();
+		return [0, a + b];
+	}
+}
+
+/** `BTreeSet::union`: each key of either in order, `a`'s of two equal ones. */
+export function btreeUnion<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
+	return new Union(a, b);
+}
+
+/** `BTreeSet::symmetric_difference`: each key of one that the other lacks, in order. */
+export function btreeSymmetricDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
+	return new SymmetricDifference(a, b);
+}
+
+/**
+ * Each key of `a` that the other set lacks: looked up in it, or with no set to look in,
+ * found by stepping through its keys by `b`, peeked a key ahead.
+ */
+class Difference<K> extends Iter<K> {
+	private readonly a: Iter<K>;
+	private readonly set: BTreeSet<K> | undefined;
+	private readonly b: Iter<K>;
+	private readonly c: (a: K, b: K) => Ordering;
+	/** `b`'s next key, once `peeked` says it was read. */
+	private peek: K | Done = DONE;
+	private peeked = false;
+
+	constructor(a: Iter<K>, other: BTreeSet<K>, search: boolean) {
+		super();
+		this.a = a;
+		this.set = search ? other : undefined;
+		this.b = search ? iterEmpty() : btreeKeys(other);
+		this.c = other.c;
+	}
+
+	next(): K | Done {
+		let x = this.a.next();
+		if (x === DONE) return DONE;
+		if (this.set !== undefined) {
+			while (btreeContains(this.set, x)) {
+				x = this.a.next();
+				if (x === DONE) return DONE;
+			}
+			return x;
+		}
+		for (;;) {
+			if (!this.peeked) {
+				this.peek = this.b.next();
+				this.peeked = true;
+			}
+			const order = this.peek === DONE ? -1 : this.c(x, this.peek);
+			if (order < 0) return x;
+			if (order === 0) {
+				x = this.a.next();
+				if (x === DONE) return DONE;
+			}
+			this.peeked = false;
+		}
+	}
+
+	override sizeHint(): SizeHint {
+		const n = this.a.len();
+		const other = this.set !== undefined ? this.set.n : this.b.len() + (this.peeked && this.peek !== DONE ? 1 : 0);
+		return [Math.max(n - other, 0), n];
+	}
+}
+
+/** `BTreeSet::difference`: each key of `a` that `b` lacks, in order. */
+export function btreeDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
+	const keys = btreeKeys(a);
+	if (a.n === 0 || b.n === 0) return keys;
+	const [aMin, aMax] = ends(a);
+	const [bMin, bMax] = ends(b);
+	const low = a.c(aMin, bMax);
+	const high = a.c(aMax, bMin);
+	if (low > 0 || high < 0) return keys;
+	if (low === 0) keys.next();
+	else if (high === 0) keys.nextBack();
+	else return new Difference(keys, b, a.n <= Math.floor(b.n / TIPPING));
+	return keys;
+}
+
+/** An intersection that merges: each key of `a` that `b` holds. */
+class Intersection<K> extends Iter<K> {
+	private readonly a: Iter<K>;
+	private readonly b: Iter<K>;
+	private readonly c: (a: K, b: K) => Ordering;
+
+	constructor(a: BTreeSet<K>, b: BTreeSet<K>) {
+		super();
+		this.a = btreeKeys(a);
+		this.b = btreeKeys(b);
+		this.c = a.c;
+	}
+
+	next(): K | Done {
+		let x = this.a.next();
+		if (x === DONE) return DONE;
+		let y = this.b.next();
+		if (y === DONE) return DONE;
+		for (;;) {
+			const order = this.c(x, y);
+			if (order === 0) return x;
+			if (order < 0) x = this.a.next();
+			else y = this.b.next();
+			if (x === DONE || y === DONE) return DONE;
+		}
+	}
+
+	override sizeHint(): SizeHint {
+		return [0, Math.min(this.a.len(), this.b.len())];
+	}
+}
+
+/**
+ * `BTreeSet::intersection`: each key of both in order, `a`'s of two equal ones, unless
+ * `b` is the smaller by `TIPPING` times, which has its own looked up in `a`.
+ */
+export function btreeIntersection<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
+	if (a.n === 0 || b.n === 0) return iterEmpty();
+	const [aMin, aMax] = ends(a);
+	const [bMin, bMax] = ends(b);
+	const low = a.c(aMin, bMax);
+	const high = a.c(aMax, bMin);
+	if (low > 0 || high < 0) return iterEmpty();
+	if (low === 0) return iterOnce(aMin);
+	if (high === 0) return iterOnce(aMax);
+	if (a.n <= Math.floor(b.n / TIPPING)) return iterFilter(btreeKeys(a), (key) => btreeContains(b, key));
+	if (b.n <= Math.floor(a.n / TIPPING)) return iterFilter(btreeKeys(b), (key) => btreeContains(a, key));
+	return new Intersection(a, b);
+}
+
+/** `BTreeSet::is_subset`: whether `b` holds each key of `a`. */
+export function btreeIsSubset<K>(a: BTreeSet<K>, b: BTreeSet<K>): boolean {
+	if (a.n > b.n) return false;
+	if (a.n === 0) return true;
+	if (b.n === 0) return false;
+	const [aMin, aMax] = ends(a);
+	const [bMin, bMax] = ends(b);
+	const keys = btreeKeys(a);
+	const low = a.c(aMin, bMin);
+	if (low < 0) return false;
+	if (low === 0) keys.next();
+	const high = a.c(aMax, bMax);
+	if (high > 0) return false;
+	if (high === 0) keys.nextBack();
+	if (keys.len() <= Math.floor(b.n / TIPPING)) {
+		for (const key of keys) if (!btreeContains(b, key)) return false;
+		return true;
+	}
+	// Each of `a`'s found by stepping through `b`'s between their ends, which `a`'s left lack.
+	const others = btreeKeys(b);
+	others.next();
+	others.nextBack();
+	for (const key of keys) {
+		let order: Ordering = 1;
+		for (let other = others.next(); other !== DONE; other = others.next()) {
+			order = a.c(other, key);
+			if (order >= 0) break;
+		}
+		if (order !== 0) return false;
+	}
+	return true;
+}
+
+/** `BTreeSet::is_superset`: whether `a` holds each key of `b`. */
+export function btreeIsSuperset<K>(a: BTreeSet<K>, b: BTreeSet<K>): boolean {
+	return btreeIsSubset(b, a);
+}
+
+/** `BTreeSet::is_disjoint`: whether their intersection yields nothing. */
+export function btreeIsDisjoint<K>(a: BTreeSet<K>, b: BTreeSet<K>): boolean {
+	return btreeIntersection(a, b).next() === DONE;
+}
+
+/** What a set operator builds: `m`, an empty set, of `keys`, which are in order and distinct. */
+export function btreeFromSorted<K>(m: BTreeSet<K>, keys: Iter<K>): BTreeSet<K> {
+	const held = [...keys];
+	build(
+		m,
+		held,
+		held.map(() => undefined),
+	);
+	// std's bulk build makes the root even of no keys.
+	m.r = true;
+	return m;
 }
 
 // Entries
