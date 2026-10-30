@@ -294,10 +294,10 @@ const locks = [[0, 1, 5, 6, 2, 7, 3, 8, 3, 0, 1], [4, 0, 4, 1], [2, 9, 2, 10, 4,
 
 /**
  * `statics::onces` scripts: a `Once` forced, called, and forced again, which drops the
- * function it never runs, each static's, and each `call_once` and `call_once_force` run
- * again from within itself.
+ * function it never runs, each static's, each `call_once` and `call_once_force` run again
+ * from within itself, and crossbeam-epoch's `OnceLock` of each kind.
  */
-const onces = [[1, 0, 1, 7], [0, 6, 1, 2, 3, 4, 5, 11], [2, 14, 8], [9], [3, 15]].map((bytes) => Uint8Array.of(op("statics::onces"), 0, ...bytes));
+const onces = [[1, 0, 1, 7], [0, 6, 1, 2, 3, 4, 5, 11], [2, 14, 8], [9], [3, 15], [4, 17, 23, 29, 4]].map((bytes) => Uint8Array.of(op("statics::onces"), 0, ...bytes));
 
 /**
  * `bounds` with each kind of bound at each end, over every pair of values around and past
@@ -311,6 +311,17 @@ const bounds = Array.from({ length: 6 * 9 * 36 }, (_, n) => {
 }).flat();
 
 /**
+ * `pointers::cells` scripts: each operation on every cell, a number wrapping past its top, a
+ * struct assigned through `get` and written over, and cells replaced or made and taken out.
+ */
+const unsafeCells = [
+	[0, 248, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15],
+	[4, 12, 4, 5, 253, 7, 255, 0],
+	[3, 251, 6, 3, 2, 2, 254],
+	[],
+].map((bytes) => Uint8Array.of(op("pointers::cells"), 0, ...bytes));
+
+/**
  * `subslices` of each kind over zero to four items, at every pair of bounds up to one past
  * the end, so parts are empty, at the end, backwards, and out of bounds.
  */
@@ -322,4 +333,4 @@ const subslices = [0, 1, 2, 3, 4].flatMap((n) =>
 	}),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...subslices];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...subslices];

@@ -341,6 +341,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let Some(err) = self.std_places(def_id, gargs, result, span) {
 					return err;
 				}
+				if library::key(tcx, def_id).is_some_and(|(owner, name)| owner == "UnsafeCell" && name == "get")
+					&& let Some(why) = self.cell_out_of_step(&args[0].node, gargs.type_at(0))
+				{
+					return self.err(span, why);
+				}
 				crate::lower::pointer::pointees(tcx, def_id)
 			}
 		};

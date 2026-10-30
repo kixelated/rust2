@@ -7,7 +7,7 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import type { ParseFloatError } from "./rt/float.ts";
-import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import { type char, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Range, RangeInclusive } from "./rt/iter.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
 
@@ -1551,6 +1551,24 @@ export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 /** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
+}
+
+/** `Debug` of `ParseIntError`. */
+export function fmtParseIntErrorDebug(e: ParseIntError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseIntError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseIntError`. */
+export function fmtParseIntErrorDisplay(e: ParseIntError, f: Formatter): FmtResult {
+	const messages = {
+		Empty: "cannot parse integer from empty string",
+		InvalidDigit: "invalid digit found in string",
+		PosOverflow: "number too large to fit in target type",
+		NegOverflow: "number too small to fit in target type",
+		Zero: "number would be zero for non-zero type",
+		NotAPowerOfTwo: "number is not a power of two",
+	};
+	return fmtPad(f, messages[e.kind]);
 }
 
 /** `Debug` of `ParseFloatError`. */
