@@ -17,7 +17,7 @@ collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet a
 `into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet at fixtures/reject/src/lib.rs:53:13
 a zero-sized constant of type `{async closure@fixtures/reject/src/lib.rs:61:10: 61:18}` at fixtures/reject/src/lib.rs:62:2
 `Pointer` formatting, as in `{:p}`, is not supported at fixtures/reject/src/lib.rs:68:11
-unsupported call to `<std::string::String as std::fmt::Write>::write_fmt` at fixtures/reject/src/lib.rs:74:10
+`fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make at fixtures/reject/src/lib.rs:74:10
 a mutable static, which any code may write at fixtures/reject/src/lib.rs:80:11
 `Poll<std::option::Option<std::task::Poll<std::task::Poll<u8>>>>` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` at fixtures/reject/src/lib.rs:91:20
 a future of `std::task::Poll<u8>`, which can be `rt.Pending`, as the future's own `Pending` is at fixtures/reject/src/lib.rs:96:34

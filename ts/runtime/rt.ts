@@ -1029,6 +1029,14 @@ export function fmtWriteFmt(f: Formatter, args: Arguments): FmtResult {
 	return write(f.out, args);
 }
 
+/** `write!` into a `String`, `s`: `s` with what was written, even before an error, and the result. */
+export function fmtWriteString(s: string, args: Arguments): { s: string; result: FmtResult } {
+	const out = new StringWriter();
+	out.s = s;
+	const result = write(out, args);
+	return { s: out.s, result };
+}
+
 /** `Formatter::alternate`: whether the spec has `#`. */
 export function fmtAlternate(f: Formatter): boolean {
 	return f.spec.alternate === true;
