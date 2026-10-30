@@ -88,22 +88,29 @@ union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart at f
 comparing pointers to `u32`, each a place JS makes of its own at fixtures/reject/src/lib.rs:649:2
 a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:661:10
 a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:669:10
-a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:677:10
-a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:685:15
-a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:694:15
-a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:709:21
-comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:717:2
-a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:726:11
-`Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported at fixtures/reject/src/lib.rs:750:2
-`BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:755:7
-unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted` at fixtures/reject/src/lib.rs:760:15
-comparing pointers to `u32` in an atomic, which JS has no address of at fixtures/reject/src/lib.rs:771:15
-a constant of type `&u32`, a pointer into memory translation can't name at fixtures/reject/src/lib.rs:772:3
-passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fixtures/reject/src/lib.rs:797:4
-passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:797:29
-passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:797:56
-passing `{closure@fixtures/reject/src/lib.rs:803:11: 803:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:803:4
-`std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:835:6
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:677:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:686:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:694:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:703:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:711:10
+a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:722:2
+a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:732:10
+a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:740:15
+a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:749:15
+a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:762:15
+a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:773:21
+comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:781:2
+a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:790:11
+`Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported at fixtures/reject/src/lib.rs:814:2
+`BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:819:7
+unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted` at fixtures/reject/src/lib.rs:824:15
+comparing pointers to `u32` in an atomic, which JS has no address of at fixtures/reject/src/lib.rs:835:15
+a constant of type `&u32`, a pointer into memory translation can't name at fixtures/reject/src/lib.rs:836:3
+passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fixtures/reject/src/lib.rs:861:4
+passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:861:29
+passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:861:56
+passing `{closure@fixtures/reject/src/lib.rs:867:11: 867:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:867:4
+`std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:899:6
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:149:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:169:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:203:2
