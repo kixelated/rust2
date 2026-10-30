@@ -632,6 +632,12 @@ fn closures(log: &Log, id: u32) {
 		.map(ids)
 		.collect();
 	log.note(format!("kept {kept:?}"));
+	// Through `fold`, which a source that drops takes.
+	let folded = guards(1, 7)
+		.into_iter()
+		.filter_map(pick)
+		.fold(0, |n, o| n * 10 + o.map_or(9, |g| g.id() - id));
+	log.note(format!("folded {folded}"));
 	let mut whiles = guards(4, 8).into_iter().map_while(move |g| {
 		log.note(format!("map_while {} {}", g.id(), d.id()));
 		pick(g)
