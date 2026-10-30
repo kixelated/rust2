@@ -26,7 +26,8 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 
 ## Required
 
-- [A pointer to a variable that gets another object](/quest/m2/ts-pointer-rebind.md) - a raw pointer to a variable that `mem::replace` rebinds, or that a caller assigns again after a callee took the pointer, is refused rather than silently left on the old object
+- [A pointer a callee takes to a variable that gets another object](/quest/m2/ts-pointer-rebind.md) - waits on the maintainer's pick of approach: a pointer a callee took through a reference, to a variable the caller then assigns, is refused rather than silently left on the old object
+- [A pointer std makes to a part that gets another object](/quest/m2/ts-made-pointer-parts.md) - `NonNull::from` and `MaybeUninit::as_ptr` pointers to a part the crate may replace are refused, while hashlink's pattern keeps translating
 - [Instance names that adding code elsewhere keeps](/quest/m2/ts-stable-names.md) - adding code renames no numbered instance it doesn't reach
 - [Import bindings that adding code elsewhere keeps](/quest/m2/ts-stable-imports.md) - an added import renames no other import or local
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read

@@ -35,12 +35,18 @@ assigned again after) refused about 100 valid borrows in the lang fixture:
 - Pointers that never outlive the call, such as `ptr::eq` of two references, fill the
   type set.
 
-Open decision: how to make it precise enough that valid pointers keep translating:
+The maintainer picks one of these before work starts:
 
-1. The type judgment with both fixed: keep storage markers in the profile
-   (`-Zmir-enable-passes=-RemoveStorageMarkers`, which rebuilds the std sysroot), and
-   record only pointers through a reference that may outlive the call: returned, stored
-   behind a pointer, or passed to a call other than std's pointer reads and writes.
+1. (Recommended) The type judgment with both fixed: keep storage markers in the profile
+   (`-Zmir-enable-passes=-RemoveStorageMarkers`, which rebuilds the std sysroot and also
+   tightens the same-function check), and record only pointers through a reference that
+   may outlive the call: returned, stored behind a pointer, or passed to a call other
+   than std's pointer reads, writes, and compares. Refuse at the caller's borrow.
 2. Refuse in the callee: a raw pointer made through a reference to an object or an
    `rt.Cell` that may outlive the call, by the same escape check, with no caller analysis.
-   Simpler, but refuses accessors like `fn as_ptr(&self) -> *mut T` whatever the callers do.
+   Simpler, but refuses accessors like `fn as_ptr(&self) -> *mut T` whatever the callers
+   do, which crossbeam-epoch and futures-util have the shape of.
+
+Each new refusal goes in the reject fixture beside `variable_replaced`, and a pointer
+taken through two helpers and read while borrowed, as `pointers::rebound` in the lang
+fixture has, keeps translating.
