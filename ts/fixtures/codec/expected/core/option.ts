@@ -3,28 +3,28 @@
 import * as rt from "../rt.ts";
 import type * as EncodeError from "../coding/encode.EncodeError.ts";
 
-export function unwrapOr$Option_u32(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
+export function unwrapOr$11c0we2(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
 	return self;
 }
 
-export function unwrapOr$Option_u64(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
 	}
 	return self;
 }
 
-export function map$Option_u64_u64_encode_msg_closure0(self: rt.u64 | undefined, f: (a0: rt.u64) => rt.u64): rt.u64 | undefined {
+export function map$1cf8u0y(self: rt.u64 | undefined, f: (a0: rt.u64) => rt.u64): rt.u64 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
 }
 
-export function okOr$Option_u64_EncodeError(self: rt.u64 | undefined, err: EncodeError.EncodeError): rt.Result<rt.u64, EncodeError.EncodeError> {
+export function okOr$1lamf4s(self: rt.u64 | undefined, err: EncodeError.EncodeError): rt.Result<rt.u64, EncodeError.EncodeError> {
 	if (self === undefined) {
 		return rt.Err(err);
 	}

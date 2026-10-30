@@ -3,8 +3,8 @@
 import * as rt from "../rt.ts";
 import { drop$Held, drop$Option_Arc_Guard_Guard, drop$Option_Result_Box_Guard_Box_dyn_Any, drop$Result_Box_Guard_Box_dyn_Any, drop$Wrap_u32 } from "../lib.ts";
 import * as Any from "../core/any.Any.ts";
-import { map$Option_Arc_Guard_Guard_u32_usize_anys_closure3, map$Option_Box_dyn_Any_Result_Box_Guard_Box_dyn_Any_anys_closure1, map$Option_Box_dyn_Part_u32_take, map$Option_Result_Box_Guard_Box_dyn_Any_bool_anys_closure2, map$Option_u32_u32_Box_dyn_Fn_u32_u32, mapOr$Option_Arc_dyn_Part_u32_shared_closure3, mapOr$Option_Box_dyn_Part_u32_boxed_closure2 } from "../core/option.ts";
-import { ok$Result_Arc_Guard_Guard_Arc_dyn_Any, asRef$Result_Box_Guard_Box_dyn_Any, map$Result_Box_Guard_Box_dyn_Any_u32_anys_closure2_closure0 } from "../core/result.ts";
+import { map$06e51ml, map$09vq4lk, map$0s8hob8, map$19e1ji3, map$0b0x7xy, mapOr$0lu2pr2, mapOr$1jn2pas } from "../core/option.ts";
+import { ok$1l5wxva, asRef$1km6sxf, map$0k5r5cs } from "../core/result.ts";
 import * as Part from "../drops/objects.Part.ts";
 import type * as Held from "../drops.Held.ts";
 import * as Wrap from "../drops.Wrap.ts";
@@ -59,14 +59,14 @@ export function boxed(log: Log.Log, id: rt.u32): void {
 	const part4 = first.take$Part();
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
 	Log.note(log, rt.fmtFormat(["took ", args8[0]]));
-	const part5 = map$Option_Box_dyn_Part_u32_take(parts.pop(), (a02: Part.Part): rt.u32 => {
+	const part5 = map$0s8hob8(parts.pop(), (a02: Part.Part): rt.u32 => {
 		return a02.take$Part();
 	});
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part5, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["last ", args10[0]]));
 	const kept: Part.Part | undefined = new Part.Guard(guard(7));
 	rt.dropAll(parts);
-	const _130: rt.u32 = mapOr$Option_Box_dyn_Part_u32_boxed_closure2(kept, 0, (p2: Part.Part): rt.u32 => {
+	const _130: rt.u32 = mapOr$1jn2pas(kept, 0, (p2: Part.Part): rt.u32 => {
 		return p2.id$Part();
 	});
 	const _134: rt.u32 = slot.id$Part();
@@ -120,7 +120,7 @@ export function shared(log: Log.Log, id: rt.u32): void {
 	Log.note(log, rt.fmtFormat(["ids ", args6[0]]));
 	rt.arcDrop(wrap, drop$Wrap_u32);
 	rt.dropAll(parts);
-	const part3 = mapOr$Option_Arc_dyn_Part_u32_shared_closure3(rt.weakUpgrade(weak), 0, (p2: rt.Arc<Part.Part>): rt.u32 => {
+	const part3 = mapOr$0lu2pr2(rt.weakUpgrade(weak), 0, (p2: rt.Arc<Part.Part>): rt.u32 => {
 		const _03: rt.u32 = p2.value.id$Part();
 		p2[Symbol.dispose]();
 		return _03;
@@ -187,11 +187,11 @@ export function anys(log: Log.Log, id: rt.u32): void {
 	boxes.push(_26);
 	const _30: Any.Any = new Any.Guard(guard(4));
 	boxes.push(_30);
-	const last: rt.Result<Guard.Guard, Any.Any> | undefined = map$Option_Box_dyn_Any_Result_Box_Guard_Box_dyn_Any_anys_closure1(boxes.pop(), (b2: Any.Any): rt.Result<Guard.Guard, Any.Any> => {
+	const last: rt.Result<Guard.Guard, Any.Any> | undefined = map$09vq4lk(boxes.pop(), (b2: Any.Any): rt.Result<Guard.Guard, Any.Any> => {
 		return b2 instanceof Any.Guard ? rt.Ok(b2.v) : rt.Err(b2);
 	});
-	const part = map$Option_Result_Box_Guard_Box_dyn_Any_bool_anys_closure2(last, (g: rt.Result<Guard.Guard, Any.Any>): boolean => {
-		return map$Result_Box_Guard_Box_dyn_Any_u32_anys_closure2_closure0(asRef$Result_Box_Guard_Box_dyn_Any(g), (g2: Guard.Guard): rt.u32 => {
+	const part = map$19e1ji3(last, (g: rt.Result<Guard.Guard, Any.Any>): boolean => {
+		return map$0k5r5cs(asRef$1km6sxf(g), (g2: Guard.Guard): rt.u32 => {
 			return Guard.id(g2);
 		}).ok;
 	});
@@ -222,8 +222,8 @@ export function anys(log: Log.Log, id: rt.u32): void {
 	Log.note(log, rt.fmtFormat(["clones ", args8[0]]));
 	const a: rt.Arc<Any.Any> = clones[0];
 	const b: rt.Arc<Any.Any> = clones[1];
-	const typed: rt.Arc<[Guard.Guard, Guard.Guard]> | undefined = ok$Result_Arc_Guard_Guard_Arc_dyn_Any(rt.arcDowncast(a, Any.Guard_Guard));
-	const part4 = map$Option_Arc_Guard_Guard_u32_usize_anys_closure3(typed, (t: rt.Arc<[Guard.Guard, Guard.Guard]>): [rt.u32, rt.usize] => {
+	const typed: rt.Arc<[Guard.Guard, Guard.Guard]> | undefined = ok$1l5wxva(rt.arcDowncast(a, Any.Guard_Guard));
+	const part4 = map$06e51ml(typed, (t: rt.Arc<[Guard.Guard, Guard.Guard]>): [rt.u32, rt.usize] => {
 		return [Guard.id(t.value[0]), t.strong] as [rt.u32, rt.usize];
 	});
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part4, f, (value: [rt.u32, rt.usize], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u32Debug(value[0], f), (f: rt.Formatter) => rt.usizeDebug(value[1], f)], f))];
@@ -404,7 +404,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const _296: [Guard.Guard, Guard.Guard] = [guard(15), guard(16)];
 	const p: Guard.Guard = _296[0];
 	const captured15 = _296[1];
-	const part15 = map$Option_u32_u32_Box_dyn_Fn_u32_u32(1, rt.closure((x2: rt.u32): rt.u32 => {
+	const part15 = map$0b0x7xy(1, rt.closure((x2: rt.u32): rt.u32 => {
 		return rt.u32Add(x2, Guard.id(captured15));
 	}, (): void => {
 		captured15[Symbol.dispose]();

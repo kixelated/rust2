@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally, drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32, drop$Result_RwLockReadGuard_Tally_TryLockError_RwLockReadGuard_Tally, drop$Result_RwLockWriteGuard_Tally_TryLockError_RwLockWriteGuard_Tally } from "./lib.ts";
-import { isSomeAnd$Option_u8_bools_closure0 } from "./core/option.ts";
+import { isSomeAnd$09tpccf } from "./core/option.ts";
 import * as Lock from "./locks.Lock.ts";
 import * as Tally from "./locks.Tally.ts";
 
@@ -88,7 +88,7 @@ export function relock(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const mutex: rt.Mutex<rt.u8> = new rt.Mutex(data.length & 0xff);
 	const guard: rt.Mutex<rt.u8> = rt.mutexLock(mutex);
 	rt.byteVecPush(out, guard.value);
-	if (isSomeAnd$Option_u8_bools_closure0(rt.byteSliceFirst(data), (b: rt.u8): boolean => {
+	if (isSomeAnd$09tpccf(rt.byteSliceFirst(data), (b: rt.u8): boolean => {
 		return rt.u8Rem(b, 2) === 1;
 	})) {
 		const _19: rt.Mutex<rt.u8> = rt.mutexLock(mutex);
