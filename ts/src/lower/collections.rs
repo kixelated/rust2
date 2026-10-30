@@ -1111,7 +1111,7 @@ fn ordering(name: &str, mut values: Vec<Expr>) -> Option<Expr> {
 
 /// A function of `RandomState`, or of a trait it implements: making one, which `Default`
 /// does too, its `Clone`, which is itself, and building its hasher, or hashing one value
-/// with it as `BuildHasher::hash_one` does.
+/// with it as `BuildHasher::hash_one` does, dropping the value.
 fn random_state<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
@@ -1125,10 +1125,13 @@ fn random_state<'tcx>(
 		("new" | "default", _) => Expr::rt("randomState", vec![]),
 		("clone", Some(state)) => state,
 		("build_hasher", Some(state)) => Expr::rt("buildHasher", vec![state]),
+		// It takes the value, which drops once hashed.
 		("hash_one", Some(state)) if let Some(value) = values.next() => {
 			let hasher = built_hasher(b, ty).expect("a RandomState builds a DefaultHasher");
-			let hash = hash_fn(b, library::targ(call.args, 1), hasher, span);
-			Expr::rt("hashOne", vec![state, value, hash])
+			let value_ty = library::targ(call.args, 1);
+			let mut args = vec![state, value, hash_fn(b, value_ty, hasher, span)];
+			args.extend(b.t.drop_fn(value_ty, span));
+			Expr::rt("hashOne", args)
 		}
 		_ => b.err(span, format!("`RandomState::{name}`, which is not supported yet")),
 	}

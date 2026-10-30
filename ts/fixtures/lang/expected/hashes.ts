@@ -4,6 +4,7 @@ import * as rt from "./rt.ts";
 import { thenSome$bool_i32 } from "./core/bool.ts";
 import { unwrapOr$Option_char, unwrapOr$Option_u8 } from "./core/option.ts";
 import { unwrapOr$Result_str_Utf8Error } from "./core/result.ts";
+import * as Counted from "./hashes.Counted.ts";
 import * as Dir from "./hashes.Dir.ts";
 import * as Nibble from "./hashes.Nibble.ts";
 import * as Packet from "./hashes.Packet.ts";
@@ -374,7 +375,7 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 /**
  * What holds of `RandomState` whatever its keys: one state, its clone, and the hasher it
  * builds hash a value alike, through a reference too, and values `Hash` sees as equal
- * alike, so ordering by its hashes leaves the same set.
+ * alike, so ordering by its hashes leaves the same set. `hash_one` drops what it takes.
  */
 export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const s: rt.RandomState = rt.randomState();
@@ -398,6 +399,17 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(other.state, text, rt.hashStr), rt.hashOne(other.state, text, rt.hashStr)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr])), rt.hashOne(copy, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr]))) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, Nibble.hash$Hash_DefaultHasher), rt.hashOne(s, { _0: b ^ 240 }, Nibble.hash$Hash_DefaultHasher)) ? 1 : 0);
+		const arc: rt.Arc<string> = new rt.Arc(text);
+		const _84: rt.Arc<string> = rt.arcClone(arc);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, _84, rt.hashArc(rt.hashStr), rt.drop), rt.hashOne(s, arc, rt.hashArc(rt.hashStr))) ? 1 : 0);
+		rt.byteVecPush(out, arc.strong & 0xff);
+		const drops: rt.Cell<rt.u8> = new rt.Cell(0);
+		const counted: Counted.Counted = new Counted.Counted(b, drops);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, Counted.hash$Hash_DefaultHasher), rt.hashOne(s, new Counted.Counted(b, drops), Counted.hash$Hash_DefaultHasher, rt.drop)) ? 1 : 0);
+		rt.byteVecPush(out, drops.v);
+		counted[Symbol.dispose]();
+		rt.byteVecPush(out, drops.v);
+		arc[Symbol.dispose]();
 	}
 	const keys: rt.u64[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u64 => {
 		return rt.u64Mul(_2 as rt.u64, 1103823438081);
@@ -406,8 +418,8 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return rt.hashOne(other.state, k2, rt.hash64);
 	}, rt.lt);
 	rt.sliceSort(keys, rt.lt);
-	for (const _92 of keys) {
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(_92).reverse()));
+	for (const _127 of keys) {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(_127).reverse()));
 	}
 }
 

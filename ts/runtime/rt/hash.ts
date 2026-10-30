@@ -221,10 +221,11 @@ export function buildHasher(state: RandomState): Hasher {
 	return new SipHasher(state);
 }
 
-/** `BuildHasher::hash_one` of a `RandomState`: `value`'s hash, by its `Hash`. */
-export function hashOne<T>(state: RandomState, value: T, hash: (value: T, s: Hasher) => void): u64 {
+/** `BuildHasher::hash_one` of a `RandomState`: `value`'s hash, by its `Hash`, then `value` drops. */
+export function hashOne<T>(state: RandomState, value: T, hash: (value: T, s: Hasher) => void, drop?: (value: T) => void): u64 {
 	const s = buildHasher(state);
 	hash(value, s);
+	drop?.(value);
 	return s.finish();
 }
 

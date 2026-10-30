@@ -3,6 +3,7 @@
 //! `RandomState`, whose keys are random on both sides: its case prints only what holds
 //! whatever they are, such as one state hashing equal values alike, and never a hash.
 
+use std::cell::Cell;
 use std::cmp::Reverse;
 use std::hash::{BuildHasher, DefaultHasher, Hash, Hasher, RandomState};
 use std::num::NonZero;
@@ -164,9 +165,24 @@ pub fn values(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// A value that counts its drops, hashed as its byte.
+struct Counted<'a>(u8, &'a Cell<u8>);
+
+impl Hash for Counted<'_> {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.0.hash(state);
+	}
+}
+
+impl Drop for Counted<'_> {
+	fn drop(&mut self) {
+		self.1.set(self.1.get() + 1);
+	}
+}
+
 /// What holds of `RandomState` whatever its keys: one state, its clone, and the hasher it
 /// builds hash a value alike, through a reference too, and values `Hash` sees as equal
-/// alike, so ordering by its hashes leaves the same set.
+/// alike, so ordering by its hashes leaves the same set. `hash_one` drops what it takes.
 pub fn random(data: &[u8], out: &mut Vec<u8>) {
 	#[derive(Default)]
 	struct Priorities {
@@ -186,6 +202,15 @@ pub fn random(data: &[u8], out: &mut Vec<u8>) {
 		out.push((other.state.hash_one(text) == other.state.hash_one(text.to_string())) as u8);
 		out.push((s.hash_one((b, text)) == copy.hash_one(&(b, text))) as u8);
 		out.push((s.hash_one(Nibble(b)) == s.hash_one(Nibble(b ^ 0xf0))) as u8);
+		let arc: Arc<str> = Arc::from(text);
+		out.push((s.hash_one(arc.clone()) == s.hash_one(&arc)) as u8);
+		out.push(Arc::strong_count(&arc) as u8);
+		let drops = Cell::new(0);
+		let counted = Counted(b, &drops);
+		out.push((s.hash_one(&counted) == s.hash_one(Counted(b, &drops))) as u8);
+		out.push(drops.get());
+		drop(counted);
+		out.push(drops.get());
 	}
 	let mut keys: Vec<u64> = data.iter().map(|&b| b as u64 * 0x0101_0101_0101).collect();
 	keys.sort_by_key(|k| other.state.hash_one(k));
