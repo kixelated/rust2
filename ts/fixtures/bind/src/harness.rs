@@ -1,13 +1,16 @@
 //! The entry point both sides of the differential test run.
 
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use buf::Blob;
 
+use crate::key::Nibble;
 use crate::raw::{Tally, checksum, skip};
 
 /// Split the input as `Blob`, compare and hash the parts, skip its leading zeros, and
-/// count tallies down as they drop. A first byte of 1 slices out of order, which panics.
+/// count tallies down as they drop, then key collections by bound types. A first byte of
+/// 1 slices out of order, which panics.
 pub fn run(input: &[u8]) -> Vec<u8> {
 	let mut out = Vec::new();
 	let bytes = Blob::copy_from_slice(input);
@@ -45,7 +48,64 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		drop(held);
 	}
 	out.push(Arc::strong_count(&count) as u8);
+	keys(input, &bytes, &mut out);
 	out
+}
+
+/// Collections keyed by `Blob`s, equal by their bytes wherever they are sliced from, and by
+/// `Nibble`s, equal by their low bits: what each finds, keeps, and orders.
+fn keys(input: &[u8], bytes: &Blob, out: &mut Vec<u8>) {
+	let mut seen = HashSet::new();
+	let mut counts = HashMap::new();
+	let mut sorted = BTreeSet::new();
+	let mut firsts = BTreeMap::new();
+	for at in 0..bytes.len() {
+		let part = bytes.slice(at..(at + 2).min(bytes.len()));
+		out.push(seen.insert(part.clone()) as u8);
+		*counts.entry(part.clone()).or_insert(0u8) += 1;
+		sorted.insert(part.clone());
+		firsts.entry(part).or_insert(at as u8);
+	}
+	out.push(seen.len() as u8);
+	out.push(counts.len() as u8);
+	// A copy of the bytes, which no part shares, finds the part equal to it.
+	let probe = Blob::copy_from_slice(input.get(..2).unwrap_or(input));
+	out.push(seen.contains(&probe) as u8);
+	out.push(counts.get(&probe).copied().unwrap_or(0));
+	out.push(sorted.contains(&probe) as u8);
+	out.push(firsts.get(&probe).copied().unwrap_or(0xff));
+	out.push(sorted.range(probe.clone()..).count() as u8);
+	for (part, first) in &firsts {
+		out.push(part.len() as u8);
+		out.extend_from_slice(part);
+		out.push(*first);
+	}
+	out.push(seen.remove(&probe) as u8);
+	out.push(sorted.remove(&probe) as u8);
+	out.push(seen.len() as u8);
+
+	let mut nibbles = HashSet::new();
+	let mut lasts = HashMap::new();
+	let mut ordered = BTreeSet::new();
+	let mut values = BTreeMap::new();
+	for &byte in input {
+		let key = Nibble::new(byte);
+		out.push(nibbles.insert(key) as u8);
+		out.push(lasts.insert(key, byte).unwrap_or(0xff));
+		ordered.insert(key);
+		values.insert(key, byte);
+	}
+	out.push(nibbles.len() as u8);
+	for key in 0..16 {
+		let key = Nibble::new(key * 17);
+		out.push(nibbles.get(&key).map_or(0xff, |n| n.get()));
+		out.push(lasts.get(&key).copied().unwrap_or(0xff));
+	}
+	for (key, value) in &values {
+		out.push(key.get());
+		out.push(*value);
+	}
+	out.extend(ordered.iter().map(|n| n.get()));
 }
 
 /// A `Held` of `None`, which `wrong.toml`'s binding would make `undefined`, as the outer
