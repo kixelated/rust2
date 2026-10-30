@@ -17,6 +17,7 @@ import { defaults } from "./defaults.ts";
 import { durations } from "./durations.ts";
 import { dyns, shared, anys, fns } from "./dyns.ts";
 import { edits, bytes } from "./edits.ts";
+import { eqs } from "./errors.ts";
 import { floats, formats, parses } from "./floats.ts";
 import { ints, strings, derived, written, counts, rounding, panics, wrapped, writes } from "./fmt.ts";
 import { methods } from "./generics.ts";
@@ -33,7 +34,7 @@ import { orders, bytes as orders_bytes } from "./orders.ts";
 import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels, cells as pointers_cells, rebound, writers } from "./pointers.ts";
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
-import { parts, chunked, subslices, drains, ranges as slices_ranges, edits as slices_edits } from "./slices.ts";
+import { parts, chunked, subslices, drains, ranges as slices_ranges } from "./slices.ts";
 import { splits } from "./splits.ts";
 import { statics, cells as statics_cells, onces } from "./statics.ts";
 import { strs, slices, edits as strs_edits, parses as strs_parses } from "./strs.ts";
@@ -175,7 +176,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		reducers(data63, out64);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["pointers::writers", (_2164: rt.u8, data64: rt.ByteSlice, out65: rt.ByteVec): void => {
 		writers(data64, out65);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::edits", slices_edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["errors::eqs", eqs] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }
 
 /** Run one case. */

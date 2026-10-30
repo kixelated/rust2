@@ -16,13 +16,14 @@ generic std gap is planned here even when moq never calls it.
 - [Retrial Cranelift on moq's tests](/quest/m3/cranelift-unwind.md) - waits on upstream: moq's tests pass under Cranelift, so its CI can weigh it again
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
 - [A raw pointer's staleness bound by its liveness](/quest/m3/ts-pointer-liveness.md) - a pointer dead before its variable is assigned again, as in an earlier loop iteration, translates
+- [Writes into fresh memory before any pointer to it](/quest/m3/ts-fresh-writes.md) - a whole write filling a fresh allocation or `MaybeUninit` before any pointer into it no longer refuses later pointers, as kio's `Segment::new` slots
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
 - [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
 - [Strings from and into iterators](/quest/m3/ts-string-iters.md) - `collect::<String>`, `String::extend`, and `drain` translate
-- [Equality of Result and std's errors](/quest/m3/ts-error-eq.md) - `==` of a `Result` and of std's parse and conversion errors translates
+- [A widening try_from typed by its Infallible](/quest/m3/ts-try-from-infallible.md) - an integer `try_from` that can't fail type-checks as `Result<T, Infallible>`
 - [Placeholders written to a crate's own fmt::Write](/quest/m3/ts-fmt-calls.md) - `write!` with placeholders into a crate's own writer translates, its `write_str` seeing each call std makes
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks

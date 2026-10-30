@@ -37,8 +37,9 @@ pub enum Std {
 	TryFromIntError,
 	/// `rt.ParseIntError`: `{ kind }`, its `IntErrorKind`.
 	ParseIntError,
-	/// `rt.IntErrorKind`: the variant's name.
-	IntErrorKind,
+	/// Why one of std's errors failed, as `rt.IntErrorKind` or `rt.CharErrorKind`: the
+	/// variant's name.
+	ErrorKind,
 	/// `rt.ParseBoolError`.
 	ParseBoolError,
 	/// `rt.ParseCharError`: `{ kind }`, its `CharErrorKind`'s name.
@@ -161,6 +162,22 @@ pub enum Std {
 }
 
 impl Std {
+	/// Whether it is one of std's errors, whose derived `PartialEq` lowers from its MIR.
+	pub fn error(self) -> bool {
+		matches!(
+			self,
+			Self::FromUtf8Error
+				| Self::Utf8Error
+				| Self::TryFromIntError
+				| Self::ParseIntError
+				| Self::ParseBoolError
+				| Self::ParseCharError
+				| Self::ParseFloatError
+				| Self::TryFromFloatSecsError
+				| Self::FmtError
+		)
+	}
+
 	pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Self> {
 		if !is_std(tcx, did) {
 			return super::stock::of(tcx, did);
@@ -248,7 +265,10 @@ impl Std {
 		{
 			["str", "error", "Utf8Error"] => Some(Self::Utf8Error),
 			["num", "error", "ParseIntError"] => Some(Self::ParseIntError),
-			["num", "error", "IntErrorKind"] => Some(Self::IntErrorKind),
+			["num", "error", "IntErrorKind"]
+			| ["char", "convert", "CharErrorKind"]
+			| ["num", "float_parse", "FloatErrorKind"]
+			| ["time", "TryFromFloatSecsErrorKind"] => Some(Self::ErrorKind),
 			["str", "error", "ParseBoolError"] => Some(Self::ParseBoolError),
 			["char", "convert", "ParseCharError"] => Some(Self::ParseCharError),
 			["fmt", "Formatter"] => Some(Self::Formatter),
@@ -542,7 +562,8 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
 /// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
-/// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, or what
+/// their `Clone`, or the derived `PartialEq::eq` of a `Result` or of one of std's errors,
+/// or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, or what
 /// parses an integer, a `NonZero`, or a `bool`: `str::parse` of one, its `FromStr`,
 /// `from_str_radix`, and what they call, `char::to_digit` and the radix's panic among it.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
@@ -598,6 +619,13 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	if parses {
 		return true;
 	}
+	// A std error's derived `PartialEq`, which compares its fields.
+	if let ty::Adt(adt, _) = self_ty.kind()
+		&& Std::of(tcx, adt.did()).is_some_and(Std::error)
+		&& tcx.is_automatically_derived(imp)
+	{
+		return name == rustc_span::sym::eq;
+	}
 	// `None` for `bool`'s.
 	let std = match self_ty.kind() {
 		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
@@ -617,6 +645,10 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return false;
 	}
 	if let Some(tr) = tcx.trait_impl_of_assoc(did).map(|imp| tcx.impl_trait_id(imp)) {
+		// `Result`'s derived `PartialEq`, which compares what each holds by its own.
+		if std == Some(Std::Result) && tcx.is_lang_item(tr, rustc_attr_ir::LangItem::PartialEq) {
+			return name == rustc_span::sym::eq;
+		}
 		// A `Clone` that only copies is the copy.
 		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
 			&& name == rustc_span::sym::clone
@@ -1159,6 +1191,12 @@ fn mapping<'tcx>(
 				rty,
 				span,
 			)
+		}
+		// Every `()` is equal, and no `!` is ever compared.
+		("PartialEq", "eq" | "ne")
+			if unwrapped(tcx, targ(gargs, 0)).is_unit() || unwrapped(tcx, targ(gargs, 0)).is_never() =>
+		{
+			Expr::lit(if name == "eq" { "true" } else { "false" })
 		}
 		("PartialEq", "eq" | "ne") | ("PartialOrd", "lt" | "le" | "gt" | "ge")
 			if primitive(unwrapped(tcx, targ(gargs, 0))) =>

@@ -113,7 +113,7 @@ pub fn call<'tcx>(
 					let eq = Expr::rt("eqBytes", args);
 					return Ok(Some(if name == "eq" { eq } else { eq.not() }));
 				}
-				let kind = b.t.std_of(t) == Some(Std::IntErrorKind);
+				let kind = b.t.std_of(t) == Some(Std::ErrorKind);
 				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !(std_key(b, t) || kind) {
 					return Err(args);
 				}
@@ -1261,6 +1261,9 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
 			held(inner)
 		}
+		// Whose derived `PartialEq` lowers from its MIR.
+		ty::Adt(_, args) if b.t.std_of(ty) == Some(Std::Result) => args.types().all(held),
+		ty::Adt(..) if b.t.std_of(ty).is_some_and(Std::error) => true,
 		ty::Adt(..) => library::string(b.t.tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::Duration)),
 		_ => false,
 	}
@@ -1424,9 +1427,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			int.func("eq")
 		}
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => Expr::Rt("same".into()),
-		ty::Adt(..)
-			if library::string(tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::IntErrorKind)) =>
-		{
+		ty::Adt(..) if library::string(tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::ErrorKind)) => {
 			Expr::Rt("same".into())
 		}
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
@@ -1462,7 +1463,9 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			}
 			Expr::rt("eqArc", values)
 		}
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		ty::Adt(adt, _)
+			if b.t.own(adt.did()) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) =>
+		{
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}

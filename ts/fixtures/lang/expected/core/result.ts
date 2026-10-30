@@ -2,7 +2,184 @@
 
 import * as rt from "../rt.ts";
 import { drop$Result_usize_u8_Arc_dyn_Any } from "../lib.ts";
+import { eq$09knsz6 } from "../alloc/string.ts";
 import type * as Any from "../core/any.Any.ts";
+import { eq$09vw48j } from "../core/char/convert.ts";
+import { eq$08q6k9m } from "../core/fmt.ts";
+import { eq$1nf2rde, eq$18sin5z } from "../core/num/error.ts";
+import { eq$1horntk } from "../core/num/float_parse.ts";
+import { eq$1v93ipo, eq$1f3e51k } from "../core/str/error.ts";
+import { eq$0dhyfbb } from "../core/time.ts";
+
+export function eq$1hq3neq(self: rt.Result<rt.Duration, rt.TryFromFloatSecsError>, other: rt.Result<rt.Duration, rt.TryFromFloatSecsError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.durationEq(self.value, (other as { ok: true; value: rt.Duration }).value);
+	}
+	return eq$0dhyfbb(self.error, (other as { ok: false; error: rt.TryFromFloatSecsError }).error);
+}
+
+export function eq$19kc15f(self: rt.Result<rt.u32, rt.ParseIntError>, other: rt.Result<rt.u32, rt.ParseIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u32 }).value;
+	}
+	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$04qb8k3(self: rt.Result<rt.u8 | undefined, rt.ParseIntError>, other: rt.Result<rt.u8 | undefined, rt.ParseIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u8 | undefined }).value;
+	}
+	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$10fppe8(self: rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError>, other: rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return eq$04iua4k(self.value, (other as { ok: true; value: rt.Result<rt.char, rt.ParseCharError> }).value);
+	}
+	return eq$1f3e51k(self.error, (other as { ok: false; error: rt.ParseBoolError }).error);
+}
+
+export function eq$0ecfqx9(self: rt.Result<string, rt.FromUtf8Error>, other: rt.Result<string, rt.FromUtf8Error>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: string }).value;
+	}
+	return eq$09knsz6(self.error, (other as { ok: false; error: rt.FromUtf8Error }).error);
+}
+
+export function eq$0nlhjpf(self: rt.Result<boolean, rt.ParseBoolError>, other: rt.Result<boolean, rt.ParseBoolError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: boolean }).value;
+	}
+	return eq$1f3e51k(self.error, (other as { ok: false; error: rt.ParseBoolError }).error);
+}
+
+export function eq$04iua4k(self: rt.Result<rt.char, rt.ParseCharError>, other: rt.Result<rt.char, rt.ParseCharError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.char }).value;
+	}
+	return eq$09vw48j(self.error, (other as { ok: false; error: rt.ParseCharError }).error);
+}
+
+export function eq$1dhtbkj(self: rt.Result<rt.f64, rt.ParseFloatError>, other: rt.Result<rt.f64, rt.ParseFloatError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.f64 }).value;
+	}
+	return eq$1horntk(self.error, (other as { ok: false; error: rt.ParseFloatError }).error);
+}
+
+export function eq$0pe0qmq(self: rt.Result<rt.i128, rt.ParseIntError>, other: rt.Result<rt.i128, rt.ParseIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.i128Eq(self.value, (other as { ok: true; value: rt.i128 }).value);
+	}
+	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$1mpp8xa(self: rt.Result<rt.i8, rt.ParseIntError>, other: rt.Result<rt.i8, rt.ParseIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.i8 }).value;
+	}
+	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$0grmb7g(self: rt.Result<rt.i8, rt.TryFromIntError>, other: rt.Result<rt.i8, rt.TryFromIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.i8 }).value;
+	}
+	return eq$1nf2rde(self.error, (other as { ok: false; error: rt.TryFromIntError }).error);
+}
+
+export function eq$0rj0czq(self: rt.Result<string, rt.Utf8Error>, other: rt.Result<string, rt.Utf8Error>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: string }).value;
+	}
+	return eq$1v93ipo(self.error, (other as { ok: false; error: rt.Utf8Error }).error);
+}
+
+export function eq$08241oi(self: rt.Result<rt.u16, never>, other: rt.Result<rt.u16, never>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u16 }).value;
+	}
+	return true;
+}
+
+export function eq$0bl30vt(self: rt.Result<rt.u64, rt.ParseIntError>, other: rt.Result<rt.u64, rt.ParseIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return rt.u64Eq(self.value, (other as { ok: true; value: rt.u64 }).value);
+	}
+	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$1fkhuzl(self: rt.Result<rt.u8, rt.IntErrorKind>, other: rt.Result<rt.u8, rt.IntErrorKind>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u8 }).value;
+	}
+	return self.error === (other as { ok: false; error: rt.IntErrorKind }).error;
+}
+
+export function eq$0p1bb4y(self: rt.Result<rt.u8, rt.ParseIntError>, other: rt.Result<rt.u8, rt.ParseIntError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.u8 }).value;
+	}
+	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+}
+
+export function eq$03gbayb(self: rt.Result<undefined, rt.FmtError>, other: rt.Result<undefined, rt.FmtError>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return true;
+	}
+	return eq$08q6k9m(self.error, (other as { ok: false; error: rt.FmtError }).error);
+}
 
 export function isOkAnd$0jj0nkw(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {
 	if (self.ok) {
@@ -39,6 +216,27 @@ export function ok$1bbzz6g(self: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>):
 	return _0;
 }
 
+export function err$1ujom0k(self: rt.Result<boolean, rt.ParseBoolError>): rt.ParseBoolError | undefined {
+	if (self.ok) {
+		return undefined;
+	}
+	return self.error;
+}
+
+export function err$02r96h1(self: rt.Result<rt.char, rt.ParseCharError>): rt.ParseCharError | undefined {
+	if (self.ok) {
+		return undefined;
+	}
+	return self.error;
+}
+
+export function err$0jf6smd(self: rt.Result<rt.i8, rt.ParseIntError>): rt.ParseIntError | undefined {
+	if (self.ok) {
+		return undefined;
+	}
+	return self.error;
+}
+
 export function err$05f656d(self: rt.Result<rt.u8, rt.u16>): rt.u16 | undefined {
 	if (self.ok) {
 		return undefined;
@@ -65,6 +263,20 @@ export function map$1qqg34g(self: rt.Result<rt.ByteVec, string>, op: (a0: rt.Byt
 		return rt.Ok(op(self.value));
 	}
 	return self;
+}
+
+export function map$0fm1w6u(self: rt.Result<boolean, rt.ParseBoolError>, op: (a0: boolean) => rt.Result<rt.char, rt.ParseCharError>): rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError> {
+	if (self.ok) {
+		return rt.Ok(op(self.value));
+	}
+	return self as rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError>;
+}
+
+export function map$0r57egs(self: rt.Result<rt.u8, rt.ParseIntError>, op: (a0: rt.u8) => rt.u8 | undefined): rt.Result<rt.u8 | undefined, rt.ParseIntError> {
+	if (self.ok) {
+		return rt.Ok(op(self.value));
+	}
+	return self as rt.Result<rt.u8 | undefined, rt.ParseIntError>;
 }
 
 export function map$1dbyvzi(self: rt.Result<rt.u8, string>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, string> {
@@ -107,6 +319,13 @@ export function mapErr$12w1s5x(self: rt.Result<rt.u32[], rt.u8>, _: (a0: rt.u8) 
 		return self as rt.Result<rt.u32[], rt.u16>;
 	}
 	return rt.Err(self.error as rt.u16);
+}
+
+export function mapErr$0u5yxjj(self: rt.Result<rt.u8, rt.ParseIntError>, op: (a0: rt.ParseIntError) => rt.IntErrorKind): rt.Result<rt.u8, rt.IntErrorKind> {
+	if (self.ok) {
+		return self as rt.Result<rt.u8, rt.IntErrorKind>;
+	}
+	return rt.Err(op(self.error));
 }
 
 export function mapErr$0dzqwjy(self: rt.Result<rt.u8, string>, op: (a0: string) => rt.u8): rt.Result<rt.u8, rt.u8> {
