@@ -366,10 +366,11 @@ pub fn call<'tcx>(
 	let mut values = args.into_iter();
 	let (self_ty, recv) = peel_mut(self_ty, values.next()?);
 	let rest: Vec<Expr> = values.collect();
+	// What a consumer returns for `None`, after its other arguments, where that is `rt.None`.
+	let none = b.t.none_arg(item);
 
 	// `next` by the protocol, as an `Option`.
 	if matches!(name, "next" | "next_back" | "nth_back") {
-		let none = b.t.none_arg(item);
 		let item = match name {
 			"next" => next(b, self_ty, recv),
 			"next_back" => recv.member("nextBack").call(Vec::new()),
@@ -394,15 +395,6 @@ pub fn call<'tcx>(
 		};
 		Some(Expr::rt_of(of, name).call([vec![recv.clone()], args].concat()))
 	};
-	// `rt.owned<Name>`, which drops what `self_ty` holds and its items by `dropper` as std's
-	// own does, where either drops: else `rt.iter<Name>`, so a bundle that never drops
-	// doesn't carry it.
-	let owned = |b: &mut Body<'_, '_, 'tcx>, name: &str, dropper: Expr| match drops_iter(b, self_ty, span)
-		|| !undefined(&dropper)
-	{
-		true => Some(Expr::rt_of("owned", name).call(tail(vec![recv.clone()], vec![dropper]))),
-		false => method(name, Vec::new()),
-	};
 	let camel = super::camel(name);
 	match name {
 		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "inspect" | "any" | "all" | "find_map"
@@ -416,9 +408,16 @@ pub fn call<'tcx>(
 			let fused = fused(b, self_ty, None);
 			method(name, tail(rest, vec![fused]))
 		}
+		// `rt.owned<Name>`, which drops what `self_ty` holds and its items by `dropper` as
+		// std's own does, where either drops: else `rt.iter<Name>`, so a bundle that never
+		// drops doesn't carry it.
 		"count" | "last" => {
 			let dropper = b.t.dropper(item, span);
-			owned(b, name, dropper)
+			let none: Vec<Expr> = none.into_iter().filter(|_| name == "last").collect();
+			match drops_iter(b, self_ty, span) || !undefined(&dropper) {
+				true => Some(Expr::rt_of("owned", name).call(tail(vec![recv.clone()], [vec![dropper], none].concat()))),
+				false => method(name, none),
+			}
 		}
 		"for_each" | "fold" => {
 			let drops = iter_drops(b, self_ty, span);
@@ -454,17 +453,11 @@ pub fn call<'tcx>(
 		}
 		// `ExactSizeIterator::len` is each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
-		"nth" => {
+		"nth" | "find" | "rfind" => {
 			let dropper = b.t.dropper(item, span);
-			method(name, tail(rest, vec![dropper]))
+			method(&camel, tail(rest, [dropper].into_iter().chain(none).collect()))
 		}
-		"find" | "peek" | "next_if" => {
-			let droppers = match name {
-				"find" => vec![b.t.dropper(item, span)],
-				_ => Vec::new(),
-			};
-			method(&camel, tail(rest, droppers))
-		}
+		"peek" | "next_if" => method(&camel, [rest, none.into_iter().collect()].concat()),
 		// By the items' `Ord::max` or `min`, or the keys', which test `<` of the next and the
 		// best. Not of places, which the runtime would compare as the objects they are.
 		"max" | "min" | "max_by_key" | "min_by_key"
@@ -494,10 +487,7 @@ pub fn call<'tcx>(
 					"max" => recv.member("nextBack").call(Vec::new()),
 					_ => recv.member("next").call(Vec::new()),
 				};
-				return Some(Expr::rt(
-					"iterToOption",
-					[end].into_iter().chain(b.t.none_arg(item)).collect(),
-				));
+				return Some(Expr::rt("iterToOption", [end].into_iter().chain(none).collect()));
 			}
 			if !by_key && own_ord(b.t, key.peel_refs(), name) {
 				return Some(b.err(
@@ -506,8 +496,10 @@ pub fn call<'tcx>(
 				));
 			}
 			let lt = super::collections::test_fn(b, key, "lt", span);
-			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(item, span)];
-			method(&camel, tail([rest, vec![lt]].concat(), droppers))
+			let droppers = [iter_drops(b, self_ty, span), b.t.dropper(item, span)]
+				.into_iter()
+				.chain(none);
+			method(&camel, tail([rest, vec![lt]].concat(), droppers.collect()))
 		}
 		// Whether each item and the next are in order: by `PartialOrd::le`, by a comparator,
 		// or by `le` of the keys a function makes, as std's maps to them. Not of places, as
@@ -537,10 +529,6 @@ pub fn call<'tcx>(
 			Some(Expr::rt("iterIsSortedBy", tail(vec![items, compare], droppers)))
 		}
 		"rposition" => method(&camel, rest),
-		"rfind" => {
-			let dropper = b.t.dropper(item, span);
-			method(&camel, tail(rest, vec![dropper]))
-		}
 		"chain" => {
 			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
 			method(name, vec![other])
