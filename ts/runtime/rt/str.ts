@@ -6,10 +6,11 @@
 // well formed, so a pattern's text matches where its UTF-8 would, never across a
 // surrogate pair.
 
-import { fmtCharDebug, panic, panicFmt, stringLen } from "../rt.ts";
+import { fmtCharDebug, type Place, panic, panicFmt, stringLen } from "../rt.ts";
 import { type Bounds, boundsRange } from "./collections.ts";
 import type { char, u8, usize } from "./int.ts";
-import { DONE, type Done, Iter, iterSlice } from "./iter.ts";
+import { DONE, type Done, Iter, iterForEach, iterSlice } from "./iter.ts";
+import { drop as dispose } from "./task.ts";
 
 const encoder = /* @__PURE__ */ new TextEncoder();
 
@@ -118,6 +119,16 @@ class Chars extends Iter<char> {
 		if (this.#front >= this.#back) return DONE;
 		this.#back = before(this.#s, this.#back);
 		return this.#s.codePointAt(this.#back) as char;
+	}
+
+	/** std's: a char per four bytes of what is left. */
+	override lower(): number {
+		return Math.ceil(utf8Len(this.#s, this.#front, this.#back) / 4);
+	}
+
+	/** `as_str`: what is left. */
+	rest(): string {
+		return this.#s.slice(this.#front, this.#back);
 	}
 }
 
@@ -449,4 +460,80 @@ export function stringRemove(s: string, i: usize): [string, char] {
 export function stringSplitOff(s: string, i: usize): [string, string] {
 	const at = boundary(s, i, "assertion failed: self.is_char_boundary(at)");
 	return [s.slice(0, at), s.slice(at)];
+}
+
+// `String` from and into iterators. Each reads the iterator by `for_each`, as std's does,
+// which `drops` makes its own `fold`.
+
+/**
+ * `Extend<char>` and `Extend<&char>` of `s`, and `collect` of chars from `""`: `s` and each
+ * char, once it reserved the iterator's lower bound, which panics past `isize::MAX`.
+ */
+export function stringExtendChars(s: string, it: Iter<char>, drops = false): string {
+	stringReserve(s, it.lower());
+	iterForEach(
+		it,
+		(c) => {
+			s += String.fromCodePoint(c);
+		},
+		drops,
+	);
+	return s;
+}
+
+/** `Extend` of `s` by strings, `&str`, `String`, or `Cow<str>`, and `collect` of `&str`s from `""`. */
+export function stringExtend(s: string, it: Iter<string>, drops = false): string {
+	iterForEach(
+		it,
+		(text) => {
+			s += text;
+		},
+		drops,
+	);
+	return s;
+}
+
+/** `collect` of owned strings, a `String` or `Cow<str>`: the first by `next`, then the rest extend it. */
+export function stringFromStrings(it: Iter<string>, drops = false): string {
+	const first = it.next();
+	if (first !== DONE) return stringExtend(first, it, drops);
+	if (drops) dispose(it);
+	return "";
+}
+
+/**
+ * `String::drain`: the chars within the byte range `r` of the string at `s`, which leaves
+ * the string without them as it drops, and as it was if it never does, as `mem::forget`
+ * leaves it.
+ */
+export function stringDrain(s: Place<string>, r: Bounds<number>): Iter<char> {
+	const text = s.v;
+	const [start, end] = boundsRange(r, utf8Len(text, 0, text.length));
+	const from = boundary(text, start, "assertion failed: self.is_char_boundary(start)");
+	const to = boundary(text, end, "assertion failed: self.is_char_boundary(end)");
+	return new StringDrain(s, text, from, to);
+}
+
+/** `Drain::as_str`: the chars `drain` has yet to yield. */
+export function stringDrainAsStr(drain: Iter<char>): string {
+	return (drain as Chars).rest();
+}
+
+class StringDrain extends Chars implements Disposable {
+	readonly #s: Place<string>;
+	readonly #text: string;
+	readonly #from: number;
+	readonly #to: number;
+
+	constructor(s: Place<string>, text: string, from: number, to: number) {
+		super(text.slice(from, to));
+		this.#s = s;
+		this.#text = text;
+		this.#from = from;
+		this.#to = to;
+	}
+
+	[Symbol.dispose](): void {
+		this.#s.v = this.#text.slice(0, this.#from) + this.#text.slice(this.#to);
+	}
 }

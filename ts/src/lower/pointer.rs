@@ -247,12 +247,14 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 
 /// Whether std's `def_id` is one a mapping takes the `rt.Place` a `&mut` is for, rather
 /// than what it points at: a `MaybeUninit`'s, which it points into, an `Arc`'s that
-/// `make_mut` replaces, and a well-known crate's, such as a `Bytes` that `Buf::advance`
-/// moves past its front.
+/// `make_mut` replaces, a `String`'s that a drain edits as it drops, and a well-known
+/// crate's, such as a `Bytes` that `Buf::advance` moves past its front.
 pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	matches!(
 		super::library::key(tcx, def_id),
-		Some((owner, name)) if owner == "MaybeUninit" || matches!(owner.as_str(), "Arc" | "Rc") && name == "make_mut"
+		Some((owner, name)) if owner == "MaybeUninit"
+			|| matches!(owner.as_str(), "Arc" | "Rc") && name == "make_mut"
+			|| (owner.as_str(), name.as_str()) == ("String", "drain")
 	) || super::stock::is_stock(tcx, def_id)
 }
 

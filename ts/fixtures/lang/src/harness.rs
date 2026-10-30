@@ -148,6 +148,9 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::writers", |_, data, out| pointers::writers(data, out)),
 		("errors::eqs", errors::eqs),
 		("slices::edits", slices::edits),
+		("strs::iters", strs::iters),
+		("strs::drains", strs::drains),
+		("strs::hinted", strs::hinted),
 	]
 }
 

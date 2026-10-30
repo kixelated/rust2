@@ -1116,7 +1116,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	v[at8][1] = v[at8][1] ^ 16;
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(v), (p: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(p[0], p[1]);
-	}, (value: Uint8Array) => rt.iterSlice(value)));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(changed[0], changed[1], old[0], old[1])));
 	const tally: Tally.Tally = { n: a as rt.u16 };
 	const q: rt.VecDeque<Tally.Tally> = rt.dequeNew() as rt.VecDeque<Tally.Tally>;
@@ -1148,7 +1148,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return mapOr$1nlkf9b(rt.hashGet(hash, k), rt.bytes(2).fill(255), (p2: [rt.u8, rt.u8]): Uint8Array => {
 			return Uint8Array.of(p2[0], p2[1]);
 		});
-	}, (value: Uint8Array) => rt.iterSlice(value)));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
 	const tree: rt.BTreeMap<rt.u8, [rt.u8, rt.u8]> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>;
 	rt.btreeInsert(tree, 0, copy$u8_u8(pair));
 	rt.btreeInsert(tree, 1, copy$u8_u8(pair));
@@ -1158,7 +1158,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.btreeValues(tree), (p3: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(p3[0], p3[1]);
-	}, (value: Uint8Array) => rt.iterSlice(value)));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
 	const boxed: [rt.u8, rt.u8] = copy$u8_u8(pair);
 	boxed[0] = boxed[0] ^ 1;
 	const holders: Holder.Holder[] = [{ pair: copy$u8_u8(pair) }];
