@@ -2,23 +2,25 @@
 
 import * as rt from "./rt.ts";
 import { thenSome$0d5am30, thenSome$1j8foe9, then$16ew6vr } from "./core/bool.ts";
-import { unwrapOr$0r2bmpr, map$0pkankm, map$0rbsrz6, map$0cs071d, map$0at3a41, mapOr$1surhce, mapOr$1t0muvr, mapOr$18ph0j9, andThen$0qni7te, filter$19gtvc4, or$0j02yk0, xor$0pemq84, flatten$1nwzx42 } from "./core/option.ts";
+import { isNoneOr$1s1o3ss, unwrapOr$0r2bmpr, map$0pkankm, map$0rbsrz6, map$0cs071d, map$0at3a41, mapOr$1surhce, mapOr$1t0muvr, mapOr$18ph0j9, andThen$0qni7te, filter$19gtvc4, or$0j02yk0, xor$0pemq84, flatten$1nwzx42 } from "./core/option.ts";
 import * as Halves from "./nested.Halves.ts";
 import type * as Slot from "./nested.Slot.ts";
 import * as Tagged from "./nested.Tagged.ts";
 
 /**
- * Run case `kind % 4` over `data`, whose bytes pick each `None`, `Some(None)`, or
+ * Run case `kind % 5` over `data`, whose bytes pick each `None`, `Some(None)`, or
  * `Some(Some(_))`.
  */
 export function nested(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _4: rt.u8 = rt.u8Rem(kind, 4);
+	const _4: rt.u8 = rt.u8Rem(kind, 5);
 	if (_4 === 0) {
 		made(data, out);
 	} else if (_4 === 1) {
 		keys(data, out);
 	} else if (_4 === 2) {
 		iters(data, out);
+	} else if (_4 === 3) {
+		consumers(data, out);
 	} else {
 		panics(data, out);
 	}
@@ -228,6 +230,72 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, 209);
 		});
 	}
+}
+
+/**
+ * Each consumer that returns an `Option` of the item, over items that are each `None`
+ * for an odd byte: its `None` apart from its `Some(None)`.
+ */
+export function consumers(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const items: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u8 | undefined => {
+		const b: rt.u8 = _2;
+		return thenSome$0d5am30(rt.u8Rem(b, 2) === 0, b);
+	}));
+	const n: rt.usize = mapOr$1t0muvr(rt.byteSliceFirst(data), 0, (b2: rt.u8): rt.usize => {
+		return rt.usizeRem(b2 as rt.usize, 8);
+	});
+	const it: () => rt.Iter<rt.u8 | undefined> = (): rt.Iter<rt.u8 | undefined> => {
+		return rt.iterSlice(items);
+	};
+	rt.byteVecPush(out, code(rt.iterNth(it(), n, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterLast(it(), rt.None)));
+	rt.byteVecPush(out, code(rt.iterNth(rt.iterRev(it()), n, undefined, rt.None)));
+	let tested: rt.u8 = 0;
+	rt.byteVecPush(out, code(rt.iterFind(it(), (o: rt.u8 | undefined): boolean => {
+		tested = rt.u8Add(tested, 1);
+		return isNoneOr$1s1o3ss(o, (b3: rt.u8): boolean => {
+			return b3 > 128;
+		});
+	}, undefined, rt.None)));
+	rt.byteVecPush(out, tested);
+	rt.byteVecPush(out, code(rt.iterRfind(it(), (a0: rt.u8 | undefined): boolean => {
+		return a0 === undefined;
+	}, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMax(it(), rt.cmpLt(rt.cmpOption(rt.cmp)), undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMin(it(), rt.cmpLt(rt.cmpOption(rt.cmp)), undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMaxByKey(it(), (o2: rt.u8 | undefined): rt.u8 | undefined => {
+		return map$0cs071d(o2, (b4: rt.u8): rt.u8 => {
+			return rt.u8Rem(b4, 4);
+		});
+	}, rt.cmpLt(rt.cmpOption(rt.cmp)), undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMinByKey(it(), (o3: rt.u8 | undefined): rt.u8 | undefined => {
+		return map$0cs071d(o3, (b5: rt.u8): rt.u8 => {
+			return rt.u8Rem(b5, 4);
+		});
+	}, rt.cmpLt(rt.cmpOption(rt.cmp)), undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMaxByKey(it(), (o4: rt.u8 | undefined): rt.u8 | undefined | rt.None => {
+		return map$0rbsrz6(o4, (b6: rt.u8): rt.u8 | undefined => {
+			return thenSome$0d5am30(rt.u8Rem(b6, 4) !== 0, rt.u8Rem(b6, 3));
+		});
+	}, rt.cmpLt(rt.cmpOption(rt.cmpOption(rt.cmp), rt.None)), undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMinByKey(it(), (o5: rt.u8 | undefined): rt.u8 | undefined | rt.None => {
+		return map$0rbsrz6(o5, (b7: rt.u8): rt.u8 | undefined => {
+			return thenSome$0d5am30(rt.u8Rem(b7, 4) !== 0, rt.u8Rem(b7, 3));
+		});
+	}, rt.cmpLt(rt.cmpOption(rt.cmpOption(rt.cmp), rt.None)), undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterFind(rt.iterSlice(items), (o6: rt.u8 | undefined): boolean => {
+		return o6 === undefined;
+	}, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMax(rt.iterSlice(items), rt.cmpLt(rt.cmpOption(rt.cmp)), undefined, undefined, rt.None)));
+	const rest: rt.Iter<rt.u8 | undefined> = it();
+	rt.byteVecPush(out, code(rt.iterNth(rest, n, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterToOption(rest.next(), rt.None)));
+	const peeked: rt.Peekable<rt.u8 | undefined> = rt.iterPeekable(it());
+	rt.byteVecPush(out, code(rt.peekablePeek(peeked, rt.None)));
+	rt.byteVecPush(out, code(rt.peekableNextIf(peeked, (a02: rt.u8 | undefined): boolean => {
+		return a02 === undefined;
+	}, rt.None)));
+	rt.byteVecPush(out, code(rt.iterToOption(peeked.next(), rt.None)));
 }
 
 export function panics(data: rt.ByteSlice, out: rt.ByteVec): void {

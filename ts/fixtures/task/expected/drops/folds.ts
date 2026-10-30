@@ -2,12 +2,12 @@
 
 import * as rt from "../rt.ts";
 import { drop$Guard_u64, drop$usize_Guard } from "../lib.ts";
-import { thenSome$0zvoczk, then$1xpp3sz, then$0ea5h05 } from "../core/bool.ts";
+import { thenSome$0zvoczk, thenSome$1af3oea, then$1xpp3sz, then$0ea5h05 } from "../core/bool.ts";
 import { map$1raha9y, map$14zg54s } from "../core/option.ts";
 import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
 
-/** Run scenario `arg % 31`. Items are guards 1 to 7; what closures own, 10 and up. */
+/** Run scenario `arg % 32`. Items are guards 1 to 7; what closures own, 10 and up. */
 export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let f!: Guard.Guard;
 	let _1086: boolean = false;
@@ -23,7 +23,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	const c: Guard.Guard = _10[0];
 	_1085 = true;
 	const d: Guard.Guard = _10[1];
-	const _17: rt.u8 = rt.u8Rem(arg, 31);
+	const _17: rt.u8 = rt.u8Rem(arg, 32);
 	if (_17 === 0) {
 		const _21: rt.Iter<Guard.Guard> = rt.iterSlice(guards(1, 5), rt.drop);
 		_1086 = false;
@@ -877,6 +877,8 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		const _973: rt.u32 = Guard.id(c);
 		const args72: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(n22, f), (f: rt.Formatter) => rt.u32Display(_973, f)];
 		Log.note(log, rt.fmtFormat(["rev ", args72[0], " ", args72[1]]));
+	} else if (_17 === 31) {
+		options(log, id);
 	} else {
 		const _986: rt.Iter<Guard.Guard> = rt.iterSlice(guards(1, 6), rt.drop);
 		_1086 = false;
@@ -1267,6 +1269,49 @@ export function rfolded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		d[Symbol.dispose]();
 	}
 	_344 = false;
+}
+
+/** `last` and `min` of `Option`s, by what drops: a `None` item apart from no items. */
+export function options(log: Log.Log, id: rt.u32): void {
+	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
+	};
+	const guards: (a0: rt.u32, a1: rt.u32) => Guard.Guard[] = (from: rt.u32, to: rt.u32): Guard.Guard[] => {
+		return rt.iterToArray(rt.iterMap(new rt.Range(from, to), guard));
+	};
+	const _10: [Guard.Guard, Guard.Guard, Guard.Guard] = [guard(10), guard(11), guard(12)];
+	const c: Guard.Guard = _10[0];
+	const d: Guard.Guard = _10[1];
+	const e: Guard.Guard = _10[2];
+	const _22: rt.Iter<Guard.Guard> = rt.iterSlice(guards(1, 4), rt.drop);
+	const captured = c;
+	const odd: rt.u32 | undefined | rt.None = rt.ownedLast(rt.iterMap(_22, rt.closure((g: Guard.Guard): rt.u32 | undefined => {
+		const _03: rt.u32 | undefined = thenSome$1af3oea(rt.u32Rem(Guard.id(g), 2) === rt.u32Rem(Guard.id(captured), 2), Guard.id(g));
+		g[Symbol.dispose]();
+		return _03;
+	}, (): void => {
+		captured[Symbol.dispose]();
+	})), undefined, rt.None);
+	const _29: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 4), rt.drop);
+	const captured2 = d;
+	const none: rt.u32 | undefined | rt.None = rt.ownedLast(rt.iterMap(_29, rt.closure((g2: Guard.Guard): rt.u32 | undefined => {
+		const _04: rt.u32 | undefined = thenSome$1af3oea(Guard.id(g2) !== Guard.id(captured2), Guard.id(g2));
+		g2[Symbol.dispose]();
+		return _04;
+	}, (): void => {
+		captured2[Symbol.dispose]();
+	})), undefined, rt.None);
+	const _36: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 4), rt.drop);
+	const captured3 = e;
+	const least: rt.u32 | undefined | rt.None = rt.iterMin(rt.iterMap(_36, rt.closure((g3: Guard.Guard): rt.u32 | undefined => {
+		const _05: rt.u32 | undefined = thenSome$1af3oea(Guard.id(g3) !== Guard.id(captured3), Guard.id(g3));
+		g3[Symbol.dispose]();
+		return _05;
+	}, (): void => {
+		captured3[Symbol.dispose]();
+	})), rt.cmpLt(rt.cmpOption(rt.cmp)), true, undefined, rt.None);
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(odd, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(none, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(least, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["options ", args2[0], " ", args2[1], " ", args2[2]]));
 }
 
 //# sourceMappingURL=folds.ts.map
