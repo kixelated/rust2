@@ -1,14 +1,19 @@
-// `f64`, for rust2-ts output: a number, which is the same IEEE 754 double, so its
-// operators are JS's. These are its methods where JS differs from std or has none, each
-// its own function, `f64Round`, so a bundler drops every one translated code never
-// calls. `rt.ts` re-exports all of it.
+// `f64` and `f32`, for rust2-ts output. An `f64` is a number, which is the same IEEE 754
+// double, so its operators are JS's. An `f32` is a number that a single holds exactly,
+// each operation's result rounded to one by `Math.fround`, which rounds as Rust does: a
+// double holds the exact sum, product, or quotient of two singles closely enough that
+// rounding it again gives the single nearest the exact value. These are their methods
+// where JS differs from std or has none, each its own function, `f64Round`, so a bundler
+// drops every one translated code never calls. `rt.ts` re-exports all of it.
 //
 // JS doesn't specify which NaN an operation makes, so a NaN's payload and sign are the
-// engine's: `to_bits` reads what it keeps.
+// engine's: `to_bits` reads what it keeps. An `f32` NaN is the double NaN with its sign
+// and its payload at the top, which a signaling one keeps, where JS's conversion from a
+// single would quiet it.
 
 import { Err, type FmtResult, type Formatter, fmtPadFormatted, fmtToString, Ok, panic, type Result } from "../rt.ts";
 import type { Ordering } from "./collections.ts";
-import { type f64, type u64, u64FromHalves } from "./int.ts";
+import { type f32, type f64, type u32, type u64, u64FromHalves } from "./int.ts";
 
 /** Eight bytes that hold a double while its bits are read or written, made on first use so a bundler drops them unused. */
 let scratch: DataView | undefined;
@@ -175,42 +180,58 @@ export function f64TotalCmp(a: f64, b: f64): Ordering {
 /** `f64`'s `PartialOrd::partial_cmp`: `undefined`, which is `None`, if either is NaN. */
 export const f64PartialCmp = (a: f64, b: f64): Ordering | undefined => (a < b ? -1 : a > b ? 1 : a === b ? 0 : undefined);
 
-/** `f64::powi`, multiplied by squaring as compiler-builtins' `__powidf2` is. */
-export function f64Powi(x: f64, n: number): f64 {
+/** The identity, as an `f64` rounds what JS computes. */
+const double = (x: number): number => x;
+
+/** `powi`, multiplied by squaring as compiler-builtins' `__powidf2` is, each product rounded by `round`. */
+function powi(x: number, n: number, round: (x: number) => number): number {
 	let a = x;
 	let pow = Math.abs(n);
 	let mul = 1;
 	for (;;) {
-		if (pow & 1) mul *= a;
+		if (pow & 1) mul = round(mul * a);
 		// `>>>` keeps 2^31, the magnitude of `i32::MIN`, unsigned.
 		pow >>>= 1;
 		if (pow === 0) break;
-		a *= a;
+		a = round(a * a);
 	}
-	return n < 0 ? 1 / mul : mul;
+	return n < 0 ? round(1 / mul) : mul;
 }
 
-/** `f64::powf`, which is libm's `pow`: 1 for a base of 1, and for -1 to an infinite power, where `Math.pow` is NaN. */
-export const f64Powf = (x: f64, y: f64): f64 => (x === 1 || (x === -1 && Math.abs(y) === Infinity) ? 1 : Math.pow(x, y));
+/** `f64::powi`. */
+export const f64Powi = (x: f64, n: number): f64 => powi(x, n, double);
+
+/** libm's `pow`: 1 for a base of 1, and for -1 to an infinite power, where `Math.pow` is NaN. */
+const pow = (x: number, y: number): number => (x === 1 || (x === -1 && Math.abs(y) === Infinity) ? 1 : Math.pow(x, y));
+
+/** `f64::powf`. */
+export const f64Powf = (x: f64, y: f64): f64 => pow(x, y);
 
 /** `f64::sin_cos`. */
 export const f64SinCos = (x: f64): [f64, f64] => [Math.sin(x), Math.cos(x)];
 
-/** `f64::atanh`, as std computes it rather than libm. */
-export const f64Atanh = (x: f64): f64 => 0.5 * Math.log1p((2 * x) / (1 - x));
+/** `atanh`, as std computes it rather than libm, each step rounded by `round`. */
+const atanh = (x: number, round: (x: number) => number): number => round(0.5 * round(Math.log1p(round(round(2 * x) / round(1 - x)))));
 
-/** `f64::div_euclid`. */
-export function f64DivEuclid(x: f64, rhs: f64): f64 {
-	const q = Math.trunc(x / rhs);
-	if (x % rhs < 0) return rhs > 0 ? q - 1 : q + 1;
+/** `f64::atanh`. */
+export const f64Atanh = (x: f64): f64 => atanh(x, double);
+
+function divEuclid(x: number, rhs: number, round: (x: number) => number): number {
+	const q = Math.trunc(round(x / rhs));
+	if (x % rhs < 0) return round(rhs > 0 ? q - 1 : q + 1);
 	return q;
 }
 
-/** `f64::rem_euclid`. */
-export function f64RemEuclid(x: f64, rhs: f64): f64 {
+/** `f64::div_euclid`. */
+export const f64DivEuclid = (x: f64, rhs: f64): f64 => divEuclid(x, rhs, double);
+
+function remEuclid(x: number, rhs: number, round: (x: number) => number): number {
 	const r = x % rhs;
-	return r < 0 ? r + Math.abs(rhs) : r;
+	return r < 0 ? round(r + Math.abs(rhs)) : r;
 }
+
+/** `f64::rem_euclid`. */
+export const f64RemEuclid = (x: f64, rhs: f64): f64 => remEuclid(x, rhs, double);
 
 /** `f64`'s `+`, which `Iterator::sum` folds with. */
 export const f64Add = (a: f64, b: f64): f64 => a + b;
@@ -218,17 +239,157 @@ export const f64Add = (a: f64, b: f64): f64 => a + b;
 /** `f64`'s `*`, which `Iterator::product` folds with. */
 export const f64Mul = (a: f64, b: f64): f64 => a * b;
 
-/** `f64::clamp`, which panics with both bounds' `Debug` unless `min <= max`. */
-export function f64Clamp(x: f64, min: f64, max: f64): f64 {
+/** `clamp`, which panics with both bounds' `Debug` unless `min <= max`. */
+function clamp(x: number, min: number, max: number, debug: (x: number, f: Formatter) => FmtResult): number {
 	if (!(min <= max)) {
-		const debug = (v: f64) => fmtToString((f) => f64Debug(v, f));
-		panic(`min > max, or either was NaN. min = ${debug(min)}, max = ${debug(max)}`);
+		const text = (v: number) => fmtToString((f) => debug(v, f));
+		panic(`min > max, or either was NaN. min = ${text(min)}, max = ${text(max)}`);
 	}
 	return x < min ? min : x > max ? max : x;
 }
 
+/** `f64::clamp`. */
+export const f64Clamp = (x: f64, min: f64, max: f64): f64 => clamp(x, min, max, f64Debug);
+
+// `f32`'s methods: an `f64`'s where they give the same single, else rounded as std's.
+
+/** `f32::MIN_POSITIVE`, the least normal single. */
+const MIN_POSITIVE_F32 = 1.1754943508222875e-38;
+
+/** `f32::round`. */
+export const f32Round: (x: f32) => f32 = f64Round as never;
+/** `f32::round_ties_even`. */
+export const f32RoundTiesEven: (x: f32) => f32 = f64RoundTiesEven as never;
+/** `f32::fract`. */
+export const f32Fract: (x: f32) => f32 = f64Fract as never;
+/** `f32::is_sign_negative`. */
+export const f32IsSignNegative: (x: f32) => boolean = f64IsSignNegative as never;
+/** `f32::is_sign_positive`. */
+export const f32IsSignPositive: (x: f32) => boolean = f64IsSignPositive as never;
+/** `f32::signum`. */
+export const f32Signum: (x: f32) => f32 = f64Signum as never;
+/** `f32::copysign`. */
+export const f32Copysign: (x: f32, y: f32) => f32 = f64Copysign as never;
+/** `f32::is_infinite`. */
+export const f32IsInfinite: (x: f32) => boolean = f64IsInfinite as never;
+/** `f32::max`. */
+export const f32Max: (a: f32, b: f32) => f32 = f64Max as never;
+/** `f32::min`. */
+export const f32Min: (a: f32, b: f32) => f32 = f64Min as never;
+/** `f32::total_cmp`, which orders singles' bits as their doubles' order. */
+export const f32TotalCmp: (a: f32, b: f32) => Ordering = f64TotalCmp as never;
+/** `f32`'s `PartialOrd::partial_cmp`. */
+export const f32PartialCmp: (a: f32, b: f32) => Ordering | undefined = f64PartialCmp as never;
+
+/** `f32::is_normal`. */
+export function f32IsNormal(x: f32): boolean {
+	const a = Math.abs(x);
+	return a >= MIN_POSITIVE_F32 && a < Infinity;
+}
+
+/** `f32::is_subnormal`. */
+export function f32IsSubnormal(x: f32): boolean {
+	const a = Math.abs(x);
+	return a > 0 && a < MIN_POSITIVE_F32;
+}
+
+/** `x`'s bits as a single moved by one toward +infinity if `up`, from a finite or infinite non-NaN. */
+function step32(x: number, up: boolean): number {
+	if (x === 0) return up ? 1.401298464324817e-45 : -1.401298464324817e-45;
+	const view = bytes();
+	view.setFloat32(0, x);
+	// The magnitude grows if it moves away from zero.
+	view.setUint32(0, view.getUint32(0) + (up === x > 0 ? 1 : -1));
+	return view.getFloat32(0);
+}
+
+/** `f32::next_up`: the least single greater than `x`. */
+export const f32NextUp = (x: f32): f32 => (x !== x || x === Infinity ? x : step32(x, true));
+
+/** `f32::next_down`: the greatest single less than `x`. */
+export const f32NextDown = (x: f32): f32 => (x !== x || x === -Infinity ? x : step32(x, false));
+
+/** `f32::midpoint`, which std computes in `f64` on wasm32. */
+export const f32Midpoint = (a: f32, b: f32): f32 => Math.fround((a + b) * 0.5);
+
+/** `f32::to_bits`: a NaN's sign and payload are the top of its double's. */
+export function f32ToBits(x: f32): u32 {
+	const view = bytes();
+	if (x === x) {
+		view.setFloat32(0, x);
+		return view.getUint32(0);
+	}
+	view.setFloat64(0, x);
+	const hi = view.getUint32(0);
+	return ((hi & 0x80000000) | 0x7f800000 | ((hi & 0xfffff) << 3) | (view.getUint32(4) >>> 29)) >>> 0;
+}
+
+/** `f32::from_bits`: a NaN's sign and payload go to the top of its double's, which `getFloat32` would quiet. */
+export function f32FromBits(v: u32): f32 {
+	const view = bytes();
+	if ((v & 0x7f800000) !== 0x7f800000 || (v & 0x7fffff) === 0) {
+		view.setUint32(0, v);
+		return view.getFloat32(0);
+	}
+	view.setUint32(0, (v & 0x80000000) | 0x7ff00000 | ((v & 0x7fffff) >>> 3));
+	view.setUint32(4, v << 29);
+	return view.getFloat64(0);
+}
+
+function toBytes32(x: number, little: boolean): Uint8Array {
+	const out = new Uint8Array(4);
+	new DataView(out.buffer).setUint32(0, f32ToBits(x), little);
+	return out;
+}
+
+function fromBytes32(bytes: Uint8Array, little: boolean): number {
+	return f32FromBits(new DataView(bytes.buffer, bytes.byteOffset, 4).getUint32(0, little));
+}
+
+/** `f32::to_be_bytes`. */
+export const f32ToBeBytes = (x: f32): Uint8Array => toBytes32(x, false);
+
+/** `f32::to_le_bytes`, and `to_ne_bytes`, as wasm32 is little-endian. */
+export const f32ToLeBytes = (x: f32): Uint8Array => toBytes32(x, true);
+
+/** `f32::from_be_bytes`. */
+export const f32FromBeBytes = (bytes: Uint8Array): f32 => fromBytes32(bytes, false);
+
+/** `f32::from_le_bytes`, and `from_ne_bytes`, as wasm32 is little-endian. */
+export const f32FromLeBytes = (bytes: Uint8Array): f32 => fromBytes32(bytes, true);
+
+/** `f32::powi`, multiplied by squaring in singles as compiler-builtins' `__powisf2` is. */
+export const f32Powi = (x: f32, n: number): f32 => powi(x, n, Math.fround);
+
+/** `f32::powf`: libm's `powf`, within its ULPs. */
+export const f32Powf = (x: f32, y: f32): f32 => Math.fround(pow(x, y));
+
+/** `f32::sin_cos`. */
+export const f32SinCos = (x: f32): [f32, f32] => [Math.fround(Math.sin(x)), Math.fround(Math.cos(x))];
+
+/** `f32::atanh`, as std computes it, each step in singles. */
+export const f32Atanh = (x: f32): f32 => atanh(x, Math.fround);
+
+/** `f32::div_euclid`. */
+export const f32DivEuclid = (x: f32, rhs: f32): f32 => divEuclid(x, rhs, Math.fround);
+
+/** `f32::rem_euclid`. */
+export const f32RemEuclid = (x: f32, rhs: f32): f32 => remEuclid(x, rhs, Math.fround);
+
+/** `f32`'s `+`, which `Iterator::sum` folds with. */
+export const f32Add = (a: f32, b: f32): f32 => Math.fround(a + b);
+
+/** `f32`'s `*`, which `Iterator::product` folds with. */
+export const f32Mul = (a: f32, b: f32): f32 => Math.fround(a * b);
+
+/** `f32::clamp`. */
+export const f32Clamp = (x: f32, min: f32, max: f32): f32 => clamp(x, min, max, f32Debug);
+
 // Formatting, as `core::fmt::float` does it. A finite nonzero magnitude is digits and the
 // power of ten that `0.digits` scales by, as `flt2dec` makes them.
+
+/** A float's shortest digits that read back as it: the digits, and the power of ten that `0.digits` scales by. */
+type Shortest = (x: number) => [string, number];
 
 /** `x`'s shortest digits that read back as it, the closest to it of those, and the greater of two as close. */
 function shortest(x: number): [string, number] {
@@ -244,7 +405,26 @@ function shortest(x: number): [string, number] {
 	// The greater ending in 0 would be shorter, so it can't read back as `x`.
 	if (all !== digits + "5" || at !== exp || digits.endsWith("9")) return [digits, exp];
 	const up = digits.slice(0, -1) + String.fromCharCode(digits.charCodeAt(digits.length - 1) + 1);
-	return nearest(up, exp - up.length) === x ? [up, exp] : [digits, exp];
+	return nearest(up, exp - up.length, F64) === x ? [up, exp] : [digits, exp];
+}
+
+/**
+ * `x`'s shortest digits that read back as the single it is, as Dragon finds them: at the
+ * first length where the digits cut short of `x` or the next ones up read back, the one
+ * that does, or the closer of two, the greater if `x` is half a digit past the lesser.
+ */
+function shortest32(x: number): [string, number] {
+	const [all, at] = exact(x);
+	for (let n = 1; n < all.length; n++) {
+		const down = all.slice(0, n);
+		const nines = end(down, "9");
+		const [up, upAt] = nines === 0 ? ["1", at + 1] : [down.slice(0, nines - 1) + String.fromCharCode(down.charCodeAt(nines - 1) + 1), at];
+		const fitsDown = nearest(down, at - n, F32) === x;
+		const fitsUp = nearest(up, upAt - up.length, F32) === x;
+		if (fitsUp && (!fitsDown || all[n] >= "5")) return [up, upAt];
+		if (fitsDown) return [down, at];
+	}
+	return [all, at];
 }
 
 /** How many binary digits `x`, finite and nonzero, has past the point. */
@@ -260,7 +440,7 @@ function fractionBits(x: number): number {
 	return Math.max(0, 1075 - Math.max(biased, 1) - zeros);
 }
 
-/** `x`'s exact digits, without trailing zeros, which a double always has: its significand times a power of two. */
+/** `x`'s exact digits, without trailing zeros, which a double, and so a single, always has: its significand times a power of two. */
 function exact(x: number): [string, number] {
 	const view = bytes();
 	view.setFloat64(0, x);
@@ -313,7 +493,7 @@ function exponential(digits: string, exp: number, frac: number, e: "e" | "E"): s
 const zero = (frac: number): string => (frac > 0 ? `0.${"0".repeat(frac)}` : "0");
 
 /** `to_shortest_str`: the shortest digits, with at least `frac` past the point. */
-function shortestFixed(x: number, frac: number): string {
+function shortestFixed(x: number, frac: number, shortest: Shortest): string {
 	if (x === 0) return zero(frac);
 	const [digits, exp] = shortest(x);
 	return decimal(digits, exp, frac);
@@ -328,7 +508,7 @@ function exactFixed(x: number, frac: number): string {
 }
 
 /** `to_shortest_exp_str` without a precision, else `to_exact_exp_str`: `precision` digits past the point. */
-function scientific(x: number, precision: number | undefined, e: "e" | "E"): string {
+function scientific(x: number, precision: number | undefined, e: "e" | "E", shortest: Shortest): string {
 	if (x === 0) return `${zero(precision ?? 0)}${e}0`;
 	if (precision === undefined) {
 		const [digits, exp] = shortest(x);
@@ -340,47 +520,81 @@ function scientific(x: number, precision: number | undefined, e: "e" | "E"): str
 }
 
 /** Write `x` padded, its magnitude by `finite`: a NaN has no sign, and -0.0 has one. */
-function write(x: f64, f: Formatter, finite: (magnitude: number) => string): FmtResult {
+function write(x: number, f: Formatter, finite: (magnitude: number) => string): FmtResult {
 	if (x !== x) return fmtPadFormatted(f, "", "NaN");
 	const sign = f64IsSignNegative(x) ? "-" : f.spec.plus ? "+" : "";
 	const magnitude = Math.abs(x);
 	return fmtPadFormatted(f, sign, magnitude === Infinity ? "inf" : finite(magnitude));
 }
 
-/** `f64`'s `Display`: the shortest digits, or rounded to the precision. */
-export function f64Display(x: f64, f: Formatter): FmtResult {
+/** `Display`: the shortest digits, or rounded to the precision. */
+function display(x: number, f: Formatter, shortest: Shortest): FmtResult {
 	const precision = f.spec.precision;
-	return write(x, f, (m) => (precision === undefined ? shortestFixed(m, 0) : exactFixed(m, precision)));
+	return write(x, f, (m) => (precision === undefined ? shortestFixed(m, 0, shortest) : exactFixed(m, precision)));
 }
 
-/** `f64`'s `Debug`: as `Display`, but with a point, and an exponent below 1e-4 and from 1e16. */
-export function f64Debug(x: f64, f: Formatter): FmtResult {
+/** `Debug`: as `Display`, but with a point, and an exponent below 1e-4 and from 1e16, each as the type has it. */
+function debug(x: number, f: Formatter, shortest: Shortest, tiny: number, huge: number): FmtResult {
 	const precision = f.spec.precision;
 	return write(x, f, (m) => {
 		if (precision !== undefined) return exactFixed(m, precision);
-		return (m !== 0 && m < 1e-4) || m >= 1e16 ? scientific(m, undefined, "e") : shortestFixed(m, 1);
+		return (m !== 0 && m < tiny) || m >= huge ? scientific(m, undefined, "e", shortest) : shortestFixed(m, 1, shortest);
 	});
 }
 
+/** `f64`'s `Display`. */
+export const f64Display = (x: f64, f: Formatter): FmtResult => display(x, f, shortest);
+
+/** `f64`'s `Debug`. */
+export const f64Debug = (x: f64, f: Formatter): FmtResult => debug(x, f, shortest, 1e-4, 1e16);
+
 /** `f64`'s `LowerExp`. */
-export const f64LowerExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "e"));
+export const f64LowerExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "e", shortest));
 
 /** `f64`'s `UpperExp`. */
-export const f64UpperExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "E"));
+export const f64UpperExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "E", shortest));
+
+/** `f32`'s `Display`. */
+export const f32Display = (x: f32, f: Formatter): FmtResult => display(x, f, shortest32);
+
+/** `f32`'s `Debug`, whose bounds are 1e-4 and 1e16 rounded to singles. */
+export const f32Debug = (x: f32, f: Formatter): FmtResult => debug(x, f, shortest32, 0.00009999999747378752, 10000000272564224);
+
+/** `f32`'s `LowerExp`. */
+export const f32LowerExp = (x: f32, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "e", shortest32));
+
+/** `f32`'s `UpperExp`. */
+export const f32UpperExp = (x: f32, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "E", shortest32));
 
 // Parsing, as `core::num::dec2flt` does it.
 
 /** `core::num::ParseFloatError`: whether the string was empty or not a float. */
 export type ParseFloatError = { readonly kind: FloatErrorKind };
 
-/** `core::num::FloatErrorKind`: why an `f64` didn't parse, by variant name. */
+/** `core::num::FloatErrorKind`: why a float didn't parse, by variant name. */
 export type FloatErrorKind = "Empty" | "Invalid";
 
 /** Every power of ten a double holds exactly. */
 const POWERS = [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
 
+/**
+ * A binary float type: its significand's bits, the implicit one's included, and its
+ * exponent's bias; the most digits and the greatest power of ten Clinger's fast path
+ * takes exactly; and the digits and exponent past which a decimal is at least 10^`over`
+ * or less than 10^`under`, both of which round past the type's range.
+ */
+type Binary = { readonly bits: number; readonly bias: number; readonly digits: number; readonly powers: number; readonly over: number; readonly under: number };
+
+const F64: Binary = { bits: 53, bias: 1023, digits: 15, powers: 22, over: 310, under: -324 };
+const F32: Binary = { bits: 24, bias: 127, digits: 7, powers: 10, over: 40, under: -45 };
+
 /** `str::parse::<f64>`: std's grammar, without JS's whitespace, hex, or `Infinity`, rounded to the nearest double, half to even. */
-export function f64FromStr(s: string): Result<f64, ParseFloatError> {
+export const f64FromStr = (s: string): Result<f64, ParseFloatError> => fromStr(s, F64);
+
+/** `str::parse::<f32>`: rounded once to the nearest single, never through a double. */
+export const f32FromStr = (s: string): Result<f32, ParseFloatError> => fromStr(s, F32);
+
+function fromStr(s: string, binary: Binary): Result<number, ParseFloatError> {
 	if (s === "") return Err({ kind: "Empty" });
 	const signed = s[0] === "-" || s[0] === "+";
 	const rest = signed ? s.slice(1) : s;
@@ -391,7 +605,7 @@ export function f64FromStr(s: string): Result<f64, ParseFloatError> {
 		// std stops adding exponent digits once past 0x10000.
 		let exp = 0;
 		for (let i = 0; i < digits.length; i++) if (exp < 0x10000) exp = exp * 10 + digits.charCodeAt(i) - 48;
-		x = nearest(int + frac, (sign === "-" ? -exp : exp) - frac.length);
+		x = nearest(int + frac, (sign === "-" ? -exp : exp) - frac.length, binary);
 	} else if (/^(?:inf|infinity)$/i.test(rest)) {
 		x = Infinity;
 	} else if (/^nan$/i.test(rest)) {
@@ -402,43 +616,54 @@ export function f64FromStr(s: string): Result<f64, ParseFloatError> {
 	return Ok(s[0] === "-" ? -x : x);
 }
 
-/** The double nearest `digits * 10^exp`, half to even. */
-function nearest(digits: string, exp: number): number {
+/** The `binary` float nearest `digits * 10^exp`, half to even. */
+function nearest(digits: string, exp: number, binary: Binary): number {
 	const last = end(digits, "0");
 	const trimmed = digits.slice(0, last).replace(/^0+/, "");
 	if (trimmed === "") return 0;
 	exp += digits.length - last;
 	const n = trimmed.length;
-	// Both operands exact, so the one operation rounds once, as Clinger's fast path does.
-	if (n <= 15 && Math.abs(exp) <= 22) return exp < 0 ? Number(trimmed) / POWERS[-exp] : Number(trimmed) * POWERS[exp];
-	// At least 10^309, or less than half the least subnormal.
-	if (n + exp > 310) return Infinity;
-	if (n + exp < -324) return 0;
+	// Both operands exact in the type, so the one operation rounds once, as Clinger's fast
+	// path does. A double's quotient or product of two singles, rounded to one, is the
+	// single nearest the exact value.
+	if (n <= binary.digits && Math.abs(exp) <= binary.powers) {
+		const x = exp < 0 ? Number(trimmed) / POWERS[-exp] : Number(trimmed) * POWERS[exp];
+		return binary === F32 ? Math.fround(x) : x;
+	}
+	if (n + exp > binary.over) return Infinity;
+	if (n + exp < binary.under) return 0;
 	const big = BigInt(trimmed);
-	return exp < 0 ? quotient(big, 10n ** BigInt(-exp)) : quotient(big * 10n ** BigInt(exp), 1n);
+	return exp < 0 ? quotient(big, 10n ** BigInt(-exp), binary) : quotient(big * 10n ** BigInt(exp), 1n, binary);
 }
 
-/** The double nearest `num / den`, half to even, built from its bits so nothing rounds twice. */
-function quotient(num: bigint, den: bigint): number {
-	const TWO52 = 1n << 52n;
-	// The power of two that leaves a 53-bit significand, or the subnormals' one.
-	let e = Math.max(num.toString(2).length - den.toString(2).length - 53, -1074);
+/** The `binary` float nearest `num / den`, half to even, built from its bits so nothing rounds twice. */
+function quotient(num: bigint, den: bigint, binary: Binary): number {
+	const { bits, bias } = binary;
+	const implicit = 1n << BigInt(bits - 1);
+	// The power of two that leaves a full significand, or the subnormals' one.
+	let e = Math.max(num.toString(2).length - den.toString(2).length - bits, 2 - bias - bits);
 	const divide = (): [bigint, bigint, bigint] => {
 		const [n, d] = e < 0 ? [num << BigInt(-e), den] : [num, den << BigInt(e)];
 		return [n / d, n % d, d];
 	};
 	let [q, r, d] = divide();
-	if (q >= TWO52 << 1n) {
+	if (q >= implicit << 1n) {
 		e++;
 		[q, r, d] = divide();
 	}
 	if (2n * r > d || (2n * r === d && (q & 1n) === 1n)) q++;
-	if (q === TWO52 << 1n) {
-		q = TWO52;
+	if (q === implicit << 1n) {
+		q = implicit;
 		e++;
 	}
-	if (e + 1075 >= 2047) return Infinity;
+	const biased = e + bias + bits - 1;
+	if (biased >= 2 * bias + 1) return Infinity;
+	const field = q < implicit ? q : (BigInt(biased) << BigInt(bits - 1)) | (q - implicit);
 	const view = bytes();
-	view.setBigUint64(0, q < TWO52 ? q : (BigInt(e + 1075) << 52n) | (q - TWO52));
+	if (binary === F32) {
+		view.setUint32(0, Number(field));
+		return view.getFloat32(0);
+	}
+	view.setBigUint64(0, field);
 	return view.getFloat64(0);
 }

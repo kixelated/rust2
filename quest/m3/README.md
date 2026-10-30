@@ -18,7 +18,6 @@ generic std gap is planned here even when moq never calls it.
 - [A raw pointer's staleness bound by its liveness](/quest/m3/ts-pointer-liveness.md) - a pointer dead before its variable is assigned again, as in an earlier loop iteration, translates
 - [Writes into fresh memory before any pointer to it](/quest/m3/ts-fresh-writes.md) - a whole write filling a fresh allocation or `MaybeUninit` before any pointer into it no longer refuses later pointers, as kio's `Segment::new` slots
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
-- [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
@@ -30,9 +29,11 @@ generic std gap is planned here even when moq never calls it.
 - [Set operations](/quest/m3/ts-set-ops.md) - `union`, `intersection`, `difference`, and `symmetric_difference` of hash and B-tree sets translate
 - [References to byte arrays std takes](/quest/m3/ts-byte-refs-taken.md) - `extend` by references to arrays, adaptors' closures over held arrays, and a collection of both forms translate
 - [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - `size_hint` translates, and `Vec`'s collect and extend panic past `isize::MAX` as std's do
-- [Peekable::next_if_eq against another type](/quest/m3/ts-next-if-eq-other.md) - `next_if_eq` with an expected value of another type than the item, such as a `&str` of `String` items, translates
 - [A closure's () result as a value](/quest/m3/ts-unit-closures.md) - a closure returning `()` whose result is a value, as in a `Vec<()>` collected from `map`, type-checks
 - [std accessors with no mapping](/quest/m3/ts-unmapped-accessors.md) - `VecDeque::swap_remove_*`, `HashSet::replace`, `BTreeSet::get`, `take`, and `replace`, `Vec::pop_if`, and `Arc` and `Rc::into_inner` translate
+- [Equality of std containers of unlike elements](/quest/m3/ts-eq-unlike.md) - `==` and `next_if_eq` of a `Vec<Left>` against a `&[Right]`, and of `VecDeque` against `Vec`, translate
+- [Integers' little- and native-endian bytes](/quest/m3/ts-int-ne-bytes.md) - each integer's `from_le_bytes`, `to_ne_bytes`, and `from_ne_bytes` translate
+- [mul_add rounded once](/quest/m3/ts-mul-add.md) - `f64::mul_add` and `f32::mul_add` translate, rounding once as std's fused multiply-add does
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it

@@ -2,9 +2,9 @@
 //! output is written.
 
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
-#![feature(cow_is_borrowed)]
+#![feature(cow_is_borrowed, f16)]
 
-pub fn float(a: f32) -> f32 {
+pub fn float(a: f16) -> f16 {
 	a * 2.0
 }
 
@@ -82,9 +82,9 @@ pub fn statics() -> u8 {
 
 pub struct Meters(pub u64);
 
-pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
+pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f16 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
-	(*t).into() as f32
+	(*t).into() as f16
 }
 
 /// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.
@@ -894,9 +894,24 @@ pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
 	map.into_keys().next().map_or(0, |k| k[0])
 }
 
-/// `next_if_eq` compares the item to another type by `PartialEq<str>`, not the item's own.
-pub fn peeked_str(v: Vec<String>) -> bool {
-	v.into_iter().peekable().next_if_eq("a").is_some()
+/// `next_if_eq` compares by the item's `PartialEq<Vec<u8>>`, which is refused as `==` is.
+pub fn peeked_deque(v: Vec<std::collections::VecDeque<u8>>) -> bool {
+	v.into_iter().peekable().next_if_eq(&vec![1]).is_some()
+}
+
+pub struct Left(pub u16);
+
+pub struct Right(pub u16);
+
+impl PartialEq<Right> for Left {
+	fn eq(&self, other: &Right) -> bool {
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+/// `Vec`s compare by their elements' `PartialEq<Right>`, not by `Left`'s own.
+pub fn unlike_elements(v: Vec<Vec<Left>>, w: &[Right]) -> bool {
+	v.into_iter().peekable().next_if_eq(&w).is_some()
 }
 
 pub struct Plain {
