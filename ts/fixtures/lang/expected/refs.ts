@@ -977,7 +977,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, k);
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(x2)));
 	}
-	const paired: rt.HashMap<[rt.u8, rt.u8], rt.u32> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashInt]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, rt.u8], rt.u32>;
+	const paired: rt.HashMap<[rt.u8, rt.u8], rt.u32> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, rt.u8], rt.u32>;
 	for (const b5 of rt.byteSliceView(data)) {
 		const _507: rt.u32 = b5 as rt.u32;
 		const _511: [rt.u8, rt.u8] = [rt.u8Rem(b5, 3), rt.u8Rem(b5, 2)];

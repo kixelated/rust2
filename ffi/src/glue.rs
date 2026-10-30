@@ -119,6 +119,10 @@ impl Crate<'_> {
 		crate::driver::write(
 			&out.join("kotlin").join(format!("{}.kt", self.abi.prefix)),
 			&kotlin.kotlin,
+		)?;
+		crate::driver::write(
+			&out.join("kotlin").join(format!("{}.pro", self.abi.prefix)),
+			&kotlin.rules,
 		)
 	}
 }

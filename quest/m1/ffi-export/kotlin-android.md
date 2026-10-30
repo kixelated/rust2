@@ -1,22 +1,15 @@
-# [M] Kotlin bindings on Android
+# [XS] Kotlin bindings on Android in the nightly
 
 ## Goal
 
-The generated Kotlin runs on Android, not only the JVM: an app shrunk by R8 keeps the
-methods JNI looks up by name, and an Android emulator run of the Kotlin tests proves it in
-CI.
+The nightly's `Export to Kotlin on Android` job passes: `just ffi android` runs the Kotlin
+test, shrunk by R8 with the generated `<prefix>.pro`, on an x86_64 emulator at API 24 and 35.
 
 ## Plan
 
-Found by [#184](https://github.com/moq-dev/rust2/pull/184) on 2026-10-28, which builds and
-tests the Kotlin on the JVM only.
-
-- R8 and ProGuard rename or strip `Native`'s dispatchers, which the JNI glue finds by name.
-  Ship a keep rule with the generated Kotlin, in the form an Android library consumes
-  (`consumer-rules.pro` or the AAR's `proguard.txt`), and test a minified build with it.
-- The emulator run is slow: put it in the nightly workflow, not the merge gate.
-- Check the Kotlin on the Android API levels moq targets: the daemon thread a phantom
-  reference queue feeds, which frees what nobody closed, and whether a slice of a `Bytes`
-  buffer keeps that buffer reachable on ART, as it does on the JVM.
-
-Public API: the keep rule shipped beside the generated Kotlin.
+- The job landed before any run of its own; it passed on local emulators at both levels.
+  Read the first nightly's run, and fix what it finds at the source, never by loosening
+  the test.
+- Unproven on the runner: KVM after the udev rule, the image's SDK and NDK through
+  `ANDROID_HOME` and `ANDROID_NDK_HOME`, its newest build tools' R8, and `nix develop`
+  inside `android-emulator-runner`'s script.
