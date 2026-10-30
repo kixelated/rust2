@@ -1088,7 +1088,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let Some(local) = destination.as_local() else {
 				continue;
 			};
-			if crate::lower::iter::is_next(tcx, def_id) && self.defs[local] == 1 {
+			// The return place leaves as the `Option` the signature declares, unless this is a
+			// `next` itself, which returns the protocol's item or `rt.DONE` below.
+			if crate::lower::iter::is_next(tcx, def_id) && self.defs[local] == 1 && local != mir::RETURN_PLACE {
 				nexts.push((local, gargs.skip_binder().type_at(0)));
 			}
 			if crate::lower::library::key(tcx, def_id).is_some_and(|(o, n)| o == "Try" && n == "branch")
@@ -1130,7 +1132,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					continue;
 				}
 				self.next_results.insert(to);
-			} else if local != mir::RETURN_PLACE && small_range(tcx, iter_ty) {
+			} else if small_range(tcx, iter_ty) {
 				self.range_nexts.insert(local);
 			}
 			self.next_results.insert(local);

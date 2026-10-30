@@ -791,3 +791,88 @@ impl fmt::Debug for Doubled<'_> {
 		f.debug_list().entries(self.0.iter().map(|&b| b as u16 * 2)).finish()
 	}
 }
+
+/// What std's `Option`-returning calls give, returned as is: an `Option`, whose `None`
+/// stays apart from an item's own.
+pub fn returned(data: &[u8], out: &mut Vec<u8>) {
+	let maybe = |b: &u8| if b % 3 == 0 { None } else { Some(*b) };
+	let push = |b: Option<u8>, out: &mut Vec<u8>| out.push(b.map_or(0xaa, |b| b));
+	let nested = |b: Option<Option<u8>>, out: &mut Vec<u8>| match b {
+		None => out.push(0xbb),
+		Some(None) => out.push(0xcc),
+		Some(Some(b)) => out.push(b),
+	};
+	let n = data.first().map_or(0, |&b| usize::from(b % 4));
+	push(first(data.iter().copied()), out);
+	push(back(data.iter().copied()), out);
+	push(nth(data.iter().copied(), n), out);
+	push(last(data.iter().copied()), out);
+	nested(first(data.iter().map(maybe)), out);
+	nested(back(data.iter().map(maybe)), out);
+	nested(first(Gaps { data, at: n }), out);
+	push(first(Countdown { left: n as u8, step: 1 }), out);
+	let text = std::str::from_utf8(data).unwrap_or("é");
+	out.extend(first(text.chars()).map_or(0, u32::from).to_le_bytes());
+	let mut copied = data.iter().copied();
+	push(by_mut(&mut copied), out);
+	let mut gaps = Gaps { data, at: 0 };
+	nested(by_mut(&mut gaps), out);
+	nested(by_mut(&mut gaps), out);
+	let mut it = data.iter();
+	push(borrowed(&mut it).copied(), out);
+	push(borrowed(&mut it).copied(), out);
+	push(second_of(data).copied(), out);
+	push(from_one(n as u8), out);
+	let mut peekable = data.iter().copied().peekable();
+	push(peeked(&mut peekable).copied(), out);
+	push(at(data, n).copied(), out);
+	let maybes: Vec<Option<u8>> = data.iter().map(maybe).collect();
+	nested(at(&maybes, n).copied(), out);
+}
+
+fn first<I: Iterator>(mut it: I) -> Option<I::Item> {
+	it.next()
+}
+
+fn back<I: DoubleEndedIterator>(mut it: I) -> Option<I::Item> {
+	it.next_back()
+}
+
+fn nth<I: Iterator>(mut it: I, n: usize) -> Option<I::Item> {
+	it.nth(n)
+}
+
+fn last<I: Iterator>(it: I) -> Option<I::Item> {
+	it.last()
+}
+
+/// Through a `&mut` to the iterator.
+fn by_mut<I: Iterator>(it: &mut I) -> Option<I::Item> {
+	it.next()
+}
+
+/// Through a borrow of a std iterator the function is not generic over.
+fn borrowed<'a>(it: &mut std::slice::Iter<'a, u8>) -> Option<&'a u8> {
+	it.next()
+}
+
+/// Of a slice's iterator the function makes.
+fn second_of(data: &[u8]) -> Option<&u8> {
+	let mut it = data.iter();
+	it.next();
+	it.next()
+}
+
+/// Of a small range the function makes.
+fn from_one(n: u8) -> Option<u8> {
+	let mut range = 1..n;
+	range.next()
+}
+
+fn peeked<I: Iterator>(it: &mut std::iter::Peekable<I>) -> Option<&I::Item> {
+	it.peek()
+}
+
+fn at<T>(items: &[T], i: usize) -> Option<&T> {
+	items.get(i)
+}
