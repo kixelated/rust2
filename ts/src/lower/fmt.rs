@@ -274,6 +274,10 @@ pub fn std_impl<'tcx>(
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![library::elements(value, ty), f, item])
 			}
+			(Std::BinaryHeap, Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				rt("list", vec![value.member("d"), f, item])
+			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);
 				let none = b.t.none_arg(args.type_at(0));

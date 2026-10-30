@@ -606,6 +606,31 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, d
 	return item;
 }
 
+/**
+ * `is_sorted_by`: whether `compare` holds of each item and the next, read by `next` and
+ * then as `all` folds, stopping at the first it fails. Each item drops by `drop` as the
+ * next replaces it, or after the one it failed against; then `it`, if `drops`.
+ */
+export function iterIsSortedBy<T>(it: Iter<T>, compare: (a: T, b: T) => boolean, drops = false, drop?: Drop<T>): boolean {
+	let last = it.next();
+	let sorted = true;
+	if (last !== DONE) {
+		const folded = it.folded();
+		for (let item = folded.next(); item !== DONE; item = folded.next()) {
+			if (!compare(last, item)) {
+				drop?.(item);
+				sorted = false;
+				break;
+			}
+			drop?.(last);
+			last = item;
+		}
+		drop?.(last);
+	}
+	if (drops) dispose(it);
+	return sorted;
+}
+
 /** `collect` into a `Vec`, taking `it` as `take` says. */
 export function iterToArray<T>(it: Iter<T>, take?: Take): T[] {
 	const out: T[] = [];

@@ -196,7 +196,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 
 /// `iter`, over the elements of a slice or `Vec` of `elem`s, yielding references to them:
 /// a slice of each array of bytes.
-fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
+pub(super) fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
 	match super::byte_array(elem) {
 		true => Expr::rt("iterMap", vec![iter, Expr::Rt("byteSliceFrom".into())]),
 		false => iter,
@@ -481,6 +481,27 @@ pub fn call<'tcx>(
 			let lt = super::collections::test_fn(b, key, "lt", span);
 			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(item, span)];
 			method(&camel, tail([rest, vec![lt]].concat(), droppers))
+		}
+		// Whether each item and the next are in order: by `PartialOrd::le`, by a comparator,
+		// or by `le` of the keys a function makes, as std's maps to them. Not of places, as
+		// `max` is not.
+		"is_sorted" | "is_sorted_by" | "is_sorted_by_key" => {
+			let (items, compare, each) = match name {
+				"is_sorted_by" => (recv.clone(), rest.into_iter().next()?, item),
+				_ if b.t.has_place(item) => return None,
+				"is_sorted" => (recv.clone(), super::collections::test_fn(b, item, "le", span), item),
+				_ => {
+					let key = targ(2)?;
+					let le = super::collections::test_fn(b, key, "le", span);
+					(
+						Expr::rt("iterMap", vec![recv.clone(), rest.into_iter().next()?]),
+						le,
+						key,
+					)
+				}
+			};
+			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(each, span)];
+			Some(Expr::rt("iterIsSortedBy", tail(vec![items, compare], droppers)))
 		}
 		"rposition" => method(&camel, rest),
 		"rfind" => {

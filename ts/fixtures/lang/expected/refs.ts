@@ -694,7 +694,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const most: rt.Place<rt.u32> | undefined = rt.iterMaxByKey(rt.iterSliceMut(v), (x7: rt.Place<rt.u32>): rt.u32 => {
 		return x7.v;
-	}, rt.cmpLt(rt.cmp));
+	}, rt.lt);
 	if (most !== undefined) {
 		most.v = 0;
 	}

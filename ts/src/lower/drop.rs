@@ -31,8 +31,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				// A guard unlocks its mutex or ends its borrow, and a `Weak` uncounts itself.
-				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard | Std::Ref | Std::RefMut) => true,
+				// A guard unlocks its mutex or ends its borrow, a `Weak` uncounts itself, and a
+				// `PeekMut` sifts what it lent.
+				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard | Std::Ref | Std::RefMut | Std::PeekMut) => {
+					true
+				}
 				Some(
 					Std::Option
 					| Std::Result
@@ -53,6 +56,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::BTreeMap
 					| Std::BTreeSet
 					| Std::VecDeque
+					| Std::BinaryHeap
 					| Std::Bound
 					| Std::TryLockError
 					| Std::Reverse,
@@ -298,6 +302,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
 				Std::BTreeSet => ("btreeDrop", vec![value, each(self, 0)?]),
 				Std::VecDeque => ("dequeDrop", vec![value, each(self, 0)?]),
+				Std::BinaryHeap => ("heapDrop", vec![value, each(self, 0)?]),
+				Std::PeekMut => ("peekMutDrop", vec![value]),
 				// A vacant entry holds the key it was given; an occupied one dropped it as
 				// `entry` found the map's.
 				Std::Entry => match self.tcx.item_name(adt.did()).as_str() {

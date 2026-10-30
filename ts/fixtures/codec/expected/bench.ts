@@ -43,6 +43,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 				stamp(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else if (op === 11) {
 				interleave(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+			} else if (op === 12) {
+				order(selector, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
 			} else {
 				decoded(decodeGroup(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
 			}
@@ -300,6 +302,60 @@ export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.btreeRemove(map, _73);
 	}
 	putU64(out, sum);
+}
+
+/**
+ * `count` integers sorted, sorted by a key, searched for the greatest and least, or
+ * pushed onto a `BinaryHeap` and popped off, as `selector` picks, each by `u32`'s own
+ * `Ord`: the first, middle, and last of the order, or the greatest and least.
+ */
+export function order(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let v: rt.u32[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u64Low(rt.u64Clamp(takeU64(data)[0], 1, 65536))), (i: rt.u32): rt.u32 => {
+		return rt.u32Rem(rt.u32Mul(i, 40503), 1 << 16);
+	}));
+	if (selector === 0) {
+		rt.sliceSort(v, rt.lt);
+	} else if (selector === 1) {
+		rt.sliceSortByKey(v, (_210: rt.u32): rt.u32 => {
+			return rt.u32Rem(_210, 1024);
+		}, rt.lt);
+	} else if (selector === 2) {
+		v = [rt.optionUnwrap(rt.iterMax(rt.iterSlice(v), rt.lt)), rt.optionUnwrap(rt.iterMin(rt.iterSlice(v), rt.lt))];
+	} else if (selector === 3) {
+		const _35: [rt.u32, rt.u32] = rt.iterFold(rt.iterSlice(v), [0, 4294967295] as [rt.u32, rt.u32], (_2: [rt.u32, rt.u32], _33: rt.u32): [rt.u32, rt.u32] => {
+			const hi2: rt.u32 = _2[0];
+			const lo2: rt.u32 = _2[1];
+			const x4: rt.u32 = _33;
+			return [rt.max(hi2, x4), rt.min(lo2, x4)] as [rt.u32, rt.u32];
+		});
+		v = [_35[0], _35[1]];
+	} else {
+		const heap: rt.BinaryHeap<rt.u32> = rt.heapNew() as rt.BinaryHeap<rt.u32>;
+		for (const _47 of rt.replaceIn(v, [])) {
+			rt.heapPush(heap, _47, rt.le);
+		}
+		while (true) {
+			const _53: rt.u32 | undefined = rt.heapPop(heap, rt.le);
+			if (_53 !== undefined) {
+				v.push(_53);
+			} else {
+				break;
+			}
+		}
+	}
+	const _63: rt.u32[] = v;
+	const _61: rt.u32 = _63[rt.idx(_63, 0)];
+	const _66: rt.u32[] = v;
+	const _64: rt.u32 = _66[rt.idx(_66, rt.usizeDiv(v.length, 2))];
+	const _73: rt.u32[] = v;
+	const iter2: rt.Iter<rt.u32> = rt.iterSlice([_61, _64, _73[rt.idx(_73, rt.usizeSub(v.length, 1))]]);
+	while (true) {
+		const _79: rt.u32 | rt.Done = iter2.next();
+		if (_79 === rt.DONE) {
+			break;
+		}
+		putU64(out, _79 as rt.u64);
+	}
 }
 
 /**

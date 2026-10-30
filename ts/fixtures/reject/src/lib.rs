@@ -700,3 +700,13 @@ pub enum Only {
 pub fn dangling_enum() -> bool {
 	unsafe { std::ptr::NonNull::<Only>::dangling().as_ptr().as_ref().is_some() }
 }
+
+/// A heap's `pop` of an item that can be `undefined`: its `None` and `Some(None)` would both be.
+pub fn heap_optional(heap: &mut std::collections::BinaryHeap<Option<u8>>) -> bool {
+	heap.pop().is_some()
+}
+
+/// The places `iter_mut` lends, which the runtime would compare as the objects they are.
+pub fn places_sorted(v: &mut [u8]) -> bool {
+	v.iter_mut().is_sorted()
+}

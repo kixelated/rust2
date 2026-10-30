@@ -103,6 +103,21 @@ export function lt(a: number | Limbs, b: number | Limbs): boolean {
 	return typeof b === "number" ? a.hi < 0 : compare(a, b) < 0;
 }
 
+/** `PartialOrd::le` of integers, by `lt`. */
+export function le(a: number | Limbs, b: number | Limbs): boolean {
+	return !lt(b, a);
+}
+
+/** `PartialOrd::gt` of integers, by `lt`. */
+export function gt(a: number | Limbs, b: number | Limbs): boolean {
+	return lt(b, a);
+}
+
+/** `PartialOrd::ge` of integers, by `lt`. */
+export function ge(a: number | Limbs, b: number | Limbs): boolean {
+	return !lt(a, b);
+}
+
 /** The larger of two integers. */
 export function max(a: number, b: number): number {
 	return a >= b ? a : b;
