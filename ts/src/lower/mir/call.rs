@@ -771,14 +771,38 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let b = self.operand(&args[0].node, span, out);
 				done(Expr::rt("bytesSliceToInclusive", vec![b, end]), true)
 			}
-			// Of bytes only: JS's `copyWithin` would share a `Copy` aggregate Rust copies.
-			("slice", "copy_within") if targ(0).is_some_and(|t| matches!(t.kind(), ty::Uint(ty::UintTy::U8))) => {
+			// A range's bounds taken apart where it is made, or any other's checked as
+			// `slice::range` checks them. A `Copy` aggregate is copied, which JS's
+			// `copyWithin` would share.
+			("slice", "copy_within") => {
+				let elem = targ(0)?;
 				let s = self.operand(&args[0].node, span, out);
 				let s = self.path(s, "slice", out);
-				let (start, end) = self.range_bounds(&args[1].node, targ(1)?, span, out)?;
-				let end = end.unwrap_or_else(|| s.clone().member("length"));
+				let (start, end) = match self.range_bounds(&args[1].node, targ(1)?, span, out) {
+					Some((start, end)) => (start, end.unwrap_or_else(|| s.clone().member("length"))),
+					None => {
+						let range = self.operand(&args[1].node, span, out);
+						let call = library::Call {
+							def_id,
+							args: gargs,
+							span,
+						};
+						let range = crate::lower::collections::bounds(self.b, &call, range);
+						let checked = Expr::rt("boundsRange", vec![range, s.clone().member("length")]);
+						let pair = self.path(checked, "bounds", out);
+						(pair.clone().index(Expr::lit("0")), pair.index(Expr::lit("1")))
+					}
+				};
 				let dest = self.operand(&args[2].node, span, out);
-				done(Expr::rt("byteSliceCopyWithin", vec![s, start, end, dest]), true)
+				let mut values = vec![s, start, end, dest];
+				let f = match elem.kind() {
+					ty::Uint(ty::UintTy::U8) => "byteSliceCopyWithin",
+					_ => {
+						values.extend(self.b.t.copy_fn(elem, span));
+						"sliceCopyWithin"
+					}
+				};
+				done(Expr::rt(f, values), true)
 			}
 			// An integer from an array of bytes made in place: its bytes shifted, no array made.
 			(int, "from_be_bytes") if let Some(int) = int_named(int) => {

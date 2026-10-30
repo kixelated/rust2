@@ -366,4 +366,16 @@ const ranges = [0, 1, 2, 3, 4].flatMap((n) => {
  */
 const reducers = [[], [9], [9, 9], [8, 4, 12, 0x40, 0x80]].map((bytes) => Uint8Array.of(op("iters::reducers"), 0, ...bytes));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...reducers];
+/**
+ * `edits` of each kind over zero to four items, at every three bounds up to one past the
+ * end, so parts are empty, at the end, backwards, and out of bounds.
+ */
+const editsSlicesOp = op("slices::edits");
+const sliceEdits = [0, 1, 2, 3, 4].flatMap((n) =>
+	Array.from({ length: 8 * (n + 2) ** 3 }, (_, i) => {
+		const [kind, a, b, c] = [i % 8, Math.floor(i / 8) % (n + 2), Math.floor(i / 8 / (n + 2)) % (n + 2), Math.floor(i / 8 / (n + 2) ** 2)];
+		return Uint8Array.of(editsSlicesOp, kind, a, b, c, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
+	}),
+);
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...reducers, ...sliceEdits];
