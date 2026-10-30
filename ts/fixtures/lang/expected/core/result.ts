@@ -4,28 +4,28 @@ import * as rt from "../rt.ts";
 import { copy$usize_u8, drop$Result_usize_u8_Arc_dyn_Any } from "../lib.ts";
 import type * as Any from "../core/any.Any.ts";
 
-export function isOkAnd$Result_u8_u16_results_closure5(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {
+export function isOkAnd$0jj0nkw(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {
 	if (self.ok) {
 		return f(self.value);
 	}
 	return false;
 }
 
-export function isErrAnd$Result_u8_u16_results_closure6(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => boolean): boolean {
+export function isErrAnd$0b01a39(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => boolean): boolean {
 	if (self.ok) {
 		return false;
 	}
 	return f(self.error);
 }
 
-export function ok$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.u8 | undefined {
+export function ok$1c77lmd(self: rt.Result<rt.u8, rt.u16>): rt.u8 | undefined {
 	if (self.ok) {
 		return self.value;
 	}
 	return undefined;
 }
 
-export function ok$Result_usize_u8_Arc_dyn_Any(self: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>): [rt.usize, rt.u8] | undefined {
+export function ok$1bbzz6g(self: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>): [rt.usize, rt.u8] | undefined {
 	let _0!: [rt.usize, rt.u8] | undefined;
 	if (self.ok) {
 		_0 = self.value;
@@ -39,259 +39,259 @@ export function ok$Result_usize_u8_Arc_dyn_Any(self: rt.Result<[rt.usize, rt.u8]
 	return _0;
 }
 
-export function err$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.u16 | undefined {
+export function err$05f656d(self: rt.Result<rt.u8, rt.u16>): rt.u16 | undefined {
 	if (self.ok) {
 		return undefined;
 	}
 	return self.error;
 }
 
-export function asRef$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+export function asRef$1glrxiq(self: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return rt.Ok(self.value);
 	}
 	return rt.Err(self.error);
 }
 
-export function map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(self: rt.Result<rt.Arc<[rt.u8, rt.u8]>, rt.Arc<Any.Any>>, op: (a0: rt.Arc<[rt.u8, rt.u8]>) => [rt.usize, rt.u8]): rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>> {
+export function map$1ohuj0g(self: rt.Result<rt.Arc<[rt.u8, rt.u8]>, rt.Arc<Any.Any>>, op: (a0: rt.Arc<[rt.u8, rt.u8]>) => [rt.usize, rt.u8]): rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>> {
 	if (self.ok) {
 		return rt.Ok(copy$usize_u8(op(self.value)));
 	}
 	return rt.Err(self.error);
 }
 
-export function map$Result_Vec_u8_String_Vec_u8_owned_closure6(self: rt.Result<rt.ByteVec, string>, op: (a0: rt.ByteVec) => rt.ByteVec): rt.Result<rt.ByteVec, string> {
+export function map$1qqg34g(self: rt.Result<rt.ByteVec, string>, op: (a0: rt.ByteVec) => rt.ByteVec): rt.Result<rt.ByteVec, string> {
 	if (self.ok) {
 		return rt.Ok(op(self.value));
 	}
 	return self;
 }
 
-export function map$Result_u8_str_u8_library_closure1(self: rt.Result<rt.u8, string>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, string> {
+export function map$1dbyvzi(self: rt.Result<rt.u8, string>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, string> {
 	if (self.ok) {
 		return rt.Ok(op(self.value));
 	}
 	return self;
 }
 
-export function map$Result_u8_u16_u8_options_closure13(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, rt.u16> {
+export function map$132mdj8(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => rt.u8): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return rt.Ok(op(self.value));
 	}
 	return self;
 }
 
-export function mapOr$Result_u8_u16_u8_results_closure7(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+export function mapOr$1mu5bvh(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);
 	}
 	return default_;
 }
 
-export function mapOr$Result_usize_AccessError_u8_locals_closure8(self: rt.Result<rt.usize, never>, default_: rt.u8, f: (a0: rt.usize) => rt.u8): rt.u8 {
+export function mapOr$18ipla0(self: rt.Result<rt.usize, never>, default_: rt.u8, f: (a0: rt.usize) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);
 	}
 	return default_;
 }
 
-export function mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9(self: rt.Result<rt.u8, rt.u16>, default_: (a0: rt.u16) => rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+export function mapOrElse$0jxx67n(self: rt.Result<rt.u8, rt.u16>, default_: (a0: rt.u16) => rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);
 	}
 	return default_(self.error);
 }
 
-export function mapErr$Result_u32s_u8_u16_from(self: rt.Result<rt.u32[], rt.u8>, _: (a0: rt.u8) => rt.u16): rt.Result<rt.u32[], rt.u16> {
+export function mapErr$12w1s5x(self: rt.Result<rt.u32[], rt.u8>, _: (a0: rt.u8) => rt.u16): rt.Result<rt.u32[], rt.u16> {
 	if (self.ok) {
 		return self as rt.Result<rt.u32[], rt.u16>;
 	}
 	return rt.Err(self.error as rt.u16);
 }
 
-export function mapErr$Result_u8_str_u8_library_closure2(self: rt.Result<rt.u8, string>, op: (a0: string) => rt.u8): rt.Result<rt.u8, rt.u8> {
+export function mapErr$0dzqwjy(self: rt.Result<rt.u8, string>, op: (a0: string) => rt.u8): rt.Result<rt.u8, rt.u8> {
 	if (self.ok) {
 		return self as rt.Result<rt.u8, rt.u8>;
 	}
 	return rt.Err(op(self.error));
 }
 
-export function mapErr$Result_u8_u16_u16_results_closure14(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.u16): rt.Result<rt.u8, rt.u16> {
+export function mapErr$1lsqfgi(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.u16): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return self;
 	}
 	return rt.Err(op(self.error));
 }
 
-export function inspect$Result_u8_u16_results_closure12(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => void): rt.Result<rt.u8, rt.u16> {
+export function inspect$07pitc0(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => void): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		f(self.value);
 	}
 	return self;
 }
 
-export function inspectErr$Result_u8_u16_results_closure13(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => void): rt.Result<rt.u8, rt.u16> {
+export function inspectErr$0vdsz1l(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => void): rt.Result<rt.u8, rt.u16> {
 	if (!self.ok) {
 		f(self.error);
 	}
 	return self;
 }
 
-export function unwrapOrDefault$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.u8 {
+export function unwrapOrDefault$1exw7nd(self: rt.Result<rt.u8, rt.u16>): rt.u8 {
 	if (self.ok) {
 		return self.value;
 	}
 	return 0;
 }
 
-export function and$Result_u8_u16_u8(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+export function and$0l7ltae(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return res;
 	}
 	return self;
 }
 
-export function andThen$Result_u8_u16_u8_results_closure3(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+export function andThen$0hd6ik8(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return op(self.value);
 	}
 	return self;
 }
 
-export function or$Result_u8_u16_u16(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+export function or$1xcfx3w(self: rt.Result<rt.u8, rt.u16>, res: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return self;
 	}
 	return res;
 }
 
-export function orElse$Result_u8_u16_u16_results_closure4(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+export function orElse$13ay4um(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return self;
 	}
 	return op(self.error);
 }
 
-export function unwrapOr$Result_i16_i16(self: rt.Result<rt.i16, rt.i16>, default_: rt.i16): rt.i16 {
+export function unwrapOr$1pnwyus(self: rt.Result<rt.i16, rt.i16>, default_: rt.i16): rt.i16 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_i32_i32(self: rt.Result<rt.i32, rt.i32>, default_: rt.i32): rt.i32 {
+export function unwrapOr$0xokg9f(self: rt.Result<rt.i32, rt.i32>, default_: rt.i32): rt.i32 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_i64_i64(self: rt.Result<rt.i64, rt.i64>, default_: rt.i64): rt.i64 {
+export function unwrapOr$1imvcmw(self: rt.Result<rt.i64, rt.i64>, default_: rt.i64): rt.i64 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_i8_i8(self: rt.Result<rt.i8, rt.i8>, default_: rt.i8): rt.i8 {
+export function unwrapOr$06fxvgg(self: rt.Result<rt.i8, rt.i8>, default_: rt.i8): rt.i8 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_isize_isize(self: rt.Result<rt.isize, rt.isize>, default_: rt.isize): rt.isize {
+export function unwrapOr$0gr9tn5(self: rt.Result<rt.isize, rt.isize>, default_: rt.isize): rt.isize {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_str_Utf8Error(self: rt.Result<string, rt.Utf8Error>, default_: string): string {
+export function unwrapOr$01jdcm7(self: rt.Result<string, rt.Utf8Error>, default_: string): string {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u16_TryFromIntError(self: rt.Result<rt.u16, rt.TryFromIntError>, default_: rt.u16): rt.u16 {
+export function unwrapOr$0nhd29g(self: rt.Result<rt.u16, rt.TryFromIntError>, default_: rt.u16): rt.u16 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u16_u16(self: rt.Result<rt.u16, rt.u16>, default_: rt.u16): rt.u16 {
+export function unwrapOr$0hnup9g(self: rt.Result<rt.u16, rt.u16>, default_: rt.u16): rt.u16 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u32_u32(self: rt.Result<rt.u32, rt.u32>, default_: rt.u32): rt.u32 {
+export function unwrapOr$1dnnsw8(self: rt.Result<rt.u32, rt.u32>, default_: rt.u32): rt.u32 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u64_TryFromIntError(self: rt.Result<rt.u64, rt.TryFromIntError>, default_: rt.u64): rt.u64 {
+export function unwrapOr$09i71ei(self: rt.Result<rt.u64, rt.TryFromIntError>, default_: rt.u64): rt.u64 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u64_u64(self: rt.Result<rt.u64, rt.u64>, default_: rt.u64): rt.u64 {
+export function unwrapOr$1k2j44a(self: rt.Result<rt.u64, rt.u64>, default_: rt.u64): rt.u64 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8): rt.u8 {
+export function unwrapOr$0a4h2e7(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8): rt.u8 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_u8_u8(self: rt.Result<rt.u8, rt.u8>, default_: rt.u8): rt.u8 {
+export function unwrapOr$0jmm2jy(self: rt.Result<rt.u8, rt.u8>, default_: rt.u8): rt.u8 {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOr$Result_usize_usize(self: rt.Result<rt.usize, rt.usize>, default_: rt.usize): rt.usize {
+export function unwrapOr$1czbd6g(self: rt.Result<rt.usize, rt.usize>, default_: rt.usize): rt.usize {
 	if (self.ok) {
 		return self.value;
 	}
 	return default_;
 }
 
-export function unwrapOrElse$Result_u8_u16_results_closure11(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.u8): rt.u8 {
+export function unwrapOrElse$1reohq9(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return self.value;
 	}
 	return op(self.error);
 }
 
-export function unwrapOrElse$Result_u8_u8_panics_closure1(self: rt.Result<rt.u8, rt.u8>, op: (a0: rt.u8) => rt.u8): rt.u8 {
+export function unwrapOrElse$009ibtw(self: rt.Result<rt.u8, rt.u8>, op: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return self.value;
 	}
 	return op(self.error);
 }
 
-export function copied$Result_u8_u16(self: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
+export function copied$0ma6p21(self: rt.Result<rt.u8, rt.u16>): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		return rt.Ok(self.value);
 	}
 	return self;
 }
 
-export function clone$Clone_Result_Vec_u8_String(self: rt.Result<rt.ByteVec, string>): rt.Result<rt.ByteVec, string> {
+export function clone$04fntvl(self: rt.Result<rt.ByteVec, string>): rt.Result<rt.ByteVec, string> {
 	if (self.ok) {
 		return rt.Ok(rt.byteVecFrom(rt.byteVecView(self.value)));
 	}

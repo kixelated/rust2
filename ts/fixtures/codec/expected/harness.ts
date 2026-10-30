@@ -10,7 +10,7 @@ import { size, zigzag as varint_zigzag, unzigzag } from "./coding/varint.ts";
 import * as BoundsExceeded from "./coding/varint.BoundsExceeded.ts";
 import * as Form from "./coding/varint.Form.ts";
 import * as Versions from "./coding/version.Versions.ts";
-import { thenSome$bool_u64 } from "./core/bool.ts";
+import { thenSome$1ugl8af } from "./core/bool.ts";
 import type * as SessionError from "./lib.SessionError.ts";
 import * as Group from "./lite/group.Group.ts";
 import * as Probe from "./lite/probe.Probe.ts";
@@ -493,7 +493,7 @@ export function encodeMessages(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const bitrate: rt.u64 = _19[0];
 		const rtt: rt.u64 = takeU64(_19[1])[0];
 		encodeMessage$Group({ subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) }, version, out);
-		encodeMessage$Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: thenSome$bool_u64(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
+		encodeMessage$Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: thenSome$1ugl8af(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
 		const versions: Versions.Versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
 		const buf: rt.ByteVec = new rt.ByteVec();
 		const _45: Form.Form = Form.from$From_Version(version);

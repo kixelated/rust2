@@ -4,7 +4,7 @@ import * as rt from "./rt.ts";
 import * as Pieces from "./buf.Pieces.ts";
 import { panicAdvance } from "./bytes.ts";
 import type * as TryGetError from "./bytes.TryGetError.ts";
-import { unwrapOrElse$Result_unit_TryGetError_copy_to_slice_closure0 } from "./core/result.ts";
+import { unwrapOrElse$1wjueex } from "./core/result.ts";
 
 /**
  * A buffer in pieces with only `Buf`'s required methods, so `copy_to_bytes` is the
@@ -162,7 +162,7 @@ export function hasRemaining$Buf(self: Provided): boolean {
  * This function panics if `self.remaining() < dst.len()`.
  */
 export function copyToSlice$Buf(self: Provided, dst: rt.ByteSlice): void {
-	unwrapOrElse$Result_unit_TryGetError_copy_to_slice_closure0(tryCopyToSlice$Buf(self, dst), (error: TryGetError.TryGetError): void => {
+	unwrapOrElse$1wjueex(tryCopyToSlice$Buf(self, dst), (error: TryGetError.TryGetError): void => {
 		panicAdvance(error);
 	});
 }

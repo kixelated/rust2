@@ -1,7 +1,12 @@
 //! A translated crate: its items, the names they print with, and the files they go to.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::hash::Hasher;
 use std::path::{Path, PathBuf};
+
+use rustc_data_structures::base_n::{CASE_INSENSITIVE, ToBaseN};
+use rustc_data_structures::stable_hash::StableHasher;
+use rustc_hashes::Hash64;
 
 use crate::print;
 use crate::ts::{self, FieldId, Function, Item, SymId};
@@ -205,7 +210,7 @@ impl Program {
 
 	/// Put every item and method in order, and name every symbol and field, resolving
 	/// collisions within each scope in that order.
-	pub fn name(&mut self) {
+	pub fn name(&mut self) -> Result<(), String> {
 		let syms = &self.syms;
 		self.items
 			.sort_by(|a, b| syms[item_sym(a)].key().cmp(&syms[item_sym(b)].key()));
@@ -245,6 +250,9 @@ impl Program {
 			}
 			for id in ids {
 				let sym = &self.syms[id];
+				if self.by_text(id) {
+					continue;
+				}
 				let base = match sym.suffix.is_empty() {
 					true => sym.base.clone(),
 					false => format!("{}${}", sym.base, sym.suffix),
@@ -272,6 +280,69 @@ impl Program {
 				}
 			}
 		}
+		self.name_by_text()
+	}
+
+	/// Whether `id` is an instance of a std function that another could have merged into,
+	/// which is named for its text rather than for its type arguments.
+	fn by_text(&self, id: SymId) -> bool {
+		self.std.contains(&id) && !self.syms[id].suffix.is_empty()
+	}
+
+	/// Name each instance [`Program::by_text`] picks `base$hash`, a hash of its text with
+	/// what it calls by name, so the name is the same whichever of the instances that merged
+	/// into it translation reaches. Those it calls are named first; instances that call each
+	/// other read each other's calls alike.
+	fn name_by_text(&mut self) -> Result<(), String> {
+		let functions: BTreeMap<SymId, &Function> = (self.items.iter())
+			.filter_map(|item| match item {
+				Item::Function(f) if self.by_text(f.sym) => Some((f.sym, f)),
+				_ => None,
+			})
+			.collect();
+		let path = |sym: &Symbol| format!("{}/{}", sym.module.join("/"), sym.name);
+		let mut texts = print::Texts::new(
+			(self.syms.iter().enumerate())
+				.filter(|(_, sym)| !sym.name.is_empty())
+				.map(|(id, sym)| (id, path(sym)))
+				.collect(),
+		);
+		let hash = |texts: &print::Texts, f: &Function| {
+			let mut hasher = StableHasher::new();
+			hasher.write(texts.text(self, f).as_bytes());
+			let hash: Hash64 = hasher.finish();
+			(hash.as_u64() as u32).to_base_fixed_len(CASE_INSENSITIVE).to_string()
+		};
+		let mut names = Vec::new();
+		for group in callees_first(&functions) {
+			for &id in &group {
+				texts.set(id, "recursive".into());
+			}
+			let mut hashes: Vec<String> = group.iter().map(|id| hash(&texts, functions[id])).collect();
+			if group.len() > 1 {
+				for (&id, h) in group.iter().zip(&hashes) {
+					texts.set(id, h.clone());
+				}
+				hashes = group.iter().map(|id| hash(&texts, functions[id])).collect();
+			}
+			for (id, h) in group.into_iter().zip(hashes) {
+				let sym = &self.syms[id];
+				let name = format!("{}${h}", sym.base);
+				texts.set(id, format!("{}/{name}", sym.module.join("/")));
+				names.push((id, name));
+			}
+		}
+		for (id, name) in names {
+			let module = &self.syms[id].module;
+			if self.syms.iter().any(|s| &s.module == module && s.name == name) {
+				return Err(format!(
+					"two functions of {} hash to one name, {name}",
+					module_file(module).display()
+				));
+			}
+			self.syms[id].name = name;
+		}
+		Ok(())
 	}
 
 	/// Write every module, the runtime, and their source maps to `out`.
@@ -345,6 +416,65 @@ impl Program {
 		// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
 		module.last()?.split_once('.')
 	}
+}
+
+/// The strongly connected components of the calls among `functions`, each after those it
+/// calls, by Tarjan's algorithm.
+fn callees_first(functions: &BTreeMap<SymId, &Function>) -> Vec<Vec<SymId>> {
+	#[derive(Default)]
+	struct Walk {
+		index: HashMap<SymId, usize>,
+		low: HashMap<SymId, usize>,
+		stack: Vec<SymId>,
+		on_stack: HashSet<SymId>,
+		groups: Vec<Vec<SymId>>,
+	}
+	fn visit(walk: &mut Walk, calls: &BTreeMap<SymId, Vec<SymId>>, id: SymId) {
+		let index = walk.index.len();
+		walk.index.insert(id, index);
+		walk.low.insert(id, index);
+		walk.stack.push(id);
+		walk.on_stack.insert(id);
+		for &callee in &calls[&id] {
+			if !walk.index.contains_key(&callee) {
+				visit(walk, calls, callee);
+				let low = walk.low[&id].min(walk.low[&callee]);
+				walk.low.insert(id, low);
+			} else if walk.on_stack.contains(&callee) {
+				let low = walk.low[&id].min(walk.index[&callee]);
+				walk.low.insert(id, low);
+			}
+		}
+		if walk.low[&id] == index {
+			let mut group = Vec::new();
+			while let Some(member) = walk.stack.pop() {
+				walk.on_stack.remove(&member);
+				group.push(member);
+				if member == id {
+					break;
+				}
+			}
+			walk.groups.push(group);
+		}
+	}
+	let calls: BTreeMap<SymId, Vec<SymId>> = (functions.iter())
+		.map(|(&id, f)| {
+			let mut callees = Vec::new();
+			ts::syms_mut(&mut f.body.clone(), &mut |callee| {
+				if functions.contains_key(callee) {
+					callees.push(*callee);
+				}
+			});
+			(id, callees)
+		})
+		.collect();
+	let mut walk = Walk::default();
+	for &id in calls.keys() {
+		if !walk.index.contains_key(&id) {
+			visit(&mut walk, &calls, id);
+		}
+	}
+	walk.groups
 }
 
 /// What a function of a module prints as, but for its own name: its item, parameters,

@@ -3,8 +3,8 @@
 import * as rt from "./rt.ts";
 import { copy$dyn_Anys } from "./lib.ts";
 import * as Any from "./core/any.Any.ts";
-import { unwrapOr$Option_Cow_str, unwrapOr$Option_u8, map$Option_Arc_dyn_Shape_u32_shared_closure0, mapOr$Option_u8_Option_u8_anys_closure0 } from "./core/option.ts";
-import { ok$Result_usize_u8_Arc_dyn_Any, map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1 } from "./core/result.ts";
+import { unwrapOr$1iemzn8, unwrapOr$0r2bmpr, map$1i542n2, mapOr$06rr3sb } from "./core/option.ts";
+import { ok$1bbzz6g, map$1ohuj0g } from "./core/result.ts";
 import * as Erased from "./dyns.Erased.ts";
 import type * as Hits from "./dyns.Hits.ts";
 import * as Hook from "./dyns.Hook.ts";
@@ -217,7 +217,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _119: rt.usize = weak.arc.strong;
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _113), (f: rt.Formatter) => rt.usizeDisplay(_119, f)];
 		put(out, rt.fmtFormat([args8[0], " ", args8[1], " "]));
-		const upgraded: rt.u32 | undefined = map$Option_Arc_dyn_Shape_u32_shared_closure0(rt.weakUpgrade(weak), (s: rt.Arc<Shape.Shape>): rt.u32 => {
+		const upgraded: rt.u32 | undefined = map$1i542n2(rt.weakUpgrade(weak), (s: rt.Arc<Shape.Shape>): rt.u32 => {
 			const _0: rt.u32 = s.value.area$Shape();
 			s[Symbol.dispose]();
 			return _0;
@@ -441,7 +441,7 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 			put(out, rt.fmtFormat([args12[0]]));
 			const _189: rt.Place<rt.u8 | undefined> | undefined = _167 instanceof Any.Option_u8 ? _167 : _167 instanceof Any.Option_u8$Place ? _167.v : undefined;
 			if (_189 !== undefined) {
-				_189.v = mapOr$Option_u8_Option_u8_anys_closure0(_189.v, b, (_2: rt.u8): rt.u8 | undefined => {
+				_189.v = mapOr$06rr3sb(_189.v, b, (_2: rt.u8): rt.u8 | undefined => {
 					return undefined;
 				});
 			}
@@ -532,7 +532,7 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_381.ok) {
 			rt.panic("internal error: entered unreachable code");
 		} else {
-			const part7 = ok$Result_usize_u8_Arc_dyn_Any(map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
+			const part7 = ok$1bbzz6g(map$1ohuj0g(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
 				const _02: [rt.usize, rt.u8] = [t.strong, t.value[0]];
 				t[Symbol.dispose]();
 				return _02;
@@ -594,7 +594,7 @@ export function fns(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(_27, f), (f: rt.Formatter) => rt.u8Display(_31, f), (f: rt.Formatter) => rt.u8Display(_35, f)];
 		put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " "]));
 		const part = firstWord((s: string): string => {
-			return unwrapOr$Option_Cow_str(rt.iterToOption(rt.strSplit(s, " ").next()), "");
+			return unwrapOr$1iemzn8(rt.iterToOption(rt.strSplit(s, " ").next()), "");
 		}, "ab cd");
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
 		put(out, rt.fmtFormat([args4[0], " "]));
@@ -625,7 +625,7 @@ export function fns(data: rt.ByteSlice, out: rt.ByteVec): void {
 				break;
 			}
 			const i: rt.usize = _115[0];
-			const y: rt.u8 = _115[1](unwrapOr$Option_u8(rt.byteSliceGet(rt.byteSliceRange(data, 2), i), b));
+			const y: rt.u8 = _115[1](unwrapOr$0r2bmpr(rt.byteSliceGet(rt.byteSliceRange(data, 2), i), b));
 			const _133: rt.u32 = hook.f(y);
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(y, f), (f: rt.Formatter) => rt.u32Display(_133, f)];
 			put(out, rt.fmtFormat([args8[0], ":", args8[1], " "]));

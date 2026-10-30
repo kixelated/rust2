@@ -2,18 +2,18 @@
 
 import * as rt from "./rt.ts";
 import { copy$Result_u32s_u16, copy$u32s } from "./lib.ts";
-import { isSomeAnd$Option_u8_bools_closure0, isNoneOr$Option_u8_options_closure1, unwrapOr$Option_u8, unwrapOrElse$Option_String_owned_closure3, unwrapOrElse$Option_u8_options_closure9, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, unwrapOrDefault$Option_u8, map$Option_u8_String_optionals_closure2_closure0, map$Option_u8_Vec_u8_owned_closure4, map$Option_u8_u32s_owned_closure9, map$Option_u8_u8_elements_closure8, inspect$Option_u8_options_closure11, mapOr$Option_u16_u8_hash_maps_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOrElse$Option_u8_u8_options_closure7_options_closure8, okOr$Option_u32s_u8, okOr$Option_u8_u16, okOr$Option_u8_u8, okOrElse$Option_Vec_u8_String_owned_closure5, okOrElse$Option_u8_u16_options_closure12, and$Option_u8_u8, andThen$Option_u8_u8_options_closure2, filter$Option_String_owned_closure1, filter$Option_u8_combinators_closure0, or$Option_u8, orElse$Option_String_owned_closure2, orElse$Option_u8_options_closure6, xor$Option_u8, zip$Option_u8_u8, clone$Clone_Option_String } from "./core/option.ts";
-import { isOkAnd$Result_u8_u16_results_closure5, isErrAnd$Result_u8_u16_results_closure6, ok$Result_u8_u16, err$Result_u8_u16, asRef$Result_u8_u16, map$Result_Vec_u8_String_Vec_u8_owned_closure6, map$Result_u8_u16_u8_options_closure13, mapOr$Result_u8_u16_u8_results_closure7, mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9, mapErr$Result_u32s_u8_u16_from, mapErr$Result_u8_u16_u16_results_closure14, inspect$Result_u8_u16_results_closure12, inspectErr$Result_u8_u16_results_closure13, unwrapOrDefault$Result_u8_u16, and$Result_u8_u16_u8, andThen$Result_u8_u16_u8_results_closure3, or$Result_u8_u16_u16, orElse$Result_u8_u16_u16_results_closure4, unwrapOr$Result_u8_u16, unwrapOrElse$Result_u8_u16_results_closure11, unwrapOrElse$Result_u8_u8_panics_closure1, copied$Result_u8_u16, clone$Clone_Result_Vec_u8_String } from "./core/result.ts";
+import { isSomeAnd$09tpccf, isNoneOr$1s1o3ss, unwrapOr$0r2bmpr, unwrapOrElse$1badkpb, unwrapOrElse$13moxzl, unwrapOrDefault$165pyh5, unwrapOrDefault$0wx44sw, unwrapOrDefault$1q0ps0j, map$0oc32h1, map$0ejznqm, map$0jg2jop, map$0cs071d, inspect$0sxbahk, mapOr$099335t, mapOr$1surhce, mapOr$0mmpeqx, mapOrElse$1g6d36t, okOr$07zal2e, okOr$0m6xlfp, okOr$1vxk0yk, okOrElse$0awp3vn, okOrElse$1v98j0a, and$06om98g, andThen$17ch833, filter$1855tjj, filter$0v80fk8, or$1loyskh, orElse$05gzawv, orElse$15bv4ho, xor$0kctyix, zip$1deudzj, clone$14nprly } from "./core/option.ts";
+import { isOkAnd$0jj0nkw, isErrAnd$0b01a39, ok$1c77lmd, err$05f656d, asRef$1glrxiq, map$1qqg34g, map$132mdj8, mapOr$1mu5bvh, mapOrElse$0jxx67n, mapErr$12w1s5x, mapErr$1lsqfgi, inspect$07pitc0, inspectErr$0vdsz1l, unwrapOrDefault$1exw7nd, and$0l7ltae, andThen$0hd6ik8, or$1xcfx3w, orElse$13ay4um, unwrapOr$0a4h2e7, unwrapOrElse$1reohq9, unwrapOrElse$009ibtw, copied$0ma6p21, clone$04fntvl } from "./core/result.ts";
 
 /** Run case `kind % 4` over `data`, whose bytes pick each `Some` or `None`, `Ok` or `Err`. */
 export function combinators(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const a: rt.u8 | undefined = filter$Option_u8_combinators_closure0(rt.byteSliceFirst(data), (x: rt.u8): boolean => {
+	const a: rt.u8 | undefined = filter$0v80fk8(rt.byteSliceFirst(data), (x: rt.u8): boolean => {
 		return rt.u8Rem(x, 3) !== 0;
 	});
-	const b: rt.u8 | undefined = filter$Option_u8_combinators_closure0(rt.byteSliceGet(data, 1), (x2: rt.u8): boolean => {
+	const b: rt.u8 | undefined = filter$0v80fk8(rt.byteSliceGet(data, 1), (x2: rt.u8): boolean => {
 		return rt.u8Rem(x2, 5) !== 0;
 	});
-	const limit: rt.u8 = unwrapOr$Option_u8(rt.byteSliceGet(data, 2), 128);
+	const limit: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceGet(data, 2), 128);
 	const _13: rt.u8 = rt.u8Rem(kind, 4);
 	if (_13 === 0) {
 		options(a, b, limit, out);
@@ -27,29 +27,29 @@ export function combinators(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): v
 }
 
 export function options(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8, out: rt.ByteVec): void {
-	rt.byteVecPush(out, isSomeAnd$Option_u8_bools_closure0(a, (x: rt.u8): boolean => {
+	rt.byteVecPush(out, isSomeAnd$09tpccf(a, (x: rt.u8): boolean => {
 		rt.byteVecPush(out, 160);
 		return x > limit;
 	}) ? 1 : 0);
-	rt.byteVecPush(out, isNoneOr$Option_u8_options_closure1(b, (x2: rt.u8): boolean => {
+	rt.byteVecPush(out, isNoneOr$1s1o3ss(b, (x2: rt.u8): boolean => {
 		rt.byteVecPush(out, 161);
 		return x2 < limit;
 	}) ? 1 : 0);
-	rt.byteVecPush(out, unwrapOr$Option_u8(andThen$Option_u8_u8_options_closure2(andThen$Option_u8_u8_options_closure2(a, (x3: rt.u8): rt.u8 | undefined => {
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(andThen$17ch833(andThen$17ch833(a, (x3: rt.u8): rt.u8 | undefined => {
 		return rt.u8CheckedAdd(x3, limit);
 	}), (x4: rt.u8): rt.u8 | undefined => {
 		rt.byteVecPush(out, 162);
-		return map$Option_u8_u8_elements_closure8(b, (y: rt.u8): rt.u8 => {
+		return map$0cs071d(b, (y: rt.u8): rt.u8 => {
 			return x4 ^ y;
 		});
 	}), 238));
-	rt.byteVecPush(out, mapOr$Option_u8_u8_btree_maps_closure5(filter$Option_u8_combinators_closure0(a, (x5: rt.u8): boolean => {
+	rt.byteVecPush(out, mapOr$1surhce(filter$0v80fk8(a, (x5: rt.u8): boolean => {
 		rt.byteVecPush(out, 163);
 		return x5 > limit;
 	}), 221, (x6: rt.u8): rt.u8 => {
 		return rt.u8Div(x6, 3);
 	}));
-	rt.byteVecPush(out, mapOrElse$Option_u8_u8_options_closure7_options_closure8(orElse$Option_u8_options_closure6(a, (): rt.u8 | undefined => {
+	rt.byteVecPush(out, mapOrElse$1g6d36t(orElse$15bv4ho(a, (): rt.u8 | undefined => {
 		rt.byteVecPush(out, 164);
 		return b;
 	}), (): rt.u8 => {
@@ -58,19 +58,19 @@ export function options(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 	}, (x7: rt.u8): rt.u8 => {
 		return rt.u8WrappingAdd(x7, 3);
 	}));
-	rt.byteVecPush(out, unwrapOrDefault$Option_u8(xor$Option_u8(a, b)));
-	rt.byteVecPush(out, unwrapOrElse$Option_u8_options_closure9(and$Option_u8_u8(a, b), (): rt.u8 => {
+	rt.byteVecPush(out, unwrapOrDefault$1q0ps0j(xor$0kctyix(a, b)));
+	rt.byteVecPush(out, unwrapOrElse$13moxzl(and$06om98g(a, b), (): rt.u8 => {
 		rt.byteVecPush(out, 166);
 		return 187;
 	}));
-	rt.byteVecPush(out, unwrapOr$Option_u8(or$Option_u8(a, b), 170));
-	rt.byteVecPush(out, mapOr$Option_u8_u8_u8_btree_maps_closure0(zip$Option_u8_u8(a, b), 0, (_2: [rt.u8, rt.u8]): rt.u8 => {
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(or$1loyskh(a, b), 170));
+	rt.byteVecPush(out, mapOr$0mmpeqx(zip$1deudzj(a, b), 0, (_2: [rt.u8, rt.u8]): rt.u8 => {
 		return rt.u8WrappingAdd(_2[0], _2[1]);
 	}));
-	rt.byteVecPush(out, inspect$Option_u8_options_closure11(a, (x9: rt.u8): void => {
+	rt.byteVecPush(out, inspect$0sxbahk(a, (x9: rt.u8): void => {
 		rt.byteVecPush(out, x9);
 	}) !== undefined ? 1 : 0);
-	push(map$Result_u8_u16_u8_options_closure13(okOrElse$Option_u8_u16_options_closure12(b, (): rt.u16 => {
+	push(map$132mdj8(okOrElse$1v98j0a(b, (): rt.u16 => {
 		rt.byteVecPush(out, 167);
 		return (((limit as rt.u16)) << 1) & 0xffff;
 	}), (x10: rt.u8): rt.u8 => {
@@ -79,19 +79,19 @@ export function options(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 }
 
 export function results(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8, out: rt.ByteVec): void {
-	const r: rt.Result<rt.u8, rt.u16> = okOr$Option_u8_u16(a, rt.u16Mul(limit as rt.u16, 3));
-	const s: rt.Result<rt.u8, rt.u16> = okOrElse$Option_u8_u16_options_closure12(b, (): rt.u16 => {
+	const r: rt.Result<rt.u8, rt.u16> = okOr$0m6xlfp(a, rt.u16Mul(limit as rt.u16, 3));
+	const s: rt.Result<rt.u8, rt.u16> = okOrElse$1v98j0a(b, (): rt.u16 => {
 		return 511;
 	});
-	push(mapErr$Result_u8_u16_u16_results_closure14(map$Result_u8_u16_u8_options_closure13(r, (x: rt.u8): rt.u8 => {
+	push(mapErr$1lsqfgi(map$132mdj8(r, (x: rt.u8): rt.u8 => {
 		rt.byteVecPush(out, 177);
 		return rt.u8WrappingAdd(x, limit);
 	}), (e: rt.u16): rt.u16 => {
 		rt.byteVecPush(out, 178);
 		return rt.u16WrappingAdd(e, 1);
 	}), out);
-	push(orElse$Result_u8_u16_u16_results_closure4(andThen$Result_u8_u16_u8_results_closure3(r, (x2: rt.u8): rt.Result<rt.u8, rt.u16> => {
-		return okOr$Option_u8_u16(rt.u8CheckedMul(x2, limit), 7);
+	push(orElse$13ay4um(andThen$0hd6ik8(r, (x2: rt.u8): rt.Result<rt.u8, rt.u16> => {
+		return okOr$0m6xlfp(rt.u8CheckedMul(x2, limit), 7);
 	}), (e2: rt.u16): rt.Result<rt.u8, rt.u16> => {
 		rt.byteVecPush(out, 179);
 		if (rt.u16Rem(e2, 2) === 0) {
@@ -99,35 +99,35 @@ export function results(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 		}
 		return rt.Err(e2);
 	}), out);
-	rt.byteVecPush(out, isOkAnd$Result_u8_u16_results_closure5(r, (v: rt.u8): boolean => {
+	rt.byteVecPush(out, isOkAnd$0jj0nkw(r, (v: rt.u8): boolean => {
 		return v > 3;
 	}) ? 1 : 0);
-	rt.byteVecPush(out, isErrAnd$Result_u8_u16_results_closure6(s, (e3: rt.u16): boolean => {
+	rt.byteVecPush(out, isErrAnd$0b01a39(s, (e3: rt.u16): boolean => {
 		rt.byteVecPush(out, 180);
 		return e3 > 256;
 	}) ? 1 : 0);
-	rt.byteVecPush(out, mapOr$Result_u8_u16_u8_results_closure7(r, 17, (v2: rt.u8): rt.u8 => {
+	rt.byteVecPush(out, mapOr$1mu5bvh(r, 17, (v2: rt.u8): rt.u8 => {
 		return rt.u8Div(v2, 2);
 	}));
-	rt.byteVecPush(out, mapOrElse$Result_u8_u16_u8_results_closure8_results_closure9(s, (e4: rt.u16): rt.u8 => {
+	rt.byteVecPush(out, mapOrElse$0jxx67n(s, (e4: rt.u16): rt.u8 => {
 		return e4 & 0xff;
 	}, (v3: rt.u8): rt.u8 => {
 		return v3 ^ 85;
 	}));
-	rt.byteVecPush(out, unwrapOr$Option_u8(ok$Result_u8_u16(r), 0));
-	rt.byteVecPush(out, mapOr$Option_u16_u8_hash_maps_closure0(err$Result_u8_u16(s), 0, (e5: rt.u16): rt.u8 => {
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(ok$1c77lmd(r), 0));
+	rt.byteVecPush(out, mapOr$099335t(err$05f656d(s), 0, (e5: rt.u16): rt.u8 => {
 		return (e5 >> 8) & 0xff;
 	}));
-	rt.byteVecPush(out, unwrapOrDefault$Result_u8_u16(and$Result_u8_u16_u8(r, s)));
-	rt.byteVecPush(out, unwrapOrElse$Result_u8_u16_results_closure11(or$Result_u8_u16_u16(r, s), (e6: rt.u16): rt.u8 => {
+	rt.byteVecPush(out, unwrapOrDefault$1exw7nd(and$0l7ltae(r, s)));
+	rt.byteVecPush(out, unwrapOrElse$1reohq9(or$1xcfx3w(r, s), (e6: rt.u16): rt.u8 => {
 		return e6 & 0xff;
 	}));
-	rt.byteVecPush(out, inspectErr$Result_u8_u16_results_closure13(inspect$Result_u8_u16_results_closure12(s, (v4: rt.u8): void => {
+	rt.byteVecPush(out, inspectErr$0vdsz1l(inspect$07pitc0(s, (v4: rt.u8): void => {
 		rt.byteVecPush(out, v4);
 	}), (e7: rt.u16): void => {
 		rt.byteVecPush(out, e7 & 0xff);
 	}).ok ? 1 : 0);
-	rt.byteVecPush(out, unwrapOr$Result_u8_u16(copied$Result_u8_u16(mapErr$Result_u8_u16_u16_results_closure14(asRef$Result_u8_u16(r), (e8: rt.u16): rt.u16 => {
+	rt.byteVecPush(out, unwrapOr$0a4h2e7(copied$0ma6p21(mapErr$1lsqfgi(asRef$1glrxiq(r), (e8: rt.u16): rt.u16 => {
 		return e8;
 	})), 34));
 }
@@ -135,31 +135,31 @@ export function results(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 /** Values JS shares where Rust clones or moves them. */
 export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVec): void {
 	let matched!: rt.Result<rt.u32[], rt.u16>;
-	const s: string | undefined = map$Option_u8_String_optionals_closure2_closure0(a, (x2: rt.u8): string => {
+	const s: string | undefined = map$0oc32h1(a, (x2: rt.u8): string => {
 		return rt.fmtToString((f: rt.Formatter) => rt.u8Display(x2, f));
 	});
-	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(unwrapOrDefault$Option_String(filter$Option_String_owned_closure1(clone$Clone_Option_String(s), (s2: string): boolean => {
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(unwrapOrDefault$165pyh5(filter$1855tjj(clone$14nprly(s), (s2: string): boolean => {
 		return rt.stringLen(s2) > 1;
 	}))));
 	rt.byteVecPush(out, 124);
-	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(unwrapOrElse$Option_String_owned_closure3(orElse$Option_String_owned_closure2(s, (): string | undefined => {
-		return map$Option_u8_String_optionals_closure2_closure0(b, (y2: rt.u8): string => {
+	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(unwrapOrElse$1badkpb(orElse$05gzawv(s, (): string | undefined => {
+		return map$0oc32h1(b, (y2: rt.u8): string => {
 			return rt.fmtToString((f: rt.Formatter) => rt.u8Display(y2, f));
 		});
 	}), (): string => {
 		return "-";
 	})));
 	rt.byteVecPush(out, 124);
-	const v: rt.Result<rt.ByteVec, string> = okOrElse$Option_Vec_u8_String_owned_closure5(map$Option_u8_Vec_u8_owned_closure4(a, (x3: rt.u8): rt.ByteVec => {
+	const v: rt.Result<rt.ByteVec, string> = okOrElse$0awp3vn(map$0ejznqm(a, (x3: rt.u8): rt.ByteVec => {
 		return rt.byteVecOf(x3, 2);
 	}), (): string => {
 		return "none";
 	});
-	const copy: rt.Result<rt.ByteVec, string> = clone$Clone_Result_Vec_u8_String(v);
+	const copy: rt.Result<rt.ByteVec, string> = clone$04fntvl(v);
 	if (copy.ok) {
 		rt.byteVecPush(copy.value, 7);
 	}
-	const grown: rt.Result<rt.ByteVec, string> = map$Result_Vec_u8_String_Vec_u8_owned_closure6(clone$Clone_Result_Vec_u8_String(v), (v3: rt.ByteVec): rt.ByteVec => {
+	const grown: rt.Result<rt.ByteVec, string> = map$1qqg34g(clone$04fntvl(v), (v3: rt.ByteVec): rt.ByteVec => {
 		rt.byteVecPush(v3, 9);
 		return v3;
 	});
@@ -177,15 +177,15 @@ export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVe
 		}
 		rt.byteVecPush(out, 124);
 	}
-	rt.byteVecPush(out, unwrapOrDefault$Option_Vec_u8(map$Option_u8_Vec_u8_owned_closure4(filter$Option_u8_combinators_closure0(b, (y3: rt.u8): boolean => {
+	rt.byteVecPush(out, unwrapOrDefault$0wx44sw(map$0ejznqm(filter$0v80fk8(b, (y3: rt.u8): boolean => {
 		return rt.u8Rem(y3, 2) === 0;
 	}), (y4: rt.u8): rt.ByteVec => {
 		return rt.byteVecFrom(Uint8Array.of(y4));
 	})).length & 0xff);
-	const pair: rt.Result<rt.u32[], rt.u8> = okOr$Option_u32s_u8(map$Option_u8_u32s_owned_closure9(a, (x4: rt.u8): rt.u32[] => {
+	const pair: rt.Result<rt.u32[], rt.u8> = okOr$07zal2e(map$0jg2jop(a, (x4: rt.u8): rt.u32[] => {
 		return [x4 as rt.u32, 2];
 	}), 3);
-	const wide: rt.Result<rt.u32[], rt.u16> = copy$Result_u32s_u16(mapErr$Result_u32s_u8_u16_from(pair, (a0: rt.u8): rt.u16 => {
+	const wide: rt.Result<rt.u32[], rt.u16> = copy$Result_u32s_u16(mapErr$12w1s5x(pair, (a0: rt.u8): rt.u16 => {
 		return a0 as rt.u16;
 	}));
 	if (wide.ok) {
@@ -199,7 +199,7 @@ export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVe
 	if (matched.ok) {
 		matched.value[1] = 8;
 	}
-	const iter2: rt.Iter<rt.Result<rt.u32[], rt.u16>> = rt.iterSlice([copy$Result_u32s_u16(mapErr$Result_u32s_u8_u16_from(pair, (a02: rt.u8): rt.u16 => {
+	const iter2: rt.Iter<rt.Result<rt.u32[], rt.u16>> = rt.iterSlice([copy$Result_u32s_u16(mapErr$12w1s5x(pair, (a02: rt.u8): rt.u16 => {
 		return a02 as rt.u16;
 	})), copy$Result_u32s_u16(wide), copy$Result_u32s_u16(matched)]);
 	while (true) {
@@ -218,14 +218,14 @@ export function owned(a: rt.u8 | undefined, b: rt.u8 | undefined, out: rt.ByteVe
 
 /** A panic inside a closure std calls. */
 export function panics(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8, out: rt.ByteVec): void {
-	rt.byteVecPush(out, unwrapOr$Option_u8(andThen$Option_u8_u8_options_closure2(a, (x: rt.u8): rt.u8 | undefined => {
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(andThen$17ch833(a, (x: rt.u8): rt.u8 | undefined => {
 		if (!(x === limit)) {
 			return b;
 		}
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(x, f)];
 		rt.panicFmt(["closure saw ", args2[0]]);
 	}), 1));
-	rt.byteVecPush(out, unwrapOrElse$Result_u8_u8_panics_closure1(okOr$Option_u8_u8(b, limit), (e: rt.u8): rt.u8 => {
+	rt.byteVecPush(out, unwrapOrElse$009ibtw(okOr$1vxk0yk(b, limit), (e: rt.u8): rt.u8 => {
 		if (rt.u8Rem(e, 4) === 0) {
 			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(e, f)];
 			rt.panicFmt(["error ", args4[0]]);

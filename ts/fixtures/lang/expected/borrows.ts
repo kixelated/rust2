@@ -4,7 +4,7 @@ import * as rt from "./rt.ts";
 import { copy$Option_u64_u64, copy$u64_u64 } from "./lib.ts";
 import * as Noisy from "./borrows.Noisy.ts";
 import * as Polling from "./borrows.Polling.ts";
-import { mapOr$Option_Noisy_u8_borrows_closure0, mapOr$Option_u64_u64_u8_borrows_closure1 } from "./core/option.ts";
+import { mapOr$0qqbaqw, mapOr$0ucbp7g } from "./core/option.ts";
 
 /**
  * Each byte an operation on the cells, its value the operand; each puts what it read and
@@ -36,7 +36,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.cellSet(noisy, _56, rt.drop);
 		} else if (_25 === 4) {
 			const taken: Noisy.Noisy | undefined = rt.cellReplace(noisy, undefined);
-			rt.byteVecPush(out, mapOr$Option_Noisy_u8_borrows_closure0(taken, 253, (n: Noisy.Noisy): rt.u8 => {
+			rt.byteVecPush(out, mapOr$0qqbaqw(taken, 253, (n: Noisy.Noisy): rt.u8 => {
 				return n.id;
 			}));
 			rt.drop(taken);
@@ -46,7 +46,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _74: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(polling.held);
 			rt.byteVecPush(_74.value, op);
 			rt.refMutRelease(_74);
-			rt.byteVecPush(out, mapOr$Option_u64_u64_u8_borrows_closure1(outer, 253, (_2: [rt.u64, rt.u64]): rt.u8 => {
+			rt.byteVecPush(out, mapOr$0ucbp7g(outer, 253, (_2: [rt.u64, rt.u64]): rt.u8 => {
 				return rt.u64Low(_2[0]) & 0xff;
 			}));
 			const _83: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(polling.held);
@@ -99,7 +99,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		flush(log.value, out);
 	}
 	rt.byteVecPush(out, count.v & 0xff);
-	rt.byteVecPush(out, mapOr$Option_u64_u64_u8_borrows_closure1(copy$Option_u64_u64(polling.current.v), 253, (_22: [rt.u64, rt.u64]): rt.u8 => {
+	rt.byteVecPush(out, mapOr$0ucbp7g(copy$Option_u64_u64(polling.current.v), 253, (_22: [rt.u64, rt.u64]): rt.u8 => {
 		return rt.u64Low(rt.u64Add(_22[0], _22[1])) & 0xff;
 	}));
 	noisy[Symbol.dispose]();
