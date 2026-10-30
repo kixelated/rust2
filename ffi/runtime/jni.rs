@@ -436,9 +436,31 @@ impl<'a> Reader<'a> {
 	}
 }
 
+thread_local! {
+	/// The buffer a writer encodes into, kept between calls so a result allocates nothing
+	/// but its `byte[]`.
+	static SCRATCH: Cell<Vec<u8>> = const { Cell::new(Vec::new()) };
+}
+
 /// Values encoded into a `byte[]` for Kotlin.
-#[derive(Default)]
 pub struct Writer(Vec<u8>);
+
+impl Default for Writer {
+	fn default() -> Self {
+		Self(SCRATCH.try_with(Cell::take).unwrap_or_default())
+	}
+}
+
+impl Drop for Writer {
+	fn drop(&mut self) {
+		let mut buf = std::mem::take(&mut self.0);
+		// A large one is let go, so no thread keeps the biggest value it ever returned.
+		if buf.capacity() <= 4096 {
+			buf.clear();
+			let _ = SCRATCH.try_with(|scratch| scratch.set(buf));
+		}
+	}
+}
 
 impl Writer {
 	pub fn put<T: Wire>(&mut self, value: T) {
