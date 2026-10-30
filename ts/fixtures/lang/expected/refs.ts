@@ -871,8 +871,8 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_363 === rt.DONE) {
 			break;
 		}
-		let o4: [rt.u8, rt.u8] | undefined = copy$Option_u8_u8(_363);
-		const iter22: rt.Iter<[rt.u8, rt.u8]> = rt.iterOption(rt.place(() => o4, (value6) => o4 = value6).v);
+		const o4: [rt.u8, rt.u8] | undefined = copy$Option_u8_u8(_363);
+		const iter22: rt.Iter<[rt.u8, rt.u8]> = rt.iterOption(o4);
 		while (true) {
 			const _371: [rt.u8, rt.u8] | rt.Done = iter22.next();
 			if (_371 === rt.DONE) {
@@ -880,7 +880,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			_371[0] = _371[0] ^ 90;
 		}
-		rt.byteVecPush(out, rt.iterCount(rt.iterOption(rt.place(() => o4, (value7) => o4 = value7).v)) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.iterOption(o4)) & 0xff);
 		rt.byteVecPush(out, mapOr$Option_u8_u8_u8_btree_maps_closure0(o4, 238, (p: [rt.u8, rt.u8]): rt.u8 => {
 			return p[0];
 		}));
@@ -1157,6 +1157,21 @@ export function callTwice$to_refs_closure3$2(f: (a0: rt.u8) => rt.u8): rt.u8 {
 	return rt.u8WrappingAdd(f(1), f(2));
 }
 
+/** Called once, through std's `FnOnce` for `&mut F` when `f` is one. */
+export function callOnce$to_refs_closure3(f: rt.Place<rt.Place<(a0: rt.u8) => rt.u8>>): rt.u8 {
+	return f.v.v(3);
+}
+
+/** Called once, through std's `FnOnce` for `&mut F` when `f` is one. */
+export function callOnce$to_refs_closure3$2(f: rt.Place<(a0: rt.u8) => rt.u8>): rt.u8 {
+	return f.v(3);
+}
+
+/** Called once, through std's `FnOnce` for `&mut F` when `f` is one. */
+export function callOnce$to_refs_closure3$3(f: (a0: rt.u8) => rt.u8): rt.u8 {
+	return f(3);
+}
+
 /**
  * A `&mut` to a reference: replaced, read, and written through, held, passed on, swapped,
  * and through an impl that forwards a trait through `&mut T`.
@@ -1274,6 +1289,12 @@ export function toRefs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, callTwice$to_refs_closure3$2(counted));
 		let _234: (a0: rt.u8) => rt.u8 = counted;
 		rt.byteVecPush(out, callTwice$to_refs_closure3(rt.place(() => _234, (value15) => _234 = value15)));
+		rt.byteVecPush(out, callOnce$to_refs_closure3$3(counted));
+		let _241: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callOnce$to_refs_closure3$2(rt.place(() => _241, (value16) => _241 = value16)));
+		let _246: (a0: rt.u8) => rt.u8 = counted;
+		let _245: rt.Place<(a0: rt.u8) => rt.u8> = rt.place(() => _246, (value17) => _246 = value17);
+		rt.byteVecPush(out, callOnce$to_refs_closure3(rt.place(() => _245, (value18) => _245 = value18)));
 	}
 }
 

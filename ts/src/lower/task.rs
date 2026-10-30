@@ -42,14 +42,16 @@ impl<'tcx> Translator<'_, 'tcx> {
 
 impl<'tcx> Body<'_, '_, 'tcx> {
 	/// `value`, a `from` coerced to `to`, which points at a `dyn Future` through
-	/// references, boxes, and pins, whose JS value is what they point at.
+	/// references, boxes, and pins, whose JS value is what they point at, or an `rt.Place`
+	/// of it for a `&mut` to a reference.
 	pub fn dyn_future(&mut self, from: Ty<'tcx>, to: Ty<'tcx>, value: Expr, span: Span) -> Expr {
 		let tcx = self.t.tcx;
-		let (mut pointee, mut target, mut borrowed) = (from, to, false);
+		let (mut pointee, mut target, mut borrowed, mut value) = (from, to, false, value);
 		while !matches!(target.kind(), ty::Dynamic(..)) {
 			(pointee, target) = match (pointee.kind(), target.kind()) {
 				(ty::Ref(_, a, _), ty::Ref(_, b, _)) => {
 					borrowed = true;
+					value = self.t.pointee_value(pointee, value);
 					(*a, *b)
 				}
 				(ty::Adt(a, a_args), ty::Adt(b, b_args))
@@ -73,13 +75,9 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		let tcx = self.t.tcx;
 		let object = match from.kind() {
 			ty::Dynamic(..) | ty::Coroutine(..) => true,
-			// What a reference or a box points at, which its JS value is, but for a `&mut` to a
-			// reference, which is an `rt.Place` of it.
+			// What a reference or a box points at, which its JS value is, or an `rt.Place` of.
 			ty::Ref(_, inner, _) => {
-				let value = match self.t.place_pointee(from).is_some_and(|t| t.is_ref()) {
-					true => value.member("v"),
-					false => value,
-				};
+				let value = self.t.pointee_value(from, value);
 				return self.future_object(*inner, value, true, dropped, span);
 			}
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {

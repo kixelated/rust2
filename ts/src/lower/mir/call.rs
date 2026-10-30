@@ -299,15 +299,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
-			// A `&mut` to a function JS copies, such as a box of one, is its place: call what is
-			// there, through each `&mut` std's impls for one forward through.
+			// A `&mut` to a function JS copies, such as a box of one, or to a reference to one, as
+			// std's impls for a `&mut` forward through, is its place: call what is there.
+			let mut through = callee.node.ty(&self.mir.local_decls, tcx);
 			let mut f = match callee.node.place() {
-				Some(p) if self.b.t.place_pointee(p.ty(&self.mir.local_decls, tcx).ty).is_some() => {
+				Some(p) if let Some(pointee) = self.b.t.place_pointee(through) => {
+					through = pointee;
 					self.place_expr(tcx.mk_place_deref(p), span, out)
 				}
 				_ => self.operand(&callee.node, span, out),
 			};
-			let mut through = callee_ty;
 			while let Some(inner) = self.b.t.place_pointee(through) {
 				f = f.member("v");
 				through = inner;

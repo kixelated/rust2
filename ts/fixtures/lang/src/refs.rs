@@ -770,6 +770,11 @@ fn call_twice<F: FnMut(u8) -> u8>(mut f: F) -> u8 {
 	f(1).wrapping_add(f(2))
 }
 
+/// Called once, through std's `FnOnce` for `&mut F` when `f` is one.
+fn call_once<F: FnOnce(u8) -> u8>(f: F) -> u8 {
+	f(3)
+}
+
 /// A `&mut` to a reference: replaced, read, and written through, held, passed on, swapped,
 /// and through an impl that forwards a trait through `&mut T`.
 pub fn to_refs(data: &[u8], out: &mut Vec<u8>) {
@@ -865,4 +870,7 @@ pub fn to_refs(data: &[u8], out: &mut Vec<u8>) {
 	};
 	out.push(call_twice(&mut counted));
 	out.push(call_twice(&mut &mut counted));
+	out.push(call_once(&mut counted));
+	out.push(call_once(&mut &mut counted));
+	out.push(call_once(&mut &mut &mut counted));
 }
