@@ -2,10 +2,10 @@
 //! in a function, as kio's `waiter` keeps its ids, starting from a value of the type's
 //! extremes. Statics of any type, read from the memory rustc evaluated: a struct holding
 //! an atomic, an `AtomicPtr` as parking_lot keeps its table in, std's `OnceLock` and
-//! `LazyLock`, and one pointing at a static declared after it; and `const`s holding
-//! cells, each use of which is a value of its own, as lock_api's `RawMutex::INIT` is. Each
-//! case leaves every static as it found it, or reads only what it holds whatever ran
-//! before, so a fresh instance and a reused one agree.
+//! `LazyLock`, and one pointing at a static of a module that reads it back; and `const`s
+//! holding cells, each use of which is a value of its own, as lock_api's `RawMutex::INIT`
+//! is. Each case leaves every static as it found it, or reads only what it holds whatever
+//! ran before, so a fresh instance and a reused one agree.
 
 use std::cell::LazyCell;
 use std::mem::MaybeUninit;
@@ -96,10 +96,20 @@ static COUNTER: Counter = Counter {
 	state: Some((9, 'z')),
 };
 
-/// A static that points at one declared after it, so is made after it.
-static SHARED: &AtomicU8 = &LATER;
+/// A static pointing at one of a module that reads it back, so each module imports the other.
+static SHARED: &AtomicU8 = &elsewhere::LATER;
 
-static LATER: AtomicU8 = AtomicU8::new(40);
+mod elsewhere {
+	use std::sync::atomic::AtomicU8;
+	use std::sync::atomic::Ordering::Relaxed;
+
+	pub static LATER: AtomicU8 = AtomicU8::new(40);
+
+	/// Through the static that points here.
+	pub fn read() -> u8 {
+		super::SHARED.load(Relaxed)
+	}
+}
 
 /// A lock's state as lock_api's `RawMutex::INIT` holds it: every use a lock of its own.
 struct Raw {
@@ -218,8 +228,12 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 			}
 			7 if n % 2 == 0 => {
 				// One atomic, through either static.
-				out.extend([SHARED.fetch_add(n, Relaxed), LATER.load(Relaxed)]);
-				LATER.store(40, Relaxed);
+				out.extend([
+					SHARED.fetch_add(n, Relaxed),
+					elsewhere::LATER.load(Relaxed),
+					elsewhere::read(),
+				]);
+				elsewhere::LATER.store(40, Relaxed);
 			}
 			_ => {
 				let mut slots = [EMPTY; 3];

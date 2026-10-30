@@ -740,16 +740,9 @@ static NAMED: &u32 = &5;
 
 static SLOT: std::sync::atomic::AtomicPtr<u32> = std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
 
-mod elsewhere {
-	pub static LATER: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(7);
-}
-
-/// Another module's static, which may not be made yet where the modules import each other.
-static SHARED: &std::sync::atomic::AtomicU8 = &elsewhere::LATER;
-
 pub fn pointer_statics(p: *mut u32) -> u32 {
 	use std::sync::atomic::Ordering::Relaxed;
 	// Two `rt.Place`s of one place are two objects, which `===` can't tell are one.
 	let _ = SLOT.compare_exchange(p, std::ptr::null_mut(), Relaxed, Relaxed);
-	*NAMED + u32::from(SHARED.load(Relaxed))
+	*NAMED
 }

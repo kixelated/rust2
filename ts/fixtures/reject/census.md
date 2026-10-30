@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 102
+- Refusals: 101
 - Function instances: 116
 - Generic functions no instance reached, lowered over their type parameters: 7
 
@@ -45,7 +45,7 @@
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | a cast from a pointer to `_` to one to `_`, which reads the bytes of one type as another | fixtures/reject/src/lib.rs:616:27 |
 | 1 | a coercion to `_` | fixtures/reject/src/lib.rs:344:2 |
-| 1 | a constant of type `_`, a pointer into memory translation can't name | fixtures/reject/src/lib.rs:754:3 |
+| 1 | a constant of type `_`, a pointer into memory translation can't name | fixtures/reject/src/lib.rs:747:3 |
 | 1 | a dangling pointer to `_`, a value of no bytes made of more than structs and tuples | fixtures/reject/src/lib.rs:701:11 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | fixtures/reject/src/lib.rs:96:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | fixtures/reject/src/lib.rs:236:13 |
@@ -58,7 +58,6 @@
 | 1 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:677:10 |
 | 1 | a raw pointer to `_` in an element, a payload, or a union field, which is not supported yet | fixtures/reject/src/lib.rs:685:10 |
 | 1 | a scalar constant of type `_` | fixtures/reject/src/lib.rs:8:2 |
-| 1 | a static whose value reads `_` of another module, which may not be made yet | fixtures/reject/src/lib.rs:754:21 |
 | 1 | a trait object of `_`, which is not supported yet | fixtures/reject/src/lib.rs:535:26 |
 | 1 | a zero-sized constant of type `_` | fixtures/reject/src/lib.rs:62:2 |
 | 1 | an upcast from `_` to `_`, which is not supported yet | fixtures/reject/src/lib.rs:593:32 |
@@ -66,7 +65,7 @@
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:271:52 |
 | 1 | comparing pointers to `()`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:692:2 |
-| 1 | comparing pointers to `_` in an atomic, which JS has no address of | fixtures/reject/src/lib.rs:753:15 |
+| 1 | comparing pointers to `_` in an atomic, which JS has no address of | fixtures/reject/src/lib.rs:746:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | fixtures/reject/src/lib.rs:657:2 |
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:403:53 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:271:52 |
@@ -116,7 +115,6 @@ The type or module each refused type or path belongs to.
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:289:6 |
 | 1 | `HashSet` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:297:9 |
-| 1 | `LATER` | fixtures/reject/src/lib.rs:754:21 |
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `Only` | fixtures/reject/src/lib.rs:701:11 |
@@ -185,7 +183,7 @@ The type or module each refused type or path belongs to.
 | 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:344:2 |
 | 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:545:30 |
 | 1 | a coercion to `_`, which is not supported yet | `std::sync::Weak` | fixtures/reject/src/lib.rs:509:40 |
-| 1 | a constant of type `_`, a pointer into memory translation can't name | `&u32` | fixtures/reject/src/lib.rs:754:3 |
+| 1 | a constant of type `_`, a pointer into memory translation can't name | `&u32` | fixtures/reject/src/lib.rs:747:3 |
 | 1 | a dangling pointer to `_`, a value of no bytes made of more than structs and tuples | `Only` | fixtures/reject/src/lib.rs:701:11 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:96:34 |
 | 1 | a mutable borrow of a subslice of `_`, which JS would copy, having no views | `u32` | fixtures/reject/src/lib.rs:236:13 |
@@ -194,7 +192,6 @@ The type or module each refused type or path belongs to.
 | 1 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:677:10 |
 | 1 | a raw pointer to `_` in an element, a payload, or a union field, which is not supported yet | `(u32, u32)` | fixtures/reject/src/lib.rs:685:10 |
 | 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
-| 1 | a static whose value reads `_` of another module, which may not be made yet | `LATER` | fixtures/reject/src/lib.rs:754:21 |
 | 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:535:26 |
 | 1 | a zero-sized constant of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
 | 1 | an assignment through a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
@@ -204,7 +201,7 @@ The type or module each refused type or path belongs to.
 | 1 | arithmetic on `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | `Option` | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:271:52 |
-| 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:753:15 |
+| 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:746:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | `u32` | fixtures/reject/src/lib.rs:657:2 |
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:403:53 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:155:23 |
@@ -497,7 +494,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>a constant of type `_`, a pointer into memory translation can't name (1)</summary>
 
-- fixtures/reject/src/lib.rs:754:3: a constant of type `&u32`, a pointer into memory translation can't name
+- fixtures/reject/src/lib.rs:747:3: a constant of type `&u32`, a pointer into memory translation can't name
 
 </details>
 
@@ -573,12 +570,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>a static whose value reads `_` of another module, which may not be made yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:754:21: a static whose value reads `LATER` of another module, which may not be made yet
-
-</details>
-
 <details><summary>a trait object of `_`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:535:26: a trait object of `[u8; 4]`, which is not supported yet
@@ -623,7 +614,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>comparing pointers to `_` in an atomic, which JS has no address of (1)</summary>
 
-- fixtures/reject/src/lib.rs:753:15: comparing pointers to `u32` in an atomic, which JS has no address of
+- fixtures/reject/src/lib.rs:746:15: comparing pointers to `u32` in an atomic, which JS has no address of
 
 </details>
 

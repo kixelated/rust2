@@ -1287,7 +1287,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			);
 		}
 		if let Some(&sym) = self.b.t.values.get(&item) {
-			return Expr::Sym(sym);
+			return self.static_use(sym);
 		}
 		let Ok(alloc) = tcx.eval_static_initializer(item) else {
 			return self.err(span, "a static that failed to evaluate");
@@ -1310,28 +1310,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.b.t.reading.remove(&item);
 		let (sym, new) = self.module_value(item);
 		if new {
-			// Made after each value of its module it reads. Another module's value or class
-			// may not be made yet where the modules import each other, as Rust's may.
-			let syms = &self.b.t.program.syms;
-			let mut order = syms[sym].order;
-			let mut foreign = None;
-			value.eager_syms(&mut |id| {
-				let read = &syms[id];
-				match (read.kind, read.module == syms[sym].module) {
-					(SymKind::Value, true) => order = order.max(read.order + 1),
-					(SymKind::Value | SymKind::Struct, false) => foreign = foreign.or(Some(id)),
-					_ => {}
-				}
-			});
-			self.b.t.program.syms[sym].order = order;
-			if let Some(id) = foreign {
-				let name = self.b.t.program.syms[id].base.clone();
-				return self.err(
-					span,
-					format!("a static whose value reads `{name}` of another module, which may not be made yet"),
-				);
-			}
 			let ty = self.b.t.ty(ty, span);
+			// Another static or a class it reads may not be made yet when its module is: one of
+			// a later line, or of a module that imports this one, as Rust's modules may. It is
+			// then made on first use, which nothing can tell from being made first.
+			let syms = &self.b.t.program.syms;
+			let mut reads = false;
+			value.eager_syms(&mut |id| reads |= matches!(syms[id].kind, SymKind::Value | SymKind::Struct));
+			let (value, ty) = match reads {
+				true => {
+					self.b.t.deferred.insert(sym);
+					let make = Expr::Arrow(Vec::new(), ty.clone(), vec![StmtKind::Return(Some(value)).at(None)]);
+					let lazy = Expr::New(Box::new(Expr::Rt("LazyCell".into())), vec![make]);
+					(lazy, crate::ts::Type::Rt("LazyCell", vec![ty]))
+				}
+				false => (value, ty),
+			};
 			self.b.t.program.items.push(Item::Value {
 				sym,
 				ty,
@@ -1339,7 +1333,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				doc: None,
 			});
 		}
-		Expr::Sym(sym)
+		self.static_use(sym)
+	}
+
+	/// A use of the static `sym`: its module value, or what that makes on first use.
+	fn static_use(&self, sym: SymId) -> Expr {
+		match self.b.t.deferred.contains(&sym) {
+			true => Expr::Sym(sym).member("force").call(Vec::new()),
+			false => Expr::Sym(sym),
+		}
 	}
 
 	/// The value of a constant `val` of type `ty`: a fresh one at each use, as Rust copies a

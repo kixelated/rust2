@@ -206,6 +206,8 @@ pub struct Translator<'a, 'tcx> {
 	pub values: rustc_data_structures::fx::FxHashMap<DefId, SymId>,
 	/// The statics whose values are being read, which a pointer within one can't name yet.
 	pub reading: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// The statics made on first use, as an `rt.LazyCell` of their value.
+	pub deferred: rustc_data_structures::fx::FxHashSet<SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
 	/// The bodies of other crates whose writes count: those the run before reached.
@@ -396,6 +398,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			copy_shims: Default::default(),
 			values: Default::default(),
 			reading: Default::default(),
+			deferred: Default::default(),
 			// Once the bindings are known.
 			writes: Default::default(),
 			read,
