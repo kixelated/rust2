@@ -81,5 +81,6 @@ roots = [
     "places_sorted",
     "pointer_statics",
     "bound_ranges",
+    "string_edits",
 ]
 printable = ["Meters"]

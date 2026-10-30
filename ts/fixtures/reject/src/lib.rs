@@ -753,6 +753,15 @@ pub fn bound_ranges(v: &mut Vec<u8>, map: &std::collections::BTreeMap<u8, u8>) -
 	v.drain((Excluded(0), Included(2))).count() + map.range((Excluded(0), Included(2))).count()
 }
 
+/// `String`'s edits given a closure that owns a value that drops, which `retain` would call
+/// but never drop, and a range of `Bound`s.
+pub fn string_edits(s: &mut String) {
+	use std::ops::Bound::{Excluded, Included};
+	let n = Noisy(1);
+	s.retain(move |c| c as u8 != (&n).0);
+	s.replace_range((Excluded(0), Included(2)), "");
+}
+
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
 /// `O` as this function's second type parameter: that refuses nothing.
 pub async fn generic_awaited<F: Fn() -> u8, O: std::future::Future<Output = u8>>(f: F, o: O) -> u8 {

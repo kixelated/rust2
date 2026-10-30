@@ -1906,7 +1906,7 @@ class DequePlaces<T> extends Iter<Place<T>> {
 
 /** `drain`: the items within `r`, taken out at once, which drop by `drop` as `dequeIter`'s. */
 export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T) => void): Iter<T> {
-	const [start, end] = sliceRange(r, q.n);
+	const [start, end] = boundsRange(r, q.n);
 	const taken: VecDeque<T> = { b: [], h: 0, n: 0 };
 	for (let i = start; i < end; i++) dequePushBack(taken, q.b[at(q, i)] as T);
 	for (let i = end; i < q.n; i++) q.b[at(q, i - (end - start))] = q.b[at(q, i)];
@@ -1915,7 +1915,7 @@ export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T
 }
 
 /** `slice::range`: the start and end of `r` within `n` elements, panicking as std's does. */
-function sliceRange(r: Bounds<number>, n: number): [number, number] {
+export function boundsRange(r: Bounds<number>, n: number): [number, number] {
 	const [lo, hi, inclusive] = bounds(r);
 	if (hi !== undefined && (inclusive ? hi.key >= n : hi.key > n)) panic(`range end index ${hi.key} out of range for slice of length ${n}`);
 	const end = hi === undefined ? n : inclusive ? hi.key + 1 : hi.key;
@@ -1935,7 +1935,7 @@ function sliceRange(r: Bounds<number>, n: number): [number, number] {
  * `drop`, front to back, before the tail moves back.
  */
 export function vecDrain<T>(v: T[], r: Bounds<number>, drop?: (item: T) => void): Iter<T> {
-	const [start, end] = sliceRange(r, v.length);
+	const [start, end] = boundsRange(r, v.length);
 	return new VecDrain(v, v.splice(start), end - start, drop);
 }
 
@@ -1981,7 +1981,7 @@ class VecDrain<T> extends Iter<T> implements Disposable {
 
 /** `Vec::drain` of bytes. */
 export function byteVecDrain(v: ByteVec, r: Bounds<number>): Iter<number> {
-	const [start, end] = sliceRange(r, v.length);
+	const [start, end] = boundsRange(r, v.length);
 	const length = v.length;
 	v.length = start;
 	return new ByteVecDrain(v, start, end, length);

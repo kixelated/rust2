@@ -1256,8 +1256,12 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 /// Why the runtime can't read the range `call` takes last as an `rt.Bounds`, if it can't:
 /// it reads std's range types, not a tuple of `Bound`s or the crate's own `RangeBounds`.
 pub fn unread_range<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<String> {
-	let range = *b.t.sig(call.def_id, call.args).inputs().last()?;
-	match b.t.std_of(range) {
+	unread(b.t, *b.t.sig(call.def_id, call.args).inputs().last()?)
+}
+
+/// Why the runtime can't read `range` as an `rt.Bounds`, if it can't.
+pub fn unread<'tcx>(t: &super::Translator<'_, 'tcx>, range: Ty<'tcx>) -> Option<String> {
+	match t.std_of(range) {
 		Some(
 			Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull,
 		) => None,
