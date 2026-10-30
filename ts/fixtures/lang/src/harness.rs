@@ -2,7 +2,7 @@
 //! case and the rest is its input.
 
 use crate::{
-	arrays, atomics, borrows, captures, cells, chars, chunks, collections, combinators, counts, cows, defaults,
+	arrays, atomics, borrows, bounds, captures, cells, chars, chunks, collections, combinators, counts, cows, defaults,
 	durations, dyns, edits, floats, fmt, generics, hashes, holds, ints, iters, keys, locals, locks, nested, objects,
 	orders, pointers, refs, shapes, slices, splits, statics, strs, utf8, wrappers,
 };
@@ -134,6 +134,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("slices::chunked", slices::chunked),
 		("statics::onces", |_, data, out| statics::onces(data, out)),
 		("fmt::writes", |_, data, out| fmt::writes(data, out)),
+		("bounds::bounds", bounds::bounds),
 	]
 }
 

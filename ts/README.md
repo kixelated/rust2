@@ -95,6 +95,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
+| a range a drain or a B-tree's `range` takes | itself, or of a type other than std's ranges and a pair of `Bound`s, `rt.boundsOf` of it and its `start_bound` and `end_bound`, which the runtime calls where std's does |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque`, `BinaryHeap` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `PeekMut<T>` | `rt.PeekMut<T>`, the `rt.Place` of a heap's greatest element, which sifts it down as it drops once `DerefMut` lent it |
 | `Ordering`, `DefaultHasher`, `RandomState` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher`; `rt.RandomState`, the keys of the `DefaultHasher` it builds, never changed once made |

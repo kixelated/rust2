@@ -26,6 +26,8 @@ with a span where std's order is one JS's can't follow yet:
 - `RangeInclusive::new` of bounds that drop, such as `Arc::new(a)..=Arc::new(b)`, refused
   where the range is built, found by [#247](https://github.com/moq-dev/rust2/pull/247) on
   2026-10-29.
+- A range that drops given to a drain or a B-tree's `range`, which std drops once it has
+  read the range's bounds, or at once for an empty B-tree.
 
 Each `rt.Iter` has a `fold` and `rfold` that drop what it holds where std's do, and the
 by-value consumers std folds go through it: build on those rather than `rt.drop`.

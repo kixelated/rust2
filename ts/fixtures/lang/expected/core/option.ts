@@ -3,6 +3,7 @@
 import * as rt from "../rt.ts";
 import { copy$u8s_u8s } from "../lib.ts";
 import type * as Noisy from "../borrows.Noisy.ts";
+import type * as Item from "../bounds.Item.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
@@ -23,7 +24,7 @@ import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
 import type * as locals_Noisy from "../locals.Noisy.ts";
-import type * as Item from "../orders.Item.ts";
+import type * as orders_Item from "../orders.Item.ts";
 import type * as Pair from "../pointers.Pair.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
@@ -244,6 +245,13 @@ export function map$146awhd(self: Hop.Hop | undefined, f: (a0: Hop.Hop) => [rt.u
 	return f(self);
 }
 
+export function map$1iekgsb(self: Item.Item | undefined, f: (a0: Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_Item.Item) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -329,6 +337,13 @@ export function map$0jg2jop(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32[])
 }
 
 export function map$0cs071d(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1hdkvwd(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -433,7 +448,7 @@ export function mapOr$04khdaj(self: Hop.Hop | undefined, default_: rt.u64, f: (a
 	return f(self);
 }
 
-export function mapOr$14aggam(self: Item.Item | undefined, default_: rt.u8, f: (a0: Item.Item) => rt.u8): rt.u8 {
+export function mapOr$14aggam(self: orders_Item.Item | undefined, default_: rt.u8, f: (a0: orders_Item.Item) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
