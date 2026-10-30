@@ -206,7 +206,11 @@ An iterator over a slice, array, or `Vec`, or a small range, that only its `next
 moves read steps in place, as two variables: the array and an index into it, or the
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
 std's adaptors through `rt.iterFrom`. A caller calls `next()` for one item, or iterates
-an `rt.Iter` with `for ... of`.
+an `rt.Iter` with `for ... of`. Each `rt.Iter`'s `sizeHint` is std's `size_hint`, its upper
+bound `undefined` for `None`, and a `collect` or `extend` into a `Vec`, `VecDeque`,
+`BinaryHeap`, B-tree, or hash collection reserves by it where std's does, panicking with
+std's capacity overflow past the most it holds. Capacity isn't modeled, so a collection
+an `extend` starts from is taken as full.
 
 A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
 `char`, a `&str`, a predicate, or an array or slice of chars, as in `rt.strSplit(s, "/")`, takes the text or the

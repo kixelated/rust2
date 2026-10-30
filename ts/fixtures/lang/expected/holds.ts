@@ -69,9 +69,9 @@ export function places(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec):
 		set(rt.place(() => grid[_30][_32], (value) => grid[_30][_32] = value), k);
 		set(rt.place(() => rows[_35].cells[_39], (value2) => rows[_35].cells[_39] = value2), k ^ 1);
 	}
-	rt.iterExtendBytes(out, rt.iterFlatten(rt.iterMap(rt.iterSlice(grid), rt.byteSliceFrom), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value)), false, 4));
+	rt.iterExtendBytes(out, rt.iterFlatten(rt.iterMap(rt.iterSlice(grid), rt.byteSliceFrom), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value)), false, 4), undefined, true);
 	for (const _61 of rows) {
-		rt.iterExtendBytes(out, rt.iterSlice(_61.cells));
+		rt.iterExtendBytes(out, rt.iterSlice(_61.cells), undefined, true);
 	}
 	const x: Uint8Array = rt.bytes(4).fill(a);
 	const y: Uint8Array = rt.bytes(4).fill(b);
@@ -96,8 +96,8 @@ export function places(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec):
 		rt.panic("index out of bounds: the len is " + _88 + " but the index is " + 0);
 	}
 	r.data[r.start] = _80;
-	rt.iterExtendBytes(out, rt.iterSlice(x));
-	rt.iterExtendBytes(out, rt.iterSlice(y));
+	rt.iterExtendBytes(out, rt.iterSlice(x), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(y), undefined, true);
 }
 
 /**
@@ -114,7 +114,7 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, data.data[data.start + _9]);
 		kept.push(data.data[data.start + _9]);
 	}
-	rt.iterExtendBytes(out, rt.iterSlice(kept));
+	rt.iterExtendBytes(out, rt.iterSlice(kept), undefined, true);
 	const v: rt.ByteVec = rt.byteSliceToByteVec(data);
 	let i2: rt.usize = 0;
 	while (i2 < v.length) {
@@ -123,7 +123,7 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _31: rt.u8 = rt.u8WrappingAdd(v.data[at], i2 & 0xff);
 		v.data[at] = _31;
 	}
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(v)));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(v)), undefined, true);
 }
 
 /**
@@ -138,16 +138,16 @@ export function reborrows(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVe
 	r = rt.place(() => y, (value2) => y = value2);
 	s.v = rt.u8WrappingAdd(s.v, 1);
 	r.v = rt.u8WrappingAdd(r.v, 2);
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(x, y)));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(x, y)), undefined, true);
 	let r2: rt.u8 = a;
 	const kept: rt.u8[] = [];
 	for (const _25 of rt.byteSliceView(data)) {
 		const s2: rt.u8 = r2;
 		r2 = _25;
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(s2, r2)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(s2, r2)), undefined, true);
 		kept.push(s2);
 	}
-	rt.iterExtendBytes(out, rt.iterSlice(kept));
+	rt.iterExtendBytes(out, rt.iterSlice(kept), undefined, true);
 }
 
 /**
@@ -162,7 +162,7 @@ export function copies(a: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		r = _9;
 		kept.push(s);
 	}
-	rt.iterExtendBytes(out, rt.iterSlice(kept));
+	rt.iterExtendBytes(out, rt.iterSlice(kept), undefined, true);
 	const range: rt.Range<rt.usize> = new rt.Range(0, data.length);
 	let cur: rt.usize | undefined = range.start < range.end ? range.start++ : undefined;
 	const some: boolean = cur !== undefined;
@@ -285,7 +285,7 @@ export function parts(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): 
 	x = rows[1];
 	n = rt.u8WrappingAdd(n, 1);
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_17));
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_18.cells[0], pair[2], whole(pair))));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_18.cells[0], pair[2], whole(pair))), undefined, true);
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	rt.byteVecPush(out, x.cells[0] ^ n);
 	let total: rt.u8 = 0;
@@ -315,7 +315,7 @@ export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
 			_16 = range2.start++;
 		}
 		if (_16Some) {
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(before2 & 0xff, _16 & 0xff)));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(before2 & 0xff, _16 & 0xff)), undefined, true);
 		} else {
 			break;
 		}

@@ -189,7 +189,7 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const items: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u8 | undefined => {
 		const b: rt.u8 = _2;
 		return thenSome$0d5am30(rt.u8Rem(b, 2) === 0, b);
-	}));
+	}), undefined, 2, true);
 	const at: rt.usize = mapOr$1t0muvr(rt.byteSliceFirst(data), 0, (b2: rt.u8): rt.usize => {
 		return rt.usizeRem(b2 as rt.usize, 4);
 	});
@@ -242,7 +242,7 @@ export function consumers(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const items: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u8 | undefined => {
 		const b: rt.u8 = _2;
 		return thenSome$0d5am30(rt.u8Rem(b, 2) === 0, b);
-	}));
+	}), undefined, 2, true);
 	const n: rt.usize = mapOr$1t0muvr(rt.byteSliceFirst(data), 0, (b2: rt.u8): rt.usize => {
 		return rt.usizeRem(b2 as rt.usize, 8);
 	});
@@ -342,7 +342,7 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b2: rt.u8 = _2;
 		_8.v = rt.u8Add(_8.v, 1);
 		return pick(b2);
-	}, rt.None)), called)));
+	}, rt.None)), called)), undefined, true);
 	rt.byteVecPush(out, mapOr$18ph0j9(rt.iterFindMap(rt.iterSlice(rt.byteSliceView(data)), (_23: rt.u8): undefined | rt.None => {
 		return unit(_23 ^ 1);
 	}, rt.None), 208, (_: undefined): rt.u8 => {
@@ -354,15 +354,15 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b4: rt.u8 = _27;
 		_22.v = rt.u8Add(_22.v, 1);
 		return pick(b4);
-	}, rt.None))), (_28: rt.u8 | undefined): rt.u8 => {
+	}, rt.None), undefined, 2)), (_28: rt.u8 | undefined): rt.u8 => {
 		return code(_28);
-	}));
+	}), undefined, true);
 	rt.byteVecPush(out, called);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.iterToArray(rt.iterRev(rt.iterFilterMap(rt.iterSlice(rt.byteSliceView(data)), (_210: rt.u8): rt.u8 | undefined | rt.None => {
 		return pick(_210);
-	}, rt.None)))), (_211: rt.u8 | undefined): rt.u8 => {
+	}, rt.None)), undefined, 2)), (_211: rt.u8 | undefined): rt.u8 => {
 		return code(_211);
-	}));
+	}), undefined, true);
 	rt.byteVecPush(out, rt.iterFold(rt.iterFilterMap(rt.iterSlice(rt.byteSliceView(data)), (_212: rt.u8): rt.u8 | undefined | rt.None => {
 		return pick(_212);
 	}, rt.None), 0, (n: rt.u8, o3: rt.u8 | undefined): rt.u8 => {
@@ -377,11 +377,11 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b8: rt.u8 = _214;
 		_52.v = rt.u8Add(_52.v, 1);
 		return pick(b8);
-	}, rt.None));
+	}, rt.None), undefined, 2);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(whiles), (_215: rt.u8 | undefined): rt.u8 => {
 		return code(_215);
-	}));
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(whiles.length & 0xff, called)));
+	}), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(whiles.length & 0xff, called)), undefined, true);
 	rt.byteVecPush(out, rt.iterCount(rt.iterMapWhile(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): undefined | rt.None => {
 		return unit(_216);
 	}, rt.None)) & 0xff);
@@ -396,12 +396,12 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		return rt.None;
 	}, rt.None);
-	const first: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterBorrow(made_));
+	const first: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterBorrow(made_), undefined, 2);
 	const after: rt.u8 | undefined | rt.None = rt.iterToOption(made_.next(), rt.None);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(first), (_218: rt.u8 | undefined): rt.u8 => {
 		return code(_218);
-	}));
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(first.length & 0xff, code(after), called)));
+	}), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(first.length & 0xff, code(after), called)), undefined, true);
 	let left: rt.usize = data.length;
 	rt.byteVecPush(out, rt.iterCount(rt.iterFromFn((): undefined | rt.None => {
 		const _219: rt.usize | undefined = rt.usizeCheckedSub(left, 1);
@@ -422,15 +422,15 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return pick(_84);
 		}
 		return rt.None;
-	}, undefined, rt.None))), (_222: rt.u8 | undefined): rt.u8 => {
+	}, undefined, rt.None), undefined, 2)), (_222: rt.u8 | undefined): rt.u8 => {
 		return code(_222);
-	}));
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(seen)));
+	}), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(seen)), undefined, true);
 	let steps: rt.u8 = 0;
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.iterCount(rt.iterSuccessors(undefined, (_223: undefined): undefined | rt.None => {
 		steps = rt.u8Add(steps, 1);
 		return thenSome$1j8foe9(steps < 3, undefined);
-	}, undefined, rt.None)) & 0xff, steps)));
+	}, undefined, rt.None)) & 0xff, steps)), undefined, true);
 	if (data.length === 1) {
 		if (240 <= data.data[data.start]) {
 			if (data.data[data.start] <= 255) {

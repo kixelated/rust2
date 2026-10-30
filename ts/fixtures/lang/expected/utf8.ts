@@ -15,7 +15,7 @@ export function decodes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 				rt.panic("index out of bounds: the len is " + 32 + " but the index is " + _54);
 			}
 			return Uint8Array.of(0, 65, 127, 192, 193, 194, 223, 224, 225, 237, 238, 239, 240, 241, 244, 245, 128, 143, 144, 159, 160, 191, 128, 143, 144, 159, 160, 191, 128, 191, 152, 187)[_54];
-		}));
+		}), undefined, true);
 	}
 	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, bytes.length, rt.usizeStep);
 	while (true) {

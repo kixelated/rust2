@@ -41,6 +41,26 @@ function satAdd(a: number, b: number): number {
 	return Math.min(a + b, USIZE_MAX);
 }
 
+/** `a + b` of two upper bounds: `None` if either is, or if it passes `usize::MAX`, as std's `checked_add`. */
+function addUpper(a: number | undefined, b: number | undefined): number | undefined {
+	if (a === undefined || b === undefined) return undefined;
+	const sum = a + b;
+	return sum > USIZE_MAX ? undefined : sum;
+}
+
+/** `Iterator::size_hint`: at least `lower` items, and at most `upper`, if it is known. */
+export type SizeHint = [lower: number, upper: number | undefined];
+
+/** The size hint of an iterator that knows it has exactly `n` items. */
+export function exactHint(n: number): SizeHint {
+	return [n, n];
+}
+
+/** std's hint of an adaptor that may yield fewer than `it`, and no more: none at least, and `it`'s upper bound. */
+function fewer(it: Iter<unknown>): SizeHint {
+	return [0, it.sizeHint()[1]];
+}
+
 /**
  * What only the iterators std implements these traits for have, which Rust calls only
  * there: declared, not stubbed, so no bundle carries a stub.
@@ -92,13 +112,9 @@ export abstract class Iter<T> implements Iterable<T> {
 		return this;
 	}
 
-	/**
-	 * `size_hint`'s lower bound, which std's `String` reserves before it reads chars: exact
-	 * for a range and what adapts one, the only iterators whose bound reaches `isize::MAX`,
-	 * and else 0.
-	 */
-	lower(): number {
-		return 0;
+	/** `size_hint`, as std's of its kind gives it: `(0, None)` unless it knows better. */
+	sizeHint(): SizeHint {
+		return [0, undefined];
 	}
 
 	/**
@@ -372,8 +388,63 @@ export function iterBorrow<T>(it: Iter<T>): Iter<T> {
 	return new Borrowed(it);
 }
 
-/** `Extend::extend` of a `Vec`, which takes `items` as `take` says. */
-export function iterExtend<T>(v: T[], items: Iter<T>, take?: Take): void {
+// How std's `Vec` and `VecDeque` reserve for an iterator they collect or extend by, of
+// elements `size` bytes each, which panics past what they may hold: a `TrustedLen` one's
+// upper bound first, and else, after each item that finds them full, the lower bound and
+// one more. Their capacity is not modeled, so one they extend is taken as full, as one
+// holding nothing is, and grows as std's would from there.
+
+/** wasm32's `isize::MAX`, the most bytes std's `Layout` describes. */
+const ISIZE_MAX = 0x7fffffff;
+
+/** How many `size`-byte elements a `Vec` holds at most: `usize::MAX` of zero-sized ones. */
+function vecMax(size: number): number {
+	return size === 0 ? USIZE_MAX : Math.floor(ISIZE_MAX / size);
+}
+
+/**
+ * std's reserve for a `TrustedLen` iterator `it`, in a `Vec` or `VecDeque` holding `len`
+ * of `size`-byte elements: its upper bound, which panics without one or past what it may
+ * hold.
+ */
+export function vecReserveExact(it: Iter<unknown>, len: number, size: number): void {
+	const upper = it.sizeHint()[1];
+	if (upper === undefined || len + upper > vecMax(size)) panic("capacity overflow");
+}
+
+/** The capacity of a `Vec` or `VecDeque` holding `len` of `size`-byte elements: full, but for zero-sized ones. */
+export function vecCapacity(len: number, size: number): number {
+	return size === 0 ? USIZE_MAX : len;
+}
+
+/**
+ * The capacity a full `Vec` or `VecDeque` of `cap` `size`-byte elements grows to as it
+ * reserves for the next item of `it`, as std's `RawVec` amortizes it, or a panic past what
+ * it may hold.
+ */
+export function vecGrow(it: Iter<unknown>, cap: number, size: number): number {
+	const additional = satAdd(it.sizeHint()[0], 1);
+	const grown = Math.max(cap * 2, cap + additional, size === 1 ? 8 : size <= 1024 ? 4 : 1);
+	if (grown > vecMax(size)) panic("capacity overflow");
+	return grown;
+}
+
+/**
+ * `Extend::extend` of a `Vec`, which takes `items` as `take` says, and with elements
+ * `size` bytes each, reserves as std's does for a `trusted`, `TrustedLen`, iterator or any
+ * other.
+ */
+export function iterExtend<T>(v: T[], items: Iter<T>, take?: Take, size?: number, trusted = false): void {
+	if (size !== undefined && !trusted) {
+		let cap = vecCapacity(v.length, size);
+		for (let item = items.next(); item !== DONE; item = items.next()) {
+			if (v.length === cap) cap = vecGrow(items, cap, size);
+			v.push(item);
+		}
+		if (take !== undefined) dispose(items);
+		return;
+	}
+	if (size !== undefined) vecReserveExact(items, v.length, size);
 	if (take === undefined) {
 		const folded = items.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) v.push(item);
@@ -382,8 +453,18 @@ export function iterExtend<T>(v: T[], items: Iter<T>, take?: Take): void {
 	each(items, (item) => v.push(item), take);
 }
 
-/** `Extend::extend` of a `Vec<u8>`. */
-export function iterExtendBytes(v: ByteVec, items: Iter<number>, take?: Take): void {
+/** `Extend::extend` of a `Vec<u8>`, reserving as `iterExtend` does. */
+export function iterExtendBytes(v: ByteVec, items: Iter<number>, take?: Take, trusted = false): void {
+	if (!trusted) {
+		let cap = v.length;
+		for (let item = items.next(); item !== DONE; item = items.next()) {
+			if (v.length === cap) cap = vecGrow(items, cap, 1);
+			byteVecPush(v, item);
+		}
+		if (take !== undefined) dispose(items);
+		return;
+	}
+	vecReserveExact(items, v.length, 1);
 	if (take === undefined) {
 		const folded = items.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) byteVecPush(v, item);
@@ -501,22 +582,24 @@ export function iterPeekable<T>(it: Iter<T>, drop?: Drop<T>): Peekable<T> {
 
 /**
  * `flat_map`: `into` makes each of `f`'s results an iterator, as `IntoIterator` does. Its
- * source drops once it ends unless it is `fused`, as `fuse` does.
+ * source drops once it ends unless it is `fused`, as `fuse` does. `size` and `oneShot`
+ * are as `flatten`'s.
  */
 export function iterFlatMap<T, V>(it: Iter<T>, f: (item: T) => Iter<V>): Iter<V>;
-export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused?: boolean, size?: number): Iter<V>;
-export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused = false, size?: number): Iter<V> {
-	return new FlattenIter(new MapIter(it, f), into ?? (itself as (value: U) => Iter<V>), fused, size);
+export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused?: boolean, size?: number, oneShot?: boolean): Iter<V>;
+export function iterFlatMap<T, U, V>(it: Iter<T>, f: (item: T) => U, into?: (value: U) => Iter<V>, fused = false, size?: number, oneShot = false): Iter<V> {
+	return new FlattenIter(new MapIter(it, f), into ?? (itself as (value: U) => Iter<V>), fused, size, oneShot);
 }
 
 /**
  * `flatten`: `into` makes each item an iterator, as `IntoIterator` does, `fused` is as
- * `flat_map`'s, and `size` is each item's length if it is an array.
+ * `flat_map`'s, `size` is each item's length if it is an array, and `oneShot` says each
+ * item's iterator has at most one item, as std's size hint specializes on.
  */
 export function iterFlatten<V>(it: Iter<Iter<V>>): Iter<V>;
-export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused?: boolean, size?: number): Iter<V>;
-export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused = false, size?: number): Iter<V> {
-	return new FlattenIter(it, into ?? (itself as (value: T) => Iter<V>), fused, size);
+export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused?: boolean, size?: number, oneShot?: boolean): Iter<V>;
+export function iterFlatten<T, V>(it: Iter<T>, into?: (value: T) => Iter<V>, fused = false, size?: number, oneShot = false): Iter<V> {
+	return new FlattenIter(it, into ?? (itself as (value: T) => Iter<V>), fused, size, oneShot);
 }
 
 // Consumers. Each that takes an iterator by value that `drops` takes it as std's does: by
@@ -813,9 +896,19 @@ export function iterIsSortedBy<T>(
 	return sorted;
 }
 
-/** `collect` into a `Vec`, taking `it` as `take` says. */
-export function iterToArray<T>(it: Iter<T>, take?: Take): T[] {
+/** `collect` into a `Vec`, as `iterExtend` of an empty one. */
+export function iterToArray<T>(it: Iter<T>, take?: Take, size?: number, trusted = false): T[] {
 	const out: T[] = [];
+	if (size !== undefined && !trusted) {
+		let cap = vecCapacity(0, size);
+		for (let item = it.next(); item !== DONE; item = it.next()) {
+			if (out.length === cap) cap = vecGrow(it, cap, size);
+			out.push(item);
+		}
+		if (take !== undefined) dispose(it);
+		return out;
+	}
+	if (size !== undefined) vecReserveExact(it, 0, size);
 	if (take === undefined) {
 		const folded = it.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) out.push(item);
@@ -825,10 +918,20 @@ export function iterToArray<T>(it: Iter<T>, take?: Take): T[] {
 	return out;
 }
 
-/** `collect` into a `Vec<u8>`, taking `it` as `take` says. */
-export function iterToByteVec(it: Iter<number>, take?: Take): ByteVec {
+/** `collect` into a `Vec<u8>`, as `iterExtendBytes` of an empty one. */
+export function iterToByteVec(it: Iter<number>, take?: Take, trusted = false): ByteVec {
 	const out = new ByteVec();
-	// Its own loop: through `iterExtendBytes`, JavaScriptCore took 1.9x as long.
+	// Its own loops: through `iterExtendBytes`, JavaScriptCore took 1.9x as long.
+	if (!trusted) {
+		let cap = 0;
+		for (let item = it.next(); item !== DONE; item = it.next()) {
+			if (out.length === cap) cap = vecGrow(it, cap, 1);
+			byteVecPush(out, item);
+		}
+		if (take !== undefined) dispose(it);
+		return out;
+	}
+	vecReserveExact(it, 0, 1);
 	if (take === undefined) {
 		const folded = it.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) byteVecPush(out, item);
@@ -1067,8 +1170,8 @@ class SliceIter<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -1120,8 +1223,8 @@ class SliceMutIter<T> extends Iter<Place<T>> {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	override advanceBy(n: number): number {
@@ -1194,8 +1297,8 @@ class PartsIter<S> extends Iter<S> {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	override advanceBy(n: number): number {
@@ -1240,8 +1343,8 @@ class OptionIter<T> extends Iter<T> implements Disposable {
 		return this.some ? 1 : 0;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -1299,8 +1402,8 @@ class SuccessorsIter<T> extends Iter<T> implements Disposable {
 		return item as T;
 	}
 
-	override lower(): number {
-		return this.item === this.none ? 0 : 1;
+	override sizeHint(): SizeHint {
+		return this.item === this.none ? [0, 0] : [1, undefined];
 	}
 
 	[Symbol.dispose](): void {
@@ -1325,8 +1428,8 @@ class Borrowed<T> extends Iter<T> {
 		this.inner = inner;
 	}
 
-	override lower(): number {
-		return this.inner.lower();
+	override sizeHint(): SizeHint {
+		return this.inner.sizeHint();
 	}
 
 	next(): T | Done {
@@ -1368,8 +1471,8 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 		super(inner, f);
 	}
 
-	override lower(): number {
-		return this.inner.lower();
+	override sizeHint(): SizeHint {
+		return this.inner.sizeHint();
 	}
 
 	next(): U | Done {
@@ -1429,6 +1532,10 @@ class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 		return findItem(this.inner, this.f, this.drop);
 	}
 
+	override sizeHint(): SizeHint {
+		return fewer(this.inner);
+	}
+
 	override nextBack(): T | Done {
 		return rfindItem(this.inner, this.f, this.drop);
 	}
@@ -1470,6 +1577,10 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | Non
 		return DONE;
 	}
 
+	override sizeHint(): SizeHint {
+		return fewer(this.inner);
+	}
+
 	override nextBack(): U | Done {
 		for (let item = this.inner.nextBack(); item !== DONE; item = this.inner.nextBack()) {
 			const mapped = this.f(item);
@@ -1497,8 +1608,8 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | Non
 class EnumerateIter<T> extends Adaptor<T, [number, T]> {
 	index = 0;
 
-	override lower(): number {
-		return this.inner.lower();
+	override sizeHint(): SizeHint {
+		return this.inner.sizeHint();
 	}
 
 	next(): [number, T] | Done {
@@ -1579,8 +1690,12 @@ class ChainIter<T> extends Iter<T> implements Disposable {
 		dispose(b);
 	}
 
-	override lower(): number {
-		return satAdd(this.a?.lower() ?? 0, this.b?.lower() ?? 0);
+	override sizeHint(): SizeHint {
+		const { a, b } = this;
+		if (a === undefined || b === undefined) return a?.sizeHint() ?? b?.sizeHint() ?? [0, 0];
+		const [aLower, aUpper] = a.sizeHint();
+		const [bLower, bUpper] = b.sizeHint();
+		return [satAdd(aLower, bLower), addUpper(aUpper, bUpper)];
 	}
 
 	next(): T | Done {
@@ -1715,8 +1830,12 @@ class ZipIter<A, B> extends Iter<[A, B]> implements Disposable {
 		return Math.min(this.a.len(), this.b.len());
 	}
 
-	override lower(): number {
-		return Math.min(this.a.lower(), this.b.lower());
+	/** std's: the shorter side's, where either knows its upper bound. */
+	override sizeHint(): SizeHint {
+		const [aLower, aUpper] = this.a.sizeHint();
+		const [bLower, bUpper] = this.b.sizeHint();
+		const upper = aUpper === undefined || bUpper === undefined ? (aUpper ?? bUpper) : Math.min(aUpper, bUpper);
+		return [Math.min(aLower, bLower), upper];
 	}
 
 	[Symbol.dispose](): void {
@@ -1750,11 +1869,15 @@ class TrustedZipIter<A, B> extends ZipIter<A, B> {
 	override len(): number {
 		return this.end - this.index;
 	}
+
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
+	}
 }
 
 class RevIter<T> extends Adaptor<T, T> {
-	override lower(): number {
-		return this.inner.lower();
+	override sizeHint(): SizeHint {
+		return this.inner.sizeHint();
 	}
 
 	next(): T | Done {
@@ -1805,8 +1928,9 @@ class SkipIter<T> extends Adaptor<T, T> {
 		this.drop = drop;
 	}
 
-	override lower(): number {
-		return Math.max(this.inner.lower() - this.n, 0);
+	override sizeHint(): SizeHint {
+		const [lower, upper] = this.inner.sizeHint();
+		return [Math.max(lower - this.n, 0), upper === undefined ? undefined : Math.max(upper - this.n, 0)];
 	}
 
 	next(): T | Done {
@@ -1893,8 +2017,10 @@ class TakeIter<T> extends Adaptor<T, T> {
 		this.drop = drop;
 	}
 
-	override lower(): number {
-		return this.n === 0 ? 0 : Math.min(this.inner.lower(), this.n);
+	override sizeHint(): SizeHint {
+		if (this.n === 0) return [0, 0];
+		const [lower, upper] = this.inner.sizeHint();
+		return [Math.min(lower, this.n), Math.min(upper ?? this.n, this.n)];
 	}
 
 	next(): T | Done {
@@ -1996,6 +2122,10 @@ class SkipWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 		);
 	}
 
+	override sizeHint(): SizeHint {
+		return fewer(this.inner);
+	}
+
 	/** std's: its first item by `next`, and then its iterator's fold, after which `f` drops. */
 	override fold<A>(acc: A, f: (acc: A, item: T) => A, release?: () => void): A {
 		if (!this.flag) {
@@ -2028,6 +2158,10 @@ class TakeWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 		this.drop?.(item);
 		return DONE;
 	}
+
+	override sizeHint(): SizeHint {
+		return this.flag ? [0, 0] : fewer(this.inner);
+	}
 }
 
 /** `MapWhile`, which reads on after `f` returns `None` if called again, as std's does. */
@@ -2043,6 +2177,10 @@ class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined | None
 	next(): U | Done {
 		const item = this.inner.next();
 		return item === DONE ? DONE : iterFromOption(this.f(item), this.none);
+	}
+
+	override sizeHint(): SizeHint {
+		return fewer(this.inner);
 	}
 }
 
@@ -2079,8 +2217,9 @@ class StepByIter<T> extends Adaptor<T, T> {
 		return this.size(this.inner.len());
 	}
 
-	override lower(): number {
-		return this.size(this.inner.lower());
+	override sizeHint(): SizeHint {
+		const [lower, upper] = this.inner.sizeHint();
+		return [this.size(lower), upper === undefined ? undefined : this.size(upper)];
 	}
 
 	/** How many of `n` items it yields. */
@@ -2151,8 +2290,8 @@ class StepByIter<T> extends Adaptor<T, T> {
 }
 
 class InspectIter<T> extends Calling<T, T, (item: T) => void> {
-	override lower(): number {
-		return this.inner.lower();
+	override sizeHint(): SizeHint {
+		return this.inner.sizeHint();
 	}
 
 	next(): T | Done {
@@ -2203,8 +2342,8 @@ class FuseIter<T> extends Iter<T> implements Disposable {
 		this.fused = fused;
 	}
 
-	override lower(): number {
-		return this.inner?.lower() ?? 0;
+	override sizeHint(): SizeHint {
+		return this.inner?.sizeHint() ?? [0, 0];
 	}
 
 	/** `item`, dropping its iterator first if it ended there and is not fused. */
@@ -2270,22 +2409,40 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 	readonly fused: boolean;
 	/** How many items each of its source's has, if each is an array. */
 	readonly size: number | undefined;
+	/** Whether each of its source's items makes an iterator of at most one item. */
+	readonly oneShot: boolean;
 	front: Iter<V> | undefined;
 	back: Iter<V> | undefined;
 
-	constructor(outer: Iter<T>, into: (value: T) => Iter<V>, fused: boolean, size?: number) {
+	constructor(outer: Iter<T>, into: (value: T) => Iter<V>, fused: boolean, size?: number, oneShot = false) {
 		super();
 		this.outer = outer;
 		this.into = into;
 		this.fused = fused;
 		this.size = size;
+		this.oneShot = oneShot;
 	}
 
-	/** std's: what its front and back hold, and its source's arrays, if it knows their size. */
-	override lower(): number {
-		const held = satAdd(this.front?.lower() ?? 0, this.back?.lower() ?? 0);
-		if (this.size === undefined) return held;
-		return satAdd((this.outer?.lower() ?? 0) * this.size, held);
+	/**
+	 * std's: what its front and back hold, and its source's items, if it knows how many
+	 * each has. Of items that hold at most one, only its source's, which std never holds
+	 * the iterator of.
+	 */
+	override sizeHint(): SizeHint {
+		const [lower, upper] = this.outer?.sizeHint() ?? [0, 0];
+		if (this.oneShot) {
+			if (this.size === 0) return [0, 0];
+			return this.size === 1 ? [lower, upper] : [0, upper];
+		}
+		const [frontLower, frontUpper] = this.front?.sizeHint() ?? [0, 0];
+		const [backLower, backUpper] = this.back?.sizeHint() ?? [0, 0];
+		const held = satAdd(frontLower, backLower);
+		const heldUpper = addUpper(frontUpper, backUpper);
+		if (this.size !== undefined) {
+			const all = upper === undefined || upper * this.size > USIZE_MAX ? undefined : upper * this.size;
+			return [satAdd(lower * this.size, held), addUpper(heldUpper, all)];
+		}
+		return [held, lower === 0 && upper === 0 ? heldUpper : undefined];
 	}
 
 	/** The source's next item, or `DONE`, which drops it unless it is fused. */
@@ -2458,9 +2615,11 @@ export class Peekable<T> extends Adaptor<T, T> {
 	}
 
 	/** std's: none past a peeked end, and one more than its iterator's for a peeked item. */
-	override lower(): number {
-		if (!this.peeked) return this.inner.lower();
-		return this.item === DONE ? 0 : satAdd(this.inner.lower(), 1);
+	override sizeHint(): SizeHint {
+		if (!this.peeked) return this.inner.sizeHint();
+		if (this.item === DONE) return [0, 0];
+		const [lower, upper] = this.inner.sizeHint();
+		return [satAdd(lower, 1), addUpper(upper, 1)];
 	}
 
 	next(): T | Done {
@@ -2581,6 +2740,10 @@ class ResultShunt<U, E> extends Adaptor<Result<U, E>, U> {
 		this.error = { value: item.error };
 		return DONE;
 	}
+
+	override sizeHint(): SizeHint {
+		return this.error === undefined ? fewer(this.inner) : [0, 0];
+	}
 }
 
 /** What `iterCollectOption` collects from: values until the first `None`. */
@@ -2594,6 +2757,10 @@ class OptionShunt<U> extends Adaptor<U | undefined, U> {
 		if (item !== undefined) return item;
 		this.none = true;
 		return DONE;
+	}
+
+	override sizeHint(): SizeHint {
+		return this.none ? [0, 0] : fewer(this.inner);
 	}
 }
 
@@ -2615,11 +2782,10 @@ function step<T>(n: T, by: number, int: Step<T> | undefined): T | undefined {
 	return over ? undefined : sum;
 }
 
-/** std's `Step::steps_between` of `a` and `b`, at most `b`, saturating at `usize::MAX`. */
-function stepsBetween<T>(a: T, b: T): number {
-	if (typeof a === "number" && typeof b === "number") return Math.min(b - a, USIZE_MAX);
-	const n = intToBig(b as number | Limbs) - intToBig(a as number | Limbs);
-	return n < USIZE_MAX ? Number(n) : USIZE_MAX;
+/** std's `Step::steps_between` of `a` and `b`, at most `b`: `(usize::MAX, None)` past `usize::MAX`. */
+function stepsBetween<T>(a: T, b: T): SizeHint {
+	const n = typeof a === "number" && typeof b === "number" ? b - a : intToBig(b as number | Limbs) - intToBig(a as number | Limbs);
+	return n <= USIZE_MAX ? exactHint(Number(n)) : [USIZE_MAX, undefined];
 }
 
 /**
@@ -2677,8 +2843,8 @@ export class Range<T> extends Iter<T> {
 		return lt(this.start, this.end) ? Number(this.end) - Number(this.start) : 0;
 	}
 
-	override lower(): number {
-		return lt(this.start, this.end) ? stepsBetween(this.start, this.end) : 0;
+	override sizeHint(): SizeHint {
+		return lt(this.start, this.end) ? stepsBetween(this.start, this.end) : [0, 0];
 	}
 }
 
@@ -2735,8 +2901,10 @@ export class RangeInclusive<T> extends Iter<T> {
 		return rangeInclusiveIsEmpty(this) ? 0 : Number(this.hi) - Number(this.lo) + 1;
 	}
 
-	override lower(): number {
-		return rangeInclusiveIsEmpty(this) ? 0 : satAdd(stepsBetween(this.lo, this.hi), 1);
+	override sizeHint(): SizeHint {
+		if (rangeInclusiveIsEmpty(this)) return [0, 0];
+		const [lower, upper] = stepsBetween(this.lo, this.hi);
+		return [satAdd(lower, 1), addUpper(upper, 1)];
 	}
 
 	/** std's `nth`: `start` moves past the item, wrapping if it overflows, which ends the range. */

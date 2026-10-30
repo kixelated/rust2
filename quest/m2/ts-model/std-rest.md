@@ -18,6 +18,11 @@ the rest of what the census refused in std. Decided with the maintainer on 2026-
   capacity by element size, `with_capacity` exact, `shrink_to`, and what `collect` and
   `clone` allocate), through every runtime function that allocates. Measure push cost on
   the TS benchmark before and after.
+- An extend reserves by the size hint only once the collection is full, so its `capacity
+  overflow` depends on capacity. Until it is modeled, `rt.vecCapacity` takes every `Vec`,
+  `VecDeque`, and `BinaryHeap` an extend starts from as full, which is std's for one
+  `Vec::new`, `vec!`, or a `TrustedLen` collect made, but not after a `reserve` or `pop`:
+  replace it with the real capacity.
 - `RandomState` and `BuildHasher::hash_one` landed first, in
   [#261](https://github.com/moq-dev/rust2/pull/261), for hashbrown's default hasher.
 
