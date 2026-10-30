@@ -12,6 +12,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use rustc_span::Span;
 
+use crate::config;
 use crate::ir::{Access, Api, Dyn, Function, Int, Receiver, Type};
 
 /// A C name claimed twice: the name, then what claimed it first and second.
@@ -92,7 +93,7 @@ pub struct Abi<'a> {
 	pub api: &'a Api,
 	pub prefix: String,
 	/// C names for Rust paths, each starting with its crate's name, in place of the
-	/// rule's: an item's, and its methods' through it.
+	/// rule's: an item's, and its methods' through it, or an instance's alone.
 	rename: &'a BTreeMap<String, String>,
 	/// The renamed paths some name went through.
 	renamed: std::cell::RefCell<std::collections::BTreeSet<String>>,
@@ -134,34 +135,52 @@ impl<'a> Abi<'a> {
 
 	/// The C name for a Rust path, which starts with its crate's name.
 	pub fn name(&self, path: &[String]) -> String {
-		std::iter::once(self.prefix.clone())
-			.chain(self.segments(path))
-			.collect::<Vec<_>>()
-			.join("_")
+		self.named(path).0
 	}
 
-	/// The segments of a Rust path's C name after the prefix: a renamed part as one, then
-	/// each segment past it in snake case.
-	fn segments(&self, path: &[String]) -> Vec<String> {
+	/// The C name for the item at `shown`, its path with its instances' arguments, and
+	/// whether a rename named the instance it is alone, which no suffix then names.
+	fn named(&self, shown: &[String]) -> (String, bool) {
+		let (segments, alone) = self.segments(shown);
+		let name = std::iter::once(self.prefix.clone()).chain(segments).collect::<Vec<_>>();
+		(name.join("_"), alone)
+	}
+
+	/// The segments of the C name of the item at `shown` after the prefix: the longest
+	/// renamed part, as `exclude` matches it, as one, then each segment past it in snake
+	/// case; and whether the rename named the instance it is alone.
+	fn segments(&self, shown: &[String]) -> (Vec<String>, bool) {
 		let mut segments = Vec::new();
-		let mut rest = &path[1..];
-		for len in (2..=path.len()).rev() {
-			let key = path[..len].join("::");
+		let mut rest = &shown[1..];
+		let mut alone = false;
+		for (len, key) in config::keys(shown).take_while(|&(len, _)| len >= 2) {
 			if let Some(renamed) = self.rename.get(&key) {
+				alone = len == shown.len() && key.ends_with('>');
 				self.renamed.borrow_mut().insert(key);
 				segments.push(renamed.clone());
-				rest = &path[len..];
+				rest = &shown[len..];
 				break;
 			}
 			// No config names a foreign type, which is named by its role instead.
 			if key == "serde_json::Value" {
 				segments.push("json".to_string());
-				rest = &path[len..];
+				rest = &shown[len..];
 				break;
 			}
 		}
-		segments.extend(rest.iter().map(|segment| snake(segment)));
-		segments
+		segments.extend(
+			rest.iter()
+				.map(|segment| snake(segment.split('<').next().unwrap_or(segment))),
+		);
+		(segments, alone)
+	}
+
+	/// The key, with `prefix` before it, of the rename naming the item at `shown` itself
+	/// rather than a module or type it is in.
+	fn renames(&self, shown: &[String], prefix: &str) -> Option<String> {
+		(config::keys(shown).take_while(|&(len, _)| len == shown.len()))
+			.map(|(_, key)| format!("{prefix}{key}"))
+			.find(|key| self.rename.contains_key(key))
 	}
 
 	/// The config's renames that name nothing exported.
@@ -180,22 +199,29 @@ impl<'a> Abi<'a> {
 	}
 
 	pub fn record(&self, i: usize) -> String {
-		self.type_instance(&self.api.records[i].path, &self.api.records[i].args)
+		let item = &self.api.records[i];
+		self.type_instance(&item.path, &item.shown, &item.args)
 	}
 
 	pub fn enumeration(&self, i: usize) -> String {
-		self.type_instance(&self.api.enums[i].path, &self.api.enums[i].args)
+		let item = &self.api.enums[i];
+		self.type_instance(&item.path, &item.shown, &item.args)
 	}
 
 	pub fn object(&self, i: usize) -> String {
-		self.type_instance(&self.api.objects[i].path, &self.api.objects[i].args)
+		let item = &self.api.objects[i];
+		self.type_instance(&item.path, &item.shown, &item.args)
 	}
 
-	/// The C name of the instance of the type at `path` at `args`, among the type's every
-	/// instance, whichever kind each is.
-	fn type_instance(&self, path: &[String], args: &[Type]) -> String {
+	/// The C name of the instance of the type at `path` at `args`, shown as `shown`, among
+	/// the type's every instance, whichever kind each is.
+	fn type_instance(&self, path: &[String], shown: &[String], args: &[Type]) -> String {
 		let api = self.api;
-		self.instance(false, self.name(path), args, || {
+		let (name, alone) = self.named(shown);
+		if alone {
+			return name;
+		}
+		self.instance(false, name, args, || {
 			let records = api.records.iter().map(|r| (&r.path, &r.args));
 			let enums = api.enums.iter().map(|e| (&e.path, &e.args));
 			let objects = api.objects.iter().map(|o| (&o.path, &o.args));
@@ -232,14 +258,17 @@ impl<'a> Abi<'a> {
 	/// instance's name, so two items whose instances name each other, as `A<B<u8>>` and
 	/// `B<A<u8>>`, name each without the other.
 	fn arg_forms(&self, ty: &Type) -> Vec<String> {
-		let (path, args) = match ty {
-			Type::Record(i) => (&self.api.records[*i].path, &self.api.records[*i].args),
-			Type::Enum(i) => (&self.api.enums[*i].path, &self.api.enums[*i].args),
-			Type::Object(i) => (&self.api.objects[*i].path, &self.api.objects[*i].args),
+		let (shown, args) = match ty {
+			Type::Record(i) => (&self.api.records[*i].shown, &self.api.records[*i].args),
+			Type::Enum(i) => (&self.api.enums[*i].shown, &self.api.enums[*i].args),
+			Type::Object(i) => (&self.api.objects[*i].shown, &self.api.objects[*i].args),
 			Type::Ref(_, inner) | Type::Box(inner) => return self.arg_forms(inner),
 			ty => return vec![self.key(ty)],
 		};
-		let segments = self.segments(path);
+		let (segments, alone) = self.segments(shown);
+		if alone {
+			return segments;
+		}
 		let nested: Vec<Vec<String>> = args.iter().map(|arg| self.arg_forms(arg)).collect();
 		let steps = nested.iter().map(Vec::len).max().unwrap_or(1);
 		let form = |len: usize, step: usize| {
@@ -266,11 +295,11 @@ impl<'a> Abi<'a> {
 		let Access::Field { shared, set } = function.access else {
 			return self.method_name(function, owner_name, false);
 		};
-		let key = format!("field@{}", function.path.join("::"));
-		let name = match self.rename.get(&key) {
-			Some(renamed) => {
+		let name = match self.renames(&function.shown, "field@") {
+			Some(key) => {
+				let renamed = format!("{}_{}", self.prefix, self.rename[&key]);
 				self.renamed.borrow_mut().insert(key);
-				format!("{}_{renamed}", self.prefix)
+				renamed
 			}
 			None => self.method_name(function, owner_name, shared),
 		};
@@ -285,14 +314,16 @@ impl<'a> Abi<'a> {
 	}
 
 	/// A function's C name through its type's, unless renamed by its path and no method
-	/// or constant `shared` its name, then each argument of the instance it is.
+	/// or constant `shared` its name, then each argument of the instance it is, unless
+	/// renamed alone.
 	fn method_name(&self, function: &Function, owner: Option<&str>, shared: bool) -> String {
-		let path = function.path.join("::");
-		let name = match owner {
-			Some(owner) if shared || !self.rename.contains_key(&path) => format!("{owner}_{}", snake(function.name())),
-			_ => self.name(&function.path),
+		let (name, alone) = match owner {
+			Some(owner) if shared || self.renames(&function.shown, "").is_none() => {
+				(format!("{owner}_{}", snake(function.name())), false)
+			}
+			_ => self.named(&function.shown),
 		};
-		let Some(instance) = &function.instance else {
+		let Some(instance) = function.instance.as_ref().filter(|_| !alone) else {
 			return name;
 		};
 		self.instance(true, name, &instance.named, || {

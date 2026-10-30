@@ -270,6 +270,25 @@ pub fn std_impl<'tcx>(
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
 			// A `NonZero` writes its integer, by each trait.
 			(Std::Box | Std::NonZero, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			(Std::Arc, Trait::Display | Trait::Debug) => {
+				b.fmt_call(tr, args.type_at(0), value.member("value"), f, span)
+			}
+			// Each bound is written with the range's options.
+			(
+				std @ (Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive),
+				Trait::Debug,
+			) => {
+				let bound = b.fmt_fn(tr, args.type_at(0), span);
+				let of = match std {
+					Std::Range => "range",
+					Std::RangeInclusive => "rangeInclusive",
+					Std::RangeFrom => "rangeFrom",
+					Std::RangeTo => "rangeTo",
+					_ => "rangeToInclusive",
+				};
+				rt(of, vec![value, f, bound])
+			}
+			(Std::RangeFull, Trait::Debug) => rt("rangeFull", vec![value, f]),
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![library::elements(value, ty), f, item])
