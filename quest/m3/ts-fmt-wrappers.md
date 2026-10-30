@@ -8,8 +8,8 @@ Proven by differential tests against native Rust.
 
 ## Plan
 
-Suggested by [#177](https://github.com/kixelated/rust2/pull/177) (`Arc`, refused for every
-`T`) and [#179](https://github.com/kixelated/rust2/pull/179) (ranges) on 2026-10-27. rust2
+Suggested by [#177](https://github.com/moq-dev/rust2/pull/177) (`Arc`, refused for every
+`T`) and [#179](https://github.com/moq-dev/rust2/pull/179) (ranges) on 2026-10-27. rust2
 aims to support all of std. A drained `RangeInclusive` prints `exhausted` in its `Debug`,
 which [the range fold](/quest/m3/ts-range-fold.md) makes observable.
 

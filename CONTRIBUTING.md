@@ -1,9 +1,6 @@
 # Commits
 
-PRs land on `main` only through `quest land`, each as one squash commit: the PR title becomes the commit subject and the PR's commit messages become the body.
-Queue a PR with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this), and the Land workflow runs Check's steps once on the batch, landing the longest passing prefix.
-The admin bypass of `main`'s ruleset is for emergencies.
-Until the land setup in `quest/m1/land.md` is done, `--land` fails: merge with `gh pr merge <pr> --squash --match-head-commit <reviewed sha>` instead.
+PRs into `main` are squash-merged through the merge queue, so the PR title becomes the commit subject.
 
 - Use conventional-commit subjects (`feat(ts): ...`, `fix: ...`, `chore: ...`, `docs: ...`).
 - AI commit attribution goes in a `Co-Authored-By:` trailer, not the commit body.
@@ -21,7 +18,15 @@ Have at least these sections:
 - **Follow-ups**: any issues encountered or quests created.
 
 Never rebase or force-push a pushed branch; merge the base branch in instead.
-Open a draft PR while working, run `just check` and `just test` before every push, and mark the PR ready yourself when the work is done.
+Open a draft PR while working, run `just ci` before every push, and mark the PR ready yourself when the work is done.
+
+# Merge queue
+
+PRs into `main` get no cloud CI: they report **Check** as skipped, and `just ci` runs the same gate locally.
+The merge queue runs Check on the PR combined with the latest `main` and the PRs queued ahead of it.
+Enqueue the reviewed head with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this).
+A dequeued PR failed that combined check, timed out, or no longer meets the ruleset: read why in the PR timeline, fix the cause, and enqueue again.
+The admin bypass of `main`'s ruleset is for emergencies.
 
 # Reviews
 
