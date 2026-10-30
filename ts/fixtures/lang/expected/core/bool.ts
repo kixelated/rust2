@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import * as Made from "../defaults.Made.ts";
+import type * as Way from "../keys.Way.ts";
 
 export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | undefined {
 	if (!self) {
@@ -113,6 +114,13 @@ export function then$1j955kq(self: boolean, _: () => Made.Made): Made.Made | und
 		return undefined;
 	}
 	return Made.default$Default();
+}
+
+export function then$18np55d(self: boolean, f: () => Way.Way | undefined): Way.Way | undefined | rt.None {
+	if (!self) {
+		return rt.None;
+	}
+	return f();
 }
 
 export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, Made.Made]): [rt.u64 | undefined, Made.Made] | undefined {
