@@ -302,6 +302,13 @@ pub fn call<'tcx>(
 		}
 		// A `&mut` to a `&mut` iterator is itself, an `rt.Place` that each use reads through.
 		("IntoIterator", "into_iter") if through_mut(targ(0)?) => return args.pop(),
+		// So is a `&mut` iterator, which what takes it by value borrows as it does.
+		("IntoIterator", "into_iter")
+			if targ(0)?.ref_mutability() == Some(ty::Mutability::Mut) && b.t.iter_item(targ(0)?).is_some() =>
+		{
+			not_bound(b, targ(0)?, span);
+			return args.pop();
+		}
 		("IntoIterator", "into_iter") => {
 			let value = args.pop()?;
 			return into_iter(b, targ(0)?, value, span);
@@ -907,13 +914,14 @@ pub(super) fn iter_drops<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: S
 	}
 }
 
-/// How a runtime function takes an iterator of type `ty` by value, as `rt.Take` says: by its
-/// own `fold` where std's `folds` it, else by `next`, or `undefined` for one that drops
-/// nothing.
+/// How a runtime function takes an iterator of type `ty` by value, as `rt.Take` says: by
+/// `next` unless std's `folds` it, and then by its own `fold`, or `undefined` for one that
+/// drops nothing, which it reads as `folded` steps it.
 pub(super) fn iter_take<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, folds: bool, span: Span) -> Expr {
-	match drops_iter(b, ty, span) {
-		true => Expr::Str(if folds { "fold" } else { "next" }.into()),
-		false => Expr::undefined(),
+	match (drops_iter(b, ty, span), folds) {
+		(_, false) => Expr::Str("next".into()),
+		(true, true) => Expr::Str("fold".into()),
+		(false, true) => Expr::undefined(),
 	}
 }
 

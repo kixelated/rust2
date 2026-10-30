@@ -20,6 +20,7 @@ import { edits, bytes } from "./edits.ts";
 import { eqs } from "./errors.ts";
 import { floats, formats, parses } from "./floats.ts";
 import { ints, strings, derived, written, counts, rounding, panics, wrapped, writes } from "./fmt.ts";
+import { folds } from "./folds.ts";
 import { methods } from "./generics.ts";
 import { values, random, bytes as hashes_bytes } from "./hashes.ts";
 import { holds } from "./holds.ts";
@@ -183,7 +184,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		asSlices(data66, out67);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::widenings", widenings] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::uninhabited", (_2167: rt.u8, data67: rt.ByteSlice, out68: rt.ByteVec): void => {
 		uninhabited(data67, out68);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::lent_keys", lentKeys] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::lent_values", lentValues] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["singles::singles", singles] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["singles::formats", singles_formats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["singles::parses", singles_parses] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::lent_keys", lentKeys] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::lent_values", lentValues] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["singles::singles", singles] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["singles::formats", singles_formats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["singles::parses", singles_parses] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["folds::folds", folds] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }
 
 /** Run one case. */
