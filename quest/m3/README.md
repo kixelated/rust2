@@ -29,6 +29,7 @@ generic std gap is planned here even when moq never calls it.
 - [References to byte arrays std takes](/quest/m3/ts-byte-refs-taken.md) - `extend` by references to arrays, adaptors' closures over held arrays, and a collection of both forms translate
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
+- [Equality through a held type's own ne](/quest/m3/ts-eq-own-ne.md) - `==` of slices of a type whose `ne` the crate overrides, and `!=` of a tuple or `Arc` of one, translate
 - [A VecDeque's Debug](/quest/m3/ts-deque-debug.md) - `{:?}` of a `VecDeque` translates, writing std's list
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
 - [std's impls of its zero-sized types](/quest/m3/ts-zero-sized-impls.md) - `PhantomData`'s derived impls translate, and `()` is a hash or B-tree key
