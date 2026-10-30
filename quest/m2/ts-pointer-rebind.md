@@ -25,6 +25,8 @@ unsafe { (*q).0 } // `n` in JS, `0` natively
 
 `out_of_step` in `ts/src/lower/mir/place.rs` checks nothing before a pointer's last
 `Deref`, so a pointer taken through a reference never sees the variable it came from.
+That includes one in the same function through a reference that is itself borrowed, as
+`mem::replace(&mut r, &mut b)` does to `r`, which #277 does not follow to `b`.
 
 Judging it by type as first planned (where the program takes a pointer through a
 reference into a type kept as an object, refuse a borrow of a variable of that type

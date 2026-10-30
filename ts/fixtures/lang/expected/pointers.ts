@@ -470,14 +470,17 @@ export function renewText(cell: rt.Cell<string>, value: string): string {
  * `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
  * parts are, ones a helper writes through a `&mut` into the object there, and one taken
  * through two helpers and read while the variable is borrowed, which is assigned after;
- * and one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be.
+ * one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be;
+ * and one through a reference `mem::replace` pointed elsewhere first.
  * Each is a function of its own, as a loop assigns its variables again.
  */
 export function rebound(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const n of rt.byteSliceView(data)) {
-		const _10: rt.u8 = rt.u8Rem(n, 6);
+		const _10: rt.u8 = rt.u8Rem(n, 7);
 		if (_10 === 0) {
 			rt.iterExtendBytes(out, rt.iterSlice(replacedBefore(n)));
+		} else if (_10 === 6) {
+			rt.iterExtendBytes(out, rt.iterSlice(retargeted(n)));
 		} else if (_10 === 5) {
 			rt.iterExtendBytes(out, rt.iterSlice(lentAsValue(n)));
 		} else if (_10 === 1) {
@@ -512,6 +515,18 @@ export function lentAsValue(n: rt.u8): Uint8Array {
 	old2[0] = n ^ 1;
 	r[0] = r[0] ^ 3;
 	return Uint8Array.of(p[0], p[1], other[0], span.range[0]);
+}
+
+export function retargeted(n: rt.u8): Uint8Array {
+	let a: [rt.u8, rt.u8] = [n, ~n & 0xff];
+	const b: [rt.u8, rt.u8] = [n ^ 5, n];
+	let r: [rt.u8, rt.u8] = a;
+	const old = r;
+	r = b;
+	old;
+	const p: [rt.u8, rt.u8] = r;
+	a = [0, 0] as [rt.u8, rt.u8];
+	return Uint8Array.of(p[0] ^ a[0], p[1]);
 }
 
 export function partsReplaced(n: rt.u8): Uint8Array {

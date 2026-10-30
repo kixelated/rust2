@@ -486,15 +486,23 @@ fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: T
 	!ocx.try_evaluate_obligations().has_errors()
 }
 
-/// The place each local of `body` borrows, where its one assignment is a borrow.
+/// The place each local of `body` borrows, where its one assignment is a borrow and
+/// nothing borrows the local itself, through which it could be pointed elsewhere.
 fn borrows<'tcx>(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, Option<Place<'tcx>>> {
 	let mut defs = IndexVec::from_elem(0u32, &body.local_decls);
 	let mut borrows = IndexVec::from_elem(None, &body.local_decls);
+	let mut lent = FxHashSet::default();
 	for data in body.basic_blocks.iter() {
 		for stmt in &data.statements {
-			if let mir::StatementKind::Assign(assign) = &stmt.kind
-				&& let Some(local) = assign.0.as_local()
+			let mir::StatementKind::Assign(assign) = &stmt.kind else {
+				continue;
+			};
+			if let Rvalue::Ref(_, _, place) | Rvalue::RawPtr(_, place) = assign.1
+				&& !place.is_indirect()
 			{
+				lent.insert(place.local);
+			}
+			if let Some(local) = assign.0.as_local() {
 				defs[local] += 1;
 				if let Rvalue::Ref(_, _, place) = assign.1 {
 					borrows[local] = Some(place);
@@ -508,7 +516,7 @@ fn borrows<'tcx>(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, Option<Place<'t
 		}
 	}
 	for (local, borrow) in borrows.iter_enumerated_mut() {
-		if defs[local] != 1 {
+		if defs[local] != 1 || lent.contains(&local) {
 			*borrow = None;
 		}
 	}

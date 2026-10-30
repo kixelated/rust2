@@ -597,12 +597,14 @@ fn renew_text(cell: &mut UnsafeCell<String>, value: String) -> String {
 /// `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
 /// parts are, ones a helper writes through a `&mut` into the object there, and one taken
 /// through two helpers and read while the variable is borrowed, which is assigned after;
-/// and one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be.
+/// one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be;
+/// and one through a reference `mem::replace` pointed elsewhere first.
 /// Each is a function of its own, as a loop assigns its variables again.
 pub fn rebound(data: &[u8], out: &mut Vec<u8>) {
 	for &n in data {
-		match n % 6 {
+		match n % 7 {
 			0 => out.extend(replaced_before(n)),
+			6 => out.extend(retargeted(n)),
 			5 => out.extend(lent_as_value(n)),
 			1 => out.extend(parts_replaced(n)),
 			2 => out.extend(written_in_place(n)),
@@ -633,6 +635,16 @@ fn lent_as_value(n: u8) -> [u8; 4] {
 	old.0 = n ^ 1;
 	r.0 ^= 3;
 	unsafe { [(*p).0, (*p).1, other.0, span.range.0] }
+}
+
+fn retargeted(n: u8) -> [u8; 2] {
+	let mut a = (n, !n);
+	let mut b = (n ^ 5, n);
+	let mut r = &mut a;
+	let _ = std::mem::replace(&mut r, &mut b);
+	let p = &raw mut *r;
+	a = (0, 0);
+	unsafe { [(*p).0 ^ a.0, (*p).1] }
 }
 
 fn parts_replaced(n: u8) -> [u8; 4] {

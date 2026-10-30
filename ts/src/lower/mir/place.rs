@@ -1891,11 +1891,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// `place`, read through each reference that the body borrows a place into, as that
 	/// place, or with `aliases`, only through each alias of one, which a whole write through
-	/// assigns.
+	/// assigns. A reference something borrows may be pointed elsewhere, so it is no such one.
 	fn through_borrows(&self, place: Place<'tcx>, aliases: bool) -> Place<'tcx> {
 		crate::lower::copy::through_borrows(self.tcx, place, |local| match self.def_rvalue(local) {
 			Some(mir::Rvalue::Ref(_, _, borrowed))
-				if self.defs[local] == 1 && (!aliases || self.alias_of_place(local)) =>
+				if self.defs[local] == 1 && !self.borrowed[local] && (!aliases || self.alias_of_place(local)) =>
 			{
 				Some(*borrowed)
 			}
