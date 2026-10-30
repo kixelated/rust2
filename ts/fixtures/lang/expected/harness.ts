@@ -18,7 +18,7 @@ import { durations } from "./durations.ts";
 import { dyns, shared, anys, fns } from "./dyns.ts";
 import { edits, bytes } from "./edits.ts";
 import { floats } from "./floats.ts";
-import { ints, strings, derived, written, counts, rounding, panics } from "./fmt.ts";
+import { ints, strings, derived, written, counts, rounding, panics, wrapped } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { holds } from "./holds.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert } from "./ints.ts";
@@ -29,7 +29,7 @@ import { locks, relock, rwlocks } from "./locks.ts";
 import { nested } from "./nested.ts";
 import { objects } from "./objects.ts";
 import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies, sentinels } from "./pointers.ts";
-import { refs, toRefs } from "./refs.ts";
+import { refs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
 import { statics } from "./statics.ts";
@@ -140,8 +140,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		fromFns(data47, out48);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["collections::optionals", optionals] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["objects::objects", (_2133: rt.u8, data48: rt.ByteSlice, out49: rt.ByteVec): void => {
 		objects(data48, out49);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["holds::holds", holds] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["refs::to_refs", (_2134: rt.u8, data49: rt.ByteSlice, out50: rt.ByteVec): void => {
-		toRefs(data49, out50);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["holds::holds", holds] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::wrapped", (_2134: rt.u8, data49: rt.ByteSlice, out50: rt.ByteVec): void => {
+		wrapped(data49, out50);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 

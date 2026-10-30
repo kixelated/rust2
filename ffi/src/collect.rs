@@ -25,6 +25,7 @@ use rustc_trait_selection::infer::InferCtxtExt;
 use rustc_trait_selection::traits::ObligationCtxt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
 
+use crate::config;
 use crate::ir::{
 	Access, Api, Callback, Constant, Dyn, Enum, Family, Field, Function, Int, Literal, Mutability, Object, Param, Path,
 	Receiver, Record, Traits, Type, Variant,
@@ -283,12 +284,9 @@ impl<'tcx> Collector<'tcx> {
 	/// Whether the config excludes `path`, counting the exclusion. A member of an instance
 	/// is left out by its instance's path or its type's, which leaves it out of each.
 	fn exclude(&mut self, path: &[String]) -> bool {
-		let generic: Vec<&str> = path[1..].iter().map(|s| s.split('<').next().unwrap_or(s)).collect();
-		let generic = generic.join("::");
-		let (report, joined) = self.report(path);
-		for (excluded, count) in &mut report.excluded {
-			let covers = |path: &str| path == excluded || path.starts_with(&format!("{excluded}::"));
-			if covers(&joined) || covers(&generic) {
+		let (report, _) = self.report(path);
+		for (_, key) in config::keys(&path[1..]) {
+			if let Some((_, count)) = report.excluded.iter_mut().find(|(excluded, _)| *excluded == key) {
 				*count += 1;
 				return true;
 			}
@@ -830,12 +828,13 @@ impl<'tcx> Collector<'tcx> {
 					continue;
 				};
 				let api = &mut self.api;
-				let (path, docs) = (site.path, docs.clone());
+				let (path, shown, docs) = (site.path, site.shown, docs.clone());
 				match decl {
 					Decl::Record(i) => {
 						*i = api.records.len();
 						api.records.push(Record {
 							path,
+							shown,
 							args: Vec::new(),
 							span,
 							docs,
@@ -849,6 +848,7 @@ impl<'tcx> Collector<'tcx> {
 						*i = api.enums.len();
 						api.enums.push(Enum {
 							path,
+							shown,
 							args: Vec::new(),
 							span,
 							docs,
@@ -866,6 +866,7 @@ impl<'tcx> Collector<'tcx> {
 						let lifetimes = tcx.generics_of(def_id).own_counts().lifetimes;
 						api.objects.push(Object {
 							path,
+							shown,
 							args: Vec::new(),
 							span,
 							docs,
@@ -914,6 +915,7 @@ impl<'tcx> Collector<'tcx> {
 		};
 		let parse = |docs: &str| Function {
 			path: path("parse"),
+			shown: path("parse"),
 			span,
 			docs: docs.to_string(),
 			receiver: None,
@@ -948,6 +950,7 @@ impl<'tcx> Collector<'tcx> {
 					parse("Parse a JSON document, failing with why it is not one."),
 					Function {
 						path: path("to_text"),
+						shown: path("to_text"),
 						span,
 						docs: "The document as JSON text.".to_string(),
 						receiver: Some(Receiver::Ref),
@@ -966,6 +969,7 @@ impl<'tcx> Collector<'tcx> {
 		};
 		Object {
 			path: path(""),
+			shown: path(""),
 			args: Vec::new(),
 			span,
 			docs: docs.to_string(),
@@ -1437,6 +1441,7 @@ impl<'tcx> Collector<'tcx> {
 				Ok((get, set)) => {
 					let accessor = |receiver, params, ok, set| Function {
 						path: [&site.path[..], std::slice::from_ref(&name)].concat(),
+						shown: shown.clone(),
 						span,
 						docs: docs(tcx, field.did),
 						receiver: Some(receiver),
@@ -1624,7 +1629,9 @@ impl<'tcx> Collector<'tcx> {
 					let function = self
 						.instantiate(item.def_id, None)
 						.and_then(|instances| match &instances[..] {
-							[one] if one.named.is_empty() => self.function(item.def_id, method, Some(self_ty), one),
+							[one] if one.named.is_empty() => {
+								self.function(item.def_id, method.clone(), method, Some(self_ty), one)
+							}
 							_ => Err(vec![why("generic parameter", name.to_string())]),
 						});
 					match function {
@@ -1676,18 +1683,19 @@ impl<'tcx> Collector<'tcx> {
 			let Some(shown) = self.shown(shown, instance) else {
 				continue;
 			};
-			let function = self.function(def_id, path.clone(), self_ty, instance);
+			let function = self.function(def_id, path.clone(), shown.clone(), self_ty, instance);
 			functions.push((function, shown, !instance.named.is_empty()));
 		}
 		functions
 	}
 
-	/// A function or method's signature at one of its instances: a method's receiver is
-	/// `self_ty`.
+	/// A function or method's signature at one of its instances, which the config names by
+	/// `shown`: a method's receiver is `self_ty`.
 	fn function(
 		&self,
 		def_id: DefId,
 		path: Path,
+		shown: Path,
 		self_ty: Option<Ty<'tcx>>,
 		instance: &Instantiation<'tcx>,
 	) -> Result<Function, Vec<Why>> {
@@ -1841,6 +1849,7 @@ impl<'tcx> Collector<'tcx> {
 		match (errs.is_empty(), ok) {
 			(true, Some(ok)) => Ok(Function {
 				path,
+				shown,
 				span: tcx.def_span(def_id),
 				docs: docs(tcx, def_id),
 				receiver,
@@ -2828,7 +2837,8 @@ impl<'tcx> Collector<'tcx> {
 		};
 		match self.ty(ty, Pos::Return) {
 			Ok(ok) => Some(Function {
-				path,
+				path: path.clone(),
+				shown: path,
 				span,
 				docs: docs(tcx, def_id),
 				receiver: None,

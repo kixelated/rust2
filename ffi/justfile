@@ -61,7 +61,37 @@ bench checkout="": (moq checkout)
     done
 
 # Export moq's crates' C ABI, build it, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt against it, from the moq revision `just ts moq` pins or a checkout.
-moq checkout="": (standin checkout)
+moq checkout="": (moq-cpp checkout)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=target/export/moq
+    read -ra native < target/moq-native
+    cc -std=c11 -pedantic -Wall -Wextra -Werror -I "$out/include" moq/moq.c "$out/target/release/libmoq.a" "${native[@]}" -o target/moq-test
+    target/moq-test
+    # The Kotlin, on the JVM, through the JNI functions the kotlin feature builds.
+    rm -rf target/moq-kt
+    kotlinc -Werror -cp "$KOTLINX_COROUTINES" "$out/kotlin/moq.kt" moq/moq.kt -d target/moq-kt
+    kotlin -Djava.library.path="$out/target/release" -cp "target/moq-kt:$KOTLINX_COROUTINES" MoqKt
+
+# Export and build moq's crates' C ABI as `just ffi moq` does, and run only moq/moq.cpp against it, built by $CXX or the platform's compiler: MSVC's on Windows, from a developer environment.
+moq-cpp checkout="": (moq-export checkout)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=target/export/moq
+    read -ra native < target/moq-native
+    # The C++ header at OBS's standard, without exceptions or RTTI.
+    if [ "{{ os_family() }}" = windows ]; then
+        # Git Bash would read a flag that starts with a slash, such as rustc's /defaultlib, as a path.
+        MSYS2_ARG_CONV_EXCL='*' cl -nologo -std:c++17 -permissive- -W4 -WX -MD -EHs-c- -D_HAS_EXCEPTIONS=0 -GR- -I "$out/include" moq/moq.cpp -Fotarget/moq-cpp-test.obj -Fetarget/moq-cpp-test.exe -link "$out/target/release/moq.lib" "${native[@]}"
+    else
+        # -Wshadow stands in for MSVC's warnings that a name hides another.
+        "${CXX:-c++}" -std=c++17 -fno-exceptions -fno-rtti -pedantic -Wall -Wextra -Wshadow -Werror -I "$out/include" moq/moq.cpp "$out/target/release/libmoq.a" "${native[@]}" -o target/moq-cpp-test
+    fi
+    target/moq-cpp-test
+
+# Export moq's crates' C ABI into target/export/moq and build it, with the libraries a program linking it needs besides in target/moq-native.
+[private]
+moq-export checkout="": (standin checkout)
     #!/usr/bin/env bash
     set -euo pipefail
     out=target/export/moq
@@ -69,17 +99,9 @@ moq checkout="": (standin checkout)
     # The lockfile the check resolved with pins what the export depends on.
     cp target/moq-ffi/Cargo.lock "$out/Cargo.lock"
     # A later nightly makes this future-compat lint a hard error; fail on it in moq's crates
-    # and the glue now, while the pin can still move.
-    RUSTFLAGS="-D recursion_depth_exceeding_limit" cargo build --quiet --release --manifest-path "$out/Cargo.toml" --features kotlin
-    cc -std=c11 -pedantic -Wall -Wextra -Werror -I "$out/include" moq/moq.c "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/moq-test
-    target/moq-test
-    # The C++ header at OBS's standard, without exceptions or RTTI.
-    c++ -std=c++17 -fno-exceptions -fno-rtti -pedantic -Wall -Wextra -Werror -I "$out/include" moq/moq.cpp "$out/target/release/libmoq.a" -lpthread -ldl -lm -o target/moq-cpp-test
-    target/moq-cpp-test
-    # The Kotlin, on the JVM, through the JNI functions the kotlin feature builds.
-    rm -rf target/moq-kt
-    kotlinc -Werror -cp "$KOTLINX_COROUTINES" "$out/kotlin/moq.kt" moq/moq.kt -d target/moq-kt
-    kotlin -Djava.library.path="$out/target/release" -cp "target/moq-kt:$KOTLINX_COROUTINES" MoqKt
+    # and the glue now, while the pin can still move. rustc prints the native libraries.
+    RUSTFLAGS="-D recursion_depth_exceeding_limit --print=native-static-libs" cargo build --quiet --release --manifest-path "$out/Cargo.toml" --features kotlin 2>&1 | tee target/moq-build.log
+    sed -n 's/^note: native-static-libs: //p' target/moq-build.log > target/moq-native
 
 # Write target/moq-ffi, an empty library on every crate moq/ffi.toml exports, from the moq revision `just ts moq` pins or a checkout: the check builds with all of them, as moq-ffi's remainder will.
 [private]
@@ -92,6 +114,10 @@ standin checkout="":
         src=../ts/target/moq
     fi
     src=$(realpath "$src")
+    # Cargo on Windows reads a path as Windows writes it, not as Git Bash does.
+    if [ "{{ os_family() }}" = windows ]; then
+        src=$(cygpath -m "$src")
+    fi
     dir=target/moq-ffi
     # moq-ffi's dependencies among the exports, moq-tokio with its default features as
     # moq-ffi has them, and moq-pattern and kio, which moq-ffi reaches through moq-net.

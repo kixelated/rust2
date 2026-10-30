@@ -168,6 +168,7 @@ fn main() {
 	println!("walk {}", api_lib::walk(3, |cursor| cursor.at() * 2));
 	println!("each {}", api_lib::each(2, |at| println!("visit {at}")));
 	println!("offset {}", api_lib::offset(|| 7, 3));
+	println!("shift {}", api_lib::shift(|| 7, 4));
 
 	let name = Name::owned("a".to_string());
 	let mut joined = name.join(&Name::owned("b".to_string()));
