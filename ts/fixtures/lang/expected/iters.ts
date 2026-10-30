@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { copy$Bumped, copy$Option_u8_Reverse_Option_u8, copy$Option_usize_u8, copy$u8_u8 } from "./lib.ts";
 import { thenSome$0b23a33, thenSome$0d5am30 } from "./core/bool.ts";
-import { unwrapOr$1tvry1i, unwrapOr$00uis1j, unwrapOr$0r2bmpr, unwrapOr$14m5xjm, map$0cs071d, mapOr$0tmtgfi, mapOr$1kiffmd, mapOr$0atjiti, mapOr$1surhce, mapOr$0mmpeqx, mapOr$1t0muvr, mapOr$0sl5app, mapOr$02k4ito, mapOr$06gg5x7, filter$0v80fk8 } from "./core/option.ts";
+import { unwrapOr$1tvry1i, unwrapOr$00uis1j, unwrapOr$0r2bmpr, unwrapOr$14m5xjm, unwrapOrDefault$0wx44sw, map$0cs071d, mapOr$0tmtgfi, mapOr$1kiffmd, mapOr$1a3irjf, mapOr$0atjiti, mapOr$1surhce, mapOr$0mmpeqx, mapOr$1t0muvr, mapOr$0sl5app, mapOr$02k4ito, mapOr$06gg5x7, filter$0v80fk8 } from "./core/option.ts";
 import { unwrapOr$01jdcm7 } from "./core/result.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
@@ -307,6 +307,78 @@ export function consumers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		}));
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log));
+}
+
+/**
+ * `reduce`, `max_by`, and `min_by`, whose comparators log each pair they see, and
+ * `Peekable`'s `peek_mut` and `next_if_eq`.
+ */
+export function reducers(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const log: rt.ByteVec = new rt.ByteVec();
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterMaxBy(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8, _3: rt.u8): rt.Ordering => {
+		const a: rt.u8 = _2;
+		const b: rt.u8 = _3;
+		rt.iterExtendBytes(log, rt.iterSlice(Uint8Array.of(a, b)));
+		return rt.cmp(rt.u8Rem(a, 4), rt.u8Rem(b, 4));
+	}), 238));
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterMinBy(rt.iterSlice(rt.byteSliceView(data)), (a2: rt.u8, b2: rt.u8): rt.Ordering => {
+		rt.iterExtendBytes(log, rt.iterSlice(Uint8Array.of(a2, b2)));
+		return rt.cmp(rt.u8Div(a2, 64), rt.u8Div(b2, 64));
+	}), 238));
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterReduce(rt.iterSlice(rt.byteSliceView(data)), (acc: rt.u8, b3: rt.u8): rt.u8 => {
+		rt.byteVecPush(log, acc);
+		return rt.u8WrappingMul(acc, 3) ^ b3;
+	}), 221));
+	rt.byteVecPush(out, mapOr$1a3irjf(rt.iterMaxBy(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_22: rt.u8): rt.ByteVec => {
+		const b4: rt.u8 = _22;
+		return rt.byteVecOf(b4, rt.u8Rem(b4, 3) as rt.usize);
+	}), (a3: rt.ByteVec, b5: rt.ByteVec): rt.Ordering => {
+		return rt.cmp(a3.length, b5.length);
+	}), 204, (v: rt.ByteVec): rt.u8 => {
+		return v.length & 0xff;
+	}));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(unwrapOrDefault$0wx44sw(rt.iterReduce(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_23: rt.u8): rt.ByteVec => {
+		return rt.byteVecFrom(Uint8Array.of(_23));
+	}), (a4: rt.ByteVec, b7: rt.ByteVec): rt.ByteVec => {
+		rt.iterExtendBytes(a4, rt.iterSlice(rt.byteVecView(b7)));
+		return a4;
+	})))));
+	const it: rt.Peekable<rt.u8> = rt.iterPeekable(rt.iterSlice(rt.byteSliceView(data)));
+	const _38: rt.Place<rt.u8> | undefined = rt.peekablePeekMut(it, true);
+	if (_38 !== undefined) {
+		_38.v = rt.u8WrappingAdd(_38.v, 1);
+	}
+	const _44: rt.Place<rt.u8> | undefined = rt.peekablePeekMut(it, true);
+	if (_44 !== undefined) {
+		_44.v = _44.v ^ 128;
+	}
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterToOption(it.next()), 187));
+	const first: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.peekableNextIfEq(it, first, rt.same), 170));
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterToOption(it.next()), 170));
+	rt.byteVecPush(out, rt.peekablePeekMut(it, true) === undefined ? 1 : 0);
+	const words: rt.Peekable<rt.ByteVec> = rt.iterPeekable(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_25: rt.u8): rt.ByteVec => {
+		return rt.byteVecFrom(Uint8Array.of(_25));
+	}));
+	const _73: rt.ByteVec | undefined = rt.peekablePeekMut(words, false);
+	if (_73 !== undefined) {
+		rt.byteVecPush(_73, 153);
+	}
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(unwrapOrDefault$0wx44sw(rt.iterToOption(words.next())))));
+	const _87: rt.ByteVec = rt.byteVecFrom(Uint8Array.of(first));
+	rt.byteVecPush(out, mapOr$1a3irjf(rt.peekableNextIfEq(words, _87, rt.eqBytes), 136, (w: rt.ByteVec): rt.u8 => {
+		return w.data[rt.idx(w, 0)];
+	}));
+	rt.byteVecPush(out, rt.iterCount(words) & 0xff);
+	const bytes: rt.ByteVec = rt.byteSliceToByteVec(data);
+	const _94: rt.Place<rt.u8> | undefined = rt.iterMinBy(rt.iterSliceMut(rt.byteSliceView(rt.byteVecSlice(bytes))), (a5: rt.Place<rt.u8>, b9: rt.Place<rt.u8>): rt.Ordering => {
+		return rt.cmp(b9.v, a5.v);
+	});
+	if (_94 !== undefined) {
+		_94.v = 119;
+	}
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(bytes)));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(log)));
 }
 
 export function rotateFree$RotateFree_u8(self: rt.u8): rt.u8 {

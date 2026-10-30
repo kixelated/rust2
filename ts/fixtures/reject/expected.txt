@@ -111,6 +111,7 @@ passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet a
 passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:861:56
 passing `{closure@fixtures/reject/src/lib.rs:867:11: 867:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:867:4
 `std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:899:6
+`next_if_eq` of `std::string::String` items with a `str`, which is not supported yet at fixtures/reject/src/lib.rs:904:27
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:149:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:169:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:203:2
