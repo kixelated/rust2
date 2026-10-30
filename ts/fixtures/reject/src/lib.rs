@@ -38,7 +38,9 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 
 /// `scan` of items that can be `undefined`: its closure's `None` and `Some(None)` would both be.
 pub fn scanned(v: &[u8]) -> usize {
-	v.iter().scan(Vec::<u8>::new(), |_, &b| Some((b > 1).then_some(b))).count()
+	v.iter()
+		.scan(Vec::<u8>::new(), |_, &b| Some((b > 1).then_some(b)))
+		.count()
 }
 
 pub struct Noisy(pub u8);
