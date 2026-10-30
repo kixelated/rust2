@@ -466,13 +466,7 @@ struct Held {
 /// crossbeam-epoch's own wrapper over `UnsafeCell`, which lends its pointer to a closure.
 struct Wrapped<T>(UnsafeCell<T>);
 
-/// What a `Wrapped` holds. A whole `T` written through the pointer it lends counts as a
-/// write of every type the bound allows, which would refuse `nested`'s pointers.
-trait Lent {}
-
-impl Lent for Held {}
-
-impl<T: Lent> Wrapped<T> {
+impl<T> Wrapped<T> {
 	const fn new(value: T) -> Self {
 		Self(UnsafeCell::new(value))
 	}
@@ -716,4 +710,74 @@ fn flipped(d: &mut Duo) -> u8 {
 
 fn pointer_of(d: &mut Duo) -> *mut Duo {
 	&raw mut *d
+}
+
+/// Structs JS keeps as objects, which Rust copies, and which only the generic bodies below
+/// write into, each reached at one of them: by a call, through a trait object, and through
+/// a closure. Each copy of one is copied in JS too, as are none of the types they aren't
+/// reached at, such as `nested`'s, whose pointers translate.
+#[derive(Clone, Copy, Default)]
+struct ByCall(u8, u8);
+
+#[derive(Clone, Copy, Default)]
+struct ByObject(u8, u8);
+
+#[derive(Clone, Copy, Default)]
+struct ByClosure(u8, u8);
+
+fn put<T>(slot: &mut T, value: T) {
+	*slot = value;
+}
+
+/// A value of a `T` in a cell, which `reset` gives `T`'s default.
+struct Bin<T>(UnsafeCell<T>);
+
+trait Reset {
+	fn reset(&self);
+}
+
+impl<T: Default> Reset for Bin<T> {
+	fn reset(&self) {
+		unsafe { *self.0.get() = T::default() };
+	}
+}
+
+fn resetter<T: Default>(slot: *mut T) -> impl FnOnce() {
+	move || unsafe { *slot = T::default() }
+}
+
+/// Each byte a copy of one of them, the original written whole after by its generic body,
+/// and both put. Each is a function of its own, as a loop assigns its variables again.
+pub fn writers(data: &[u8], out: &mut Vec<u8>) {
+	for &byte in data {
+		let n = byte / 3;
+		out.extend(match byte % 3 {
+			0 => by_call(n),
+			1 => by_object(n),
+			_ => by_closure(n),
+		});
+	}
+}
+
+fn by_call(n: u8) -> [u8; 4] {
+	let mut a = ByCall(n, 1);
+	let b = a;
+	put(&mut a, ByCall(2, !n));
+	[a.0, a.1, b.0, b.1]
+}
+
+fn by_object(n: u8) -> [u8; 4] {
+	let bin = Bin(UnsafeCell::new(ByObject(n, 1)));
+	let before = unsafe { *bin.0.get() };
+	let object: &dyn Reset = &bin;
+	object.reset();
+	let after = bin.0.into_inner();
+	[after.0, after.1, before.0, before.1]
+}
+
+fn by_closure(n: u8) -> [u8; 4] {
+	let mut a = ByClosure(n, 1);
+	let b = a;
+	resetter(&raw mut a)();
+	[a.0, a.1, b.0, b.1]
 }

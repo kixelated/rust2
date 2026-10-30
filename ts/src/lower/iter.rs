@@ -362,7 +362,9 @@ pub fn call<'tcx>(
 
 	let self_ty = match (owner, name) {
 		("Iterator" | "DoubleEndedIterator" | "ExactSizeIterator", _) => targ(0)?,
-		("Peekable", "peek" | "next_if") if library::inherent_std(tcx, call.def_id) == Some(Std::Peekable) => {
+		("Peekable", "peek" | "peek_mut" | "next_if" | "next_if_eq")
+			if library::inherent_std(tcx, call.def_id) == Some(Std::Peekable) =>
+		{
 			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
 			let generics = tcx.generics_of(imp).count();
 			tcx.type_of(imp).instantiate(tcx, &gargs[..generics]).skip_norm_wip()
@@ -466,6 +468,32 @@ pub fn call<'tcx>(
 			method(&camel, tail(rest, [dropper].into_iter().chain(none).collect()))
 		}
 		"peek" | "next_if" => method(&camel, [rest, none.into_iter().collect()].concat()),
+		// An item JS copies is lent as its place, and an object as itself.
+		"peek_mut" => method(&camel, vec![Expr::lit(b.t.needs_place(item).to_string())]),
+		// By the item's own `PartialEq`, which `eq_fn` has only of the item's type.
+		"next_if_eq" => {
+			let expected = targ(1)?;
+			if expected != item {
+				return Some(b.err(
+					span,
+					format!("`next_if_eq` of `{item}` items with a `{expected}`, which is not supported yet"),
+				));
+			}
+			let eq = super::collections::eq_fn(b, item, span);
+			method(&camel, [rest, vec![eq], none.into_iter().collect()].concat())
+		}
+		// By the comparator, which `best` calls with the best so far and then the next, as
+		// std's `cmp::max_by` and `min_by` do.
+		"max_by" | "min_by" => {
+			let droppers = [iter_drops(b, self_ty, span), b.t.dropper(item, span)]
+				.into_iter()
+				.chain(none);
+			method(&camel, tail(rest, droppers.collect()))
+		}
+		"reduce" => {
+			let drops = iter_drops(b, self_ty, span);
+			method(name, tail(rest, [drops].into_iter().chain(none).collect()))
+		}
 		// By the items' `Ord::max` or `min`, or the keys', which test `<` of the next and the
 		// best. Not of places, which the runtime would compare as the objects they are.
 		"max" | "min" | "max_by_key" | "min_by_key"

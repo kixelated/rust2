@@ -341,10 +341,11 @@ const subslices = [0, 1, 2, 3, 4].flatMap((n) =>
 );
 
 /**
- * `nested::consumers`, whose first byte is also `nth`'s index: of no items, `None` before
- * `Some`, `nth` past the end, only `None`s, keys all tied, and `find` stopping early.
+ * `nested::consumers`, whose first byte is also `nth`'s index: of no items, one `Some` or
+ * `None`, `None` before `Some`, `nth` past the end, only `None`s, keys all tied, and
+ * `find` stopping early.
  */
-const consumers = [[], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 3, 0x90, 0x92, 5]].map((bytes) => Uint8Array.of(op("nested::nested"), 3, ...bytes));
+const consumers = [[], [6], [5], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 3, 0x90, 0x92, 5]].map((bytes) => Uint8Array.of(op("nested::nested"), 3, ...bytes));
 
 /**
  * `ranges` of each kind, and each kind of `Bound` at the end, over zero to four items, at
@@ -358,6 +359,12 @@ const ranges = [0, 1, 2, 3, 4].flatMap((n) => {
 		return Uint8Array.of(rangesOp, kind, a, b, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
 	});
 });
+
+/**
+ * `iters::reducers` of no items, one, one repeated, which `next_if_eq` takes, and keys
+ * that all tie.
+ */
+const reducers = [[], [9], [9, 9], [8, 4, 12, 0x40, 0x80]].map((bytes) => Uint8Array.of(op("iters::reducers"), 0, ...bytes));
 
 /**
  * `strs::drains` of each range and way to end the drain on `aé\u{800}😀`, at every byte
@@ -377,4 +384,4 @@ const iters = Array.from({ length: 12 }, (_, kind) => [[], [2, 7, 9, 14], [0, 2,
 const hintedOp = op("strs::hinted");
 const hinted = Array.from({ length: 10 * 7 * 21 }, (_, i) => Uint8Array.of(hintedOp, i % 10, Math.floor(i / 10) % 7, Math.floor(i / 70)));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...drains, ...iters, ...hinted];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...reducers, ...drains, ...iters, ...hinted];

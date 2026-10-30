@@ -205,6 +205,19 @@ fn consumers(data: &[u8], out: &mut Vec<u8>) {
 	out.push(code(peeked.peek().copied()));
 	out.push(code(peeked.next_if(Option::is_none)));
 	out.push(code(peeked.next()));
+	// `None` is the least, so `max_by` keeps the last of the greatest and `min_by` the first `None`.
+	out.push(code(it().max_by(|a, b| a.map(|b| b % 4).cmp(&b.map(|b| b % 4)))));
+	out.push(code(it().min_by(Option::cmp)));
+	out.push(code(it().max_by(|_, _| Ordering::Equal)));
+	out.push(code(it().reduce(|a, b| a.xor(b))));
+	let mut written = it().peekable();
+	if let Some(o) = written.peek_mut() {
+		*o = o.map_or(Some(0x42), |_| None);
+	}
+	out.push(code(written.next()));
+	out.push(code(written.next_if_eq(&None)));
+	out.push(code(written.next_if_eq(&Some(n as u8))));
+	out.push(code(written.next()));
 }
 
 fn panics(data: &[u8], out: &mut Vec<u8>) {

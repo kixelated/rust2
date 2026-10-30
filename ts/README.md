@@ -68,7 +68,7 @@ from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
-`Option`'s, `Result`'s, and `Poll`'s methods, `cmp::max` and `min`, and the `str::parse` and
+`Option`'s, `Result`'s, and `Poll`'s methods, `==` of a `Result` and of std's errors, `cmp::max` and `min`, and the `str::parse` and
 `from_str_radix` of an integer or a `NonZero` and `bool`'s `str::parse`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
@@ -182,7 +182,9 @@ and rounds to the nearest double. The `str::parse` and `from_str_radix` of an in
 `NonZero` are core's own, over the string's UTF-8 bytes; their `ParseIntError` is
 `rt.ParseIntError`, `{ kind }`, whose `IntErrorKind` is the variant's name. `bool`'s is
 core's too, failing with an `rt.ParseBoolError`; a `char`'s is `rt.charFromStr`, failing with
-an `rt.ParseCharError`, `{ kind }`, its private `CharErrorKind`'s name. `Debug` of a string or `char` escapes by
+an `rt.ParseCharError`, `{ kind }`, its private `CharErrorKind`'s name. `==` of a `Result`
+and of std's errors is their derived `PartialEq`, from core's MIR, so two errors are equal
+where their kinds are, private or not. `Debug` of a string or `char` escapes by
 std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
@@ -198,8 +200,8 @@ iterator of `Option` keeps each `None` apart from its end. std's adaptors and co
 are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
 short-circuiting as std's are, and call their closures, and read what they wrap, in
 the same order and as often, a skip by `nth` included. `max`, `min`, and their `_by_key`
-forms test each next item's key for `<` the best's, as std's do, and a B-tree's iterators
-read their ends.
+forms test each next item's key for `<` the best's, as std's do, `max_by` and `min_by`
+compare the best and then the next, and a B-tree's iterators read their ends.
 An iterator over a slice, array, or `Vec`, or a small range, that only its `next` and
 moves read steps in place, as two variables: the array and an index into it, or the
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
@@ -243,7 +245,7 @@ reference. Only a type the crate writes into in place is copied, or one holding 
 type by value: a value of any other type never changes once made, so it is shared. A
 write counts through a field, an element, a reference, or a box, and a mutable reference
 a std function's parameters take, where the crate calls it or takes it as a value, or
-one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for every type its bounds allow. A caller must
+one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for the type each instance translation reaches gives it, a closure's and one reached through a trait object included. A caller must
 not change in place what it passes to or gets from the translation either.
 
 A `&mut` to a value JS copies, which no JS value can point at, such as a number, an

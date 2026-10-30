@@ -186,6 +186,7 @@ const VERBATIM: &[&str] = &[
 	"let ... else",
 	"match",
 	"next",
+	"next_if_eq",
 	"ref mut",
 	"rt.None",
 	"rt.OuterPending",

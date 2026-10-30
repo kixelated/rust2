@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { thenSome$0d5am30, thenSome$1j8foe9, then$16ew6vr } from "./core/bool.ts";
-import { isNoneOr$1s1o3ss, unwrapOr$0r2bmpr, map$0pkankm, map$0rbsrz6, map$0cs071d, map$0at3a41, mapOr$1surhce, mapOr$1t0muvr, mapOr$18ph0j9, andThen$0qni7te, filter$19gtvc4, or$0j02yk0, xor$0pemq84, flatten$1nwzx42 } from "./core/option.ts";
+import { isNoneOr$1s1o3ss, unwrapOr$0r2bmpr, map$0pkankm, map$0rbsrz6, map$0cs071d, map$0at3a41, mapOr$06rr3sb, mapOr$1surhce, mapOr$1t0muvr, mapOr$18ph0j9, andThen$0qni7te, filter$19gtvc4, or$0j02yk0, xor$0pemq84, xor$0kctyix, flatten$1nwzx42 } from "./core/option.ts";
 import * as Halves from "./nested.Halves.ts";
 import type * as Slot from "./nested.Slot.ts";
 import * as Tagged from "./nested.Tagged.ts";
@@ -296,6 +296,35 @@ export function consumers(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return a02 === undefined;
 	}, rt.None)));
 	rt.byteVecPush(out, code(rt.iterToOption(peeked.next(), rt.None)));
+	rt.byteVecPush(out, code(rt.iterMaxBy(it(), (a: rt.u8 | undefined, b8: rt.u8 | undefined): rt.Ordering => {
+		const _511: rt.u8 | undefined = map$0cs071d(a, (b9: rt.u8): rt.u8 => {
+			return rt.u8Rem(b9, 4);
+		});
+		const _8: rt.u8 | undefined = map$0cs071d(b8, (b10: rt.u8): rt.u8 => {
+			return rt.u8Rem(b10, 4);
+		});
+		return rt.cmpOption(rt.cmp)(_511, _8);
+	}, undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMinBy(it(), (a03: rt.u8 | undefined, a1: rt.u8 | undefined): rt.Ordering => {
+		return rt.cmpOption(rt.cmp)(a03, a1);
+	}, undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterMaxBy(it(), (_27: rt.u8 | undefined, _318: rt.u8 | undefined): rt.Ordering => {
+		return 0;
+	}, undefined, undefined, rt.None)));
+	rt.byteVecPush(out, code(rt.iterReduce(it(), (a2: rt.u8 | undefined, b11: rt.u8 | undefined): rt.u8 | undefined => {
+		return xor$0kctyix(a2, b11);
+	}, undefined, rt.None)));
+	const written: rt.Peekable<rt.u8 | undefined> = rt.iterPeekable(it());
+	const _139: rt.Place<rt.u8 | undefined> | undefined = rt.peekablePeekMut(written, true);
+	if (_139 !== undefined) {
+		_139.v = mapOr$06rr3sb(_139.v, 66, (_28: rt.u8): rt.u8 | undefined => {
+			return undefined;
+		});
+	}
+	rt.byteVecPush(out, code(rt.iterToOption(written.next(), rt.None)));
+	rt.byteVecPush(out, code(rt.peekableNextIfEq(written, undefined, rt.same, rt.None)));
+	rt.byteVecPush(out, code(rt.peekableNextIfEq(written, n & 0xff, rt.same, rt.None)));
+	rt.byteVecPush(out, code(rt.iterToOption(written.next(), rt.None)));
 }
 
 export function panics(data: rt.ByteSlice, out: rt.ByteVec): void {

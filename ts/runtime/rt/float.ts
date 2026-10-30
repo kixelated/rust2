@@ -371,7 +371,10 @@ export const f64UpperExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) 
 // Parsing, as `core::num::dec2flt` does it.
 
 /** `core::num::ParseFloatError`: whether the string was empty or not a float. */
-export type ParseFloatError = { readonly kind: "Empty" | "Invalid" };
+export type ParseFloatError = { readonly kind: FloatErrorKind };
+
+/** `core::num::FloatErrorKind`: why an `f64` didn't parse, by variant name. */
+export type FloatErrorKind = "Empty" | "Invalid";
 
 /** Every power of ten a double holds exactly. */
 const POWERS = [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
