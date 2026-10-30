@@ -894,9 +894,24 @@ pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
 	map.into_keys().next().map_or(0, |k| k[0])
 }
 
-/// `next_if_eq` compares the item to another type by `PartialEq<str>`, not the item's own.
-pub fn peeked_str(v: Vec<String>) -> bool {
-	v.into_iter().peekable().next_if_eq("a").is_some()
+/// `next_if_eq` compares by the item's `PartialEq<Vec<u8>>`, which is refused as `==` is.
+pub fn peeked_deque(v: Vec<std::collections::VecDeque<u8>>) -> bool {
+	v.into_iter().peekable().next_if_eq(&vec![1]).is_some()
+}
+
+pub struct Left(pub u16);
+
+pub struct Right(pub u16);
+
+impl PartialEq<Right> for Left {
+	fn eq(&self, other: &Right) -> bool {
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+/// `Vec`s compare by their elements' `PartialEq<Right>`, not by `Left`'s own.
+pub fn unlike_elements(v: Vec<Vec<Left>>, w: &[Right]) -> bool {
+	v.into_iter().peekable().next_if_eq(&w).is_some()
 }
 
 pub struct Plain {

@@ -272,6 +272,112 @@ pub fn reducers(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(log);
 }
 
+/// A byte that equals a `u8` of the same remainder by 4, counting each comparison.
+struct Quarter<'a>(u8, &'a std::cell::Cell<u8>);
+
+impl PartialEq<u8> for Quarter<'_> {
+	fn eq(&self, other: &u8) -> bool {
+		self.1.set(self.1.get().wrapping_add(1));
+		self.0 % 4 == other % 4
+	}
+}
+
+impl PartialEq<Quarter<'_>> for u8 {
+	fn eq(&self, other: &Quarter<'_>) -> bool {
+		other.1.set(other.1.get().wrapping_add(0x10));
+		self % 4 == other.0 % 4
+	}
+}
+
+/// By the pair's sum, which reads the array through the reference `eq` takes.
+impl PartialEq<Quarter<'_>> for [u8; 2] {
+	fn eq(&self, other: &Quarter<'_>) -> bool {
+		other.1.set(other.1.get().wrapping_add(0x40));
+		self.iter().sum::<u8>() == other.0
+	}
+}
+
+/// By the string's length, a std type compared by the crate's impl rather than std's.
+impl PartialEq<Quarter<'_>> for String {
+	fn eq(&self, other: &Quarter<'_>) -> bool {
+		other.1.set(other.1.get().wrapping_add(4));
+		self.len() == usize::from(other.0)
+	}
+}
+
+/// `Peekable::next_if_eq` against another type than the item's, by the item's
+/// `PartialEq<T>`: std's across strings and slices, and the crate's own. Each matches the
+/// first item, and a mismatch keeps the item for the next `next`.
+pub fn peeked_others(data: &[u8], out: &mut Vec<u8>) {
+	use std::borrow::Cow;
+	let letter = |b: u8| char::from(b'a' + b % 3).to_string();
+	let head = |w: Option<&str>| w.map_or(0xaa, |w| w.as_bytes()[0]);
+	let words: Vec<String> = data.iter().map(|&b| letter(b)).collect();
+	let first = words.first().cloned().unwrap_or_default();
+	let mut it = words.clone().into_iter().peekable();
+	out.push(head(it.next_if_eq("a").as_deref()));
+	out.push(head(it.next_if_eq(&"b").as_deref()));
+	out.push(head(it.next().as_deref()));
+	// By `&String: PartialEq<&str>`, which compares what each points at.
+	let mut it = words.iter().peekable();
+	out.push(head(it.next_if_eq(&first.as_str()).map(String::as_str)));
+	out.push(head(it.next_if_eq(&"c").map(String::as_str)));
+	out.push(head(it.next().map(String::as_str)));
+	let mut it = words.iter().map(String::as_str).peekable();
+	out.push(head(it.next_if_eq(&first)));
+	out.push(head(it.next()));
+	let mut it = data.iter().map(|&b| vec![letter(b)]).peekable();
+	out.push(head(
+		it.next_if_eq(&vec![first.as_str()]).as_ref().map(|v| v[0].as_str()),
+	));
+	out.push(head(it.next().as_ref().map(|v| v[0].as_str())));
+	let mut it = words.iter().map(|w| Cow::Borrowed(w.as_str())).peekable();
+	out.push(head(it.next_if_eq(&"b").as_deref()));
+	out.push(head(it.next().as_deref()));
+	let mut it = words.clone().into_iter().peekable();
+	out.push(head(it.next_if_eq(&Cow::Owned(first.clone())).as_deref()));
+
+	let len = |v: Option<Vec<u16>>| v.map_or(0xaa, |v| v.len() as u8);
+	let runs = |b: u8| vec![u16::from(b % 2) << 9; usize::from(b % 3)];
+	let mut it = data.iter().map(|&b| runs(b)).peekable();
+	out.push(len(it.next_if_eq(&[0u16][..])));
+	out.push(len(it.next_if_eq(&[0x200, 0x200])));
+	out.push(len(it.next_if_eq(&&[][..])));
+	out.push(len(it.next()));
+	let mut it = data.iter().map(|&b| vec![b % 2; usize::from(b % 3)]).peekable();
+	out.push(it.next_if_eq(&[1][..]).map_or(0xaa, |v| v.len() as u8));
+	out.push(it.next().map_or(0xaa, |v| v.len() as u8));
+	let calls = std::cell::Cell::new(0);
+	let mut it = data.chunks_exact(2).map(|c| [c[0] % 2, c[1] % 2]).peekable();
+	out.push(it.next_if_eq(&[0, 1][..]).map_or(0xaa, |p| p[1]));
+	out.push(it.next().map_or(0xaa, |p| p[0]));
+	out.push(it.next_if_eq(&Quarter(1, &calls)).map_or(0xaa, |p| p[0]));
+	out.push(it.next().map_or(0xaa, |p| p[1]));
+	// `&mut u8` items, each a place, against a `&u8`, written through once taken.
+	let mut bytes = data.to_vec();
+	let mut it = bytes.iter_mut().peekable();
+	if let Some(b) = it.next_if_eq(&data.first().unwrap_or(&0)) {
+		*b ^= 0x40;
+	}
+	out.push(it.next_if_eq(&&3).map_or(0xaa, |b| *b));
+	out.extend(bytes);
+
+	let mut it = data.iter().map(|&b| Quarter(b, &calls)).peekable();
+	let want = data.first().copied().unwrap_or(0);
+	while let Some(q) = it.next_if_eq(&want) {
+		out.push(q.0);
+	}
+	out.push(it.next().map_or(0xaa, |q| q.0));
+	let mut it = data.iter().copied().peekable();
+	out.push(it.next_if_eq(&Quarter(want ^ 1, &calls)).unwrap_or(0xaa));
+	out.push(it.next_if_eq(&Quarter(want, &calls)).unwrap_or(0xaa));
+	let mut it = data.iter().map(|&b| "ab"[..usize::from(b % 3)].to_string()).peekable();
+	out.push(it.next_if_eq(&Quarter(1, &calls)).map_or(0xaa, |w| w.len() as u8));
+	out.push(it.next().map_or(0xaa, |w| w.len() as u8));
+	out.push((String::from("ab") == Quarter(want, &calls)) as u8);
+	out.push(calls.get());
+}
+
 trait RotateFree {
 	fn rotate_free(self) -> Self;
 }

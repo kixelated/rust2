@@ -3,9 +3,9 @@
 //!
 //! A hash collection holds a key that is a JS primitive as its own JS map key, which JS
 //! compares as Rust's `Eq` does for numbers, strings, and booleans, and finds any other
-//! key through its translated `Hash` and `Eq`, which `rt.hashing` makes it carry. A
-//! B-tree orders every key by its translated `Ord`. Each value a collection stores is its
-//! own copy, as in Rust.
+//! key through its translated or bound `Hash` and `Eq`, which `rt.hashing` makes it carry.
+//! A B-tree orders every key by its translated or bound `Ord`. Each value a collection
+//! stores is its own copy, as in Rust.
 
 use rustc_hir::def_id::DefId;
 use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty};
@@ -115,7 +115,11 @@ pub fn call<'tcx>(
 					return Ok(Some(if name == "eq" { eq } else { eq.not() }));
 				}
 				let kind = b.t.std_of(t) == Some(Std::ErrorKind);
-				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !(std_key(b, t) || kind) {
+				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
+					|| bytes(b, t)
+					|| !(std_key(b, t) || kind)
+					|| !alike(b, t, rhs)
+				{
 					return Err(args);
 				}
 				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
@@ -480,6 +484,15 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 		|| (library::string(tcx, key) && library::string(tcx, by))
 }
 
+/// Whether a `ty` compares to an `other` as to another `ty`: as keys do, as bytes do, or
+/// by elements that do. Else the impl of `PartialEq<other>` is its own.
+fn alike<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, other: Ty<'tcx>) -> bool {
+	let (ty, other) = (peel(b, ty), peel(b, other));
+	same_key(b, ty, other)
+		|| (bytes(b, ty) && bytes(b, other))
+		|| matches!((elements_of(b, ty), elements_of(b, other)), (Some(t), Some(o)) if alike(b, t, o))
+}
+
 /// Whether `call` lends a value a collection or an atomic holds that JS copies, which its
 /// mapping makes an `rt.Place` of: returned as `get_mut` and an entry's do, yielded as
 /// `iter_mut`'s, or handed to a closure as `retain`'s. An atomic is that place itself.
@@ -699,13 +712,14 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 		return None;
 	};
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
-	// A fieldless enum is a JS string, which its own `Eq` may tell apart where JS can't,
-	// as is the `Some` of an `Option` of one, and a `Reverse` of one.
+	// A fieldless enum is a JS string, and a bound value may be any primitive, which its
+	// own `Eq` may tell apart where JS can't, as is the `Some` of an `Option` of one, and a
+	// `Reverse` of one.
 	let mut held = key;
 	while let Some(inner) = option_of(b, held).or_else(|| reverse_of(b, held)) {
 		held = peel(b, inner);
 	}
-	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt)) {
+	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt) || b.t.bound_drops(adt.did()).is_some()) {
 		values.push(Expr::lit("true"));
 	}
 	Some(Some(Expr::rt("hashing", values)))
@@ -713,6 +727,12 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 
 fn fieldless(adt: ty::AdtDef<'_>) -> bool {
 	adt.is_enum() && adt.variants().iter().all(|v| v.fields.is_empty())
+}
+
+/// Whether `ty` compares, orders, and hashes by its own impls, which translate or which its
+/// binding's exports stand in for, rather than as the runtime does std's.
+fn local<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	matches!(ty.kind(), ty::Adt(adt, _) if b.t.own(adt.did()) || b.t.bound_drops(adt.did()).is_some())
 }
 
 /// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples,
@@ -725,7 +745,7 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
 		_ if let Some(elem) = elements_of(b, ty) => own_ne(b, elem),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_ne(b, inner),
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -745,7 +765,7 @@ fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 	match ty.kind() {
 		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let f = trait_fn(tcx, "PartialOrd", test);
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -845,11 +865,10 @@ fn btree<'tcx>(
 		let range = values.pop()?;
 		values.push(bounds(b, call, range));
 		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
-		// does, and one holding the crate's own type by that type's `PartialEq` and
-		// `PartialOrd`.
+		// does, and one holding the crate's own or a bound type by that type's `PartialEq`
+		// and `PartialOrd`.
 		let target = range_input(b, call).1;
-		let own = |t: Ty<'tcx>| matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
-		if target.walk().filter_map(|arg| arg.as_type()).any(own) {
+		if target.walk().filter_map(|arg| arg.as_type()).any(|t| local(b, t)) {
 			values.push(eq_fn(b, target, span));
 			values.push(test_fn(b, target, "gt", span));
 		}
@@ -986,6 +1005,8 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
+		// A binding's, hand-written even where the Rust impl is derived.
+		ty::Adt(adt, _) if b.t.bound_drops(adt.did()).is_some() => true,
 		ty::Adt(adt, args) if b.t.own(adt.did()) => {
 			let derived = |tr: &str, item: &str, args: &[ty::GenericArg<'tcx>]| {
 				let f = trait_fn(tcx, tr, item);
@@ -1411,7 +1432,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	// What a std type holds may be the crate's, which compares and hashes by its own impls.
 	let held = |t: Ty<'tcx>| {
 		let t = peel(b, t);
-		std_key(b, t) || b.t.deferred(t) || matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()))
+		std_key(b, t) || b.t.deferred(t) || local(b, t)
 	};
 	match ty.kind() {
 		// A float is no key, but its `PartialEq` and `PartialOrd` are the runtime's.
@@ -1562,11 +1583,11 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
 		// Whichever form it has, as the key it is or the operand a reference passes.
 		_ if bytes(b, ty) => Expr::Rt("cmpBytes".into()),
-		ty::Adt(adt, _) if b.t.own(adt.did()) && partial => {
+		_ if local(b, ty) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
@@ -1624,9 +1645,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			}
 			Expr::rt("eqArc", values)
 		}
-		ty::Adt(adt, _)
-			if b.t.own(adt.did()) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) =>
-		{
+		ty::Adt(..) if local(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
@@ -1670,7 +1689,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		}
 		// Its length, then its bytes, whichever form it is: a `[u8; N]` hashes as a slice.
 		_ if bytes(b, ty) => Expr::Rt("hashBytes".into()),
-		ty::Adt(adt, _) if b.t.own(adt.did()) => {
+		_ if local(b, ty) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
 		}
@@ -1684,11 +1703,8 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 fn own_hash_slice<'tcx>(b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>, hasher: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let elem = peel(b, elem);
-	let ty::Adt(adt, _) = elem.kind() else {
-		return false;
-	};
 	let f = trait_fn(tcx, "Hash", "hash_slice");
-	b.t.own(adt.did())
+	local(b, elem)
 		&& Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[elem.into(), hasher.into()]))
 			.ok()
 			.flatten()

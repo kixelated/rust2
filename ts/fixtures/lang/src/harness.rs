@@ -160,6 +160,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("singles::singles", singles::singles),
 		("singles::formats", singles::formats),
 		("singles::parses", singles::parses),
+		("iters::peeked_others", |_, data, out| iters::peeked_others(data, out)),
 		("folds::folds", folds::folds),
 	]
 }
