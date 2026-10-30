@@ -321,4 +321,11 @@ const unsafeCells = [
 	[],
 ].map((bytes) => Uint8Array.of(op("pointers::cells"), 0, ...bytes));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells];
+/**
+ * `strs::edits` of each edit on `aé\u{800}😀`, a char of each UTF-8 width, at every byte
+ * offset into it and up to two past its end, each made a raw offset by its byte's bits.
+ */
+const editsOp = op("strs::edits");
+const edits = Array.from({ length: 14 * 16 * 16 }, (_, i) => Uint8Array.of(editsOp, 4, 2, 7, 9, 14, i >> 8, (i >> 4) & 15, i & 15));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits];

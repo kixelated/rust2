@@ -764,6 +764,31 @@ struct Closures<'tcx> {
 	spent: Vec<Expr>,
 }
 
+/// What an argument of type `ty` that std calls holds, through any references and boxes,
+/// whether a reference lends it, and `value`, the argument, read as that: a `&mut` to a
+/// function JS copies is its place, so std calls the function it holds.
+pub fn called_through<'tcx>(
+	t: &Translator<'_, 'tcx>,
+	ty: Ty<'tcx>,
+	mut value: Option<Expr>,
+) -> (Ty<'tcx>, bool, Option<Expr>) {
+	let (mut owned, mut lent) = (ty, false);
+	loop {
+		owned = match *owned.kind() {
+			ty::Ref(_, inner, _) => {
+				if t.place_pointee(owned).is_some() {
+					value = value.map(|f| f.member("v"));
+				}
+				lent = true;
+				inner
+			}
+			ty::Adt(adt, args) if Std::of(t.tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
+			_ => break,
+		};
+	}
+	(owned, lent, value)
+}
+
 /// The closures `call` calls that own a value that drops, by what its mapping does with
 /// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
 /// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
@@ -792,22 +817,10 @@ fn called_closures<'tcx>(
 		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
-		// Through any references and boxes, any reference of which lends it.
-		let (mut owned, mut lent) = (ty, false);
-		loop {
-			owned = match *owned.kind() {
-				ty::Ref(_, inner, _) => {
-					// A `&mut` to a function JS copies is its place: std calls the function it holds.
-					if b.t.place_pointee(owned).is_some() && i < args.len() {
-						let f = std::mem::replace(&mut args[i], Expr::undefined());
-						args[i] = f.member("v");
-					}
-					lent = true;
-					inner
-				}
-				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
-				_ => break,
-			};
+		let value = (i < args.len()).then(|| std::mem::replace(&mut args[i], Expr::undefined()));
+		let (owned, lent, value) = called_through(b.t, ty, value);
+		if let Some(value) = value {
+			args[i] = value;
 		}
 		let Some(called) = b.t.owned_fn(owned) else {
 			continue;
@@ -1640,6 +1653,7 @@ fn mapping<'tcx>(
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
+		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
 		("ParseIntError", "kind") => args.pop()?.member("kind"),
 		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
