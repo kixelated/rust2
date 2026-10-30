@@ -17,7 +17,6 @@ generic std gap is planned here even when moq never calls it.
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
 - [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
-- [A mutable reference to a reference](/quest/m3/ts-mut-ref.md) - `&mut &[u8]` and `&mut &mut T` translate, so `Buf` of a `&[u8]` and `bytes`' forwarding impls do
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, and `dyn Buf` translate, so a consumer neither rewrites nor binds them
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
@@ -28,6 +27,7 @@ generic std gap is planned here even when moq never calls it.
 - [Ordering in std](/quest/m3/ts-ordering.md) - `cmp::max`/`min`, `is_sorted`, and `BinaryHeap`, and #173's cost on integers measured
 - [Arc's unique-access functions](/quest/m3/ts-arc-mut.md) - `Arc::get_mut`, `make_mut`, `pin`, and `as_deref` of an `Option<Arc>` translate
 - [Debug and Display of Arc and ranges](/quest/m3/ts-fmt-wrappers.md) - `Arc<T>` formats as `T`, and ranges as std's `Debug`
+- [Return a std iterator's next from a generic function](/quest/m3/ts-next-return.md) - `it.next()` returned from a generic function is an `Option`, as `tsc` expects
 - [Fold a match a bool decided](/quest/m3/ts-fold-bool.md) - `if matches!` and derived `==` drop a later match's dead arms
 - [Rename one instance](/quest/m3/ffi-instance-rename.md) - `rename` by an instance's path, once a consumer's clash needs it
 - [Into targets through a chain of From implementations](/quest/m3/ffi-from-chains.md) - `sources` follows more than one level, once a consumer's parameter needs it
