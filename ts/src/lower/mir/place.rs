@@ -1854,9 +1854,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	}
 
 	/// Why the pointer std's `def_id` makes of what `reference` points at would not keep
-	/// pointing where Rust's does, if it would not: `UnsafeCell::get`'s, holding a `T`, is
-	/// the `rt.Cell` itself or the object it holds, judged as [`Self::out_of_step`] judges a
-	/// raw pointer, and any other's by the variable it is in.
+	/// pointing where Rust's does, if it would not, judged as [`Self::out_of_step`] judges a
+	/// raw pointer: `UnsafeCell::get`'s, holding a `T`, is the `rt.Cell` itself or the
+	/// object it holds.
 	pub(super) fn made_out_of_step(
 		&self,
 		def_id: rustc_hir::def_id::DefId,
@@ -1865,15 +1865,13 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	) -> Option<String> {
 		let tcx = self.tcx;
 		let pointee = tcx.mk_place_deref(reference.place()?);
-		if library::key(tcx, def_id).is_none_or(|(owner, _)| owner != "UnsafeCell") {
-			return self.reassigned(self.through_borrows(pointee, false), false);
-		}
+		let cell = library::key(tcx, def_id).is_some_and(|(owner, _)| owner == "UnsafeCell");
 		let held = gargs.type_at(0);
-		let place = match self.b.t.pointee(held) {
-			crate::lower::pointer::Pointee::Object => tcx.mk_place_field(pointee, FieldIdx::ZERO, held),
-			crate::lower::pointer::Pointee::Place => pointee,
+		let place = match cell && self.b.t.pointee(held) == crate::lower::pointer::Pointee::Object {
+			true => tcx.mk_place_field(pointee, FieldIdx::ZERO, held),
+			false => pointee,
 		};
-		self.out_of_step(place, true)
+		self.out_of_step(place, cell)
 	}
 
 	/// `place`, read through each reference that the body borrows a place into, as that

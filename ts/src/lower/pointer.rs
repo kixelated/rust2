@@ -173,7 +173,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 /// Whether std's `def_id` with `args` makes a raw pointer to what its first argument, a
 /// reference, points at: `UnsafeCell::get`, `MaybeUninit::as_ptr` and `as_mut_ptr`, and
-/// `NonNull::from`.
+/// `NonNull::from` and `into`.
 pub fn from_reference<'tcx>(
 	tcx: ty::TyCtxt<'tcx>,
 	def_id: rustc_hir::def_id::DefId,
@@ -184,9 +184,12 @@ pub fn from_reference<'tcx>(
 	};
 	match (owner.as_str(), name.as_str()) {
 		("UnsafeCell", "get") | ("MaybeUninit", "as_ptr" | "as_mut_ptr") => true,
-		("From", "from") => {
-			matches!(args.type_at(0).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::NonNull))
-				&& args.type_at(1).is_ref()
+		("From", "from") | ("Into", "into") => {
+			let (to, from) = match owner.as_str() {
+				"From" => (args.type_at(0), args.type_at(1)),
+				_ => (args.type_at(1), args.type_at(0)),
+			};
+			matches!(to.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::NonNull)) && from.is_ref()
 		}
 		_ => false,
 	}
@@ -221,10 +224,11 @@ pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	)
 }
 
-/// Whether std's `def_id` is one this module maps that only points a pointer elsewhere,
-/// reads through it, or drops what it points at, so it gives no part another object.
-pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
-	matches!(
+/// Whether std's `def_id` with `args` is one this module maps that only makes a pointer
+/// or points one elsewhere, reads through it, or drops what it points at, so it gives no
+/// part another object.
+pub fn keeps<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
+	let keeps = matches!(
 		super::library::key(tcx, def_id),
 		Some((owner, name)) if matches!(
 			(owner.as_str(), name.as_str()),
@@ -242,7 +246,8 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 			) | ("Box", "into_raw" | "leak" | "from_raw")
 				| ("UnsafeCell", "new" | "get" | "get_mut" | "into_inner")
 		)
-	)
+	);
+	keeps || from_reference(tcx, def_id, args)
 }
 
 /// Whether std's `def_id` is one a mapping takes the `rt.Place` a `&mut` is for, rather

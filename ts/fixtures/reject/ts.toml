@@ -98,5 +98,7 @@ roots = [
     "put_replaced",
     "object_replaced",
     "closure_replaced",
+    "made_part_replaced",
+    "uninit_part_replaced",
 ]
 printable = ["Meters"]

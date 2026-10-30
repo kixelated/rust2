@@ -781,3 +781,50 @@ fn by_closure(n: u8) -> [u8; 4] {
 	resetter(&raw mut a)();
 	[a.0, a.1, b.0, b.1]
 }
+
+struct Gauge {
+	range: (u8, u8),
+	slot: MaybeUninit<(u8, u8)>,
+}
+
+/// Each part of a `Gauge` written into, never given another object.
+fn nudge(g: &mut Gauge, n: u8) {
+	g.range.0 ^= n;
+	unsafe { (*g.slot.as_mut_ptr()).1 ^= n };
+}
+
+/// Pointers std makes to parts kept as objects, which a helper writes into but never gives
+/// another object: `NonNull::from` of a `&mut` and of a `&`, `into` of a `&mut`, and
+/// `MaybeUninit::as_mut_ptr` and `as_ptr`. Each is a function of its own, as a loop assigns
+/// its variables again.
+pub fn made(data: &[u8], out: &mut Vec<u8>) {
+	for &n in data {
+		out.extend(made_parts(n));
+	}
+}
+
+fn made_parts(n: u8) -> [u8; 7] {
+	let mut g = Gauge {
+		range: (n, !n),
+		slot: MaybeUninit::new((!n, n)),
+	};
+	let p = NonNull::from(&mut g.range);
+	let q = g.slot.as_mut_ptr();
+	nudge(&mut g, n ^ 0x5a);
+	unsafe { (*q).0 = p.as_ref().1 };
+	let r = NonNull::from(&g.range);
+	let s = g.slot.as_ptr();
+	let t: NonNull<(u8, u8)> = (&mut g.range).into();
+	nudge(&mut g, n);
+	unsafe {
+		[
+			p.as_ref().0,
+			p.as_ref().1,
+			r.as_ref().0,
+			t.as_ref().1,
+			(*s).0,
+			(*s).1,
+			g.slot.assume_init().0,
+		]
+	}
+}
