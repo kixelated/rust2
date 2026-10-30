@@ -19,7 +19,7 @@
 // an order each kind of iterator has its own, the `owned` functions follow it, dispatching
 // on the kind, so a bundle that never drops an item carries none of it.
 
-import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result } from "../rt.ts";
+import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
@@ -310,39 +310,6 @@ function sliceCopy<T>(s: T[], start: number, end: number): T[] {
 
 function byteSlicePart(s: ByteSlice, start: number, end: number): ByteSlice {
 	return new ByteSlice(s.data, s.start + start, end - start);
-}
-
-/**
- * `s[start..end]` lent mutably: an array whose every element is `s`'s, read and written
- * where it is, as a JS array has no views of its own. Its own array, holes of the same
- * length, answers for the rest, such as `length` and the methods.
- */
-function sliceView<T>(s: T[], start: number, end: number): T[] {
-	const length = end - start;
-	const at = (key: string | symbol): number => {
-		if (typeof key !== "string") return -1;
-		const i = Number(key);
-		return Number.isInteger(i) && i >= 0 && i < length && String(i) === key ? start + i : -1;
-	};
-	return new Proxy(new Array<T>(length), {
-		get: (target, key) => {
-			const i = at(key);
-			return i < 0 ? Reflect.get(target, key) : s[i];
-		},
-		set: (target, key, value) => {
-			const i = at(key);
-			if (i < 0) return Reflect.set(target, key, value);
-			s[i] = value;
-			return true;
-		},
-		has: (target, key) => at(key) >= 0 || Reflect.has(target, key),
-		ownKeys: (target) => [...Array.from({ length }, (_, i) => String(i)), ...Reflect.ownKeys(target)],
-		getOwnPropertyDescriptor: (target, key) => {
-			const i = at(key);
-			if (i < 0) return Reflect.getOwnPropertyDescriptor(target, key);
-			return { value: s[i], writable: true, enumerable: true, configurable: true };
-		},
-	});
 }
 
 /** `Option::iter`, and with what drops its item, `option::IntoIter`. */

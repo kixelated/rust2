@@ -2233,8 +2233,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			match self.slots[local] {
 				Slot::Alias(_) => {
 					let target = match rvalue {
-						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span) {
-							Some(e) => e,
+						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span, out) {
+							// One view, however many times it is read.
+							Some(e) => self.path(e, "view", out),
 							None => match self.reborrowed(*kind, *p, span, out) {
 								Some(e) => e,
 								// Read whole, the place is held as it is now for its `rt.Place`.

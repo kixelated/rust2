@@ -231,14 +231,6 @@ pub fn zip_dropped(v: &[u8]) -> usize {
 	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
 }
 
-/// `rest` borrows the tail of `items` mutably, but a JS array has no views.
-pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
-	if let [_, rest @ ..] = items {
-		rest[0] = 9;
-	}
-	items[1]
-}
-
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
