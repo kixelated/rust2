@@ -1,2 +1,2 @@
 package = "stock-fixture"
-roots = ["harness::run"]
+roots = ["harness::run", "harness::op"]

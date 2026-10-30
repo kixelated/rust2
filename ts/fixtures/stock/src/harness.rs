@@ -7,19 +7,19 @@ use rand::RngExt;
 /// What a case runs on the rest of the input.
 type Case = fn(&[u8], &mut Vec<u8>);
 
-/// Each case, which the first byte picks modulo their count, so a case added at the end
-/// moves no other.
-fn cases() -> Vec<Case> {
+/// Each case's name and what it runs. The first byte picks one modulo their count, so a
+/// case added at the end moves no other.
+fn cases() -> Vec<(&'static str, Case)> {
 	vec![
-		slices,
-		made,
-		events,
-		random,
-		crate::buf::bytes_mut,
-		crate::buf::reads,
-		crate::buf::writes,
-		crate::buf::edits,
-		crate::buf::reserves,
+		("slices", slices),
+		("made", made),
+		("events", events),
+		("random", random),
+		("buf::bytes_mut", crate::buf::bytes_mut),
+		("buf::reads", crate::buf::reads),
+		("buf::writes", crate::buf::writes),
+		("buf::edits", crate::buf::edits),
+		("buf::reserves", crate::buf::reserves),
 	]
 }
 
@@ -30,8 +30,17 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		return out;
 	};
 	let cases = cases();
-	cases[usize::from(op) % cases.len()](data, &mut out);
+	let (_, case) = cases[usize::from(op) % cases.len()];
+	case(data, &mut out);
 	out
+}
+
+/// The first byte that picks the case named `name`, which `caller.ts` targets by.
+pub fn op(name: &str) -> u8 {
+	match cases().iter().position(|&(n, _)| n == name) {
+		Some(i) => i as u8,
+		None => panic!("no case {name}"),
+	}
 }
 
 /// `Bytes`'s slices by every kind of range, out of bounds included, which panic as
