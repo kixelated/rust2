@@ -46,7 +46,7 @@ for (let n = 0; n <= 6; n++) {
 		type Key = { k: number };
 		const hashed = rt.hashNew<Key, number>(
 			rt.hashing<Key>(
-				(key, s) => rt.hashInt(key.k >> 1, s),
+				(key, s) => rt.hash32(key.k >> 1, s),
 				(a, b) => a.k === b.k,
 			),
 		);
