@@ -14,7 +14,7 @@ Decided with the maintainer on 2026-10-23: deterministic reference counts in
 `rt.ts`, not GC-backed `WeakRef`. kio's `WaiterList` frees slots when
 `Weak::upgrade` fails and reads `weak_count`, so drop timing is observable.
 
-The async spike ([#16](https://github.com/kixelated/rust2/pull/16)) landed what its
+The async spike ([#16](https://github.com/moq-dev/rust2/pull/16)) landed what its
 kio-shaped fixture needs, in `rt/task.ts`: `rt.Arc`, an `Arc` or an `Rc`, counts
 strong and weak references and drops its value with the last strong one, `rt.Weak`
 upgrades while one is left, and `rt.Mutex` is its own guard, which a lock gives as

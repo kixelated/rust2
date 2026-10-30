@@ -4,7 +4,7 @@
 
 A payload read through the generated Kotlin costs what its JNI crossings must:
 `just ffi bench`'s "payload read" line closes most of its gap to C, each cut measured. After
-[#231](https://github.com/kixelated/rust2/pull/231), Kotlin takes 147-176 ns per 100 B
+[#231](https://github.com/moq-dev/rust2/pull/231), Kotlin takes 147-176 ns per 100 B
 payload read against C's 15-16.
 
 The semantics stay as they are: `close()` is idempotent and frees exactly once, and the GC
