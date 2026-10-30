@@ -1010,9 +1010,9 @@ export function result(out: rt.ByteVec, r: rt.Result<undefined, rt.FmtError>): v
 /** `fmt::Write` for a `String`, through `&mut W`, and for the crate's own writers. */
 export function writes(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
-	const c: rt.char = unwrapOr$Option_char(rt.charFromU32(rt.u32Mul(at(0) as rt.u32, 257)), 63);
+	const c: rt.char = unwrapOr$0k15iai(rt.charFromU32(rt.u32Mul(at(0) as rt.u32, 257)), 63);
 	let s: string = "";
 	const _19: rt.u8 = at(1);
 	const _23: string = "q\"é";
