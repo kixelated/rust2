@@ -8,10 +8,16 @@ import { put } from "./fmt.ts";
 
 /** An `f64` from the front of `data`, its bits big-endian and zero-padded. */
 export function take(data: rt.ByteSlice): [rt.f64, rt.ByteSlice] {
+	const _4: [rt.u64, rt.ByteSlice] = takeBits(data);
+	return [rt.f64FromBits(_4[0]), _4[1]] as [rt.f64, rt.ByteSlice];
+}
+
+/** The bits [`take`] reads, as a seed, which no NaN quieted on the way. */
+export function takeBits(data: rt.ByteSlice): [rt.u64, rt.ByteSlice] {
 	const buf: Uint8Array = rt.bytes(8);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
-	return [rt.f64FromBits(rt.u64FromBeBytes(buf)), rt.byteSliceRange(data, n)] as [rt.f64, rt.ByteSlice];
+	return [rt.u64FromBeBytes(buf), rt.byteSliceRange(data, n)] as [rt.u64, rt.ByteSlice];
 }
 
 /** `x`'s bits, any NaN as `f64::NAN`'s. */
@@ -300,7 +306,7 @@ export function formats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => Reading.fmt$Debug(part, f)];
 			put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ alternate: true }, args8[0]), "|", rt.fmtSpec({ precision: 2 }, args8[0]), "|", rt.fmtSpec({ plus: true, zero: true, width: 12 }, args8[0])]));
 		} else {
-			let state: rt.u64 = rt.u64Or(rt.f64ToBits(a), 1);
+			let state: rt.u64 = rt.u64Or(takeBits(data)[0], 1);
 			let iterStart: rt.i32 = 0;
 			const iterEnd: rt.i32 = 64;
 			while (iterStart++ < iterEnd) {
@@ -328,7 +334,7 @@ export function formats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
  * mapped into the grammar's alphabet, or of decimals made from a seed.
  */
 export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _61!: rt.usize;
+	let _60!: rt.usize;
 	b0: {
 		const _4: rt.u8 = rt.u8Rem(kind, 3);
 		if (_4 === 0) {
@@ -346,7 +352,7 @@ export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			one(s, out);
 		} else {
-			let state: rt.u64 = rt.u64Or(rt.f64ToBits(take(data)[0]), 1);
+			let state: rt.u64 = rt.u64Or(takeBits(data)[0], 1);
 			let iterStart: rt.i32 = 0;
 			const iterEnd: rt.i32 = 16;
 			while (true) {
@@ -359,15 +365,15 @@ export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				let s2: string = "";
 				let iterStart2: rt.usize = 0;
 				const iterEnd2: rt.usize = len;
-				while ((_61 = iterStart2++) < iterEnd2) {
-					if (_61 === point) {
+				while ((_60 = iterStart2++) < iterEnd2) {
+					if (_60 === point) {
 						s2 = s2 + ".";
 					}
-					const _70: rt.char = rt.u8Add(48, rt.u64Low(rt.u64Rem(step(rt.place(() => state, (value2) => state = value2)), 10)) & 0xff) as rt.char;
-					s2 = s2 + String.fromCodePoint(_70);
+					const _69: rt.char = rt.u8Add(48, rt.u64Low(rt.u64Rem(step(rt.place(() => state, (value2) => state = value2)), 10)) & 0xff) as rt.char;
+					s2 = s2 + String.fromCodePoint(_69);
 				}
-				const _86: rt.i64 = rt.i64Sub(rt.i64Cast(rt.u64Rem(rt.u64Shr(r, 16), 700)), 350);
-				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, s2), (f: rt.Formatter) => rt.i64Display(_86, f)];
+				const _85: rt.i64 = rt.i64Sub(rt.i64Cast(rt.u64Rem(rt.u64Shr(r, 16), 700)), 350);
+				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, s2), (f: rt.Formatter) => rt.i64Display(_85, f)];
 				one(rt.fmtFormat([args2[0], "e", args2[1]]), out);
 			}
 		}

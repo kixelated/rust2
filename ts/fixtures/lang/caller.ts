@@ -116,7 +116,9 @@ const formatted: (number | bigint)[] = [
 const formatsOp = op("floats::formats");
 const formats = [
 	...formatted.flatMap((a) => Array.from({ length: 22 }, (_, p) => Uint8Array.of(formatsOp, 0, ...double(a), p))),
-	...formatted.flatMap((a) => [1, 3].map((kind) => Uint8Array.of(formatsOp, kind, ...double(a), 0))),
+	...formatted.flatMap((a) => [1, 3, 4].map((kind) => Uint8Array.of(formatsOp, kind, ...double(a), 0))),
+	// Seeds for `parses`' decimals, a signaling NaN's bits among them, which a seed keeps.
+	...doubles.map((a) => Uint8Array.of(op("floats::parses"), 2, ...double(a))),
 	...formatted.flatMap((a) => [[1, 2], [2, 1], [NaN, 1], [1, NaN], [-0, 0], [0, -0]].map(([b, c]) => Uint8Array.of(formatsOp, 2, ...double(a), ...double(b), ...double(c)))),
 ];
 

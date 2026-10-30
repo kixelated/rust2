@@ -13,10 +13,16 @@ use crate::fmt::put;
 
 /// An `f64` from the front of `data`, its bits big-endian and zero-padded.
 fn take(data: &[u8]) -> (f64, &[u8]) {
+	let (bits, rest) = take_bits(data);
+	(f64::from_bits(bits), rest)
+}
+
+/// The bits [`take`] reads, as a seed, which no NaN quieted on the way.
+fn take_bits(data: &[u8]) -> (u64, &[u8]) {
 	let mut buf = [0u8; 8];
 	let n = data.len().min(buf.len());
 	buf[..n].copy_from_slice(&data[..n]);
-	(f64::from_bits(u64::from_be_bytes(buf)), &data[n..])
+	(u64::from_be_bytes(buf), &data[n..])
 }
 
 /// `x`'s bits, any NaN as `f64::NAN`'s.
@@ -363,7 +369,7 @@ pub fn formats(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			// The shortest digits of many doubles, of every exponent, then of ones with a full
 			// significand and a few binary digits past the point, which can end half a digit
 			// past two as short and as close, where std takes the greater.
-			let mut state = a.to_bits() | 1;
+			let mut state = take_bits(data).0 | 1;
 			for _ in 0..64 {
 				let x = f64::from_bits(step(&mut state));
 				put(out, &format!("{x} {x:?} {x:e}"));
@@ -397,8 +403,7 @@ pub fn parses(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		_ => {
 			// Up to 40 digits with a point among them, past 19 where std leaves its fast path,
 			// and an exponent within a few of each end of a double's range.
-			let (seed, _) = take(data);
-			let mut state = seed.to_bits() | 1;
+			let mut state = take_bits(data).0 | 1;
 			for _ in 0..16 {
 				let r = step(&mut state);
 				let len = (r % 40 + 1) as usize;

@@ -270,7 +270,14 @@ function exact(x: number): [string, number] {
 	const e = Math.max(biased, 1) - 1075;
 	// m * 2^-k is m * 5^k / 10^k.
 	const all = (e >= 0 ? significand << BigInt(e) : significand * 5n ** BigInt(-e)).toString();
-	return [all.replace(/0+$/, ""), all.length + Math.min(e, 0)];
+	return [all.slice(0, end(all, "0")), all.length + Math.min(e, 0)];
+}
+
+/** Where the run of `c` that ends `s` starts, scanned from the end, which a regex would retry from each `c` before it. */
+function end(s: string, c: string): number {
+	let i = s.length;
+	while (i > 0 && s[i - 1] === c) i--;
+	return i;
 }
 
 /** The first `n` of `digits`, rounded half to even on the rest, as `format_exact` does; none if they round to zero. */
@@ -283,7 +290,7 @@ function round(digits: string, exp: number, n: number): [string, number] {
 	// A tie with no digit kept rounds to the zero before it, which is even.
 	const odd = n > 0 && kept.charCodeAt(n - 1) % 2 === 1;
 	if (next < "5" || (half && !odd)) return [kept, exp];
-	const nines = kept.search(/9*$/);
+	const nines = end(kept, "9");
 	if (nines === 0) return ["1".padEnd(Math.max(n, 1), "0"), exp + 1];
 	const carried = String.fromCharCode(kept.charCodeAt(nines - 1) + 1);
 	return [kept.slice(0, nines - 1) + carried + "0".repeat(n - nines), exp];
@@ -394,9 +401,10 @@ export function f64FromStr(s: string): Result<f64, ParseFloatError> {
 
 /** The double nearest `digits * 10^exp`, half to even. */
 function nearest(digits: string, exp: number): number {
-	const trimmed = digits.replace(/^0+/, "").replace(/0+$/, "");
+	const last = end(digits, "0");
+	const trimmed = digits.slice(0, last).replace(/^0+/, "");
 	if (trimmed === "") return 0;
-	exp += digits.length - digits.replace(/0+$/, "").length;
+	exp += digits.length - last;
 	const n = trimmed.length;
 	// Both operands exact, so the one operation rounds once, as Clinger's fast path does.
 	if (n <= 15 && Math.abs(exp) <= 22) return exp < 0 ? Number(trimmed) / POWERS[-exp] : Number(trimmed) * POWERS[exp];
