@@ -5,23 +5,36 @@ import { bytesMut, reserves, reads, writes, edits } from "./buf.ts";
 import * as Owner from "./harness.Owner.ts";
 
 /**
- * Each case, which the first byte picks modulo their count, so a case added at the end
- * moves no other.
+ * Each case's name and what it runs. The first byte picks one modulo their count, so a
+ * case added at the end moves no other.
  */
-export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> {
-	return [slices, made, events, random, bytesMut, reads, writes, edits, reserves];
+export function cases(): [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void][] {
+	return [["slices", slices] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["made", made] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["events", events] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["random", random] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["buf::bytes_mut", bytesMut] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["buf::reads", reads] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["buf::writes", writes] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["buf::edits", edits] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void], ["buf::reserves", reserves] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void]];
 }
 
 /** Run one case. */
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
-		const op: rt.u8 = input.data[input.start];
-		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = cases();
-		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
+		const op_: rt.u8 = input.data[input.start];
+		const cases_: [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void][] = cases();
+		cases_[rt.idx(cases_, rt.usizeRem(op_ as rt.usize, cases_.length))][1](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}
 	return out;
+}
+
+/** The first byte that picks the case named `name`, which `caller.ts` targets by. */
+export function op(name: string): rt.u8 {
+	const _2: rt.usize | undefined = rt.iterPosition(rt.iterSlice(cases()), (_22: [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => void]): boolean => {
+		return _22[0] === name;
+	});
+	if (_2 === undefined) {
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, name)];
+		rt.panicFmt(["no case ", args2[0]]);
+	} else {
+		return _2 & 0xff;
+	}
 }
 
 /**
