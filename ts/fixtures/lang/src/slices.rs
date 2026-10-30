@@ -3,7 +3,8 @@
 //! is written through a mutable chunk landing in the slice; and `Vec::drain` of
 //! each kind of range, read from both ends, dropped part way, and forgotten, of values
 //! that log when they drop; and a slice's parts by each kind of range and by fixed size,
-//! with what is written through a mutable one landing in the slice.
+//! with what is written through a mutable one landing in the slice; and a slice's edits in
+//! place, of values that log as they are cloned and drop.
 
 use std::cell::RefCell;
 
@@ -115,9 +116,7 @@ fn scribble_words(i: usize, chunk: &mut [u16]) {
 		*w ^= 0x1234;
 	}
 	if i % 3 == 2 {
-		for w in chunk.iter_mut() {
-			*w = i as u16;
-		}
+		chunk.fill(i as u16);
 	}
 	// A chunk of a chunk writes through to the slice too.
 	for (j, inner) in chunk.chunks_mut(2).enumerate() {
@@ -249,9 +248,7 @@ pub fn chunked(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			let mut it = words.rchunks_exact_mut(size);
 			it.next();
-			for w in it.into_remainder() {
-				*w = 7;
-			}
+			it.into_remainder().fill(7);
 			pairs.rchunks_exact_mut(size).into_remainder().reverse();
 		}
 		// Chunks of a mutable slice that is itself part of the vector.
@@ -280,6 +277,7 @@ fn poke_words(i: usize, s: &mut [u16]) {
 		*w ^= 0x0f0f;
 	}
 	s.reverse();
+	s.rotate_left(n / 3);
 	for (j, w) in s.iter_mut().enumerate() {
 		*w = w.wrapping_mul(3).wrapping_add(j as u16);
 	}
@@ -648,9 +646,7 @@ pub fn ranges(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				None => out.push(0xee),
 			}
 			if let Some(part) = bytes.get_mut(..b) {
-				for x in part.iter_mut() {
-					*x = 0x77;
-				}
+				part.fill(0x77);
 			}
 			match words.get_mut(a..b) {
 				Some(part) => poke_words(3, part),
@@ -773,4 +769,250 @@ pub fn ranges(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	out.extend(words.iter().map(|&w| (w ^ w >> 8) as u8));
 	out.push(digest_pairs(&pairs));
 	out.extend(array.iter().map(|&x| (x ^ x >> 13) as u8));
+}
+
+/// Logs its tag with the high bit set as it is cloned, into a clone one higher, and logs
+/// its tag as it drops.
+struct Noisy {
+	tag: u8,
+}
+
+impl Clone for Noisy {
+	fn clone(&self) -> Self {
+		LOG.with_borrow_mut(|log| log.push(self.tag | 0x80));
+		Noisy {
+			tag: self.tag.wrapping_add(1),
+		}
+	}
+}
+
+impl Drop for Noisy {
+	fn drop(&mut self) {
+		LOG.with_borrow_mut(|log| log.push(self.tag));
+	}
+}
+
+/// A `Copy` element whose own `Clone` logs, which `fill` and `clone_from_slice` call and
+/// `copy_within` and `copy_from_slice` do not.
+#[derive(Copy)]
+struct Counted {
+	n: u8,
+}
+
+impl Clone for Counted {
+	fn clone(&self) -> Self {
+		LOG.with_borrow_mut(|log| log.push(self.n ^ 0x40));
+		*self
+	}
+}
+
+/// A slice's `fill`, `fill_with`, `rotate_left`, `rotate_right`, `copy_within`,
+/// `copy_from_slice`, and `clone_from_slice`, of bytes, other integers, objects that are
+/// `Copy`, a `Copy` whose `Clone` logs, values that log as they are cloned and drop, and
+/// options of them, on the whole slice and on mutable parts and chunks of it, at bounds
+/// from the first three bytes, which may be out of bounds or backwards, which panics.
+pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let [a, b, c, data @ ..] = data else {
+		return;
+	};
+	let reach = data.len() + 2;
+	let (a, b, c) = (*a as usize % reach, *b as usize % reach, *c as usize % reach);
+	let size = c % 3 + 1;
+	let mut bytes = data.to_vec();
+	let mut words: Vec<u16> = data.iter().map(|&b| b as u16 * 257).collect();
+	let mut pairs: Vec<Pair> = data.iter().map(|&b| Pair { a: b, b: b as u16 * 3 }).collect();
+	let mut counted: Vec<Counted> = data.iter().map(|&n| Counted { n }).collect();
+	let mut items: Vec<Noisy> = data.iter().map(|&tag| Noisy { tag }).collect();
+	let mut array = [0u32; 5];
+	for (x, &b) in array.iter_mut().zip(data) {
+		*x = b as u32 * 65599;
+	}
+	match kind % 8 {
+		// Each slot but the last a clone, the last the value, and each old one dropped
+		// after its slot's clone; an empty slice drops the value.
+		0 => {
+			bytes.fill(c as u8);
+			bytes[a..].fill(0x5a);
+			words[..b].fill(c as u16 * 0x0101);
+			pairs.fill(Pair { a: 1, b: 2 });
+			if let Some(p) = pairs.first_mut() {
+				p.a = 9;
+			}
+			// The value is the caller's, which the last slot is a copy of.
+			let pair = Pair { a: 3, b: c as u16 };
+			pairs[a..b].fill(pair);
+			if let Some(p) = pairs.get_mut(b.wrapping_sub(1)) {
+				p.b ^= 1;
+			}
+			out.push(pair.b as u8);
+			counted[..b].fill(Counted { n: 0x11 });
+			flush(out);
+			items[a..].fill(Noisy { tag: 0x20 });
+			flush(out);
+			items[..0].fill(Noisy { tag: 0x30 });
+			flush(out);
+			items.fill(Noisy { tag: c as u8 });
+			flush(out);
+			array[a.min(5)..].fill(c as u32);
+			let mut opts: Vec<Option<Noisy>> = data.iter().map(|&tag| Some(Noisy { tag })).collect();
+			opts[a..].fill(None);
+			flush(out);
+			opts.fill(Some(Noisy { tag: 0x40 }));
+			flush(out);
+			out.extend(opts.iter().map(|o| o.as_ref().map_or(0xee, |x| x.tag)));
+		}
+		// In slot order, each value made before its slot's old one drops.
+		1 => {
+			let mut n = c as u8;
+			bytes[..b].fill_with(|| {
+				n = n.wrapping_add(3);
+				n
+			});
+			words[a..].fill_with(|| {
+				n = n.wrapping_mul(5);
+				n as u16
+			});
+			pairs.fill_with(|| {
+				n ^= 0x21;
+				Pair { a: n, b: n as u16 }
+			});
+			counted[a..b].fill_with(|| Counted { n: 7 });
+			flush(out);
+			let mut tag = 0x60;
+			items[a..].fill_with(|| {
+				LOG.with_borrow_mut(|log| log.push(0xfe));
+				tag += 1;
+				Noisy { tag }
+			});
+			flush(out);
+			// The function, holding a value that drops, drops once the slots are full.
+			let held = Noisy { tag: 0x70 };
+			items.fill_with(move || {
+				let held = &held;
+				Noisy { tag: held.tag ^ 1 }
+			});
+			flush(out);
+			out.push(0x99);
+			array.fill_with(Default::default);
+		}
+		2 => {
+			bytes.rotate_left(c);
+			words.rotate_right(a);
+			pairs[a..].rotate_left(b);
+			counted.rotate_right(c);
+			items.rotate_left(c);
+			flush(out);
+			array.rotate_right(c);
+			bytes[..b].rotate_right(a);
+		}
+		// Rotations of chunks, halves, and nothing, by 0 and by the length.
+		3 => {
+			for (i, chunk) in words.chunks_mut(size).enumerate() {
+				chunk.rotate_left(i % (chunk.len() + 1));
+			}
+			for chunk in pairs.chunks_exact_mut(size) {
+				chunk.rotate_right(1);
+			}
+			let (l, r) = items.split_at_mut(a);
+			l.rotate_right(0);
+			let n = r.len();
+			r.rotate_left(n);
+			r.rotate_right(b.min(n));
+			flush(out);
+			let (l, r) = bytes.split_at_mut(b.min(data.len()));
+			l.rotate_left(l.len());
+			r.rotate_right(r.len() / 2);
+			array[1..].rotate_left(c);
+		}
+		// Overlapping either way, and of a `Copy` object, which each copy is its own of.
+		4 => {
+			bytes.copy_within(a..b, c);
+			words.copy_within(a.., c);
+			pairs.copy_within(..b, c);
+			if let Some(p) = pairs.get_mut(c) {
+				p.a ^= 0xff;
+			}
+			counted.copy_within(a..=b, c);
+			flush(out);
+			array.copy_within(a.min(5).., c.min(5));
+			let part = &mut words[a / 2..];
+			part.copy_within(b / 2.., 0);
+			bytes.copy_within((std::ops::Bound::Excluded(a), std::ops::Bound::Unbounded), c);
+		}
+		// Of a part of the same slice, and of another, of a length that may not match.
+		5 => {
+			let (l, r) = words.split_at_mut(a);
+			let n = l.len().min(r.len());
+			l[..n].copy_from_slice(&r[..n]);
+			let (l, r) = pairs.split_at_mut(b);
+			let n = l.len().min(r.len());
+			r[..n].copy_from_slice(&l[..n]);
+			if let Some(p) = l.first_mut() {
+				p.b = 0xbeef;
+			}
+			let other: Vec<Counted> = (0..c).map(|n| Counted { n: n as u8 }).collect();
+			counted[a..].copy_from_slice(&other[..data.len() - a]);
+			flush(out);
+			let mut more = [0u32; 3];
+			more.copy_from_slice(&array[..3]);
+			array[2..].copy_from_slice(&more);
+			let source = vec![Pair { a: 4, b: 5 }; c];
+			pairs[..b].copy_from_slice(&source);
+		}
+		// Each slot's clone in order, each old one dropped after its clone; of a length
+		// that may not match, which panics before any clone.
+		6 => {
+			let source: Vec<Noisy> = (0..c).map(|tag| Noisy { tag: tag as u8 | 0x50 }).collect();
+			let n = data.len().min(c);
+			items[..n].clone_from_slice(&source[..n]);
+			flush(out);
+			let (l, r) = counted.split_at_mut(a);
+			let n = l.len().min(r.len());
+			l[..n].clone_from_slice(&r[..n]);
+			flush(out);
+			let (l, r) = pairs.split_at_mut(a);
+			let n = l.len().min(r.len());
+			r[..n].clone_from_slice(&l[..n]);
+			if let Some(p) = l.first_mut() {
+				p.b = 0xbeef;
+			}
+			words[a..].clone_from_slice(&[7, 8, 9][..b.min(3)]);
+			items[a..].clone_from_slice(&source[..b.min(c)]);
+			flush(out);
+			pairs[..c].clone_from_slice(&[Pair { a: 1, b: 1 }; 2]);
+		}
+		// Each edit on each mutable chunk, which lands in the slice.
+		_ => {
+			for (i, chunk) in pairs.chunks_mut(size).enumerate() {
+				match i % 3 {
+					0 => chunk.fill(Pair { a: i as u8, b: 0 }),
+					1 => chunk.copy_within(1.., 0),
+					_ => chunk.rotate_left(1),
+				}
+			}
+			let mut it = items.rchunks_exact_mut(size);
+			if let (Some(x), Some(y)) = (it.next(), it.next()) {
+				x.clone_from_slice(y);
+				y.rotate_right(1);
+				y.fill(Noisy { tag: 0x0f });
+			}
+			flush(out);
+			for chunk in words.chunks_exact_mut(size) {
+				chunk.fill_with(|| a as u16);
+			}
+			if let Some((first, rest)) = counted.split_first_chunk_mut::<1>() {
+				first.copy_from_slice(&rest[..1.min(rest.len())]);
+			}
+			flush(out);
+		}
+	}
+	flush(out);
+	out.extend(&bytes);
+	out.extend(words.iter().map(|&w| (w ^ w >> 8) as u8));
+	out.push(digest_pairs(&pairs));
+	out.extend(counted.iter().map(|x| x.n));
+	out.extend(items.iter().map(|x| x.tag));
+	out.extend(array.iter().map(|&x| (x ^ x >> 13) as u8));
+	drop(items);
+	flush(out);
 }

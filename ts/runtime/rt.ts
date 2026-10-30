@@ -465,6 +465,91 @@ export function sliceSwap<T>(s: T[], a: number, b: number): void {
 	s[b] = x;
 }
 
+/**
+ * `fill`: a clone of `value` into each slot but the last, each old element dropped once
+ * its slot's clone is made, then `value` itself into the last, or `value` dropped if there
+ * is none. `clone` is `undefined` where a clone is the value.
+ */
+export function sliceFill<T>(s: T[], value: T, clone: ((value: T) => T) | undefined, drop?: (item: T) => void): void {
+	const last = s.length - 1;
+	if (last < 0) return drop?.(value);
+	for (let i = 0; i < last; i++) {
+		const item = clone === undefined ? value : clone(value);
+		drop?.(s[i]);
+		s[i] = item;
+	}
+	drop?.(s[last]);
+	s[last] = value;
+}
+
+/** `fill_with`: `f()` into each slot in order, each old element dropped once its slot's value is made. */
+export function sliceFillWith<T>(s: T[], f: () => T, drop?: (item: T) => void): void {
+	for (let i = 0; i < s.length; i++) {
+		const item = f();
+		drop?.(s[i]);
+		s[i] = item;
+	}
+}
+
+/** `rotate_left`, panicking past the length. */
+export function sliceRotateLeft<T>(s: T[], mid: number): void {
+	if (mid > s.length) panic("assertion failed: mid <= self.len()");
+	rotate(s, mid);
+}
+
+/** `rotate_right`, panicking past the length. */
+export function sliceRotateRight<T>(s: T[], k: number): void {
+	if (k > s.length) panic("assertion failed: k <= self.len()");
+	rotate(s, s.length - k);
+}
+
+/** The elements from `mid` on, then those before it, in place. */
+function rotate<T>(s: T[], mid: number): void {
+	if (mid === 0 || mid === s.length) return;
+	const head = s.slice(0, mid);
+	s.copyWithin(0, mid);
+	for (let i = 0; i < mid; i++) s[s.length - mid + i] = head[i];
+}
+
+/** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds; `copy` is `undefined` where a copy is the value. */
+export function sliceCopyWithin<T>(s: T[], start: number, end: number, dest: number, copy?: (value: T) => T): void {
+	copyWithinCheck(s.length, start, end, dest);
+	if (copy === undefined) {
+		s.copyWithin(dest, start, end);
+		return;
+	}
+	const items = s.slice(start, end);
+	for (let i = 0; i < items.length; i++) s[dest + i] = copy(items[i]);
+}
+
+/** `copy_within`'s checks of `start..end` and `dest` in `length` elements. */
+function copyWithinCheck(length: number, start: number, end: number, dest: number): void {
+	// `slice::range` checks the end first, then `range` reports the rest.
+	if (end > length) panic(`range end index ${end} out of range for slice of length ${length}`);
+	rangeCheck(length, start, end);
+	if (dest > length - (end - start)) panic("dest is out of bounds");
+}
+
+/** `copy_from_slice`, and `clone_from_slice` of a `TrivialClone`, panicking if the lengths differ; `copy` as `sliceCopyWithin`'s. */
+export function sliceCopyFromSlice<T>(dst: T[], src: ArrayLike<T>, copy?: (value: T) => T): void {
+	if (dst.length !== src.length) copyLengthFail(dst.length, src.length);
+	for (let i = 0; i < src.length; i++) dst[i] = copy === undefined ? src[i] : copy(src[i]);
+}
+
+/** `clone_from_slice`: each slot's clone in order, each old element dropped once its slot's clone is made, panicking first if the lengths differ. */
+export function sliceCloneFromSlice<T>(dst: T[], src: ArrayLike<T>, clone: ((value: T) => T) | undefined, drop?: (item: T) => void): void {
+	if (dst.length !== src.length) panic("destination and source slices have different lengths");
+	for (let i = 0; i < src.length; i++) {
+		const item = clone === undefined ? src[i] : clone(src[i]);
+		drop?.(dst[i]);
+		dst[i] = item;
+	}
+}
+
+function copyLengthFail(dst: number, src: number): never {
+	panic(`copy_from_slice: source slice length (${src}) does not match destination slice length (${dst})`);
+}
+
 /** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
 export function sliceSortBy<T>(s: { [i: number]: T; length: number }, cmp: (a: T, b: T) => Ordering): void {
 	sliceSort(s, (a, b) => cmp(a, b) === -1);
@@ -764,19 +849,43 @@ export function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: n
 
 /** `copy_from_slice`, panicking if the lengths differ. */
 export function byteSliceCopyFromSlice(dst: ByteSlice, src: ByteSlice): void {
-	if (dst.length !== src.length) {
-		panic(`copy_from_slice: source slice length (${src.length}) does not match destination slice length (${dst.length})`);
-	}
+	if (dst.length !== src.length) copyLengthFail(dst.length, src.length);
 	copyBytes(dst.data, dst.start, src.data, src.start, src.length);
 }
 
 /** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds. */
 export function byteSliceCopyWithin(s: ByteSlice, start: number, end: number, dest: number): void {
-	// `slice::range` checks the end first, then `range` reports the rest.
-	if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
-	rangeCheck(s.length, start, end);
-	if (dest > s.length - (end - start)) panic("dest is out of bounds");
+	copyWithinCheck(s.length, start, end, dest);
 	s.data.copyWithin(s.start + dest, s.start + start, s.start + end);
+}
+
+/** `fill` of bytes. */
+export function byteSliceFill(s: ByteSlice, value: number): void {
+	s.data.fill(value, s.start, s.start + s.length);
+}
+
+/** `fill_with` of bytes: `f()` into each in order. */
+export function byteSliceFillWith(s: ByteSlice, f: () => number): void {
+	for (let i = 0; i < s.length; i++) s.data[s.start + i] = f();
+}
+
+/** `rotate_left` of bytes, panicking past the length. */
+export function byteSliceRotateLeft(s: ByteSlice, mid: number): void {
+	if (mid > s.length) panic("assertion failed: mid <= self.len()");
+	byteRotate(s, mid);
+}
+
+/** `rotate_right` of bytes, panicking past the length. */
+export function byteSliceRotateRight(s: ByteSlice, k: number): void {
+	if (k > s.length) panic("assertion failed: k <= self.len()");
+	byteRotate(s, s.length - k);
+}
+
+/** The bytes from `mid` on, then those before it, in place. */
+function byteRotate(s: ByteSlice, mid: number): void {
+	const head = s.data.slice(s.start, s.start + mid);
+	s.data.copyWithin(s.start, s.start + mid, s.start + s.length);
+	s.data.set(head, s.start + s.length - mid);
 }
 
 /** `to_vec` of bytes. */
