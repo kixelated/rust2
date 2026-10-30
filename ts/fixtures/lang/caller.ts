@@ -348,6 +348,13 @@ const subslices = [0, 1, 2, 3, 4].flatMap((n) =>
 const consumers = [[], [6], [5], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 3, 0x90, 0x92, 5]].map((bytes) => Uint8Array.of(op("nested::nested"), 3, ...bytes));
 
 /**
+ * `nested::closures`, whose bytes `pick` each `None` (0 mod 3), `Some(None)` (1), or
+ * `Some(Some(_))` (2): of no bytes, only `None`s, only `Some(None)`s, `Some(None)` before
+ * a `None` and after it, and a seed of each.
+ */
+const closures = [[], [3], [0, 3], [1], [4, 7, 1], [1, 2, 0, 4, 5], [4, 0, 1, 3, 5], [2, 1, 4, 3, 8], [5, 4], [0, 1, 2]].map((bytes) => Uint8Array.of(op("nested::nested"), 5, ...bytes));
+
+/**
  * `ranges` of each kind, and each kind of `Bound` at the end, over zero to four items, at
  * every pair of bounds up to one past the end and at `usize::MAX`.
  */
@@ -366,4 +373,4 @@ const ranges = [0, 1, 2, 3, 4].flatMap((n) => {
  */
 const reducers = [[], [9], [9, 9], [8, 4, 12, 0x40, 0x80]].map((bytes) => Uint8Array.of(op("iters::reducers"), 0, ...bytes));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...ranges, ...reducers];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...ranges, ...reducers];

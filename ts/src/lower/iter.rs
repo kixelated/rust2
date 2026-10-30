@@ -316,11 +316,15 @@ pub fn call<'tcx>(
 		["iter", "sources", "empty", "empty"] => return Some(Expr::rt("iterEmpty", Vec::new())),
 		// A closure that owns a value that drops is refused as any std mapping refuses one
 		// it calls but never drops.
-		["iter", "sources", "from_fn", "from_fn"] => return Some(Expr::rt("iterFromFn", args)),
+		// Each takes its closure's `None` last, where that is `rt.None`.
+		["iter", "sources", "from_fn", "from_fn"] => {
+			let none = b.t.none_arg(targ(0)?);
+			return Some(Expr::rt("iterFromFn", [args, none.into_iter().collect()].concat()));
+		}
 		// What drops the item it holds next.
 		["iter", "sources", "successors", "successors"] => {
-			let dropper = b.t.dropper(targ(0)?, span);
-			return Some(Expr::rt("iterSuccessors", tail(args, vec![dropper])));
+			let droppers = [b.t.dropper(targ(0)?, span)].into_iter().chain(b.t.none_arg(targ(0)?));
+			return Some(Expr::rt("iterSuccessors", tail(args, droppers.collect())));
 		}
 		_ => {}
 	}
@@ -399,8 +403,12 @@ pub fn call<'tcx>(
 	};
 	let camel = super::camel(name);
 	match name {
-		"map" | "filter_map" | "enumerate" | "rev" | "map_while" | "inspect" | "any" | "all" | "find_map"
-		| "position" => method(&camel, rest),
+		"map" | "enumerate" | "rev" | "inspect" | "any" | "all" | "position" => method(&camel, rest),
+		// Each takes its closure's `None` last, where that is `rt.None`.
+		"filter_map" | "map_while" | "find_map" => {
+			let none = b.t.none_arg(targ(1)?);
+			method(&camel, [rest, none.into_iter().collect()].concat())
+		}
 		// What each drops: an item it skips or rejects, or one it peeked.
 		"filter" | "skip_while" | "take_while" | "peekable" | "skip" | "take" | "step_by" => {
 			let dropper = b.t.dropper(item, span);

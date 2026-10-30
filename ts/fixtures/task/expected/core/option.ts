@@ -72,6 +72,13 @@ export function map$0lq7mno(self: Guard.Guard | undefined, _: (a0: Guard.Guard) 
 	return Guard.id(self);
 }
 
+export function map$0ccnsmq(self: Guard.Guard | undefined | rt.None, f: (a0: Guard.Guard | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
+	}
+	return f(self);
+}
+
 export function map$19e1ji3(self: rt.Result<Guard.Guard, Any.Any> | undefined, f: (a0: rt.Result<Guard.Guard, Any.Any>) => boolean): boolean | undefined {
 	if (self === undefined) {
 		return undefined;

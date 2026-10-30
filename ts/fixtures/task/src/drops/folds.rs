@@ -7,12 +7,12 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::log::Log;
 use crate::model::Guard;
 
-/// Run scenario `arg % 33`. Items are guards 1 to 7; what closures own, 10 and up.
+/// Run scenario `arg % 34`. Items are guards 1 to 7; what closures own, 10 and up.
 pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
 	let (c, d) = (guard(10), guard(11));
-	match arg % 33 {
+	match arg % 34 {
 		0 => {
 			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).count();
 			let sum: u32 = guards(5, 8).into_iter().map(move |g| g.id() - id + d.id() - id).sum();
@@ -382,6 +382,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 		}
 		31 => options(log, id),
 		32 => reducers(log, id),
+		33 => closures(log, id),
 		_ => {
 			let n: u32 = guards(1, 6)
 				.into_iter()
@@ -606,4 +607,68 @@ fn reducers(log: &Log, id: u32) {
 		.iter()
 		.min_by(move |a, b| (a.id() + e.id()).cmp(&(b.id() + e.id())));
 	log.note(format!("first {:?}", first.map(Guard::id)));
+}
+
+/// Closures that own a guard and return an `Option<Option<Guard>>`, whose `Some(None)` is
+/// an item: each drops what it rejects as it returns, and with its adaptor, after the
+/// source it reads.
+fn closures(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	let (c, d, e, f, h) = (guard(10), guard(11), guard(12), guard(13), guard(14));
+	// `None` for 0 mod 3, `Some(None)` for 1, and else `Some(Some(g))`.
+	let pick = |g: Guard| match (g.id() - id) % 3 {
+		0 => None,
+		1 => Some(None),
+		_ => Some(Some(g)),
+	};
+	let ids = |o: Option<Guard>| o.map(|g| g.id());
+	let kept: Vec<Option<u32>> = guards(1, 7)
+		.into_iter()
+		.filter_map(move |g| {
+			log.note(format!("filter_map {} {}", g.id(), c.id()));
+			pick(g)
+		})
+		.map(ids)
+		.collect();
+	log.note(format!("kept {kept:?}"));
+	let mut whiles = guards(4, 8).into_iter().map_while(move |g| {
+		log.note(format!("map_while {} {}", g.id(), d.id()));
+		pick(g)
+	});
+	let first = whiles.next().map(ids);
+	let second = whiles.next().map(ids);
+	drop(whiles);
+	log.note(format!("whiles {first:?} {second:?}"));
+	let found = guards(3, 7).into_iter().find_map(move |g| {
+		log.note(format!("find_map {} {}", g.id(), e.id()));
+		pick(g)
+	});
+	log.note(format!("found {:?}", found.map(ids)));
+	let mut held = guards(1, 6);
+	let mut made = std::iter::from_fn(move || {
+		let g = held.pop()?;
+		log.note(format!("from_fn {} {}", g.id(), f.id()));
+		Some((g.id() % 2 == 0).then_some(g))
+	});
+	let first = made.next().map(ids);
+	let second = made.next().map(ids);
+	drop(made);
+	log.note(format!("made {first:?} {second:?}"));
+	// From a `Some(None)` seed, holding the guard it yields next as it drops.
+	let mut walked = std::iter::successors(Some(None), move |prev: &Option<Guard>| {
+		let next = prev.as_ref().map_or(5, |g| g.id() - id + 1);
+		log.note(format!("successors {next} {}", h.id()));
+		(next < 8).then(|| Some(Guard::new(id + next, log.clone())))
+	});
+	let first = walked.next().map(ids);
+	let second = walked.next().map(ids);
+	drop(walked);
+	log.note(format!("walked {first:?} {second:?}"));
+	let n = std::iter::successors(Some(None), |prev: &Option<Guard>| {
+		let next = prev.as_ref().map_or(5, |g| g.id() - id + 1);
+		(next < 8).then(|| Some(Guard::new(id + next, log.clone())))
+	})
+	.count();
+	log.note(format!("walked {n}"));
 }

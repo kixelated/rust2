@@ -880,6 +880,13 @@ export function andThen$101gy6h(self: rt.Place<rt.u32> | undefined, f: (a0: rt.P
 	return f(self);
 }
 
+export function andThen$1bd14ex(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined | rt.None): rt.u8 | undefined | rt.None {
+	if (self === undefined) {
+		return rt.None;
+	}
+	return f(self);
+}
+
 export function andThen$17ch833(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
