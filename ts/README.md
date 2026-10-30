@@ -265,7 +265,9 @@ finds any other key, a 64-bit one past 2^53 included, through its translated `Ha
 `Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
 so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
-bytes and then their length. A `&mut` to a value a map holds that JS copies,
+bytes and then their length, and compare and hash alike whatever their form, so a map of
+`Vec<u8>` finds a `&[u8]`. A collection's reference to a byte array it holds as a key, as
+`keys` and `HashSet::get` return, is refused. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, and hashes a key

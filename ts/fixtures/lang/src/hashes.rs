@@ -219,3 +219,35 @@ pub fn random(data: &[u8], out: &mut Vec<u8>) {
 		out.extend_from_slice(&k.to_le_bytes());
 	}
 }
+
+/// What `Hash` writes of bytes, which is alike in each form, a `[u8; N]`, a `&[u8]`, or a
+/// `Vec<u8>`: its length as a `usize`, then the bytes. Held in a tuple, an `Option`, and an
+/// `Arc` too, and through `RandomState`'s `hash_one`, which hashes each form alike.
+pub fn bytes(data: &[u8], out: &mut Vec<u8>) {
+	let cut = data.len().min(5);
+	for i in 0..=cut {
+		let s = &data[..i];
+		digest(s, out);
+		digest(&s.to_vec(), out);
+		digest(&(s, i as u8), out);
+		digest(&Some(s.to_vec()), out);
+		digest(&Arc::new(s.to_vec()), out);
+	}
+	let empty: [u8; 0] = [];
+	digest(&empty, out);
+	digest(&(empty, Some(empty)), out);
+	let state = RandomState::new();
+	for w in data.windows(3) {
+		let a = [w[0], w[1], w[2]];
+		let pair = [w[0] % 2, w[1] % 2];
+		digest(&a, out);
+		digest(&pair, out);
+		digest(&(pair, a), out);
+		digest(&Some(pair), out);
+		digest(&Arc::new(a), out);
+		out.push((state.hash_one(a) == state.hash_one(&w[..3])) as u8);
+		out.push((state.hash_one(&a) == state.hash_one(w.to_vec())) as u8);
+		out.push((state.hash_one((pair, 1u8)) == state.hash_one((&w[..2], 1u8))) as u8);
+	}
+	out.push((state.hash_one(empty) == state.hash_one(Vec::<u8>::new())) as u8);
+}
