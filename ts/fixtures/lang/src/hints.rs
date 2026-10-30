@@ -188,7 +188,11 @@ pub fn hints(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			0 => walk((0..n).map(|i| i.checked_sub(2)).flatten(), steps, out),
 			1 => walk((0..n).flat_map(|i| (i % 2 == 0).then_some(i)), steps, out),
 			2 => walk((0..n).flat_map(std::iter::once), steps, out),
-			3 => walk((0..n).flat_map(|i| Some(i).into_iter().filter(|i| i % 2 == 0)), steps, out),
+			3 => walk(
+				(0..n).flat_map(|i| Some(i).into_iter().filter(|i| i % 2 == 0)),
+				steps,
+				out,
+			),
 			4 => walk(bytes.iter().map(|&b| [b]).flatten(), steps, out),
 			_ => {
 				let arrays: Vec<[u8; 2]> = bytes.iter().map(|&b| [b, b]).collect();
@@ -216,14 +220,20 @@ pub fn hints(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 		},
 		16 => {
-			let s: String = bytes.iter().map(|&b| ['a', 'é', '😀', '\u{800}'][usize::from(b % 4)]).collect();
+			let s: String = bytes
+				.iter()
+				.map(|&b| ['a', 'é', '😀', '\u{800}'][usize::from(b % 4)])
+				.collect();
 			match arm % 4 {
 				0 => walk(s.chars(), steps, out),
 				1 => walk_front(s.split('é'), steps, out),
 				2 => walk(s.bytes(), steps, out),
 				_ => {
 					let mut t = s.clone();
-					let half: usize = bytes[..bytes.len() / 2].iter().map(|&b| [1, 2, 4, 3][usize::from(b % 4)]).sum();
+					let half: usize = bytes[..bytes.len() / 2]
+						.iter()
+						.map(|&b| [1, 2, 4, 3][usize::from(b % 4)])
+						.sum();
 					walk(t.drain(half..), steps, out);
 				}
 			}
@@ -275,7 +285,11 @@ pub fn hints(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		// Adaptors of adaptors.
 		21 => match arm % 4 {
 			0 => walk_front((0..n).chain(0..m).skip(3).take(u32_of(n) as usize), steps, out),
-			1 => walk((0..u32_of(n.min(9))).zip(0..u32_of(m.min(9))).rev().step_by(2), steps, out),
+			1 => walk(
+				(0..u32_of(n.min(9))).zip(0..u32_of(m.min(9))).rev().step_by(2),
+				steps,
+				out,
+			),
 			2 => walk((0..n).map(|i| [i; 2]).flatten().chain(0..m), steps, out),
 			_ => walk_front((0..n).filter(|_| true).peekable(), steps, out),
 		},
@@ -287,7 +301,11 @@ pub fn hints(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 		_ => match arm % 3 {
 			0 => walk_front((0..n).zip(0..m).map(|(a, _)| a).chain(std::iter::once(0)), steps, out),
-			1 => walk_front((0..u32_of(n)).map(|i| [i; 2]).flatten().skip(m as usize % 9), steps, out),
+			1 => walk_front(
+				(0..u32_of(n)).map(|i| [i; 2]).flatten().skip(m as usize % 9),
+				steps,
+				out,
+			),
 			_ => walk_front((0..n).flat_map(|i| 0..i).take(m as usize), steps, out),
 		},
 	}
@@ -316,11 +334,66 @@ const COLLECTIONS: u8 = 13;
 /// whenever it fills.
 pub fn reserves(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	match kind / COLLECTIONS % 5 {
-		0 => typed(kind, data, |i| i as u8, Most { vec: 0x7fff_ffff, pairs: 0x0fff_ffff, set: 0x1c00_0000, map: 0x0700_0000 }, out),
-		1 => typed(kind, data, |i| i, Most { vec: 0x1fff_ffff, pairs: 0x0fff_ffff, set: 0x0e00_0000, map: 0x0700_0000 }, out),
-		2 => typed(kind, data, |i| (i as u8, 0u8, 0u8), Most { vec: 0x2aaa_aaaa, pairs: 0x0fff_ffff, set: 0x0e00_0000, map: 0x0700_0000 }, out),
-		3 => typed(kind, data, |i| (u64::from(i), i as u8), Most { vec: 0x07ff_ffff, pairs: 0x0555_5555, set: 0x0380_0000, map: 0x0380_0000 }, out),
-		_ => typed(kind, data, |i| Big([i; 275]), Most { vec: 1_952_257, pairs: 1_945_184, set: 917_504, map: 917_504 }, out),
+		0 => typed(
+			kind,
+			data,
+			|i| i as u8,
+			Most {
+				vec: 0x7fff_ffff,
+				pairs: 0x0fff_ffff,
+				set: 0x1c00_0000,
+				map: 0x0700_0000,
+			},
+			out,
+		),
+		1 => typed(
+			kind,
+			data,
+			|i| i,
+			Most {
+				vec: 0x1fff_ffff,
+				pairs: 0x0fff_ffff,
+				set: 0x0e00_0000,
+				map: 0x0700_0000,
+			},
+			out,
+		),
+		2 => typed(
+			kind,
+			data,
+			|i| (i as u8, 0u8, 0u8),
+			Most {
+				vec: 0x2aaa_aaaa,
+				pairs: 0x0fff_ffff,
+				set: 0x0e00_0000,
+				map: 0x0700_0000,
+			},
+			out,
+		),
+		3 => typed(
+			kind,
+			data,
+			|i| (u64::from(i), i as u8),
+			Most {
+				vec: 0x07ff_ffff,
+				pairs: 0x0555_5555,
+				set: 0x0380_0000,
+				map: 0x0380_0000,
+			},
+			out,
+		),
+		_ => typed(
+			kind,
+			data,
+			|i| Big([i; 275]),
+			Most {
+				vec: 1_952_257,
+				pairs: 1_945_184,
+				set: 917_504,
+				map: 917_504,
+			},
+			out,
+		),
 	}
 }
 
@@ -411,7 +484,11 @@ fn fill<T: Ord + Hash + Clone, I: Iterator<Item = T>>(coll: u8, items: I, seed: 
 		10 => items.map(|t| (t, 1u32)).collect::<BTreeMap<T, u32>>().len(),
 		// Through a shunt, whose length std's never trusts.
 		11 => items.map(Some).collect::<Option<Vec<T>>>().map_or(0xff, |v| v.len()),
-		_ => match items.enumerate().map(|(i, t)| if i < 3 { Ok(t) } else { Err(i) }).collect::<Result<Vec<T>, usize>>() {
+		_ => match items
+			.enumerate()
+			.map(|(i, t)| if i < 3 { Ok(t) } else { Err(i) })
+			.collect::<Result<Vec<T>, usize>>()
+		{
 			Ok(v) => v.len(),
 			Err(i) => 0x100 + i,
 		},

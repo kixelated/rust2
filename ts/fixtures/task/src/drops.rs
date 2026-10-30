@@ -2,7 +2,7 @@
 //! `[Symbol.dispose]` of its own, in each std type that drops what it holds, and generic
 //! types that implement `Drop`. Each step logs every drop, so the log shows the order.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
@@ -78,11 +78,12 @@ pub fn cells(log: &Log, id: u32, arg: u8) {
 	once::run(log, id, arg);
 }
 
-/// Run scenario `arg % 15`: what every value std holds drops, where Rust drops it, and in
+/// Run scenario `arg % 16`: what every value std holds drops, where Rust drops it, and in
 /// Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
-	match arg % 15 {
+	match arg % 16 {
+		15 => elements(log, id),
 		14 => closures::iterated(log, id),
 		12 => closures::scoped(log, id),
 		13 => closures::discarded(log, id),
@@ -480,6 +481,100 @@ fn options(log: &Log, id: u32) {
 	let kept = answered.get_or_insert(Ok(guard(34))).as_ref().map_or(0, Guard::id);
 	*answered.insert(Err(3)) = Err(4);
 	log.note(format!("answered {kept} {}", matches!(answered, Some(Err(4)))));
+}
+
+/// What std's accessors of elements that are each an `Option` of a value that drops give
+/// and drop: `None` for no element, apart from the `Some(None)` of a `None` one, and each
+/// value once, where Rust drops it.
+fn elements(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let key = |n: u32| Key::new(id + n, log.clone());
+	let ids = |o: &Option<Guard>| o.as_ref().map(Guard::id);
+	let mut v = list![Some(guard(1)), None, Some(guard(2)), None];
+	log.note(format!("vec {:?} {:?}", v.first().map(ids), v.last().map(ids)));
+	log.note(format!("get {:?} {:?}", v.get(1).map(ids), v.get(4).map(ids)));
+	// Over a `None`, which drops nothing, and over a guard, which drops it.
+	if let Some(o) = v.last_mut() {
+		*o = Some(guard(3));
+	}
+	if let Some(o) = v.first_mut() {
+		*o = None;
+	}
+	while let Some(o) = v.pop() {
+		log.note(format!("pop {:?}", ids(&o)));
+	}
+	log.note(format!("popped {:?}", v.pop().map(|o| ids(&o))));
+	let mut q = VecDeque::new();
+	q.push_back(None);
+	q.push_back(Some(guard(4)));
+	q.push_front(Some(guard(5)));
+	q.push_back(None);
+	log.note(format!(
+		"deque {:?} {:?} {:?}",
+		q.front().map(ids),
+		q.back().map(ids),
+		q.get(4).map(ids)
+	));
+	if let Some(o) = q.front_mut() {
+		*o = None;
+	}
+	let removed = q.remove(2);
+	log.note(format!(
+		"remove {:?} {:?}",
+		removed.as_ref().map(ids),
+		q.remove(3).map(|o| ids(&o))
+	));
+	drop(removed);
+	q.push_back(Some(guard(6)));
+	let front = q.pop_front();
+	log.note(format!("front {:?}", front.as_ref().map(ids)));
+	while let Some(o) = q.pop_back() {
+		log.note(format!("back {:?}", ids(&o)));
+	}
+	log.note(format!(
+		"emptied {:?} {:?}",
+		q.pop_front().map(|o| ids(&o)),
+		front.map(|o| ids(&o))
+	));
+	let keys = |o: &Option<Key>| o.as_ref().map(|k| k.id);
+	let mut heap = BinaryHeap::new();
+	heap.push(Some(key(7)));
+	heap.push(None);
+	heap.push(Some(key(8)));
+	log.note(format!("heap {:?}", heap.peek().map(keys)));
+	let top = heap.pop();
+	log.note(format!("top {:?}", top.as_ref().map(keys)));
+	drop(top);
+	let mut sorted = BTreeSet::new();
+	sorted.insert(Some(key(9)));
+	sorted.insert(None);
+	sorted.insert(Some(key(10)));
+	log.note(format!(
+		"set {:?} {:?}",
+		sorted.first().map(keys),
+		sorted.last().map(keys)
+	));
+	let least = sorted.pop_first();
+	let most = sorted.pop_last();
+	log.note(format!(
+		"popped {:?} {:?}",
+		least.map(|o| keys(&o)),
+		most.map(|o| keys(&o))
+	));
+	// One key that drops, whose order of drops beside others std leaves unspecified.
+	let mut hashed = HashSet::new();
+	hashed.insert(Some(key(11)));
+	log.note(format!("hashed {:?}", hashed.get(&None).map(keys)));
+	hashed.insert(None);
+	let taken = hashed.take(&None);
+	log.note(format!(
+		"taken {:?} {:?}",
+		taken.map(|o| keys(&o)),
+		hashed.take(&None).map(|o| keys(&o))
+	));
+	let held = hashed.take(&Some(key(11)));
+	log.note(format!("held {:?}", held.map(|o| keys(&o))));
+	log.note(format!("left {} {} {}", heap.len(), sorted.len(), hashed.len()));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and

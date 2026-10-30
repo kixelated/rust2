@@ -36,9 +36,9 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 	v.iter().map(|&b| (b > 1).then_some(())).collect()
 }
 
-/// The runtime's `pop` takes `None` to be `undefined`, which `Some(None)` is.
-pub fn iterators(mut v: Vec<Option<u8>>) -> bool {
-	v.pop().is_some()
+/// `into_inner` of a shared value that can be `undefined`: its `None` and `Some(None)` would both be.
+pub fn inner_option(value: std::sync::Arc<Option<u8>>) -> bool {
+	std::sync::Arc::into_inner(value).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -253,9 +253,9 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// A set's `get` of an item that can be `undefined`: its `None` and `Some(&None)` would both be.
-pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
-	set.get(&None).is_some()
+/// `into_inner` of a shared `()`: its `None` and `Some(())` would both be `undefined`.
+pub fn inner_unit(value: std::rc::Rc<()>) -> bool {
+	std::rc::Rc::into_inner(value).is_some()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.
@@ -814,11 +814,6 @@ pub fn blank_bytes(len: usize) -> usize {
 	bytes::Buf::copy_to_bytes(&mut Blank::Empty, len).len()
 }
 
-/// A heap's `pop` of an item that can be `undefined`: its `None` and `Some(None)` would both be.
-pub fn heap_optional(heap: &mut std::collections::BinaryHeap<Option<u8>>) -> bool {
-	heap.pop().is_some()
-}
-
 /// The places `iter_mut` lends, which the runtime would compare as the objects they are.
 pub fn places_sorted(v: &mut [u8]) -> bool {
 	v.iter_mut().is_sorted()
@@ -894,9 +889,9 @@ impl std::fmt::Write for Sink {
 	}
 }
 
-/// A lookup by a byte array translates, but this one hands back the set's own key.
-pub fn byte_key(set: &std::collections::HashSet<[u8; 2]>, key: [u8; 2]) -> u8 {
-	set.get(&key).map_or(0, |k| k[0])
+/// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
+pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
+	map.into_keys().next().map_or(0, |k| k[0])
 }
 
 /// `next_if_eq` compares the item to another type by `PartialEq<str>`, not the item's own.
@@ -1016,4 +1011,9 @@ pub fn uninit_part_replaced(n: u32) -> u32 {
 	let q = gap.slot.as_mut_ptr();
 	reset_gap(&mut gap);
 	unsafe { (*p).0 + (*q).1 }
+}
+
+/// A set of `[u8; 2]` extended by references to arrays, which it would keep as slices.
+pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
+	set.extend(pairs);
 }

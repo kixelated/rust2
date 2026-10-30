@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$ControlFlow_Arc_u8_u8s, copy$ControlFlow_unit_u8s, copy$Gauge, copy$Held, copy$Lens, copy$Level, copy$Mutex_u8_u8, copy$Mutex_u8s, copy$Option_Mutex_u8_u8, copy$Option_Shape, copy$Point, copy$Point_u8, copy$Points, copy$Poll_u8s, copy$Result_Mutex_u8_u8_u8, copy$Shape, copy$u8_u8, copy$u8s } from "./lib.ts";
-import { then$1i9qaz4, then$1btzga3 } from "./core/bool.ts";
+import { thenSome$0ztng9q, then$1i9qaz4, then$1btzga3 } from "./core/bool.ts";
 import { unwrapOr$0r2bmpr, map$0600mq0, map$076et51, mapOr$1ybqvup, mapOr$1hjjwvv, mapOr$0rtdylj, mapOr$0aserv9, mapOr$1a3irjf, mapOr$1t0muvr, okOr$1vxk0yk } from "./core/option.ts";
 import { map$1dbyvzi, mapErr$0dzqwjy } from "./core/result.ts";
 import * as Pair from "./fmt.Pair.ts";
@@ -18,6 +18,8 @@ import type * as Mark from "./shapes.Mark.ts";
 import * as Meters from "./shapes.Meters.ts";
 import * as Moved from "./shapes.Moved.ts";
 import type * as Mover from "./shapes.Mover.ts";
+import type * as Partial from "./shapes.Partial.ts";
+import type * as Parts from "./shapes.Parts.ts";
 import * as Point from "./shapes.Point.ts";
 import * as Shape from "./shapes.Shape.ts";
 import type * as Signed from "./shapes.Signed.ts";
@@ -2120,6 +2122,57 @@ export function early(n: rt.u8): rt.u8 {
 	return rt.u8WrappingAdd(n, 1);
 }
 
+/** A `Result` that can't fail, which counts its calls so their order shows. */
+export function counted(calls: rt.Place<rt.u8>, b: rt.u8): rt.Result<rt.u8, never> {
+	calls.v = rt.u8WrappingAdd(calls.v, 1);
+	return rt.Ok(rt.u8WrappingMul(b, calls.v));
+}
+
+/**
+ * Patterns on parts of a place whose other variants can't exist, which test nothing
+ * there, while what they read still runs in order.
+ */
+export function uninhabited(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const a: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
+	const b: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0);
+	let calls: rt.u8 = 0;
+	const _13: rt.Result<rt.u8, never> = counted(rt.place(() => calls, (value) => calls = value), a);
+	const _12: [rt.Result<rt.u8, never>, rt.Result<rt.u8, never>] = [_13, counted(rt.place(() => calls, (value2) => calls = value2), b)];
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of((_13 as { ok: true; value: rt.u8 }).value, (_12[1] as { ok: true; value: rt.u8 }).value, calls)));
+	const _26: rt.Result<rt.u8, never>[] = [counted(rt.place(() => calls, (value3) => calls = value3), b), counted(rt.place(() => calls, (value4) => calls = value4), a)];
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of((_26[0] as { ok: true; value: rt.u8 }).value, (_26[1] as { ok: true; value: rt.u8 }).value, calls)));
+	counted(rt.place(() => calls, (value5) => calls = value5), a);
+	rt.byteVecPush(out, calls);
+	counted(rt.place(() => calls, (value6) => calls = value6), a);
+	rt.byteVecPush(out, calls);
+	[counted(rt.place(() => calls, (value7) => calls = value7), a), [counted(rt.place(() => calls, (value8) => calls = value8), b)] as [rt.Result<rt.u8, never>]] as [rt.Result<rt.u8, never>, [rt.Result<rt.u8, never>]];
+	rt.byteVecPush(out, calls);
+	const pair: [rt.Result<rt.u8, never>, Partial.Partial] = [counted(rt.place(() => calls, (value9) => calls = value9), a), { tag: "Real", _0: b } as Partial.Partial];
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of((pair[0] as { ok: true; value: rt.u8 }).value, (pair[1] as { tag: "Real"; _0: rt.u8 })._0)));
+	const held: Parts.Parts = { left: rt.Ok(a), right: thenSome$0ztng9q(rt.u8Rem(b, 2) === 0, rt.Ok((((b as rt.u16)) << 4) & 0xffff)) };
+	const l: rt.u8 = (held.left as { ok: true; value: rt.u8 }).value;
+	const right: rt.Result<rt.u16, Void.Void> | undefined = held.right;
+	if (right === undefined) {
+		rt.byteVecPush(out, l);
+	} else {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes((right as { ok: true; value: rt.u16 }).value)));
+	}
+	const _93: [Partial.Partial, rt.Result<rt.u8, never>] = [{ tag: "Real", _0: a } as Partial.Partial, held.left];
+	rt.byteVecPush(out, (_93[0] as { tag: "Real"; _0: rt.u8 })._0 ^ (_93[1] as { ok: true; value: rt.u8 }).value);
+	const _101: [rt.Result<rt.u8, never>, rt.u8 | undefined] = [counted(rt.place(() => calls, (value10) => calls = value10), a), rt.byteSliceGet(data, 2)];
+	if (_101[1] !== undefined) {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of((_101[0] as { ok: true; value: rt.u8 }).value, _101[1])));
+	} else {
+		rt.byteVecPush(out, calls);
+	}
+	const _119: [rt.Result<rt.u8, never>, rt.u8 | undefined] = [counted(rt.place(() => calls, (value11) => calls = value11), b), rt.byteSliceGet(data, 3)];
+	if (_119[1] !== undefined) {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of((_119[0] as { ok: true; value: rt.u8 }).value, _119[1], calls)));
+	} else {
+		rt.byteVecPush(out, calls);
+	}
+}
+
 /** Closures capturing by reference and by move, and functions as values. */
 export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let sum: rt.u32 = 0;
@@ -2358,7 +2411,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (result.ok) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(result.value)));
 	} else {
-		rt.byteVecPush(out, result.error);
+		rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
 	}
 	if (rt.u8Rem(a, 5) === 0) {
 		option = undefined as rt.u8 | undefined;

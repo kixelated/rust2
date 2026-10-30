@@ -218,6 +218,11 @@ export const None: unique symbol = /* @__PURE__ */ Symbol("None");
 /** The type of `None`. */
 export type None = typeof None;
 
+/** `f` of what `o` holds, or `None`: `Option::map` of a payload that is never `undefined`. */
+export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undefined {
+	return o === undefined ? undefined : f(o);
+}
+
 /** `Option::unwrap`: the value, or a panic. */
 export function optionUnwrap<T>(o: T | undefined): T;
 export function optionUnwrap<T>(o: T | None, none: None): T;
@@ -405,14 +410,14 @@ export function sliceSplitLastMut<T>(s: T[], place: boolean): [Place<T> | T, T[]
 	return [place ? new AtIndex(s, n) : s[n], sliceView(s, 0, n)];
 }
 
-/** `first`: the first element, or `undefined` if empty. */
+/** `first`, and `first_mut` of an element that is an object: the first element, or `none` if empty. */
 export function sliceFirst<T>(s: ArrayLike<T>): T | undefined;
 export function sliceFirst<T>(s: ArrayLike<T>, none: None): T | None;
 export function sliceFirst<T>(s: ArrayLike<T>, none?: None): T | undefined | None {
 	return s.length === 0 ? none : s[0];
 }
 
-/** `get`: the element at `index`, or `undefined` past the end. */
+/** `get`, and `get_mut` of an element that is an object: the element at `index`, or `none` past the end. */
 export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined;
 export function sliceGet<T>(s: ArrayLike<T>, index: number, none: None): T | None;
 export function sliceGet<T>(s: ArrayLike<T>, index: number, none?: None): T | undefined | None {
@@ -432,9 +437,11 @@ export function nonZero<T>(n: T): T | undefined {
 	return n === 0 ? undefined : n;
 }
 
-/** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
-export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
-	return s.length === 0 ? undefined : s[s.length - 1];
+/** `last`, and `last_mut` of an element that is an object: the last element, or `none` if empty. */
+export function sliceLast<T>(s: ArrayLike<T>): T | undefined;
+export function sliceLast<T>(s: ArrayLike<T>, none: None): T | None;
+export function sliceLast<T>(s: ArrayLike<T>, none?: None): T | undefined | None {
+	return s.length === 0 ? none : s[s.length - 1];
 }
 
 /** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
@@ -689,6 +696,11 @@ export function vecAssign<T>(v: T[], value: T[]): void {
 export function vecInsert<T>(v: T[], i: number, item: T): void {
 	if (i > v.length) panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
 	v.splice(i, 0, item);
+}
+
+/** `Vec::pop` of an element that can be `undefined`: the last element, or `none` if empty. */
+export function vecPop<T>(v: T[], none: None): T | None {
+	return v.length === 0 ? none : (v.pop() as T);
 }
 
 /** `Vec::remove`: the element at `i`, with those after it moved down. */

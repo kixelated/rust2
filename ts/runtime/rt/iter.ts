@@ -2945,6 +2945,10 @@ class RangeInclusiveFold<T> extends Iter<T> {
 		else r.exhausted = true;
 		return lo;
 	}
+
+	override sizeHint(): SizeHint {
+		return this.range.sizeHint();
+	}
 }
 
 /** `RangeInclusive::start`. */

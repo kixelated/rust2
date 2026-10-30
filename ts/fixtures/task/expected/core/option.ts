@@ -72,7 +72,21 @@ export function map$0lq7mno(self: Guard.Guard | undefined, _: (a0: Guard.Guard) 
 	return Guard.id(self);
 }
 
+export function map$0782hf5(self: Key.Key | undefined, f: (a0: Key.Key) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0ccnsmq(self: Guard.Guard | undefined | rt.None, f: (a0: Guard.Guard | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
+	}
+	return f(self);
+}
+
+export function map$0hegtde(self: Key.Key | undefined | rt.None, f: (a0: Key.Key | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
 	if (self === rt.None) {
 		return rt.None;
 	}

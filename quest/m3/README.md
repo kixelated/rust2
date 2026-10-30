@@ -28,14 +28,14 @@ generic std gap is planned here even when moq never calls it.
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
 - [A B-tree's drop order](/quest/m3/ts-btree-drop.md) - dropping a whole `BTreeMap` or `BTreeSet` drops its entries node by node, as std's does
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
-- [References to byte-array keys a collection yields](/quest/m3/ts-byte-key-refs.md) - `keys`, `iter`, `get_key_value`, and `HashSet::get` of a `[u8; N]` key translate
-- [Vec and slice accessors of elements whose None is rt.None](/quest/m3/ts-option-elements.md) - `Vec::pop` and `slice::last` of `Option<u8>` elements keep `None` apart from `Some(None)`
-- [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - `size_hint` translates, and `Vec`'s collect and extend panic past `isize::MAX` as std's do
+- [Set operations](/quest/m3/ts-set-ops.md) - `union`, `intersection`, `difference`, and `symmetric_difference` of hash and B-tree sets translate
+- [References to byte arrays std takes](/quest/m3/ts-byte-refs-taken.md) - `extend` by references to arrays, adaptors' closures over held arrays, and a collection of both forms translate
 - [Peekable::next_if_eq against another type](/quest/m3/ts-next-if-eq-other.md) - `next_if_eq` with an expected value of another type than the item, such as a `&str` of `String` items, translates
+- [A closure's () result as a value](/quest/m3/ts-unit-closures.md) - a closure returning `()` whose result is a value, as in a `Vec<()>` collected from `map`, type-checks
+- [std accessors with no mapping](/quest/m3/ts-unmapped-accessors.md) - `VecDeque::swap_remove_*`, `HashSet::replace`, `BTreeSet::get`, `take`, and `replace`, `Vec::pop_if`, and `Arc` and `Rc::into_inner` translate
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
-- [A switch whose other variants are uninhabited](/quest/m3/ts-uninhabited-switch.md) - a tuple's `Result<_, Infallible>`s matched or bound by `let` type-checks, its discriminant reads no longer left unused
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
-- [Zero-sized values made out of sight](/quest/m3/ts-zero-sized.md) - unit structs and empty arrays returned, `()` items, and std adaptors of only zero-sized fields translate
-- [Arrays a collection holds through generic code](/quest/m3/ts-array-elements.md) - collections of `[T; N]` keys type-check, and `[u8; N]` items collect through generic code
+- [Zero-sized values made out of sight](/quest/m3/ts-zero-sized.md) - unit structs and empty arrays returned, and std adaptors of only zero-sized fields, translate
+- [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once

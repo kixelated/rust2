@@ -360,10 +360,10 @@ pub fn call<'tcx>(
 		let trusted = implements(b.t, iter, "TrustedLen");
 		let take = iter_take(b, iter, trusted, span);
 		let (extend, reserve) = match vec_args.type_at(0).kind() {
-			ty::Uint(ty::UintTy::U8) => ("iterExtendBytes", vec![take, lit(trusted)]),
+			ty::Uint(ty::UintTy::U8) => ("iterExtendBytes", vec![take, Expr::lit(trusted.to_string())]),
 			_ => {
 				let size = size_of(b, vec_args.type_at(0), span);
-				("iterExtend", vec![take, size, lit(trusted)])
+				("iterExtend", vec![take, size, Expr::lit(trusted.to_string())])
 			}
 		};
 		return Some(Expr::rt(extend, tail(vec![v, items], reserve)));
@@ -617,7 +617,7 @@ pub fn call<'tcx>(
 			let into = into_fn(b, targ(1)?, span)?.unwrap_or_else(Expr::undefined);
 			let fused = fused(b, self_ty, Some(targ(2)?));
 			let size = array_size(b, targ(1)?);
-			let one_shot = lit(implements(b.t, inner, "OneShot"));
+			let one_shot = Expr::lit(implements(b.t, inner, "OneShot").to_string());
 			method("flatMap", tail(rest, vec![into, fused, size, one_shot]))
 		}
 		"flatten" => {
@@ -626,7 +626,7 @@ pub fn call<'tcx>(
 			let into = into_fn(b, item, span)?.unwrap_or_else(Expr::undefined);
 			let fused = fused(b, self_ty, None);
 			let size = array_size(b, item);
-			let one_shot = lit(implements(b.t, inner, "OneShot"));
+			let one_shot = Expr::lit(implements(b.t, inner, "OneShot").to_string());
 			method("flatten", tail(Vec::new(), vec![into, fused, size, one_shot]))
 		}
 		"copied" | "cloned" => {
@@ -676,11 +676,6 @@ pub(super) fn tail(mut args: Vec<Expr>, mut tail: Vec<Expr>) -> Vec<Expr> {
 /// Whether `e` is `undefined`, as the dropper of what doesn't drop is.
 fn undefined(e: &Expr) -> bool {
 	matches!(e, Expr::Lit(l) if l == "undefined")
-}
-
-/// `true` or `false`.
-fn lit(value: bool) -> Expr {
-	Expr::lit(if value { "true" } else { "false" })
 }
 
 /// The size and alignment of a `ty` in bytes on wasm32, by which std's collections of it
@@ -854,7 +849,7 @@ fn collect<'tcx>(
 		Std::Vec => Some(match args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => {
 				let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
-				Expr::rt("iterToByteVec", tail(vec![iter], vec![take, lit(trusted)]))
+				Expr::rt("iterToByteVec", tail(vec![iter], vec![take, Expr::lit(trusted.to_string())]))
 			}
 			_ => to_array(b, iter, from, args.type_at(0), trusted, span),
 		}),
@@ -980,7 +975,7 @@ pub(super) fn to_array<'tcx>(
 	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
 	let take = iter_take(b, from, folds, span);
 	let size = size_of(b, elem, span);
-	Expr::rt("iterToArray", tail(vec![iter], vec![take, size, lit(trusted)]))
+	Expr::rt("iterToArray", tail(vec![iter], vec![take, size, Expr::lit(trusted.to_string())]))
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place

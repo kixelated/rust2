@@ -5805,12 +5805,10 @@ export function widenings(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 					break;
 				}
 				const c2: rt.char = _1371;
-				const wide: rt.Result<rt.u32, never> = rt.Ok(c2 as rt.u32);
-				const wider: rt.Result<rt.u64, never> = rt.Ok(c2 as rt.u64);
-				const widest: rt.Result<rt.u128, never> = rt.Ok(c2 as rt.u128);
-				const a: rt.u32 = (wide as { ok: true; value: rt.u32 }).value;
-				const b3: rt.u64 = (wider as { ok: true; value: rt.u64 }).value;
-				const c3: rt.u128 = (widest as { ok: true; value: rt.u128 }).value;
+				const _1381: [rt.Result<rt.u32, never>, rt.Result<rt.u64, never>, rt.Result<rt.u128, never>] = [rt.Ok(c2 as rt.u32), rt.Ok(c2 as rt.u64), rt.Ok(c2 as rt.u128)];
+				const a: rt.u32 = (_1381[0] as { ok: true; value: rt.u32 }).value;
+				const b3: rt.u64 = (_1381[1] as { ok: true; value: rt.u64 }).value;
+				const c3: rt.u128 = (_1381[2] as { ok: true; value: rt.u128 }).value;
 				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(a)));
 				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(b3)));
 				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(c3)));
