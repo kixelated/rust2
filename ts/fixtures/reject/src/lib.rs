@@ -488,9 +488,9 @@ pub fn fma(a: f64) -> f64 {
 	a.mul_add(2.0, 1.0)
 }
 
-/// Float formatting is not translated yet.
-pub fn float_printed(a: f64) -> String {
-	format!("{a}")
+/// Integer parsing is not translated yet.
+pub fn int_parsed(s: &str) -> Result<u32, std::num::ParseIntError> {
+	s.parse()
 }
 
 pub trait Reading {

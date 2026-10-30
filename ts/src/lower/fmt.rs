@@ -238,6 +238,16 @@ pub fn std_impl<'tcx>(
 			};
 			Int::of(ty)?.method(method, vec![value, f])
 		}
+		_ if super::float::is(ty) => {
+			let method = match tr {
+				Trait::Display => "display",
+				Trait::Debug => "debug",
+				Trait::LowerExp => "lowerExp",
+				Trait::UpperExp => "upperExp",
+				_ => return None,
+			};
+			Expr::rt_of("f64", method).call(vec![value, f])
+		}
 		ty::Bool if text => rt("bool", vec![value, f]),
 		ty::Char if tr == Trait::Display => rt("charDisplay", vec![value, f]),
 		ty::Char if tr == Trait::Debug => rt("charDebug", vec![value, f]),
@@ -314,6 +324,8 @@ pub fn std_impl<'tcx>(
 			(Std::FmtError, Trait::Display) => rt("errorDisplay", vec![value, f]),
 			(Std::TryFromIntError, Trait::Debug) => rt("tryFromIntErrorDebug", vec![value, f]),
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
+			(Std::ParseFloatError, Trait::Debug) => rt("parseFloatErrorDebug", vec![value, f]),
+			(Std::ParseFloatError, Trait::Display) => rt("parseFloatErrorDisplay", vec![value, f]),
 			(Std::TryFromFloatSecsError, Trait::Debug) => rt("tryFromFloatSecsErrorDebug", vec![value, f]),
 			(Std::TryFromFloatSecsError, Trait::Display) => rt("tryFromFloatSecsErrorDisplay", vec![value, f]),
 			(Std::FromUtf8Error, Trait::Debug) => rt("fromUtf8ErrorDebug", vec![value, f]),

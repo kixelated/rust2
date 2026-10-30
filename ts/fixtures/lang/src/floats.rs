@@ -1,5 +1,6 @@
 //! `f64`: arithmetic and comparisons, `as` casts to and from every integer width, its
-//! methods and constants, sums, places, and `Duration`'s `f64` methods. Operands are
+//! methods and constants, sums, places, `Duration`'s `f64` methods, and formatting and
+//! parsing. Operands are
 //! bits, so NaNs, infinities, and subnormals come up; `caller.ts` names the values random
 //! bits rarely make. A NaN result is written as one NaN, since neither side specifies
 //! which NaN an operation makes, and the functions std leaves to libm, kind 7, agree
@@ -12,10 +13,16 @@ use crate::fmt::put;
 
 /// An `f64` from the front of `data`, its bits big-endian and zero-padded.
 fn take(data: &[u8]) -> (f64, &[u8]) {
+	let (bits, rest) = take_bits(data);
+	(f64::from_bits(bits), rest)
+}
+
+/// The bits [`take`] reads, as a seed, which no NaN quieted on the way.
+fn take_bits(data: &[u8]) -> (u64, &[u8]) {
 	let mut buf = [0u8; 8];
 	let n = data.len().min(buf.len());
 	buf[..n].copy_from_slice(&data[..n]);
-	(f64::from_bits(u64::from_be_bytes(buf)), &data[n..])
+	(u64::from_be_bytes(buf), &data[n..])
 }
 
 /// `x`'s bits, any NaN as `f64::NAN`'s.
@@ -302,4 +309,126 @@ pub fn floats(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			put_f64(out, local);
 		}
 	}
+}
+
+/// A reading whose derived `Debug` writes each `f64` with the placeholder's options.
+#[derive(Debug)]
+struct Reading {
+	level: f64,
+	peak: Option<f64>,
+	history: Vec<f64>,
+}
+
+/// xorshift64, for the doubles and decimals a case makes from its seed.
+fn step(state: &mut u64) -> u64 {
+	*state ^= *state << 13;
+	*state ^= *state >> 7;
+	*state ^= *state << 17;
+	*state
+}
+
+/// `f64`'s `Display`, `Debug`, `LowerExp`, and `UpperExp`, with a precision from the byte
+/// after the double, which rounds the exact value half to even, and every other option.
+pub fn formats(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (a, rest) = take(data);
+	let p = usize::from(rest.first().copied().unwrap_or(0));
+	let w = p / 4;
+	match kind % 5 {
+		0 => {
+			put(
+				out,
+				&format!("{a} {a:?} {a:e} {a:E} {a:.p$} {a:.p$?} {a:.p$e} {a:.p$E} {a:+} {a:+?} {a:+.p$e}"),
+			);
+			put(
+				out,
+				&format!(
+					"{a:08.3}|{a:+012e}|{a:<9}|{a:^12?}|{a:*>10.1}|{a:#?}|{a:x?}|{a:-^+15.2E}|{a:010}|{a:+010?}|{a:>w$.p$}|{a:é<w$?}"
+				),
+			);
+			put(out, &a.to_string());
+		}
+		1 => {
+			// Every digit a double has: a subnormal's run to 1074 places.
+			put(out, &format!("{a:.1100} {a:.800e} {a:.1100?} {a:.65535}"));
+		}
+		2 => {
+			// The panic prints both bounds with `Debug`.
+			let (b, rest) = take(rest);
+			let (c, _) = take(rest);
+			put_f64(out, a.clamp(b, c));
+		}
+		3 => {
+			let r = Reading {
+				level: a,
+				peak: Some(a * 0.5),
+				history: vec![a, -0.0, 1e-7, 1e16, f64::NAN],
+			};
+			put(out, &format!("{r:?}|{r:#?}|{r:.2?}|{r:+012?}"));
+		}
+		_ => {
+			// The shortest digits of many doubles, of every exponent, then of ones with a full
+			// significand and a few binary digits past the point, which can end half a digit
+			// past two as short and as close, where std takes the greater.
+			let mut state = take_bits(data).0 | 1;
+			for _ in 0..64 {
+				let x = f64::from_bits(step(&mut state));
+				put(out, &format!("{x} {x:?} {x:e}"));
+			}
+			for _ in 0..64 {
+				let r = step(&mut state);
+				let x = (r >> 11) as f64 / (1u64 << (r % 24 + 1)) as f64;
+				put(out, &format!("{x:?} {x:e}"));
+			}
+		}
+	}
+}
+
+/// `str::parse::<f64>` by std's grammar, with its errors, of the input as text, of bytes
+/// mapped into the grammar's alphabet, or of decimals made from a seed.
+pub fn parses(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	const ALPHABET: &[u8] = b"0123456789012345678901234567890.eE+-_infINFtyTYa ";
+	match kind % 3 {
+		0 => {
+			if let Ok(s) = std::str::from_utf8(data) {
+				one(s, out);
+			}
+		}
+		1 => {
+			let mut s = String::new();
+			for &b in data {
+				s.push(char::from(ALPHABET[usize::from(b) % ALPHABET.len()]));
+			}
+			one(&s, out);
+		}
+		_ => {
+			// Up to 40 digits with a point among them, past 19 where std leaves its fast path,
+			// and an exponent within a few of each end of a double's range.
+			let mut state = take_bits(data).0 | 1;
+			for _ in 0..16 {
+				let r = step(&mut state);
+				let len = (r % 40 + 1) as usize;
+				let point = (r >> 8) as usize % (len + 1);
+				let mut s = String::new();
+				for i in 0..len {
+					if i == point {
+						s.push('.');
+					}
+					s.push(char::from(b'0' + (step(&mut state) % 10) as u8));
+				}
+				one(&format!("{s}e{}", ((r >> 16) % 700) as i64 - 350), out);
+			}
+		}
+	}
+}
+
+/// What parsing `s` makes: the double's bits and its `Debug`, or the error printed each way.
+fn one(s: &str, out: &mut Vec<u8>) {
+	match s.parse::<f64>() {
+		Ok(v) => {
+			put_f64(out, v);
+			put(out, &format!("{v:?}"));
+		}
+		Err(e) => put(out, &format!("{e}|{e:?}|{e:#?}|{e:>30}|{e:.7}")),
+	}
+	out.push(<f64 as std::str::FromStr>::from_str(s).is_ok() as u8);
 }

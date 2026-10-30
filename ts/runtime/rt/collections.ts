@@ -1,5 +1,5 @@
 // Collections, for rust2-ts output: std's `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`,
-// and `VecDeque`, with `Ordering` and `DefaultHasher`, which their keys need. `rt.ts`
+// and `VecDeque`, with `Ordering`, which their keys need. `rt.ts`
 // re-exports all of it. Each collection is one type whose functions are free functions
 // here, so a bundler keeps only those a caller reaches.
 //
@@ -15,6 +15,7 @@
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
 import { ByteSlice, type ByteVec, type None, type Place, panic } from "../rt.ts";
+import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, type Take } from "./iter.ts";
 import { type Arc, drop as dispose, dropAll, dropRange } from "./task.ts";
@@ -256,107 +257,6 @@ export function eqOption<T>(
  */
 export function eqArc<T>(eq: (a: T, b: T) => boolean, ident = false): (a: Arc<T>, b: Arc<T>) => boolean {
 	return (a, b) => (ident && a === b) || eq(a.value, b.value);
-}
-
-// Hashing
-
-/**
- * `DefaultHasher`: a running hash of the words `Hash` writes. Its values are its own,
- * as std leaves `DefaultHasher`'s unspecified; equal keys write equal words.
- */
-export interface Hasher {
-	h: number;
-}
-
-/** `DefaultHasher::new`. */
-export function hasher(): Hasher {
-	return { h: 0 };
-}
-
-function mix(s: Hasher, word: number): void {
-	s.h = Math.imul(((s.h << 5) | (s.h >>> 27)) ^ word, 0x9e3779b1);
-}
-
-/** `Hash::hash` of an integer, or of a `bool`. */
-export function hashInt<T extends number | boolean | Limbs>(value: T, s: Hasher): void {
-	const n: number | boolean | Limbs = value;
-	if (typeof n === "boolean") return mix(s, n ? 1 : 0);
-	if (typeof n === "number") {
-		if ((n | 0) === n) return mix(s, n);
-		mix(s, n >>> 0);
-		return mix(s, Math.floor(n / 4294967296) | 0);
-	}
-	mix(s, n.lo);
-	if ("w1" in n) {
-		mix(s, n.w1);
-		mix(s, n.w2);
-	}
-	mix(s, n.hi);
-}
-
-/** `Hash::hash` of a string: its length, then its UTF-16 units. */
-export function hashStr(str: string, s: Hasher): void {
-	mix(s, str.length);
-	for (let i = 0; i < str.length; i++) mix(s, str.charCodeAt(i));
-}
-
-/** `Hash::hash` of tuples, from each field's. */
-export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value: never, s: Hasher) => void)[]): (value: T, s: Hasher) => void {
-	return (value, s) => {
-		for (let i = 0; i < fields.length; i++) (fields[i] as (value: unknown, s: Hasher) => void)(value[i], s);
-	};
-}
-
-/** `Hash::hash` of a slice: its length, then its elements' in order. */
-export function hashSlice<T>(hash: (value: T, s: Hasher) => void): (value: ArrayLike<T>, s: Hasher) => void {
-	return (value, s) => {
-		mix(s, value.length);
-		for (let i = 0; i < value.length; i++) hash(value[i], s);
-	};
-}
-
-/** `Hash::hash` of an `Option`: whether it is `Some`, then its value's. */
-export function hashOption<T>(hash: (value: T, s: Hasher) => void): (value: T | undefined, s: Hasher) => void;
-export function hashOption<T>(hash: (value: T, s: Hasher) => void, none: None): (value: T | None, s: Hasher) => void;
-export function hashOption<T>(
-	hash: (value: T, s: Hasher) => void,
-	none?: None,
-): (value: T | undefined | None, s: Hasher) => void {
-	return (value, s) => {
-		mix(s, value === none ? 0 : 1);
-		if (value !== none) hash(value as T, s);
-	};
-}
-
-/** `Hash::hash` of an `Arc`: its value's. */
-export function hashArc<T>(hash: (value: T, s: Hasher) => void): (value: Arc<T>, s: Hasher) => void {
-	return (value, s) => hash(value.value, s);
-}
-
-/** `Hasher::finish`, as a JS map's key: a 30-bit integer, which V8 keeps unboxed. */
-export function hashFinish(s: Hasher): number {
-	return (s.h ^ (s.h >>> 15)) & 0x3fffffff;
-}
-
-/** How a hash collection finds a key that is a JS object: its `Hash` and `Eq`. */
-export interface Hashing<K> {
-	readonly hash: (key: K) => number;
-	readonly eq: (a: K, b: K) => boolean;
-	/** Whether a key that is a JS primitive goes by them too: an enum with its own `Eq`. */
-	readonly all: boolean;
-}
-
-/** The `Hashing` of a key type, from its `Hash::hash` and `PartialEq::eq`. */
-export function hashing<K>(hash: (key: K, s: Hasher) => void, eq: (a: K, b: K) => boolean, all = false): Hashing<K> {
-	return {
-		hash: (key) => {
-			const s = hasher();
-			hash(key, s);
-			return hashFinish(s);
-		},
-		eq,
-		all,
-	};
 }
 
 /** A value as its own clone. */

@@ -35,6 +35,7 @@ pub enum Std {
 	FromUtf8Error,
 	Utf8Error,
 	TryFromIntError,
+	ParseFloatError,
 	TryFromFloatSecsError,
 	/// `rt.Formatter`.
 	Formatter,
@@ -136,6 +137,8 @@ pub enum Std {
 	Ordering,
 	/// `rt.Hasher`: `DefaultHasher`, which hash collections hash their keys with.
 	Hasher,
+	/// `rt.RandomState`: the keys of the `DefaultHasher` it builds, never changed once made.
+	RandomState,
 	/// `rt.Duration`: its seconds and nanoseconds, never changed once made.
 	Duration,
 	/// `bytes::Bytes`: an `rt.ByteSlice`, as `&[u8]` is.
@@ -219,6 +222,7 @@ impl Std {
 		match tcx.item_name(did).as_str() {
 			"FromUtf8Error" => return Some(Self::FromUtf8Error),
 			"TryFromIntError" => return Some(Self::TryFromIntError),
+			"ParseFloatError" => return Some(Self::ParseFloatError),
 			"TryFromFloatSecsError" => return Some(Self::TryFromFloatSecsError),
 			"PoisonError" => return Some(Self::PoisonError),
 			"TryLockError" => return Some(Self::TryLockError),
@@ -259,6 +263,7 @@ impl Std {
 			["ops", "range", "Bound"] => Some(Self::Bound),
 			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
+			["hash", "random", "RandomState"] => Some(Self::RandomState),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
 			| [
 				"collections",
@@ -1587,6 +1592,10 @@ fn mapping<'tcx>(
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
+		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
+		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
+			Expr::rt_of("f64", "fromStr").call(args)
+		}
 		("String" | "str", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("str", "chars") => Expr::rt("strChars", args),
 		("str", "bytes") => Expr::rt("strBytes", args),

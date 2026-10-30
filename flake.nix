@@ -319,6 +319,18 @@
           devShells.clang = self.devShells.${system}.default.overrideAttrs (old: {
             nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang ];
           });
+          # `just ffi android` builds the Kotlin's library for an Android device, with the NDK
+          # cargo-ndk finds through ANDROID_NDK_HOME: the SDK and NDK are the caller's, as moq's
+          # Android build takes the GitHub runner image's.
+          devShells.android = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.cargo-ndk ];
+            RUST2_TS_TOOLCHAIN = tsToolchain.override {
+              targets = (builtins.fromTOML (builtins.readFile ./ts/rust-toolchain.toml)).toolchain.targets ++ [
+                "aarch64-linux-android"
+                "x86_64-linux-android"
+              ];
+            };
+          });
           # Every foreign toolchain the UniFFI fixture suite runs, apart for their size.
           devShells.uniffi = self.devShells.${system}.default.overrideAttrs (old: {
             nativeBuildInputs = old.nativeBuildInputs ++ [

@@ -6,7 +6,8 @@
 // sum past `u64::MAX` seconds is `None`, saturates, or panics with std's message.
 
 import { Err, type FmtResult, type Formatter, fmtDebugStructFields, fmtPad, Ok, panic, type Result } from "../rt.ts";
-import { cmp, type Hasher, hashInt, type Ordering } from "./collections.ts";
+import { cmp, type Ordering } from "./collections.ts";
+import { type Hasher, hash32, hash64 } from "./hash.ts";
 import { f64ToBits } from "./float.ts";
 import { type f64, type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Of, u64Rem, u64ToF64, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
 import { type Iter, iterFold } from "./iter.ts";
@@ -341,8 +342,8 @@ export function durationCmp(a: Duration, b: Duration): Ordering {
 
 /** `Hash::hash`: its seconds, then its nanoseconds, as the derive hashes them. */
 export function durationHash(d: Duration, s: Hasher): void {
-	hashInt(d.secs, s);
-	hashInt(d.nanos, s);
+	hash64(d.secs, s);
+	hash32(d.nanos, s);
 }
 
 /** `Debug`, as std writes it: `1.5s`, `20ms`, `3µs`, or `0ns`, padded to the width. */

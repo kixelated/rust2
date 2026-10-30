@@ -569,7 +569,8 @@ fun owned() {
 	val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
 	while (dropped() < before + 4u) {
 		check(System.nanoTime() < deadline, "the GC frees what nobody closed")
-		System.gc()
+		// Not System.gc(), which ART skips unless finalization ran since its last call.
+		Runtime.getRuntime().gc()
 		Thread.sleep(1)
 	}
 	// The closed ones were collected by the same collections, and not freed again.

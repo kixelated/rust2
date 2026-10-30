@@ -26,7 +26,8 @@ its source's URL.
 A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
 Beside the C header, `include/<prefix>.hpp` holds the same API in C++, and
 `kotlin/<prefix>.kt` holds it in Kotlin, over JNI functions the crate builds with
-`--features kotlin`.
+`--features kotlin`, and `kotlin/<prefix>.pro` the R8 and ProGuard rules keeping what
+those functions look up by name.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -266,6 +267,10 @@ in as a `ByteArray`, bytes returned as their owner, and anything else encoded in
 - A **waker** is a `Waker`, which Rust may call from any thread.
 - **The contract** is checked when the library loads, before any other call: a Kotlin
   file and a library from different builds throw.
+- **Shrinking**: `<prefix>.pro` keeps what the JNI glue finds by name, `Native`, its native
+  methods, and the Kotlin functions Rust calls, while R8 strips and renames the rest. An
+  Android library ships it as a consumer rule (`consumerProguardFiles`), which its AAR
+  carries to each app that shrinks it.
 
 ## IR
 
@@ -295,6 +300,7 @@ just ffi test     # export the fixtures, build them, and drive api from C, C++, 
 just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
 just ffi moq-cpp  # the same export, running only moq/moq.cpp
 just ffi census   # census each into target/census
+nix develop .#android --command just ffi android  # the Kotlin test, shrunk by R8, on the Android device adb reaches
 nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C, C++, and Kotlin, and moq's rs/moq-c
 ```
 
@@ -306,7 +312,11 @@ runs the script through the C++ header at C++17, 20, and 23, with exceptions and
 at 17 and 23, then checks its futures: a wake that lands during a poll, a cancel between a
 wake and its poll that loses nothing, and a coroutine resumed or destroyed. `tests/api.kt`
 runs the script through the Kotlin on the JVM, checks its futures the same way, and breaks
-each runtime check, which must throw or abort with its message. The `reject`
+each runtime check, which must throw or abort with its message. `just ffi android` runs the
+same on ART: the Kotlin and `tests/api.kt`, shrunk by R8 into an app's dex with only the
+generated rules keeping what JNI looks up, against the library built by the NDK for the
+device's ABI, which ANDROID_HOME and ANDROID_NDK_HOME locate. Nightly runs it on an
+x86_64 emulator at API 24, the oldest moq's Android library supports, and at API 35. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net

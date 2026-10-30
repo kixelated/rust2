@@ -13,6 +13,7 @@ pub const RUNTIME: &[(&str, &str)] = &[
 	("rt/bytes.ts", include_str!("../runtime/rt/bytes.ts")),
 	("rt/collections.ts", include_str!("../runtime/rt/collections.ts")),
 	("rt/float.ts", include_str!("../runtime/rt/float.ts")),
+	("rt/hash.ts", include_str!("../runtime/rt/hash.ts")),
 	("rt/int.ts", include_str!("../runtime/rt/int.ts")),
 	("rt/iter.ts", include_str!("../runtime/rt/iter.ts")),
 	("rt/rand.ts", include_str!("../runtime/rt/rand.ts")),

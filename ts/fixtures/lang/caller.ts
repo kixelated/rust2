@@ -102,6 +102,41 @@ const floats = [
 	}),
 ];
 
+/**
+ * `floats::formats`' doubles: ties at each precision, which std rounds half to even on the
+ * exact value, carries through nines, each side of where `Debug` takes an exponent, the
+ * shortest digits that are not the nearest ones, and the extremes.
+ */
+const formatted: (number | bigint)[] = [
+	...doubles,
+	0.125, 0.375, 0.625, 0.875, 0.0625, 3.5, 4.5, 9.5, 99.5, 999.5, 0.95, 9.995, 1.25, 1.35, 2.675, 1e-4, 9.999999999999999e-5,
+	1e16, 9999999999999998, 1e21, 1e22, 1e23, 5e-324, 2.225073858507201e-308, 123456789.125, 1.5e300, -1.5e-300, 2 ** -1022 * 1.5,
+	0.1 + 0.2, 100, 1e15, 1e-7, 0.000123, -9.5, -0.5,
+];
+const formatsOp = op("floats::formats");
+const formats = [
+	...formatted.flatMap((a) => Array.from({ length: 22 }, (_, p) => Uint8Array.of(formatsOp, 0, ...double(a), p))),
+	...formatted.flatMap((a) => [1, 3, 4].map((kind) => Uint8Array.of(formatsOp, kind, ...double(a), 0))),
+	// Seeds for `parses`' decimals, a signaling NaN's bits among them, which a seed keeps.
+	...doubles.map((a) => Uint8Array.of(op("floats::parses"), 2, ...double(a))),
+	...formatted.flatMap((a) => [[1, 2], [2, 1], [NaN, 1], [1, NaN], [-0, 0], [0, -0]].map(([b, c]) => Uint8Array.of(formatsOp, 2, ...double(a), ...double(b), ...double(c)))),
+];
+
+/**
+ * `floats::parses`' texts: std's grammar at each edge, past each end of a double's range,
+ * and digits that round half to even, or just off it past 19 digits.
+ */
+const parsed = [
+	"", "+", "-", ".", "+.", "-.", "e5", ".e5", "1e", "1e+", "1e-", "1.e5", ".5", "5.", "-.5e-3", "+1", "++1", "+-1", "1_000", "0x10", " 1",
+	"1 ", "1,5", "1.5.5", "1e5e5", "1E+05", "1e400", "-1e400", "1e-400", "1e99999999999999999999", "0e99999999999", "-0", "+0.0e-5",
+	"0000.0000", "inf", "-inf", "+inf", "infinity", "INFINITY", "InFiNiTy", "infin", "in", "infinityy", "nan", "NaN", "-nan", "+NAN",
+	"nan1", "Infinity", "i\u0307nf", "\u0131nf", "2.2250738585072011e-308", "2.2250738585072012e-308", "4.9406564584124654e-324",
+	"2.4703282292062327e-324", "2.4703282292062328e-324", "1.7976931348623157e308", "1.7976931348623158e308", "1.7976931348623159e308",
+	"9007199254740993", "9007199254740993.0000000000000000001", "9007199254740992.9999999999999999999", "123456789012345678901234567890",
+	"0.1000000000000000055511151231257827021181583404541015625", "1e23", "8.98846567431158e307", `0.${"0".repeat(400)}1e400`,
+	`1${"0".repeat(800)}e-800`, `${"9".repeat(800)}e-1100`, "1e65535", `1e-65536`, `0.${"0".repeat(70000)}1e70000`,
+].map((text) => Uint8Array.of(op("floats::parses"), 0, ...new TextEncoder().encode(text)));
+
 /** How many ULPs from native Rust's each `f64` of `floats`' kind 7 may be, which Rust leaves to libm. */
 const ULPS = 2n;
 
@@ -257,4 +292,4 @@ const locks = [[0, 1, 5, 6, 2, 7, 3, 8, 3, 0, 1], [4, 0, 4, 1], [2, 9, 2, 10, 4,
 	(bytes) => Uint8Array.of(op("locks::locks"), 0, ...bytes),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...dyns, ...cells, ...shared, ...locks];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks];
