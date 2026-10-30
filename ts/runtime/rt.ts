@@ -986,6 +986,32 @@ export function bytesFromFn(n: number, f: (i: number) => number): Uint8Array {
 	return out;
 }
 
+/** `<[T; N]>::map`: `f` of each element, called in order. */
+export function arrayMap<T, U>(a: ArrayLike<T>, f: (x: T) => U): U[] {
+	const out: U[] = [];
+	for (let i = 0; i < a.length; i++) out.push(f(a[i]));
+	return out;
+}
+
+/** `<[T; N]>::map` to bytes. */
+export function bytesMap<T>(a: ArrayLike<T>, f: (x: T) => number): Uint8Array {
+	const out = bytes(a.length);
+	for (let i = 0; i < a.length; i++) out[i] = f(a[i]);
+	return out;
+}
+
+/** `<[T; N]>::each_ref` and `each_mut` of elements lent as themselves. */
+export function arrayFrom<T>(a: ArrayLike<T>): T[] {
+	return Array.from(a);
+}
+
+/** `<[T; N]>::each_mut` of elements JS copies: the place of each. */
+export function arrayPlaces<T>(a: { [i: number]: T; length: number }): Place<T>[] {
+	const out: Place<T>[] = [];
+	for (let i = 0; i < a.length; i++) out.push(new AtIndex(a, i));
+	return out;
+}
+
 /** `Vec<u8>`: a growable byte buffer. */
 export class ByteVec {
 	/** The storage; only the first `length` bytes are the vector. */

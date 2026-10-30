@@ -334,6 +334,14 @@ export function map$1diqi3e(self: rt.Place<rt.u8 | undefined> | undefined, f: (a
 	return undefined;
 }
 
+export function map$1j8xzu6(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => undefined): undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
+	}
+	f(self);
+	return undefined;
+}
+
 export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices_Pair.Pair[]) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
