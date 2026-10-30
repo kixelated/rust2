@@ -629,10 +629,9 @@ hand-written TS ([bindings](#bindings)).
 These fail translation: `f16` and `f128`, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
-values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,
-a collection's key or item of a type that can be `undefined`, as `()` and `Option` can (a map's value can be), a std
+values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`, a std
 function without a mapping of its own that makes or reads an `Option` whose `None` is
-`rt.None`, as `Vec::pop` of `Option`s does, an `Option` of an `Option` of `()` or another
+`rt.None`, as `Arc::into_inner` of an `Option` does, an `Option` of an `Option` of `()` or another
 `Option`, an instance of a generic type whose field is an `Option` of a type parameter
 that can be `undefined`, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS

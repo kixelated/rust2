@@ -772,7 +772,15 @@ pub(super) fn none_last(owner: &str, name: &str) -> bool {
 	matches!(
 		(owner, name),
 		("Option", "unwrap" | "expect")
-			| ("slice", "first" | "get")
+			| ("slice", "first" | "last" | "get" | "first_mut" | "last_mut" | "get_mut")
+			| ("Vec", "pop")
+			| (
+				"VecDeque",
+				"pop_front" | "pop_back" | "front" | "back" | "front_mut" | "back_mut" | "get" | "get_mut" | "remove"
+			)
+			| ("BinaryHeap", "pop" | "peek")
+			| ("HashSet", "get" | "take")
+			| ("BTreeSet", "first" | "last" | "pop_first" | "pop_last")
 			| ("HashMap" | "BTreeMap", "get" | "get_mut" | "insert" | "remove")
 	)
 }
@@ -1685,10 +1693,10 @@ fn mapping<'tcx>(
 				}
 			}
 		}
-		("Vec", "pop") => match is_u8(targ(gargs, 0)) {
-			true => Expr::rt("byteVecPop", args),
-			false => args.pop()?.method("pop", vec![]),
-		},
+		("Vec", "pop") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecPop", args),
+		// JS's `pop` returns `undefined` for no element, where an `rt.None` must follow.
+		("Vec", "pop") if sentinel_option(b.t, call).is_some() => Expr::rt("vecPop", args),
+		("Vec", "pop") => args.pop()?.method("pop", vec![]),
 		("Vec", "len") => args.pop()?.member("length"),
 		("Vec", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", args),
