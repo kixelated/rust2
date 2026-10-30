@@ -509,12 +509,21 @@ fn elements(log: &Log, id: u32) {
 	q.push_back(Some(guard(4)));
 	q.push_front(Some(guard(5)));
 	q.push_back(None);
-	log.note(format!("deque {:?} {:?} {:?}", q.front().map(ids), q.back().map(ids), q.get(4).map(ids)));
+	log.note(format!(
+		"deque {:?} {:?} {:?}",
+		q.front().map(ids),
+		q.back().map(ids),
+		q.get(4).map(ids)
+	));
 	if let Some(o) = q.front_mut() {
 		*o = None;
 	}
 	let removed = q.remove(2);
-	log.note(format!("remove {:?} {:?}", removed.as_ref().map(ids), q.remove(3).map(|o| ids(&o))));
+	log.note(format!(
+		"remove {:?} {:?}",
+		removed.as_ref().map(ids),
+		q.remove(3).map(|o| ids(&o))
+	));
 	drop(removed);
 	q.push_back(Some(guard(6)));
 	let front = q.pop_front();
@@ -522,7 +531,11 @@ fn elements(log: &Log, id: u32) {
 	while let Some(o) = q.pop_back() {
 		log.note(format!("back {:?}", ids(&o)));
 	}
-	log.note(format!("emptied {:?} {:?}", q.pop_front().map(|o| ids(&o)), front.map(|o| ids(&o))));
+	log.note(format!(
+		"emptied {:?} {:?}",
+		q.pop_front().map(|o| ids(&o)),
+		front.map(|o| ids(&o))
+	));
 	let keys = |o: &Option<Key>| o.as_ref().map(|k| k.id);
 	let mut heap = BinaryHeap::new();
 	heap.push(Some(key(7)));
@@ -536,17 +549,29 @@ fn elements(log: &Log, id: u32) {
 	sorted.insert(Some(key(9)));
 	sorted.insert(None);
 	sorted.insert(Some(key(10)));
-	log.note(format!("set {:?} {:?}", sorted.first().map(keys), sorted.last().map(keys)));
+	log.note(format!(
+		"set {:?} {:?}",
+		sorted.first().map(keys),
+		sorted.last().map(keys)
+	));
 	let least = sorted.pop_first();
 	let most = sorted.pop_last();
-	log.note(format!("popped {:?} {:?}", least.map(|o| keys(&o)), most.map(|o| keys(&o))));
+	log.note(format!(
+		"popped {:?} {:?}",
+		least.map(|o| keys(&o)),
+		most.map(|o| keys(&o))
+	));
 	// One key that drops, whose order of drops beside others std leaves unspecified.
 	let mut hashed = HashSet::new();
 	hashed.insert(Some(key(11)));
 	log.note(format!("hashed {:?}", hashed.get(&None).map(keys)));
 	hashed.insert(None);
 	let taken = hashed.take(&None);
-	log.note(format!("taken {:?} {:?}", taken.map(|o| keys(&o)), hashed.take(&None).map(|o| keys(&o))));
+	log.note(format!(
+		"taken {:?} {:?}",
+		taken.map(|o| keys(&o)),
+		hashed.take(&None).map(|o| keys(&o))
+	));
 	let held = hashed.take(&Some(key(11)));
 	log.note(format!("held {:?}", held.map(|o| keys(&o))));
 	log.note(format!("left {} {} {}", heap.len(), sorted.len(), hashed.len()));

@@ -777,7 +777,8 @@ pub(super) fn none_last(owner: &str, name: &str) -> bool {
 			| (
 				"VecDeque",
 				"pop_front" | "pop_back" | "front" | "back" | "front_mut" | "back_mut" | "get" | "get_mut" | "remove"
-			) | ("BinaryHeap", "pop" | "peek")
+			)
+			| ("BinaryHeap", "pop" | "peek")
 			| ("HashSet", "get" | "take")
 			| ("BTreeSet", "first" | "last" | "pop_first" | "pop_last")
 			| ("HashMap" | "BTreeMap", "get" | "get_mut" | "insert" | "remove")
