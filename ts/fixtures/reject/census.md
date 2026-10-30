@@ -8,7 +8,7 @@
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 15 | unsupported call to `_` | fixtures/reject/src/lib.rs:136:11 |
+| 16 | unsupported call to `_` | fixtures/reject/src/lib.rs:136:11 |
 | 12 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:661:10 |
 | 8 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:669:10 |
 | 5 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:4 |
@@ -46,7 +46,6 @@
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:429:6 |
 | 1 | `f64::mul_add`, which rounds once, where JS would round twice | fixtures/reject/src/lib.rs:480:4 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | fixtures/reject/src/lib.rs:74:10 |
-| 1 | `next_if_eq` of `_` items with a `_`, which is not supported yet | fixtures/reject/src/lib.rs:904:27 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:231:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:87:2 |
@@ -114,7 +113,6 @@ The type or module each refused type or path belongs to.
 | 2 | `std::std` | fixtures/reject/src/lib.rs:620:11 |
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:475:17 |
-| 2 | `str` | fixtures/reject/src/lib.rs:372:4 |
 | 1 | `BTreeMap` | fixtures/reject/src/lib.rs:861:56 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:355:16 |
 | 1 | `BinaryHeap` | fixtures/reject/src/lib.rs:819:7 |
@@ -150,6 +148,7 @@ The type or module each refused type or path belongs to.
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
 | 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:899:6 |
+| 1 | `std::collections::VecDeque` | fixtures/reject/src/lib.rs:904:27 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
@@ -159,10 +158,10 @@ The type or module each refused type or path belongs to.
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | `std::std::Layout` | fixtures/reject/src/lib.rs:618:15 |
 | 1 | `std::str` | fixtures/reject/src/lib.rs:485:4 |
-| 1 | `std::string::String` | fixtures/reject/src/lib.rs:904:27 |
 | 1 | `std::sync::Mutex` | fixtures/reject/src/lib.rs:567:12 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:501:40 |
 | 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:96:34 |
+| 1 | `str` | fixtures/reject/src/lib.rs:372:4 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | `value` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
@@ -206,7 +205,6 @@ The type or module each refused type or path belongs to.
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:289:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | `BytesMut::capacity` | fixtures/reject/src/lib.rs:429:6 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | `Sink` | fixtures/reject/src/lib.rs:74:10 |
-| 1 | `next_if_eq` of `_` items with a `_`, which is not supported yet | `std::string::String`, `str` | fixtures/reject/src/lib.rs:904:27 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:231:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | a cast from `_` to `_` | `u64`, `f32` | fixtures/reject/src/lib.rs:87:2 |
@@ -256,6 +254,7 @@ The type or module each refused type or path belongs to.
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:635:1 |
 | 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:591:2 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:389:2 |
+| 1 | unsupported call to `_` | `<std::collections::VecDeque as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:904:27 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:415:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:824:15 |
@@ -272,7 +271,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (15)</summary>
+<details><summary>unsupported call to `_` (16)</summary>
 
 - fixtures/reject/src/lib.rs:136:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
 - fixtures/reject/src/lib.rs:190:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
@@ -288,6 +287,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:620:11: unsupported call to `std::alloc::alloc`
 - fixtures/reject/src/lib.rs:623:3: unsupported call to `std::alloc::dealloc`
 - fixtures/reject/src/lib.rs:824:15: unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted`
+- fixtures/reject/src/lib.rs:904:27: unsupported call to `<std::collections::VecDeque<u8> as std::cmp::PartialEq<std::vec::Vec<u8>>>::eq`
 - fixtures/reject/src/lib.rs:979:10: unsupported call to `<std::vec::Vec<u8> as std::clone::Clone>::clone_from`
 
 </details>
@@ -558,12 +558,6 @@ The type or module each refused type or path belongs to.
 <details><summary>`fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make (1)</summary>
 
 - fixtures/reject/src/lib.rs:74:10: `fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make
-
-</details>
-
-<details><summary>`next_if_eq` of `_` items with a `_`, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:904:27: `next_if_eq` of `std::string::String` items with a `str`, which is not supported yet
 
 </details>
 

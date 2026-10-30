@@ -899,9 +899,9 @@ pub fn byte_key(set: &std::collections::HashSet<[u8; 2]>, key: [u8; 2]) -> u8 {
 	set.get(&key).map_or(0, |k| k[0])
 }
 
-/// `next_if_eq` compares the item to another type by `PartialEq<str>`, not the item's own.
-pub fn peeked_str(v: Vec<String>) -> bool {
-	v.into_iter().peekable().next_if_eq("a").is_some()
+/// `next_if_eq` compares by the item's `PartialEq<Vec<u8>>`, which is refused as `==` is.
+pub fn peeked_deque(v: Vec<std::collections::VecDeque<u8>>) -> bool {
+	v.into_iter().peekable().next_if_eq(&vec![1]).is_some()
 }
 
 pub struct Plain {

@@ -24,7 +24,7 @@ import { methods } from "./generics.ts";
 import { values, random, bytes as hashes_bytes } from "./hashes.ts";
 import { holds } from "./holds.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert, parses as ints_parses, widenings } from "./ints.ts";
-import { adaptors, consumers, reducers, skips, ranked, ranges, options, own, values as iters_values, returned } from "./iters.ts";
+import { adaptors, consumers, reducers, peekedOthers, skips, ranked, ranges, options, own, values as iters_values, returned } from "./iters.ts";
 import { keys, overrides, bytes as keys_bytes } from "./keys.ts";
 import { locals } from "./locals.ts";
 import { locks, relock, rwlocks } from "./locks.ts";
@@ -90,7 +90,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		refs(data21, out21);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::counts", (_2121: rt.u8, data22: rt.ByteSlice, out22: rt.ByteVec): void => {
 		counts(data22, out22);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_2122: rt.u8, _399: rt.ByteSlice, out23: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_2122: rt.u8, _3100: rt.ByteSlice, out23: rt.ByteVec): void => {
 		rounding(out23);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::skips", skips] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["wrappers::wrappers", wrappers] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["edits::edits", edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["utf8::decodes", decodes] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::floats", floats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["atomics::atomics", atomics] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::overrides", overrides] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::dyns", (_2123: rt.u8, data23: rt.ByteSlice, out24: rt.ByteVec): void => {
 		dyns(data23, out24);
@@ -182,6 +182,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		asSlices(data66, out67);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::widenings", widenings] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["shapes::uninhabited", (_2167: rt.u8, data67: rt.ByteSlice, out68: rt.ByteVec): void => {
 		uninhabited(data67, out68);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::peeked_others", (_2168: rt.u8, data68: rt.ByteSlice, out69: rt.ByteVec): void => {
+		peekedOthers(data68, out69);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]];
 }
 

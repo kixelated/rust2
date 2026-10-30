@@ -155,6 +155,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("arrays::as_slices", |_, data, out| arrays::as_slices(data, out)),
 		("ints::widenings", ints::widenings),
 		("shapes::uninhabited", |_, data, out| shapes::uninhabited(data, out)),
+		("iters::peeked_others", |_, data, out| iters::peeked_others(data, out)),
 	]
 }
 

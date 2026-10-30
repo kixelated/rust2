@@ -94,7 +94,7 @@ roots = [
     "bound_ranges",
     "string_retained",
     "byte_key",
-    "peeked_str",
+    "peeked_deque",
     "put_replaced",
     "object_replaced",
     "closure_replaced",
