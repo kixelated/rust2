@@ -480,8 +480,8 @@ pub fn fma(a: f64) -> f64 {
 	a.mul_add(2.0, 1.0)
 }
 
-/// Parsing a `char` is not translated yet.
-pub fn char_parsed(s: &str) -> Result<char, std::char::ParseCharError> {
+/// Parsing an address is not translated yet.
+pub fn addr_parsed(s: &str) -> Result<std::net::Ipv4Addr, std::net::AddrParseError> {
 	s.parse()
 }
 

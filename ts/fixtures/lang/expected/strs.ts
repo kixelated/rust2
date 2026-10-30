@@ -2,7 +2,10 @@
 
 import * as rt from "./rt.ts";
 import { then$0havnzo } from "./core/bool.ts";
+import { fromStr$1d7pnbk, fromStrRadix$1ae2pnm, fromStr$15isx69, fromStrRadix$1mr00o6, fromStr$04uijf8, fromStrRadix$1wqmb68, fromStr$0l2zu9x, fromStrRadix$0cd0jvv, fromStr$0h0ptos, fromStrRadix$10vntu7, fromStr$10svit2, fromStrRadix$0wc95fw, fromStr$19kbj04, fromStrRadix$1o9c7gd, fromStr$0br814e, fromStrRadix$188cokx, fromStr$1471qz1, fromStrRadix$0l5ymb0, fromStr$0k8sfhf, fromStrRadix$0fpnm5c, fromStr$0b2xa80, fromStrRadix$1095n8m, fromStr$17dd66m, fromStrRadix$1yrk04t } from "./core/num/nonzero.ts";
 import { unwrapOr$1iemzn8, unwrapOr$0r2bmpr, map$0gl6wke, mapOr$147z9gi, mapOr$16umieg } from "./core/option.ts";
+import { parse$0ub96so, parse$1ogkfqt, parse$1n7pf37, parse$1xm5283, parse$0xeilg3, parse$0eefxsx, parse$0bwhuel, parse$0zy5dnc, parse$1o8vfr6, parse$0l0cs1u, parse$0zrdgp4, parse$0s8xu45, parse$0vh4cry } from "./core/str.ts";
+import { fromStr$05d44vn } from "./core/str/traits.ts";
 import { put } from "./fmt.ts";
 import * as Named from "./strs.Named.ts";
 
@@ -677,6 +680,500 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		put(out, s);
 		put(out, named.name);
+	}
+}
+
+/**
+ * `str::parse` of the type `kind` picks, `bool`, `char`, or a `NonZero` of each integer,
+ * of every edge, of text of chars of every UTF-8 width, or of bytes mapped into an
+ * alphabet of signs, digits, and the letters of `true` and `false`.
+ */
+export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let one!: string | undefined;
+	let all!: string[];
+	const radix: rt.u32 = rt.u32Add(2, rt.u32Rem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0) as rt.u32, 35));
+	const _13: rt.u8 = rt.u8Rem(rt.u8Div(kind, 14), 3);
+	if (_13 === 0) {
+		one = undefined;
+	} else if (_13 === 1) {
+		one = text(data);
+	} else {
+		let s: string = "";
+		for (const b of rt.byteSliceView(data)) {
+			const _29: rt.ByteSlice = rt.byteSliceFrom(Uint8Array.of(48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 45, 116, 114, 117, 101, 102, 97, 108, 115, 84, 70, 32));
+			const _30: rt.usize = rt.usizeRem(b as rt.usize, rt.byteSliceFrom(Uint8Array.of(48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 43, 45, 116, 114, 117, 101, 102, 97, 108, 115, 84, 70, 32)).length);
+			rt.idx(_29, _30);
+			s = s + String.fromCodePoint(_29.data[_29.start + _30] as rt.char);
+		}
+		one = s;
+	}
+	const _39: string | undefined = one;
+	if (_39 === undefined) {
+		all = ["true", "false", "True", "FALSE", "", " true", "true ", "t", "truefalse", "a", "é", "ࠀ", "😀", "􏿿", "ab", "a😀", "😀a", "éé", "0", "+0", "-0", "000", "1", "+1", "-1", "+", "-", "--1", "+-1", "1_0", "0x1", "127", "128", "-128", "-129", "255", "256", "32767", "32768", "-32768", "-32769", "65535", "65536", "2147483647", "2147483648", "-2147483648", "-2147483649", "4294967295", "4294967296", "9223372036854775807", "9223372036854775808", "-9223372036854775808", "-9223372036854775809", "18446744073709551615", "18446744073709551616", "170141183460469231731687303715884105727", "170141183460469231731687303715884105728", "-170141183460469231731687303715884105728", "-170141183460469231731687303715884105729", "340282366920938463463374607431768211455", "340282366920938463463374607431768211456"].slice();
+	} else {
+		all = [_39];
+	}
+	for (const _49 of all) {
+		const _53: rt.u8 = rt.u8Rem(kind, 14);
+		if (_53 === 0) {
+			const iter3: rt.Iter<rt.Result<boolean, rt.ParseBoolError>> = rt.iterSlice([parse$0vh4cry(_49), fromStr$05d44vn(_49)]);
+			while (true) {
+				const _65: rt.Result<boolean, rt.ParseBoolError> | rt.Done = iter3.next();
+				if (_65 === rt.DONE) {
+					break;
+				}
+				const parsed: rt.Result<boolean, rt.ParseBoolError> = _65;
+				if (parsed.ok) {
+					const arg26 = parsed.value;
+					const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg26, f)];
+					put(out, rt.fmtFormat([args2[0]]));
+				} else {
+					const part13 = new rt.ParseBoolError();
+					const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseBoolErrorDisplay(part13, f), (f: rt.Formatter) => rt.fmtParseBoolErrorDebug(part13, f)];
+					put(out, rt.fmtFormat([args4[0], "|", args4[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args4[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args4[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args4[1]), "|", rt.fmtSpec({ alternate: true }, args4[1])]));
+				}
+			}
+			parse$0vh4cry(_49);
+		} else if (_53 === 1) {
+			const iter4: rt.Iter<rt.Result<rt.char, rt.ParseCharError>> = rt.iterSlice([rt.charFromStr(_49), rt.charFromStr(_49)]);
+			while (true) {
+				const _105: rt.Result<rt.char, rt.ParseCharError> | rt.Done = iter4.next();
+				if (_105 === rt.DONE) {
+					break;
+				}
+				const parsed2: rt.Result<rt.char, rt.ParseCharError> = _105;
+				if (parsed2.ok) {
+					const arg25 = parsed2.value;
+					const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDebug(arg25, f)];
+					put(out, rt.fmtFormat([args6[0]]));
+				} else {
+					const e: rt.ParseCharError = parsed2.error;
+					const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseCharErrorDisplay(e, f), (f: rt.Formatter) => rt.fmtParseCharErrorDebug(e, f)];
+					put(out, rt.fmtFormat([args8[0], "|", args8[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args8[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args8[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args8[1]), "|", rt.fmtSpec({ alternate: true }, args8[1])]));
+				}
+			}
+			rt.charFromStr(_49);
+		} else if (_53 === 2) {
+			const radix2: rt.u32 = radix;
+			const iter5: rt.Iter<rt.Result<rt.u8, rt.ParseIntError>> = rt.iterSlice([parse$0zrdgp4(_49), fromStr$1d7pnbk(_49)]);
+			while (true) {
+				const _149: rt.Result<rt.u8, rt.ParseIntError> | rt.Done = iter5.next();
+				if (_149 === rt.DONE) {
+					break;
+				}
+				const parsed3: rt.Result<rt.u8, rt.ParseIntError> = _149;
+				if (parsed3.ok) {
+					const arg23 = parsed3.value;
+					const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Debug(arg23, f)];
+					put(out, rt.fmtFormat([args10[0]]));
+				} else {
+					const e2: rt.ParseIntError = parsed3.error;
+					const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e2, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e2, f)];
+					put(out, rt.fmtFormat([args12[0], "|", args12[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args12[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args12[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args12[1]), "|", rt.fmtSpec({ alternate: true }, args12[1])]));
+				}
+			}
+			const _139: rt.Result<rt.u8, rt.ParseIntError> = parse$0zrdgp4(_49);
+			if (!_139.ok) {
+				const part12 = _139.error.kind;
+				const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part12)];
+				put(out, rt.fmtFormat([args14[0]]));
+			}
+			const _195: rt.Result<rt.u8, rt.ParseIntError> = fromStrRadix$1ae2pnm(_49, radix2);
+			if (_195.ok) {
+				const arg24 = _195.value;
+				const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg24, f)];
+				put(out, rt.fmtFormat([args16[0]]));
+			} else {
+				const e4: rt.ParseIntError = _195.error;
+				const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e4, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e4, f)];
+				put(out, rt.fmtFormat([args18[0], "|", args18[1]]));
+			}
+		} else if (_53 === 3) {
+			const radix3: rt.u32 = radix;
+			const iter6: rt.Iter<rt.Result<rt.u16, rt.ParseIntError>> = rt.iterSlice([parse$0zy5dnc(_49), fromStr$15isx69(_49)]);
+			while (true) {
+				const _236: rt.Result<rt.u16, rt.ParseIntError> | rt.Done = iter6.next();
+				if (_236 === rt.DONE) {
+					break;
+				}
+				const parsed4: rt.Result<rt.u16, rt.ParseIntError> = _236;
+				if (parsed4.ok) {
+					const arg21 = parsed4.value;
+					const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Debug(arg21, f)];
+					put(out, rt.fmtFormat([args20[0]]));
+				} else {
+					const e5: rt.ParseIntError = parsed4.error;
+					const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e5, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e5, f)];
+					put(out, rt.fmtFormat([args22[0], "|", args22[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args22[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args22[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args22[1]), "|", rt.fmtSpec({ alternate: true }, args22[1])]));
+				}
+			}
+			const _226: rt.Result<rt.u16, rt.ParseIntError> = parse$0zy5dnc(_49);
+			if (!_226.ok) {
+				const part11 = _226.error.kind;
+				const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part11)];
+				put(out, rt.fmtFormat([args24[0]]));
+			}
+			const _282: rt.Result<rt.u16, rt.ParseIntError> = fromStrRadix$1mr00o6(_49, radix3);
+			if (_282.ok) {
+				const arg22 = _282.value;
+				const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg22, f)];
+				put(out, rt.fmtFormat([args26[0]]));
+			} else {
+				const e7: rt.ParseIntError = _282.error;
+				const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e7, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e7, f)];
+				put(out, rt.fmtFormat([args28[0], "|", args28[1]]));
+			}
+		} else if (_53 === 4) {
+			const radix4: rt.u32 = radix;
+			const iter7: rt.Iter<rt.Result<rt.u32, rt.ParseIntError>> = rt.iterSlice([parse$1o8vfr6(_49), fromStr$04uijf8(_49)]);
+			while (true) {
+				const _323: rt.Result<rt.u32, rt.ParseIntError> | rt.Done = iter7.next();
+				if (_323 === rt.DONE) {
+					break;
+				}
+				const parsed5: rt.Result<rt.u32, rt.ParseIntError> = _323;
+				if (parsed5.ok) {
+					const arg19 = parsed5.value;
+					const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Debug(arg19, f)];
+					put(out, rt.fmtFormat([args30[0]]));
+				} else {
+					const e8: rt.ParseIntError = parsed5.error;
+					const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e8, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e8, f)];
+					put(out, rt.fmtFormat([args32[0], "|", args32[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args32[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args32[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args32[1]), "|", rt.fmtSpec({ alternate: true }, args32[1])]));
+				}
+			}
+			const _313: rt.Result<rt.u32, rt.ParseIntError> = parse$1o8vfr6(_49);
+			if (!_313.ok) {
+				const part10 = _313.error.kind;
+				const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part10)];
+				put(out, rt.fmtFormat([args34[0]]));
+			}
+			const _369: rt.Result<rt.u32, rt.ParseIntError> = fromStrRadix$1wqmb68(_49, radix4);
+			if (_369.ok) {
+				const arg20 = _369.value;
+				const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg20, f)];
+				put(out, rt.fmtFormat([args36[0]]));
+			} else {
+				const e10: rt.ParseIntError = _369.error;
+				const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e10, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e10, f)];
+				put(out, rt.fmtFormat([args38[0], "|", args38[1]]));
+			}
+		} else if (_53 === 5) {
+			const radix5: rt.u32 = radix;
+			const iter8: rt.Iter<rt.Result<rt.u64, rt.ParseIntError>> = rt.iterSlice([parse$0l0cs1u(_49), fromStr$0l2zu9x(_49)]);
+			while (true) {
+				const _410: rt.Result<rt.u64, rt.ParseIntError> | rt.Done = iter8.next();
+				if (_410 === rt.DONE) {
+					break;
+				}
+				const parsed6: rt.Result<rt.u64, rt.ParseIntError> = _410;
+				if (parsed6.ok) {
+					const arg17 = parsed6.value;
+					const args40: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Debug(arg17, f)];
+					put(out, rt.fmtFormat([args40[0]]));
+				} else {
+					const e11: rt.ParseIntError = parsed6.error;
+					const args42: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e11, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e11, f)];
+					put(out, rt.fmtFormat([args42[0], "|", args42[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args42[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args42[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args42[1]), "|", rt.fmtSpec({ alternate: true }, args42[1])]));
+				}
+			}
+			const _400: rt.Result<rt.u64, rt.ParseIntError> = parse$0l0cs1u(_49);
+			if (!_400.ok) {
+				const part9 = _400.error.kind;
+				const args44: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part9)];
+				put(out, rt.fmtFormat([args44[0]]));
+			}
+			const _456: rt.Result<rt.u64, rt.ParseIntError> = fromStrRadix$0cd0jvv(_49, radix5);
+			if (_456.ok) {
+				const arg18 = _456.value;
+				const args46: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg18, f)];
+				put(out, rt.fmtFormat([args46[0]]));
+			} else {
+				const e13: rt.ParseIntError = _456.error;
+				const args48: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e13, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e13, f)];
+				put(out, rt.fmtFormat([args48[0], "|", args48[1]]));
+			}
+		} else if (_53 === 6) {
+			const radix6: rt.u32 = radix;
+			const iter9: rt.Iter<rt.Result<rt.u128, rt.ParseIntError>> = rt.iterSlice([parse$0bwhuel(_49), fromStr$0h0ptos(_49)]);
+			while (true) {
+				const _497: rt.Result<rt.u128, rt.ParseIntError> | rt.Done = iter9.next();
+				if (_497 === rt.DONE) {
+					break;
+				}
+				const parsed7: rt.Result<rt.u128, rt.ParseIntError> = _497;
+				if (parsed7.ok) {
+					const arg15 = parsed7.value;
+					const args50: rt.Fmt[] = [(f: rt.Formatter) => rt.u128Debug(arg15, f)];
+					put(out, rt.fmtFormat([args50[0]]));
+				} else {
+					const e14: rt.ParseIntError = parsed7.error;
+					const args52: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e14, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e14, f)];
+					put(out, rt.fmtFormat([args52[0], "|", args52[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args52[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args52[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args52[1]), "|", rt.fmtSpec({ alternate: true }, args52[1])]));
+				}
+			}
+			const _487: rt.Result<rt.u128, rt.ParseIntError> = parse$0bwhuel(_49);
+			if (!_487.ok) {
+				const part8 = _487.error.kind;
+				const args54: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part8)];
+				put(out, rt.fmtFormat([args54[0]]));
+			}
+			const _543: rt.Result<rt.u128, rt.ParseIntError> = fromStrRadix$10vntu7(_49, radix6);
+			if (_543.ok) {
+				const arg16 = _543.value;
+				const args56: rt.Fmt[] = [(f: rt.Formatter) => rt.u128Display(arg16, f)];
+				put(out, rt.fmtFormat([args56[0]]));
+			} else {
+				const e16: rt.ParseIntError = _543.error;
+				const args58: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e16, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e16, f)];
+				put(out, rt.fmtFormat([args58[0], "|", args58[1]]));
+			}
+		} else if (_53 === 7) {
+			const radix7: rt.u32 = radix;
+			const iter10: rt.Iter<rt.Result<rt.usize, rt.ParseIntError>> = rt.iterSlice([parse$0s8xu45(_49), fromStr$10svit2(_49)]);
+			while (true) {
+				const _584: rt.Result<rt.usize, rt.ParseIntError> | rt.Done = iter10.next();
+				if (_584 === rt.DONE) {
+					break;
+				}
+				const parsed8: rt.Result<rt.usize, rt.ParseIntError> = _584;
+				if (parsed8.ok) {
+					const arg13 = parsed8.value;
+					const args60: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDebug(arg13, f)];
+					put(out, rt.fmtFormat([args60[0]]));
+				} else {
+					const e17: rt.ParseIntError = parsed8.error;
+					const args62: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e17, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e17, f)];
+					put(out, rt.fmtFormat([args62[0], "|", args62[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args62[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args62[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args62[1]), "|", rt.fmtSpec({ alternate: true }, args62[1])]));
+				}
+			}
+			const _574: rt.Result<rt.usize, rt.ParseIntError> = parse$0s8xu45(_49);
+			if (!_574.ok) {
+				const part7 = _574.error.kind;
+				const args64: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part7)];
+				put(out, rt.fmtFormat([args64[0]]));
+			}
+			const _630: rt.Result<rt.usize, rt.ParseIntError> = fromStrRadix$0wc95fw(_49, radix7);
+			if (_630.ok) {
+				const arg14 = _630.value;
+				const args66: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(arg14, f)];
+				put(out, rt.fmtFormat([args66[0]]));
+			} else {
+				const e19: rt.ParseIntError = _630.error;
+				const args68: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e19, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e19, f)];
+				put(out, rt.fmtFormat([args68[0], "|", args68[1]]));
+			}
+		} else if (_53 === 8) {
+			const radix8: rt.u32 = radix;
+			const iter11: rt.Iter<rt.Result<rt.i8, rt.ParseIntError>> = rt.iterSlice([parse$0xeilg3(_49), fromStr$19kbj04(_49)]);
+			while (true) {
+				const _671: rt.Result<rt.i8, rt.ParseIntError> | rt.Done = iter11.next();
+				if (_671 === rt.DONE) {
+					break;
+				}
+				const parsed9: rt.Result<rt.i8, rt.ParseIntError> = _671;
+				if (parsed9.ok) {
+					const arg11 = parsed9.value;
+					const args70: rt.Fmt[] = [(f: rt.Formatter) => rt.i8Debug(arg11, f)];
+					put(out, rt.fmtFormat([args70[0]]));
+				} else {
+					const e20: rt.ParseIntError = parsed9.error;
+					const args72: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e20, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e20, f)];
+					put(out, rt.fmtFormat([args72[0], "|", args72[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args72[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args72[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args72[1]), "|", rt.fmtSpec({ alternate: true }, args72[1])]));
+				}
+			}
+			const _661: rt.Result<rt.i8, rt.ParseIntError> = parse$0xeilg3(_49);
+			if (!_661.ok) {
+				const part6 = _661.error.kind;
+				const args74: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part6)];
+				put(out, rt.fmtFormat([args74[0]]));
+			}
+			const _717: rt.Result<rt.i8, rt.ParseIntError> = fromStrRadix$1o9c7gd(_49, radix8);
+			if (_717.ok) {
+				const arg12 = _717.value;
+				const args76: rt.Fmt[] = [(f: rt.Formatter) => rt.i8Display(arg12, f)];
+				put(out, rt.fmtFormat([args76[0]]));
+			} else {
+				const e22: rt.ParseIntError = _717.error;
+				const args78: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e22, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e22, f)];
+				put(out, rt.fmtFormat([args78[0], "|", args78[1]]));
+			}
+		} else if (_53 === 9) {
+			const radix9: rt.u32 = radix;
+			const iter12: rt.Iter<rt.Result<rt.i16, rt.ParseIntError>> = rt.iterSlice([parse$1ogkfqt(_49), fromStr$0br814e(_49)]);
+			while (true) {
+				const _758: rt.Result<rt.i16, rt.ParseIntError> | rt.Done = iter12.next();
+				if (_758 === rt.DONE) {
+					break;
+				}
+				const parsed10: rt.Result<rt.i16, rt.ParseIntError> = _758;
+				if (parsed10.ok) {
+					const arg9 = parsed10.value;
+					const args80: rt.Fmt[] = [(f: rt.Formatter) => rt.i16Debug(arg9, f)];
+					put(out, rt.fmtFormat([args80[0]]));
+				} else {
+					const e23: rt.ParseIntError = parsed10.error;
+					const args82: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e23, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e23, f)];
+					put(out, rt.fmtFormat([args82[0], "|", args82[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args82[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args82[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args82[1]), "|", rt.fmtSpec({ alternate: true }, args82[1])]));
+				}
+			}
+			const _748: rt.Result<rt.i16, rt.ParseIntError> = parse$1ogkfqt(_49);
+			if (!_748.ok) {
+				const part5 = _748.error.kind;
+				const args84: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part5)];
+				put(out, rt.fmtFormat([args84[0]]));
+			}
+			const _804: rt.Result<rt.i16, rt.ParseIntError> = fromStrRadix$188cokx(_49, radix9);
+			if (_804.ok) {
+				const arg10 = _804.value;
+				const args86: rt.Fmt[] = [(f: rt.Formatter) => rt.i16Display(arg10, f)];
+				put(out, rt.fmtFormat([args86[0]]));
+			} else {
+				const e25: rt.ParseIntError = _804.error;
+				const args88: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e25, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e25, f)];
+				put(out, rt.fmtFormat([args88[0], "|", args88[1]]));
+			}
+		} else if (_53 === 10) {
+			const radix10: rt.u32 = radix;
+			const iter13: rt.Iter<rt.Result<rt.i32, rt.ParseIntError>> = rt.iterSlice([parse$1n7pf37(_49), fromStr$1471qz1(_49)]);
+			while (true) {
+				const _845: rt.Result<rt.i32, rt.ParseIntError> | rt.Done = iter13.next();
+				if (_845 === rt.DONE) {
+					break;
+				}
+				const parsed11: rt.Result<rt.i32, rt.ParseIntError> = _845;
+				if (parsed11.ok) {
+					const arg7 = parsed11.value;
+					const args90: rt.Fmt[] = [(f: rt.Formatter) => rt.i32Debug(arg7, f)];
+					put(out, rt.fmtFormat([args90[0]]));
+				} else {
+					const e26: rt.ParseIntError = parsed11.error;
+					const args92: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e26, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e26, f)];
+					put(out, rt.fmtFormat([args92[0], "|", args92[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args92[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args92[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args92[1]), "|", rt.fmtSpec({ alternate: true }, args92[1])]));
+				}
+			}
+			const _835: rt.Result<rt.i32, rt.ParseIntError> = parse$1n7pf37(_49);
+			if (!_835.ok) {
+				const part4 = _835.error.kind;
+				const args94: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part4)];
+				put(out, rt.fmtFormat([args94[0]]));
+			}
+			const _891: rt.Result<rt.i32, rt.ParseIntError> = fromStrRadix$0l5ymb0(_49, radix10);
+			if (_891.ok) {
+				const arg8 = _891.value;
+				const args96: rt.Fmt[] = [(f: rt.Formatter) => rt.i32Display(arg8, f)];
+				put(out, rt.fmtFormat([args96[0]]));
+			} else {
+				const e28: rt.ParseIntError = _891.error;
+				const args98: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e28, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e28, f)];
+				put(out, rt.fmtFormat([args98[0], "|", args98[1]]));
+			}
+		} else if (_53 === 11) {
+			const radix11: rt.u32 = radix;
+			const iter14: rt.Iter<rt.Result<rt.i64, rt.ParseIntError>> = rt.iterSlice([parse$1xm5283(_49), fromStr$0k8sfhf(_49)]);
+			while (true) {
+				const _932: rt.Result<rt.i64, rt.ParseIntError> | rt.Done = iter14.next();
+				if (_932 === rt.DONE) {
+					break;
+				}
+				const parsed12: rt.Result<rt.i64, rt.ParseIntError> = _932;
+				if (parsed12.ok) {
+					const arg5 = parsed12.value;
+					const args100: rt.Fmt[] = [(f: rt.Formatter) => rt.i64Debug(arg5, f)];
+					put(out, rt.fmtFormat([args100[0]]));
+				} else {
+					const e29: rt.ParseIntError = parsed12.error;
+					const args102: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e29, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e29, f)];
+					put(out, rt.fmtFormat([args102[0], "|", args102[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args102[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args102[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args102[1]), "|", rt.fmtSpec({ alternate: true }, args102[1])]));
+				}
+			}
+			const _922: rt.Result<rt.i64, rt.ParseIntError> = parse$1xm5283(_49);
+			if (!_922.ok) {
+				const part3 = _922.error.kind;
+				const args104: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part3)];
+				put(out, rt.fmtFormat([args104[0]]));
+			}
+			const _978: rt.Result<rt.i64, rt.ParseIntError> = fromStrRadix$0fpnm5c(_49, radix11);
+			if (_978.ok) {
+				const arg6 = _978.value;
+				const args106: rt.Fmt[] = [(f: rt.Formatter) => rt.i64Display(arg6, f)];
+				put(out, rt.fmtFormat([args106[0]]));
+			} else {
+				const e31: rt.ParseIntError = _978.error;
+				const args108: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e31, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e31, f)];
+				put(out, rt.fmtFormat([args108[0], "|", args108[1]]));
+			}
+		} else if (_53 === 12) {
+			const radix12: rt.u32 = radix;
+			const iter15: rt.Iter<rt.Result<rt.i128, rt.ParseIntError>> = rt.iterSlice([parse$0ub96so(_49), fromStr$0b2xa80(_49)]);
+			while (true) {
+				const _1019: rt.Result<rt.i128, rt.ParseIntError> | rt.Done = iter15.next();
+				if (_1019 === rt.DONE) {
+					break;
+				}
+				const parsed13: rt.Result<rt.i128, rt.ParseIntError> = _1019;
+				if (parsed13.ok) {
+					const arg3 = parsed13.value;
+					const args110: rt.Fmt[] = [(f: rt.Formatter) => rt.i128Debug(arg3, f)];
+					put(out, rt.fmtFormat([args110[0]]));
+				} else {
+					const e32: rt.ParseIntError = parsed13.error;
+					const args112: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e32, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e32, f)];
+					put(out, rt.fmtFormat([args112[0], "|", args112[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args112[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args112[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args112[1]), "|", rt.fmtSpec({ alternate: true }, args112[1])]));
+				}
+			}
+			const _1009: rt.Result<rt.i128, rt.ParseIntError> = parse$0ub96so(_49);
+			if (!_1009.ok) {
+				const part2 = _1009.error.kind;
+				const args114: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part2)];
+				put(out, rt.fmtFormat([args114[0]]));
+			}
+			const _1065: rt.Result<rt.i128, rt.ParseIntError> = fromStrRadix$1095n8m(_49, radix12);
+			if (_1065.ok) {
+				const arg4 = _1065.value;
+				const args116: rt.Fmt[] = [(f: rt.Formatter) => rt.i128Display(arg4, f)];
+				put(out, rt.fmtFormat([args116[0]]));
+			} else {
+				const e34: rt.ParseIntError = _1065.error;
+				const args118: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e34, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e34, f)];
+				put(out, rt.fmtFormat([args118[0], "|", args118[1]]));
+			}
+		} else {
+			const radix13: rt.u32 = radix;
+			const iter16: rt.Iter<rt.Result<rt.isize, rt.ParseIntError>> = rt.iterSlice([parse$0eefxsx(_49), fromStr$17dd66m(_49)]);
+			while (true) {
+				const _1106: rt.Result<rt.isize, rt.ParseIntError> | rt.Done = iter16.next();
+				if (_1106 === rt.DONE) {
+					break;
+				}
+				const parsed14: rt.Result<rt.isize, rt.ParseIntError> = _1106;
+				if (parsed14.ok) {
+					const arg = parsed14.value;
+					const args120: rt.Fmt[] = [(f: rt.Formatter) => rt.isizeDebug(arg, f)];
+					put(out, rt.fmtFormat([args120[0]]));
+				} else {
+					const e35: rt.ParseIntError = parsed14.error;
+					const args122: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e35, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e35, f)];
+					put(out, rt.fmtFormat([args122[0], "|", args122[1], "|", rt.fmtSpec({ align: ">", width: 50 }, args122[0]), "|", rt.fmtSpec({ align: "<", width: 3, precision: 5 }, args122[0]), "|", rt.fmtSpec({ align: ">", width: 20 }, args122[1]), "|", rt.fmtSpec({ alternate: true }, args122[1])]));
+				}
+			}
+			const _1096: rt.Result<rt.isize, rt.ParseIntError> = parse$0eefxsx(_49);
+			if (!_1096.ok) {
+				const part = _1096.error.kind;
+				const args124: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, part)];
+				put(out, rt.fmtFormat([args124[0]]));
+			}
+			const _1152: rt.Result<rt.isize, rt.ParseIntError> = fromStrRadix$1yrk04t(_49, radix13);
+			if (_1152.ok) {
+				const arg2 = _1152.value;
+				const args126: rt.Fmt[] = [(f: rt.Formatter) => rt.isizeDisplay(arg2, f)];
+				put(out, rt.fmtFormat([args126[0]]));
+			} else {
+				const e37: rt.ParseIntError = _1152.error;
+				const args128: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtParseIntErrorDisplay(e37, f), (f: rt.Formatter) => rt.fmtParseIntErrorDebug(e37, f)];
+				put(out, rt.fmtFormat([args128[0], "|", args128[1]]));
+			}
+		}
 	}
 }
 

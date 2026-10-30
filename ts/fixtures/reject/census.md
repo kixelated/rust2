@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 117
+- Refusals: 118
 - Function instances: 136
 - Generic functions no instance reached, lowered over their type parameters: 10
 
@@ -27,6 +27,7 @@
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:364:13 |
+| 2 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | fixtures/reject/src/lib.rs:814:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:435:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:420:2 |
@@ -72,7 +73,6 @@
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:263:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:355:16 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | fixtures/reject/src/lib.rs:635:1 |
-| 1 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:484:32 |
 
 ## By API
 
@@ -140,10 +140,11 @@ The type or module each refused type or path belongs to.
 | 1 | `poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
-| 1 | `std::char::ParseCharError` | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:899:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
+| 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:415:2 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:824:15 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
@@ -250,7 +251,8 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:620:11 |
 | 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:623:3 |
 | 1 | unsupported call to `_` | `std::str::parse` | fixtures/reject/src/lib.rs:485:4 |
-| 1 | unsupported type `_` from another crate | `std::char::ParseCharError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | unsupported type `_` from another crate | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | unsupported type `_` from another crate | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
 
 ## Spans
 
@@ -265,7 +267,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:415:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:475:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:475:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
-- fixtures/reject/src/lib.rs:485:4: unsupported call to `core::str::<impl str>::parse::<char>`
+- fixtures/reject/src/lib.rs:485:4: unsupported call to `core::str::<impl str>::parse::<std::net::Ipv4Addr>`
 - fixtures/reject/src/lib.rs:591:2: unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:591:17: unsupported call to `std::any::TypeId::of::<u8>`
 - fixtures/reject/src/lib.rs:618:15: unsupported call to `std::alloc::Layout::new::<u8>`
@@ -417,6 +419,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:364:13: passing `{closure@fixtures/reject/src/lib.rs:364:28: 364:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet
 - fixtures/reject/src/lib.rs:365:16: passing `{closure@fixtures/reject/src/lib.rs:365:25: 365:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet
+
+</details>
+
+<details><summary>unsupported type `_` from another crate (2)</summary>
+
+- fixtures/reject/src/lib.rs:484:32: unsupported type `std::net::AddrParseError` from another crate
+- fixtures/reject/src/lib.rs:484:32: unsupported type `std::net::Ipv4Addr` from another crate
 
 </details>
 
@@ -687,11 +696,5 @@ The type or module each refused type or path belongs to.
 <details><summary>union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart (1)</summary>
 
 - fixtures/reject/src/lib.rs:635:1: union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart
-
-</details>
-
-<details><summary>unsupported type `_` from another crate (1)</summary>
-
-- fixtures/reject/src/lib.rs:484:32: unsupported type `std::char::ParseCharError` from another crate
 
 </details>

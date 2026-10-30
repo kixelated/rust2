@@ -22,7 +22,7 @@ generic std gap is planned here even when moq never calls it.
 - [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
 - [Strings from and into iterators](/quest/m3/ts-string-iters.md) - `collect::<String>`, `String::extend`, and `drain` translate
-- [Other FromStr types](/quest/m3/ts-from-str.md) - `str::parse` of `bool`, `char`, and `NonZero` translates
+- [Equality of Result and std's errors](/quest/m3/ts-error-eq.md) - `==` of a `Result` and of std's parse and conversion errors translates
 - [Placeholders written to a crate's own fmt::Write](/quest/m3/ts-fmt-calls.md) - `write!` with placeholders into a crate's own writer translates, its `write_str` seeing each call std makes
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
