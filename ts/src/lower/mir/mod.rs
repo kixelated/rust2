@@ -73,6 +73,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, span: Span) -> Option<mir::Body<'tcx>> {
 	let tcx = t.tcx;
 	let def_id = instance.def_id();
+	t.lowered.insert(instance);
 	// A `const`'s, as a function of no arguments that makes its value.
 	let body = match tcx.def_kind(def_id) {
 		DefKind::Const => tcx.mir_for_ctfe(def_id).clone(),
