@@ -30,7 +30,8 @@ generic std gap is planned here even when moq never calls it.
 - [Equality of std containers of unlike elements](/quest/m3/ts-eq-unlike.md) - `==` and `next_if_eq` of a `Vec<Left>` against a `&[Right]`, and of `VecDeque` against `Vec`, translate
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
-- [A VecDeque's Debug](/quest/m3/ts-deque-debug.md) - `{:?}` of a `VecDeque` translates, writing std's list
+- [std iterators' Debug](/quest/m3/ts-iter-debug.md) - `{:?}` of std's iterators translates, writing std's text, a deque's two slices included
+- [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
 - [std's impls of its zero-sized types](/quest/m3/ts-zero-sized-impls.md) - `PhantomData`'s derived impls translate, and `()` is a hash or B-tree key
 - [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check
