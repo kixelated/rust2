@@ -9,7 +9,9 @@ variable is assigned again; a translated program never silently reads the old ob
 
 ## Plan
 
-Found by [#268](https://github.com/moq-dev/rust2/pull/268) on 2026-10-30:
+In m2 rather than m3: it is a silent miscompile today, not a refusal, and the subset's
+promise is that translation fails loud wherever it can't match native Rust. Found by
+[#268](https://github.com/moq-dev/rust2/pull/268) on 2026-10-30:
 
 ```rust
 let mut pair = (n, n);

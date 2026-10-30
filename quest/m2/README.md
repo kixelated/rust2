@@ -26,6 +26,7 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 
 ## Required
 
+- [A pointer to a variable that std's mapping rebinds](/quest/m2/ts-pointer-rebind.md) - a raw pointer to a variable `mem::replace` rebinds is refused rather than silently left on the old object
 - [Instance names that adding code elsewhere keeps](/quest/m2/ts-stable-names.md) - adding code renames no numbered instance it doesn't reach
 - [Import bindings that adding code elsewhere keeps](/quest/m2/ts-stable-imports.md) - an added import renames no other import or local
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
