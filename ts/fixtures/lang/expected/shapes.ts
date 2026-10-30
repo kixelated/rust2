@@ -1632,7 +1632,6 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _19!: rt.u8;
 	let _29!: rt.u8;
 	let _43!: rt.u8;
-	let _50!: rt.u8;
 	let r!: rt.Result<rt.u8, rt.u8>;
 	let _58!: rt.u8;
 	let _76!: rt.u8;
@@ -1686,12 +1685,7 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.byteVecPush(out, _43);
 	if (order_ === -1) {
-		if ((order_ as rt.Ordering) === 0) {
-			_50 = 31;
-		} else {
-			_50 = 32;
-		}
-		rt.byteVecPush(out, _50);
+		rt.byteVecPush(out, 32);
 	}
 	if (!(data.length > 1)) {
 		r = rt.Err(2);
@@ -1819,31 +1813,31 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_192 = 49;
 	}
 	rt.byteVecPush(out, _192);
-	b30: {
+	b29: {
 		if (s.tag === "Dot") {
 			if (!(data.length > 1)) {
 				_206 = 53;
-				break b30;
+				break b29;
 			}
 			_206 = 51;
-			break b30;
+			break b29;
 		}
 		if (s.tag === "Rect") {
 			if (s.width > 300) {
 				_206 = s.height & 0xff;
-				break b30;
+				break b29;
 			}
 		}
 		_206 = 55;
 	}
 	rt.byteVecPush(out, _206);
-	b32: {
+	b31: {
 		let w: Shape.Shape = s;
 		if (w.tag === "Dot") {
 			let i2: rt.usize = 0;
 			while (true) {
 				if (!(i2 < rt.min(data.length, 3))) {
-					break b32;
+					break b31;
 				}
 				if (w.tag === "Dot") {
 					w = shape(rt.byteSliceFrom(Uint8Array.of(1)));
@@ -1865,18 +1859,12 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** A match a `bool` already decided: `matches!`, and `==` of a derived `PartialEq`. */
 export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _4!: boolean;
-	let _7!: rt.u8;
 	let _9!: boolean;
 	let _12!: rt.u8;
 	let _17!: boolean;
-	let _20!: rt.u8;
 	let wide!: boolean;
 	let _29!: rt.u8;
-	let _37!: rt.u8;
-	let _43!: rt.u8;
-	let _52!: rt.u8;
 	let _61!: rt.u8;
-	let _73!: rt.u8;
 	let dot!: boolean;
 	let _82!: rt.u8;
 	let dot2!: boolean;
@@ -1893,12 +1881,7 @@ export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_4 = false;
 	}
 	if (_4) {
-		if (s.tag === "Line") {
-			_7 = 60;
-		} else {
-			_7 = 61;
-		}
-		rt.byteVecPush(out, _7);
+		rt.byteVecPush(out, 61);
 	}
 	if (s.tag === "Line" || s.tag === "Rect") {
 		_9 = true;
@@ -1906,12 +1889,10 @@ export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_9 = false;
 	}
 	if (_9) {
-		if (s.tag === "Dot") {
-			_12 = 62;
-		} else if (s.tag === "Line") {
+		if (s.tag === "Line") {
 			_12 = s._0.x & 0xff;
 		} else {
-			_12 = s.width & 0xff;
+			_12 = ((s as Shape.Shape) as { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 }).width & 0xff;
 		}
 		rt.byteVecPush(out, _12);
 	}
@@ -1921,12 +1902,7 @@ export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_17 = false;
 	}
 	if (!_17) {
-		if (s.tag === "Line") {
-			_20 = s._1.y & 0xff;
-		} else {
-			_20 = 63;
-		}
-		rt.byteVecPush(out, _20);
+		rt.byteVecPush(out, 63);
 	}
 	if (!(data.length > 2)) {
 		wide = false;
@@ -1941,36 +1917,19 @@ export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else {
 			_29 = 66;
 		}
-	} else if (s.tag === "Rect") {
-		_29 = s.height & 0xff;
 	} else {
-		_29 = 64;
+		_29 = ((s as Shape.Shape) as { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 }).height & 0xff;
 	}
 	rt.byteVecPush(out, _29);
 	if (Shape.eq$PartialEq(s, { tag: "Dot" } as Shape.Shape)) {
-		if (s.tag === "Line") {
-			_37 = 67;
-		} else {
-			_37 = 68;
-		}
-		rt.byteVecPush(out, _37);
+		rt.byteVecPush(out, 68);
 	}
 	if (!Shape.eq$PartialEq(s, { tag: "Dot" } as Shape.Shape)) {
-		if ((s as Shape.Shape).tag === "Dot") {
-			_43 = 69;
-		} else {
-			_43 = 70;
-		}
-		rt.byteVecPush(out, _43);
+		rt.byteVecPush(out, 70);
 	}
 	const line = { tag: "Line", _0: Point.new(0, 0), _1: Point.new(0, 0) } as Shape.Shape;
 	if (Shape.eq$PartialEq(s, line)) {
-		if ((s as Shape.Shape).tag === "Line") {
-			_52 = (((s as Shape.Shape) as { tag: "Line"; _0: Point.Point; _1: Point.Point })._1.x & 0xff) ^ 71;
-		} else {
-			_52 = 72;
-		}
-		rt.byteVecPush(out, _52);
+		rt.byteVecPush(out, (((s as Shape.Shape) as { tag: "Line"; _0: Point.Point; _1: Point.Point })._1.x & 0xff) ^ 71);
 	}
 	if (!Shape.eq$PartialEq(s, line)) {
 		if ((s as Shape.Shape).tag === "Line") {
@@ -1983,12 +1942,7 @@ export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const t: Shape.Shape = shape(rt.byteSliceRange(data, rt.min(data.length, 1)));
 	if (t.tag === "Rect") {
 		if (Shape.eq$PartialEq(s, t)) {
-			if ((s as Shape.Shape).tag === "Rect") {
-				_73 = (((s as Shape.Shape) as { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 }).width & 0xff) ^ 75;
-			} else {
-				_73 = 76;
-			}
-			rt.byteVecPush(out, _73);
+			rt.byteVecPush(out, (((s as Shape.Shape) as { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 }).width & 0xff) ^ 75);
 		}
 	}
 	let m: Shape.Shape = s;

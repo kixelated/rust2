@@ -532,12 +532,12 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_381.ok) {
 			rt.panic("internal error: entered unreachable code");
 		} else {
-			const typed: [rt.usize, rt.u8] | undefined = ok$Result_usize_u8_Arc_dyn_Any(map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
+			const part7 = ok$Result_usize_u8_Arc_dyn_Any(map$Result_Arc_u8_u8_Arc_dyn_Any_usize_u8_anys_closure1(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
 				const _02: [rt.usize, rt.u8] = [t.strong, t.value[0]];
 				t[Symbol.dispose]();
 				return _02;
 			}));
-			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(typed, f, (value: [rt.usize, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
+			const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part7, f, (value: [rt.usize, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
 			put(out, rt.fmtFormat([args30[0]]));
 			rt.dropAll(kept);
 		}
