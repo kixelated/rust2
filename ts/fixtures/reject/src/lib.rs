@@ -38,9 +38,7 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 
 /// The runtime's `find_map` takes `None` to be `undefined`, which `Some(None)` is.
 pub fn iterators(v: &[u8]) -> bool {
-	v.iter()
-		.find_map(|&b| (b > 1).then_some((b > 2).then_some(b)))
-		.is_some()
+	v.iter().find_map(|&b| Some(b.checked_sub(1))).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -490,8 +488,8 @@ pub fn fma(a: f64) -> f64 {
 	a.mul_add(2.0, 1.0)
 }
 
-/// Integer parsing is not translated yet.
-pub fn int_parsed(s: &str) -> Result<u32, std::num::ParseIntError> {
+/// Parsing a `char` is not translated yet.
+pub fn char_parsed(s: &str) -> Result<char, std::char::ParseCharError> {
 	s.parse()
 }
 
@@ -686,6 +684,39 @@ pub fn element_pointer(n: u32) -> u32 {
 	let mut pairs = [(n, n); 2];
 	let p = &raw mut pairs[1];
 	unsafe { (*p).0 }
+}
+
+/// The pointer `UnsafeCell::get` gives to the object its `rt.Cell` holds, which a whole
+/// write of the cell elsewhere replaces with another object.
+pub fn cell_replaced(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new((n, n));
+	let p = cell.get();
+	let old = std::mem::replace(&mut cell, std::cell::UnsafeCell::new((0, 0)));
+	unsafe { (*p).0 + old.into_inner().1 }
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` itself, which an
+/// assignment of the whole variable replaces.
+pub fn cell_reassigned(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new(n);
+	let p = cell.get();
+	cell = std::cell::UnsafeCell::new(0);
+	unsafe { *p + cell.into_inner() }
+}
+
+pub struct Hits {
+	pub count: std::cell::UnsafeCell<u32>,
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` in a struct, which a
+/// write of the whole field replaces.
+pub fn cell_field_replaced(n: u32) -> u32 {
+	let mut hits = Hits {
+		count: std::cell::UnsafeCell::new(n),
+	};
+	let p = hits.count.get();
+	hits.count = std::cell::UnsafeCell::new(0);
+	unsafe { *p + *hits.count.get_mut() }
 }
 
 /// Two pointers to values of no bytes, which Rust may put anywhere.

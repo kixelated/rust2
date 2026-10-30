@@ -148,6 +148,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						}
 						(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 						(Std::RangeFull, _) => Expr::undefined(),
+						(Std::ParseIntError, _) => {
+							Expr::Object(vec![(Key::Name("kind".into()), values.pop().unwrap())])
+						}
+						(Std::IntErrorKind, _) => Expr::As(
+							Box::new(Expr::Str(adt.variant(variant).name.to_string())),
+							self.t.ty(ty, span),
+						),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}

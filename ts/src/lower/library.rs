@@ -35,6 +35,10 @@ pub enum Std {
 	FromUtf8Error,
 	Utf8Error,
 	TryFromIntError,
+	/// `rt.ParseIntError`: `{ kind }`, its `IntErrorKind`.
+	ParseIntError,
+	/// `rt.IntErrorKind`: the variant's name.
+	IntErrorKind,
 	ParseFloatError,
 	TryFromFloatSecsError,
 	/// `rt.Formatter`.
@@ -65,7 +69,7 @@ pub enum Std {
 	RefCell,
 	Ref,
 	RefMut,
-	/// `rt.Cell<T>`, a place holding its value.
+	/// `rt.Cell<T>`, a place holding its value: a `Cell`'s or an `UnsafeCell`'s.
 	Cell,
 	/// `rt.LocalKey<T>`: a thread-local, a module's value.
 	LocalKey,
@@ -207,6 +211,7 @@ impl Std {
 			}
 		}
 		for (item, std) in [
+			(rustc_attr_ir::LangItem::UnsafeCell, Self::Cell),
 			(rustc_attr_ir::LangItem::Context, Self::Context),
 			(rustc_attr_ir::LangItem::ResumeTy, Self::Context),
 			(rustc_attr_ir::LangItem::Poll, Self::Poll),
@@ -238,6 +243,8 @@ impl Std {
 			.as_slice()
 		{
 			["str", "error", "Utf8Error"] => Some(Self::Utf8Error),
+			["num", "error", "ParseIntError"] => Some(Self::ParseIntError),
+			["num", "error", "IntErrorKind"] => Some(Self::IntErrorKind),
 			["fmt", "Formatter"] => Some(Self::Formatter),
 			["fmt", "Arguments"] => Some(Self::Arguments),
 			["fmt", "Error"] => Some(Self::FmtError),
@@ -529,7 +536,9 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
 /// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
-/// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms.
+/// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, or what
+/// parses an integer: `str::parse` of one, its `FromStr`, `from_str_radix`, and what they
+/// call, `char::to_digit` and the radix's panic among it.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
 /// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
 /// as the runtime's panic.
@@ -546,6 +555,9 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return matches!(
 			path.iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
 			["cmp", "max" | "min" | "max_by" | "min_by" | "max_by_key" | "min_by_key"]
+				| ["num", "can_not_overflow"]
+				// With the functions `const_panic!` nests in it.
+				| ["num", "from_ascii_bytes_radix_panic", ..]
 		);
 	}
 	if tcx.def_kind(did) != DefKind::AssocFn {
@@ -554,6 +566,21 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let Some(imp) = tcx.impl_of_assoc(did) else {
 		return false;
 	};
+	let name = tcx.item_name(did);
+	let parses = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+		ty::Int(_) | ty::Uint(_) => {
+			matches!(
+				name.as_str(),
+				"from_str" | "from_str_radix" | "from_ascii_bytes_radix_impl"
+			)
+		}
+		ty::Str => name.as_str() == "parse" && Int::of(instance.args.type_at(0)).is_some(),
+		ty::Char => name.as_str() == "to_digit",
+		_ => false,
+	};
+	if parses {
+		return true;
+	}
 	// `None` for `bool`'s.
 	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
 		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
@@ -572,7 +599,6 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	if sig.safety().is_unsafe() || sig.inputs().iter().any(|&ty| writes(ty)) {
 		return false;
 	}
-	let name = tcx.item_name(did);
 	if let Some(tr) = tcx.trait_impl_of_assoc(did).map(|imp| tcx.impl_trait_id(imp)) {
 		// A `Clone` that only copies is the copy.
 		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
@@ -1617,6 +1643,7 @@ fn mapping<'tcx>(
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
+		("ParseIntError", "kind") => args.pop()?.member("kind"),
 		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
 			Expr::rt_of("f64", "fromStr").call(args)
