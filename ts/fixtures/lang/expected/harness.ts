@@ -22,7 +22,7 @@ import { ints, strings, derived, written, counts, rounding, panics, wrapped } fr
 import { methods } from "./generics.ts";
 import { holds } from "./holds.ts";
 import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert } from "./ints.ts";
-import { adaptors, consumers, skips, ranked, ranges, options, own, values } from "./iters.ts";
+import { adaptors, consumers, skips, ranked, ranges, options, own, values, returned } from "./iters.ts";
 import { keys, overrides } from "./keys.ts";
 import { locals } from "./locals.ts";
 import { locks, relock, rwlocks } from "./locks.ts";
@@ -153,6 +153,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		copies(data53, out54);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["statics::cells", (_2154: rt.u8, data54: rt.ByteSlice, out55: rt.ByteVec): void => {
 		statics_cells(data54, out55);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::returned", (_2155: rt.u8, data55: rt.ByteSlice, out56: rt.ByteVec): void => {
+		returned(data55, out56);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 
