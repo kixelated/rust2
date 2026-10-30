@@ -184,7 +184,7 @@ export function splits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, rest2.length & 0xff);
 	} else if (_4 === 6) {
-		const split: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitFirstChunk(data, 4);
+		const split: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitAtChecked(data, 4);
 		b5: {
 			if (split !== undefined) {
 				const _227: rt.ByteSlice = split[0];

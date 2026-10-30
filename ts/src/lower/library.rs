@@ -715,7 +715,8 @@ fn takes_none(owner: &str, name: &str) -> bool {
 			) | (
 				"Iterator",
 				"next" | "nth" | "last" | "find" | "max" | "min" | "max_by_key" | "min_by_key"
-			) | ("Peekable", "peek" | "next_if")
+			) | ("Iterator", "max_by" | "min_by" | "reduce")
+				| ("Peekable", "peek" | "next_if" | "next_if_eq")
 				| (
 					"OnceCell" | "OnceLock",
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
@@ -1403,14 +1404,37 @@ fn mapping<'tcx>(
 		("ChunksExact" | "RChunksExact", "remainder") | ("ChunksExactMut" | "RChunksExactMut", "into_remainder") => {
 			Expr::rt("partsRemainder", args)
 		}
-		("slice", "split_first_chunk") => {
+		// The first `N` elements are `get(..N)`, and split off, `split_at_checked(N)`. A part
+		// of bytes is a view already, and one of other values lent mutably the runtime's view.
+		(
+			"slice",
+			"first_chunk"
+			| "first_chunk_mut"
+			| "last_chunk"
+			| "last_chunk_mut"
+			| "split_first_chunk"
+			| "split_first_chunk_mut"
+			| "split_last_chunk"
+			| "split_last_chunk_mut",
+		) => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
+			let (of, name) = match is_u8(targ(gargs, 0)) {
+				true => ("byteSlice", name.strip_suffix("_mut").unwrap_or(&name)),
+				false => ("slice", name.as_str()),
+			};
 			let mut values = args;
-			values.push(Expr::lit(n.to_string()));
-			match is_u8(targ(gargs, 0)) {
-				true => Expr::rt("byteSliceSplitFirstChunk", values),
-				false => Expr::rt("sliceSplitFirstChunk", values),
+			if name.starts_with("first") {
+				values.push(Expr::lit("0"));
 			}
+			values.push(Expr::lit(n.to_string()));
+			let name = match name {
+				"first_chunk" => "get_range",
+				"first_chunk_mut" => "get_range_mut",
+				"split_first_chunk" => "split_at_checked",
+				"split_first_chunk_mut" => "split_at_mut_checked",
+				name => name,
+			};
+			rt2(values, of, &super::camel(name))
 		}
 		// A slice of the one value.
 		("raw", "from_ref") if std_path(tcx, call.def_id) == ["slice", "raw", "from_ref"] => {

@@ -4,7 +4,7 @@ import * as rt from "../rt.ts";
 import type * as Any from "../core/any.Any.ts";
 import type * as Part from "../drops/objects.Part.ts";
 import type * as Key from "../drops.Key.ts";
-import type * as Guard from "../model.Guard.ts";
+import * as Guard from "../model.Guard.ts";
 
 export function isSomeAnd$17cacqw(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => boolean): boolean {
 	if (self === undefined) {
@@ -63,6 +63,13 @@ export function map$1raha9y(self: Guard.Guard | undefined, f: (a0: Guard.Guard) 
 		return undefined;
 	}
 	return f(self);
+}
+
+export function map$0lq7mno(self: Guard.Guard | undefined, _: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return Guard.id(self);
 }
 
 export function map$19e1ji3(self: rt.Result<Guard.Guard, Any.Any> | undefined, f: (a0: rt.Result<Guard.Guard, Any.Any>) => boolean): boolean | undefined {

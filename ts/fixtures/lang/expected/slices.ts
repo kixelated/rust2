@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Pair$2 } from "./lib.ts";
-import { map$003seos, map$0qyyft9, map$0a57co2, map$0c2keyb, map$1xk4yz1 } from "./core/option.ts";
+import { map$003seos, map$11y9s7r, map$0qyyft9, map$1wqzuhy, map$0a57co2, map$0c2keyb, map$1xk4yz1 } from "./core/option.ts";
 import * as Item from "./slices.Item.ts";
 import * as Pair from "./slices.Pair.ts";
 
@@ -1291,6 +1291,463 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		items.push(new Item.Item(255));
 		rt.dropAll(items);
 		flush(out);
+	}
+}
+
+/**
+ * A slice's parts by an inclusive range, by a pair of `Bound`s, by `get` and `get_mut` of
+ * each kind of range, and by fixed size from either end, of bytes and other values, at
+ * bounds from the first two bytes, 0xff being `usize::MAX`, which may be out of bounds or
+ * backwards, which panics or gives `None`; with what is written through each mutable
+ * part landing in what it came from.
+ */
+export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _104!: rt.u8;
+	let _112!: rt.u8;
+	let _120!: rt.u8;
+	let _128!: rt.u8;
+	let _136!: rt.u8;
+	let _144!: rt.u8;
+	let _151!: rt.u8;
+	let _157!: rt.u8;
+	let _165!: rt.u8;
+	let _173!: rt.u8;
+	let _181!: rt.u8;
+	let _189!: rt.u8;
+	let _197!: rt.u8;
+	let _207!: rt.u8;
+	let _293!: rt.u8;
+	let _302!: rt.u8;
+	let _311!: rt.u8;
+	let _350!: rt.u8;
+	let _358!: rt.u8;
+	const _46: (a0: rt.u32[]) => rt.u8 = (s2: rt.u32[]): rt.u8 => {
+		return rt.iterFold(rt.iterSlice(s2), s2.length & 0xff, (acc: rt.u8, _32: rt.u32): rt.u8 => {
+			return rt.u8WrappingMul(acc, 31) ^ ((_32 >>> 5) & 0xff);
+		});
+	};
+	const _335: (a0: rt.usize, a1: rt.u8) => rt.RangeBound<rt.usize> = (x2: rt.usize, k: rt.u8): rt.RangeBound<rt.usize> => {
+		const _42: rt.u8 = rt.u8Rem(k, 3);
+		if (_42 === 0) {
+			return { tag: "Included", _0: x2 } as rt.RangeBound<rt.usize>;
+		}
+		if (_42 === 1) {
+			return { tag: "Excluded", _0: x2 } as rt.RangeBound<rt.usize>;
+		}
+		return { tag: "Unbounded" } as rt.RangeBound<rt.usize>;
+	};
+	if (data.length >= 2) {
+		const reach: rt.usize = rt.usizeAdd(rt.byteSliceRange(data, 2).length, 2);
+		const at: (a0: rt.u8) => rt.usize = (x3: rt.u8): rt.usize => {
+			if (!(x3 === 255)) {
+				return rt.usizeRem(x3 as rt.usize, reach);
+			}
+			return 4294967295;
+		};
+		const _16: [rt.usize, rt.usize] = [at(data.data[data.start]), at(data.data[data.start + 1])];
+		const a: rt.usize = _16[0];
+		const b: rt.usize = _16[1];
+		const bytes: rt.ByteVec = rt.byteSliceToByteVec(rt.byteSliceRange(data, 2));
+		const words: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), (_2: rt.u8): rt.u16 => {
+			return rt.u16Mul(_2 as rt.u16, 257);
+		}));
+		const pairs: Pair.Pair[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), (_22: rt.u8): Pair.Pair => {
+			const b4: rt.u8 = _22;
+			return { a: b4, b: rt.u16Mul(b4 as rt.u16, 3) };
+		}));
+		const array: rt.u32[] = Array.from({ length: 5 }, (): rt.u32 => {
+			return 0;
+		});
+		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), true);
+		while (true) {
+			const _39: [rt.Place<rt.u32>, rt.u8] | rt.Done = iter.next();
+			if (_39 === rt.DONE) {
+				break;
+			}
+			_39[0].v = rt.u32Mul(_39[1] as rt.u32, 65599);
+		}
+		const _47: rt.u8 = rt.u8Rem(kind, 8);
+		if (_47 === 0) {
+			const _53: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+			const slice7 = rt.byteVecSlice(bytes);
+			const bounds26 = rt.sliceIndexBounds(_53, slice7.length);
+			rt.byteVecPush(out, digest(rt.byteSliceRange(slice7, bounds26[0], bounds26[1])));
+			const bounds27 = rt.sliceIndexBounds(new rt.RangeInclusive(a, b, rt.usizeStep), words.length);
+			rt.byteVecPush(out, digestWords(rt.sliceRange(words, bounds27[0], bounds27[1])));
+			const bounds28 = rt.sliceIndexBounds({ end: b, inclusive: true }, pairs.length);
+			rt.byteVecPush(out, digestPairs(rt.sliceRange(pairs, bounds28[0], bounds28[1])));
+			const bounds29 = rt.sliceIndexBounds(new rt.RangeInclusive(rt.min(a, 4), rt.min(b, 4), rt.usizeStep), array.length);
+			const part6 = rt.sliceRange(array, bounds29[0], bounds29[1]);
+			rt.byteVecPush(out, _46(part6));
+			const slice8 = rt.byteSliceRange(data, 2);
+			const bounds30 = rt.sliceIndexBounds({ end: b, inclusive: true }, slice8.length);
+			rt.byteVecPush(out, digest(rt.byteSliceRange(slice8, bounds30[0], bounds30[1])));
+		} else if (_47 === 1) {
+			const _79: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+			const slice6 = rt.byteVecSlice(bytes);
+			const bounds21 = rt.sliceIndexBounds(_79, slice6.length);
+			const part: rt.ByteSlice = rt.byteSliceRange(slice6, bounds21[0], bounds21[1]);
+			rt.byteSliceView(part).reverse();
+			rt.idx(part, 0);
+			part.data[part.start] = part.data[part.start] ^ 90;
+			const bounds22 = rt.sliceIndexBounds({ end: b, inclusive: true }, words.length);
+			pokeWords(0, rt.sliceRangeMut(words, bounds22[0], bounds22[1]));
+			const bounds23 = rt.sliceIndexBounds(new rt.RangeInclusive(a, b, rt.usizeStep), pairs.length);
+			pokePairs(1, rt.sliceRangeMut(pairs, bounds23[0], bounds23[1]));
+			const bounds24 = rt.sliceIndexBounds({ end: rt.min(b, 4), inclusive: true }, array.length);
+			pokeArray(rt.sliceRangeMut(array, bounds24[0], bounds24[1]));
+			const s: rt.u16[] = words;
+			const bounds25 = rt.sliceIndexBounds(new rt.RangeInclusive(a, b, rt.usizeStep), s.length);
+			pokeWords(2, rt.sliceRangeMut(s, bounds25[0], bounds25[1]));
+		} else if (_47 === 2) {
+			const _105: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteVecSlice(bytes), a, b);
+			if (_105 === undefined) {
+				_104 = 238;
+			} else {
+				_104 = digest(_105);
+			}
+			rt.byteVecPush(out, _104);
+			const _114: rt.ByteSlice = rt.byteVecSlice(bytes);
+			const bounds16 = rt.sliceGetBounds(new rt.RangeInclusive(a, b, rt.usizeStep), _114.length);
+			const _113: rt.ByteSlice | undefined = rt.byteSliceGetRange(_114, bounds16[0], bounds16[1]);
+			if (_113 === undefined) {
+				_112 = 238;
+			} else {
+				_112 = digest(_113);
+			}
+			rt.byteVecPush(out, _112);
+			const _121: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteVecSlice(bytes), 0, b);
+			if (_121 === undefined) {
+				_120 = 238;
+			} else {
+				_120 = digest(_121);
+			}
+			rt.byteVecPush(out, _120);
+			const _130: rt.ByteSlice = rt.byteVecSlice(bytes);
+			const bounds17 = rt.sliceGetBounds({ end: b, inclusive: true }, _130.length);
+			const _129: rt.ByteSlice | undefined = rt.byteSliceGetRange(_130, bounds17[0], bounds17[1]);
+			if (_129 === undefined) {
+				_128 = 238;
+			} else {
+				_128 = digest(_129);
+			}
+			rt.byteVecPush(out, _128);
+			const _137: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteVecSlice(bytes), a);
+			if (_137 === undefined) {
+				_136 = 238;
+			} else {
+				_136 = digest(_137);
+			}
+			rt.byteVecPush(out, _136);
+			const _145: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteVecSlice(bytes), 0);
+			if (_145 === undefined) {
+				_144 = 238;
+			} else {
+				_144 = digest(_145);
+			}
+			rt.byteVecPush(out, _144);
+			const _152: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteSliceRange(data, 2), a, b);
+			if (_152 === undefined) {
+				_151 = 238;
+			} else {
+				_151 = digest(_152);
+			}
+			rt.byteVecPush(out, _151);
+			const _158: rt.u16[] | undefined = rt.sliceGetRange(words, a, b);
+			if (_158 === undefined) {
+				_157 = 238;
+			} else {
+				_157 = digestWords(_158);
+			}
+			rt.byteVecPush(out, _157);
+			const _167: rt.u16[] = words;
+			const bounds18 = rt.sliceGetBounds(new rt.RangeInclusive(a, b, rt.usizeStep), _167.length);
+			const _166: rt.u16[] | undefined = rt.sliceGetRange(_167, bounds18[0], bounds18[1]);
+			if (_166 === undefined) {
+				_165 = 238;
+			} else {
+				_165 = digestWords(_166);
+			}
+			rt.byteVecPush(out, _165);
+			const _175: rt.u16[] = words;
+			const bounds19 = rt.sliceGetBounds({ end: b, inclusive: true }, _175.length);
+			const _174: rt.u16[] | undefined = rt.sliceGetRange(_175, bounds19[0], bounds19[1]);
+			if (_174 === undefined) {
+				_173 = 238;
+			} else {
+				_173 = digestWords(_174);
+			}
+			rt.byteVecPush(out, _173);
+			const _182: Pair.Pair[] | undefined = rt.sliceGetRange(pairs, a);
+			if (_182 === undefined) {
+				_181 = 238;
+			} else {
+				_181 = digestPairs(_182);
+			}
+			rt.byteVecPush(out, _181);
+			const _190: Pair.Pair[] | undefined = rt.sliceGetRange(pairs, 0, b);
+			if (_190 === undefined) {
+				_189 = 238;
+			} else {
+				_189 = digestPairs(_190);
+			}
+			rt.byteVecPush(out, _189);
+			const _199: rt.u32[] = array;
+			const bounds20 = rt.sliceGetBounds(new rt.RangeInclusive(a, b, rt.usizeStep), _199.length);
+			const _198: rt.u32[] | undefined = rt.sliceGetRange(_199, bounds20[0], bounds20[1]);
+			if (_198 === undefined) {
+				_197 = 238;
+			} else {
+				_197 = _46(_198);
+			}
+			rt.byteVecPush(out, _197);
+			const _208: rt.u32[] | undefined = rt.sliceGetRange(array, 0);
+			if (_208 === undefined) {
+				_207 = 238;
+			} else {
+				_207 = _46(_208);
+			}
+			rt.byteVecPush(out, _207);
+		} else if (_47 === 3) {
+			const _217: rt.ByteSlice = rt.byteVecSlice(bytes);
+			const bounds12 = rt.sliceGetBounds(new rt.RangeInclusive(a, b, rt.usizeStep), _217.length);
+			const _216: rt.ByteSlice | undefined = rt.byteSliceGetRange(_217, bounds12[0], bounds12[1]);
+			if (_216 === undefined) {
+				rt.byteVecPush(out, 238);
+			} else {
+				rt.byteSliceView(_216).reverse();
+			}
+			const _222: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteVecSlice(bytes), 0, b);
+			b26: {
+				if (_222 !== undefined) {
+					const iter2: rt.Iter<rt.Place<rt.u8>> = rt.iterSliceMut(rt.byteSliceView(_222));
+					while (true) {
+						const _231: rt.Place<rt.u8> | rt.Done = iter2.next();
+						if (_231 === rt.DONE) {
+							break b26;
+						}
+						_231.v = 119;
+					}
+				}
+			}
+			const _236: rt.u16[] | undefined = rt.sliceGetRangeMut(words, a, b);
+			if (_236 === undefined) {
+				rt.byteVecPush(out, 238);
+			} else {
+				pokeWords(3, _236);
+			}
+			const _243: rt.u16[] = words;
+			const bounds13 = rt.sliceGetBounds({ end: b, inclusive: true }, _243.length);
+			const _242: rt.u16[] | undefined = rt.sliceGetRangeMut(_243, bounds13[0], bounds13[1]);
+			if (_242 !== undefined) {
+				pokeWords(4, _242);
+			}
+			const _251: Pair.Pair[] = pairs;
+			const bounds14 = rt.sliceGetBounds(new rt.RangeInclusive(a, b, rt.usizeStep), _251.length);
+			const _250: Pair.Pair[] | undefined = rt.sliceGetRangeMut(_251, bounds14[0], bounds14[1]);
+			if (_250 === undefined) {
+				rt.byteVecPush(out, 238);
+			} else {
+				pokePairs(5, _250);
+			}
+			const _256: Pair.Pair[] | undefined = rt.sliceGetRangeMut(pairs, a);
+			if (_256 !== undefined) {
+				pokePairs(6, _256);
+			}
+			const _264: rt.u32[] = array;
+			const bounds15 = rt.sliceGetBounds(new rt.RangeInclusive(a, b, rt.usizeStep), _264.length);
+			const _263: rt.u32[] | undefined = rt.sliceGetRangeMut(_264, bounds15[0], bounds15[1]);
+			if (_263 !== undefined) {
+				pokeArray(_263);
+			}
+		} else if (_47 === 4) {
+			const stepped: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+			const iter3: rt.Iter<rt.usize> = rt.iterTake(rt.iterBorrow(stepped), 8);
+			while (iter3.next() !== rt.DONE) {
+			}
+			const folded: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, rt.min(b, reach), rt.usizeStep);
+			rt.iterSum(rt.iterBorrow(folded), rt.usizeAdd, 0);
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.rangeInclusiveIsEmpty(stepped) ? 1 : 0, rt.rangeInclusiveIsEmpty(folded) ? 1 : 0)));
+			const _295: rt.u16[] = words;
+			const bounds6 = rt.sliceGetBounds(rt.rangeInclusiveClone(stepped), _295.length);
+			const _294: rt.u16[] | undefined = rt.sliceGetRange(_295, bounds6[0], bounds6[1]);
+			if (_294 === undefined) {
+				_293 = 238;
+			} else {
+				_293 = digestWords(_294);
+			}
+			rt.byteVecPush(out, _293);
+			const _304: rt.ByteSlice = rt.byteVecSlice(bytes);
+			const bounds7 = rt.sliceGetBounds(rt.rangeInclusiveClone(folded), _304.length);
+			const _303: rt.ByteSlice | undefined = rt.byteSliceGetRange(_304, bounds7[0], bounds7[1]);
+			if (_303 === undefined) {
+				_302 = 238;
+			} else {
+				_302 = digest(_303);
+			}
+			rt.byteVecPush(out, _302);
+			const _313: Pair.Pair[] = pairs;
+			const bounds8 = rt.sliceGetBounds(rt.rangeInclusiveClone(folded), _313.length);
+			const _312: Pair.Pair[] | undefined = rt.sliceGetRangeMut(_313, bounds8[0], bounds8[1]);
+			if (_312 === undefined) {
+				_311 = 238;
+			} else {
+				_311 = ((p: Pair.Pair[]): rt.u8 => {
+					return digestPairs(p);
+				})(_312);
+			}
+			rt.byteVecPush(out, _311);
+			const bounds9 = rt.sliceIndexBounds(rt.rangeInclusiveClone(folded), words.length);
+			pokeWords(7, rt.sliceRangeMut(words, bounds9[0], bounds9[1]));
+			const _330: rt.RangeInclusive<rt.usize> = stepped;
+			const slice3 = rt.byteVecSlice(bytes);
+			const bounds10 = rt.sliceIndexBounds(_330, slice3.length);
+			rt.byteVecPush(out, digest(rt.byteSliceRange(slice3, bounds10[0], bounds10[1])));
+			const _334: rt.RangeInclusive<rt.usize> = folded;
+			const slice4 = rt.byteSliceRange(data, 2);
+			const bounds11 = rt.sliceIndexBounds(_334, slice4.length);
+			rt.byteVecPush(out, digest(rt.byteSliceRange(slice4, bounds11[0], bounds11[1])));
+		} else if (_47 === 5) {
+			const part4 = rt.byteSliceRange(data, 2).length & 0xff;
+			const _339: rt.RangeBound<rt.usize> = _335(a, part4);
+			const _338: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] = [_339, _335(b, rt.u8Div(kind, 8))];
+			const lo: rt.RangeBound<rt.usize> = _339;
+			const hi: rt.RangeBound<rt.usize> = _338[1];
+			const _352: rt.ByteSlice = rt.byteVecSlice(bytes);
+			const bounds = rt.sliceGetBounds([lo, hi] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _352.length);
+			const _351: rt.ByteSlice | undefined = rt.byteSliceGetRange(_352, bounds[0], bounds[1]);
+			if (_351 === undefined) {
+				_350 = 238;
+			} else {
+				_350 = digest(_351);
+			}
+			rt.byteVecPush(out, _350);
+			const _360: Pair.Pair[] = pairs;
+			const bounds2 = rt.sliceGetBounds([lo, hi] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _360.length);
+			const _359: Pair.Pair[] | undefined = rt.sliceGetRange(_360, bounds2[0], bounds2[1]);
+			if (_359 === undefined) {
+				_358 = 238;
+			} else {
+				_358 = digestPairs(_359);
+			}
+			rt.byteVecPush(out, _358);
+			const _366: rt.u16[] = words;
+			const bounds3 = rt.sliceGetBounds([lo, hi] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _366.length);
+			const _365: rt.u16[] | undefined = rt.sliceGetRangeMut(_366, bounds3[0], bounds3[1]);
+			if (_365 !== undefined) {
+				pokeWords(8, _365);
+			}
+			const bounds4 = rt.sliceIndexBounds([lo, hi] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], pairs.length);
+			pokePairs(9, rt.sliceRangeMut(pairs, bounds4[0], bounds4[1]));
+			const slice2 = rt.byteVecSlice(bytes);
+			const bounds5 = rt.sliceIndexBounds([lo, hi] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], slice2.length);
+			rt.byteVecPush(out, digest(rt.byteSliceRange(slice2, bounds5[0], bounds5[1])));
+		} else if (_47 === 6) {
+			rt.iterExtendBytes(out, rt.iterOption(map$0c2keyb(rt.byteSliceGetRange(rt.byteVecSlice(bytes), 0, 0), (c2: rt.ByteSlice): rt.u8 => {
+				return digest(c2);
+			})));
+			rt.iterExtendBytes(out, rt.iterOption(map$0c2keyb(rt.byteSliceGetRange(rt.byteVecSlice(bytes), 0, 3), (c3: rt.ByteSlice): rt.u8 => {
+				return digest(c3);
+			})));
+			rt.iterExtendBytes(out, rt.iterOption(map$0c2keyb(rt.byteSliceLastChunk(rt.byteSliceRange(data, 2), 1), (c4: rt.ByteSlice): rt.u8 => {
+				return digest(c4);
+			})));
+			rt.iterExtendBytes(out, rt.iterOption(map$0c2keyb(rt.byteSliceLastChunk(rt.byteSliceRange(data, 2), 4), (c5: rt.ByteSlice): rt.u8 => {
+				return digest(c5);
+			})));
+			rt.iterExtendBytes(out, rt.iterOption(map$1wqzuhy(rt.sliceGetRange(words, 0, 4), (c6: rt.u16[]): rt.u8 => {
+				return digestWords(c6);
+			})));
+			rt.iterExtendBytes(out, rt.iterOption(map$1wqzuhy(rt.sliceLastChunk(words, 0), (c7: rt.u16[]): rt.u8 => {
+				return digestWords(c7);
+			})));
+			rt.iterExtendBytes(out, rt.iterOption(map$11y9s7r(rt.sliceLastChunk(pairs, 3), (c8: Pair.Pair[]): rt.u8 => {
+				return digestPairs(c8);
+			})));
+			const slice: rt.ByteSlice = rt.byteVecSlice(bytes);
+			if (slice.length >= 1) {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(digest(new rt.ByteSlice(slice.data, slice.start, 1)), digest(new rt.ByteSlice(slice.data, slice.start + 1, slice.length - 1)))));
+			}
+			const _423: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitLastChunk(rt.byteVecSlice(bytes), 4);
+			if (_423 !== undefined) {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(digest(_423[0]), digest(_423[1]))));
+			}
+			const _434: [rt.u16[], rt.u16[]] | undefined = rt.sliceSplitAtChecked(words, 0);
+			if (_434 !== undefined) {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(digestWords(_434[0]), digestWords(_434[1]))));
+			}
+			const _445: [Pair.Pair[], Pair.Pair[]] | undefined = rt.sliceSplitLastChunk(pairs, 3);
+			if (_445 !== undefined) {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(digestPairs(_445[0]), digestPairs(_445[1]))));
+			}
+			const _456: [rt.u32[], rt.u32[]] | undefined = rt.sliceSplitLastChunk(array, 5);
+			if (_456 !== undefined) {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_46(_456[0]), _46(_456[1]))));
+			}
+		} else {
+			const _471: rt.ByteSlice | undefined = rt.byteSliceGetRange(rt.byteVecSlice(bytes), 0, 3);
+			if (_471 !== undefined) {
+				const _476: rt.u8 = rt.u8WrappingAdd(_471.data[_471.start + 2], 1);
+				_471.data[_471.start] = _476;
+				rt.byteSliceView(_471).reverse();
+			}
+			const _484: rt.ByteSlice | undefined = rt.byteSliceLastChunk(rt.byteVecSlice(bytes), 1);
+			if (_484 !== undefined) {
+				_484.data[_484.start] = _484.data[_484.start] ^ 255;
+			}
+			const _491: rt.u16[] | undefined = rt.sliceGetRangeMut(words, 0, 4);
+			if (_491 !== undefined) {
+				pokeWords(10, _491);
+			}
+			const _498: rt.u16[] | undefined = rt.sliceLastChunkMut(words, 0);
+			if (_498 !== undefined) {
+				pokeWords(11, _498);
+			}
+			const _505: Pair.Pair[] | undefined = rt.sliceLastChunkMut(pairs, 3);
+			if (_505 !== undefined) {
+				pokePairs(12, _505);
+				_505[0].b = 9;
+			}
+			const _514: [rt.ByteSlice, rt.ByteSlice] | undefined = rt.byteSliceSplitAtChecked(rt.byteVecSlice(bytes), 1);
+			if (_514 !== undefined) {
+				_514[0].data[_514[0].start] = _514[1].length & 0xff;
+				rt.byteSliceView(_514[1]).reverse();
+			}
+			const _525: [rt.u16[], rt.u16[]] | undefined = rt.sliceSplitLastChunkMut(words, 4);
+			if (_525 !== undefined) {
+				pokeWords(13, _525[0]);
+				rt.sliceSwap(_525[1], 0, 3);
+				_525[1][1] = 43981;
+			}
+			const _536: [Pair.Pair[], Pair.Pair[]] | undefined = rt.sliceSplitAtMutChecked(pairs, 0);
+			if (_536 !== undefined) {
+				pokePairs(14, _536[0]);
+				pokePairs(15, _536[1]);
+			}
+			const _545: [Pair.Pair[], Pair.Pair[]] | undefined = rt.sliceSplitAtMutChecked(pairs, 2);
+			if (_545 !== undefined) {
+				rt.idx(_545[1], 0);
+				const swapped = _545[0][0];
+				_545[0][0] = _545[1][0];
+				_545[1][0] = swapped;
+				_545[0][1].a = 3;
+			}
+			const _562: [rt.u32[], rt.u32[]] | undefined = rt.sliceSplitLastChunkMut(array, 2);
+			if (_562 !== undefined) {
+				_562[1][1] = _562[0].length as rt.u32;
+				pokeArray(_562[0]);
+			}
+		}
+		rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(bytes)));
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(words), (_25: rt.u16): rt.u8 => {
+			const w: rt.u16 = _25;
+			return (w ^ (w >> 8)) & 0xff;
+		}));
+		rt.byteVecPush(out, digestPairs(pairs));
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(array), (_26: rt.u32): rt.u8 => {
+			const x4: rt.u32 = _26;
+			return ((x4 ^ (x4 >>> 13)) >>> 0) & 0xff;
+		}));
 	}
 }
 

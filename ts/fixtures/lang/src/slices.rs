@@ -2,7 +2,8 @@
 //! both ends, skipped through, and counted, at sizes past the slice's length, with what
 //! is written through a mutable chunk landing in the slice; and `Vec::drain` of
 //! each kind of range, read from both ends, dropped part way, and forgotten, of values
-//! that log when they drop.
+//! that log when they drop; and a slice's parts by each kind of range and by fixed size,
+//! with what is written through a mutable one landing in the slice.
 
 use std::cell::RefCell;
 
@@ -570,4 +571,206 @@ pub fn drains(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	items.push(Item { tag: 0xff });
 	drop(items);
 	flush(out);
+}
+
+/// What a part read by `$get` gives: its digest, or 0xee for `None`.
+macro_rules! got {
+	($get:expr, $digest:expr) => {
+		match $get {
+			Some(part) => $digest(part),
+			None => 0xee,
+		}
+	};
+}
+
+/// A slice's parts by an inclusive range, by a pair of `Bound`s, by `get` and `get_mut` of
+/// each kind of range, and by fixed size from either end, of bytes and other values, at
+/// bounds from the first two bytes, 0xff being `usize::MAX`, which may be out of bounds or
+/// backwards, which panics or gives `None`; with what is written through each mutable
+/// part landing in what it came from.
+pub fn ranges(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::ops::Bound::{self, Excluded, Included, Unbounded};
+	let [a, b, data @ ..] = data else {
+		return;
+	};
+	let reach = data.len() + 2;
+	let at = |x: u8| if x == 0xff { usize::MAX } else { x as usize % reach };
+	let (a, b) = (at(*a), at(*b));
+	let mut bytes = data.to_vec();
+	let mut words: Vec<u16> = data.iter().map(|&b| b as u16 * 257).collect();
+	let mut pairs: Vec<Pair> = data.iter().map(|&b| Pair { a: b, b: b as u16 * 3 }).collect();
+	let mut array = [0u32; 5];
+	for (x, &b) in array.iter_mut().zip(data) {
+		*x = b as u32 * 65599;
+	}
+	let digest_array = |s: &[u32]| {
+		s.iter()
+			.fold(s.len() as u8, |acc, &x| acc.wrapping_mul(31) ^ (x >> 5) as u8)
+	};
+	match kind % 8 {
+		0 => {
+			out.push(digest(&bytes[a..=b]));
+			out.push(digest_words(&words[a..=b]));
+			out.push(digest_pairs(&pairs[..=b]));
+			out.push(digest_array(&array[a.min(4)..=b.min(4)]));
+			out.push(digest(&data[..=b]));
+		}
+		1 => {
+			let part = &mut bytes[a..=b];
+			part.reverse();
+			part[0] ^= 0x5a;
+			poke_words(0, &mut words[..=b]);
+			poke_pairs(1, &mut pairs[a..=b]);
+			poke_array(&mut array[..=b.min(4)]);
+			let s = words.as_mut_slice();
+			poke_words(2, &mut s[a..=b]);
+		}
+		// Each kind of range by `get`, of bytes, other values, and an array.
+		2 => {
+			out.push(got!(bytes.get(a..b), digest));
+			out.push(got!(bytes.get(a..=b), digest));
+			out.push(got!(bytes.get(..b), digest));
+			out.push(got!(bytes.get(..=b), digest));
+			out.push(got!(bytes.get(a..), digest));
+			out.push(got!(bytes.get(..), digest));
+			out.push(got!(data.get(a..b), digest));
+			out.push(got!(words.get(a..b), digest_words));
+			out.push(got!(words.get(a..=b), digest_words));
+			out.push(got!(words.get(..=b), digest_words));
+			out.push(got!(pairs.get(a..), digest_pairs));
+			out.push(got!(pairs.get(..b), digest_pairs));
+			out.push(got!(array.get(a..=b), digest_array));
+			out.push(got!(array.get(..), digest_array));
+		}
+		3 => {
+			match bytes.get_mut(a..=b) {
+				Some(part) => part.reverse(),
+				None => out.push(0xee),
+			}
+			if let Some(part) = bytes.get_mut(..b) {
+				for x in part.iter_mut() {
+					*x = 0x77;
+				}
+			}
+			match words.get_mut(a..b) {
+				Some(part) => poke_words(3, part),
+				None => out.push(0xee),
+			}
+			if let Some(part) = words.get_mut(..=b) {
+				poke_words(4, part);
+			}
+			match pairs.get_mut(a..=b) {
+				Some(part) => poke_pairs(5, part),
+				None => out.push(0xee),
+			}
+			if let Some(part) = pairs.get_mut(a..) {
+				poke_pairs(6, part);
+			}
+			if let Some(part) = array.get_mut(a..=b) {
+				poke_array(part);
+			}
+		}
+		// An inclusive range stepped past its end by `next`, and one a fold exhausts at its
+		// end, which then index nothing past it.
+		4 => {
+			let mut stepped = a..=b;
+			for _ in stepped.by_ref().take(8) {}
+			let mut folded = a..=b.min(reach);
+			let _: usize = folded.by_ref().sum();
+			out.extend([stepped.is_empty() as u8, folded.is_empty() as u8]);
+			out.push(got!(words.get(stepped.clone()), digest_words));
+			out.push(got!(bytes.get(folded.clone()), digest));
+			out.push(got!(pairs.get_mut(folded.clone()), |p: &mut [Pair]| digest_pairs(p)));
+			poke_words(7, &mut words[folded.clone()]);
+			out.push(digest(&bytes[stepped]));
+			out.push(digest(&data[folded]));
+		}
+		// A pair of `Bound`s, each kind at either end.
+		5 => {
+			let bound = |x: usize, k: u8| -> Bound<usize> {
+				match k % 3 {
+					0 => Included(x),
+					1 => Excluded(x),
+					_ => Unbounded,
+				}
+			};
+			let (lo, hi) = (bound(a, data.len() as u8), bound(b, kind / 8));
+			out.push(got!(bytes.get((lo, hi)), digest));
+			out.push(got!(pairs.get((lo, hi)), digest_pairs));
+			if let Some(part) = words.get_mut((lo, hi)) {
+				poke_words(8, part);
+			}
+			poke_pairs(9, &mut pairs[(lo, hi)]);
+			out.push(digest(&bytes[(lo, hi)]));
+		}
+		// Fixed-size parts, of none, one, three, and four, from either end.
+		6 => {
+			out.extend(bytes.first_chunk::<0>().map(|c| digest(c)));
+			out.extend(bytes.first_chunk::<3>().map(|c| digest(c)));
+			out.extend(data.last_chunk::<1>().map(|c| digest(c)));
+			out.extend(data.last_chunk::<4>().map(|c| digest(c)));
+			out.extend(words.first_chunk::<4>().map(|c| digest_words(c)));
+			out.extend(words.last_chunk::<0>().map(|c| digest_words(c)));
+			out.extend(pairs.last_chunk::<3>().map(|c| digest_pairs(c)));
+			if let Some((c, rest)) = bytes.split_first_chunk::<1>() {
+				out.extend([digest(c), digest(rest)]);
+			}
+			if let Some((rest, c)) = bytes.split_last_chunk::<4>() {
+				out.extend([digest(rest), digest(c)]);
+			}
+			if let Some((c, rest)) = words.split_first_chunk::<0>() {
+				out.extend([digest_words(c), digest_words(rest)]);
+			}
+			if let Some((rest, c)) = pairs.split_last_chunk::<3>() {
+				out.extend([digest_pairs(rest), digest_pairs(c)]);
+			}
+			if let Some((rest, c)) = array.split_last_chunk::<5>() {
+				out.extend([digest_array(rest), digest_array(c)]);
+			}
+		}
+		_ => {
+			if let Some(c) = bytes.first_chunk_mut::<3>() {
+				c[0] = c[2].wrapping_add(1);
+				c.reverse();
+			}
+			if let Some(c) = bytes.last_chunk_mut::<1>() {
+				c[0] ^= 0xff;
+			}
+			if let Some(c) = words.first_chunk_mut::<4>() {
+				poke_words(10, c);
+			}
+			if let Some(c) = words.last_chunk_mut::<0>() {
+				poke_words(11, c);
+			}
+			if let Some(c) = pairs.last_chunk_mut::<3>() {
+				poke_pairs(12, c);
+				c[0].b = 9;
+			}
+			if let Some((c, rest)) = bytes.split_first_chunk_mut::<1>() {
+				c[0] = rest.len() as u8;
+				rest.reverse();
+			}
+			if let Some((rest, c)) = words.split_last_chunk_mut::<4>() {
+				poke_words(13, rest);
+				c.swap(0, 3);
+				c[1] = 0xabcd;
+			}
+			if let Some((c, rest)) = pairs.split_first_chunk_mut::<0>() {
+				poke_pairs(14, c);
+				poke_pairs(15, rest);
+			}
+			if let Some((c, rest)) = pairs.split_first_chunk_mut::<2>() {
+				std::mem::swap(&mut c[0], &mut rest[0]);
+				c[1].a = 3;
+			}
+			if let Some((rest, c)) = array.split_last_chunk_mut::<2>() {
+				c[1] = rest.len() as u32;
+				poke_array(rest);
+			}
+		}
+	}
+	out.extend(&bytes);
+	out.extend(words.iter().map(|&w| (w ^ w >> 8) as u8));
+	out.push(digest_pairs(&pairs));
+	out.extend(array.iter().map(|&x| (x ^ x >> 13) as u8));
 }
