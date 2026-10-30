@@ -1883,6 +1883,9 @@ fn mapping<'tcx>(
 			let layout = tcx.layout_of(env.as_query_input(targ(gargs, 0))).ok()?;
 			Expr::lit(layout.size.bytes().to_string())
 		}
+		// A reference to an array of bytes is an `rt.ByteSlice` already, and to one of other
+		// values its JS array, so each is its own slice, and writes through it land in it.
+		("array", "as_slice" | "as_mut_slice") => args.pop()?,
 		("array", "from_fn") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let f = match targ(gargs, 0).kind() {
