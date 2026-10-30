@@ -24,4 +24,4 @@ Public API: the translator's output.
 
 ## Required
 
-- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `RandomState` and std's exact capacity, which hashbrown's default hasher and growth reuse
+- [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - std's exact capacity, which hashbrown's growth reuses

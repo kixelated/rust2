@@ -7,7 +7,7 @@ export function eq$PartialEq(self: Hop, other: Hop): boolean {
 }
 
 export function hash$Hash_DefaultHasher(self: Hop, state: rt.Hasher): void {
-	rt.hashInt(self._0, state);
+	rt.hash64(self._0, state);
 }
 
 export function partialCmp$PartialOrd(self: Hop, other: Hop): rt.Ordering | undefined {

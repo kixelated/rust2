@@ -348,7 +348,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		bounds$RangeInclusive_u64(out, queued);
 		const hashed: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _186: rt.RangeInclusive<rt.u64> = hashed;
-		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashInt, rt.u64Eq)) as rt.HashSet<rt.u64>, rt.iterBorrow(_186))) & 0xff);
+		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hash64, rt.u64Eq)) as rt.HashSet<rt.u64>, rt.iterBorrow(_186))) & 0xff);
 		bounds$RangeInclusive_u64(out, hashed);
 		const extended: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const held: rt.u64[] = [];

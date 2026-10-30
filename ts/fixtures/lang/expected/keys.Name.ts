@@ -11,7 +11,7 @@ export function eq$PartialEq(self: Name, other: Name): boolean {
 
 export function hash$Hash_DefaultHasher(self: Name, state: rt.Hasher): void {
 	rt.hashArc(rt.hashStr)(self.text, state);
-	rt.hashOption(rt.hashInt)(self.rank, state);
+	rt.hashOption(rt.hash8)(self.rank, state);
 }
 
 export function partialCmp$PartialOrd(self: Name, other: Name): rt.Ordering | undefined {

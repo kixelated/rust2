@@ -53,7 +53,7 @@ export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
 		const _6: string = rt.fmtFormat(["k", args2[0], " hashed"]);
 		Log.note(self.log, _6);
 	}
-	rt.hashInt(self.id, state);
+	rt.hash32(self.id, state);
 }
 
 export function clone$Clone(self: Key): Key {

@@ -7,8 +7,9 @@
 //! and `Result`'s combinators from core's MIR, `Option`s of values that can already be
 //! `undefined`, atomics, `static` ones included, trait objects, one-time cells, mutexes,
 //! `Cell`s, `RefCell`s, read-write locks, and thread-locals, the defaults of std types,
-//! the counts of shared pointers, arrays `array::from_fn` makes, maps of `Option`s, and
-//! values held back past a write of a variable they name.
+//! the counts of shared pointers, arrays `array::from_fn` makes, maps of `Option`s,
+//! values held back past a write of a variable they name, and what `Hash` writes into
+//! `DefaultHasher` and `RandomState`.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -32,6 +33,7 @@ mod floats;
 mod fmt;
 mod generics;
 pub mod harness;
+mod hashes;
 mod holds;
 mod ints;
 mod iters;

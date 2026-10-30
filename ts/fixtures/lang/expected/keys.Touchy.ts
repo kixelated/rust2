@@ -8,7 +8,7 @@ export interface Touchy {
 }
 
 export function hash$Hash_DefaultHasher(self: Touchy, state: rt.Hasher): void {
-	rt.hashInt(self._0, state);
+	rt.hash8(self._0, state);
 }
 
 export function eq$PartialEq(self: Touchy, _2: Touchy): boolean {

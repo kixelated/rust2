@@ -15,6 +15,7 @@ import { UNPRINTABLE } from "./rt/unicode.ts";
 export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
+export * from "./rt/hash.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/rand.ts";
