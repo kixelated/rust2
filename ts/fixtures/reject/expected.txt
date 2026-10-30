@@ -28,8 +28,6 @@ replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<std::fu
 an assignment through a reference to `std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output = u8>>>` at fixtures/reject/src/lib.rs:128:2
 replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<[u8; 2]>>` at fixtures/reject/src/lib.rs:120:2
 unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:138:11
-constructing `std::iter::Map<Folds, {closure@fixtures/reject/src/lib.rs:157:12: 157:15}>` from another crate at fixtures/reject/src/lib.rs:157:23
-constructing `std::iter::Rev<Backs>` from another crate at fixtures/reject/src/lib.rs:178:14
 a `zip` of `std::iter::Chain<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:184:15: 184:18}>, std::iter::Copied<std::slice::Iter<'_, u8>>>`, whose closures std calls one item further through `next` than through `fold` at fixtures/reject/src/lib.rs:184:51
 unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:192:8
 a `zip` of `std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:233:15: 233:19}>` and `std::ops::Range<i32>`, which std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:233:30
