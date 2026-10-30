@@ -382,6 +382,35 @@ impl Expr {
 	}
 }
 
+impl Expr {
+	/// Each item the expression reads as it is evaluated, outside the functions it makes.
+	pub fn eager_syms(&self, f: &mut impl FnMut(SymId)) {
+		match self {
+			Expr::Sym(id) => f(*id),
+			Expr::Arrow(..) | Expr::Lambda(..) => {}
+			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Postfix(e, _) | Expr::As(e, _) | Expr::Located(_, e) => {
+				e.eager_syms(f)
+			}
+			Expr::Array(es) => es.iter().for_each(|e| e.eager_syms(f)),
+			Expr::Object(props) => props.iter().for_each(|(_, e)| e.eager_syms(f)),
+			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
+				a.eager_syms(f);
+				b.eager_syms(f);
+			}
+			Expr::Call(callee, args) | Expr::New(callee, args) => {
+				callee.eager_syms(f);
+				args.iter().for_each(|e| e.eager_syms(f));
+			}
+			Expr::Cond(a, b, c) => {
+				a.eager_syms(f);
+				b.eager_syms(f);
+				c.eager_syms(f);
+			}
+			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		}
+	}
+}
+
 /// Whether a `break` in `stmts` targets the loop that holds them, labeled `label`.
 /// Inside a `nested` loop, only a labeled `break` can. A `break` to any other label
 /// skips the loop's next statement too.

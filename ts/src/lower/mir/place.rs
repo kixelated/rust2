@@ -1310,17 +1310,27 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.b.t.reading.remove(&item);
 		let (sym, new) = self.module_value(item);
 		if new {
-			// After each value of its module it reads, which would otherwise be made later.
-			let mut value = value;
+			// Made after each value of its module it reads. Another module's value or class
+			// may not be made yet where the modules import each other, as Rust's may.
 			let syms = &self.b.t.program.syms;
 			let mut order = syms[sym].order;
-			value.syms_mut(&mut |id| {
-				let read = &syms[*id];
-				if read.kind == SymKind::Value && read.module == syms[sym].module {
-					order = order.max(read.order + 1);
+			let mut foreign = None;
+			value.eager_syms(&mut |id| {
+				let read = &syms[id];
+				match (read.kind, read.module == syms[sym].module) {
+					(SymKind::Value, true) => order = order.max(read.order + 1),
+					(SymKind::Value | SymKind::Struct, false) => foreign = foreign.or(Some(id)),
+					_ => {}
 				}
 			});
 			self.b.t.program.syms[sym].order = order;
+			if let Some(id) = foreign {
+				let name = self.b.t.program.syms[id].base.clone();
+				return self.err(
+					span,
+					format!("a static whose value reads `{name}` of another module, which may not be made yet"),
+				);
+			}
 			let ty = self.b.t.ty(ty, span);
 			self.b.t.program.items.push(Item::Value {
 				sym,
