@@ -16,6 +16,7 @@ pub mod coroutine;
 mod decided;
 pub mod glue;
 mod inline;
+mod memory;
 mod place;
 mod rvalue;
 mod scalar;

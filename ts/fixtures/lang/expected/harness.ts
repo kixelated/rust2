@@ -33,7 +33,7 @@ import { lists, shared as pointers_shared, places, unchecked, nested as pointers
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { splits } from "./splits.ts";
-import { statics } from "./statics.ts";
+import { statics, cells as statics_cells } from "./statics.ts";
 import { strs, slices } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
@@ -151,6 +151,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		clonedRcs(data52, out53);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::copies", (_2153: rt.u8, data53: rt.ByteSlice, out54: rt.ByteVec): void => {
 		copies(data53, out54);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["statics::cells", (_2154: rt.u8, data54: rt.ByteSlice, out55: rt.ByteVec): void => {
+		statics_cells(data54, out55);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 

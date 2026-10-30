@@ -108,7 +108,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// A `MaybeUninit<ty>` that holds nothing yet: its parts kept as objects are there, so
 	/// a pointer to one can initialize it, holding nothing yet themselves.
-	fn uninit(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
+	pub fn uninit(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
 		let ts_ty = self.ty(ty, span);
 		let empty = self.shell(ty, span);
 		Expr::As(Box::new(Expr::As(Box::new(empty), Type::Builtin("unknown"))), ts_ty)
