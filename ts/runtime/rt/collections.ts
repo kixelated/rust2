@@ -161,6 +161,20 @@ export function cmpBytes(a: Uint8Array | ByteSlice | ByteVec, b: Uint8Array | By
 	return a.length < b.length ? -1 : a.length > b.length ? 1 : 0;
 }
 
+/**
+ * `PartialEq::eq` of byte arrays, slices, or vectors: their lengths', then their bytes in
+ * order, of whichever form each is, as `cmpBytes` reads them.
+ */
+export function eqBytes(a: Uint8Array | ByteSlice | ByteVec, b: Uint8Array | ByteSlice | ByteVec): boolean {
+	if (a.length !== b.length) return false;
+	const x = a instanceof Uint8Array ? a : a.data;
+	const y = b instanceof Uint8Array ? b : b.data;
+	const i = a instanceof ByteSlice ? a.start : 0;
+	const j = b instanceof ByteSlice ? b.start : 0;
+	for (let k = 0; k < a.length; k++) if (x[i + k] !== y[j + k]) return false;
+	return true;
+}
+
 /** `Ord::cmp` of `Arc`s, or `PartialOrd::partial_cmp` or one of its tests: their values'. */
 export function cmpArc<T, O>(cmp: (a: T, b: T) => O): (a: Arc<T>, b: Arc<T>) => O {
 	return (a, b) => cmp(a.value, b.value);

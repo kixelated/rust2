@@ -164,12 +164,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return false;
 		}
 		let self_ty = gargs.types().next();
+		// A lookup only reads the key it is given, so only what it returns can hold a slice.
+		let mut lookup = false;
 		// Mappings that make the slice, or take it.
 		if let Some((owner, name)) = library::key(tcx, def_id) {
 			let handled = match (owner.as_str(), name.as_str()) {
 				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
-				// The runtime compares bytes in whichever form it is given them.
-				("PartialOrd" | "Ord", _) => true,
+				// The runtime compares and hashes bytes in whichever form it is given them.
+				("PartialOrd" | "Ord" | "PartialEq", _) | ("Hash", "hash") => true,
+				(
+					"HashMap" | "HashSet" | "BTreeMap" | "BTreeSet",
+					"get" | "get_mut" | "contains_key" | "contains" | "remove" | "take",
+				) => {
+					lookup = true;
+					false
+				}
 				("slice", "iter" | "iter_mut") => true,
 				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
 				_ => false,
@@ -205,6 +214,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				item => std::iter::once(ty).chain(item).any(holds_bytes_ref),
 			}
 		};
+		if lookup {
+			return refs(sig.output());
+		}
 		sig.inputs_and_output.iter().any(refs) || gargs.types().any(refs)
 	}
 

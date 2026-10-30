@@ -12,7 +12,7 @@ unsupported type `f32` at fixtures/reject/src/lib.rs:7:25
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:17:2
 `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None` at fixtures/reject/src/lib.rs:16:15
 unsupported call to `core::slice::<impl [u8]>::rotate_left` at fixtures/reject/src/lib.rs:21:4
-`Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:41:42
+`Iterator::find_map` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:41:11
 `Maybe<()>` is not supported: its field `value` is `Option<T>`, typed `T | undefined`, whose `None` would be `rt.None` as `Option<()>` at fixtures/reject/src/lib.rs:31:2
 collecting `Option<()>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:36:43
 `into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet at fixtures/reject/src/lib.rs:53:13
@@ -38,8 +38,8 @@ an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/rej
 `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:242:38
 a copy of a closure that changes what it captured at fixtures/reject/src/lib.rs:252:14
 `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet at fixtures/reject/src/lib.rs:258:6
-hashing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:263:52
-comparing `std::vec::Vec<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:263:52
+hashing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:263:75
+comparing `std::collections::BTreeSet<u8>` as a key, which is not supported yet at fixtures/reject/src/lib.rs:263:75
 `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet at fixtures/reject/src/lib.rs:281:6
 unsupported call to `core::slice::<impl [(u8, u8)]>::copy_within::<std::ops::Range<usize>>` at fixtures/reject/src/lib.rs:331:4
 a coercion to `std::sync::Arc<[u8]>` at fixtures/reject/src/lib.rs:336:2
@@ -109,6 +109,7 @@ passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fix
 passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:861:29
 passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:861:56
 passing `{closure@fixtures/reject/src/lib.rs:867:11: 867:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:867:4
+`std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:899:6
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:149:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:169:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:203:2
