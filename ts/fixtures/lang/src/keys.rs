@@ -6,7 +6,7 @@
 
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, btree_map, hash_map};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 
@@ -700,4 +700,254 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let set: HashSet<Vec<u8>> = data.chunks(2).map(<[u8]>::to_vec).collect();
 	out.push(set.len() as u8);
 	out.push(set.contains(&data[..data.len().min(2)]) as u8);
+}
+
+/// Keys that are `[u8; N]`, lent as std lends them by every map and set: read, compared
+/// with one another and the keys they were made from, looked up by, and copied out and
+/// written, which leaves the collection's own as they were. A hash collection's order is
+/// the runtime's, so what it yields is sorted first.
+pub fn lent_keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let pairs: Vec<[u8; 2]> = data.windows(2).map(|w| [w[0] % 4, w[1] % 4]).collect();
+	let probe = [kind % 4, (kind / 4) % 4];
+	let mut map: HashMap<[u8; 2], u8> = HashMap::new();
+	let mut tree: BTreeMap<[u8; 2], u8> = BTreeMap::new();
+	let mut set: HashSet<[u8; 2]> = HashSet::new();
+	let mut ordered: BTreeSet<[u8; 2]> = BTreeSet::new();
+	for (i, &pair) in pairs.iter().enumerate() {
+		let mut key = pair;
+		map.insert(key, i as u8);
+		tree.insert(key, i as u8);
+		set.insert(key);
+		ordered.insert(key);
+		// The collections hold copies, which a write to the key given them leaves alone.
+		key[0] ^= 0x10;
+		out.push(map.contains_key(&key) as u8);
+	}
+	// Each key lent, ordered among the others, compared, looked up by, and copied out and
+	// written.
+	let mut lent: Vec<&[u8; 2]> = map.keys().collect();
+	lent.sort();
+	for &k in &lent {
+		out.extend([
+			k[0],
+			k[1],
+			map[k],
+			map.contains_key(k) as u8,
+			(*k == probe) as u8,
+			(k < &probe) as u8,
+		]);
+		out.push(tree.get(k).copied().unwrap_or(0xdd));
+		out.push(set.get(k).map_or(0xdd, |s| (s == k) as u8));
+		let mut copy = *k;
+		copy[1] ^= 0x20;
+		out.push(map.contains_key(&copy) as u8);
+	}
+	out.push(lent.iter().all(|k| map.contains_key(*k)) as u8);
+	let mut entries: Vec<([u8; 2], u8)> = Vec::new();
+	for (k, v) in map.iter() {
+		entries.push((*k, *v));
+	}
+	entries.sort();
+	for (k, v) in &entries {
+		out.extend_from_slice(k);
+		out.push(*v);
+	}
+	let mut sum = 0u8;
+	for (k, v) in &mut map {
+		*v = v.wrapping_add(k[0]);
+		sum = sum.wrapping_add(k[1]).wrapping_add(*v);
+	}
+	for (k, v) in map.iter_mut() {
+		*v ^= k[1];
+	}
+	for (k, v) in &map {
+		sum = sum.wrapping_add(k[0] ^ *v);
+	}
+	out.push(sum);
+	// A lookup lends the key the map holds, found by an equal one.
+	out.push(map.get_key_value(&probe).map_or(0xdd, |(k, v)| k[0] ^ k[1] ^ *v));
+	out.push(tree.get_key_value(&probe).map_or(0xdd, |(k, v)| k[0] ^ k[1] ^ *v));
+	match map.entry(probe) {
+		hash_map::Entry::Occupied(o) => out.extend([1, o.key()[0], o.key()[1], *o.get()]),
+		hash_map::Entry::Vacant(v) => out.extend([0, v.key()[0], v.key()[1]]),
+	}
+	out.push(*map.entry(probe).or_insert_with_key(|k| k[0].wrapping_mul(3) ^ k[1]));
+	out.push(map.entry([3, 3]).key()[1]);
+	match tree.entry(probe) {
+		btree_map::Entry::Occupied(o) => out.extend([1, o.key()[0], o.key()[1], *o.get()]),
+		btree_map::Entry::Vacant(v) => out.extend([0, v.key()[0], v.key()[1]]),
+	}
+	out.push(*tree.entry(probe).or_insert_with_key(|k| k[1].wrapping_mul(5) ^ k[0]));
+	if let Some(o) = tree.first_entry() {
+		out.extend_from_slice(o.key());
+	}
+	if let Some(o) = tree.last_entry() {
+		out.extend_from_slice(o.key());
+	}
+	// A set lends the key it holds, found by an equal array or a borrowed `&[u8]`.
+	let mut members: Vec<[u8; 2]> = set.iter().copied().collect();
+	members.sort();
+	for m in &members {
+		out.extend_from_slice(m);
+	}
+	for k in &set {
+		out.push((ordered.get(k) == Some(k)) as u8);
+	}
+	let window = &data[..data.len().min(2)];
+	out.push(set.get(window).map_or(0xdd, |k| k[0] ^ (k[1] << 2)));
+	out.push(set.get(&probe[..]).map_or(0xdd, |k| k[0] ^ (k[1] << 2)));
+	out.push(set.get(&probe).map_or(0xdd, |k| (k == &probe) as u8));
+	out.push(ordered.get(&probe[..]).map_or(0xdd, |k| k[0] ^ (k[1] << 2)));
+	// A B-tree lends its keys in order, from either end.
+	for (k, v) in tree.iter().rev() {
+		out.extend([k[0], k[1], *v]);
+	}
+	for k in tree.keys() {
+		out.extend_from_slice(k);
+	}
+	for (k, v) in tree.range([1, 0]..[3, 0]) {
+		out.extend([k[0], k[1], *v]);
+	}
+	for (k, v) in tree.range_mut(probe..) {
+		*v = v.wrapping_add(k[0]);
+	}
+	for (k, v) in &tree {
+		out.extend([k[1], *v]);
+	}
+	for (k, v) in &mut tree {
+		*v ^= k[0];
+	}
+	out.push(tree.first_key_value().map_or(0xdd, |(k, v)| k[0] ^ *v));
+	out.push(tree.last_key_value().map_or(0xdd, |(k, v)| k[1] ^ *v));
+	for k in ordered.iter().rev() {
+		out.extend_from_slice(k);
+	}
+	for k in ordered.range(..=probe) {
+		out.extend_from_slice(k);
+	}
+	for k in &ordered {
+		out.push(k[0] ^ k[1]);
+	}
+	out.extend(ordered.first().map_or([0xdd; 2], |k| *k));
+	out.extend(ordered.last().map_or([0xdd; 2], |k| *k));
+	// `retain` hands its closure each key.
+	map.retain(|k, v| k[0] <= k[1] || *v % 2 == 0);
+	tree.retain(|k, _| k[0] != k[1]);
+	set.retain(|k| k[1] != probe[1]);
+	ordered.retain(|k| k[0] < 2);
+	out.extend([map.len() as u8, tree.len() as u8, set.len() as u8, ordered.len() as u8]);
+	// What a copy of a lent key writes, the collection's own keys never see.
+	if let Some(first) = ordered.first() {
+		let mut copy = *first;
+		copy[0] = 0xff;
+		out.push(ordered.contains(&copy) as u8);
+	}
+	out.push(ordered.iter().all(|k| k[0] < 2) as u8);
+	// Keys of bytes in other forms, lent as they are held.
+	let vecs: HashMap<Vec<u8>, u8> = data.chunks(3).map(|c| (c.to_vec(), c.len() as u8)).collect();
+	let mut lens: Vec<&Vec<u8>> = vecs.keys().collect();
+	lens.sort();
+	for k in lens {
+		out.push(k.len() as u8);
+		out.extend_from_slice(k);
+	}
+	let slices: HashSet<Vec<u8>> = data.chunks(2).map(<[u8]>::to_vec).collect();
+	out.push(slices.get(window).map_or(0xdd, |k| k.len() as u8));
+	let borrowed: BTreeSet<&[u8]> = data.chunks(2).collect();
+	for k in &borrowed {
+		out.extend_from_slice(k);
+	}
+	out.push(borrowed.get(window).map_or(0xdd, |k| k.len() as u8));
+	// Empty collections lend nothing.
+	let empty: BTreeMap<[u8; 2], u8> = BTreeMap::new();
+	let none: HashSet<[u8; 2]> = HashSet::new();
+	out.extend([
+		empty.keys().count() as u8,
+		empty.first_key_value().is_none() as u8,
+		empty.range(probe..).count() as u8,
+		none.iter().count() as u8,
+		none.get(&probe).is_none() as u8,
+	]);
+}
+
+/// Values that are `[u8; 2]`, and the items of a deque and a heap, lent as keys are: a
+/// `&` reads them and a `&mut` writes where the collection holds them.
+pub fn lent_values(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let mut map: HashMap<u8, [u8; 2]> = HashMap::new();
+	let mut tree: BTreeMap<u8, [u8; 2]> = BTreeMap::new();
+	let mut deque: VecDeque<[u8; 2]> = VecDeque::new();
+	let mut heap: BinaryHeap<[u8; 2]> = BinaryHeap::new();
+	for w in data.windows(2) {
+		let value = [w[0], w[1] % 8];
+		map.insert(w[0] % 8, value);
+		tree.insert(w[1] % 8, value);
+		deque.push_back(value);
+		heap.push(value);
+	}
+	let at = kind % 8;
+	out.extend(map.get(&at).map_or([0xdd; 2], |v| *v));
+	out.extend(tree.get(&at).map_or([0xdd; 2], |v| *v));
+	if let Some(v) = map.get_mut(&at) {
+		v[0] ^= 0x40;
+	}
+	if let Some(v) = tree.get_mut(&at) {
+		v[1] ^= 0x40;
+	}
+	if map.contains_key(&at) {
+		out.extend(map[&at]);
+	}
+	if tree.contains_key(&at) {
+		out.extend(tree[&at]);
+	}
+	map.entry(at).or_insert([at, at])[1] ^= 1;
+	map.entry(at).and_modify(|v| v[0] = v[0].wrapping_add(1));
+	tree.entry(at).or_insert_with(|| [at, 0])[0] ^= 2;
+	for v in map.values_mut() {
+		v[1] = v[1].wrapping_mul(3);
+	}
+	for (_, v) in tree.iter_mut() {
+		v[0] = v[0].wrapping_add(v[1]);
+	}
+	let mut values: Vec<[u8; 2]> = map.values().copied().collect();
+	values.sort();
+	for v in &values {
+		out.extend_from_slice(v);
+	}
+	for (k, v) in &tree {
+		out.extend([*k, v[0], v[1]]);
+	}
+	// A deque's items, read and written from either end and by index.
+	out.extend(deque.front().map_or([0xdd; 2], |v| *v));
+	out.extend(deque.back().map_or([0xdd; 2], |v| *v));
+	if let Some(v) = deque.front_mut() {
+		v[0] ^= 0x80;
+	}
+	if let Some(v) = deque.get_mut(usize::from(kind) % 4) {
+		v[1] ^= 0x80;
+	}
+	if !deque.is_empty() {
+		let last = deque.len() - 1;
+		deque[last][0] ^= 1;
+		out.extend(deque[0]);
+	}
+	for v in deque.iter_mut() {
+		v[1] = v[1].wrapping_add(1);
+	}
+	deque.retain(|v| v[0] % 3 != 0);
+	for v in &deque {
+		out.extend_from_slice(v);
+	}
+	out.push(deque.iter().filter(|v| v[1] > 4).count() as u8);
+	// A heap's greatest item, and the rest in its own order.
+	out.extend(heap.peek().map_or([0xdd; 2], |v| *v));
+	heap.retain(|v| v[1] != kind % 8);
+	for v in heap.iter() {
+		out.extend_from_slice(v);
+	}
+	for v in &heap {
+		out.push(v[0] ^ v[1]);
+	}
+	for v in heap.into_sorted_vec() {
+		out.extend(v);
+	}
 }

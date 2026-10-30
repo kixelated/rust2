@@ -377,6 +377,15 @@ export function hashGet<K, V>(m: HashMap<K, V>, key: K, none?: None): V | None |
 	return v !== undefined || none === undefined || m.p.has(key) ? v : none;
 }
 
+/** `HashMap::get_key_value`: the equal key the map holds, and its value. */
+export function hashGetKeyValue<K, V>(m: HashMap<K, V>, key: K): [K, V] | undefined {
+	if (hashed(m, key)) {
+		const s = slot(m, key);
+		return s === undefined ? undefined : [s.k, s.v];
+	}
+	return m.p.has(key) ? [key, m.p.get(key) as V] : undefined;
+}
+
 /** `HashMap::get_mut` of a value JS copies: its place, if the map holds `key`. */
 export function hashGetMut<K, V>(m: HashMap<K, V>, key: K): Place<V> | undefined {
 	if (hashed(m, key)) return slot(m, key);
@@ -881,11 +890,18 @@ export function btreeGetMut<K, V>(m: BTreeMap<K, V>, key: K): Place<V> | undefin
 	return i < 0 ? undefined : new AtIndex(l.v, i);
 }
 
-/** `BTreeMap::get_key_value`, and `BTreeSet::get`, which return the equal key the map holds. */
+/** `BTreeMap::get_key_value`: the equal key the map holds, and its value. */
 export function btreeGetKeyValue<K, V>(m: BTreeMap<K, V>, key: K): [K, V] | undefined {
 	const l = leafOf(m, key);
 	const i = search(l.k, key, m.c);
 	return i < 0 ? undefined : [l.k[i], l.v[i]];
+}
+
+/** `BTreeSet::get`: the equal key the set holds. */
+export function btreeGetKey<K, V>(m: BTreeMap<K, V>, key: K): K | undefined {
+	const l = leafOf(m, key);
+	const i = search(l.k, key, m.c);
+	return i < 0 ? undefined : l.k[i];
 }
 
 export function btreeContains<K, V>(m: BTreeMap<K, V>, key: K): boolean {

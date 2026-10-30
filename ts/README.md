@@ -273,8 +273,9 @@ finds any other key, a 64-bit one past 2^53 included, through its translated `Ha
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
 so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
 bytes and then their length, and compare and hash alike whatever their form, so a map of
-`Vec<u8>` finds a `&[u8]`. A collection's reference to a byte array it holds as a key, as
-`keys` and `HashSet::get` return, is refused. A `&mut` to a value a map holds that JS copies,
+`Vec<u8>` finds a `&[u8]`. A collection's reference to a byte array it holds, as `keys`,
+`HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a
+`&[u8; N]` is elsewhere; a `&mut` writes where the collection holds them. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, and hashes a key

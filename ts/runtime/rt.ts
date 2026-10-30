@@ -218,6 +218,11 @@ export const None: unique symbol = /* @__PURE__ */ Symbol("None");
 /** The type of `None`. */
 export type None = typeof None;
 
+/** `f` of what `o` holds, or `None`: `Option::map` of a payload that is never `undefined`. */
+export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undefined {
+	return o === undefined ? undefined : f(o);
+}
+
 /** `Option::unwrap`: the value, or a panic. */
 export function optionUnwrap<T>(o: T | undefined): T;
 export function optionUnwrap<T>(o: T | None, none: None): T;

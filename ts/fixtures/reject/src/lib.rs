@@ -889,9 +889,9 @@ impl std::fmt::Write for Sink {
 	}
 }
 
-/// A lookup by a byte array translates, but this one hands back the set's own key.
-pub fn byte_key(set: &std::collections::HashSet<[u8; 2]>, key: [u8; 2]) -> u8 {
-	set.get(&key).map_or(0, |k| k[0])
+/// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
+pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
+	map.into_keys().next().map_or(0, |k| k[0])
 }
 
 /// `next_if_eq` compares the item to another type by `PartialEq<str>`, not the item's own.
@@ -1011,4 +1011,9 @@ pub fn uninit_part_replaced(n: u32) -> u32 {
 	let q = gap.slot.as_mut_ptr();
 	reset_gap(&mut gap);
 	unsafe { (*p).0 + (*q).1 }
+}
+
+/// A set of `[u8; 2]` extended by references to arrays, which it would keep as slices.
+pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
+	set.extend(pairs);
 }
