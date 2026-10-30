@@ -83,6 +83,38 @@ fun script() {
 			println("divide err ${e.message}")
 		}
 	}
+	// A tuple inside another type is a Pair, a Triple, or a longer tuple class.
+	for (n in listOf(98305uL, 0uL)) {
+		val spread = spread(n)
+		println(if (spread == null) "spread none" else "spread ${spread.first} ${spread.second} ${spread.third} ${spread.fourth}")
+	}
+	for (needle in listOf("lo", "x")) {
+		val found = find("hello".encodeToByteArray(), needle.encodeToByteArray())
+		println(if (found == null) "find none" else "find ${found.first} ${found.second}")
+	}
+	val statRows = rows(listOf(Point(1, 2), Point(3, 3)))
+	println("rows ${statRows.joinToString(", ") { (name, shape, p) -> "$name ${shape.debug()} ${p.x} ${p.y}" }}")
+	// Each handle in a tuple moves in, as one taken by value does.
+	Board.new(listOf(Pair("low", Counter.new("l", 1u)), Pair("high", Counter.new("h", 9u)))).use { board ->
+		val ranked = board.ranked()
+		println("ranked ${ranked.joinToString(", ") { (name, counter) -> "$name ${counter.name()} ${counter.get()}" }}")
+		ranked.forEach { it.second.close() }
+	}
+	val span = Span(Pair(2u, 10u), Pair("s", Shape.SQUARE))
+	val (lowerHalf, upperHalf) = halves(span)
+	println("halves ${lowerHalf.first} ${lowerHalf.second} ${upperHalf.first} ${upperHalf.second} ${span.debug()}")
+	val (swappedN, swappedText) = swapped(Pair("t", 4u))
+	println("swapped $swappedN $swappedText")
+	for (value in listOf(null, Tuple1<UInt?>(null), Tuple1<UInt?>(3u))) {
+		val doubled = doubled(value)
+		println(if (doubled == null) "doubled None" else "doubled Some((${doubled.first?.let { "Some($it)" } ?: "None"},))")
+	}
+	// A borrowed or boxed tuple of one is a tuple, not its element.
+	val lentOne = lentBack(Tuple1(byteArrayOf(1, 2))).first.use { it.toByteArray().toList() }
+	val boxedOne = boxedTuple(byteArrayOf(3)).first.use { it.toByteArray().toList() }
+	println("lent back $lentOne boxed $boxedOne")
+	// A borrowed string and an owned one share a tuple struct.
+	println("title Some((\"${title(true)!!.first}\",)) ${if (title(false) == null) "None" else "Some"} named Some((\"${named("x")!!.first}\",))")
 
 	// Each lent counter is a new handle to a clone.
 	val registry = Registry.new(Counter.new("first", 1u))
@@ -130,6 +162,15 @@ fun script() {
 	).map { count(it) }
 	println("count ${counts.joinToString(" ")}")
 	println("end ${bound(end(3u))} ${bound(end(0u))}")
+	val (endsStart, endsEnd) = ends(3u)
+	println("ends ${bound(endsStart)} ${bound(endsEnd)}")
+	for (n in listOf(2uL, 5uL)) {
+		try {
+			println("below ${below(n, 3u)}")
+		} catch (e: BoundsU64Exception) {
+			println("below err ${bound(e.error.start)} ${bound(e.error.end)}")
+		}
+	}
 	val window = Window(RangeU64(2u, 8u), end(5u))
 	println("window ${window.contains(4u)} ${window.contains(6u)} ${window.debug()}")
 
@@ -491,16 +532,31 @@ fun broken(which: String) {
 }
 
 // What frees an object or bytes nobody closed: the GC, once each is collected, and only
-// what closing did not free already.
+// what closing did not free already. Rust's bytes up to 1 KiB cross copied, freed at the
+// call, and longer ones lent until closed or collected.
 fun owned() {
-	val packet = nextPacket(Packet(1u, Bytes("seq".encodeToByteArray())))
-	check(packet.seq == 2u && packet.payload.text() == "seq", "a record's bytes cross both ways")
-	val read = tokenBytes(0u).also { it.close() }
-	check(runCatching { read.toByteArray() }.isFailure, "closed bytes refuse a read")
+	for (n in 1023..1025) {
+		val payload = ByteArray(n) { it.toByte() }
+		val packet = nextPacket(Packet(1u, Bytes(payload)))
+		check(packet.seq == 2u && packet.payload.use { it.toByteArray() }.contentEquals(payload), "a record's $n bytes cross both ways")
+	}
+	var freed = dropped()
+	for (n in 1023u..1025u) {
+		val bytes = tokenBytes(n, n)
+		if (n <= 1024u) freed++
+		check(dropped() == freed, "$n bytes are freed at the call only if copied")
+		check(bytes.toByteArray().contentEquals(ByteArray(n.toInt()) { n.toByte() }), "$n bytes read back")
+		bytes.close()
+		if (n > 1024u) freed++
+		check(dropped() == freed, "closing $n bytes frees them")
+		bytes.close()
+		check(dropped() == freed, "closing $n bytes again frees nothing")
+		check(runCatching { bytes.toByteArray() }.isFailure, "closed $n bytes refuse a read")
+	}
 
 	val before = dropped()
 	Token.new(1u).close()
-	tokenBytes(2u).close()
+	tokenBytes(2u, 1025u).close()
 	check(dropped() == before + 2u, "closing frees at once")
 	unclosed()
 	val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
@@ -513,10 +569,11 @@ fun owned() {
 	check(dropped() == before + 4u, "the GC frees each once")
 }
 
-// In its own frame, so nothing on the caller's keeps them reachable.
+// In its own frame, so nothing on the caller's keeps them reachable. The bytes are long
+// enough to be lent.
 fun unclosed() {
 	Token.new(3u)
-	tokenBytes(4u)
+	tokenBytes(4u, 1025u)
 }
 
 fun main(args: Array<String>) {

@@ -9,11 +9,17 @@ use rustc_interface::interface::Compiler;
 use rustc_middle::ty::TyCtxt;
 
 use crate::config::{self, Config};
-use crate::{lower, program};
+use crate::{cli, lower, program};
 
 /// Run as rustc, with `args` as cargo passed them: the wrapped rustc's path first.
 pub fn run(args: Vec<String>) -> ExitCode {
 	rust2_driver::rustc::run("rust2-ts", args, |args| {
+		// The target's crates only: build scripts and proc macros run on the host, with its std.
+		if args.windows(2).any(|w| w[0] == "--target" && w[1] == cli::TARGET)
+			&& let Some(sysroot) = cli::sysroot()?
+		{
+			args.extend(["--sysroot".into(), sysroot]);
+		}
 		Ok(Translate::for_args(args)?.map(|job| Box::new(job) as rust2_driver::rustc::Job))
 	})
 }

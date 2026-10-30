@@ -5,7 +5,9 @@
 //!
 //! A forward dataflow over the body finds, at each switch on a place's variant, the
 //! variants the place can hold: a switch's edge narrows them, and anything that can
-//! change the place forgets them.
+//! change the place forgets them. A `bool` that a variant test or a derived `==` set, as
+//! `if matches!(x, Dot)` tests, carries what each of its values says of the place to the
+//! switch on it.
 //!
 //! The same dataflow follows what TypeScript narrowed each place to, which only an
 //! assignment it sees undoes. Where a call changed the place since, or a library call's
@@ -15,16 +17,19 @@
 use rustc_abi::VariantIdx;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_index::IndexVec;
+use rustc_middle::mir::interpret::GlobalId;
 use rustc_middle::mir::visit::{NonMutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{
-	self, BasicBlock, BorrowKind, Local, Location, MutBorrowKind, Operand, Place, ProjectionElem, Rvalue,
-	StatementKind, SwitchTargets, TerminatorKind,
+	self, AggregateKind, BasicBlock, BorrowKind, ConstOperand, Local, Location, MutBorrowKind, Operand, Place,
+	ProjectionElem, Rvalue, StatementKind, SwitchTargets, TerminatorKind,
 };
 use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
+use rustc_span::Spanned;
 
 use crate::lower::Crates;
+use crate::lower::collections::trait_fn;
 
-/// Fold each switch in `body` that an enclosing switch decided.
+/// Fold each switch in `body` that an enclosing switch or a `bool` decided.
 pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, body: &mut mir::Body<'tcx>) {
 	let flow = Flow::new(tcx, crates, body);
 	let entry = flow.solve(body);
@@ -54,7 +59,7 @@ pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, body: &mut mir::Body
 			target: otherwise,
 			loop_hint_attrs: Default::default(),
 		};
-		if moved {
+		if moved && let Some(def) = def {
 			data.statements[def].kind = StatementKind::Nop;
 		}
 	}
@@ -75,6 +80,10 @@ pub fn fold<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, body: &mut mir::Body
 struct Facts<'tcx> {
 	/// The variants, by discriminant, that each place known so far can hold.
 	known: Vec<(Place<'tcx>, Vec<u128>)>,
+	/// The `bool`s known to hold a value.
+	bools: Vec<(Local, bool)>,
+	/// What a `bool`'s value says of a place.
+	implied: Vec<Implication<'tcx>>,
 	/// What TypeScript narrowed each place to since it last saw the place assigned: the
 	/// variants its tests left, or `None` where a library call's test narrowed it, and
 	/// what it holds, in a way the dataflow doesn't follow.
@@ -101,12 +110,80 @@ impl<'tcx> Facts<'tcx> {
 				Some((*p, vs.as_ref().zip(theirs.as_ref()).map(|(a, b)| union(a, b))))
 			})
 			.collect();
-		Self { known, narrowed }
+		let bools = self.bools.iter().filter(|b| other.bools.contains(b)).copied().collect();
+		// What a `bool` says on either way in, where one way knows only its value.
+		let mut implied: Vec<Implication<'tcx>> = Vec::new();
+		let keys = |facts: &Self, other: &Self| -> Vec<(Local, Place<'tcx>)> {
+			let held = facts
+				.bools
+				.iter()
+				.filter(|b| !other.bools.contains(b))
+				.flat_map(|&(b, _)| facts.known.iter().map(move |(p, _)| (b, *p)));
+			facts.implied.iter().map(|(b, p, _)| (*b, *p)).chain(held).collect()
+		};
+		for key in [keys(self, other), keys(other, self)].concat() {
+			if implied.iter().any(|(b, p, _)| (*b, *p) == key) {
+				continue;
+			}
+			if let (Some([f, t]), Some([g, u])) = (self.implies(key), other.implies(key)) {
+				let either = |a: Option<Vec<u128>>, b: Option<Vec<u128>>| a.zip(b).map(|(a, b)| union(&a, &b));
+				implied.push((key.0, key.1, [either(f, g), either(t, u)]));
+			}
+		}
+		Self {
+			known,
+			bools,
+			implied,
+			narrowed,
+		}
+	}
+
+	/// What `b`'s values say of `place`, if anything is known of `b`.
+	fn implies(&self, (b, place): (Local, Place<'tcx>)) -> Option<Implied> {
+		if let Some(&(_, v)) = self.bools.iter().find(|(c, _)| *c == b) {
+			let mut implied = [Some(Vec::new()), Some(Vec::new())];
+			implied[v as usize] = self.known.iter().find(|(p, _)| *p == place).map(|(_, vs)| vs.clone());
+			return Some(implied);
+		}
+		self.implied
+			.iter()
+			.find(|(c, p, _)| (*c, *p) == (b, place))
+			.map(|(_, _, implied)| implied.clone())
+	}
+
+	/// Narrow each place by what `b` holding `v` says of it, or `false` where `b` can't.
+	fn assume(&mut self, b: Local, v: bool) -> bool {
+		if self.bools.contains(&(b, !v)) {
+			return false;
+		}
+		for (_, place, implied) in self.implied.iter().filter(|(c, _, _)| *c == b) {
+			let Some(vs) = &implied[v as usize] else {
+				continue;
+			};
+			let known = match self.known.iter_mut().find(|(p, _)| p == place) {
+				Some((_, known)) => {
+					known.retain(|x| vs.contains(x));
+					known
+				}
+				None => {
+					self.known.push((*place, vs.clone()));
+					&self.known.last().expect("pushed").1
+				}
+			};
+			if known.is_empty() {
+				return false;
+			}
+		}
+		self.bools.retain(|(c, _)| *c != b);
+		self.bools.push((b, v));
+		true
 	}
 
 	/// Forget what `gone` says of a place, and of the discriminants read in this block.
 	fn forget(&mut self, discrs: &mut Vec<(Local, usize, Place<'tcx>)>, gone: impl Fn(Place<'tcx>) -> bool) {
 		self.known.retain(|(p, _)| !gone(*p));
+		self.bools.retain(|(b, _)| !gone(Place::from(*b)));
+		self.implied.retain(|(b, p, _)| !gone(*p) && !gone(Place::from(*b)));
 		discrs.retain(|(_, _, p)| !gone(*p));
 	}
 
@@ -128,6 +205,13 @@ impl<'tcx> Facts<'tcx> {
 		self.narrowed.push((place, to));
 	}
 }
+
+/// The variants a place can hold where a `bool` is `false` and where it is `true`, `None`
+/// for any.
+type Implied = [Option<Vec<u128>>; 2];
+
+/// A `bool`, a place, and what the `bool`'s values say of it.
+type Implication<'tcx> = (Local, Place<'tcx>, Implied);
 
 /// The tests and payload reads in a body that must see a place's whole type, since
 /// TypeScript may have narrowed the place before a change it doesn't see, as a call's,
@@ -179,9 +263,9 @@ pub fn narrowing<'tcx>(tcx: TyCtxt<'tcx>, crates: &Crates<'tcx>, body: &mir::Bod
 	}
 }
 
-/// A switch's statement that reads its discriminant, and the arms and default that can
-/// still match.
-type Decided = (usize, Vec<(u128, BasicBlock)>, BasicBlock);
+/// A switch's statement that reads its discriminant, if it tests a variant, and the arms
+/// and default that can still match.
+type Decided = (Option<usize>, Vec<(u128, BasicBlock)>, BasicBlock);
 
 /// What a body's places are, for the dataflow.
 struct Flow<'c, 'tcx> {
@@ -197,6 +281,9 @@ struct Flow<'c, 'tcx> {
 	escaped: IndexVec<Local, bool>,
 	/// The `bool`s a switch branches on, or on the negation of.
 	conditions: IndexVec<Local, bool>,
+	/// Each place a local's one write gives a variant, with its discriminant: an enum
+	/// built, a constant one, or a reference to a constant one, as `x == Dot` compares to.
+	made: Vec<(Place<'tcx>, u128)>,
 	/// The switches on a variant that test their place widened, which narrows nothing.
 	widened: FxHashSet<BasicBlock>,
 }
@@ -232,6 +319,27 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 				_ => None,
 			};
 		}
+		let made = rvalues
+			.iter_enumerated()
+			.filter(|&(local, _)| writes[local] == 1 && !arg(local))
+			.filter_map(|(local, rvalue)| match (*rvalue)? {
+				Rvalue::Aggregate(kind, _) => match **kind {
+					AggregateKind::Adt(def, variant, ..) if tcx.adt_def(def).is_enum() => {
+						let v = tcx.adt_def(def).discriminant_for_variant(tcx, variant).val;
+						Some((Place::from(local), v))
+					}
+					_ => None,
+				},
+				Rvalue::Use(Operand::Constant(c), _) => {
+					let place = match c.ty().is_ref() {
+						true => tcx.mk_place_deref(Place::from(local)),
+						false => Place::from(local),
+					};
+					Some((place, constant(tcx, body, c)?))
+				}
+				_ => None,
+			})
+			.collect();
 		let kept = writes
 			.iter_enumerated()
 			.map(|(local, &w)| w == 0 && arg(local))
@@ -262,6 +370,7 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 			kept,
 			escaped: IndexVec::from_elem_n(false, n),
 			conditions,
+			made,
 			widened: FxHashSet::default(),
 		};
 		for data in body.basic_blocks.iter() {
@@ -382,6 +491,146 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 			)
 	}
 
+	/// What assigning `rvalue` to `place` makes known of a `bool` that a switch tests: the
+	/// value a constant gives it, or what is known of the `bool` it copies or negates.
+	fn held(
+		&self,
+		body: &mir::Body<'tcx>,
+		facts: &Facts<'tcx>,
+		place: Place<'tcx>,
+		rvalue: &Rvalue<'tcx>,
+	) -> Option<Facts<'tcx>> {
+		let b = place.as_local().filter(|&b| self.conditions[b] && !self.escaped[b])?;
+		let (from, not) = match rvalue {
+			Rvalue::Use(Operand::Constant(c), _) => {
+				return Some(Facts {
+					bools: vec![(b, c.const_.try_to_bool()?)],
+					..Facts::default()
+				});
+			}
+			Rvalue::Use(op, _) => (op, false),
+			Rvalue::UnaryOp(mir::UnOp::Not, op) => (op, true),
+			_ => return None,
+		};
+		let from = from.place()?.as_local()?;
+		if !body.local_decls[from].ty.is_bool() {
+			return None;
+		}
+		let bools = facts
+			.bools
+			.iter()
+			.filter(|(c, _)| *c == from)
+			.map(|&(_, v)| (b, v != not))
+			.collect();
+		let implied = facts
+			.implied
+			.iter()
+			.filter(|(c, _, _)| *c == from)
+			.map(|(_, p, [f, t])| match not {
+				false => (b, *p, [f.clone(), t.clone()]),
+				true => (b, *p, [t.clone(), f.clone()]),
+			})
+			.collect();
+		Some(Facts {
+			bools,
+			implied,
+			..Facts::default()
+		})
+	}
+
+	/// What a call to an enum's derived `PartialEq::eq` or `ne` that sets a `bool` a switch
+	/// tests says of the places it compares: where they are equal, they hold the same
+	/// variant, and a variant without fields equals only itself.
+	fn compared(
+		&self,
+		body: &mir::Body<'tcx>,
+		facts: &Facts<'tcx>,
+		func: &Operand<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		destination: Place<'tcx>,
+	) -> Vec<Implication<'tcx>> {
+		let tcx = self.tcx;
+		let Some(b) = destination
+			.as_local()
+			.filter(|&b| self.conditions[b] && !self.escaped[b])
+		else {
+			return Vec::new();
+		};
+		let Some((def, generics)) = func.const_fn_def() else {
+			return Vec::new();
+		};
+		let (eq, ne) = (trait_fn(tcx, "PartialEq", "eq"), trait_fn(tcx, "PartialEq", "ne"));
+		if ![eq, ne].contains(&def) {
+			return Vec::new();
+		}
+		let ty = generics.type_at(0);
+		if generics.type_at(1) != ty || !ty.is_enum() {
+			return Vec::new();
+		}
+		let resolve = |f| {
+			Instance::try_resolve(tcx, body.typing_env(tcx), f, generics)
+				.ok()
+				.flatten()
+				.map(|i| i.def_id())
+		};
+		let derived = resolve(eq)
+			.and_then(|f| tcx.impl_of_assoc(f))
+			.is_some_and(|imp| tcx.is_automatically_derived(imp));
+		// A derived impl leaves `ne` to the trait's, which negates `eq`.
+		if !derived || (def == ne && resolve(ne) != Some(ne)) {
+			return Vec::new();
+		}
+		let [a, c] = args else {
+			return Vec::new();
+		};
+		// Each side's place, if the dataflow follows it, and the variants it can hold.
+		let side = |op: &Operand<'tcx>| -> (Option<Place<'tcx>>, Option<Vec<u128>>) {
+			if let Operand::Constant(k) = op {
+				return (None, constant(tcx, body, k).map(|v| vec![v]));
+			}
+			let Some(read) = op
+				.place()
+				.map(|p| self.canon(tcx.mk_place_deref(p)))
+				.filter(|p| self.tracks(body, *p))
+			else {
+				return (None, None);
+			};
+			let known = facts.known.iter().find(|(p, _)| *p == read).map(|(_, vs)| vs.clone());
+			let made = self.made.iter().find(|(p, _)| *p == read).map(|&(_, v)| vec![v]);
+			(Some(read), known.or(made).or_else(|| variants(tcx, body, read)))
+		};
+		let sides = [side(&a.node), side(&c.node)];
+		let ty::Adt(adt, _) = ty.kind() else {
+			unreachable!("checked an enum")
+		};
+		let fieldless = |v: u128| {
+			adt.discriminants(tcx)
+				.any(|(i, d)| d.val == v && adt.variant(i).fields.is_empty())
+		};
+		let mut implied = Vec::new();
+		for (i, (place, held)) in sides.iter().enumerate() {
+			let (Some(place), Some(held)) = (place, held) else {
+				continue;
+			};
+			let other = sides[1 - i].1.as_deref();
+			let equal = held
+				.iter()
+				.copied()
+				.filter(|v| other.is_none_or(|o| o.contains(v)))
+				.collect();
+			let unequal = match other {
+				Some(&[v]) if fieldless(v) => held.iter().copied().filter(|&w| w != v).collect(),
+				_ => held.clone(),
+			};
+			let [f, t] = match def == ne {
+				false => [unequal, equal],
+				true => [equal, unequal],
+			};
+			implied.push((b, *place, [Some(f), Some(t)]));
+		}
+		implied
+	}
+
 	/// The enums that `ops` pass by shared reference or by copy.
 	fn read_places<'o>(&self, body: &mir::Body<'tcx>, ops: impl Iterator<Item = &'o Operand<'tcx>>) -> Vec<Place<'tcx>>
 	where
@@ -486,6 +735,7 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 						}
 						_ => (Vec::new(), Vec::new()),
 					};
+					let held = self.held(body, &facts, *place, rvalue);
 					let gone = self.written(*place);
 					if self.visible(*place) {
 						facts.narrowed.retain(|(p, _)| !gone(*p));
@@ -498,6 +748,10 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 						facts.forget(&mut discrs, self.written(*borrowed));
 					}
 					facts.known.extend(copied);
+					if let Some(held) = held {
+						facts.bools.extend(held.bools);
+						facts.implied.extend(held.implied);
+					}
 					if let Rvalue::Discriminant(of) = rvalue
 						&& let Some(local) = place.as_local()
 						&& self.tracks(body, self.canon(*of))
@@ -584,16 +838,56 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 				let mut kept: Vec<(u128, BasicBlock)> = targets.iter().filter(|(v, _)| known.contains(v)).collect();
 				let listed = |v: &u128| targets.iter().any(|(w, _)| w == *v);
 				let mut otherwise = targets.otherwise();
-				// Where nothing reaches the default now, the last arm left takes its place.
-				if all.iter().any(|v| !listed(v))
+				// Where nothing reaches the default now, the last arm left takes its place. So
+				// it does of an unreachable default, which the arms dropped would otherwise
+				// leave the last arm to stand for untested, wider than what it matches.
+				let dropped = kept.len() < targets.iter().count();
+				if (all.iter().any(|v| !listed(v)) || dropped)
 					&& known.iter().all(listed)
 					&& let Some((_, last)) = kept.pop()
 				{
 					otherwise = last;
 				}
-				decided = Some((def, kept, otherwise));
+				decided = Some((Some(def), kept, otherwise));
 			}
-			// A test of anything else, as an `if` or a match guard, changes nothing.
+			// A test of a `bool` narrows what its value says.
+			TerminatorKind::SwitchInt {
+				discr: Operand::Copy(d) | Operand::Move(d),
+				targets,
+			} if let Some(b) = d.as_local()
+				&& body.local_decls[b].ty.is_bool()
+				&& !self.escaped[b] =>
+			{
+				for &to in targets.all_targets() {
+					if out.iter().any(|(t, _)| *t == to) {
+						continue;
+					}
+					let mut facts = facts.clone();
+					let mut values = [false, true]
+						.into_iter()
+						.filter(|&v| targets.target_for_value(v as u128) == to);
+					let taken = match (values.next(), values.next()) {
+						(Some(v), None) => facts.assume(b, v),
+						(v, _) => v.is_some(),
+					};
+					if taken {
+						out.push((to, facts));
+					}
+				}
+				// An edge it can't take goes, as a switch on a variant's does.
+				let reached = |t: BasicBlock| out.iter().any(|(to, _)| *to == t);
+				let mut kept: Vec<(u128, BasicBlock)> = targets.iter().filter(|&(_, t)| reached(t)).collect();
+				let mut otherwise = targets.otherwise();
+				if !reached(otherwise)
+					&& let Some((_, last)) = kept.pop()
+				{
+					otherwise = last;
+				}
+				if reached(otherwise) {
+					decided = Some((None, kept, otherwise));
+				}
+			}
+			// A test of anything else, as an integer's, changes nothing.
 			TerminatorKind::SwitchInt { targets, .. } => {
 				for &to in targets.all_targets() {
 					if !out.iter().any(|(t, _)| *t == to) {
@@ -622,6 +916,9 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 					facts.narrowed.retain(|(p, _)| !gone(*p));
 				}
 				facts.forget(&mut discrs, gone);
+				facts
+					.implied
+					.extend(self.compared(body, &facts, func, args, *destination));
 				if self.tests(body, func, *destination) {
 					for read in self.read_places(body, args.iter().map(|arg| &arg.node)) {
 						facts.narrow(read, None);
@@ -643,8 +940,9 @@ impl<'c, 'tcx> Flow<'c, 'tcx> {
 			}
 			_ => {}
 		}
-		// Unwinding, and whatever else leaves, knows nothing.
-		if decided.is_none() {
+		// Unwinding, and whatever else leaves, knows nothing. A switch's edges are those it
+		// can take.
+		if !matches!(term.kind, TerminatorKind::SwitchInt { .. }) {
 			for to in term.successors() {
 				if !out.iter().any(|(t, _)| *t == to) {
 					out.push((to, Facts::default()));
@@ -758,4 +1056,34 @@ fn variants<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>, place: Place<'tcx>)
 		ty::Adt(adt, _) if adt.is_enum() => Some(adt.discriminants(tcx).map(|(_, d)| d.val).collect()),
 		_ => None,
 	}
+}
+
+/// The discriminant of the enum constant `c` is or points at.
+fn constant<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>, c: &ConstOperand<'tcx>) -> Option<u128> {
+	let ty = c.ty().builtin_deref(true).unwrap_or(c.ty());
+	let ty::Adt(adt, _) = ty.kind() else {
+		return None;
+	};
+	let mir::Const::Unevaluated(uv, _) = c.const_ else {
+		return None;
+	};
+	if !adt.is_enum() {
+		return None;
+	}
+	let env = body.typing_env(tcx);
+	let instance = Instance::try_resolve(tcx, env, uv.def, uv.args).ok()??;
+	let cid = GlobalId {
+		instance,
+		promoted: uv.promoted,
+	};
+	// A reference's value tree is what it points at's, and an enum's starts with its variant.
+	let valtree = tcx.const_eval_global_id_for_typeck(env, cid, c.span).ok()?.ok()?;
+	let ty::ValTreeKind::Branch(fields) = &*valtree else {
+		return None;
+	};
+	let ty::ConstKind::Value(variant) = fields.first()?.kind() else {
+		return None;
+	};
+	let index = VariantIdx::from_u32(variant.valtree.try_to_leaf()?.to_u32());
+	Some(adt.discriminant_for_variant(tcx, index).val)
 }

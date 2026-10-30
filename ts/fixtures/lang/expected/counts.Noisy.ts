@@ -18,6 +18,10 @@ export class Noisy {
 	}
 }
 
+export function clone$Clone(self: Noisy): Noisy {
+	return new Noisy(rt.u8WrappingAdd(self.id, 1), rt.arcClone(self.log));
+}
+
 export function drop$Drop(self: Noisy): void {
 	const _5: rt.Mutex<rt.ByteVec> = rt.mutexLock(self.log.value);
 	rt.byteVecPush(_5.value, self.id);

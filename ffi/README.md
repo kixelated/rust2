@@ -68,6 +68,7 @@ export's, and adds nothing; another crate's type is refused.
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
 | a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
+| a tuple inside another type, or as a field or parameter | `<prefix>_tuple_<A>_<B>`: a struct of fields `_0`, `_1`, and so on; of references only returned |
 | `async fn`, or a return that implements `Future` | a future: `f` makes it, `f_poll` polls it, `f_future_free` drops it; a function that is not `async` runs at the call, as in Rust |
 | `poll_x`, when `x` exports as a future | left out: the future is its poll |
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
@@ -238,11 +239,13 @@ in as a `ByteArray`, bytes returned as their owner, and anything else encoded in
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
 - **Bytes** passed in are a `ByteArray`, copied, as are those Rust lends a closure or trait
-  method. Bytes Rust returns, or a record holds, are a `Bytes`, which lends Rust's buffer
-  as a read-only direct `ByteBuffer` until `close()` frees it, or, never closed, until the
-  GC collects that buffer; `Bytes(ByteArray)` holds Kotlin's for a record passed in.
+  method. Bytes Rust returns, or a record holds, are a `Bytes`, a read-only `ByteBuffer`:
+  up to 1 KiB copied, and longer ones lending Rust's buffer as a direct one until `close()`
+  frees it, or, never closed, until the GC collects that buffer, since a copy undercuts
+  `NewDirectByteBuffer` only that far; `Bytes(ByteArray)` holds Kotlin's for a record
+  passed in.
   Strings are `String`, `Option<T>` `T?`, a tuple `Pair`,
-  `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
+  `Triple`, or else a generated `Tuple<n>`, though a tuple of one returned whole is its element, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
 - A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr`,
   `SocketAddrV4`, or `SocketAddrV6` is a `java.net.InetSocketAddress`, which must be

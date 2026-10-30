@@ -817,20 +817,10 @@ fn dropping_operand<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Opti
 	let tcx = b.t.tcx;
 	let generic = tcx.fn_sig(call.def_id).instantiate_identity().skip_norm_wip();
 	let generic = tcx.instantiate_bound_regions_with_erased(generic).inputs().to_vec();
-	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
-	let env = b.t.typing_env_pub();
-	// A census's call over type parameters may leave a projection unnormalized.
-	let inputs: Vec<Ty<'tcx>> = tcx
-		.instantiate_bound_regions_with_erased(sig)
+	b.t.sig(call.def_id, call.args)
 		.inputs()
 		.iter()
-		.map(|&ty| {
-			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
-				.unwrap_or(ty)
-		})
-		.collect();
-	inputs
-		.into_iter()
+		.copied()
 		.enumerate()
 		.find(|&(i, ty)| {
 			let called = b.t.owned_fn(ty).is_some() && called_by(tcx, call.def_id, generic[i]).is_some();
@@ -1139,8 +1129,7 @@ fn mapping<'tcx>(
 		("Option", "is_none") => args.pop()?.binary("===", b.t.none(targ(gargs, 0))),
 		("Option", "as_ref" | "as_mut") => args.pop()?,
 		("Option", "copied" | "cloned") => {
-			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
-			let option = tcx.instantiate_bound_regions_with_erased(sig).output();
+			let option = b.t.sig(call.def_id, call.args).output();
 			let value = args.pop()?;
 			b.t.copied(value, option, span)
 		}
@@ -1189,8 +1178,7 @@ fn mapping<'tcx>(
 		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
 		("Bound", "cloned") => {
 			let value = args.pop()?;
-			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
-			let bound = tcx.instantiate_bound_regions_with_erased(sig).output();
+			let bound = b.t.sig(call.def_id, gargs).output();
 			match super::collections::clone_fn(b, targ(gargs, 0), span) {
 				Expr::Lit(l) if l == "undefined" => b.t.copied(value, bound, span),
 				clone => Expr::rt("boundMap", vec![value, clone]),
@@ -1200,8 +1188,7 @@ fn mapping<'tcx>(
 		("RangeBounds", "start_bound" | "end_bound") => {
 			let start = name == "start_bound";
 			let range = targ(gargs, 0).peel_refs();
-			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
-			let ts = b.t.ty(tcx.instantiate_bound_regions_with_erased(sig).output(), span);
+			let ts = b.t.ty(b.t.sig(call.def_id, gargs).output(), span);
 			let r = args.pop()?;
 			let (variant, field) = match (range.kind(), b.t.std_of(range)) {
 				// `(Bound<T>, Bound<T>)`, whose bounds are its own.
@@ -1502,8 +1489,7 @@ fn mapping<'tcx>(
 		("Cow", "into_owned") if targ(gargs, 0).is_str() => args.pop()?,
 		("AsRef", "as_ref") if string(tcx, targ(gargs, 0)) && targ(gargs, 1).is_str() => args.pop()?,
 		("Cow", "is_borrowed" | "is_owned") => {
-			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
-			let cow = tcx.instantiate_bound_regions_with_erased(sig).inputs()[0].peel_refs();
+			let cow = b.t.sig(call.def_id, gargs).inputs()[0].peel_refs();
 			return Some(b.err(span, cow_variant(cow)));
 		}
 		("ToString", "to_string") | ("ToOwned", "to_owned") if matches!(self_ty()?.peel_refs().kind(), ty::Str) => {

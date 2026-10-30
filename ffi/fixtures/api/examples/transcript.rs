@@ -99,6 +99,52 @@ fn main() {
 			Err(e) => println!("divide err {e}"),
 		}
 	}
+	for n in [98305, 0] {
+		match api_lib::spread(n) {
+			Some((a, b, c, d)) => println!("spread {a} {b} {c} {d}"),
+			None => println!("spread none"),
+		}
+	}
+	for needle in [&b"lo"[..], b"x"] {
+		match api_lib::find(b"hello", needle) {
+			Some((at, len)) => println!("find {at} {len}"),
+			None => println!("find none"),
+		}
+	}
+	let rows = api_lib::rows(&[Point { x: 1, y: 2 }, Point { x: 3, y: 3 }]);
+	let rows: Vec<String> = (rows.iter())
+		.map(|(name, shape, p)| format!("{name} {shape:?} {} {}", p.x, p.y))
+		.collect();
+	println!("rows {}", rows.join(", "));
+	let board = api_lib::Board::new(vec![
+		("low".to_string(), Counter::new("l", 1)),
+		("high".to_string(), Counter::new("h", 9)),
+	]);
+	let ranked: Vec<String> = (board.ranked())
+		.map(|(name, counter)| format!("{name} {} {}", counter.name(), counter.get()))
+		.collect();
+	println!("ranked {}", ranked.join(", "));
+	let span = api_lib::Span {
+		bounds: (2, 10),
+		named: Some(("s".to_string(), Shape::Square)),
+	};
+	let ((a, b), (c, d)) = api_lib::halves(&span);
+	println!("halves {a} {b} {c} {d} {span:?}");
+	let (n, text) = api_lib::swapped(("t".to_string(), 4));
+	println!("swapped {n} {text}");
+	for value in [None, Some((None,)), Some((Some(3),))] {
+		println!("doubled {:?}", api_lib::doubled(value));
+	}
+	let lent = (vec![1, 2],);
+	let (lent,) = api_lib::lent_back(&lent);
+	let (boxed,) = *api_lib::boxed_tuple(vec![3]);
+	println!("lent back {lent:?} boxed {boxed:?}");
+	println!(
+		"title {:?} {:?} named {:?}",
+		api_lib::title(true),
+		api_lib::title(false),
+		api_lib::named("x")
+	);
 
 	// Each lent counter is a new handle to a clone.
 	let mut registry = Registry::new(Counter::new("first", 1));
@@ -145,6 +191,14 @@ fn main() {
 		api_lib::count((Bound::Excluded(2), Bound::Included(4)))
 	);
 	println!("end {:?} {:?}", api_lib::end(3), api_lib::end(0));
+	let (start, end) = api_lib::ends(3);
+	println!("ends {start:?} {end:?}");
+	for n in [2, 5] {
+		match api_lib::below(n, 3) {
+			Ok(n) => println!("below {n}"),
+			Err((start, end)) => println!("below err {start:?} {end:?}"),
+		}
+	}
 	let window = Window {
 		range: 2..8,
 		end: api_lib::end(5),

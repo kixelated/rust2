@@ -154,8 +154,8 @@ impl<'a> Header<'a> {
 				}
 				Type::Object(i) if abi.api.objects[*i].copy => format!("const {} *", self.owned(inner)),
 				// Moved out of, as a handle taken by value is.
-				_ if matches!(inner.base(), Type::Object(_)) => format!("::std::optional<{}>", self.owned(inner)),
-				_ => format!("const ::std::optional<{}> &", self.owned(inner)),
+				_ if moves(abi, inner) => format!("::std::optional<{}>", self.held(inner)),
+				_ => format!("const ::std::optional<{}> &", self.held(inner)),
 			},
 			Type::Waker => format!("const ::{}::waker &", self.ns),
 			Type::Ref(m, inner) if matches!(**inner, Type::Object(_)) => match m {
@@ -168,6 +168,9 @@ impl<'a> Header<'a> {
 				format!("const {} &", self.owned(ty))
 			}
 			Type::Enum(i) if !abi.api.enums[*i].plain() => format!("const {} &", self.owned(ty)),
+			// Moved out of, each handle as a handle taken by value is.
+			Type::Tuple(_) if moves(abi, ty) => self.held(ty),
+			Type::Tuple(_) => format!("const {} &", self.held(ty)),
 			ty => self.owned(ty),
 		}
 	}
@@ -177,9 +180,18 @@ impl<'a> Header<'a> {
 		let Type::List(inner) = ty else {
 			unreachable!("{ty:?} is no Vec")
 		};
-		match Abi::is_buf(inner) {
-			true => format!("::std::vector<::{}::view>", self.ns),
-			false => format!("::std::vector<{}>", self.owned(inner)),
+		format!("::std::vector<{}>", self.held(inner))
+	}
+
+	/// The C++ type a parameter's `Vec`, `Option`, or tuple holds a `ty` as: bytes as a view.
+	fn held(&self, ty: &Type) -> String {
+		match ty {
+			ty if Abi::is_buf(ty) => format!("::{}::view", self.ns),
+			Type::Tuple(elements) => {
+				let elements: Vec<String> = elements.iter().map(|e| self.held(e)).collect();
+				format!("::std::tuple<{}>", elements.join(", "))
+			}
+			ty => self.owned(ty),
 		}
 	}
 
@@ -190,6 +202,7 @@ impl<'a> Header<'a> {
 		match ty {
 			Type::List(_) => true,
 			Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => self.arena(inner),
+			Type::Tuple(elements) => elements.iter().any(|e| self.arena(e)),
 			Type::Record(i) => api.records[*i].fields.iter().any(|f| self.arena(&f.ty)),
 			Type::Enum(i) => (api.enums[*i].variants.iter()).any(|v| v.fields.iter().any(|f| self.arena(&f.ty))),
 			_ => false,
@@ -266,7 +279,12 @@ impl<'a> Header<'a> {
 			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf => {
 				unreachable!("a buffer is above")
 			}
-			Type::Tuple(_) => unreachable!("a tuple is only returned"),
+			Type::Tuple(elements) => {
+				let fields: Vec<String> = (0..elements.len())
+					.map(|n| self.lower(&elements[n], &format!("::std::get<{n}>({e})")))
+					.collect();
+				format!("::{}{{{}}}", abi.tuple(elements), fields.join(", "))
+			}
 		}
 	}
 
@@ -315,6 +333,12 @@ impl<'a> Header<'a> {
 				false => format!("{d}::lift({e})"),
 			},
 			Type::Object(_) => format!("{d}::access::wrap<{}>({e})", self.owned(ty)),
+			Type::Tuple(elements) => {
+				let lifted: Vec<String> = (elements.iter().enumerate())
+					.map(|(n, ty)| self.lift(ty, &format!("{e}._{n}")))
+					.collect();
+				format!("{}({})", self.owned(ty), lifted.join(", "))
+			}
 			other => unreachable!("{other:?} is never returned"),
 		}
 	}
@@ -1334,11 +1358,13 @@ fn record(abi: &Abi<'_>, c: &str) -> Type {
 	Type::Record(i.expect("a member method's value is a record"))
 }
 
-/// Whether passing a `Vec` of `elem` moves each handle out, as a handle taken by value is.
-fn moves(abi: &Abi<'_>, elem: &Type) -> bool {
-	match elem {
+/// Whether passing `ty` moves a handle out of a `Vec`, `Option`, or tuple, as a handle
+/// taken by value is.
+fn moves(abi: &Abi<'_>, ty: &Type) -> bool {
+	match ty {
 		Type::Object(i) => !abi.api.objects[*i].copy,
 		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => moves(abi, inner),
+		Type::Tuple(elements) => elements.iter().any(|e| moves(abi, e)),
 		_ => false,
 	}
 }
@@ -1372,6 +1398,7 @@ fn init(ty: &Type) -> &'static str {
 	match ty {
 		Type::Object(_) | Type::Enum(_) | Type::Record(_) => "",
 		Type::Box(inner) => init(inner),
+		Type::Tuple(elements) if elements.iter().any(|e| init(e).is_empty()) => "",
 		_ => "{}",
 	}
 }

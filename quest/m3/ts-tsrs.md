@@ -11,7 +11,7 @@ Check: tsrs's releases, and whether it ships a crate (it is moving into Oxc).
 ## Plan
 
 Decided with the maintainer on 2026-10-27, on
-[the bindings PR](https://github.com/kixelated/rust2/pull/127): translation runs the
+[the bindings PR](https://github.com/moq-dev/rust2/pull/127): translation runs the
 flake's `tsc` 7 for now. tsrs was experimental then, and its reported speed over
 TypeScript 7 is the vendor's own.
 
