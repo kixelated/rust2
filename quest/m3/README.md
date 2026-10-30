@@ -33,5 +33,4 @@ generic std gap is planned here even when moq never calls it.
 - [Peekable::next_if_eq against another type](/quest/m3/ts-next-if-eq-other.md) - `next_if_eq` with an expected value of another type than the item, such as a `&str` of `String` items, translates
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
-- [A switch whose other variants are uninhabited](/quest/m3/ts-uninhabited-switch.md) - a tuple's `Result<_, Infallible>`s matched or bound by `let` type-checks, its discriminant reads no longer left unused
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it

@@ -214,7 +214,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					if self.narrowing.stale(self.at, base) {
 						e = self.as_stale_variant(e, base, ty, variant, span);
-					} else if !e.path_key().is_some_and(|key| self.switched.contains(&key)) {
+					} else if !e.path_key().is_some_and(|key| self.switched.contains(&(key, ty))) {
 						e = self.as_variant(e, ty, variant, span);
 					}
 				}

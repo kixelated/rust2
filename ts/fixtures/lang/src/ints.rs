@@ -500,9 +500,7 @@ pub fn widenings(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 					let wide: Result<u32, Infallible> = u32::try_from(c);
 					let wider: Result<u64, Infallible> = c.try_into();
 					let widest: Result<u128, Infallible> = c.try_into();
-					let Ok(a) = wide;
-					let Ok(b) = wider;
-					let Ok(c) = widest;
+					let (Ok(a), Ok(b), Ok(c)) = (wide, wider, widest);
 					out.extend_from_slice(&a.to_be_bytes());
 					out.extend_from_slice(&b.to_be_bytes());
 					out.extend_from_slice(&c.to_be_bytes());
