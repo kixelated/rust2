@@ -622,20 +622,15 @@ fn hash<'tcx>(
 		(_, "iter" | "iter_mut") if !set => Expr::rt("hashIter", values),
 		(_, "iter" | "keys") => Expr::rt("hashKeys", values),
 		(_, "values" | "values_mut") => Expr::rt("hashValues", values),
-		// std's `fold` of either drops the half it does not yield after the one it does, where
-		// `next` drops it before.
+		// What drops the half it yields, then the other, which the runtime drops as std's
+		// does: before `next` returns, and after `fold` has the item.
 		(_, "into_keys" | "into_values") => {
 			let (kept, other) = if name == "into_keys" { (0, 1) } else { (1, 0) };
-			if b.t.drops(arg(coll, other)) {
-				let other = arg(coll, other);
-				return Some(b.err(
-					span,
-					format!("`{name}` of `{coll}`, which drops `{other}`, which is not supported yet"),
-				));
-			}
-			let dropper = b.t.dropper(arg(coll, kept), span);
+			let Some(droppers) = b.t.droppers([arg(coll, kept), arg(coll, other)], span) else {
+				return Some(Expr::undefined());
+			};
 			let f = if name == "into_keys" { "hashKeys" } else { "hashValues" };
-			Expr::rt(f, super::iter::tail(values, vec![dropper]))
+			Expr::rt(f, super::iter::tail(values, droppers))
 		}
 		(_, "drain") => {
 			let droppers = entry_droppers(b, coll, span);
@@ -969,9 +964,11 @@ fn btree<'tcx>(
 	let key = arg(coll, 0);
 	let value = if set { None } else { Some(arg(coll, 1)) };
 	let mut values = args;
+	let mut ranged = None;
 	if matches!(name, "range" | "range_mut") {
-		let range = values.pop()?;
-		values.push(bounds(b, call, range));
+		let range = bounds(b, call, values.pop()?);
+		values.push(range.bounds.clone());
+		ranged = Some(range);
 		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
 		// does, and one holding the crate's own or a bound type by that type's `PartialEq`
 		// and `PartialOrd`.
@@ -1070,7 +1067,10 @@ fn btree<'tcx>(
 		}
 		_ => return None,
 	};
-	Some(e)
+	Some(match ranged {
+		Some(ranged) => ranged.after(e),
+		None => e,
+	})
 }
 
 /// `collect` and `from` into an empty B-tree of type `coll`, from `source`, an iterator of
@@ -1211,10 +1211,10 @@ fn deque<'tcx>(
 		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
 		(_, "drain") => {
-			let range = values.pop()?;
-			values.push(bounds(b, call, range));
+			let ranged = bounds(b, call, values.pop()?);
+			values.push(ranged.bounds.clone());
 			let droppers = entry_droppers(b, coll, span);
-			Expr::rt("dequeDrain", super::iter::tail(values, droppers))
+			ranged.after(Expr::rt("dequeDrain", super::iter::tail(values, droppers)))
 		}
 		(_, "reserve" | "reserve_exact" | "shrink_to_fit") => {
 			discard(values, out);
@@ -1622,30 +1622,64 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	matches!(elem.kind(), ty::Uint(ty::UintTy::U8))
 }
 
+/// What `bounds` makes of the range a call takes: what an `rt.Bounds` reads, and, for a
+/// range that drops, the range and what drops it.
+pub struct Ranged {
+	pub bounds: Expr,
+	dropped: Option<(Expr, String, Expr)>,
+}
+
+impl Ranged {
+	/// `e`, the call, which drops a range that drops once it returns: std drops it once it
+	/// has read its bounds and searched by them, after which it does nothing JS can see
+	/// before it returns.
+	pub fn after(self, e: Expr) -> Expr {
+		let Some((range, name, drop)) = self.dropped else {
+			return e;
+		};
+		let call = Expr::Lambda(vec![Param { name, ty: None }], Box::new(e));
+		Expr::rt("dropAfter", vec![range, call, drop])
+	}
+
+	/// The bounds, for a call that checks more once `slice::range` has checked them within
+	/// `len`, as `String`'s do its char boundaries: a range that drops drops between the two,
+	/// as std's does, and the call takes the checked `{ start, end }`.
+	pub fn within(self, len: Expr) -> Expr {
+		let Some((range, name, drop)) = self.dropped else {
+			return self.bounds;
+		};
+		let checked = Expr::rt("boundsChecked", vec![self.bounds, len]);
+		let call = Expr::Lambda(vec![Param { name, ty: None }], Box::new(checked));
+		Expr::rt("dropAfter", vec![range, call, drop])
+	}
+}
+
 /// Makes `range`, the range `call` takes, what an `rt.Bounds` reads: std's range types
 /// and a pair of `Bound`s are already, and any other `RangeBounds` becomes `rt.boundsOf` of
-/// it and its `start_bound` and `end_bound`, which the runtime calls where std's does. A
-/// range that drops is refused, since std drops it once it has read the bounds.
-pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) -> Expr {
+/// it and its `start_bound` and `end_bound`, which the runtime calls where std's does.
+pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) -> Ranged {
 	let tcx = b.t.tcx;
 	let span = call.span;
 	let (input, target) = range_input(b, call);
 	let ty = b.t.sig(call.def_id, call.args).inputs()[input];
-	if b.t.drops(ty) {
-		let (owner, name) = library::key(tcx, call.def_id).expect("a function of std");
-		return b.err(
-			span,
-			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
-		);
-	}
+	// One that drops is the parameter of what `Ranged::after` calls, so it is read once.
+	let (range, dropped) = match b.t.drop_fn(ty, span) {
+		Some(drop) => {
+			let name = b.fresh("range");
+			(Expr::ident(&name), Some((range, name, drop)))
+		}
+		None => (range, None),
+	};
 	// Each instance decides for a range it is generic over.
-	if plain_bounds(b.t, ty) || b.t.deferred(ty) {
-		return range;
-	}
-	let args = tcx.mk_args(&[ty.into(), target.into()]);
-	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
-	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
-	Expr::rt("boundsOf", vec![range, start, end])
+	let bounds = if plain_bounds(b.t, ty) || b.t.deferred(ty) {
+		range
+	} else {
+		let args = tcx.mk_args(&[ty.into(), target.into()]);
+		let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
+		let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
+		Expr::rt("boundsOf", vec![range, start, end])
+	};
+	Ranged { bounds, dropped }
 }
 
 /// Whether an `rt.Bounds` reads `ty` as it is: std's range types and a pair of `Bound`s.

@@ -449,9 +449,14 @@ pub fn call<'tcx>(
 				false => method(name, none),
 			}
 		}
+		// Each owns a closure it is given by value, which drops as its fold ends.
 		"for_each" | "fold" => {
 			let drops = iter_drops(b, self_ty, span);
-			method(&camel, tail(rest, vec![drops]))
+			let owns = match b.t.drops(targ(gargs.types().count() - 1)?) {
+				true => Expr::lit("true"),
+				false => Expr::undefined(),
+			};
+			method(&camel, tail(rest, vec![drops, owns]))
 		}
 		// std's `Sum` and `Product` are of the type or a reference to it: another is the crate's.
 		"sum" | "product" if item.peel_refs() != targ(1)? => None,
@@ -733,6 +738,12 @@ fn std_iter_path(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> Option<Vec<String>> {
 		return None;
 	};
 	Some(library::std_path(tcx, adt.did())).filter(|p| !p.is_empty())
+}
+
+/// Whether std's `owner::name` takes a closure by value that it drops as its fold ends,
+/// before the iterator, which its mapping drops there too.
+pub(super) fn releases(owner: &str, name: &str) -> bool {
+	matches!((owner, name), ("Iterator", "for_each" | "fold"))
 }
 
 /// The function or `Iterator` method named for `ty`, one of std's iterators of zero-sized
