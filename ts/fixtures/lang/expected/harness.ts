@@ -23,7 +23,7 @@ import { ints, strings, derived, written, counts, rounding, panics, wrapped, wri
 import { methods } from "./generics.ts";
 import { values, random } from "./hashes.ts";
 import { holds } from "./holds.ts";
-import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert } from "./ints.ts";
+import { u8Op, u16Op, u32Op, u64Op, u128Op, usizeOp, i8Op, i16Op, i32Op, i64Op, i128Op, isizeOp, i8Neg, i16Neg, i32Neg, i64Neg, i128Neg, isizeNeg, cast as ints_cast, convert, parses as ints_parses } from "./ints.ts";
 import { adaptors, consumers, skips, ranked, ranges, options, own, values as iters_values, returned } from "./iters.ts";
 import { keys, overrides } from "./keys.ts";
 import { locals } from "./locals.ts";
@@ -37,7 +37,7 @@ import { copies as shapes_copies, order, discriminants, loops, patterns, closure
 import { parts, chunked, drains } from "./slices.ts";
 import { splits } from "./splits.ts";
 import { statics, cells as statics_cells, onces } from "./statics.ts";
-import { strs, slices, edits as strs_edits } from "./strs.ts";
+import { strs, slices } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
 
@@ -168,7 +168,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		writes(data59, out60);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["bounds::bounds", bounds] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["pointers::cells", (_2160: rt.u8, data60: rt.ByteSlice, out61: rt.ByteVec): void => {
 		pointers_cells(data60, out61);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["strs::edits", strs_edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["ints::parses", ints_parses] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 
 /** Run one case. */

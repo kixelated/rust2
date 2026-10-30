@@ -70,6 +70,12 @@ export type Step<T> = (n: T, by: number) => [T, boolean];
 /** `core::num::TryFromIntError`: which way the value was out of range. */
 export type TryFromIntError = { readonly kind: "PosOverflow" | "NegOverflow" };
 
+/** `core::num::IntErrorKind`: why an integer didn't parse, by variant name. */
+export type IntErrorKind = "Empty" | "InvalidDigit" | "PosOverflow" | "NegOverflow" | "Zero" | "NotAPowerOfTwo";
+
+/** `core::num::ParseIntError`: why an integer didn't parse. */
+export type ParseIntError = { readonly kind: IntErrorKind };
+
 const TWO32 = 4294967296;
 const MAX_SAFE = 0x1fffffffffffff;
 

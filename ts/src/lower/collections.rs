@@ -102,7 +102,8 @@ pub fn call<'tcx>(
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				// The library maps the integers', `bool`'s, and byte slices'.
 				let t = peel(b, t);
-				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !std_key(b, t) {
+				let kind = b.t.std_of(t) == Some(Std::IntErrorKind);
+				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !(std_key(b, t) || kind) {
 					return Err(args);
 				}
 				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
@@ -1387,7 +1388,11 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			int.func("eq")
 		}
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => Expr::Rt("same".into()),
-		ty::Adt(..) if library::string(tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("same".into()),
+		ty::Adt(..)
+			if library::string(tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::IntErrorKind)) =>
+		{
+			Expr::Rt("same".into())
+		}
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
