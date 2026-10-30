@@ -13,14 +13,14 @@ export function LOG$init(): rt.RefCell<rt.ByteVec> {
 }
 
 export function log(entry: rt.u8): void {
-	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): undefined => {
 		rt.byteVecPush(log_, entry);
 	});
 }
 
 /** Puts what was logged since the last flush. */
 export function flush(out: rt.ByteVec): void {
-	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log_));
 		rt.byteVecClear(log_);
 	});
@@ -115,8 +115,8 @@ export function within$Bound_u8_Bound_u8(set: rt.BTreeSet<rt.u8>, range: [rt.Ran
  * kinds of the range's bounds, the next two their values, and the rest are the items.
  */
 export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	rt.localKeyWithBorrowMut(LOG, (a0: rt.ByteVec): void => {
-		return rt.byteVecClear(a0);
+	rt.localKeyWithBorrowMut(LOG, (a0: rt.ByteVec): undefined => {
+		rt.byteVecClear(a0);
 	});
 	if (data.length >= 4) {
 		const s: rt.u8 = data.data[data.start];

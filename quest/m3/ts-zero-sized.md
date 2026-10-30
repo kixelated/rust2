@@ -11,8 +11,8 @@ zero-sized fields, as `iter::from_fn` of a closure capturing nothing is.
 
 Found by `hints.rs` in the lang fixture. The first emits `return _0` of a return place
 `unassigned` skips, which `tsc` rejects, and the second refuses as "constructing
-`std::iter::FromFn<..>` from another crate". Once they translate, along with
-[ts-unit-closures](/quest/m3/ts-unit-closures.md), `hints::reserves` covers a `Vec` of
+`std::iter::FromFn<..>` from another crate". Once they translate (a closure's `()` result
+already does, since [#303](https://github.com/moq-dev/rust2/pull/303)), `hints::reserves` covers a `Vec` of
 zero-sized elements, which holds `usize::MAX`, and `hints::hints` a flatten of `[T; 0]`.
 
 Public API: the translator's output.

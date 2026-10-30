@@ -103,7 +103,7 @@ export function hashOf$Name(value: Name.Name): rt.u64 {
 
 export function hashOf$Option_Hop(value: Hop.Hop | undefined): rt.u64 {
 	const h: rt.Hasher = rt.hasher();
-	rt.hashOption(Hop.hash$Hash_DefaultHasher)(value, h);
+	rt.hashOption(Hop.hash$Hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined)(value, h);
 	return rt.hashFinish(h);
 }
 
@@ -536,11 +536,11 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return way(b2);
 		});
 	};
-	const hashed: rt.HashMap<[rt.u8, Horizon.Horizon], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, Horizon.hash$Hash_DefaultHasher]), rt.eqTuple([rt.same, Horizon.eq$PartialEq]))) as rt.HashMap<[rt.u8, Horizon.Horizon], rt.u8>;
+	const hashed: rt.HashMap<[rt.u8, Horizon.Horizon], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, Horizon.hash$Hash_DefaultHasher as (a0: Horizon.Horizon, a1: rt.Hasher) => undefined]), rt.eqTuple([rt.same, Horizon.eq$PartialEq]))) as rt.HashMap<[rt.u8, Horizon.Horizon], rt.u8>;
 	const sorted: rt.BTreeMap<[rt.u8, Horizon.Horizon], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmp, Horizon.cmp$Ord])) as rt.BTreeMap<[rt.u8, Horizon.Horizon], rt.u8>;
-	const ways: rt.HashMap<[Way.Way | undefined, boolean], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashOption(Way.hash$Hash_DefaultHasher), rt.hash8]), rt.eqTuple([rt.eqOption(Way.eq$PartialEq), rt.same]))) as rt.HashMap<[Way.Way | undefined, boolean], rt.u8>;
-	const bare: rt.HashMap<Way.Way | undefined, rt.u8> = rt.hashNew(rt.hashing(rt.hashOption(Way.hash$Hash_DefaultHasher), rt.eqOption(Way.eq$PartialEq), true)) as rt.HashMap<Way.Way | undefined, rt.u8>;
-	const deep: rt.HashSet<Way.Way | undefined | rt.None> = rt.hashNew(rt.hashing(rt.hashOption(rt.hashOption(Way.hash$Hash_DefaultHasher), rt.None), rt.eqOption(rt.eqOption(Way.eq$PartialEq), rt.None), true)) as rt.HashSet<Way.Way | undefined | rt.None>;
+	const ways: rt.HashMap<[Way.Way | undefined, boolean], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashOption(Way.hash$Hash_DefaultHasher as (a0: Way.Way, a1: rt.Hasher) => undefined), rt.hash8]), rt.eqTuple([rt.eqOption(Way.eq$PartialEq), rt.same]))) as rt.HashMap<[Way.Way | undefined, boolean], rt.u8>;
+	const bare: rt.HashMap<Way.Way | undefined, rt.u8> = rt.hashNew(rt.hashing(rt.hashOption(Way.hash$Hash_DefaultHasher as (a0: Way.Way, a1: rt.Hasher) => undefined), rt.eqOption(Way.eq$PartialEq), true)) as rt.HashMap<Way.Way | undefined, rt.u8>;
+	const deep: rt.HashSet<Way.Way | undefined | rt.None> = rt.hashNew(rt.hashing(rt.hashOption(rt.hashOption(Way.hash$Hash_DefaultHasher as (a0: Way.Way, a1: rt.Hasher) => undefined), rt.None), rt.eqOption(rt.eqOption(Way.eq$PartialEq), rt.None), true)) as rt.HashSet<Way.Way | undefined | rt.None>;
 	let iterStart: rt.usize = 1;
 	const iterEnd: rt.usize = data.length;
 	while ((_12 = iterStart++) < iterEnd) {
@@ -701,7 +701,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _257!: rt.u8;
 	const counts: rt.BTreeMap<rt.u8, rt.usize> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.usize>;
 	const wide: rt.HashMap<rt.u8, rt.u64> = rt.hashNew() as rt.HashMap<rt.u8, rt.u64>;
-	const hops: rt.HashMap<Hop.Hop, rt.u16> = rt.hashNew(rt.hashing(Hop.hash$Hash_DefaultHasher, Hop.eq$PartialEq)) as rt.HashMap<Hop.Hop, rt.u16>;
+	const hops: rt.HashMap<Hop.Hop, rt.u16> = rt.hashNew(rt.hashing(Hop.hash$Hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined, Hop.eq$PartialEq)) as rt.HashMap<Hop.Hop, rt.u16>;
 	const pairs: rt.BTreeMap<Hop.Hop, [rt.u8, rt.u8]> = rt.btreeNew(Hop.cmp$Ord) as rt.BTreeMap<Hop.Hop, [rt.u8, rt.u8]>;
 	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
 	while (true) {
@@ -813,7 +813,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return 7;
 	});
 	_195.v = rt.u8Add(_195.v, 1);
-	const hashy: rt.HashMap<Touchy.Touchy, rt.u8> = rt.hashNew(rt.hashing(Touchy.hash$Hash_DefaultHasher, Touchy.eq$PartialEq)) as rt.HashMap<Touchy.Touchy, rt.u8>;
+	const hashy: rt.HashMap<Touchy.Touchy, rt.u8> = rt.hashNew(rt.hashing(Touchy.hash$Hash_DefaultHasher as (a0: Touchy.Touchy, a1: rt.Hasher) => undefined, Touchy.eq$PartialEq)) as rt.HashMap<Touchy.Touchy, rt.u8>;
 	const _203: rt.Place<rt.u8> = rt.entryOrInsertWithMut(rt.entry(hashy, { _0: data.length & 0xff }), (): rt.u8 => {
 		return 0;
 	});
@@ -822,7 +822,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const c2: rt.Place<rt.usize> = rt.entryOrInsertWithMut(rt.entry(counts, 0), (): rt.usize => {
 		return 0;
 	});
-	((): void => {
+	((): undefined => {
 		c2.v = rt.usizeAdd(c2.v, 1);
 	})();
 	const spare: rt.usize[] = [data.length, 8];
@@ -1465,7 +1465,7 @@ export function lentValues(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): vo
 	const _90: rt.ByteSlice = rt.byteSliceFrom(rt.entryOrInsert(rt.entry(map, at), Uint8Array.of(at, at)));
 	_90.data[_90.start + 1] = _90.data[_90.start + 1] ^ 1;
 	const _97: rt.Entry<rt.u8, Uint8Array> = rt.entry(map, at);
-	const f = (v4: rt.ByteSlice): void => {
+	const f = (v4: rt.ByteSlice): undefined => {
 		const _3: rt.u8 = rt.u8WrappingAdd(v4.data[v4.start], 1);
 		v4.data[v4.start] = _3;
 	};

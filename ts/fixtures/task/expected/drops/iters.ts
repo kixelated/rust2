@@ -419,7 +419,7 @@ export function collected(log: Log.Log, id: rt.u32): void {
 	const _258: Key.Key = key(23);
 	v11.push(_258);
 	const _248: rt.Iter<Key.Key> = rt.iterSlice(v11, rt.drop);
-	const set: rt.HashSet<Key.Key> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>, _248, rt.drop, "fold", 117440512);
+	const set: rt.HashSet<Key.Key> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashSet<Key.Key>, _248, rt.drop, "fold", 117440512);
 	const _267: rt.usize = queue.n;
 	const _270: rt.usize = rt.hashLen(hashed);
 	const _273: rt.usize = rt.hashLen(set);
@@ -522,7 +522,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const _109: string = rt.fmtFormat(["queue ", args8[0], " ", args8[1]]);
 	rt.drop(_119);
 	Log.note(log, _109);
-	const map: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+	const map: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
 	const _129: Key.Key = key(20);
 	const _132: Guard.Guard = guard(20);
 	rt.drop(rt.hashInsert(map, _129, _132, rt.drop));
@@ -533,7 +533,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const _139: string = rt.fmtFormat(["entry ", args10[0]]);
 	drop$Option_Key_Guard(_145);
 	Log.note(log, _139);
-	const map2: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+	const map2: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
 	const _154: Key.Key = key(21);
 	const _157: Guard.Guard = guard(21);
 	rt.drop(rt.hashInsert(map2, _154, _157, rt.drop));
@@ -541,7 +541,7 @@ export function drained(log: Log.Log, id: rt.u32): void {
 	const part4 = rt.hashLen(map2);
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part4, f)];
 	Log.note(log, rt.fmtFormat(["drained ", args12[0]]));
-	const set2: rt.HashSet<Key.Key> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
+	const set2: rt.HashSet<Key.Key> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
 	const _178: Key.Key = key(22);
 	rt.hashAdd(set2, _178, rt.drop);
 	const taken: rt.Iter<Key.Key> = rt.hashDrainKeys(set2, rt.drop);
@@ -615,7 +615,7 @@ export function extended(log: Log.Log, id: rt.u32): void {
 	const part = list.length;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part, f)];
 	Log.note(log, rt.fmtFormat(["list ", args2[0]]));
-	const map: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+	const map: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
 	const _71: Key.Key = key(8);
 	const _74: Guard.Guard = guard(8);
 	rt.drop(rt.hashInsert(map, _71, _74, rt.drop));
@@ -625,7 +625,7 @@ export function extended(log: Log.Log, id: rt.u32): void {
 	const _92: [Key.Key, Guard.Guard] = [key(8), guard(10)];
 	v4.push(_92);
 	rt.hashExtend(map, rt.iterSlice(v4, drop$Key_Guard), rt.drop, rt.drop, "fold", 58720256);
-	const set: rt.HashSet<Key.Key> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
+	const set: rt.HashSet<Key.Key> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
 	const _102: Key.Key = key(11);
 	rt.hashAdd(set, _102, rt.drop);
 	const v5: Key.Key[] = [];

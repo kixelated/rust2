@@ -1391,16 +1391,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// A function value's type, whose `()` result is `undefined`: TypeScript infers a
+	/// `Vec<()>`'s items from it, and `void` is no `undefined`.
 	fn fn_ty(&mut self, inputs: &[Ty<'tcx>], output: Ty<'tcx>, span: Span) -> Type {
 		let params = inputs.iter().map(|t| self.ty(*t, span)).collect();
-		let ret = match output.is_unit() {
-			true => Type::Builtin("void"),
-			false => self.ty(output, span),
-		};
-		Type::Func(params, Box::new(ret))
+		Type::Func(params, Box::new(self.ty(output, span)))
 	}
 
-	/// The return type of a function returning `ty`.
+	/// The return type of a declared function returning `ty`, whose `()` is `void`.
 	pub fn ret_ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
 		match ty.is_unit() {
 			true => Type::Builtin("void"),

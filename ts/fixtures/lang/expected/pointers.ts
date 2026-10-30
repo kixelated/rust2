@@ -408,7 +408,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const fresh: Held.Held = new Held.Held(n, _99);
 			if (rt.u8Rem(n, 2) === 0) {
 				const captured2 = fresh;
-				Wrapped.withMut$Held_unit_cells_closure0(held, rt.closure((p6: Held.Held): void => {
+				Wrapped.withMut$Held_unit_cells_closure0(held, rt.closure((p6: Held.Held): undefined => {
 					const _311: Held.Held = captured2;
 					p6[Symbol.dispose]();
 					rt.ptrWrite(p6, _311);
@@ -417,7 +417,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				}));
 			} else {
 				const captured = fresh;
-				Wrapped.withMut$Held_unit_cells_closure1(held, rt.closure((p5: Held.Held): void => {
+				Wrapped.withMut$Held_unit_cells_closure1(held, rt.closure((p5: Held.Held): undefined => {
 					rt.ptrWrite(p5, captured);
 				}, (): void => {
 					captured[Symbol.dispose]();
@@ -427,7 +427,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return p7.n;
 			}), count.strong & 0xff)), undefined, true);
 		} else if (_23 === 5) {
-			Wrapped.withMut$Held_unit_cells_closure3(held, (p3: Held.Held): void => {
+			Wrapped.withMut$Held_unit_cells_closure3(held, (p3: Held.Held): undefined => {
 				p3.n = rt.u8WrappingAdd(p3.n, n);
 			});
 			const _119: Held.Held = held._0.v;
@@ -444,7 +444,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else {
 			const _142: rt.Arc<undefined> = rt.arcClone(count);
 			const made_: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _142));
-			Wrapped.withMut$Held_unit_cells_closure5(made_, (p2: Held.Held): void => {
+			Wrapped.withMut$Held_unit_cells_closure5(made_, (p2: Held.Held): undefined => {
 				p2.n = p2.n ^ 85;
 			});
 			rt.byteVecPush(out, count.strong & 0xff);
@@ -607,9 +607,9 @@ export function put$ByCall(slot: ByCall.ByCall, value: ByCall.ByCall): void {
 	Object.assign(slot, copy$ByCall(value));
 }
 
-export function resetter$ByClosure(slot: ByClosure.ByClosure): () => void {
+export function resetter$ByClosure(slot: ByClosure.ByClosure): () => undefined {
 	const captured = slot;
-	return (): void => {
+	return (): undefined => {
 		rt.ptrWrite(captured, copy$ByClosure(ByClosure.default$Default()));
 	};
 }

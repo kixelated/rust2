@@ -5,17 +5,18 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-/// Run case `kind % 7` over `data`, whose bytes pick each `None`, `Some(None)`, or
+/// Run case `kind % 8` over `data`, whose bytes pick each `None`, `Some(None)`, or
 /// `Some(Some(_))`.
 pub fn nested(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind % 7 {
+	match kind % 8 {
 		0 => made(data, out),
 		1 => keys(data, out),
 		2 => iters(data, out),
 		3 => consumers(data, out),
 		4 => panics(data, out),
 		5 => closures(data, out),
-		_ => elements(data, out),
+		6 => elements(data, out),
+		_ => units(data, out),
 	}
 }
 
@@ -462,4 +463,70 @@ fn panics(data: &[u8], out: &mut Vec<u8>) {
 		out.push(code(Some(pick(b).unwrap())));
 		unit(b ^ 1).unwrap();
 	}
+}
+
+fn ignore(_: u8) {}
+
+fn half(b: u8) -> u8 {
+	b / 2
+}
+
+/// Each of `data` through `f`, read from its parameter: a function item too.
+fn each<T>(data: &[u8], f: impl Fn(u8) -> T) -> Vec<T> {
+	data.iter().copied().map(f).collect()
+}
+
+/// Each of `data` through a pointer.
+fn pointed(data: &[u8], f: fn(u8)) -> Vec<()> {
+	data.iter().copied().map(f).collect()
+}
+
+trait Made {
+	type Out;
+	fn made(&self, b: u8) -> Self::Out;
+}
+
+struct Unit;
+
+impl Made for Unit {
+	type Out = ();
+	fn made(&self, _: u8) {}
+}
+
+fn made_all<M: Made>(m: &M, data: &[u8]) -> Vec<M::Out> {
+	data.iter().map(|&b| m.made(b)).collect()
+}
+
+/// The `()` results of closures, functions, pointers, a `dyn Fn`, and a method returning an
+/// associated type, as the items of a `Vec`, a `VecDeque`, an `Option`, and a `Result`.
+fn units(data: &[u8], out: &mut Vec<u8>) {
+	let units: Vec<()> = data.iter().map(|_| ()).collect();
+	let q: VecDeque<()> = data.iter().rev().map(|_| ()).collect();
+	let named: Vec<()> = data.iter().copied().map(ignore).collect();
+	let f: fn(u8) = match data.first() {
+		Some(b) if b % 2 == 0 => ignore,
+		_ => |_| (),
+	};
+	let by_pointer = pointed(data, f);
+	let generic = each(data, |_| ());
+	let by_name = each(data, ignore);
+	out.extend(each(data, half));
+	let methods = made_all(&Unit, data);
+	let g: &dyn Fn(u8) = &ignore;
+	let dynamic: Vec<()> = data.iter().copied().map(g).collect();
+	for v in [&units, &named, &by_pointer, &generic, &by_name, &methods, &dynamic] {
+		out.extend([v.len() as u8, v.first().is_some() as u8, v.iter().count() as u8]);
+	}
+	out.extend([q.len() as u8, q.back().is_some() as u8]);
+	let o: Option<()> = data.first().map(|_| ());
+	let none: Option<()> = data.get(1).filter(|b| **b % 2 == 0).map(|_| ());
+	let r: Result<(), u8> = data.first().copied().ok_or(0xee).map(|_| ());
+	let e: Result<u8, ()> = data.first().copied().ok_or(()).map_err(|_| ());
+	out.extend([
+		o.is_some() as u8,
+		none.is_some() as u8,
+		r.is_ok() as u8,
+		e.is_err() as u8,
+	]);
+	out.extend(format!("{units:?} {o:?} {none:?} {r:?} {e:?}").as_bytes());
 }

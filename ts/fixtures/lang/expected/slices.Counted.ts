@@ -12,7 +12,7 @@ export interface Counted {
 }
 
 export function clone$Clone(self: Counted): Counted {
-	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecPush(log, self.n ^ 64);
 	});
 	return self;

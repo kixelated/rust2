@@ -121,7 +121,7 @@ export function cows(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _285[1]);
 		}
 		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.btreeGet(counts, first), 255));
-		const names: rt.HashSet<Named.Named> = rt.hashNew(rt.hashing(Named.hash$Hash_DefaultHasher, Named.eq$PartialEq)) as rt.HashSet<Named.Named>;
+		const names: rt.HashSet<Named.Named> = rt.hashNew(rt.hashing(Named.hash$Hash_DefaultHasher as (a0: Named.Named, a1: rt.Hasher) => undefined, Named.eq$PartialEq)) as rt.HashSet<Named.Named>;
 		const iter5: rt.Iter<string> = rt.strSplit(s, "/");
 		while (true) {
 			const _305: string | rt.Done = iter5.next();

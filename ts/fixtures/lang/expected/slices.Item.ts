@@ -17,7 +17,7 @@ export class Item {
 }
 
 export function drop$Drop(self: Item): void {
-	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecPush(log, self.tag);
 	});
 }

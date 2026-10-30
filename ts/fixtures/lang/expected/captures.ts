@@ -21,7 +21,7 @@ export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u8 = ([rt.u8FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u8, rt.ByteSlice])[0];
-	const put: (a0: rt.u8) => void = (v: rt.u8): void => {
+	const put: (a0: rt.u8) => undefined = (v: rt.u8): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u8ToBeBytes(v)));
 	};
 	let n3: rt.u8 = a;
@@ -122,7 +122,7 @@ export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u16 = ([rt.u16FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u16, rt.ByteSlice])[0];
-	const put: (a0: rt.u16) => void = (v: rt.u16): void => {
+	const put: (a0: rt.u16) => undefined = (v: rt.u16): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(v)));
 	};
 	let n3: rt.u16 = a;
@@ -223,7 +223,7 @@ export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u32 = ([rt.u32FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u32, rt.ByteSlice])[0];
-	const put: (a0: rt.u32) => void = (v: rt.u32): void => {
+	const put: (a0: rt.u32) => undefined = (v: rt.u32): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(v)));
 	};
 	let n3: rt.u32 = a;
@@ -324,7 +324,7 @@ export function u64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u64 = ([rt.u64FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u64, rt.ByteSlice])[0];
-	const put: (a0: rt.u64) => void = (v: rt.u64): void => {
+	const put: (a0: rt.u64) => undefined = (v: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(v)));
 	};
 	let n3: rt.u64 = a;
@@ -425,7 +425,7 @@ export function u128s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u128 = ([rt.u128FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u128, rt.ByteSlice])[0];
-	const put: (a0: rt.u128) => void = (v: rt.u128): void => {
+	const put: (a0: rt.u128) => undefined = (v: rt.u128): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(v)));
 	};
 	let n3: rt.u128 = a;
@@ -526,7 +526,7 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.usize = ([rt.usizeFromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.usize, rt.ByteSlice])[0];
-	const put: (a0: rt.usize) => void = (v: rt.usize): void => {
+	const put: (a0: rt.usize) => undefined = (v: rt.usize): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(v)));
 	};
 	let n3: rt.usize = a;
@@ -620,7 +620,7 @@ export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i8 = ([rt.i8FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i8, rt.ByteSlice])[0];
-	const put: (a0: rt.i8) => void = (v: rt.i8): void => {
+	const put: (a0: rt.i8) => undefined = (v: rt.i8): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i8ToBeBytes(v)));
 	};
 	let n3: rt.i8 = a;
@@ -721,7 +721,7 @@ export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i16 = ([rt.i16FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i16, rt.ByteSlice])[0];
-	const put: (a0: rt.i16) => void = (v: rt.i16): void => {
+	const put: (a0: rt.i16) => undefined = (v: rt.i16): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(v)));
 	};
 	let n3: rt.i16 = a;
@@ -822,7 +822,7 @@ export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i32 = ([rt.i32FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i32, rt.ByteSlice])[0];
-	const put: (a0: rt.i32) => void = (v: rt.i32): void => {
+	const put: (a0: rt.i32) => undefined = (v: rt.i32): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(v)));
 	};
 	let n3: rt.i32 = a;
@@ -923,7 +923,7 @@ export function i64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i64 = ([rt.i64FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i64, rt.ByteSlice])[0];
-	const put: (a0: rt.i64) => void = (v: rt.i64): void => {
+	const put: (a0: rt.i64) => undefined = (v: rt.i64): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(v)));
 	};
 	let n3: rt.i64 = a;
@@ -1024,7 +1024,7 @@ export function i128s(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i128 = ([rt.i128FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i128, rt.ByteSlice])[0];
-	const put: (a0: rt.i128) => void = (v: rt.i128): void => {
+	const put: (a0: rt.i128) => undefined = (v: rt.i128): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i128ToBeBytes(v)));
 	};
 	let n3: rt.i128 = a;
@@ -1125,7 +1125,7 @@ export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.isize = ([rt.isizeFromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.isize, rt.ByteSlice])[0];
-	const put: (a0: rt.isize) => void = (v: rt.isize): void => {
+	const put: (a0: rt.isize) => undefined = (v: rt.isize): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.isizeToBeBytes(v)));
 	};
 	let n3: rt.isize = a;

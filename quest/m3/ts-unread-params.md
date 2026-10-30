@@ -15,4 +15,9 @@ nothing to drop the `if` lowers to nothing. `analyze` in `ts/src/lower/mir/mod.r
 parameters by MIR's reads, before lowering drops the empty branch. moq's collector drops,
 so no consumer hits it at the pin.
 
+[#303](https://github.com/moq-dev/rust2/pull/303) found another: comparing `()`s folds to
+`true`, so `units.iter().filter(|u| **u == ())` lowers to
+`(u: undefined): boolean => { return true; }`, which `tsc` refuses as `'u' is declared but
+its value is never read`.
+
 Public API: the translator's output.

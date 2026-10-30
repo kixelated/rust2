@@ -84,8 +84,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): void {
 	let _12!: rt.usize;
 	let _143!: rt.u8;
-	const seen: rt.HashSet<Blob.Blob> = rt.hashNew(rt.hashing(Blob.hash$Hash, Blob.eq$PartialEq, true)) as rt.HashSet<Blob.Blob>;
-	const counts: rt.HashMap<Blob.Blob, rt.u8> = rt.hashNew(rt.hashing(Blob.hash$Hash, Blob.eq$PartialEq, true)) as rt.HashMap<Blob.Blob, rt.u8>;
+	const seen: rt.HashSet<Blob.Blob> = rt.hashNew(rt.hashing(Blob.hash$Hash as (a0: Blob.Blob, a1: rt.Hasher) => undefined, Blob.eq$PartialEq, true)) as rt.HashSet<Blob.Blob>;
+	const counts: rt.HashMap<Blob.Blob, rt.u8> = rt.hashNew(rt.hashing(Blob.hash$Hash as (a0: Blob.Blob, a1: rt.Hasher) => undefined, Blob.eq$PartialEq, true)) as rt.HashMap<Blob.Blob, rt.u8>;
 	const sorted: rt.BTreeSet<Blob.Blob> = rt.btreeNew(Blob.cmp$Ord) as rt.BTreeSet<Blob.Blob>;
 	const firsts: rt.BTreeMap<Blob.Blob, rt.u8> = rt.btreeNew(Blob.cmp$Ord) as rt.BTreeMap<Blob.Blob, rt.u8>;
 	const _10: rt.usize = Blob.len(bytes);
@@ -125,8 +125,8 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	rt.byteVecPush(out, rt.hashDelete(seen, probe) ? 1 : 0);
 	rt.byteVecPush(out, rt.btreeDelete(sorted, probe) ? 1 : 0);
 	rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
-	const nibbles: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash, Nibble.eq$PartialEq, true)) as rt.HashSet<Nibble.Nibble>;
-	const lasts: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash, Nibble.eq$PartialEq, true)) as rt.HashMap<Nibble.Nibble, rt.u8>;
+	const nibbles: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq, true)) as rt.HashSet<Nibble.Nibble>;
+	const lasts: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq, true)) as rt.HashMap<Nibble.Nibble, rt.u8>;
 	const ordered: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
 	const values: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
 	for (const byte of rt.byteSliceView(input)) {

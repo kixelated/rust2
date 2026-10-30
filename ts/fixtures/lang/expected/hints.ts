@@ -1820,7 +1820,7 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u64Add(i15, 1);
 			}), steps, out);
 		} else if (_204 === 1) {
-			walk$Inspect_Range_u64_hints_closure8(rt.iterInspect(new rt.Range(0, n, rt.u64Step), (_247: rt.u64): void => {}), steps, out);
+			walk$Inspect_Range_u64_hints_closure8(rt.iterInspect(new rt.Range(0, n, rt.u64Step), (_247: rt.u64): undefined => {}), steps, out);
 		} else if (_204 === 2) {
 			walk$Enumerate_Range_u32(rt.iterEnumerate(new rt.Range(0, u32Of(n))), steps, out);
 		} else if (_204 === 3) {
@@ -2515,10 +2515,10 @@ export function fill$Big_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 	} else if (coll === 7) {
 		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
 	} else if (coll === 8) {
-		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
+		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
 		const _41: [Big.Big, rt.u32][] = [[seed, 0] as [Big.Big, rt.u32]];
-		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
+		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
 		const _46: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t3: Big.Big): [Big.Big, rt.u32] => {
 			return [t3, 1] as [Big.Big, rt.u32];
 		});
@@ -2585,10 +2585,10 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 	} else if (coll === 7) {
 		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
 	} else if (coll === 8) {
-		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
+		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
 		const _41: [Big.Big, rt.u32][] = [[seed, 0] as [Big.Big, rt.u32]];
-		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
+		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
 		const _46: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t3: Big.Big): [Big.Big, rt.u32] => {
 			return [t3, 1] as [Big.Big, rt.u32];
 		});
@@ -2655,10 +2655,10 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$
 	} else if (coll === 7) {
 		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
 	} else if (coll === 8) {
-		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
+		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
 		const _41: [Big.Big, rt.u32][] = [[seed, 0] as [Big.Big, rt.u32]];
-		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
+		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
 		const _46: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t3: Big.Big): [Big.Big, rt.u32] => {
 			return [t3, 1] as [Big.Big, rt.u32];
 		});
@@ -2725,10 +2725,10 @@ export function fill$Big_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, item
 	} else if (coll === 7) {
 		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100, true));
 	} else if (coll === 8) {
-		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
+		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
 		const _41: [Big.Big, rt.u32][] = [[seed, 0] as [Big.Big, rt.u32]];
-		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
+		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
 		const _46: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t3: Big.Big): [Big.Big, rt.u32] => {
 			return [t3, 1] as [Big.Big, rt.u32];
 		});
@@ -2795,10 +2795,10 @@ export function fill$Big_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 	} else if (coll === 7) {
 		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
 	} else if (coll === 8) {
-		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
+		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
 		const _41: [Big.Big, rt.u32][] = [[seed, 0] as [Big.Big, rt.u32]];
-		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
+		const m: rt.HashMap<Big.Big, rt.u32> = rt.hashExtend(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashMap<Big.Big, rt.u32>, rt.iterSlice(_41), undefined, undefined, undefined, 917504);
 		const _46: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t3: Big.Big): [Big.Big, rt.u32] => {
 			return [t3, 1] as [Big.Big, rt.u32];
 		});
