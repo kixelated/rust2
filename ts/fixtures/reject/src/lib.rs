@@ -477,11 +477,6 @@ pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
 	(a.into_iter().sum(), b.into_iter().sum())
 }
 
-/// One rounding, which JS has no cheap form of.
-pub fn fma(a: f64) -> f64 {
-	a.mul_add(2.0, 1.0)
-}
-
 /// Parsing an address is not translated yet.
 pub fn addr_parsed(s: &str) -> Result<std::net::Ipv4Addr, std::net::AddrParseError> {
 	s.parse()

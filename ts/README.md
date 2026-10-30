@@ -162,10 +162,13 @@ JS differs from std, the runtime has std's: `round` halves away from zero, `max`
 `min` ignore a NaN, and a cast to an integer truncates, saturates at the type's bounds,
 and sends NaN to 0. A 64- or 128-bit integer `as f64` rounds once, to the nearest. The
 functions std leaves to the platform's libm, such as `sin`, `exp`, `ln`, `powf`, and
-`hypot`, are `Math`'s, which the tests find within 2 ULPs of native Rust's in Node;
-`mul_add`, which rounds once, is refused; `clamp` panics with std's message. `Duration`'s `f64` methods run std's integer
-algorithm, to the nearest nanosecond with its errors and panics. JS doesn't say which
-NaN an operation makes, so a NaN's payload and sign are the engine's: Node and Chrome
+`hypot`, are `Math`'s, which the tests find within 2 ULPs of native Rust's in Node.
+`mul_add` rounds once, as wasm32's software `fma` does: Dekker's exact product and
+Boldo and Melquiond's sum rounded to odd, or the operands' exact `BigInt` sum where the
+product's error would be subnormal or a step would overflow. It costs about 12 ns a call
+in Node where `a * b + c` costs 1, and microseconds on the `BigInt` path. `clamp` panics
+with std's message. `Duration`'s `f64` methods run std's integer algorithm, to the
+nearest nanosecond with its errors and panics. JS doesn't say which NaN an operation makes, so a NaN's payload and sign are the engine's: Node and Chrome
 keep them through `from_bits` and `to_bits`, but V8 quiets a signaling NaN stored in an
 array, as a `Vec<f64>` holds it.
 
@@ -174,7 +177,8 @@ An `f32` is a JS number a single holds exactly. Each arithmetic result, and each
 the single nearest the exact value, since a double holds the exact result closely enough;
 `%`, comparisons, and negation need no rounding. Its methods compute in singles where std
 does, as `div_euclid`, `powi`, and `atanh` do, and in doubles where std does, as wasm32's
-`midpoint` does. A cast to `f64` is the same number, and `f64 as f32` is `Math.fround`;
+`midpoint` does. `mul_add` adds the exact double product rounded to odd, which
+`Math.fround` then rounds once. A cast to `f64` is the same number, and `f64 as f32` is `Math.fround`;
 an integer rounds to a single once, never through the nearest double, which could round
 twice. A NaN keeps its sign and payload at the top of a double NaN's, so `from_bits` and
 `to_bits` keep a signaling one, which JS's conversion from a single would quiet, and V8

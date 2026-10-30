@@ -165,6 +165,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("hints::reserves", hints::reserves),
 		("collections::set_ops", collections::set_ops),
 		("folds::folds", folds::folds),
+		("floats::mul_adds", floats::mul_adds),
+		("singles::mul_adds", singles::mul_adds),
 	]
 }
 

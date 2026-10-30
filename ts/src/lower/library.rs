@@ -1138,7 +1138,7 @@ fn mapping<'tcx>(
 		_ => None,
 	};
 	if let Some(float) = float {
-		return super::float::method(b, float, &name, args, span);
+		return super::float::method(float, &name, args);
 	}
 
 	let self_ty = || gargs.types().next();

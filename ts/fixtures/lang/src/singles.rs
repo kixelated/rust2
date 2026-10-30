@@ -363,6 +363,70 @@ struct Reading {
 	history: Vec<f32>,
 }
 
+/// `mul_add`, rounded once, of three operands, or of 32 sets made from a seed: any bits,
+/// a product's error alone, products of 13-bit odd significands, which a double holds
+/// exactly halfway between two singles, plus a tiny addend, subnormal sums, products past
+/// `f32::MAX` that the sum brings back, and half the product's last place.
+pub fn mul_adds(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	if kind % 2 == 0 {
+		let (a, rest) = take(data);
+		let (b, rest) = take(rest);
+		let (c, _) = take(rest);
+		put_f32(out, a.mul_add(b, c));
+		return;
+	}
+	let mut state = take_bits(data).0 | 1;
+	for _ in 0..32 {
+		let r = step(&mut state);
+		let pick = |shift: u32, n: u32| ((r >> shift) % n) as i32;
+		let ea = pick(4, 32) - 16;
+		let e = pick(9, 32) - 16;
+		let a = near(step(&mut state), ea);
+		let b = near(step(&mut state), e - ea);
+		let c = step(&mut state);
+		let (a, b, c) = match r % 6 {
+			0 => (f32::from_bits(r), f32::from_bits(step(&mut state)), f32::from_bits(c)),
+			1 => (a, b, -(a * b)),
+			2 => {
+				let odd = |x: f32| f32::from_bits((x.to_bits() & 0xffff_f000) | 0x800);
+				(odd(a), odd(b), near(c, e - 26 - pick(14, 100)))
+			}
+			3 => {
+				let ea = pick(14, 120) - 60;
+				let e = -130 - pick(21, 30);
+				let (a, b) = (near(r, ea), near(c, e - ea));
+				(
+					a,
+					b,
+					if r >> 31 == 0 {
+						-(a * b)
+					} else {
+						near(c >> 1, e + pick(26, 30) - 15)
+					},
+				)
+			}
+			4 => {
+				let ea = 100 + pick(14, 27);
+				let a = near(r, ea);
+				let b = near(c, 127 - ea + pick(21, 4) - 1);
+				(a, b, near(c >> 1, 124 + pick(26, 4)).copysign(-(a * b)))
+			}
+			_ => {
+				let p = (a * b).abs();
+				let half = [0.5, -0.5, 0.25, -0.75, 1.5][pick(14, 5) as usize];
+				(a, b, (p.next_up() - p) * half)
+			}
+		};
+		put_f32(out, a.mul_add(b, c));
+	}
+}
+
+/// A single of exponent `e`, or the nearest a finite one has, with the significand and sign of `bits`.
+fn near(bits: u32, e: i32) -> f32 {
+	let biased = (e + 127).clamp(0, 254) as u32;
+	f32::from_bits((bits & 0x807f_ffff) | (biased << 23))
+}
+
 /// xorshift32, for the singles and decimals a case makes from its seed.
 fn step(state: &mut u32) -> u32 {
 	*state ^= *state << 13;
