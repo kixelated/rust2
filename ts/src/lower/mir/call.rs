@@ -571,15 +571,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let c = values.pop()?;
 					values.push(library::char_text(c));
 				}
-				// A `&mut` to a function JS copies is its place, at each reference to it.
 				if name == "retain" {
-					let mut f = targ(0)?;
-					while let ty::Ref(_, inner, _) = *f.kind() {
-						if self.b.t.place_pointee(f).is_some() {
-							values[1] = std::mem::replace(&mut values[1], Expr::undefined()).member("v");
-						}
-						f = inner;
-					}
+					let f = std::mem::replace(&mut values[1], Expr::undefined());
+					values[1] = library::called_through(self.b.t, targ(0)?, Some(f)).2?;
 				}
 				let edited = match name.as_str() {
 					"clear" => Expr::Str(String::new()),

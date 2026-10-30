@@ -398,11 +398,12 @@ fn offset(s: &str, b: u8) -> usize {
 	s.len()
 }
 
-/// `String::retain` by a function behind a `&mut`, and behind two.
-fn retain_by(s: &mut String, f: &mut fn(char) -> bool, twice: bool) {
-	match twice {
-		true => s.retain(&mut &mut *f),
-		false => s.retain(f),
+/// `String::retain` by a function behind a `&mut`, behind two, and boxed behind one.
+fn retain_by(s: &mut String, f: &mut fn(char) -> bool, how: u8) {
+	match how % 3 {
+		0 => s.retain(f),
+		1 => s.retain(&mut &mut *f),
+		_ => s.retain(Box::new(f)),
 	}
 }
 
@@ -426,7 +427,7 @@ fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
 		7 => s.insert_str(i, &piece),
 		8 if b % 2 == 1 => {
 			let mut f: fn(char) -> bool = odd;
-			retain_by(s, &mut f, a % 2 == 1);
+			retain_by(s, &mut f, a);
 		}
 		8 => {
 			let mut seen = Vec::new();

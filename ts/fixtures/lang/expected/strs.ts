@@ -490,13 +490,16 @@ export function offset(s: string, b: rt.u8): rt.usize {
 	return rt.usizeRem(b as rt.usize, rt.usizeAdd(rt.stringLen(s), 3));
 }
 
-/** `String::retain` by a function behind a `&mut`, and behind two. */
-export function retainBy(s: rt.Place<string>, f: rt.Place<(a0: rt.char) => boolean>, twice: boolean): void {
-	if (!twice) {
+/** `String::retain` by a function behind a `&mut`, behind two, and boxed behind one. */
+export function retainBy(s: rt.Place<string>, f: rt.Place<(a0: rt.char) => boolean>, how: rt.u8): void {
+	const _4: rt.u8 = rt.u8Rem(how, 3);
+	if (_4 === 0) {
 		s.v = rt.stringRetain(s.v, f.v);
+	} else if (_4 === 1) {
+		let _7: rt.Place<(a0: rt.char) => boolean> = f;
+		s.v = rt.stringRetain(s.v, rt.place(() => _7, (value) => _7 = value).v.v);
 	} else {
-		let _5: rt.Place<(a0: rt.char) => boolean> = f;
-		s.v = rt.stringRetain(s.v, rt.place(() => _5, (value) => _5 = value).v.v);
+		s.v = rt.stringRetain(s.v, f.v);
 	}
 }
 
@@ -555,51 +558,50 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 			putSeen(out, seen);
 		} else {
 			let f: (a0: rt.char) => boolean = odd;
-			const _56: boolean = rt.u8Rem(a, 2) === 1;
-			retainBy(s, rt.place(() => f, (value) => f = value), _56);
+			retainBy(s, rt.place(() => f, (value) => f = value), a);
 		}
 	} else if (_24 === 9) {
 		const edit_ = rt.stringSplitOff(s.v, i);
 		s.v = edit_[0];
 		put(out, edit_[1]);
 	} else if (_24 === 10) {
-		const _70: rt.u8 = rt.u8Rem(b, 6);
-		if (_70 === 0) {
-			const _72: rt.Range<rt.usize> = new rt.Range(i, j);
+		const _67: rt.u8 = rt.u8Rem(b, 6);
+		if (_67 === 0) {
+			const _69: rt.Range<rt.usize> = new rt.Range(i, j);
+			s.v = rt.stringReplaceRange(s.v, _69, piece);
+		} else if (_67 === 1) {
+			const _72: { start: rt.usize } = { start: i };
 			s.v = rt.stringReplaceRange(s.v, _72, piece);
-		} else if (_70 === 1) {
-			const _75: { start: rt.usize } = { start: i };
+		} else if (_67 === 2) {
+			const _75: { end: rt.usize } = { end: j };
 			s.v = rt.stringReplaceRange(s.v, _75, piece);
-		} else if (_70 === 2) {
-			const _78: { end: rt.usize } = { end: j };
-			s.v = rt.stringReplaceRange(s.v, _78, piece);
-		} else if (_70 === 3) {
+		} else if (_67 === 3) {
 			s.v = rt.stringReplaceRange(s.v, undefined, piece);
-		} else if (_70 === 4) {
-			const _83: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(i, j, rt.usizeStep);
-			s.v = rt.stringReplaceRange(s.v, _83, piece);
+		} else if (_67 === 4) {
+			const _80: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(i, j, rt.usizeStep);
+			s.v = rt.stringReplaceRange(s.v, _80, piece);
 		} else {
-			const _86: { end: rt.usize; inclusive: true } = { end: j, inclusive: true };
-			s.v = rt.stringReplaceRange(s.v, _86, piece);
+			const _83: { end: rt.usize; inclusive: true } = { end: j, inclusive: true };
+			s.v = rt.stringReplaceRange(s.v, _83, piece);
 		}
 	} else if (_24 === 11) {
-		const _89: rt.u8 = rt.u8Rem(b, 4);
-		if (_89 === 0) {
+		const _86: rt.u8 = rt.u8Rem(b, 4);
+		if (_86 === 0) {
 			s.v = rt.stringExtendFromWithin(s.v, new rt.Range(i, j));
-		} else if (_89 === 1) {
+		} else if (_86 === 1) {
 			s.v = rt.stringExtendFromWithin(s.v, { start: i });
-		} else if (_89 === 2) {
+		} else if (_86 === 2) {
 			s.v = rt.stringExtendFromWithin(s.v, { end: j, inclusive: true });
 		} else {
 			s.v = rt.stringExtendFromWithin(s.v, undefined);
 		}
 	} else if (_24 === 12) {
-		const _94: rt.u8 = rt.u8Rem(a, 4);
-		if (_94 === 0) {
+		const _91: rt.u8 = rt.u8Rem(a, 4);
+		if (_91 === 0) {
 			rt.stringReserve(s.v, rt.usizeSub(4294967295, b as rt.usize));
-		} else if (_94 === 1) {
-			const _99: rt.usize = rt.usizeAdd(rt.usizeAdd(rt.usizeSub(2147483647, rt.stringLen(s.v)), 1), rt.u8Rem(b, 2) as rt.usize);
-			rt.stringReserve(s.v, _99);
+		} else if (_91 === 1) {
+			const _96: rt.usize = rt.usizeAdd(rt.usizeAdd(rt.usizeSub(2147483647, rt.stringLen(s.v)), 1), rt.u8Rem(b, 2) as rt.usize);
+			rt.stringReserve(s.v, _96);
 		} else {
 			rt.stringReserve(s.v, a as rt.usize);
 			rt.stringReserve(s.v, b as rt.usize);
