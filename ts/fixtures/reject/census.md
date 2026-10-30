@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 128
-- Function instances: 150
+- Refusals: 129
+- Function instances: 151
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -12,9 +12,9 @@
 | 12 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:661:10 |
 | 8 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:669:10 |
 | 5 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:4 |
+| 4 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:242:16 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:377:2 |
 | 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:4 |
-| 3 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:242:16 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:252:14 |
 | 3 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:102:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:110:2 |
@@ -93,6 +93,7 @@ The type or module each refused type or path belongs to.
 | 4 | `{closure}` | fixtures/reject/src/lib.rs:364:13 |
 | 3 | `Iterator` | fixtures/reject/src/lib.rs:149:2 |
 | 3 | `Spent` | fixtures/reject/src/lib.rs:861:4 |
+| 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:53:13 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:313:2 |
 | 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:355:16 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:281:6 |
@@ -106,7 +107,6 @@ The type or module each refused type or path belongs to.
 | 2 | `slice` | fixtures/reject/src/lib.rs:21:4 |
 | 2 | `std::any::TypeId` | fixtures/reject/src/lib.rs:591:2 |
 | 2 | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:263:75 |
-| 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:53:13 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:242:16 |
 | 2 | `std::iter::Map` | fixtures/reject/src/lib.rs:155:23 |
 | 2 | `std::mem::MaybeUninit` | fixtures/reject/src/lib.rs:1015:19 |
@@ -149,8 +149,8 @@ The type or module each refused type or path belongs to.
 | 1 | `poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
-| 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:899:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
+| 1 | `std::iter::Extend` | fixtures/reject/src/lib.rs:1023:6 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
@@ -198,7 +198,8 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Vec::pop`, `Option` | fixtures/reject/src/lib.rs:41:4 |
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::clone_from_slice`, `Reused` | fixtures/reject/src/lib.rs:331:4 |
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::fill`, `Reused` | fixtures/reject/src/lib.rs:21:4 |
-| 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::collections::HashSet::get` | fixtures/reject/src/lib.rs:899:6 |
+| 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::collections::HashMap::into_keys` | fixtures/reject/src/lib.rs:899:6 |
+| 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Extend::extend` | fixtures/reject/src/lib.rs:1023:6 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:242:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:242:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:313:2 |
@@ -332,6 +333,15 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it (4)</summary>
+
+- fixtures/reject/src/lib.rs:242:16: `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+- fixtures/reject/src/lib.rs:242:38: `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+- fixtures/reject/src/lib.rs:899:6: `std::collections::HashMap::<K, V, S, A>::into_keys` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+- fixtures/reject/src/lib.rs:1023:6: `std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+
+</details>
+
 <details><summary>a variant of `_`, which is not supported: either is the same JS string (4)</summary>
 
 - fixtures/reject/src/lib.rs:377:2: a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string
@@ -346,14 +356,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:41:4: `Vec::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:258:6: `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:819:7: `BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
-
-</details>
-
-<details><summary>`_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it (3)</summary>
-
-- fixtures/reject/src/lib.rs:242:16: `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
-- fixtures/reject/src/lib.rs:242:38: `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
-- fixtures/reject/src/lib.rs:899:6: `std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
 
 </details>
 

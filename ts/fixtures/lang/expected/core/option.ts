@@ -736,7 +736,21 @@ export function mapOr$1t0muvr(self: rt.u8 | undefined, default_: rt.usize, f: (a
 	return f(self);
 }
 
+export function mapOr$1w1gbwl(self: rt.ByteSlice | undefined, default_: rt.u8, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$0sl5app(self: Uint8Array | undefined, default_: rt.u8, f: (a0: Uint8Array) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1be3nsj(self: [rt.ByteSlice, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.ByteSlice, rt.u8]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

@@ -154,6 +154,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::made", |_, data, out| pointers::made(data, out)),
 		("arrays::as_slices", |_, data, out| arrays::as_slices(data, out)),
 		("ints::widenings", ints::widenings),
+		("keys::lent_keys", keys::lent_keys),
+		("keys::lent_values", keys::lent_values),
 	]
 }
 
