@@ -750,8 +750,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 			) | (
 				"Iterator",
 				"max_by" | "min_by" | "reduce" | "find_map" | "filter_map" | "map_while"
-			)
-				| ("Peekable", "peek" | "next_if" | "next_if_eq")
+			) | ("Peekable", "peek" | "next_if" | "next_if_eq")
 				| (
 					"OnceCell" | "OnceLock",
 					"get" | "set" | "get_or_init" | "take" | "into_inner"

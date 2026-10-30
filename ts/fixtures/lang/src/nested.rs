@@ -245,7 +245,10 @@ fn closures(data: &[u8], out: &mut Vec<u8>) {
 	let back: Vec<Option<u8>> = data.iter().filter_map(|&b| pick(b)).rev().collect();
 	out.extend(back.iter().map(|&o| code(Some(o))));
 	// Through `fold`.
-	let folded = data.iter().filter_map(|&b| pick(b)).fold(0u8, |n, o| n.wrapping_mul(3).wrapping_add(code(Some(o))));
+	let folded = data
+		.iter()
+		.filter_map(|&b| pick(b))
+		.fold(0u8, |n, o| n.wrapping_mul(3).wrapping_add(code(Some(o))));
 	out.push(folded);
 	out.push(data.iter().filter_map(|&b| unit(b)).count() as u8);
 	called = 0;
