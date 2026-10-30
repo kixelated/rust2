@@ -430,6 +430,15 @@ export function vecGrow(it: Iter<unknown>, cap: number, size: number): number {
 }
 
 /**
+ * The reserve std's `VecDeque` makes at the first item it extends by, holding `len`, for
+ * what `it` holds past it, which panics past `usize::MAX` even where its zero-sized
+ * elements never fill it.
+ */
+export function dequeReserve(it: Iter<unknown>, len: number): void {
+	if (len + satAdd(it.sizeHint()[0], 1) > USIZE_MAX) panic("capacity overflow");
+}
+
+/**
  * `Extend::extend` of a `Vec`, which takes `items` as `take` says, and with elements
  * `size` bytes each, reserves as std's does for a `trusted`, `TrustedLen`, iterator or any
  * other.

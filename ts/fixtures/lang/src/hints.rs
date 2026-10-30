@@ -175,13 +175,16 @@ pub fn hints(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			few.peek();
 			put(out, few.size_hint());
 		}
-		// Flattens of arrays, whose length counts, of iterators that may hold any number,
-		// and of ones that hold at most one, which std's hint specializes on.
-		12 => match arm % 5 {
+		// Flattens of arrays, whose length counts, empty ones too, of iterators that may
+		// hold any number, and of ones that hold at most one, which std's hint specializes on.
+		12 => match arm % 7 {
 			0 => walk((0..n).map(|i| [i; 3]).flatten(), steps, out),
 			1 => walk((0..n).flat_map(|i| [i]), steps, out),
 			2 => walk(bytes.chunks(2).flatten(), steps, out),
 			3 => walk((0..n.min(9)).map(|i| 0..i).flatten(), steps, out),
+			// Reading one reads every empty array, so only a few, and the hint alone of more.
+			5 => walk((0..n.min(9)).map(|_| [0u8; 0]).flatten(), steps, out),
+			6 => put(out, (0..n).flat_map(|i| [i; 0]).size_hint()),
 			_ => walk((0..n).flat_map(|i| [[i; 2]; 2].into_iter().flatten()), steps, out),
 		},
 		13 => match arm % 6 {
@@ -208,7 +211,9 @@ pub fn hints(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			4 => walk(std::iter::once(n), steps, out),
 			_ => walk(std::iter::empty::<u8>(), steps, out),
 		},
-		15 => match arm % 5 {
+		// `from_fn`'s of a closure that captures something, and of one that captures nothing.
+		15 => match arm % 6 {
+			5 => walk_front(std::iter::from_fn(|| None::<u8>), steps, out),
 			0 => walk_front(std::iter::successors(Some(n % 4), |&i| i.checked_sub(1)), steps, out),
 			1 => walk_front(std::iter::successors(None::<u8>, |&i| Some(i)), steps, out),
 			2 => walk_front(Countdown(n as u8), steps, out),
@@ -333,7 +338,7 @@ const COLLECTIONS: u8 = 13;
 /// a `TrustedLen` iterator, and after the first of another, which it reserves for again
 /// whenever it fills.
 pub fn reserves(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind / COLLECTIONS % 5 {
+	match kind / COLLECTIONS % 6 {
 		0 => typed(
 			kind,
 			data,
@@ -382,6 +387,19 @@ pub fn reserves(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			},
 			out,
 		),
+		// Zero-sized, of which a `Vec` holds `usize::MAX`.
+		5 => typed(
+			kind,
+			data,
+			|_| Unit,
+			Most {
+				vec: 0xffff_ffff,
+				pairs: 0x1fff_ffff,
+				set: 0x1fff_ffff,
+				map: 0x0e00_0000,
+			},
+			out,
+		),
 		_ => typed(
 			kind,
 			data,
@@ -400,6 +418,10 @@ pub fn reserves(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 /// Over 1024 bytes, which a `Vec` grows by as few as one of.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct Big([u32; 275]);
+
+/// Zero-sized, whose derived `clone` assigns nothing.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct Unit;
 
 /// `reserves` of elements `make` makes.
 fn typed<T: Ord + Hash + Clone, F: Fn(u32) -> T>(kind: u8, data: &[u8], make: F, most: Most, out: &mut Vec<u8>) {

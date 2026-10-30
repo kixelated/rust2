@@ -1342,7 +1342,7 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const _57: rt.Iter<rt.u8> = rt.iterOption(first);
 	rt.iterEmpty();
-	rt.iterExtendBytes(out, rt.iterChain(_57, rt.iterEmpty()), undefined, true);
+	rt.iterExtendBytes(out, rt.iterChain(_57, rt.iterEmpty() as rt.Iter<rt.u8>), undefined, true);
 	let n: rt.u8 = 0;
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterFromFn((): rt.u8 | undefined => {
 		n = rt.u8Add(n, 1);
@@ -1354,7 +1354,7 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 		k = rt.u8Add(k, 1);
 		return thenSome$0d5am30(k !== 2, k);
 	});
-	const gappy: rt.Iter<rt.u8> = rt.iterChain(rt.iterEmpty(), _70);
+	const gappy: rt.Iter<rt.u8> = rt.iterChain(rt.iterEmpty() as rt.Iter<rt.u8>, _70);
 	rt.byteVecPush(out, rt.iterCount(rt.iterBorrow(gappy)) & 0xff);
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterToOption(gappy.next()), 238));
 	const calls: rt.ByteVec = new rt.ByteVec();
