@@ -653,7 +653,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured21[Symbol.dispose]();
 	});
-	const part9 = map$Option_Guard_u32_folded_closure5_closure0(rt.dropAfter(_441, () => rt.iterMaxByKey(_435, _441, rt.cmpLt(rt.cmp), undefined, rt.drop)), (g18: Guard.Guard): rt.u32 => {
+	const part9 = map$Option_Guard_u32_folded_closure5_closure0(rt.dropAfter(_441, () => rt.iterMaxByKey(_435, _441, rt.lt, undefined, rt.drop)), (g18: Guard.Guard): rt.u32 => {
 		const _028: rt.u32 = Guard.id(g18);
 		g18[Symbol.dispose]();
 		return _028;

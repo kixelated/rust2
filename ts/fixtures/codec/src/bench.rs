@@ -4,10 +4,11 @@
 //! decode's input. Op 6 runs iterator chains over its bytes instead, as moq-net's model
 //! writes them, op 7 decodes frame headers as they arrive a few bytes at a time, op 8
 //! keeps a `BTreeMap`, as moq-net's model keeps its state, op 9 converts timestamps
-//! between timescales, and ops 10 and 11 add and order them as moq-net's `Timestamp` does.
+//! between timescales, ops 10 and 11 add and order them as moq-net's `Timestamp` does, and
+//! op 12 orders integers by std's own `Ord`.
 
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BinaryHeap};
 
 use crate::coding::{Decode, DecodeError, Decoder, Encode, EncodeError, Encoder, Form, varint};
 use crate::harness::{decode_error, encode_error, form, lite_version, put_u64, put_usize, take_u64};
@@ -35,6 +36,7 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 		9 => rescale(selector, data, &mut out),
 		10 => stamp(data, &mut out),
 		11 => interleave(data, &mut out),
+		12 => order(selector, data, &mut out),
 		_ => decoded(decode_group(data, lite_version(selector), &mut out), &mut out),
 	}
 	out
@@ -205,6 +207,36 @@ fn ordered(data: &[u8], out: &mut Vec<u8>) {
 		map.remove(&key(i));
 	}
 	put_u64(out, sum);
+}
+
+/// `count` integers sorted, sorted by a key, searched for the greatest and least, or
+/// pushed onto a `BinaryHeap` and popped off, as `selector` picks, each by `u32`'s own
+/// `Ord`: the first, middle, and last of the order, or the greatest and least.
+fn order(selector: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (count, _) = take_u64(data);
+	let count = count.clamp(1, 1 << 16) as u32;
+	let mut v: Vec<u32> = (0..count).map(|i| (i * 40503) % (1 << 16)).collect();
+	match selector {
+		0 => v.sort(),
+		1 => v.sort_by_key(|&x| x % 1024),
+		2 => v = vec![*v.iter().max().unwrap(), *v.iter().min().unwrap()],
+		3 => {
+			let (hi, lo) = v.iter().fold((0, u32::MAX), |(hi, lo), &x| (hi.max(x), lo.min(x)));
+			v = vec![hi, lo];
+		}
+		_ => {
+			let mut heap = BinaryHeap::new();
+			for x in std::mem::take(&mut v) {
+				heap.push(x);
+			}
+			while let Some(x) = heap.pop() {
+				v.push(x);
+			}
+		}
+	}
+	for x in [v[0], v[v.len() / 2], v[v.len() - 1]] {
+		put_u64(out, x as u64);
+	}
 }
 
 /// One iterator chain over every byte, picked by `chain`, with closures that cost little

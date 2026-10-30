@@ -157,7 +157,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	v9.push(_303);
 	const best: Guard.Guard | undefined = rt.iterMaxByKey(rt.iterSlice(v9, rt.drop), (g9: Guard.Guard): rt.u32 => {
 		return rt.u32Rem(Guard.id(g9), 2);
-	}, rt.cmpLt(rt.cmp), true, rt.drop);
+	}, rt.lt, true, rt.drop);
 	const v10: Array<Guard.Guard | undefined> = [];
 	const _314: Guard.Guard | undefined = guard(30);
 	v10.push(_314);

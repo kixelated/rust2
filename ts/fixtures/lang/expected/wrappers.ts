@@ -324,7 +324,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		putU64(out, unwrapOr$Option_NonZero_u64(rt.iterLast(rt.iterBorrow(last)), 238));
 		bounds$RangeInclusive_u64(out, last);
 		const most: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		putU64(out, unwrapOr$Option_NonZero_u64(rt.iterMax(rt.iterBorrow(most), rt.cmpLt(rt.cmp)), 238));
+		putU64(out, unwrapOr$Option_NonZero_u64(rt.iterMax(rt.iterBorrow(most), rt.lt), 238));
 		bounds$RangeInclusive_u64(out, most);
 		const collected: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		rt.byteVecPush(out, rt.iterToArray(rt.iterBorrow(collected)).length & 0xff);

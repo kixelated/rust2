@@ -111,9 +111,9 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 
 /// Why a body of std's can't lower as the crate's do, if it can't. The crate's analysis of
 /// what it writes into reads only its own bodies, so one must change nothing in place: no
-/// assignment through a projection or a reference, and no mutable borrow or pointer. And
-/// core's plain integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is
-/// checked.
+/// assignment through a projection or a reference, and no mutable borrow or pointer but of
+/// a function to call it, as `FnMut` is, whose writes are its own body's. And core's plain
+/// integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is checked.
 fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'static str> {
 	const WRITE: &str = "a change in place, which a body of std's is not supported to make";
 	const WRAP: &str = "arithmetic that wraps, which a body of std's is not supported to do";
@@ -122,6 +122,12 @@ fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'stat
 			match &stmt.kind {
 				StatementKind::Assign(assign) if !assign.0.projection.is_empty() => return Some(WRITE),
 				StatementKind::Assign(assign) => match &assign.1 {
+					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, place)
+						if place.projection.is_empty()
+							&& matches!(
+								body.local_decls[place.local].ty.kind(),
+								ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..)
+							) => {}
 					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, _) | Rvalue::RawPtr(mir::RawPtrKind::Mut, _) => {
 						return Some(WRITE);
 					}

@@ -724,3 +724,13 @@ impl bytes::Buf for Blank {
 pub fn blank_bytes(len: usize) -> usize {
 	bytes::Buf::copy_to_bytes(&mut Blank::Empty, len).len()
 }
+
+/// A heap's `pop` of an item that can be `undefined`: its `None` and `Some(None)` would both be.
+pub fn heap_optional(heap: &mut std::collections::BinaryHeap<Option<u8>>) -> bool {
+	heap.pop().is_some()
+}
+
+/// The places `iter_mut` lends, which the runtime would compare as the objects they are.
+pub fn places_sorted(v: &mut [u8]) -> bool {
+	v.iter_mut().is_sorted()
+}

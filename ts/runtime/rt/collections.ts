@@ -2015,3 +2015,257 @@ export function dequeClone<T>(q: VecDeque<T>, item: (value: T) => T = itself): V
 	for (let i = 0; i < q.n; i++) dequePushBack(out, item(q.b[at(q, i)] as T));
 	return out;
 }
+
+// `BinaryHeap`: std's max-heap in an array, sifted as std's sifts it, so equal elements
+// leave in std's order and each comparison std makes runs. Every function that sifts is
+// given the elements' `PartialOrd` tests std's sifts make: `le` up, and `le`, `ge`, and
+// `lt` down.
+
+/** A `PartialOrd` test. */
+type Test<T> = (a: T, b: T) => boolean;
+
+/** `BinaryHeap<T>`: its elements in `d`, in std's order. */
+export interface BinaryHeap<T> {
+	d: T[];
+}
+
+/** `BinaryHeap::new`, `with_capacity`, and `default`. */
+export function heapNew<T>(): BinaryHeap<T> {
+	return { d: [] };
+}
+
+/** `From<Vec<T>>`: the vector's elements, rebuilt into a heap in place, as std's are. */
+export function heapFrom<T>(d: T[], le: Test<T>, ge: Test<T>, lt: Test<T>): BinaryHeap<T> {
+	rebuild(d, le, ge, lt);
+	return { d };
+}
+
+/** `push`: `item` sifted up from the end. */
+export function heapPush<T>(h: BinaryHeap<T>, item: T, le: Test<T>): void {
+	h.d.push(item);
+	siftUp(h.d, 0, h.d.length - 1, le);
+}
+
+/** `pop`: the greatest element, or `undefined` if empty, the last element sifted into its place to the bottom and back up. */
+export function heapPop<T>(h: BinaryHeap<T>, le: Test<T>): T | undefined {
+	const d = h.d;
+	if (d.length === 0) return undefined;
+	let item = d.pop() as T;
+	if (d.length > 0) {
+		[item, d[0]] = [d[0], item];
+		siftDownToBottom(d, 0, le);
+	}
+	return item;
+}
+
+/** `into_sorted_vec`: the elements in ascending order, each greatest swapped to the end and the rest sifted. */
+export function heapIntoSortedVec<T>(h: BinaryHeap<T>, le: Test<T>, ge: Test<T>, lt: Test<T>): T[] {
+	const d = h.d;
+	for (let end = d.length - 1; end > 0; end--) {
+		[d[0], d[end]] = [d[end], d[0]];
+		siftDownRange(d, 0, end, le, ge, lt);
+	}
+	return d;
+}
+
+/** `append`: `other`'s elements added to the larger of the two, which `h` then holds, and `other` left empty. */
+export function heapAppend<T>(h: BinaryHeap<T>, other: BinaryHeap<T>, le: Test<T>, ge: Test<T>, lt: Test<T>): void {
+	if (h.d.length < other.d.length) [h.d, other.d] = [other.d, h.d];
+	const start = h.d.length;
+	for (const item of other.d) h.d.push(item);
+	other.d = [];
+	rebuildTail(h.d, start, le, ge, lt);
+}
+
+/** `extend`, taking `items` as `take` says, and then the heap rebuilt past what it held. */
+export function heapExtend<T>(h: BinaryHeap<T>, items: Iter<T>, le: Test<T>, ge: Test<T>, lt: Test<T>, take?: Take): BinaryHeap<T> {
+	const start = h.d.length;
+	extending(h, items, (item) => h.d.push(item), take);
+	rebuildTail(h.d, start, le, ge, lt);
+	return h;
+}
+
+/**
+ * `retain`: the elements `f` keeps, in order, each other dropped by `drop` as `f` rejects
+ * it, and then the heap rebuilt from the first it rejected.
+ */
+export function heapRetain<T>(h: BinaryHeap<T>, f: (item: T) => boolean, le: Test<T>, ge: Test<T>, lt: Test<T>, drop?: (item: T) => void): void {
+	const d = h.d;
+	const n = d.length;
+	let from = n;
+	let kept = 0;
+	for (let i = 0; i < n; i++) {
+		const item = d[i];
+		if (f(item)) d[kept++] = item;
+		else {
+			if (from === n) from = i;
+			drop?.(item);
+		}
+	}
+	d.length = kept;
+	rebuildTail(d, from, le, ge, lt);
+}
+
+/** `clear`, which leaves the heap empty and then drops each element in order. */
+export function heapClear<T>(h: BinaryHeap<T>, drop?: (item: T) => void): void {
+	const d = h.d;
+	h.d = [];
+	dropAll(d, drop);
+}
+
+/** `drain`: an iterator of the elements in order, which leaves the heap empty and drops those it still holds by `drop`. */
+export function heapDrain<T>(h: BinaryHeap<T>, drop?: (item: T) => void): Iter<T> {
+	const d = h.d;
+	h.d = [];
+	return iterSlice(d, drop);
+}
+
+/** `iter` and `into_iter`: the elements in order, any not read dropped by `drop` as the iterator drops. */
+export function heapIter<T>(h: BinaryHeap<T>, drop?: (item: T) => void): Iter<T> {
+	return iterSlice(h.d, drop);
+}
+
+/** The heap's drop: each element in order. */
+export function heapDrop<T>(h: BinaryHeap<T>, drop: (item: T) => void): void {
+	dropAll(h.d, drop);
+}
+
+/** `clone`, with each element through its `Clone`, or as itself without one. */
+export function heapClone<T>(h: BinaryHeap<T>, item: (value: T) => T = itself): BinaryHeap<T> {
+	return { d: h.d.map((value) => item(value)) };
+}
+
+/**
+ * `PeekMut`, the greatest element lent: a place, which writes it, of a heap with at least
+ * one. Once `DerefMut` lends it of a heap of more, its drop sifts it down.
+ */
+export class PeekMut<T> implements Place<T> {
+	readonly h: BinaryHeap<T>;
+	readonly le: Test<T>;
+	readonly ge: Test<T>;
+	readonly lt: Test<T>;
+	/** The heap's elements `DerefMut` hid behind a heap of the top alone, as std's `set_len(1)` does, so a forgotten guard leaks them as std's does. */
+	t: T[] | undefined;
+
+	constructor(h: BinaryHeap<T>, le: Test<T>, ge: Test<T>, lt: Test<T>) {
+		this.h = h;
+		this.le = le;
+		this.ge = ge;
+		this.lt = lt;
+	}
+
+	get v(): T {
+		return this.h.d[0];
+	}
+
+	set v(value: T) {
+		this.h.d[0] = value;
+	}
+}
+
+/** `peek_mut`: the greatest element lent, or `undefined` if empty. */
+export function heapPeekMut<T>(h: BinaryHeap<T>, le: Test<T>, ge: Test<T>, lt: Test<T>): PeekMut<T> | undefined {
+	return h.d.length === 0 ? undefined : new PeekMut(h, le, ge, lt);
+}
+
+/** `PeekMut`'s `DerefMut`, which hides the rest of a heap of more than the one element until the guard drops. */
+export function peekMutDerefMut<T>(p: PeekMut<T>): void {
+	const d = p.h.d;
+	if (d.length > 1) {
+		p.t = d;
+		p.h.d = [d[0]];
+	}
+}
+
+/** The elements `DerefMut` hid back in the heap, with the top as written; whether there were any. */
+function peekMutRestore<T>(p: PeekMut<T>): boolean {
+	const t = p.t;
+	if (t === undefined) return false;
+	t[0] = p.h.d[0];
+	p.h.d = t;
+	p.t = undefined;
+	return true;
+}
+
+/** `PeekMut`'s drop: the element sifted down from the top, if `DerefMut` lent it. */
+export function peekMutDrop<T>(p: PeekMut<T>): void {
+	if (peekMutRestore(p)) siftDownRange(p.h.d, 0, p.h.d.length, p.le, p.ge, p.lt);
+}
+
+/** `PeekMut::pop`: the heap's `pop`, which leaves the drop nothing to sift. */
+export function peekMutPop<T>(p: PeekMut<T>): T {
+	peekMutRestore(p);
+	return heapPop(p.h, p.le) as T;
+}
+
+/** std's `sift_up`: the element at `pos` moved up past each parent it is not `le`, but not above `start`. */
+function siftUp<T>(d: T[], start: number, pos: number, le: Test<T>): number {
+	const item = d[pos];
+	while (pos > start) {
+		const parent = (pos - 1) >>> 1;
+		if (le(item, d[parent])) break;
+		d[pos] = d[parent];
+		pos = parent;
+	}
+	d[pos] = item;
+	return pos;
+}
+
+/** std's `sift_down_range`: the element at `pos` moved down past each greater child, within the first `end`. */
+function siftDownRange<T>(d: T[], pos: number, end: number, le: Test<T>, ge: Test<T>, lt: Test<T>): number {
+	const item = d[pos];
+	let child = 2 * pos + 1;
+	while (child <= Math.max(end - 2, 0)) {
+		if (le(d[child], d[child + 1])) child++;
+		if (ge(item, d[child])) {
+			d[pos] = item;
+			return pos;
+		}
+		d[pos] = d[child];
+		pos = child;
+		child = 2 * pos + 1;
+	}
+	if (child === end - 1 && lt(item, d[child])) {
+		d[pos] = d[child];
+		pos = child;
+	}
+	d[pos] = item;
+	return pos;
+}
+
+/** std's `sift_down_to_bottom`: the element at `pos` moved down to a leaf past the greater child at each level, then sifted up. */
+function siftDownToBottom<T>(d: T[], pos: number, le: Test<T>): void {
+	const end = d.length;
+	const start = pos;
+	const item = d[pos];
+	let child = 2 * pos + 1;
+	while (child <= Math.max(end - 2, 0)) {
+		if (le(d[child], d[child + 1])) child++;
+		d[pos] = d[child];
+		pos = child;
+		child = 2 * pos + 1;
+	}
+	if (child === end - 1) {
+		d[pos] = d[child];
+		pos = child;
+	}
+	d[pos] = item;
+	siftUp(d, start, pos, le);
+}
+
+/** std's `rebuild_tail`: the elements from `start` on added to the heap before them, by a rebuild or by sifting each up, as std's estimate picks. */
+function rebuildTail<T>(d: T[], start: number, le: Test<T>, ge: Test<T>, lt: Test<T>): void {
+	if (start === d.length) return;
+	const tail = d.length - start;
+	const better = start < tail || (d.length <= 2048 ? 2 * d.length < tail * (31 - Math.clz32(start)) : 2 * d.length < tail * 11);
+	if (better) rebuild(d, le, ge, lt);
+	else for (let i = start; i < d.length; i++) siftUp(d, 0, i, le);
+}
+
+/** std's `rebuild`: each parent sifted down, the last first. */
+function rebuild<T>(d: T[], le: Test<T>, ge: Test<T>, lt: Test<T>): void {
+	for (let n = d.length >>> 1; n > 0; ) {
+		n--;
+		siftDownRange(d, n, d.length, le, ge, lt);
+	}
+}
