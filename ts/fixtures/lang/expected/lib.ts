@@ -4,7 +4,10 @@ import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as Any from "./core/any.Any.ts";
 import type * as ArcReleasing from "./counts.ArcReleasing.ts";
+import type * as ArcShared from "./counts.ArcShared.ts";
+import type * as Noisy from "./counts.Noisy.ts";
 import type * as RcReleasing from "./counts.RcReleasing.ts";
+import type * as RcShared from "./counts.RcShared.ts";
 import type * as Window from "./durations.Window.ts";
 import type * as Clip from "./fmt.Clip.ts";
 import type * as Pair from "./fmt.Pair.ts";
@@ -396,6 +399,30 @@ export function drop$TryLockError_RwLockWriteGuard_Tally(_1: rt.TryLockError<rt.
 	if (_1.tag === "Poisoned") {
 		rt.refMutRelease((_1 as { tag: "Poisoned"; _0: rt.RefCell<locks_Tally.Tally> })._0);
 	}
+}
+
+export function drop$Vec_Arc_Noisy(value: rt.Arc<Noisy.Noisy>[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$Vec_Arc_Noisy_Vec_Arc_Noisy_Vec_ArcShared_Vec_Noisy_Vec_Vec_Arc_Noisy(_1: [rt.Arc<Noisy.Noisy>[], rt.Arc<Noisy.Noisy>[], ArcShared.ArcShared[], Noisy.Noisy[], rt.Arc<Noisy.Noisy>[][]]): void {
+	rt.dropAll(_1[0]);
+	rt.dropAll(_1[1]);
+	rt.dropAll(_1[2]);
+	rt.dropAll(_1[3]);
+	rt.dropAll(_1[4], drop$Vec_Arc_Noisy);
+}
+
+export function drop$Vec_Rc_Noisy(value: rt.Arc<Noisy.Noisy>[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$Vec_Rc_Noisy_Vec_Rc_Noisy_Vec_RcShared_Vec_Noisy_Vec_Vec_Rc_Noisy(_1: [rt.Arc<Noisy.Noisy>[], rt.Arc<Noisy.Noisy>[], RcShared.RcShared[], Noisy.Noisy[], rt.Arc<Noisy.Noisy>[][]]): void {
+	rt.dropAll(_1[0]);
+	rt.dropAll(_1[1]);
+	rt.dropAll(_1[2]);
+	rt.dropAll(_1[3]);
+	rt.dropAll(_1[4], drop$Vec_Rc_Noisy);
 }
 
 export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {

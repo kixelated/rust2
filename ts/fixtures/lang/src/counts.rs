@@ -1,9 +1,10 @@
 //! Strong and weak counts of `Arc`s and `Rc`s and their `Weak`s, through every way one is
 //! made and dropped: cloned, downgraded, upgraded, made dangling, made holding handles to
 //! itself, and held in a `Vec`, an `Option`, a struct, and a closure, of a value and of a
-//! trait object; and the values `get_mut` and `make_mut` write, alone or shared.
+//! trait object; the values `get_mut` and `make_mut` write, alone or shared; and the
+//! clones `Option`'s and an iterator's `cloned` make, through each type's `Clone`.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::{self, Rc};
 use std::sync::{self, Arc, Mutex};
 
@@ -48,7 +49,18 @@ impl Id for Noisy {
 }
 
 macro_rules! counts {
-	($name:ident, $holder:ident, $cyclic:ident, $node:ident, $unique:ident, $releasing:ident, $Ptr:ident, $weak:ident) => {
+	(
+		$name:ident,
+		$holder:ident,
+		$cyclic:ident,
+		$node:ident,
+		$unique:ident,
+		$releasing:ident,
+		$cloned:ident,
+		$shared:ident,
+		$Ptr:ident,
+		$weak:ident
+	) => {
 		/// Holds a handle that doesn't keep its value.
 		struct $holder<T> {
 			weak: $weak::Weak<T>,
@@ -359,6 +371,102 @@ macro_rules! counts {
 			drop(first);
 			out.extend_from_slice(&log.borrow());
 		}
+
+		/// Holds a handle, and clones it with a derived `Clone`.
+		#[derive(Clone)]
+		struct $shared {
+			noisy: $Ptr<Noisy>,
+			tag: u8,
+		}
+
+		/// Each byte clones what `Option`'s or an iterator's `cloned` lends, the rest of it
+		/// the one it picks: a handle, through `&` and `&mut`, a struct holding one, a
+		/// `Noisy` whose own `Clone` runs, or a `Vec` of handles. Each clone is kept or
+		/// dropped, and each byte puts the picked handle's count and what dropped.
+		pub fn $cloned(data: &[u8], out: &mut Vec<u8>) {
+			let log = Arc::new(Mutex::new(Vec::new()));
+			let mut handles: Vec<$Ptr<Noisy>> = (0..3)
+				.map(|id| {
+					$Ptr::new(Noisy {
+						id: id * 0x10,
+						log: log.clone(),
+					})
+				})
+				.collect();
+			let mut kept: Vec<$Ptr<Noisy>> = Vec::new();
+			let mut shared: Vec<$shared> = Vec::new();
+			let mut noisy: Vec<Noisy> = Vec::new();
+			let mut lists: Vec<Vec<$Ptr<Noisy>>> = Vec::new();
+			for &op in data {
+				let pick = usize::from(op >> 4);
+				let handle = &handles[pick % handles.len()];
+				let keep = op & 0x08 != 0;
+				match op % 8 {
+					0 => {
+						let again = handles.get(pick % 4).cloned();
+						out.push(again.as_ref().map_or(0xfd, |h| h.id));
+						kept.extend(again.filter(|_| keep));
+					}
+					1 => {
+						let len = handles.len();
+						let again = handles.get_mut(pick % len).cloned();
+						kept.extend(again.filter(|_| keep));
+					}
+					2 => {
+						let made = $shared {
+							noisy: handle.clone(),
+							tag: op,
+						};
+						let one = [made].first().cloned();
+						out.push(one.as_ref().map_or(0xfd, |s| s.tag ^ s.noisy.id));
+						shared.extend(one.filter(|_| keep));
+					}
+					3 => {
+						let made = Noisy {
+							id: op,
+							log: log.clone(),
+						};
+						let one = Some(&made).cloned();
+						out.push(one.as_ref().map_or(0xfd, |n| n.id));
+						noisy.extend(one.filter(|_| keep));
+					}
+					4 => {
+						let all: Vec<$Ptr<Noisy>> = handles.iter().cloned().collect();
+						out.push($Ptr::strong_count(handle) as u8);
+						if keep {
+							lists.push(all);
+						}
+					}
+					5 => {
+						let again: Vec<$shared> = shared.iter().cloned().collect();
+						let ids: Vec<Noisy> = noisy.iter().cloned().collect();
+						out.extend(ids.iter().map(|n| n.id));
+						if keep {
+							shared.extend(again);
+						}
+					}
+					6 => {
+						let list = lists.first().cloned();
+						out.push(list.as_ref().map_or(0xfd, |l| l.len() as u8));
+						lists.extend(list.filter(|_| keep));
+					}
+					// Drop the oldest of what is kept, or a handle itself.
+					_ => match op >> 6 {
+						0 if !kept.is_empty() => drop(kept.remove(0)),
+						1 if !shared.is_empty() => drop(shared.remove(0)),
+						2 if !noisy.is_empty() => drop(noisy.remove(0)),
+						3 if handles.len() > 1 => drop(handles.remove(pick % handles.len())),
+						_ => drop(lists.pop()),
+					},
+				}
+				let handle = &handles[pick % handles.len()];
+				out.push($Ptr::strong_count(handle) as u8);
+				flush(&log, out);
+			}
+			out.extend(handles.iter().map(|h| $Ptr::strong_count(h) as u8));
+			drop((handles, kept, shared, noisy, lists));
+			flush(&log, out);
+		}
 	};
 }
 
@@ -369,7 +477,89 @@ counts!(
 	ArcNode,
 	unique_arcs,
 	ArcReleasing,
+	cloned_arcs,
+	ArcShared,
 	Arc,
 	sync
 );
-counts!(rcs, RcHolder, cyclic_rcs, RcNode, unique_rcs, RcReleasing, Rc, rc);
+counts!(
+	rcs,
+	RcHolder,
+	cyclic_rcs,
+	RcNode,
+	unique_rcs,
+	RcReleasing,
+	cloned_rcs,
+	RcShared,
+	Rc,
+	rc
+);
+
+/// A `Copy` value whose `Clone`, written by hand, counts each clone.
+#[derive(Copy)]
+struct Counted<'a> {
+	id: u8,
+	clones: &'a Cell<u8>,
+}
+
+impl Clone for Counted<'_> {
+	fn clone(&self) -> Self {
+		self.clones.set(self.clones.get().wrapping_add(1));
+		Counted {
+			id: self.id.wrapping_add(1),
+			clones: self.clones,
+		}
+	}
+}
+
+/// A `Copy` value with a derived `Clone`.
+#[derive(Clone, Copy)]
+struct Twin(u8, u8);
+
+/// Each byte copies or clones, through `Option` and an iterator, a byte, a `Twin`, and a
+/// `Counted`, and through `Option<&mut>` a byte and an `Option`; each puts what it made
+/// and how many clones `Counted` counted.
+pub fn copies(data: &[u8], out: &mut Vec<u8>) {
+	let clones = Cell::new(0);
+	let counted: Vec<Counted<'_>> = data.iter().map(|&id| Counted { id, clones: &clones }).collect();
+	let twins: Vec<Twin> = data.iter().map(|&b| Twin(b, !b)).collect();
+	let mut bytes = data.to_vec();
+	let mut maybes: Vec<Option<u8>> = data.iter().map(|&b| (b % 3 != 0).then_some(b)).collect();
+	for (i, &op) in data.iter().enumerate() {
+		let pick = usize::from(op >> 3) % data.len();
+		match op % 8 {
+			6 => {
+				let byte = bytes.get_mut(pick).cloned();
+				out.push(bytes.get_mut(i + pick).copied().or(byte).unwrap_or(0xfd));
+				if let Some(b) = bytes.get_mut(i) {
+					*b ^= op;
+				}
+			}
+			7 => {
+				let maybe = maybes.get_mut(pick).copied();
+				out.push(maybe.map_or(0xfd, |m| m.unwrap_or(0xfc)));
+				let again = maybes.get_mut(i + pick).cloned();
+				out.push(again.map_or(0xfd, |m| m.unwrap_or(0xfc)));
+				if let Some(m) = maybes.get_mut(pick) {
+					*m = m.map_or(Some(op), |_| None);
+				}
+			}
+			0 => {
+				out.push(data.get(pick).cloned().unwrap_or(0xfd));
+				out.push(data.get(i).copied().unwrap_or(0xfd));
+			}
+			1 => {
+				let twin = twins.get(pick).cloned().unwrap_or(Twin(0, 0));
+				out.extend([twin.0, twin.1]);
+			}
+			2 => out.push(counted.get(pick).cloned().map_or(0xfd, |c| c.id)),
+			3 => out.push(counted.get(pick).copied().map_or(0xfd, |c| c.id)),
+			4 => out.extend(counted.iter().cloned().map(|c| c.id)),
+			_ => {
+				out.extend(counted.iter().copied().map(|c| c.id));
+				out.extend(twins.iter().cloned().map(|t| t.0 ^ t.1));
+			}
+		}
+		out.push(clones.get());
+	}
+}
