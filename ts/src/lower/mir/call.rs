@@ -168,6 +168,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if let Some((owner, name)) = library::key(tcx, def_id) {
 			let handled = match (owner.as_str(), name.as_str()) {
 				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
+				// The runtime compares bytes in whichever form it is given them.
+				("PartialOrd" | "Ord", _) => true,
 				("slice", "iter" | "iter_mut") => true,
 				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
 				_ => false,

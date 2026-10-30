@@ -8,7 +8,8 @@
 //! `undefined`, atomics, `static` ones included, trait objects, one-time cells, mutexes,
 //! `Cell`s, `RefCell`s, read-write locks, and thread-locals, the defaults of std types,
 //! the counts of shared pointers, arrays `array::from_fn` makes, maps of `Option`s, and
-//! values held back past a write of a variable they name.
+//! values held back past a write of a variable they name, slices' `windows` and
+//! `chunks`, `Vec::drain`, and the order of bytes.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -44,6 +45,7 @@ mod orders;
 mod pointers;
 mod refs;
 mod shapes;
+mod slices;
 mod splits;
 mod statics;
 mod strs;

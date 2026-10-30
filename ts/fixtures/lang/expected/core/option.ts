@@ -26,6 +26,8 @@ import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
 import type * as Point from "../shapes.Point.ts";
 import type * as shapes_Shape from "../shapes.Shape.ts";
+import { digest, digestWords } from "../slices.ts";
+import type * as slices_Item from "../slices.Item.ts";
 import type * as Short from "../splits.Short.ts";
 
 export function isSomeAnd$Option_u8_bools_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
@@ -231,6 +233,13 @@ export function map$Option_Hop_u64_u64_options_closure0(self: Hop.Hop | undefine
 	return f(self);
 }
 
+export function map$Option_Item_u8_drains_closure10(self: slices_Item.Item | undefined, f: (a0: slices_Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$Option_Named_Nameds_from_ref(self: Named.Named | undefined, _: (a0: Named.Named) => Named.Named[]): Named.Named[] | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -257,6 +266,20 @@ export function map$Option_str_Cow_str_Borrowed(self: string | undefined, _: (a0
 		return undefined;
 	}
 	return self;
+}
+
+export function map$Option_u16s_u8_digest_words(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return digestWords(self);
+}
+
+export function map$Option_u32_u8_drains_closure5(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$Option_u8_Option_u8_made_closure1_closure0(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
@@ -309,6 +332,20 @@ export function map$Option_u8_u8_u8_elements_closure9(self: rt.u8 | undefined, f
 }
 
 export function map$Option_u8_u8_u8_u8_lent_closure2(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$Option_u8s_u8_digest(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return digest(self);
+}
+
+export function map$Option_u8s_u8_parts_closure1(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -610,6 +647,13 @@ export function mapOr$Option_u8_usize_iters_closure1(self: rt.u8 | undefined, de
 }
 
 export function mapOr$Option_u8s_u8_skips_closure44(self: Uint8Array | undefined, default_: rt.u8, f: (a0: Uint8Array) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_u8s_u8s_bytes_closure1(self: rt.ByteSlice | undefined, default_: Uint8Array, f: (a0: rt.ByteSlice) => Uint8Array): Uint8Array {
 	if (self === undefined) {
 		return default_;
 	}

@@ -4,7 +4,7 @@
 use crate::{
 	arrays, atomics, borrows, captures, cells, chars, chunks, collections, combinators, counts, cows, defaults,
 	durations, dyns, edits, floats, fmt, generics, holds, ints, iters, keys, locals, locks, nested, objects, orders,
-	pointers, refs, shapes, splits, statics, strs, utf8, wrappers,
+	pointers, refs, shapes, slices, splits, statics, strs, utf8, wrappers,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -119,6 +119,9 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("fmt::wrapped", |_, data, out| fmt::wrapped(data, out)),
 		("refs::to_refs", |_, data, out| refs::to_refs(data, out)),
 		("orders::orders", orders::orders),
+		("orders::bytes", |_, data, out| orders::bytes(data, out)),
+		("slices::parts", slices::parts),
+		("slices::drains", slices::drains),
 	]
 }
 

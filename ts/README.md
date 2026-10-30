@@ -241,8 +241,9 @@ A collection keeps Rust's key semantics. A hash map or set keeps a key that is a
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
 `Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
-`Option` orders `None` first, and an `Arc` compares, orders, and hashes as what it holds,
-so a map of `Arc<str>` finds a `&str`. A `&mut` to a value a map holds that JS copies,
+`Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
+so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
+bytes and then their length. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, as it does
@@ -263,7 +264,9 @@ drop it where std's do. So do iterators: one that owns its items, as a `Vec`'s `
 map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
 what it skips or rejects, and a consumer that takes an iterator by value drops it:
 through each `rt.Iter`'s own `fold` where std's folds, which drops each adaptor's closure
-as its fold ends, before what it wraps, as std's does.
+as its fold ends, before what it wraps, as std's does. A `Vec`'s `drain` leaves the vector
+what precedes its range until it drops, then drops what it still holds and moves the tail
+back, so one never dropped, as `mem::forget` leaves it, leaks the rest, as std's does.
 
 A trait object of the crate's own trait, or a dependency's, behind `&`, `&mut`, `Box`, or `Arc`, is an object with
 a method for each function a call can dispatch to, its supertraits' included, named for
@@ -532,11 +535,12 @@ they need.
 - A `BinaryHeap` is std's heap in an array, with std's sifts ported to the runtime: std's
   move elements through raw pointers into its `Vec`, which no body of std's lowers
   through, and the sifts decide which `PartialOrd` tests run and which of equal elements
-  leaves first. The sorts, `max` and `min`, the heap, and `is_sorted` take an integer's
-  tests as the runtime's `rt.lt`, `rt.le`, `rt.gt`, and `rt.ge` rather than through its
-  `partial_cmp`, `rt.cmpLt(rt.cmp)`: on `just ts bench`'s `order/` workloads that took
-  Firefox 0.8-0.86x the time on sorts and `max`/`min` and Chrome 0.66x on the heap, and
-  Chrome the same on the rest.
+  leaves first. `Vec::drain` is ported for the same reason: std's reads its range out
+  and moves the tail back through raw pointers. The sorts, `max` and `min`, the heap,
+  and `is_sorted` take an integer's tests as the runtime's `rt.lt`, `rt.le`, `rt.gt`,
+  and `rt.ge` rather than through its `partial_cmp`, `rt.cmpLt(rt.cmp)`: on `just ts
+  bench`'s `order/` workloads that took Firefox 0.8-0.86x the time on sorts and
+  `max`/`min` and Chrome 0.66x on the heap, and Chrome the same on the rest.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors would lower from std's own bodies, whose slice iterators are
   raw pointers, ES helpers lack most of them
