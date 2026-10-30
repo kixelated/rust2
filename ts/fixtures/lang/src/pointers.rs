@@ -645,7 +645,12 @@ fn cell_written_in_place(n: u8) -> [u8; 4] {
 	let old = renew_num(&mut cell, u32::from(n) + 7);
 	let between = unsafe { *p };
 	let taken = clear(&mut cell);
-	[old as u8, (old >> 9) as u8, between as u8, taken as u8 ^ unsafe { *p } as u8]
+	[
+		old as u8,
+		(old >> 9) as u8,
+		between as u8,
+		taken as u8 ^ unsafe { *p } as u8,
+	]
 }
 
 fn borrowed_through(n: u8) -> [u8; 3] {

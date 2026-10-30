@@ -174,7 +174,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// Whether std's `def_id` with `args` makes a raw pointer to what its first argument, a
 /// reference, points at: `UnsafeCell::get`, `MaybeUninit::as_ptr` and `as_mut_ptr`, and
 /// `NonNull::from`.
-pub fn from_reference<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
+pub fn from_reference<'tcx>(
+	tcx: ty::TyCtxt<'tcx>,
+	def_id: rustc_hir::def_id::DefId,
+	args: ty::GenericArgsRef<'tcx>,
+) -> bool {
 	let Some((owner, name)) = super::library::key(tcx, def_id) else {
 		return false;
 	};

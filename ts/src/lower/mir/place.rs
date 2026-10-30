@@ -1917,7 +1917,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			let through = matches!(written.projection.last(), Some(ProjectionElem::Deref));
 			written.local == place.local
 				&& len >= start
-				&& place.projection.starts_with(&written.projection)
+				&& place.projection.starts_with(written.projection)
 				&& !(through && len == place.projection.len())
 		};
 		let blocks = &self.mir.basic_blocks;
@@ -1941,7 +1941,10 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			}
 			let term = data.terminator();
 			if let mir::TerminatorKind::Call {
-				func, args, destination, ..
+				func,
+				args,
+				destination,
+				..
 			} = &term.kind
 			{
 				if assigns(*destination) {

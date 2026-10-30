@@ -650,7 +650,13 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 	}
 
 	fn visit_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
-		if let mir::TerminatorKind::Call { func, args, destination, .. } = &terminator.kind {
+		if let mir::TerminatorKind::Call {
+			func,
+			args,
+			destination,
+			..
+		} = &terminator.kind
+		{
 			self.store_through(*destination);
 			if func
 				.const_fn_def()
