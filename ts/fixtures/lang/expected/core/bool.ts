@@ -3,147 +3,147 @@
 import * as rt from "../rt.ts";
 import * as Made from "../defaults.Made.ts";
 
-export function thenSome$bool_Duration(self: boolean, t: rt.Duration): rt.Duration | undefined {
+export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_PhantomData_u8(self: boolean, t: undefined): undefined | rt.None {
+export function thenSome$1d6toqn(self: boolean, t: undefined): undefined | rt.None {
 	if (!self) {
 		return rt.None;
 	}
 	return t;
 }
 
-export function thenSome$bool_i16(self: boolean, t: rt.i16): rt.i16 | undefined {
+export function thenSome$0kwiij6(self: boolean, t: rt.i16): rt.i16 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_i32(self: boolean, t: rt.i32): rt.i32 | undefined {
+export function thenSome$0n2gkz4(self: boolean, t: rt.i32): rt.i32 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_i64(self: boolean, t: rt.i64): rt.i64 | undefined {
+export function thenSome$0tjggir(self: boolean, t: rt.i64): rt.i64 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_i8(self: boolean, t: rt.i8): rt.i8 | undefined {
+export function thenSome$1s4itlz(self: boolean, t: rt.i8): rt.i8 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_isize(self: boolean, t: rt.isize): rt.isize | undefined {
+export function thenSome$0jkru5t(self: boolean, t: rt.isize): rt.isize | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_u16(self: boolean, t: rt.u16): rt.u16 | undefined {
+export function thenSome$0b23a33(self: boolean, t: rt.u16): rt.u16 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_u32(self: boolean, t: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined {
+export function thenSome$0xksuo2(self: boolean, t: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_u32$2(self: boolean, t: rt.u32): rt.u32 | undefined {
+export function thenSome$1af3oea(self: boolean, t: rt.u32): rt.u32 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_u64(self: boolean, t: rt.u64): rt.u64 | undefined {
+export function thenSome$1ugl8af(self: boolean, t: rt.u64): rt.u64 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_u8(self: boolean, t: rt.u8): rt.u8 | undefined {
+export function thenSome$0d5am30(self: boolean, t: rt.u8): rt.u8 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$bool_unit(self: boolean, _: undefined): undefined | rt.None {
+export function thenSome$1j8foe9(self: boolean, _: undefined): undefined | rt.None {
 	if (!self) {
 		return rt.None;
 	}
 	return undefined;
 }
 
-export function thenSome$bool_usize(self: boolean, t: rt.usize): rt.usize | undefined {
+export function thenSome$07z8k4h(self: boolean, t: rt.usize): rt.usize | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function then$bool_Box_Made_default(self: boolean, _: () => Made.Made): Made.Made | undefined {
+export function then$1j955kq(self: boolean, _: () => Made.Made): Made.Made | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return Made.default$Default();
 }
 
-export function then$bool_Option_u64_Made_defaults_closure1(self: boolean, f: () => [rt.u64 | undefined, Made.Made]): [rt.u64 | undefined, Made.Made] | undefined {
+export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, Made.Made]): [rt.u64 | undefined, Made.Made] | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return f();
 }
 
-export function then$bool_Option_u8_iters_closure2(self: boolean, f: () => rt.u8 | undefined): rt.u8 | undefined | rt.None {
+export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 | undefined | rt.None {
 	if (!self) {
 		return rt.None;
 	}
 	return f();
 }
 
-export function then$bool_Vec_u8_new(self: boolean, _: () => rt.ByteVec): rt.ByteVec | undefined {
+export function then$1i9qaz4(self: boolean, _: () => rt.ByteVec): rt.ByteVec | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return new rt.ByteVec();
 }
 
-export function then$bool_Vec_u8_restock_closure0(self: boolean, f: () => rt.ByteVec): rt.ByteVec | undefined {
+export function then$0ozmvid(self: boolean, f: () => rt.ByteVec): rt.ByteVec | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return f();
 }
 
-export function then$bool_str_slices_closure1_closure0(self: boolean, f: () => string): string | undefined {
+export function then$0havnzo(self: boolean, f: () => string): string | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return f();
 }
 
-export function then$bool_u8_library_closure4(self: boolean, f: () => rt.u8): rt.u8 | undefined {
+export function then$1btzga3(self: boolean, f: () => rt.u8): rt.u8 | undefined {
 	if (!self) {
 		return undefined;
 	}

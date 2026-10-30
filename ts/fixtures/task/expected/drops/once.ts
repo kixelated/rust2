@@ -2,7 +2,7 @@
 
 import * as rt from "../rt.ts";
 import { drop$Option_Held, drop$Result_unit_Guard, drop$Result_unit_Held, drop$Result_unit_Option_Guard } from "../lib.ts";
-import { mapOr$Option_Guard_u32_drained_closure3 } from "../core/option.ts";
+import { mapOr$01ozsk3 } from "../core/option.ts";
 import * as Cached from "../drops/once.Cached.ts";
 import type * as Held from "../drops.Held.ts";
 import * as Log from "../log.Log.ts";
@@ -29,7 +29,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part14, f)];
 		Log.note(log, rt.fmtFormat(["refused ", args4[0]]));
 		drop$Result_unit_Guard(refused);
-		const part15 = mapOr$Option_Guard_u32_drained_closure3(cell.v, 0, (g2: Guard.Guard): rt.u32 => {
+		const part15 = mapOr$01ozsk3(cell.v, 0, (g2: Guard.Guard): rt.u32 => {
 			return rt.u32Sub(Guard.id(g2), id);
 		});
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part15, f)];
@@ -119,7 +119,7 @@ export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		const _206: Guard.Guard = guard(22);
 		drop$Result_unit_Guard(rt.onceSet(cell3, _206));
 		rt.drop(new rt.OnceLock(guard(23)).v);
-		const part10 = mapOr$Option_Guard_u32_drained_closure3(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
+		const part10 = mapOr$01ozsk3(cell3.v, 0, (g: Guard.Guard): rt.u32 => {
 			const _04: rt.u32 = rt.u32Sub(Guard.id(g), id);
 			g[Symbol.dispose]();
 			return _04;

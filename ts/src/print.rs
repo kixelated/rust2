@@ -125,6 +125,50 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 	})
 }
 
+/// Functions printed apart from any module, each item they refer to by the name given here
+/// and the function itself unnamed: the same text for two functions that print the same.
+pub struct Texts {
+	bindings: Bindings,
+}
+
+impl Texts {
+	pub fn new(names: HashMap<SymId, String>) -> Self {
+		Self {
+			bindings: Bindings {
+				names,
+				bound: HashSet::new(),
+				imports: BTreeMap::new(),
+				namespaces: BTreeMap::new(),
+			},
+		}
+	}
+
+	pub fn set(&mut self, id: SymId, name: String) {
+		self.bindings.names.insert(id, name);
+	}
+
+	pub fn text(&self, program: &Program, f: &Function) -> String {
+		let mut p = Printer {
+			program,
+			bindings: &self.bindings,
+			out: String::new(),
+			line: 0,
+			col: 0,
+			indent: 0,
+			tokens: Vec::new(),
+			uses_rt: false,
+			renames: HashMap::new(),
+			aliases: Vec::new(),
+		};
+		p.write("(");
+		p.params(&f.params);
+		let ret = p.ty(&f.ret);
+		p.write(&format!("): {ret} {{\n"));
+		p.block_body(&f.body);
+		p.out
+	}
+}
+
 /// `to` relative to the directory `from`, both absolute.
 fn relative(from: &Path, to: &Path) -> PathBuf {
 	let from: Vec<Component> = from.components().collect();

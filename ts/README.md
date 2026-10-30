@@ -69,7 +69,7 @@ runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods and `cmp::max` and `min`, goes in a module under its crate's name, as
-`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
+`core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
 functions that the package's types make, so a module at the package's root named for a
 crate translation reaches is refused, and so are two versions of one crate it reaches.
@@ -212,7 +212,9 @@ Functions and members are camelCase. Functions are monomorphized: each instance 
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
 its own, as in `roundtripLite$Group`, `Wrap.get$Wrap_Pair`, `Pair.fmt$Debug`, and
 `DecodeError.from$From_BoundsExceeded`. The suffix is there even when no other instance
-is, so reaching one renames nothing. A closure type goes by where it is defined,
+is, so reaching one renames nothing. An instance of a generic std function is suffixed
+instead by a hash of its text, with what it calls by name, as `map$1cf8u0y`: instances that print the
+same are one function, whichever of them translation reaches. A closure type goes by where it is defined,
 `methods_closure1` for `methods::{closure#1}`, and instances whose suffixes still match,
 such as of two types of one name, are numbered `$2` on in the order of their full type
 arguments. Types are translated once, generically, so a function of a generic type is one

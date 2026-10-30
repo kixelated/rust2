@@ -9,50 +9,41 @@ snapshots and a consumer's generated diffs change only where the source did. The
 
 ## Plan
 
-Found by [moq-dev/rust2#259](https://github.com/moq-dev/rust2/pull/259) on 2026-10-30. A
-fixture closure renamed `floats.ts`'s import `mapOr$Option_Ordering_u8_floats_closure0`, so
-the fixture was changed to avoid it.
+Found by [moq-dev/rust2#259](https://github.com/moq-dev/rust2/pull/259) on 2026-10-30.
 
-Reproduced on main at a0f08f40: adding
-`out.push(1u8.partial_cmp(&2).map_or(7, |o| o as i8 as u8));` to `fmt::added` in the lang
-fixture fails `stable_names`. The new instance, `..._added_closure0`, prints the same as
-`floats`' and sorts first.
+The merge path is done in [moq-dev/rust2#265](https://github.com/moq-dev/rust2/pull/265): an
+instance of a generic std function is named `base$hash` of its printed text, with what it
+calls by name, and `stable_names`' `fmt::added` reaches one that merges and sorts first.
+A signature in the suffix was measured and rejected: one signature gives several bodies
+(a drop flag, `rt.callOnce` for an `FnOnce`, a fn item called by name), so it collided in
+7 places across the fixtures.
 
-Root cause: `Program::merge` in `ts/src/program.rs` merges std instances that print the same
-and keeps the one whose `Symbol::key` sorts first. The kept name carries the closure's
-identity (`floats_closure0`), so it depends on which other members the group has. The same
-flaw is in `Program::name`. Instances whose suffixes still match, such as over two types of
-one name, are numbered `$2` on in key order, so an added instance that sorts earlier
-renumbers the others.
+What remains is the collision path in `Program::name`. Instances whose suffixes still
+match are numbered `$2` on in key order, so an added instance that sorts earlier renumbers
+the others. In the fixtures the suffix loses: `&T` and `&mut T` against `T` (most cases),
+array lengths, two types or closures of one name in different modules (`copy$Pair` and
+`pointers::Pair`), fn-local items of one name (`captures`' `through$2`..`$12`), and the
+coroutine classes of one function (`blocksFuture$2`..). moq-net has none today.
 
-`stable_names` missed both because it checks one added root, `fmt::added`. That root reaches
-only a local generic (`Wrap::map` over its own closure), which never merges, and no suffix
-collision. The test's doc claims the general property, but its one root exercises neither
-path.
+Open decision, for the maintainer before work starts: how to tell apart names that only a
+path disambiguates, such as types, traits, and closures of one name, while keeping names a
+pure function of the instance. Hand-written callers call suffixed names
+(`Fault.fmt$Display`), which rules out a hash on every suffix. Options:
 
-Recommended direction: name a merged function from what it is merged on, not from a member.
-That is the merge key itself (module, base, params, return, and body, with callees by their
-own stable names). Any std instance that could merge must carry that name even when it has
-no twin, since whether a twin exists is what changes. Options to weigh:
+- Recommended: qualify every type, trait, and closure in a suffix by its path: the crate's
+  own by module path, a dependency's under its crate, std's by its public path with a
+  repeated module dropped (`Option`, `fmt_Display`, `io_Error`). The only option that is
+  both a pure function of the instance and readable, but every name over a type outside the
+  crate root changes, and closures in impls need the impl's type and trait.
+- Qualify only a name that another definition in the crate graph shares, as rustc trims
+  paths. Fewest renames and stable under reach, but defining a type of a taken name renames
+  the other's instances, and rustc's `trimmed_def_paths` is for diagnostics only.
 
-- Replace a closure's or fn item's identity in the suffix with what the output depends on:
-  its signature, plus whatever else changes the body, such as a fn item called by name or a
-  closure the instance drops. This stays readable, but it must be injective over bodies.
-- Append a short hash of the printed output. It is always injective, but it churns whenever
-  the translation of std's body changes, and a recursive instance must hash its
-  self-reference as a placeholder.
+Either way, spell out `&`, `&mut`, and array lengths, and name fn-local items and
+coroutine classes by their enclosing items rather than a counter.
 
-Name collisions get the same treatment: a disambiguator taken from the instance's own type
-arguments, such as a module path segment, rather than a counter in key order.
+Proof: extend `stable_names` so an added root reaches an instance whose suffix collides
+with an existing one and sorts first, such as an impl over `&mut &mut u32` beside one over
+`&mut u32`. Update the naming paragraph in `ts/README.md`.
 
-Readability is not a goal ([m2](/quest/m2/README.md#plan)), but measure the gzipped bundle
-size against main, as the merge in
-[moq-dev/rust2#129](https://github.com/moq-dev/rust2/pull/129) did.
-
-Proof: extend `stable_names`, or add sibling cases, so that an added root reaches (a) a
-std instance that merges with an existing one and sorts first, and (b) an instance whose
-suffix collides with an existing one and sorts first. Keep the cases fast enough for the
-merge gate. Update the naming paragraph in `ts/README.md`.
-
-Public API: the translator's output names. Merged std instances, and collided ones, rename
-once.
+Public API: the translator's output names. Collided instances rename once.
