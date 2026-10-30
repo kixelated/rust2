@@ -151,12 +151,6 @@ pub fn call<'tcx>(
 			_ => return Err(args),
 		},
 	};
-	if let Some(elem) = undefined_arg(b, std, coll) {
-		return Ok(Some(b.err(
-			span,
-			format!("`{coll}` holds `{elem}`, which is `undefined` as `None` is, which is not supported"),
-		)));
-	}
 	let by = lookup_ty(b, std, call, owner, name);
 	// A `[u8; N]` key is a typed array, but a reference to an array or a slice, as a lookup
 	// takes one, is an `rt.ByteSlice`, so a view of its bytes stands in. A range holds the
@@ -216,7 +210,7 @@ pub fn call<'tcx>(
 	let Some(mut droppers) = b.t.droppers(lost.iter().map(|&n| arg(coll, n)), span) else {
 		return Ok(Some(Expr::undefined()));
 	};
-	// A map's value that can be `undefined`, whose `Option` `get` returns tells `None` apart.
+	// An `Option` of an element, key, or value that can be `undefined` tells `None` apart.
 	if library::none_last(owner, name)
 		&& let Some(none) = library::sentinel_option(b.t, call).and_then(|inner| b.t.none_arg(inner))
 	{
@@ -255,6 +249,15 @@ fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
 		(_, "clear" | "retain") if std == Std::BinaryHeap => &[0],
 		_ => return None,
 	})
+}
+
+/// `values` and then `flag`, which a runtime function defaults to `false` unless the
+/// `rt.None` it takes last follows, where `none`.
+fn flagged(mut values: Vec<Expr>, flag: bool, none: bool) -> Vec<Expr> {
+	if flag || none {
+		values.push(Expr::lit(flag.to_string()));
+	}
+	values
 }
 
 /// What drops each key, and each value of a map, of a collection of type `coll`, of those
@@ -305,19 +308,6 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 	let (key, by) = (peel(b, key), peel(b, by));
 	tcx.erase_and_anonymize_regions(key) == tcx.erase_and_anonymize_regions(by)
 		|| (library::string(tcx, key) && library::string(tcx, by))
-}
-
-/// A key or item type of `coll` that can be `undefined` in JS, so that an `Option` of it,
-/// as `first` returns, could not tell `None` from `Some`. A map's value can be: its
-/// `get`, `insert`, and `remove` take the `Option`'s `rt.None`.
-fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	if !matches!(
-		std,
-		Std::HashMap | Std::BTreeMap | Std::Entry | Std::HashSet | Std::BTreeSet | Std::VecDeque | Std::BinaryHeap
-	) {
-		return None;
-	}
-	Some(arg(coll, 0)).filter(|&key| b.t.erases_to(key).undefined)
 }
 
 /// Whether `call` lends a value a collection or an atomic holds that JS copies, which its
@@ -409,6 +399,7 @@ fn hash<'tcx>(
 	let set = b.t.std_of(coll) == Some(Std::HashSet);
 	let key = arg(coll, 0);
 	let value = if set { None } else { Some(arg(coll, 1)) };
+	let none = library::sentinel_option(b.t, call).is_some();
 	let mut values = args;
 	let e = match (owner, name) {
 		(_, "new" | "with_capacity") | ("Default", "default") => {
@@ -421,11 +412,8 @@ fn hash<'tcx>(
 		(_, "contains_key" | "contains") => Expr::rt("hashContains", values),
 		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("hashGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("hashGet", values),
-		(_, "get") => Expr::rt("hashKey", values),
-		(_, "take") => {
-			values.push(Expr::lit("true"));
-			Expr::rt("hashKey", values)
-		}
+		(_, "get") => Expr::rt("hashKey", flagged(values, false, none)),
+		(_, "take") => Expr::rt("hashKey", flagged(values, true, none)),
 		(_, "insert") if set => Expr::rt("hashAdd", values),
 		(_, "insert") => Expr::rt("hashInsert", values),
 		(_, "remove") if set => Expr::rt("hashDelete", values),
@@ -540,8 +528,13 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 		return None;
 	};
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
-	// A fieldless enum is a JS string, which its own `Eq` may tell apart where JS can't.
-	if matches!(key.kind(), ty::Adt(adt, _) if fieldless(*adt)) {
+	// A fieldless enum is a JS string, which its own `Eq` may tell apart where JS can't,
+	// as is the `Some` of an `Option` of one, and a `Reverse` of one.
+	let mut held = key;
+	while let Some(inner) = option_of(b, held).or_else(|| reverse_of(b, held)) {
+		held = peel(b, inner);
+	}
+	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt)) {
 		values.push(Expr::lit("true"));
 	}
 	Some(Some(Expr::rt("hashing", values)))
@@ -690,10 +683,9 @@ fn btree<'tcx>(
 			values.push(test_fn(b, target, "gt", span));
 		}
 	}
-	let last = |mut values: Vec<Expr>| {
-		values.push(Expr::lit("true"));
-		values
-	};
+	let none = library::sentinel_option(b.t, call).is_some();
+	let last = |values: Vec<Expr>| flagged(values, true, none);
+	let first = |values: Vec<Expr>| flagged(values, false, none);
 	let e = match (owner, name) {
 		(_, "new") | ("Default", "default") => btree_new(b, coll, span),
 		(_, "len") => Expr::rt("btreeLen", values),
@@ -712,11 +704,11 @@ fn btree<'tcx>(
 		(_, "retain") => Expr::rt("btreeRetain", values),
 		(_, "first_key_value") => Expr::rt("btreeFirst", values),
 		(_, "last_key_value") => Expr::rt("btreeFirst", last(values)),
-		(_, "pop_first") if set => Expr::rt("btreePopKey", values),
+		(_, "pop_first") if set => Expr::rt("btreePopKey", first(values)),
 		(_, "pop_last") if set => Expr::rt("btreePopKey", last(values)),
 		(_, "pop_first") => Expr::rt("btreePop", values),
 		(_, "pop_last") => Expr::rt("btreePop", last(values)),
-		(_, "first") => Expr::rt("btreeFirstKey", values),
+		(_, "first") => Expr::rt("btreeFirstKey", first(values)),
 		(_, "last") => Expr::rt("btreeFirstKey", last(values)),
 		(_, "first_entry") => Expr::rt("btreeFirstEntry", values),
 		(_, "last_entry") => Expr::rt("btreeFirstEntry", last(values)),
@@ -865,10 +857,8 @@ fn deque<'tcx>(
 	let span = call.span;
 	let item = arg(coll, 0);
 	let mut values = args;
-	let back = |mut values: Vec<Expr>| {
-		values.push(Expr::lit("true"));
-		values
-	};
+	let none = library::sentinel_option(b.t, call).is_some();
+	let back = |values: Vec<Expr>| flagged(values, true, none);
 	let e = match (owner, name) {
 		(_, "new" | "with_capacity") | ("Default", "default") => {
 			discard(values, out);
@@ -884,7 +874,7 @@ fn deque<'tcx>(
 		(_, "front_mut") if b.t.needs_place(item) => Expr::rt("dequeEndMut", values),
 		(_, "back_mut") if b.t.needs_place(item) => Expr::rt("dequeEndMut", back(values)),
 		(_, "get_mut") if b.t.needs_place(item) => Expr::rt("dequeGetMut", values),
-		(_, "front" | "front_mut") => Expr::rt("dequeEnd", values),
+		(_, "front" | "front_mut") => Expr::rt("dequeEnd", flagged(values, false, none)),
 		(_, "back" | "back_mut") => Expr::rt("dequeEnd", back(values)),
 		(_, "get" | "get_mut") => Expr::rt("dequeGet", values),
 		(_, "truncate") => Expr::rt("dequeTruncate", values),
@@ -958,6 +948,8 @@ fn heap<'tcx>(
 		}
 		(_, "len") => values.pop()?.member("d").member("length"),
 		(_, "is_empty") => values.pop()?.member("d").member("length").binary("===", Expr::lit("0")),
+		// Indexing returns `undefined` for no element, where an `rt.None` must follow.
+		(_, "peek") if library::sentinel_option(b.t, call).is_some() => Expr::rt("heapPeek", values),
 		(_, "peek") => values.pop()?.member("d").index(Expr::lit("0")),
 		(_, "push" | "pop" | "peek_mut" | "append" | "retain" | "into_sorted_vec") => {
 			values.extend(heap_tests(b, item, !matches!(name, "push" | "pop"), span));
@@ -1593,12 +1585,6 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 /// `collect` into a collection of type `ty` from `iter`, an iterator of type `from`.
 pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from: Ty<'tcx>, span: Span) -> Option<Expr> {
 	let std = b.t.std_of(ty)?;
-	if let Some(elem) = undefined_arg(b, std, ty) {
-		return Some(b.err(
-			span,
-			format!("`{ty}` holds `{elem}`, which is `undefined` as `None` is, which is not supported"),
-		));
-	}
 	Some(match std {
 		Std::HashMap | Std::HashSet => {
 			let target = hash_new(b, ty, span)?;
