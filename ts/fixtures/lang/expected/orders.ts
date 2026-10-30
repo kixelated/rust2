@@ -436,7 +436,7 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(rt.heapIntoSortedVec(pairs, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])))), (_25: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(_25[0], _25[1]);
-	}, (value: Uint8Array) => rt.iterSlice(value)));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
 }
 
 /**
@@ -531,9 +531,9 @@ export function bytes(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpBytes) as rt.BTreeMap<Uint8Array, rt.usize>, _185, true)), (_22: [Uint8Array, rt.usize]): Uint8Array => {
 		const k: Uint8Array = _22[0];
 		return Uint8Array.of(k[0], k[1], _22[1] & 0xff);
-	}, (value: Uint8Array) => rt.iterSlice(value)));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 3));
 	rt.sliceSort(arrays, rt.cmpLt(rt.cmpBytes));
-	rt.iterExtendBytes(out, rt.iterFlatten(rt.iterMap(rt.iterSlice(arrays), rt.byteSliceFrom), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value))));
+	rt.iterExtendBytes(out, rt.iterFlatten(rt.iterMap(rt.iterSlice(arrays), rt.byteSliceFrom), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value)), false, 2));
 	const slices: rt.ByteSlice[] = rt.iterToArray(rt.byteSliceChunks(data, 3));
 	rt.sliceSortBy(slices, (a7: rt.ByteSlice, b3: rt.ByteSlice): rt.Ordering => {
 		return rt.cmpBytes(b3, a7);

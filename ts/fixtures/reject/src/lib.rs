@@ -17,8 +17,8 @@ pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
-pub fn rotated(v: &mut [u8]) {
-	v.rotate_left(1);
+pub fn refilled(v: &mut [Reused], r: Reused) {
+	v.fill(r);
 }
 
 /// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
@@ -326,9 +326,9 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 	})
 }
 
-/// JS's `copyWithin` would share each tuple, which Rust copies.
-pub fn shifted(v: &mut [(u8, u8)]) {
-	v.copy_within(0..1, 1);
+/// `clone_from_slice` calls `Reused`'s own `clone_from` for each element.
+pub fn recloned(v: &mut [Reused], w: &[Reused]) {
+	v.clone_from_slice(w);
 }
 
 /// An `Arc`'s bytes would need a `ByteSlice` made inside it.
@@ -965,6 +965,19 @@ pub fn closure_replaced(n: u32) -> u32 {
 	let p = unsafe { &raw mut (*whole).at };
 	resetter(whole)();
 	unsafe { (*p).0 }
+}
+
+/// A `clone_from` of its own, which `fill` calls for each slot but the last.
+pub struct Reused(Vec<u8>);
+
+impl Clone for Reused {
+	fn clone(&self) -> Self {
+		Reused(self.0.clone())
+	}
+
+	fn clone_from(&mut self, source: &Self) {
+		self.0.clone_from(&source.0);
+	}
 }
 
 pub struct Gap {

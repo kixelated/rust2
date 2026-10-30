@@ -723,6 +723,9 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `Vec<T>` drops each element `retain` rejects, `dedup` removes, and `truncate` and
 		// `clear` cut.
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
+		// A slice's `fill`, `fill_with`, and `clone_from_slice` drop each element they write
+		// over, and `fill` its value if there is no slot for it.
+		("slice", "fill" | "fill_with" | "clone_from_slice") => &[0],
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Once", "call_once" | "call_once_force") => &[0],
@@ -1485,7 +1488,44 @@ fn mapping<'tcx>(
 				false => Expr::Array(vec![value]),
 			}
 		}
-		("slice", "copy_from_slice") if is_u8(targ(gargs, 0)) => rt2(args, "byteSlice", "copyFromSlice"),
+		// Each slot but the last a clone, as `clone_from` makes it, and the last the value;
+		// a `TrivialClone`'s copies, as std specializes `fill` to.
+		("slice", "fill") => {
+			let elem = targ(gargs, 0);
+			if is_u8(elem) {
+				return Some(rt2(args, "byteSlice", "fill"));
+			}
+			let clone = clone_into(b, elem, &name, span);
+			let mut values = args;
+			// A value its own clone, which nothing drops, is JS's `fill`.
+			if matches!(&clone, Expr::Lit(l) if l == "undefined") && !b.t.drops(elem) {
+				let slice = values.remove(0);
+				return Some(slice.method("fill", values));
+			}
+			values.push(clone);
+			Expr::rt("sliceFill", values)
+		}
+		("slice", "fill_with" | "rotate_left" | "rotate_right") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		// A `TrivialClone`'s `clone_from_slice` is std's `copy_from_slice`, panics included.
+		("slice", "copy_from_slice" | "clone_from_slice")
+			if name == "copy_from_slice" || super::iter::implements(b.t, targ(gargs, 0), "TrivialClone") =>
+		{
+			let elem = targ(gargs, 0);
+			if is_u8(elem) {
+				return Some(rt2(args, "byteSlice", "copyFromSlice"));
+			}
+			let mut values = args;
+			values.extend(b.t.copy_fn(elem, span));
+			Expr::rt("sliceCopyFromSlice", values)
+		}
+		("slice", "clone_from_slice") => {
+			let mut values = args;
+			values.push(clone_into(b, targ(gargs, 0), &name, span));
+			Expr::rt("sliceCloneFromSlice", values)
+		}
 		("PartialEq", "eq") if byte_slice(targ(gargs, 0)) && byte_slice(targ(gargs, 1)) => {
 			Expr::rt("byteSliceEq", args)
 		}
@@ -1750,6 +1790,13 @@ fn mapping<'tcx>(
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
 		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
+		// Of the place the `&mut` is, which it writes as it drops, and of a range, as `Vec::drain`.
+		("String", "drain") => {
+			let range = args.pop()?;
+			args.push(super::collections::bounds(b, call, range));
+			Expr::rt("stringDrain", args)
+		}
+		("Drain", "as_str") => Expr::rt("stringDrainAsStr", args),
 		("ParseIntError", "kind") => args.pop()?.member("kind"),
 		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
@@ -1976,6 +2023,43 @@ fn owned<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, ty: Ty<'tcx>, span: Span
 		true => value,
 		false => b.t.copied(value, ty, span),
 	}
+}
+
+/// What clones an `elem` into a slot of a slice, as `fill` and `clone_from_slice` do by
+/// `clone_from`: a copy for a `TrivialClone`, or else `clone_fn`, where `clone_from` does
+/// as `*self = source.clone()` does. Refused for any other `clone_from`.
+fn clone_into<'tcx>(b: &mut Body<'_, '_, 'tcx>, elem: Ty<'tcx>, name: &str, span: Span) -> Expr {
+	if super::iter::implements(b.t, elem, "TrivialClone") {
+		return b.t.copy_fn(elem, span).unwrap_or_else(Expr::undefined);
+	}
+	if !clone_from_clones(b.t, elem) {
+		return b.err(
+			span,
+			format!("`slice::{name}` of `{elem}`, whose `clone_from` is its own, which is not supported yet"),
+		);
+	}
+	super::collections::clone_fn(b, elem, span)
+}
+
+/// Whether `clone_from` of `ty` clones, and drops what it writes over, as
+/// `*self = source.clone()` would: `Clone`'s own, and std's own over such types, where it
+/// only reuses memory, if nothing drops or it is an `Option`'s.
+fn clone_from_clones<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let tcx = t.tcx;
+	let clone_from = super::collections::trait_fn(tcx, "Clone", "clone_from");
+	let resolved = Instance::try_resolve(tcx, t.typing_env_pub(), clone_from, tcx.mk_args(&[ty.into()]));
+	let Some(instance) = resolved.ok().flatten() else {
+		return false;
+	};
+	if instance.def_id() == clone_from {
+		return true;
+	}
+	let inner: Vec<Ty<'tcx>> = match ty.kind() {
+		ty::Adt(adt, args) if is_std(tcx, adt.did()) => args.types().collect(),
+		ty::Array(elem, _) => vec![*elem],
+		_ => return false,
+	};
+	(t.std_of(ty) == Some(Std::Option) || !t.drops(ty)) && inner.into_iter().all(|arg| clone_from_clones(t, arg))
 }
 
 /// A clone of `value`, a slice, array, or `Vec` of `elem` other than bytes, as a `Vec`: a

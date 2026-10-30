@@ -32,6 +32,7 @@ import type * as Point from "../shapes.Point.ts";
 import type * as shapes_Shape from "../shapes.Shape.ts";
 import { digest, digestWords } from "../slices.ts";
 import type * as slices_Item from "../slices.Item.ts";
+import * as slices_Noisy from "../slices.Noisy.ts";
 import type * as slices_Pair from "../slices.Pair.ts";
 import type * as Short from "../splits.Short.ts";
 
@@ -120,6 +121,13 @@ export function unwrapOr$0r2bmpr(self: rt.u8 | undefined, default_: rt.u8): rt.u
 }
 
 export function unwrapOr$0x6fy3l(self: [rt.u8, rt.u8] | undefined, default_: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.ByteSlice): rt.ByteSlice {
 	if (self === undefined) {
 		return default_;
 	}
@@ -505,6 +513,13 @@ export function mapOr$1iuqai4(self: counts_Noisy.Noisy | undefined, default_: rt
 }
 
 export function mapOr$0qqbaqw(self: Noisy.Noisy | undefined, default_: rt.u8, f: (a0: Noisy.Noisy) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$189goit(self: slices_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: slices_Noisy.Noisy) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -1088,6 +1103,13 @@ export function clone$0vcwlo5(self: Named.Named | undefined): Named.Named | unde
 		return undefined;
 	}
 	return Named.clone$Clone(self);
+}
+
+export function clone$1omlcob(self: slices_Noisy.Noisy | undefined): slices_Noisy.Noisy | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return slices_Noisy.clone$Clone(self);
 }
 
 export function clone$14nprly(self: string | undefined): string | undefined {

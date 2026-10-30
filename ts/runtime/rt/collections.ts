@@ -650,6 +650,10 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		return this.left;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	[Symbol.dispose](): void {
 		if (this.k === undefined && this.v === undefined) return;
 		const n = this.left;
@@ -1291,6 +1295,11 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 		return this.n;
 	}
 
+	override lower(): number {
+		// A range's count is unknown, and std's hint of one is 0.
+		return Math.max(this.n, 0);
+	}
+
 	[Symbol.dispose](): void {
 		if (this.k === undefined && this.v === undefined) return;
 		const keys: K[] = [];
@@ -1892,6 +1901,10 @@ class DequeIter<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	[Symbol.dispose](): void {
 		if (this.drop === undefined) return;
 		const items: T[] = [];
@@ -1938,6 +1951,10 @@ class DequePlaces<T> extends Iter<Place<T>> {
 
 	override len(): number {
 		return this.back - this.front;
+	}
+
+	override lower(): number {
+		return this.len();
 	}
 }
 
@@ -2050,6 +2067,10 @@ class VecDrain<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	[Symbol.dispose](): void {
 		const from = this.front;
 		this.front = this.back;
@@ -2097,6 +2118,10 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 
 	override len(): number {
 		return this.back - this.front;
+	}
+
+	override lower(): number {
+		return this.len();
 	}
 
 	[Symbol.dispose](): void {
