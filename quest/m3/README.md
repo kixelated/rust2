@@ -27,6 +27,5 @@ generic std gap is planned here even when moq never calls it.
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
 - [Ordering in std](/quest/m3/ts-ordering.md) - `cmp::max`/`min`, `is_sorted`, and `BinaryHeap`, and #173's cost on integers measured
-- [Rename one instance](/quest/m3/ffi-instance-rename.md) - `rename` by an instance's path, once a consumer's clash needs it
 - [Into targets through a chain of From implementations](/quest/m3/ffi-from-chains.md) - `sources` follows more than one level, once a consumer's parameter needs it
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
