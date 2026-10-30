@@ -214,15 +214,6 @@ abstract class Calling<S, T, F> extends Adaptor<S, T> {
 	}
 }
 
-/**
- * `a` folded: `a` itself where its iterator folds as `next` reads it, or else `view` of
- * its iterator folded.
- */
-function foldedBy<S, T>(a: Adaptor<S, T>, view: (inner: Iter<S>) => Iter<T>): Iter<T> {
-	const inner = a.inner.folded();
-	return inner === a.inner ? a : view(inner);
-}
-
 /** An adaptor folded, whose `next` and `nextBack` are `front` and `back`, which share its state. */
 class Folded<T> extends Iter<T> {
 	readonly front: () => T | Done;
@@ -1423,7 +1414,9 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 	}
 
 	override folded(): Iter<U> {
-		return foldedBy(this, (inner) => new MapIter(inner, this.f));
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		return new MapIter(inner, this.f);
 	}
 
 	/** std's: `inner`'s, by a closure that drops `release`'s and then `f`. */
@@ -1585,17 +1578,17 @@ class EnumerateIter<T> extends Adaptor<T, [number, T]> {
 
 	/** std's: its iterator folded, counting each item as it goes, and from the back from its length. */
 	override folded(): Iter<[number, T]> {
-		return foldedBy(this, (inner) => {
-			const front = (): [number, T] | Done => {
-				const item = inner.next();
-				return item === DONE ? DONE : [this.index++, item];
-			};
-			const back = (): [number, T] | Done => {
-				const item = inner.nextBack();
-				return item === DONE ? DONE : [this.index + this.inner.len(), item];
-			};
-			return new Folded(front, back);
-		});
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		const front = (): [number, T] | Done => {
+			const item = inner.next();
+			return item === DONE ? DONE : [this.index++, item];
+		};
+		const back = (): [number, T] | Done => {
+			const item = inner.nextBack();
+			return item === DONE ? DONE : [this.index + this.inner.len(), item];
+		};
+		return new Folded(front, back);
 	}
 
 	override fold<A>(acc: A, g: (acc: A, item: [number, T]) => A, release?: () => void): A {
@@ -1868,7 +1861,9 @@ class RevIter<T> extends Adaptor<T, T> {
 	}
 
 	override folded(): Iter<T> {
-		return foldedBy(this, (inner) => new RevIter(inner));
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		return new RevIter(inner);
 	}
 
 	override fold<A>(acc: A, f: (acc: A, item: T) => A, release?: () => void): A {
@@ -1948,19 +1943,19 @@ class SkipIter<T> extends Adaptor<T, T> {
 	 * folded, and from the back, its iterator folded down to what it skips.
 	 */
 	override folded(): Iter<T> {
-		return foldedBy(this, (inner) => {
-			const front = (): T | Done => {
-				if (this.n > 0) {
-					const n = this.n;
-					this.n = 0;
-					const item = this.inner.nth(n - 1, this.drop);
-					if (item === DONE) return DONE;
-					this.drop?.(item);
-				}
-				return inner.next();
-			};
-			return new Folded(front, () => (this.len() > 0 ? inner.nextBack() : DONE));
-		});
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		const front = (): T | Done => {
+			if (this.n > 0) {
+				const n = this.n;
+				this.n = 0;
+				const item = this.inner.nth(n - 1, this.drop);
+				if (item === DONE) return DONE;
+				this.drop?.(item);
+			}
+			return inner.next();
+		};
+		return new Folded(front, () => (this.len() > 0 ? inner.nextBack() : DONE));
 	}
 
 	/** std's: past what it skips by `nth`, and then its iterator's own. */
@@ -2032,25 +2027,25 @@ class TakeIter<T> extends Adaptor<T, T> {
 	 * the back, past what it holds beyond the limit by `nth_back`, folded without counting.
 	 */
 	override folded(): Iter<T> {
-		return foldedBy(this, (inner) => {
-			const front = (): T | Done => {
-				if (this.n === 0) return DONE;
-				const item = inner.next();
-				if (item !== DONE) this.n--;
-				return item;
-			};
-			const back = (): T | Done => {
-				if (this.n === 0) return DONE;
-				const len = this.inner.len();
-				if (len > this.n) {
-					const item = this.inner.nthBack(len - this.n - 1, this.drop);
-					if (item === DONE) return DONE;
-					this.drop?.(item);
-				}
-				return inner.nextBack();
-			};
-			return new Folded(front, back);
-		});
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		const front = (): T | Done => {
+			if (this.n === 0) return DONE;
+			const item = inner.next();
+			if (item !== DONE) this.n--;
+			return item;
+		};
+		const back = (): T | Done => {
+			if (this.n === 0) return DONE;
+			const len = this.inner.len();
+			if (len > this.n) {
+				const item = this.inner.nthBack(len - this.n - 1, this.drop);
+				if (item === DONE) return DONE;
+				this.drop?.(item);
+			}
+			return inner.nextBack();
+		};
+		return new Folded(front, back);
 	}
 
 	/** std's: its iterator advanced from the back past the limit and `n` more, in one step. */
@@ -2156,7 +2151,9 @@ class TakeWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 	}
 
 	override folded(): Iter<T> {
-		return foldedBy(this, (inner) => new FromNext(inner, (inner) => this.from(inner)));
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		return new FromNext(inner, (inner) => this.from(inner));
 	}
 
 	/** The next item of `inner`, its iterator or that folded, while `f` holds of each. */
@@ -2187,7 +2184,9 @@ class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined | None
 	}
 
 	override folded(): Iter<U> {
-		return foldedBy(this, (inner) => new MapWhileIter(inner, this.f, this.none));
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		return new MapWhileIter(inner, this.f, this.none);
 	}
 }
 
@@ -2319,7 +2318,9 @@ class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 	}
 
 	override folded(): Iter<T> {
-		return foldedBy(this, (inner) => new InspectIter(inner, this.f));
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		return new InspectIter(inner, this.f);
 	}
 
 	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
@@ -2526,51 +2527,12 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 		dispose(back);
 	}
 
-	override folded(): Iter<V> {
-		return new Folded(this.stepper(false), this.stepper(true));
-	}
+	/** Its fold's view, which each fold starts anew. */
+	private view: FlattenFold<T, V> | undefined;
 
-	/**
-	 * A step of std's `try_fold`, or `try_rfold` if `back`: the iterator it holds at that
-	 * end folded, which then drops, then its source folded, each iterator it makes held and
-	 * folded in turn, dropping the one before, and then the other end's, which drops once it
-	 * ends. The source drops once it ends unless it is fused.
-	 */
-	private stepper(back: boolean): () => V | Done {
-		const source = this.outer?.folded();
-		const hold = (it: Iter<V> | undefined, other: boolean) => (back !== other ? this.setBack(it) : this.setFront(it));
-		// At its own end, then its source's, then the other end.
-		let phase = 0;
-		let held: Iter<V> | undefined;
-		let folded: Iter<V> | undefined;
-		return () => {
-			for (;;) {
-				const it = back !== (phase === 2) ? this.back : this.front;
-				if (it !== undefined) {
-					if (it !== held) [held, folded] = [it, it.folded()];
-					const item = back ? folded!.nextBack() : folded!.next();
-					if (item !== DONE) return item;
-				}
-				if (phase === 2) {
-					hold(undefined, true);
-					return DONE;
-				}
-				if (phase === 1) {
-					const outer = this.outer;
-					const value = outer === undefined ? DONE : back ? source!.nextBack() : source!.next();
-					if (value !== DONE) {
-						hold(this.into(value), false);
-						continue;
-					}
-					if (outer !== undefined && !this.fused) {
-						this.outer = undefined;
-						dispose(outer);
-					}
-				}
-				hold(undefined, false);
-				phase++;
-			}
-		};
+	override folded(): Iter<V> {
+		this.view ??= new FlattenFold(this);
+		return this.view.reset();
 	}
 
 	override fold<A>(acc: A, f: (acc: A, item: V) => A, release?: () => void): A {
@@ -2645,6 +2607,79 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 	}
 }
 
+/**
+ * A flatten as std's `try_fold` reads it, or `try_rfold` from the back: the iterator it
+ * holds at that end folded, which then drops, then its source folded, each iterator it
+ * makes held and folded in turn, dropping the one before, and then the other end's, which
+ * drops once it ends. The source drops once it ends unless it is fused.
+ */
+class FlattenFold<T, V> extends Iter<V> {
+	readonly of: FlattenIter<T, V>;
+	/** At its own end, then its source's, then the other end. */
+	private phase = 0;
+	private source: Iter<T> | undefined;
+	/** The iterator it reads, and that folded. */
+	private held: Iter<V> | undefined;
+	private reading: Iter<V> | undefined;
+
+	constructor(of: FlattenIter<T, V>) {
+		super();
+		this.of = of;
+	}
+
+	/** Itself, at the start of a fold. */
+	reset(): this {
+		this.phase = 0;
+		this.source = this.of.outer?.folded();
+		this.held = this.reading = undefined;
+		return this;
+	}
+
+	next(): V | Done {
+		return this.step(false);
+	}
+
+	override nextBack(): V | Done {
+		return this.step(true);
+	}
+
+	private step(back: boolean): V | Done {
+		const of = this.of;
+		for (;;) {
+			const it = back !== (this.phase === 2) ? of.back : of.front;
+			if (it !== undefined) {
+				if (it !== this.held) [this.held, this.reading] = [it, it.folded()];
+				const item = back ? this.reading!.nextBack() : this.reading!.next();
+				if (item !== DONE) return item;
+			}
+			if (this.phase === 2) {
+				this.hold(back, undefined, true);
+				return DONE;
+			}
+			if (this.phase === 1) {
+				const outer = of.outer;
+				const value = outer === undefined ? DONE : back ? this.source!.nextBack() : this.source!.next();
+				if (value !== DONE) {
+					this.hold(back, of.into(value), false);
+					continue;
+				}
+				if (outer !== undefined && !of.fused) {
+					of.outer = undefined;
+					dispose(outer);
+				}
+			}
+			this.hold(back, undefined, false);
+			this.phase++;
+		}
+	}
+
+	/** Hold `it` at the end it folds from, from the back if `back`, or at the other. */
+	private hold(back: boolean, it: Iter<V> | undefined, other: boolean): void {
+		if (back !== other) this.of.setBack(it);
+		else this.of.setFront(it);
+	}
+}
+
 /** `Peekable`, which drops the item it peeked by `drop`. */
 export class Peekable<T> extends Adaptor<T, T> {
 	peeked = false;
@@ -2702,16 +2737,16 @@ export class Peekable<T> extends Adaptor<T, T> {
 	 * the back, its iterator folded and then the item it peeked, which it holds until then.
 	 */
 	override folded(): Iter<T> {
-		return foldedBy(this, (inner) => {
-			const front = () => (this.peeked ? this.take() : inner.next());
-			const back = (): T | Done => {
-				if (!this.peeked) return inner.nextBack();
-				if (this.item === DONE) return this.take();
-				const item = inner.nextBack();
-				return item !== DONE ? item : this.take();
-			};
-			return new Folded(front, back);
-		});
+		const inner = this.inner.folded();
+		if (inner === this.inner) return this;
+		const front = () => (this.peeked ? this.take() : inner.next());
+		const back = (): T | Done => {
+			if (!this.peeked) return inner.nextBack();
+			if (this.item === DONE) return this.take();
+			const item = inner.nextBack();
+			return item !== DONE ? item : this.take();
+		};
+		return new Folded(front, back);
 	}
 
 	/** std's: the item it peeked, and then its iterator's fold. */
