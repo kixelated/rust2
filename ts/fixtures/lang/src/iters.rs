@@ -319,7 +319,9 @@ pub fn peeked_others(data: &[u8], out: &mut Vec<u8>) {
 	out.push(head(it.next_if_eq(&first)));
 	out.push(head(it.next()));
 	let mut it = data.iter().map(|&b| vec![letter(b)]).peekable();
-	out.push(head(it.next_if_eq(&vec![first.as_str()]).as_ref().map(|v| v[0].as_str())));
+	out.push(head(
+		it.next_if_eq(&vec![first.as_str()]).as_ref().map(|v| v[0].as_str()),
+	));
 	out.push(head(it.next().as_ref().map(|v| v[0].as_str())));
 	let mut it = words.iter().map(|w| Cow::Borrowed(w.as_str())).peekable();
 	out.push(head(it.next_if_eq(&"b").as_deref()));

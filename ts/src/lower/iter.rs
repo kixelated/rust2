@@ -494,7 +494,11 @@ pub fn call<'tcx>(
 							let lent = Expr::rt("byteSliceFrom", vec![Expr::ident(&a)]);
 							let call = eq.call(vec![lent, Expr::ident(&c)]);
 							let params = [a, c].map(|name| Param { name, ty: None }).into();
-							Expr::Arrow(params, Type::Builtin("boolean"), vec![StmtKind::Return(Some(call)).at(None)])
+							Expr::Arrow(
+								params,
+								Type::Builtin("boolean"),
+								vec![StmtKind::Return(Some(call)).at(None)],
+							)
 						}
 						false => eq,
 					}
