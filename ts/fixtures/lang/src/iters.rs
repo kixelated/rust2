@@ -212,6 +212,66 @@ pub fn consumers(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&log);
 }
 
+/// `reduce`, `max_by`, and `min_by`, whose comparators log each pair they see, and
+/// `Peekable`'s `peek_mut` and `next_if_eq`.
+pub fn reducers(data: &[u8], out: &mut Vec<u8>) {
+	let mut log = Vec::new();
+	// Of keys that tie, `max_by` keeps the last and `min_by` the first.
+	let most = data.iter().max_by(|&&a, &&b| {
+		log.extend([a, b]);
+		(a % 4).cmp(&(b % 4))
+	});
+	out.push(most.copied().unwrap_or(0xee));
+	let least = data.iter().copied().min_by(|a, b| {
+		log.extend([*a, *b]);
+		(a / 64).cmp(&(b / 64))
+	});
+	out.push(least.unwrap_or(0xee));
+	let folded = data.iter().copied().reduce(|acc, b| {
+		log.push(acc);
+		acc.wrapping_mul(3) ^ b
+	});
+	out.push(folded.unwrap_or(0xdd));
+	let longest = data
+		.iter()
+		.map(|&b| vec![b; usize::from(b % 3)])
+		.max_by(|a, b| a.len().cmp(&b.len()));
+	out.push(longest.map_or(0xcc, |v| v.len() as u8));
+	let joined = data.iter().map(|&b| vec![b]).reduce(|mut a, b| {
+		a.extend(b);
+		a
+	});
+	out.extend(joined.unwrap_or_default());
+	let mut it = data.iter().copied().peekable();
+	if let Some(b) = it.peek_mut() {
+		*b = b.wrapping_add(1);
+	}
+	// Written again through a second `peek_mut` of the item already peeked.
+	if let Some(b) = it.peek_mut() {
+		*b ^= 0x80;
+	}
+	out.push(it.next().unwrap_or(0xbb));
+	// The second byte matches the first only in a repeated input; a mismatch keeps it.
+	let first = data.first().copied().unwrap_or(0);
+	out.push(it.next_if_eq(&first).unwrap_or(0xaa));
+	out.push(it.next().unwrap_or(0xaa));
+	out.push(it.peek_mut().is_none() as u8);
+	let mut words = data.iter().map(|&b| vec![b]).peekable();
+	if let Some(w) = words.peek_mut() {
+		w.push(0x99);
+	}
+	out.extend(words.next().unwrap_or_default());
+	out.push(words.next_if_eq(&vec![first]).map_or(0x88, |w| w[0]));
+	out.push(words.count() as u8);
+	// Items that are places, written through the one `min_by` keeps: the first of the greatest.
+	let mut bytes = data.to_vec();
+	if let Some(b) = bytes.iter_mut().min_by(|a, b| b.cmp(a)) {
+		*b = 0x77;
+	}
+	out.extend(bytes);
+	out.extend(log);
+}
+
 trait RotateFree {
 	fn rotate_free(self) -> Self;
 }

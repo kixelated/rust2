@@ -19,8 +19,8 @@
 // an order each kind of iterator has its own, the `owned` functions follow it, dispatching
 // on the kind, so a bundle that never drops an item carries none of it.
 
-import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result, sliceView } from "../rt.ts";
-import { AtIndex, BTreeIter, HashIter } from "./collections.ts";
+import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
+import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
 
@@ -624,6 +624,16 @@ export function iterPosition<T>(it: Iter<T>, f: (item: T) => boolean): number | 
 	return undefined;
 }
 
+/** `Iterator::reduce`: the first item by `next`, folded with the rest by `f`. */
+export function iterReduce<T>(it: Iter<T>, f: (acc: T, item: T) => T, drops?: boolean): T | undefined;
+export function iterReduce<T>(it: Iter<T>, f: (acc: T, item: T) => T, drops: boolean | undefined, none: None): T | None;
+export function iterReduce<T>(it: Iter<T>, f: (acc: T, item: T) => T, drops = false, none?: None): T | undefined | None {
+	const first = it.next();
+	if (first !== DONE) return iterFold(it, first, f, drops);
+	if (drops) dispose(it);
+	return none;
+}
+
 /** `Iterator::fold`. */
 export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, drops = false): A {
 	if (!drops) {
@@ -659,39 +669,65 @@ export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T, drop
 export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, (item: T) => item, lt, false, drops, drop), none);
+	return iterToOption(best(it, (item: T) => item, byLt(lt), false, drops, drop), none);
 }
 
 /** `min`, by `lt`, as `iterMax`: the first of the least. */
 export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, (item: T) => item, lt, true, drops, drop), none);
+	return iterToOption(best(it, (item: T) => item, byLt(lt), true, drops, drop), none);
 }
 
 /** `max_by_key`, by `lt` of the keys, as `iterMax`, each item's key taken once. */
 export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, f, lt, false, drops, drop), none);
+	return iterToOption(best(it, f, byLt(lt), false, drops, drop), none);
 }
 
 /** `min_by_key`, by `lt` of the keys, as `iterMin`, each item's key taken once. */
 export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, f, lt, true, drops, drop), none);
+	return iterToOption(best(it, f, byLt(lt), true, drops, drop), none);
+}
+
+/** `max_by`, by `compare`, as `iterMax`: the last of the greatest. */
+export function iterMaxBy<T>(it: Iter<T>, compare: Compare<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
+export function iterMaxBy<T>(it: Iter<T>, compare: Compare<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
+export function iterMaxBy<T>(it: Iter<T>, compare: Compare<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
+	return iterToOption(best(it, (item: T) => item, compare, false, drops, drop), none);
+}
+
+/** `min_by`, by `compare`, as `iterMin`: the first of the least. */
+export function iterMinBy<T>(it: Iter<T>, compare: Compare<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
+export function iterMinBy<T>(it: Iter<T>, compare: Compare<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
+export function iterMinBy<T>(it: Iter<T>, compare: Compare<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
+	return iterToOption(best(it, (item: T) => item, compare, true, drops, drop), none);
 }
 
 /** A `PartialOrd::lt`. */
 type Lt<T> = (a: T, b: T) => boolean;
 
+/** An `Ord::cmp`, as `max_by` and `min_by` call it: of the best so far and then the next. */
+type Compare<T> = (best: T, next: T) => Ordering;
+
+/**
+ * `lt` as the comparator `best` reads: `Greater` where the next is `lt` the best, as
+ * `Ord::max` and `min` test it, and otherwise `Less`, which `best` treats as `Equal`.
+ */
+function byLt<T>(lt: Lt<T>): Compare<T> {
+	return (best, next) => (lt(next, best) ? 1 : -1);
+}
+
 /**
  * The item of the greatest key, the last of equal ones, or of the least if `least`, the
- * first, as std's `reduce` by `Ord::max` or `min` keeps it: the first by `next`, and the
- * rest by `fold`, each tested for `lt` the best's and dropped as it loses.
+ * first, as std's `reduce` by `cmp::max_by` or `min_by` keeps it: the first by `next`,
+ * and the rest by `fold`, each compared by `compare` with the best's and dropped as it
+ * loses. The next wins unless the best is `Greater`, or if `least`, only then.
  */
-function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, drops: boolean, drop?: Drop<T>): T | Done {
+function best<T, K>(it: Iter<T>, f: (item: T) => K, compare: Compare<K>, least: boolean, drops: boolean, drop?: Drop<T>): T | Done {
 	if (!drops && drop === undefined) {
 		let best = it.next();
 		if (best === DONE) return DONE;
@@ -699,7 +735,7 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, d
 		const folded = it.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) {
 			const k = f(item);
-			if (least ? lt(k, key) : !lt(k, key)) [best, key] = [item, k];
+			if ((compare(key, k) > 0) === least) [best, key] = [item, k];
 		}
 		return best;
 	}
@@ -710,7 +746,7 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, d
 	}
 	const [, item] = it.fold<[K, T]>([f(first), first], (best, item) => {
 		const k = f(item);
-		const wins = least ? lt(k, best[0]) : !lt(k, best[0]);
+		const wins = (compare(best[0], k) > 0) === least;
 		drop?.(wins ? best[1] : item);
 		return wins ? [k, item] : best;
 	});
@@ -2369,26 +2405,48 @@ export class Peekable<T> extends Adaptor<T, T> {
 	}
 }
 
-/** `Peekable::peek`. */
-export function peekablePeek<T>(p: Peekable<T>): T | undefined;
-export function peekablePeek<T>(p: Peekable<T>, none: None): T | None;
-export function peekablePeek<T>(p: Peekable<T>, none?: None): T | undefined | None {
+/** The item `p` peeked, peeking it first if it has not. */
+function peeked<T>(p: Peekable<T>): T | Done {
 	if (!p.peeked) {
 		p.item = p.inner.next();
 		p.peeked = true;
 	}
-	return iterToOption(p.item, none);
+	return p.item;
+}
+
+/** `Peekable::peek`. */
+export function peekablePeek<T>(p: Peekable<T>): T | undefined;
+export function peekablePeek<T>(p: Peekable<T>, none: None): T | None;
+export function peekablePeek<T>(p: Peekable<T>, none?: None): T | undefined | None {
+	return iterToOption(peeked(p), none);
+}
+
+/** `Peekable::peek_mut`: the item it peeked, as its place if it is one JS copies. */
+export function peekablePeekMut<T>(p: Peekable<T>, lend: true): Place<T> | undefined;
+export function peekablePeekMut<T>(p: Peekable<T>, lend: false): T | undefined;
+export function peekablePeekMut<T>(p: Peekable<T>, lend: boolean): Place<T> | T | undefined {
+	const item = peeked(p);
+	if (item === DONE) return undefined;
+	return lend ? place(() => p.item as T, (value: T) => (p.item = value)) : item;
 }
 
 /** `Peekable::next_if`: an item `f` rejects is peeked again. */
 export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean): T | undefined;
 export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean, none: None): T | None;
+export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean, none?: None): T | undefined | None;
 export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean, none?: None): T | undefined | None {
 	const item = p.next();
 	if (item !== DONE && f(item)) return item;
 	p.peeked = true;
 	p.item = item;
 	return none;
+}
+
+/** `Peekable::next_if_eq`: `next_if` by `eq` of the next item and `expected`. */
+export function peekableNextIfEq<T>(p: Peekable<T>, expected: T, eq: (a: T, b: T) => boolean): T | undefined;
+export function peekableNextIfEq<T>(p: Peekable<T>, expected: T, eq: (a: T, b: T) => boolean, none: None): T | None;
+export function peekableNextIfEq<T>(p: Peekable<T>, expected: T, eq: (a: T, b: T) => boolean, none?: None): T | undefined | None {
+	return peekableNextIf(p, (item: T) => eq(item, expected), none);
 }
 
 /** What `iterCollectResult` collects from: values until the first error, which it keeps. */
