@@ -1116,21 +1116,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					instance,
 					promoted: uv.promoted,
 				};
-				// A cell's value tree is its value, which loses what makes an atomic one.
-				if !ty.has_param() && !ty.is_freeze(tcx, env) {
-					return match tcx.const_eval_global_id(env, cid, span) {
-						Ok(val) => self.const_value(val, ty, span),
-						Err(_) => self.err(span, "a constant that failed to evaluate"),
-					};
-				}
-				match tcx.const_eval_global_id_for_typeck(env, cid, span) {
-					Ok(Ok(valtree)) => self.b.value(ty, valtree, span),
-					// Read from the memory it evaluated to.
-					Ok(Err(_)) => match tcx.const_eval_global_id(env, cid, span) {
+				// A cell's value tree is only its value, so one holding a cell, and one with no
+				// value tree, is read from the memory it evaluated to.
+				let freeze = ty.has_param() || ty.is_freeze(tcx, env);
+				match freeze.then(|| tcx.const_eval_global_id_for_typeck(env, cid, span)) {
+					Some(Ok(Ok(valtree))) => self.b.value(ty, valtree, span),
+					Some(Err(_)) => self.err(span, "a constant that failed to evaluate"),
+					None | Some(Ok(Err(_))) => match tcx.const_eval_global_id(env, cid, span) {
 						Ok(val) => self.const_value(val, ty, span),
 						Err(_) => self.err(span, "a constant that failed to evaluate"),
 					},
-					Err(_) => self.err(span, "a constant that failed to evaluate"),
 				}
 			}
 			mir::Const::Val(val, ty) => self.const_value(val, ty, span),
@@ -1300,7 +1295,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if !self.b.t.reading.insert(item) {
 			return self.err(span, "a static whose value points into itself, before it is made");
 		}
-		// A copy rustc reads as a constant's, which it refuses to of memory a cell may change.
+		// rustc reads a constant's memory only if it is immutable, so read an immutable copy.
 		let mut memory = alloc.inner().clone();
 		memory.mutability = rustc_ast::Mutability::Not;
 		let alloc_id = tcx.reserve_and_set_memory_alloc(tcx.mk_const_alloc(memory));
