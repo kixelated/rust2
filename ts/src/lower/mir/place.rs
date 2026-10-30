@@ -1791,8 +1791,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// Why a raw pointer made of `place` here would not keep pointing where Rust's does, if
 	/// it would not: JS keeps each part on its path that is an object, from what the last
 	/// pointer on it points at or from a local, in an object the crate may give another
-	/// object in its place, which the pointer would not see.
-	pub(super) fn out_of_step(&self, place: Place<'tcx>) -> Option<String> {
+	/// object in its place, which the pointer would not see. With `cells`, an `rt.Cell` on
+	/// the path is such an object, as one is for the pointer `UnsafeCell::get` gives.
+	pub(super) fn out_of_step(&self, place: Place<'tcx>, cells: bool) -> Option<String> {
 		let (tcx, decls, t) = (self.tcx, &self.mir.local_decls, &self.b.t);
 		let elems = place.projection.as_slice();
 		let start = elems
@@ -1800,7 +1801,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			.rposition(|e| matches!(e, ProjectionElem::Deref))
 			.map_or(0, |i| i + 1);
 		let object = |ty: Ty<'tcx>| {
-			!(t.polymorphic() && ty.has_param()) && t.pointee(ty) == crate::lower::pointer::Pointee::Object
+			!(t.polymorphic() && ty.has_param())
+				&& (t.pointee(ty) == crate::lower::pointer::Pointee::Object || cells && t.std_of(ty) == Some(Std::Cell))
 		};
 		for i in start..elems.len() {
 			let base = Place::ty_from(place.local, &elems[..i], decls, tcx).ty;
@@ -1837,6 +1839,23 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			));
 		}
 		None
+	}
+
+	/// Why the pointer `UnsafeCell::get` gives of the cell `receiver` refers to, holding a
+	/// `held`, would not keep pointing where Rust's does, if it would not: the `rt.Cell`
+	/// itself, or the object it holds, judged as [`Self::out_of_step`] judges a raw pointer.
+	pub(super) fn cell_out_of_step(&self, receiver: &Operand<'tcx>, held: Ty<'tcx>) -> Option<String> {
+		let tcx = self.tcx;
+		let reference = receiver.place()?;
+		let cell = match reference.as_local().and_then(|local| self.def_rvalue(local)) {
+			Some(mir::Rvalue::Ref(_, _, place)) => *place,
+			_ => tcx.mk_place_deref(reference),
+		};
+		let place = match self.b.t.pointee(held) {
+			crate::lower::pointer::Pointee::Object => tcx.mk_place_field(cell, FieldIdx::ZERO, held),
+			crate::lower::pointer::Pointee::Place => cell,
+		};
+		self.out_of_step(place, true)
 	}
 
 	/// Whether `local` may be assigned whole after the statement being lowered, before its
