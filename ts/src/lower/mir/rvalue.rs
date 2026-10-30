@@ -35,7 +35,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.union_whole(*place, span).is_some() {
 					return Some(self.err(span, "a reference to a union's field kept in more than one slot"));
 				}
-				if let Some(e) = self.mut_subslice(*kind, *place, span) {
+				if let Some(e) = self.mut_subslice(*kind, *place, span, out) {
 					return Some(e);
 				}
 				if let mir::BorrowKind::Mut { .. } = kind {
@@ -68,7 +68,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.union_whole(*place, span).is_some() {
 					return Some(self.err(span, "a pointer to a union's field kept in more than one slot"));
 				}
-				if let Some(why) = self.out_of_step(*place) {
+				if let Some(why) = self.out_of_step(*place, false) {
 					return Some(self.err(span, why));
 				}
 				let pointee = place.ty(&self.mir.local_decls, tcx).ty;
@@ -380,12 +380,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					// The value is its discriminant.
 					Some(Std::Ordering | Std::AtomicOrdering) => scrut,
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
-					Some(Std::Bound | Std::TryLockError) => {
+					Some(std @ (Std::Bound | Std::TryLockError | Std::IntErrorKind)) => {
 						let table = discrs
 							.iter()
 							.map(|(i, d)| (Key::Name(adt.variant(*i).name.to_string()), int.lit(*d as i128)))
 							.collect();
-						Expr::Index(Box::new(Expr::Object(table)), Box::new(scrut.member("tag")))
+						let key = match std {
+							Std::IntErrorKind => scrut,
+							_ => scrut.member("tag"),
+						};
+						Expr::Index(Box::new(Expr::Object(table)), Box::new(key))
 					}
 					None if self.b.t.own(adt.did()) => {
 						let info = self.b.t.adt(*adt, span);
@@ -582,6 +586,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
 				(Std::RangeFull, _) => Expr::undefined(),
+				(Std::ParseIntError, _) => Expr::Object(vec![(Key::Name("kind".into()), values.pop().unwrap())]),
+				(Std::IntErrorKind, _) => Expr::As(Box::new(Expr::Str(def.name.to_string())), self.b.t.ty(ty, span)),
 				(Std::Ordering, _) => crate::lower::collections::ordering_variant(variant),
 				(Std::AtomicOrdering, _) => crate::lower::task::atomic_ordering(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),

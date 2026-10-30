@@ -19,6 +19,7 @@ import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
 import type * as Twin from "./locals.Twin.ts";
 import type * as locks_Tally from "./locks.Tally.ts";
+import type * as Duo from "./pointers.Duo.ts";
 import type * as Halves from "./pointers.Halves.ts";
 import type * as Inner from "./pointers.Inner.ts";
 import * as List from "./pointers.List.ts";
@@ -31,6 +32,8 @@ import type * as Level from "./shapes.Level.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
+import type * as slices_Pair from "./slices.Pair.ts";
+import * as Lock from "./statics.Lock.ts";
 
 export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> {
 	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.u64>;
@@ -58,6 +61,10 @@ export function copy$ControlFlow_Arc_u8_u8s(v: rt.Result<Uint8Array, rt.Arc<rt.u
 
 export function copy$ControlFlow_unit_u8s(v: rt.Result<Uint8Array, undefined>): rt.Result<Uint8Array, undefined> {
 	return v.ok ? rt.Ok(copy$u8s(v.value)) : rt.Err(v.error);
+}
+
+export function copy$Duo(v: Duo.Duo): Duo.Duo {
+	return { _0: v._0, _1: v._1 };
 }
 
 export function copy$Either_u8_Point(v: Either.Either<rt.u8, Point.Point>): Either.Either<rt.u8, Point.Point> {
@@ -174,6 +181,10 @@ export function copy$Pair(v: Pair.Pair): Pair.Pair {
 }
 
 export function copy$Pair$2(v: pointers_Pair.Pair): pointers_Pair.Pair {
+	return { a: v.a, b: v.b };
+}
+
+export function copy$Pair$3(v: slices_Pair.Pair): slices_Pair.Pair {
 	return { a: v.a, b: v.b };
 }
 
@@ -343,6 +354,14 @@ export function drop$List_String(_1: List.List<string>): void {
 	List.drop$Drop_String(_1);
 }
 
+export function drop$Lock_Rc_unit(_1: Lock.Lock<rt.Arc<undefined>>): void {
+	Lock.drop$Drop_Rc_unit(_1);
+}
+
+export function drop$Lock_u8_Rc_unit(_1: Lock.Lock<[rt.u8, rt.Arc<undefined>]>): void {
+	Lock.drop$Drop_u8_Rc_unit(_1);
+}
+
 export function drop$RefCell_Vec_Arc_ArcReleasing(value: rt.RefCell<rt.Arc<ArcReleasing.ArcReleasing>[]>): void {
 	rt.dropAll(value.value);
 }
@@ -438,6 +457,10 @@ export function drop$Vec_Rc_Noisy_Vec_Rc_Noisy_Vec_RcShared_Vec_Noisy_Vec_Vec_Rc
 }
 
 export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$u8_Rc_unit(_1: [rt.u8, rt.Arc<undefined>]): void {
 	_1[1][Symbol.dispose]();
 }
 

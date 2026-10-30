@@ -7,7 +7,7 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import type { ParseFloatError } from "./rt/float.ts";
-import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import { type char, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Range, RangeInclusive } from "./rt/iter.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
 
@@ -260,6 +260,74 @@ export function sliceRange<T>(s: T[], start: number, end: number = s.length): T[
 	return s.slice(start, end);
 }
 
+/**
+ * `s[start..end]` lent mutably: an array whose every element is `s`'s, read and written
+ * where it is, as a JS array has no views of its own. Its own array, holes of the same
+ * length, answers for the rest, such as `length` and the methods. A view of a view reads
+ * the array beneath both.
+ */
+export function sliceView<T>(s: T[], start: number, end: number): T[] {
+	const outer = (s as { [VIEW]?: View<T> })[VIEW];
+	const view = outer ? new View(outer.s, outer.start + start, end - start) : new View(s, start, end - start);
+	return new Proxy(new Array<T>(end - start), view);
+}
+
+/** What a `sliceView` answers to its own `View` by. */
+const VIEW = /* @__PURE__ */ Symbol("view");
+
+/** A `sliceView`'s traps: of `length` elements of `s` from `start`. */
+class View<T> implements ProxyHandler<T[]> {
+	readonly s: T[];
+	readonly start: number;
+	readonly length: number;
+
+	constructor(s: T[], start: number, length: number) {
+		this.s = s;
+		this.start = start;
+		this.length = length;
+	}
+
+	/** Where in `s` the element `key` names is, or -1 if it names none. */
+	at(key: string | symbol): number {
+		if (typeof key !== "string") return -1;
+		const i = Number(key);
+		return Number.isInteger(i) && i >= 0 && i < this.length && String(i) === key ? this.start + i : -1;
+	}
+
+	get(target: T[], key: string | symbol): unknown {
+		if (key === VIEW) return this;
+		const i = this.at(key);
+		return i < 0 ? Reflect.get(target, key) : this.s[i];
+	}
+
+	set(target: T[], key: string | symbol, value: T): boolean {
+		const i = this.at(key);
+		if (i < 0) return Reflect.set(target, key, value);
+		this.s[i] = value;
+		return true;
+	}
+
+	has(target: T[], key: string | symbol): boolean {
+		return this.at(key) >= 0 || Reflect.has(target, key);
+	}
+
+	ownKeys(target: T[]): (string | symbol)[] {
+		return [...Array.from({ length: this.length }, (_, i) => String(i)), ...Reflect.ownKeys(target)];
+	}
+
+	getOwnPropertyDescriptor(target: T[], key: string | symbol): PropertyDescriptor | undefined {
+		const i = this.at(key);
+		if (i < 0) return Reflect.getOwnPropertyDescriptor(target, key);
+		return { value: this.s[i], writable: true, enumerable: true, configurable: true };
+	}
+}
+
+/** `&mut s[start..end]`: the runtime's view of it, checked as `sliceRange` checks it. */
+export function sliceRangeMut<T>(s: T[], start: number, end: number = s.length): T[] {
+	rangeCheck(s.length, start, end);
+	return sliceView(s, start, end);
+}
+
 /** `split_first`: the first element and the rest, or `undefined` if empty. */
 export function sliceSplitFirst<T>(s: T[]): [T, T[]] | undefined {
 	return s.length === 0 ? undefined : [s[0], s.slice(1)];
@@ -279,6 +347,37 @@ export function sliceSplitAt<T>(s: T[], n: number): [T[], T[]] {
 /** `split_at_checked`: the halves, or `undefined` past the length. */
 export function sliceSplitAtChecked<T>(s: T[], n: number): [T[], T[]] | undefined {
 	return n > s.length ? undefined : [s.slice(0, n), s.slice(n)];
+}
+
+/** `split_at_mut`: views of either half, panicking past the length. */
+export function sliceSplitAtMut<T>(s: T[], n: number): [T[], T[]] {
+	if (n > s.length) panic("mid > len");
+	return [sliceView(s, 0, n), sliceView(s, n, s.length)];
+}
+
+/** `split_at_mut_checked`: views of either half, or `undefined` past the length. */
+export function sliceSplitAtMutChecked<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : [sliceView(s, 0, n), sliceView(s, n, s.length)];
+}
+
+/**
+ * `split_first_mut`: the first element, as its place if it is one JS copies, and a view
+ * of the rest, or `undefined` if empty.
+ */
+export function sliceSplitFirstMut<T>(s: T[], place: true): [Place<T>, T[]] | undefined;
+export function sliceSplitFirstMut<T>(s: T[], place: false): [T, T[]] | undefined;
+export function sliceSplitFirstMut<T>(s: T[], place: boolean): [Place<T> | T, T[]] | undefined {
+	if (s.length === 0) return undefined;
+	return [place ? new AtIndex(s, 0) : s[0], sliceView(s, 1, s.length)];
+}
+
+/** `split_last_mut`: as `sliceSplitFirstMut`, the last element and a view of the rest. */
+export function sliceSplitLastMut<T>(s: T[], place: true): [Place<T>, T[]] | undefined;
+export function sliceSplitLastMut<T>(s: T[], place: false): [T, T[]] | undefined;
+export function sliceSplitLastMut<T>(s: T[], place: boolean): [Place<T> | T, T[]] | undefined {
+	const n = s.length - 1;
+	if (n < 0) return undefined;
+	return [place ? new AtIndex(s, n) : s[n], sliceView(s, 0, n)];
 }
 
 /** `first`: the first element, or `undefined` if empty. */
@@ -555,6 +654,17 @@ export function byteSliceRange(s: ByteSlice, start: number, end: number = s.leng
 /** `split_first`: the first byte and the rest, or `undefined` if empty. */
 export function byteSliceSplitFirst(s: ByteSlice): [number, ByteSlice] | undefined {
 	return s.length === 0 ? undefined : [s.data[s.start], new ByteSlice(s.data, s.start + 1, s.length - 1)];
+}
+
+/** `split_first_mut`: the first byte's place and the rest, or `undefined` if empty. */
+export function byteSliceSplitFirstMut(s: ByteSlice): [Place<number>, ByteSlice] | undefined {
+	return s.length === 0 ? undefined : [new AtIndex(s.data, s.start), new ByteSlice(s.data, s.start + 1, s.length - 1)];
+}
+
+/** `split_last_mut`: the last byte's place and the rest, or `undefined` if empty. */
+export function byteSliceSplitLastMut(s: ByteSlice): [Place<number>, ByteSlice] | undefined {
+	const n = s.length - 1;
+	return n < 0 ? undefined : [new AtIndex(s.data, s.start + n), new ByteSlice(s.data, s.start, n)];
 }
 
 /** `split_first_chunk`: the first `n` bytes and the rest, or `undefined` if shorter. */
@@ -1441,6 +1551,24 @@ export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 /** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
+}
+
+/** `Debug` of `ParseIntError`. */
+export function fmtParseIntErrorDebug(e: ParseIntError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseIntError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseIntError`. */
+export function fmtParseIntErrorDisplay(e: ParseIntError, f: Formatter): FmtResult {
+	const messages = {
+		Empty: "cannot parse integer from empty string",
+		InvalidDigit: "invalid digit found in string",
+		PosOverflow: "number too large to fit in target type",
+		NegOverflow: "number too small to fit in target type",
+		Zero: "number would be zero for non-zero type",
+		NotAPowerOfTwo: "number is not a power of two",
+	};
+	return fmtPad(f, messages[e.kind]);
 }
 
 /** `Debug` of `ParseFloatError`. */

@@ -4,7 +4,7 @@
 //! An atomic is a new `rt.Atomic` of the value read, a one-time cell the runtime's, empty,
 //! and a lazy one the runtime's over its function, as const evaluation leaves them. A
 //! `MaybeUninit` is what it holds or nothing yet, as [`crate::lower::pointer`] has it, and
-//! an `UnsafeCell` is its contents.
+//! an `UnsafeCell` a new `rt.Cell` of its contents, which a `Cell` is too.
 
 use rustc_abi::{BackendRepr, Primitive, Size};
 use rustc_middle::mir::interpret::{GlobalAlloc, InitChunk, Scalar, alloc_range};
@@ -23,13 +23,16 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let ty::Adt(adt, args) = ty.kind() else {
 			return None;
 		};
-		let std = Std::of(tcx, adt.did());
-		if std.is_none() && !tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::UnsafeCell) {
-			return None;
-		}
-		let e = match std {
-			None => match self.fields(val, ty).as_deref() {
-				Some([(value, inner)]) => self.const_value(*value, *inner, span),
+		let e = match Std::of(tcx, adt.did()) {
+			Some(Std::Cell) => match self.fields(val, ty).as_deref() {
+				// A `Cell`'s field is its `UnsafeCell`, which is the same `rt.Cell`.
+				Some([(value, inner)]) if !tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::UnsafeCell) => {
+					self.const_value(*value, *inner, span)
+				}
+				Some([(value, inner)]) => {
+					let value = self.const_value(*value, *inner, span);
+					Expr::New(Box::new(Expr::Rt("Cell".into())), vec![value])
+				}
 				_ => self.unreadable(ty, span),
 			},
 			Some(Std::Atomic) => {
@@ -78,7 +81,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					None => self.unreadable(ty, span),
 				}
 			}
-			Some(_) => return None,
+			Some(_) | None => return None,
 		};
 		Some(e)
 	}

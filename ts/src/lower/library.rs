@@ -35,6 +35,10 @@ pub enum Std {
 	FromUtf8Error,
 	Utf8Error,
 	TryFromIntError,
+	/// `rt.ParseIntError`: `{ kind }`, its `IntErrorKind`.
+	ParseIntError,
+	/// `rt.IntErrorKind`: the variant's name.
+	IntErrorKind,
 	ParseFloatError,
 	TryFromFloatSecsError,
 	/// `rt.Formatter`.
@@ -65,7 +69,7 @@ pub enum Std {
 	RefCell,
 	Ref,
 	RefMut,
-	/// `rt.Cell<T>`, a place holding its value.
+	/// `rt.Cell<T>`, a place holding its value: a `Cell`'s or an `UnsafeCell`'s.
 	Cell,
 	/// `rt.LocalKey<T>`: a thread-local, a module's value.
 	LocalKey,
@@ -207,6 +211,7 @@ impl Std {
 			}
 		}
 		for (item, std) in [
+			(rustc_attr_ir::LangItem::UnsafeCell, Self::Cell),
 			(rustc_attr_ir::LangItem::Context, Self::Context),
 			(rustc_attr_ir::LangItem::ResumeTy, Self::Context),
 			(rustc_attr_ir::LangItem::Poll, Self::Poll),
@@ -238,6 +243,8 @@ impl Std {
 			.as_slice()
 		{
 			["str", "error", "Utf8Error"] => Some(Self::Utf8Error),
+			["num", "error", "ParseIntError"] => Some(Self::ParseIntError),
+			["num", "error", "IntErrorKind"] => Some(Self::IntErrorKind),
 			["fmt", "Formatter"] => Some(Self::Formatter),
 			["fmt", "Arguments"] => Some(Self::Arguments),
 			["fmt", "Error"] => Some(Self::FmtError),
@@ -529,7 +536,9 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
 /// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
-/// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms.
+/// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, or what
+/// parses an integer: `str::parse` of one, its `FromStr`, `from_str_radix`, and what they
+/// call, `char::to_digit` and the radix's panic among it.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
 /// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
 /// as the runtime's panic.
@@ -546,6 +555,9 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return matches!(
 			path.iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
 			["cmp", "max" | "min" | "max_by" | "min_by" | "max_by_key" | "min_by_key"]
+				| ["num", "can_not_overflow"]
+				// With the functions `const_panic!` nests in it.
+				| ["num", "from_ascii_bytes_radix_panic", ..]
 		);
 	}
 	if tcx.def_kind(did) != DefKind::AssocFn {
@@ -554,6 +566,21 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let Some(imp) = tcx.impl_of_assoc(did) else {
 		return false;
 	};
+	let name = tcx.item_name(did);
+	let parses = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
+		ty::Int(_) | ty::Uint(_) => {
+			matches!(
+				name.as_str(),
+				"from_str" | "from_str_radix" | "from_ascii_bytes_radix_impl"
+			)
+		}
+		ty::Str => name.as_str() == "parse" && Int::of(instance.args.type_at(0)).is_some(),
+		ty::Char => name.as_str() == "to_digit",
+		_ => false,
+	};
+	if parses {
+		return true;
+	}
 	// `None` for `bool`'s.
 	let std = match tcx.type_of(imp).instantiate_identity().skip_norm_wip().kind() {
 		ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
@@ -572,7 +599,6 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	if sig.safety().is_unsafe() || sig.inputs().iter().any(|&ty| writes(ty)) {
 		return false;
 	}
-	let name = tcx.item_name(did);
 	if let Some(tr) = tcx.trait_impl_of_assoc(did).map(|imp| tcx.impl_trait_id(imp)) {
 		// A `Clone` that only copies is the copy.
 		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
@@ -738,6 +764,31 @@ struct Closures<'tcx> {
 	spent: Vec<Expr>,
 }
 
+/// What an argument of type `ty` that std calls holds, through any references and boxes,
+/// whether a reference lends it, and `value`, the argument, read as that: a `&mut` to a
+/// function JS copies is its place, so std calls the function it holds.
+pub fn called_through<'tcx>(
+	t: &Translator<'_, 'tcx>,
+	ty: Ty<'tcx>,
+	mut value: Option<Expr>,
+) -> (Ty<'tcx>, bool, Option<Expr>) {
+	let (mut owned, mut lent) = (ty, false);
+	loop {
+		owned = match *owned.kind() {
+			ty::Ref(_, inner, _) => {
+				if t.place_pointee(owned).is_some() {
+					value = value.map(|f| f.member("v"));
+				}
+				lent = true;
+				inner
+			}
+			ty::Adt(adt, args) if Std::of(t.tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
+			_ => break,
+		};
+	}
+	(owned, lent, value)
+}
+
 /// The closures `call` calls that own a value that drops, by what its mapping does with
 /// each: kept by the iterator it returns, if `iter::holds_closure`; dropped as it returns, if
 /// `Fn` or `FnMut` call it and nothing else it takes by value drops, as then nothing it
@@ -766,22 +817,10 @@ fn called_closures<'tcx>(
 		let Some(bound) = called_by(tcx, call.def_id, input) else {
 			continue;
 		};
-		// Through any references and boxes, any reference of which lends it.
-		let (mut owned, mut lent) = (ty, false);
-		loop {
-			owned = match *owned.kind() {
-				ty::Ref(_, inner, _) => {
-					// A `&mut` to a function JS copies is its place: std calls the function it holds.
-					if b.t.place_pointee(owned).is_some() && i < args.len() {
-						let f = std::mem::replace(&mut args[i], Expr::undefined());
-						args[i] = f.member("v");
-					}
-					lent = true;
-					inner
-				}
-				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => args.type_at(0),
-				_ => break,
-			};
+		let value = (i < args.len()).then(|| std::mem::replace(&mut args[i], Expr::undefined()));
+		let (owned, lent, value) = called_through(b.t, ty, value);
+		if let Some(value) = value {
+			args[i] = value;
 		}
 		let Some(called) = b.t.owned_fn(owned) else {
 			continue;
@@ -1327,6 +1366,20 @@ fn mapping<'tcx>(
 				false => rt2(args, "slice", &super::camel(&name)),
 			}
 		}
+		// Halves of bytes are views already, and of other values the runtime's views.
+		("slice", "split_at_mut" | "split_at_mut_checked") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name.replace("_mut", ""))),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		// The element is lent as `first_mut` lends it, and the rest as a view.
+		("slice", "split_first_mut" | "split_last_mut") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => {
+				let mut values = args;
+				values.push(Expr::lit(b.t.needs_place(targ(gargs, 0)).to_string()));
+				rt2(values, "slice", &super::camel(&name))
+			}
+		},
 		("ChunksExact" | "RChunksExact", "remainder") | ("ChunksExactMut" | "RChunksExactMut", "into_remainder") => {
 			Expr::rt("partsRemainder", args)
 		}
@@ -1614,6 +1667,8 @@ fn mapping<'tcx>(
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
+		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
+		("ParseIntError", "kind") => args.pop()?.member("kind"),
 		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
 			Expr::rt_of("f64", "fromStr").call(args)

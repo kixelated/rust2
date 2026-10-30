@@ -231,14 +231,6 @@ pub fn zip_dropped(v: &[u8]) -> usize {
 	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
 }
 
-/// `rest` borrows the tail of `items` mutably, but a JS array has no views.
-pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
-	if let [_, rest @ ..] = items {
-		rest[0] = 9;
-	}
-	items[1]
-}
-
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
@@ -488,8 +480,8 @@ pub fn fma(a: f64) -> f64 {
 	a.mul_add(2.0, 1.0)
 }
 
-/// Integer parsing is not translated yet.
-pub fn int_parsed(s: &str) -> Result<u32, std::num::ParseIntError> {
+/// Parsing a `char` is not translated yet.
+pub fn char_parsed(s: &str) -> Result<char, std::char::ParseCharError> {
 	s.parse()
 }
 
@@ -686,6 +678,39 @@ pub fn element_pointer(n: u32) -> u32 {
 	unsafe { (*p).0 }
 }
 
+/// The pointer `UnsafeCell::get` gives to the object its `rt.Cell` holds, which a whole
+/// write of the cell elsewhere replaces with another object.
+pub fn cell_replaced(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new((n, n));
+	let p = cell.get();
+	let old = std::mem::replace(&mut cell, std::cell::UnsafeCell::new((0, 0)));
+	unsafe { (*p).0 + old.into_inner().1 }
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` itself, which an
+/// assignment of the whole variable replaces.
+pub fn cell_reassigned(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new(n);
+	let p = cell.get();
+	cell = std::cell::UnsafeCell::new(0);
+	unsafe { *p + cell.into_inner() }
+}
+
+pub struct Hits {
+	pub count: std::cell::UnsafeCell<u32>,
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` in a struct, which a
+/// write of the whole field replaces.
+pub fn cell_field_replaced(n: u32) -> u32 {
+	let mut hits = Hits {
+		count: std::cell::UnsafeCell::new(n),
+	};
+	let p = hits.count.get();
+	hits.count = std::cell::UnsafeCell::new(0);
+	unsafe { *p + *hits.count.get_mut() }
+}
+
 /// Two pointers to values of no bytes, which Rust may put anywhere.
 pub fn units_compared() -> bool {
 	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();
@@ -770,6 +795,12 @@ pub fn spent_range(
 	map: &std::collections::BTreeMap<usize, u8>,
 ) -> usize {
 	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
+}
+
+/// A closure that owns a value that drops, which `String::retain` would call but never drop.
+pub fn string_retained(s: &mut String) {
+	let n = Noisy(1);
+	s.retain(move |c| c as u8 != (&n).0);
 }
 
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
