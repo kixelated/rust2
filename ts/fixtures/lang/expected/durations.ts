@@ -233,7 +233,7 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		rt.byteVecPush(out, Window.cmp$Ord(w2, { start: b, len: undefined }) < 0 ? 1 : 0);
 		const _400: Window.Window = copy$Window(Window.default$Default());
 		const _398: rt.Iter<Window.Window> = rt.iterSlice([copy$Window(w2), copy$Window(w2), _400]);
-		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Window.hash$Hash_DefaultHasher, Window.eq$PartialEq)) as rt.HashSet<Window.Window>, _398, undefined, undefined, 29360128)) & 0xff);
+		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Window.hash$Hash_DefaultHasher as (a0: Window.Window, a1: rt.Hasher) => undefined, Window.eq$PartialEq)) as rt.HashSet<Window.Window>, _398, undefined, undefined, 29360128)) & 0xff);
 		const _413: Window.Window = Window.default$Default();
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => Window.fmt$Debug(w2, f), (f: rt.Formatter) => Window.fmt$Debug(_413, f)];
 		put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ alternate: true }, args8[1])]));
