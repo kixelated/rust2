@@ -1,6 +1,7 @@
 //! The api fixture is exported, built as a static library, and driven from C by
-//! `tests/api.c`, from C++ by `tests/api.cpp`, and from Kotlin by `tests/api.kt`, whose
-//! transcripts must match the fixture's own script run natively.
+//! `tests/api.c`, from C++ by `tests/api.cpp`, and from Kotlin by `tests/api.kt` on the JVM
+//! and, shrunk by R8, on Android, whose transcripts must match the fixture's own script run
+//! natively.
 //! The reject fixture's export must fail at each item it cannot export.
 
 use std::env::consts::EXE_SUFFIX;
@@ -278,70 +279,33 @@ fn cxx(api: &Api, standard: u8, plain: bool, src: &Path, exe: &Path) -> Command 
 	cmd
 }
 
+/// The generated Kotlin, compiled with `tests/api.kt` against the library's JNI
+/// functions, runs its script on the JVM, then refuses a library of another contract.
 #[test]
 fn api_kotlin() {
 	let api = api();
-	kotlin(&api.out, &api.lib, &api.transcript);
-}
-
-/// The generated Kotlin, compiled with `tests/api.kt` against the library's JNI
-/// functions in `lib`, runs the script to the native transcript, then checks its futures
-/// and the contracts it fails loud on.
-fn kotlin(out: &Path, lib: &Path, native: &str) {
-	let coroutines = std::env::var_os("KOTLINX_COROUTINES")
-		.expect("KOTLINX_COROUTINES names kotlinx-coroutines' jar: run this in the dev shell");
 	let classes = scratch().join("api").join("kotlin");
 	let _ = std::fs::remove_dir_all(&classes);
-	run(Command::new("kotlinc")
-		.args(["-Werror", "-cp"])
-		.arg(&coroutines)
-		.arg(out.join("kotlin").join("api.kt"))
-		.arg(manifest_dir().join("tests").join("api.kt"))
-		.arg("-d")
-		.arg(&classes));
+	run(&mut kotlinc(&api.out, &classes));
 	let mut classpath = classes.clone().into_os_string();
 	classpath.push(":");
-	classpath.push(&coroutines);
+	classpath.push(coroutines());
 	let java = |args: &[&str]| {
 		let mut cmd = Command::new("kotlin");
-		cmd.arg(format!("-Djava.library.path={}", lib.display()))
+		cmd.arg(format!("-Djava.library.path={}", api.lib.display()))
 			.arg("-cp")
 			.arg(&classpath)
 			.arg("ApiKt")
 			.args(args);
 		cmd
 	};
-	let kt = run(&mut java(&[]));
-	assert_eq!(
-		String::from_utf8_lossy(&kt.stdout),
-		native,
-		"the Kotlin transcript differs from the native one"
-	);
-	run(&mut java(&["futures"]));
-	run(&mut java(&["owned"]));
-	for (case, message) in [
-		("moved", "Counter is closed"),
-		("boxed moved", "Node is closed"),
-		("lent kept", "Counter is closed"),
-		(
-			"lent moved",
-			"api_counter_into_label: a lent handle's value cannot move out",
-		),
-		("callback threw", "api_fixture::Log::log: a call into Kotlin threw"),
-		("stray", "MalformedInputException"),
-		("family", "an IPv6 address has no Rust SocketAddrV4"),
-	] {
-		let output = java(&[case]).output().unwrap();
-		assert!(!output.status.success(), "Kotlin {case} did not fail");
-		let stderr = String::from_utf8_lossy(&output.stderr);
-		assert!(stderr.contains(message), "Kotlin {case} printed {stderr}");
-	}
+	kotlin(&api.transcript, &java);
 
 	// The same classes, with another contract than the library's in place of theirs,
 	// refuse to load it.
 	let native_class = classes.join("api").join("Native.class");
 	let bytes = std::fs::read(&native_class).unwrap();
-	let contract = kotlin_contract(&out.join("kotlin").join("api.kt")).to_be_bytes();
+	let contract = kotlin_contract(&api.out.join("kotlin").join("api.kt")).to_be_bytes();
 	let at: Vec<usize> = (0..bytes.len() - 8).filter(|&i| bytes[i..i + 8] == contract).collect();
 	assert_eq!(at.len(), 1, "Native.class holds the contract once");
 	let mut mismatched = bytes.clone();
@@ -355,6 +319,159 @@ fn kotlin(out: &Path, lib: &Path, native: &str) {
 		stderr.contains("api.kt and the library are from different builds"),
 		"a mismatched contract printed {stderr}"
 	);
+}
+
+/// The same script on Android: the classes, shrunk by R8 into an app's dex with only the
+/// generated rules keeping what JNI looks up, run on ART on the device adb reaches against
+/// the library the NDK builds for its ABI, both for API 24, the oldest moq's Android library
+/// supports.
+#[test]
+#[ignore = "needs the Android SDK and NDK, cargo-ndk, and a device: just ffi android"]
+fn api_android() {
+	const DEVICE: &str = "/data/local/tmp/rust2-ffi";
+	let api = api();
+	let sdk = PathBuf::from(std::env::var_os("ANDROID_HOME").expect("ANDROID_HOME names the Android SDK"));
+	let adb = sdk.join("platform-tools").join("adb");
+	let dir = scratch().join("api").join("android");
+	let _ = std::fs::remove_dir_all(&dir);
+	std::fs::create_dir_all(&dir).unwrap();
+
+	let abi = run(Command::new(&adb).args(["shell", "getprop", "ro.product.cpu.abi"]));
+	let abi = String::from_utf8_lossy(&abi.stdout).trim().to_string();
+	run(cargo()
+		.args(["ndk", "--target", &abi, "--platform", "24", "--output-dir"])
+		.arg(dir.join("lib"))
+		.args(["build", "--quiet", "--manifest-path"])
+		.arg(api.out.join("Cargo.toml"))
+		.arg("--target-dir")
+		.arg(scratch().join("api").join("glue"))
+		.args(["--features", "kotlin"])
+		.env("RUSTFLAGS", "-D warnings"));
+
+	// The app: the script's entry point, kept as an app keeps its own, and everything it
+	// reaches, which R8 shrinks and renames, keeping only what the rules keep: the
+	// generated ones, and those kotlinx-coroutines' jar holds, which an app's build reads
+	// from it. Kotlin's annotations are on an app's classpath, not in its dex.
+	let jar = dir.join("app.jar");
+	run(kotlinc(&api.out, &jar).arg("-include-runtime"));
+	run(Command::new("jar")
+		.arg("xf")
+		.arg(coroutines())
+		.arg("META-INF/com.android.tools/r8/coroutines.pro")
+		.current_dir(&dir));
+	let app = dir.join("app.pro");
+	std::fs::write(
+		&app,
+		format!(
+			"-keep class ApiKt {{ public static void main(java.lang.String[]); }}\n-dontwarn org.jetbrains.annotations.**\n-printusage {}\n",
+			dir.join("usage.txt").display()
+		),
+	)
+	.unwrap();
+	let dex = dir.join("dex");
+	std::fs::create_dir_all(&dex).unwrap();
+	run(Command::new("java")
+		.arg("-cp")
+		.arg(newest(&sdk.join("build-tools")).join("lib").join("d8.jar"))
+		.args(["com.android.tools.r8.R8", "--release", "--min-api", "24", "--lib"])
+		.arg(newest(&sdk.join("platforms")).join("android.jar"))
+		.arg("--pg-conf")
+		.arg(api.out.join("kotlin").join("api.pro"))
+		.arg("--pg-conf")
+		.arg(dir.join("META-INF/com.android.tools/r8/coroutines.pro"))
+		.arg("--pg-conf")
+		.arg(&app)
+		.arg("--output")
+		.arg(&dex)
+		.arg(&jar)
+		.arg(coroutines()));
+	// R8 strips the generated Kotlin the script never reaches.
+	let usage = std::fs::read_to_string(dir.join("usage.txt")).unwrap();
+	assert!(
+		usage.lines().any(|line| line.starts_with("api.")),
+		"R8 stripped none of the generated Kotlin:\n{usage}"
+	);
+
+	run(Command::new(&adb)
+		.args(["shell", "rm", "-rf", DEVICE, "&&", "mkdir", "-p"])
+		.arg(format!("{DEVICE}/dalvik-cache")));
+	run(Command::new(&adb)
+		.arg("push")
+		.arg(dex.join("classes.dex"))
+		.arg(dir.join("lib").join(&abi).join("libapi.so"))
+		.arg(DEVICE));
+	let art = |args: &[&str]| {
+		let args: String = args.iter().map(|arg| format!(" '{arg}'")).collect();
+		let mut cmd = Command::new(&adb);
+		cmd.arg("shell").arg(format!(
+			"ANDROID_DATA={DEVICE} dalvikvm -Djava.library.path={DEVICE} -cp {DEVICE}/classes.dex ApiKt{args}"
+		));
+		cmd
+	};
+	kotlin(&api.transcript, &art);
+}
+
+/// kotlinc compiling the generated Kotlin with `tests/api.kt` into `dest`.
+fn kotlinc(out: &Path, dest: &Path) -> Command {
+	let mut cmd = Command::new("kotlinc");
+	cmd.args(["-Werror", "-cp"])
+		.arg(coroutines())
+		.arg(out.join("kotlin").join("api.kt"))
+		.arg(manifest_dir().join("tests").join("api.kt"))
+		.arg("-d")
+		.arg(dest);
+	cmd
+}
+
+/// kotlinx-coroutines' jar.
+fn coroutines() -> OsString {
+	std::env::var_os("KOTLINX_COROUTINES")
+		.expect("KOTLINX_COROUTINES names kotlinx-coroutines' jar: run this in the dev shell")
+}
+
+/// The entry of `dir` of the highest version, as the SDK names its build tools and platforms.
+fn newest(dir: &Path) -> PathBuf {
+	let version = |path: &PathBuf| -> Vec<u32> {
+		let name = path.file_name().unwrap().to_string_lossy().into_owned();
+		name.split(|c: char| !c.is_ascii_digit())
+			.filter_map(|n| n.parse().ok())
+			.collect()
+	};
+	std::fs::read_dir(dir)
+		.unwrap_or_else(|err| panic!("reading {}: {err}", dir.display()))
+		.map(|entry| entry.unwrap().path())
+		.max_by_key(version)
+		.unwrap_or_else(|| panic!("{} is empty", dir.display()))
+}
+
+/// `tests/api.kt`'s script, run by `vm` with each argument list, prints the native
+/// transcript; then its futures, what the GC frees, and each contract it fails loud on.
+fn kotlin(native: &str, vm: &dyn Fn(&[&str]) -> Command) {
+	let kt = run(&mut vm(&[]));
+	assert_eq!(
+		String::from_utf8_lossy(&kt.stdout),
+		native,
+		"the Kotlin transcript differs from the native one"
+	);
+	run(&mut vm(&["futures"]));
+	run(&mut vm(&["owned"]));
+	for (case, message) in [
+		("moved", "Counter is closed"),
+		("boxed moved", "Node is closed"),
+		("lent kept", "Counter is closed"),
+		(
+			"lent moved",
+			"api_counter_into_label: a lent handle's value cannot move out",
+		),
+		("callback threw", "api_fixture::Log::log: a call into Kotlin threw"),
+		("stray", "MalformedInputException"),
+		("family", "an IPv6 address has no Rust SocketAddrV4"),
+	] {
+		let output = vm(&[case]).output().unwrap();
+		assert!(!output.status.success(), "Kotlin {case} did not fail");
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		assert!(stderr.contains(message), "Kotlin {case} printed {stderr}");
+	}
 }
 
 /// The contract a Kotlin file checks its library against.
