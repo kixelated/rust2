@@ -72,6 +72,31 @@
           # the repo toolchain. ts/justfile puts it first for its recipes.
           tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
+          # std checked once per toolchain for the TypeScript driver's target, with the
+          # profile translation reads its MIR at, as the sysroot rust2-ts takes instead of
+          # checking std with -Zbuild-std in every target directory. Offline, from the
+          # crates rust-src vendors.
+          rust2-ts-std = pkgs.stdenv.mkDerivation {
+            name = "rust2-ts-std";
+            dontUnpack = true;
+            nativeBuildInputs = [ tsToolchain ];
+            buildPhase = ''
+              export CARGO_HOME=$TMPDIR/cargo CARGO_UNSTABLE_PROFILE_RUSTFLAGS=true
+              mkdir -p sysroot/src && cd sysroot
+              printf '[package]\nname = "sysroot"\nversion = "0.0.0"\nedition = "2024"\n' > Cargo.toml
+              touch src/lib.rs
+              # The crates ts/src/cli.rs's STD names.
+              cargo check --offline --target wasm32-unknown-unknown -Zbuild-std=core,alloc,std,panic_abort \
+                --config "source.crates-io.replace-with = 'vendored'" \
+                --config "source.vendored.directory = '${tsToolchain}/lib/rustlib/src/rust/library/vendor'" \
+                --config ${./ts/src/profile.toml}
+            '';
+            installPhase = ''
+              lib=$out/lib/rustlib/wasm32-unknown-unknown/lib
+              mkdir -p $lib
+              find target/wasm32-unknown-unknown -name 'lib*.rmeta' ! -name 'libsysroot-*' -exec cp -t $lib {} +
+            '';
+          };
           # The driver links its nightly's rustc libraries, and runs cargo from it too.
           rust2-ts =
             (pkgs.makeRustPlatform {
@@ -101,6 +126,7 @@
                 # tsc checks bindings, from the caller's PATH first.
                 postInstall = ''
                   wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo \
+                    --set-default RUST2_TS_SYSROOT ${rust2-ts-std} \
                     --suffix PATH : ${pkgs.typescript}/bin
                 '';
                 # The tests need node, tsc, and wasm builds: `just ts test` runs them.
@@ -275,6 +301,7 @@
               kotlin
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
+            RUST2_TS_SYSROOT = rust2-ts-std;
             KOTLINX_COROUTINES = "${kotlinx-coroutines}";
           };
           # `just ts bench` adds Chrome and Firefox as engines, and wasm-bindgen for moq-wasm's

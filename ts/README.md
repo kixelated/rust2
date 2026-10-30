@@ -7,7 +7,9 @@ rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
-`wasm32-unknown-unknown`, with std built from source for it with every function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
+`wasm32-unknown-unknown`, against std checked from source with every function's MIR. The flake's
+package and dev shell check it once per toolchain and pass it as `RUST2_TS_SYSROOT`; without
+that, each target directory checks it with `-Zbuild-std`, which needs the toolchain's `rust-src`. Every crate compiles as rustc
 would; the configured library is also translated, after type and borrow checking, starting from its roots and following
 what they reach. Every crate it depends on but std's translates with it as one program,
 as far as the roots reach: each compiles with every function's MIR, and its types and

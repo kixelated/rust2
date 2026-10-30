@@ -1,5 +1,6 @@
 //! The command line: run cargo on the configured package with this binary as rustc.
 
+use std::path::Path;
 use std::process::ExitCode;
 
 use rust2_driver::cargo::{Args, Check, Output};
@@ -8,7 +9,7 @@ use crate::config::{self, Config};
 
 /// Translation type-checks for this target: its 32-bit `usize` is what a JS number
 /// holds exactly, and its `cfg`s are the browser's.
-const TARGET: &str = "wasm32-unknown-unknown";
+pub const TARGET: &str = "wasm32-unknown-unknown";
 
 const USAGE: &str = "usage: rust2-ts --config <ts.toml> (--out <dir> | --census <file>) [--manifest-path <Cargo.toml>] [-- <cargo args>]
 
@@ -44,11 +45,9 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 		output,
 		("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true".as_ref()),
 	];
-	let mut cargo = std_from_source();
-	cargo.push("--config".into());
-	cargo.push(format!("profile.dev.rustflags={}", toml_list(FLAGS)));
-	// The profile those flags and std's are set on, which cargo refuses to combine with
-	// one the cargo args pick.
+	let mut cargo = profile_args()?;
+	// The profile `PROFILE` sets, which cargo refuses to combine with one the cargo args
+	// pick.
 	cargo.extend(["--profile".into(), "dev".into()]);
 	cargo.extend(args.cargo);
 	Check {
@@ -62,39 +61,43 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	.run()
 }
 
-/// What every crate compiles with, through the profile, which cargo's fingerprint sees,
-/// for a crate cached without them to compile again: the package and every crate it
-/// depends on translate as one program.
-///
-/// Every function's MIR, which a `cargo check` encodes for no dependency's functions
-/// otherwise. Without the checks of undefined behavior that debug builds add around raw
-/// pointers, such as a box's: JS has no pointers to check. With every call where the
-/// source has it, as a release build's inlining would not keep it, since a call is what a
-/// binding or a std function's translation stands in for. And with `rust2_ts` set, so a
-/// crate can give translation a safe twin of its `unsafe`. std's crates have their own
-/// below, and the rest of std's take these to no effect, since none translates.
-const FLAGS: &[&str] = &[
-	"-Zalways-encode-mir",
-	"-Zub-checks=no",
-	"-Zinline-mir=no",
-	"--cfg=rust2_ts",
-];
+/// The cargo config of the profile every crate compiles with, one `--config` per line.
+const PROFILE: &str = include_str!("profile.toml");
 
-fn toml_list(items: &[&str]) -> String {
-	let items: Vec<String> = items.iter().map(|item| format!("{item:?}")).collect();
-	format!("[{}]", items.join(", "))
+/// The std crates `-Zbuild-std` checks, which flake.nix's sysroot holds too.
+const STD: &str = "-Zbuild-std=core,alloc,std,panic_abort";
+
+/// Cargo args that check std from source, unless [`sysroot`] has it checked already, and
+/// set [`PROFILE`].
+fn profile_args() -> Result<Vec<String>, String> {
+	let mut args = Vec::new();
+	if sysroot()?.is_none() {
+		args.push(STD.to_string());
+	}
+	for line in PROFILE
+		.lines()
+		.filter(|line| !line.is_empty() && !line.starts_with('#'))
+	{
+		args.extend(["--config".to_string(), line.to_string()]);
+	}
+	Ok(args)
 }
 
-/// Cargo args that build std from source with every function's MIR, so the bodies of
-/// std's combinators lower as the crate's do: the target's prebuilt std encodes the MIR
-/// of few, optimized. Set through the profile, which cargo's fingerprint sees.
-fn std_from_source() -> Vec<String> {
-	let mut args = vec!["-Zbuild-std=core,alloc,std,panic_abort".to_string()];
-	for krate in ["core", "alloc", "std"] {
-		args.push("--config".into());
-		args.push(format!(
-			"profile.dev.package.{krate}.rustflags=[\"-Zalways-encode-mir\"]"
+/// The sysroot of std checked with [`PROFILE`] for [`TARGET`], which rustc takes for the
+/// target's crates instead of a `-Zbuild-std` in every target directory, if set.
+pub fn sysroot() -> Result<Option<String>, String> {
+	let dir = match std::env::var(config::env::SYSROOT) {
+		Ok(dir) if !dir.is_empty() => dir,
+		Err(std::env::VarError::NotUnicode(_)) => return Err(format!("{} is not UTF-8", config::env::SYSROOT)),
+		_ => return Ok(None),
+	};
+	let lib = Path::new(&dir).join("lib/rustlib").join(TARGET).join("lib");
+	if !lib.is_dir() {
+		return Err(format!(
+			"{} is {dir}, which holds no std for {TARGET} in {}",
+			config::env::SYSROOT,
+			lib.display()
 		));
 	}
-	args
+	Ok(Some(dir))
 }
