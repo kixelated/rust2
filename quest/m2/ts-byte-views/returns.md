@@ -56,10 +56,26 @@ most. One out slot per payload type, which a forwarded result already fills, avo
   big to inline, so each call boxes its value into the slot (above), where `main` returned
   a new array. Returning the `Ok`'s first number, rather than writing it to the slot, would
   avoid both the box and the conversion: an ABI change for the maintainer to weigh.
-- Parked as a draft on 2026-10-29 until the host is quiet, with moq.pro's dev servers
-  stopped. Then: time `time/` and `btree/` alone on the bench, to see whether the other
-  workloads cause their gap; trace V8's inlining of `rescale` in the bench itself, where
-  Turbofan took 3-4x longer to compile it and `ordered` here than on `main`; and run the
-  deciding bench, judged on family geomeans.
+- Measured again on 2026-10-29 evening, other agents held, against `main` at ccd52a0e. CI
+  jobs on the host's runners started during both deciding runs, and neither met the A/A
+  rule: Chrome's was 4.0% at the median and 28% at the max, then 0.9% and 7.0%. Chrome took
+  0.81x and 0.79x `main`'s time on varint decode, 1.01x and 0.81x on frame decode, 1.02x and
+  1.03x on group decode, 1.18x and 0.84x on `btree/`, and 1.08x on `time/` conversions in
+  both. Node took 0.68-0.74x on varint and 0.71x on frame decode.
+- Timed alone, `time/` and `btree/` on the bench still put `time/u64` at 1.12-1.18x `main`,
+  with the A/A within 6%, so the other workloads don't cause it. `btree/` swung from
+  1.12-1.26x to 0.85-0.94x. One bench run under `--trace-turbo-inlining` showed this
+  branch's `rescale` deopting 1,892 times, from Turbofan code compiled on stack replacement
+  before the `put_u64` calls after its loop had run, where `main`'s deopted 28 times; but
+  under `--trace-deopt` alone it deopted 4 and 7 times, so that loop came from the tracing.
+- `rescale`'s only change from `main` is its `take_u64` calls: `take_u64` takes its slice
+  as parts but makes it an `rt.ByteSlice` on entry, so each caller holding one splits it
+  for the callee to make it again. That breaks this file's rule that nothing is made more
+  often than before, but at 5 objects per 1024 conversions it can't be 8%. Not passing as
+  parts a parameter its body makes on entry needs each callee's analysis before its
+  callers are lowered. A hand edit of that (all outputs equal) deopted 0 and 1 times.
+- Parked as a draft until the host is quiet, with its runners frozen. Then run the
+  deciding bench, judged on family geomeans, and time the `take_u64` hand edit beside
+  this branch, to see whether the call's shape is `time/`'s gap.
 
 Public API: the translator's output for byte slices.
