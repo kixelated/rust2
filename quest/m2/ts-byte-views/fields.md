@@ -10,7 +10,7 @@ differential test passing.
 ## Plan
 
 The [epic's](/quest/m2/ts-byte-views/README.md) hand edit with all three pieces measured
-Chrome 2.3-2.9x on varint decode and 2.0-2.2x on frames against [#120](https://github.com/kixelated/rust2/pull/120), Firefox 2.6-3.5x,
+Chrome 2.3-2.9x on varint decode and 2.0-2.2x on frames against [#120](https://github.com/moq-dev/rust2/pull/120), Firefox 2.6-3.5x,
 Node and Bun 1.9-3.4x.
 
 Decided with the maintainer on 2026-10-27: private fields split even on root types such as
