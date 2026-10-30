@@ -43,7 +43,7 @@ none of its own `unsafe`.
   ([#222](https://github.com/moq-dev/rust2/pull/222)): the bytes keep their type, so
   this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
   range, and each integer's `from_le_bytes` and `from_ne_bytes`, and `chunks_vectored`
-  needs `std::io::IoSlice`: 184 of moq-net's 197 refusals in `bytes`, the rest being 12
-  of [`f32`](/quest/m3/ts-f32.md) and one of [`&mut &[u8]`](/quest/m3/ts-mut-ref.md).
+  needs `std::io::IoSlice`: 184 of moq-net's 196 refusals in `bytes`, the rest being 12
+  of [`f32`](/quest/m3/ts-f32.md).
 
 Public API: the translator's output.

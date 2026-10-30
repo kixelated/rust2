@@ -1180,15 +1180,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
-	/// Whether a JS value of `ty` is a copy that no JS value can point at, such as a number,
-	/// or an object its clones may share, as an `Arc`'s and a `Waker`'s are, pinned or boxed
-	/// too, which JS erases, so a `&mut` to it is an `rt.Place`: where the value is, read
-	/// and written through `v`. A reference's referent is the object it points at, or a copy
-	/// itself.
+	/// Whether a JS value of `ty` is a copy that no JS value can point at, such as a number
+	/// or a reference, or an object its clones may share, as an `Arc`'s and a `Waker`'s are,
+	/// pinned or boxed too, which JS erases, so a `&mut` to it is an `rt.Place`: where the
+	/// value is, read and written through `v`.
 	pub fn needs_place(&self, ty: Ty<'tcx>) -> bool {
 		use library::Std;
 		if self.object_kind(ty).is_none() {
-			return !ty.is_ref();
+			return true;
 		}
 		let mut erased = ty;
 		while let ty::Adt(adt, args) = erased.kind()
@@ -1211,9 +1210,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// What `value`, a `ty` that is a reference, points at: an `rt.Place`'s `v`, and
 	/// otherwise the reference's own JS value.
 	pub fn pointee_value(&self, ty: Ty<'tcx>, value: ts::Expr) -> ts::Expr {
-		match self.place_pointee(ty) {
-			Some(_) => value.member("v"),
-			None => value,
+		match (self.place_pointee(ty), value.place_read()) {
+			(Some(_), Some(read)) => read.clone(),
+			(Some(_), None) => value.member("v"),
+			(None, _) => value,
 		}
 	}
 
@@ -1246,13 +1246,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Tuple(tys) => Type::Tuple(tys.iter().map(|t| self.ty(t, span)).collect()),
 			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.needs_place(*inner) => {
 				Type::Rt("Place", vec![self.ty(*inner, span)])
-			}
-			ty::Ref(_, inner, rustc_ast::Mutability::Mut) if self.object_kind(*inner).is_none() => {
-				self.err(
-					span,
-					format!("`{ty}`: a JS value of `{inner}` is a copy, so a reference can't change it"),
-				);
-				Type::Builtin("unknown")
 			}
 			ty::RawPtr(inner, _) => self.pointer_ty(*inner, span),
 			ty::Ref(..) if bytes_ref(ty) => Type::Rt("ByteSlice", vec![]),
