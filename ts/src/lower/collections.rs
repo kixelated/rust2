@@ -1369,7 +1369,7 @@ pub fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> E
 	{
 		return copy;
 	}
-	if (b.t.is_copy(ty) && library::clone_copies(b.t, ty)) || library::string(tcx, ty) {
+	if library::clone_copies(b.t, ty) || library::string(tcx, ty) {
 		return Expr::undefined();
 	}
 	let clone = trait_fn(tcx, "Clone", "clone");

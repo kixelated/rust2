@@ -11,7 +11,7 @@ import { chars } from "./chars.ts";
 import { chunks } from "./chunks.ts";
 import { hashMaps, sets, btreeMaps, deques, vecs, stores, optionals } from "./collections.ts";
 import { combinators } from "./combinators.ts";
-import { arcs, cyclicArcs, uniqueArcs, cyclicRcs, rcs, uniqueRcs } from "./counts.ts";
+import { arcs, clonedArcs, cyclicArcs, uniqueArcs, clonedRcs, cyclicRcs, rcs, uniqueRcs, copies } from "./counts.ts";
 import { cows } from "./cows.ts";
 import { defaults } from "./defaults.ts";
 import { durations } from "./durations.ts";
@@ -29,12 +29,12 @@ import { locks, relock, rwlocks } from "./locks.ts";
 import { nested } from "./nested.ts";
 import { objects } from "./objects.ts";
 import { orders, bytes as orders_bytes } from "./orders.ts";
-import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies, sentinels } from "./pointers.ts";
+import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels } from "./pointers.ts";
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, closures, library, flows } from "./shapes.ts";
 import { parts, drains } from "./slices.ts";
 import { splits } from "./splits.ts";
-import { statics } from "./statics.ts";
+import { statics, cells as statics_cells } from "./statics.ts";
 import { strs, slices } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
@@ -88,7 +88,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		refs(data21, out21);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::counts", (_2121: rt.u8, data22: rt.ByteSlice, out22: rt.ByteVec): void => {
 		counts(data22, out22);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_2122: rt.u8, _310: rt.ByteSlice, out23: rt.ByteVec): void => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["fmt::rounding", (_2122: rt.u8, _312: rt.ByteSlice, out23: rt.ByteVec): void => {
 		rounding(out23);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["iters::skips", skips] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["wrappers::wrappers", wrappers] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["edits::edits", edits] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["utf8::decodes", decodes] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::floats", floats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["atomics::atomics", atomics] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["keys::overrides", overrides] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::dyns", (_2123: rt.u8, data23: rt.ByteSlice, out24: rt.ByteVec): void => {
 		dyns(data23, out24);
@@ -125,7 +125,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["dyns::fns", (_2139: rt.u8, data39: rt.ByteSlice, out40: rt.ByteVec): void => {
 		fns(data39, out40);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["pointers::copies", (_2140: rt.u8, data40: rt.ByteSlice, out41: rt.ByteVec): void => {
-		copies(data40, out41);
+		pointers_copies(data40, out41);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["pointers::lists", (_2141: rt.u8, data41: rt.ByteSlice, out42: rt.ByteVec): void => {
 		lists(data41, out42);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["pointers::nested", (_2142: rt.u8, data42: rt.ByteSlice, out43: rt.ByteVec): void => {
@@ -146,8 +146,16 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		wrapped(data49, out50);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["refs::to_refs", (_2150: rt.u8, data50: rt.ByteSlice, out51: rt.ByteVec): void => {
 		toRefs(data50, out51);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["orders::orders", orders] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["orders::bytes", (_2151: rt.u8, data51: rt.ByteSlice, out52: rt.ByteVec): void => {
-		orders_bytes(data51, out52);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["orders::orders", orders] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::cloned_arcs", (_2151: rt.u8, data51: rt.ByteSlice, out52: rt.ByteVec): void => {
+		clonedArcs(data51, out52);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::cloned_rcs", (_2152: rt.u8, data52: rt.ByteSlice, out53: rt.ByteVec): void => {
+		clonedRcs(data52, out53);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::copies", (_2153: rt.u8, data53: rt.ByteSlice, out54: rt.ByteVec): void => {
+		copies(data53, out54);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["statics::cells", (_2154: rt.u8, data54: rt.ByteSlice, out55: rt.ByteVec): void => {
+		statics_cells(data54, out55);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["orders::bytes", (_2155: rt.u8, data55: rt.ByteSlice, out56: rt.ByteVec): void => {
+		orders_bytes(data55, out56);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::parts", parts] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["slices::drains", drains] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 

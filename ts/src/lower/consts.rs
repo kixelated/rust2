@@ -28,6 +28,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			}
 		};
 		match ty.kind() {
+			ty::RawPtr(..) => match leaf(valtree) {
+				Some(scalar) if scalar.is_null() => Expr::Rt("NULL".into()),
+				_ => self.err(span, format!("a constant of type `{ty}` made from an integer")),
+			},
 			ty::Bool => Expr::lit((leaf(valtree).is_some_and(|l| l.to_bits_unchecked() != 0)).to_string()),
 			ty::Int(_) | ty::Uint(_) => {
 				let int = Int::of(ty).unwrap();

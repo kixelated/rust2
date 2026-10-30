@@ -595,17 +595,15 @@ pub fn call<'tcx>(
 				let clone = tcx.lang_items().clone_fn()?;
 				Some(b.fn_value(clone, tcx.mk_args(&[(*inner).into()]), span))
 			};
-			// A `Clone` written by hand may do other than copy, even for a `Copy` type.
-			let copies = name == "copied" || library::clone_copies(b.t, *inner);
+			// A `Clone` written by hand may do other than copy, even for a `Copy` type. A JS
+			// string is a value already.
+			let copies = name == "copied" || library::clone_copies(b.t, *inner) || library::string(tcx, *inner);
 			let copy = match () {
+				// Each item through its `Clone`.
 				_ if !copies => Some(clone(b)?),
 				// Out of the slice each item is.
 				_ if super::byte_array(*inner) => Some(Expr::Rt("byteSliceToArray".into())),
-				_ if b.t.needs_copy(*inner) => b.t.copy_fn(*inner, span),
-				// A JS string is a value already.
-				_ if b.t.is_copy(*inner) || library::string(tcx, *inner) => None,
-				// Each item through its `Clone`.
-				_ => Some(clone(b)?),
+				_ => b.t.copy_fn(*inner, span),
 			};
 			// std's `copied` skips through its iterator's `nth`, and `cloned` by its own `next`.
 			match (name, copy) {

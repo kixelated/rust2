@@ -48,6 +48,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
+					| Std::LazyCell
+					| Std::LazyLock
 					| Std::Poll
 					| Std::Pin
 					| Std::PollFn
@@ -299,6 +301,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Std::Box | Std::Pin | Std::Reverse | Std::PoisonError => {
 					return self.drop_value(value, args.type_at(0), span);
 				}
+				// Its value, or the function that never made one.
+				Std::LazyCell | Std::LazyLock => ("lazyDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
