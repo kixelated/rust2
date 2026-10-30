@@ -113,6 +113,9 @@ const BUF: &[&str] = &[
 	"get_i128",
 	"get_i128_le",
 	"get_i128_ne",
+	"get_f32",
+	"get_f32_le",
+	"get_f32_ne",
 	"get_f64",
 	"get_f64_le",
 	"get_f64_ne",
@@ -157,6 +160,9 @@ const BUF_MUT: &[&str] = &[
 	"put_i128",
 	"put_i128_le",
 	"put_i128_ne",
+	"put_f32",
+	"put_f32_le",
+	"put_f32_ne",
 	"put_f64",
 	"put_f64_le",
 	"put_f64_ne",
@@ -477,6 +483,7 @@ fn buf<'tcx>(
 					let read = rt("ReadInt", vec![this, size, args.next()?, signed, le])?;
 					int.method("fromBeBytes", vec![read])
 				}
+				"f32" => Expr::rt("f32FromBeBytes", vec![rt("Read", vec![this, Expr::lit("4"), le])?]),
 				"f64" => Expr::rt("f64FromBeBytes", vec![rt("Read", vec![this, Expr::lit("8"), le])?]),
 				_ => {
 					let int = Int::of(out)?;
@@ -532,6 +539,7 @@ fn buf_mut<'tcx>(
 					let be = Int::of(input)?.method("toBeBytes", vec![value]);
 					rt("PutInt", vec![this, be, args.next()?, le])
 				}
+				"f32" => rt("PutBytes", vec![this, Expr::rt("f32ToBeBytes", vec![value]), le]),
 				"f64" => rt("PutBytes", vec![this, Expr::rt("f64ToBeBytes", vec![value]), le]),
 				_ => {
 					let int = Int::of(input)?;

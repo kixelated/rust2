@@ -85,7 +85,7 @@ The type or module each refused type or path belongs to.
 | 16 | `(u32, u32)` | fixtures/reject/src/lib.rs:661:10 |
 | 7 | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:377:2 |
-| 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
+| 6 | `f16` | fixtures/reject/src/lib.rs:7:14 |
 | 5 | `Gap` | fixtures/reject/src/lib.rs:1001:10 |
 | 5 | `u32` | fixtures/reject/src/lib.rs:608:27 |
 | 4 | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:740:15 |
@@ -174,7 +174,7 @@ The type or module each refused type or path belongs to.
 | 6 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:669:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | `std::borrow::Cow` | fixtures/reject/src/lib.rs:377:2 |
 | 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Gap` | fixtures/reject/src/lib.rs:1001:10 |
-| 3 | unsupported type `_` | `f32` | fixtures/reject/src/lib.rs:7:14 |
+| 3 | unsupported type `_` | `f16` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:510:23 |
@@ -209,7 +209,7 @@ The type or module each refused type or path belongs to.
 | 1 | `next_if_eq` of `_` items with a `_`, which is not supported yet | `std::string::String`, `str` | fixtures/reject/src/lib.rs:904:27 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:231:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
-| 1 | a cast from `_` to `_` | `u64`, `f32` | fixtures/reject/src/lib.rs:87:2 |
+| 1 | a cast from `_` to `_` | `u64`, `f16` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | a cast from a pointer to `_` to one to `_`, which reads the bytes of one type as another | `u32`, `u8` | fixtures/reject/src/lib.rs:608:27 |
 | 1 | a coercion to `_` | `std::sync::Arc` | fixtures/reject/src/lib.rs:336:2 |
 | 1 | a coercion to `_`, which is not supported yet | `&Tail` | fixtures/reject/src/lib.rs:537:30 |
@@ -226,14 +226,14 @@ The type or module each refused type or path belongs to.
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:740:15 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Hits` | fixtures/reject/src/lib.rs:773:21 |
 | 1 | a raw pointer to `_` in an element, a payload, or a union field, which is not supported yet | `(u32, u32)` | fixtures/reject/src/lib.rs:732:10 |
-| 1 | a scalar constant of type `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
+| 1 | a scalar constant of type `_` | `f16` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | a trait object of `_`, which is not supported yet | `[u8; 4]` | fixtures/reject/src/lib.rs:527:26 |
 | 1 | a zero-sized constant of type `_` | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
 | 1 | an assignment through a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:169:1 |
 | 1 | an iterator of the crate implementing `_`, which is not supported yet | `FusedIterator` | fixtures/reject/src/lib.rs:223:1 |
 | 1 | an upcast from `_` to `_`, which is not supported yet | `dyn Keyed`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:585:32 |
-| 1 | arithmetic on `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
+| 1 | arithmetic on `_` | `f16` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | `Option` | fixtures/reject/src/lib.rs:36:43 |
 | 1 | comparing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:263:75 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:835:15 |
@@ -383,9 +383,9 @@ The type or module each refused type or path belongs to.
 
 <details><summary>unsupported type `_` (3)</summary>
 
-- fixtures/reject/src/lib.rs:7:14: unsupported type `f32`
-- fixtures/reject/src/lib.rs:7:25: unsupported type `f32`
-- fixtures/reject/src/lib.rs:85:51: unsupported type `f32`
+- fixtures/reject/src/lib.rs:7:14: unsupported type `f16`
+- fixtures/reject/src/lib.rs:7:25: unsupported type `f16`
+- fixtures/reject/src/lib.rs:85:51: unsupported type `f16`
 
 </details>
 
@@ -581,7 +581,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>a cast from `_` to `_` (1)</summary>
 
-- fixtures/reject/src/lib.rs:87:2: a cast from `u64` to `f32`
+- fixtures/reject/src/lib.rs:87:2: a cast from `u64` to `f16`
 
 </details>
 
@@ -653,7 +653,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>a scalar constant of type `_` (1)</summary>
 
-- fixtures/reject/src/lib.rs:8:2: a scalar constant of type `f32`
+- fixtures/reject/src/lib.rs:8:2: a scalar constant of type `f16`
 
 </details>
 
@@ -677,7 +677,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>arithmetic on `_` (1)</summary>
 
-- fixtures/reject/src/lib.rs:8:2: arithmetic on `f32`
+- fixtures/reject/src/lib.rs:8:2: arithmetic on `f16`
 
 </details>
 

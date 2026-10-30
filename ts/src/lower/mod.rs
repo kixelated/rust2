@@ -1263,7 +1263,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Bool => Type::Builtin("boolean"),
 			ty::Int(_) | ty::Uint(_) => num::Int::of(ty).unwrap().ty(),
-			_ if float::is(ty) => float::ty(),
+			_ if let Some(float) = float::Float::of(ty) => float.ty(),
 			ty::Char => Type::Rt("char", Vec::new()),
 			ty::Str => Type::Builtin("string"),
 			ty::Never => Type::Builtin("never"),

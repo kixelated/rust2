@@ -46,6 +46,8 @@ export type i32 = Num<"i32">;
 export type isize = Num<"isize">;
 /** Rust's `f64`: a number, which is the same IEEE 754 double. */
 export type f64 = Num<"f64">;
+/** Rust's `f32`: a number that is exactly an IEEE 754 single, as `Math.fround` makes one. */
+export type f32 = Num<"f32">;
 /** Rust's `char`: a Unicode scalar value, which is at most 0x10ffff and no surrogate. */
 export type char = Num<"char">;
 /**
@@ -1835,9 +1837,10 @@ export const i128Clamp = (a: i128, min: i128, max: i128): i128 => clampWide(a, m
 /** `i128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i128Step: Step<i128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i128, boolean];
 
-// Casts between integers and `f64`. An integer of at most 32 bits is already its `f64`;
-// a wider one rounds to the nearest, ties to even, once. An `f64` to an integer
-// truncates toward zero, saturates at the type's bounds, and sends NaN to 0.
+// Casts between integers and floats. An integer of at most 32 bits is already its `f64`;
+// a wider one rounds to the nearest, ties to even, once, and so does one to an `f32`. A
+// float to an integer truncates toward zero, saturates at the type's bounds, and sends
+// NaN to 0; an `f32` does so as the `f64` it is exactly.
 
 /** `x as T` into a type of at most 32 bits, whose bounds are int32s or uint32s. */
 function narrowFromF64(x: number, min: number, max: number): number {
@@ -1894,3 +1897,25 @@ export const i64ToF64 = (a: i64): f64 => (typeof a === "number" ? (a as number) 
 export const u128ToF64 = (a: u128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));
 /** `a as f64`: a bigint converts to the nearest double. */
 export const i128ToF64 = (a: i128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));
+
+/**
+ * `v as f32` past 2^53: its top 53 bits, the last set if any bit below them is, which
+ * `Math.fround` then rounds once as if from the exact value, where the nearest double
+ * would round twice.
+ */
+function wideToF32(v: bigint): f32 {
+	const m = v < 0n ? -v : v;
+	const drop = BigInt(Math.max(0, m.toString(2).length - 53));
+	const odd = (m >> drop) | (m & ((1n << drop) - 1n) ? 1n : 0n);
+	const x = Math.fround(Number(odd << drop));
+	return v < 0n ? -x : x;
+}
+
+/** `a as f32`: a safe integer is exact as a double, so rounds once. */
+export const u64ToF32 = (a: u64): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));
+/** `a as f32`. */
+export const i64ToF32 = (a: i64): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));
+/** `a as f32`. */
+export const u128ToF32 = (a: u128): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));
+/** `a as f32`. */
+export const i128ToF32 = (a: i128): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));

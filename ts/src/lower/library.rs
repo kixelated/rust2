@@ -1099,8 +1099,13 @@ fn mapping<'tcx>(
 			_ => e,
 		});
 	}
-	if owner == "f64" {
-		return super::float::method(b, &name, args, span);
+	let float = match owner.as_str() {
+		"f32" => Some(super::float::Float::F32),
+		"f64" => Some(super::float::Float::F64),
+		_ => None,
+	};
+	if let Some(float) = float {
+		return super::float::method(b, float, &name, args, span);
 	}
 
 	let self_ty = || gargs.types().next();
@@ -1136,8 +1141,7 @@ fn mapping<'tcx>(
 			{
 				return Some(super::collections::heap_vec(value.member("d"), is_u8(args.type_at(0))));
 			}
-			// Each `From` between integers, `char`, and `f64`, or from `bool`, keeps the
-			// value, as `as` then does.
+			// Each `From` between integers, `char`, and floats, or from `bool`, is as `as`.
 			let scalar = |t: Ty<'tcx>| Int::of(t).is_some() || t.is_char() || super::float::is(t);
 			if !scalar(to) || !(scalar(from) || from.is_bool()) {
 				return None;
@@ -1811,9 +1815,9 @@ fn mapping<'tcx>(
 		}
 		("Drain", "as_str") => Expr::rt("stringDrainAsStr", args),
 		("ParseIntError", "kind") => args.pop()?.member("kind"),
-		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
-		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
-			Expr::rt_of("f64", "fromStr").call(args)
+		// `str::parse` of a float, by std's grammar rather than `Number`'s.
+		("str", "parse") | ("FromStr", "from_str") if let Some(float) = super::float::Float::of(targ(gargs, 0)) => {
+			Expr::rt_of(float.name(), "fromStr").call(args)
 		}
 		// A `char`'s steps through its chars by `&mut`, which no body of std's may.
 		("str", "parse") | ("FromStr", "from_str") if targ(gargs, 0).is_char() => Expr::rt("charFromStr", args),
@@ -2234,7 +2238,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 		}
 		ty::Bool => Expr::lit("false"),
 		ty::Int(_) | ty::Uint(_) => Int::of(ty)?.lit(0),
-		_ if super::float::is(ty) => super::float::lit(0.0),
+		_ if let Some(float) = super::float::Float::of(ty) => float.lit(0.0),
 		ty::Char => Expr::lit("0"),
 		ty::Ref(_, inner, _) => match inner.kind() {
 			ty::Slice(elem) if matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt(

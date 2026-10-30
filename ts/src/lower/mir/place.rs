@@ -1408,7 +1408,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				ty::RawPtr(..) => self.err(span, format!("a constant of type `{ty}` made from an integer")),
 				ty::Bool => Expr::lit((int.to_bits_unchecked() != 0).to_string()),
 				ty::Char => Expr::lit(int.to_u32().to_string()),
-				_ if crate::lower::float::is(ty) => crate::lower::float::lit(f64::from_bits(int.to_u64())),
+				_ if let Some(float) = crate::lower::float::Float::of(ty) => float.constant(int),
 				_ => match Int::of(ty) {
 					Some(i) => {
 						let size = rustc_abi::Size::from_bits(i.bits);
