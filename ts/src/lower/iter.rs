@@ -947,11 +947,15 @@ fn collect<'tcx>(
 	span: Span,
 ) -> Option<Expr> {
 	let tcx = b.t.tcx;
-	// `()`'s reads every item, each a `()` too, by `for_each`.
+	// `()`'s reads every item, each a `()` too, by `for_each`, which folds: from `undefined`,
+	// so the result is typed as `()` is.
 	if ty.is_unit() {
 		let drops = iter_drops(b, from, span);
 		let each = Expr::Lambda(Vec::new(), Box::new(Expr::undefined()));
-		return Some(Expr::rt("iterForEach", tail(vec![iter, each], vec![drops])));
+		return Some(Expr::rt(
+			"iterFold",
+			tail(vec![iter, Expr::undefined(), each], vec![drops]),
+		));
 	}
 	let ty::Adt(adt, args) = ty.kind() else {
 		return None;

@@ -290,6 +290,16 @@ pub fn impls(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// `Some(())` if every byte of `data` is below 0x80.
+fn small(data: &[u8]) -> Option<()> {
+	data.iter().map(|&b| (b < 0x80).then_some(())).collect()
+}
+
+/// `Ok(())`, or the first byte of `data` that is 0xff.
+fn checked(data: &[u8]) -> Result<(), u8> {
+	data.iter().map(|&b| if b == 0xff { Err(b) } else { Ok(()) }).collect()
+}
+
 /// `()` as a hash and B-tree key and as `collect::<Option<_>>`'s item.
 pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	match kind % 3 {
@@ -332,8 +342,11 @@ pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				.inspect(|_| out.push(9))
 				.collect::<Option<Vec<()>>>();
 			out.push(u8::from(count.is_some()));
-			let all: Option<()> = data.iter().map(|&b| (b < 0x80).then_some(())).collect();
-			out.push(u8::from(all.is_some()));
+			out.push(u8::from(small(data).is_some()));
+			out.push(match checked(data) {
+				Ok(()) => 0,
+				Err(b) => b,
+			});
 		}
 	}
 }

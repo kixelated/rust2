@@ -337,8 +337,27 @@ export function impls(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
+/** `Some(())` if every byte of `data` is below 0x80. */
+export function small(data: rt.ByteSlice): undefined | rt.None {
+	return rt.iterCollectOption(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_22: rt.u8): undefined | rt.None => {
+		return thenSome$1j8foe9(_22 < 128, undefined);
+	}), (values: rt.Iter<undefined>) => rt.iterFold(values, undefined, () => undefined), undefined, rt.None, rt.None);
+}
+
+/** `Ok(())`, or the first byte of `data` that is 0xff. */
+export function checked(data: rt.ByteSlice): rt.Result<undefined, rt.u8> {
+	return rt.iterCollectResult(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_22: rt.u8): rt.Result<undefined, rt.u8> => {
+		const b: rt.u8 = _22;
+		if (!(b === 255)) {
+			return rt.OK;
+		}
+		return rt.Err(b);
+	}), (values: rt.Iter<undefined>) => rt.iterFold(values, undefined, () => undefined));
+}
+
 /** `()` as a hash and B-tree key and as `collect::<Option<_>>`'s item. */
 export function keys(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _148!: rt.u8;
 	const _4: rt.u8 = rt.u8Rem(kind, 3);
 	if (_4 === 0) {
 		const hash: rt.HashSet<undefined> = rt.hashNew() as rt.HashSet<undefined>;
@@ -386,9 +405,14 @@ export function keys(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}), (_27: undefined | rt.None): undefined => {
 			rt.byteVecPush(out, 9);
 		}), (values: rt.Iter<undefined>) => rt.iterToArray(values, "next", 0), undefined, rt.None) !== undefined ? 1 : 0);
-		rt.byteVecPush(out, rt.iterCollectOption(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_210: rt.u8): undefined | rt.None => {
-			return thenSome$1j8foe9(_210 < 128, undefined);
-		}), (values: rt.Iter<undefined>) => rt.iterForEach(values, () => undefined), undefined, rt.None, rt.None) !== rt.None ? 1 : 0);
+		rt.byteVecPush(out, small(data) !== rt.None ? 1 : 0);
+		const _149: rt.Result<undefined, rt.u8> = checked(data);
+		if (_149.ok) {
+			_148 = 0;
+		} else {
+			_148 = _149.error;
+		}
+		rt.byteVecPush(out, _148);
 	}
 }
 
