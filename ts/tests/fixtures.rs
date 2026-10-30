@@ -595,7 +595,10 @@ fn sysroot() {
 			.output()
 			.expect("running rust2-ts");
 		let stderr = String::from_utf8_lossy(&output.stderr);
-		assert!(output.status.success(), "the census against {sysroot} failed:\n{stderr}");
+		assert!(
+			output.status.success(),
+			"the census against {sysroot} failed:\n{stderr}"
+		);
 		stderr
 			.lines()
 			.filter_map(|line| line.trim_start().strip_prefix("Checking "))
@@ -604,8 +607,16 @@ fn sysroot() {
 	};
 	let all = checked(&std);
 	assert!(all.iter().any(|c| c == "bytes"), "bytes was not checked: {all:?}");
-	assert_eq!(checked(&other), all, "switching to {other} kept a crate checked against {std}");
-	assert_eq!(checked(&std), ["reject-fixture"], "switching back to {std} checked its crates again");
+	assert_eq!(
+		checked(&other),
+		all,
+		"switching to {other} kept a crate checked against {std}"
+	);
+	assert_eq!(
+		checked(&std),
+		["reject-fixture"],
+		"switching back to {std} checked its crates again"
+	);
 }
 
 /// Selects the fixture's own getrandom backend, which `rand::rng()` seeds from natively:
