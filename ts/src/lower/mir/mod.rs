@@ -3172,13 +3172,20 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				return false;
 			}
 			// The payload of a `Result` made here is what it was made of, which `tsc` reads
-			// where it can't narrow the `Result`.
-			if let (Expr::Call(f, args), ts::Key::Name(key)) = (step::peel(base), &*key)
-				&& let Expr::Rt(ctor) = step::peel(f)
-				&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
-				&& let [payload] = args.as_slice()
-			{
-				*e = payload.clone();
+			// where it can't narrow the `Result`, and so is what an `rt.Place` made here holds.
+			let folded = match (step::peel(base), &*key) {
+				(Expr::Call(f, args), ts::Key::Name(key))
+					if let Expr::Rt(ctor) = step::peel(f)
+						&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
+						&& let [payload] = args.as_slice() =>
+				{
+					Some(payload.clone())
+				}
+				(base, ts::Key::Name(key)) if key == "v" => base.place_read().cloned(),
+				_ => None,
+			};
+			if let Some(folded) = folded {
+				*e = folded;
 			}
 			true
 		}

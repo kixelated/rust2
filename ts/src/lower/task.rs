@@ -290,6 +290,12 @@ pub fn call<'tcx>(
 		// A box's JS value is what it holds.
 		("Box", "pin") => first(args),
 		("Future", "poll") => match self_ty.map(Ty::kind) {
+			// A `&mut` polls what it points at, whose pinned `&mut` is an `rt.Place` of it.
+			Some(ty::Ref(_, inner, _)) => {
+				let [future, cx] = two(args);
+				let args = vec![future.member("v"), cx];
+				b.call_def(call.def_id, tcx.mk_args(&[(*inner).into()]), args, call.span, out)
+			}
 			// std's futures and a `dyn Future` are `rt.Future`s, which poll themselves.
 			_ if matches!(self_std, Some(Std::PollFn | Std::Pending))
 				|| self_ty.is_some_and(|ty| b.t.dyn_future(ty).is_some()) =>
@@ -297,8 +303,7 @@ pub fn call<'tcx>(
 				let [future, cx] = two(args);
 				future.member("poll").call(vec![cx])
 			}
-			// A pinned pointer, a box, or a `&mut` polls what it points at, which its JS
-			// value is.
+			// A pinned pointer or a box polls what it points at, which its JS value is.
 			Some(ty::Adt(adt, adt_args)) if matches!(Std::of(tcx, adt.did()), Some(Std::Pin | Std::Box)) => {
 				let inner = match Std::of(tcx, adt.did()) {
 					Some(Std::Pin) => adt_args.type_at(0).builtin_deref(true),
@@ -306,9 +311,6 @@ pub fn call<'tcx>(
 				};
 				let Some(inner) = inner else { return Err(args) };
 				b.call_def(call.def_id, tcx.mk_args(&[inner.into()]), args, call.span, out)
-			}
-			Some(ty::Ref(_, inner, _)) => {
-				b.call_def(call.def_id, tcx.mk_args(&[(*inner).into()]), args, call.span, out)
 			}
 			_ => return Err(args),
 		},

@@ -314,9 +314,9 @@ export class boxedFuture {
 				let captured2 = next;
 				const captured3 = waiting;
 				const _108: rt.Future<rt.u64> = new rt.DynFuture(wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
-					return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value: rt.u64 | undefined): rt.u64 => {
+					return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value2: rt.u64 | undefined): rt.u64 => {
 						Guard.note(captured3, "waited");
-						return rt.u64Add(unwrapOr$Option_u64(value, 0), 2);
+						return rt.u64Add(unwrapOr$Option_u64(value2, 0), 2);
 					});
 				}, (): void => {
 					captured2[Symbol.dispose]();
@@ -353,8 +353,8 @@ export class boxedFuture {
 					if (!((captured6.length === 0))) {
 						return rt.Pending;
 					}
-					return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value3: rt.u64): rt.u64 => {
-						return rt.u64Add(captured7, value3);
+					return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value4: rt.u64): rt.u64 => {
+						return rt.u64Add(captured7, value4);
 					});
 				}, (): void => {
 					rt.dropAll(captured6);

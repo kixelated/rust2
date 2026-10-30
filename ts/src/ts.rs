@@ -77,6 +77,15 @@ impl Expr {
 		Self::Member(Box::new(self), Key::Name(name.into()))
 	}
 
+	/// What `self` reads, if it is an `rt.Place` made here: `rt.place(() => read, set)`.
+	pub fn place_read(&self) -> Option<&Expr> {
+		let Self::Call(f, args) = self else { return None };
+		match (&**f, args.as_slice()) {
+			(Self::Rt(name), [Self::Lambda(params, read), _]) if name == "place" && params.is_empty() => Some(read),
+			_ => None,
+		}
+	}
+
 	pub fn field(self, field: FieldId) -> Self {
 		Self::Member(Box::new(self), Key::Field(field))
 	}

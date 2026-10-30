@@ -679,3 +679,178 @@ fn bump_slot(c: &mut usize, b: u8) {
 fn bump_byte(x: &mut u8) {
 	*x = x.wrapping_add(1);
 }
+
+/// The front of a slice taken through a `&mut` to it, which it moves past: out of bounds
+/// past the end, it panics.
+fn take_front<'a>(s: &mut &'a [u8], n: usize) -> &'a [u8] {
+	let (front, rest) = s.split_at(n);
+	*s = rest;
+	front
+}
+
+/// A count through `&mut self`, and the impl that forwards it through a `&mut`, as `bytes`'
+/// `Buf` and `BufMut` forward theirs.
+trait Tally {
+	fn tally(&mut self, n: u8);
+	fn total(&self) -> u32;
+}
+
+impl Tally for u32 {
+	fn tally(&mut self, n: u8) {
+		*self += u32::from(n);
+	}
+
+	fn total(&self) -> u32 {
+		*self
+	}
+}
+
+impl Tally for Pair {
+	fn tally(&mut self, n: u8) {
+		self.n = self.n.wrapping_add(n);
+	}
+
+	fn total(&self) -> u32 {
+		self.n.into()
+	}
+}
+
+impl<T: Tally + ?Sized> Tally for &mut T {
+	fn tally(&mut self, n: u8) {
+		(**self).tally(n);
+	}
+
+	fn total(&self) -> u32 {
+		(**self).total()
+	}
+}
+
+fn tally_all<T: Tally>(t: &mut T, data: &[u8]) -> u32 {
+	for &b in data {
+		t.tally(b);
+	}
+	t.total()
+}
+
+/// A reader keeping a `&mut` to the slice it reads, which it lends on.
+struct Reader<'a, 'b> {
+	rest: &'b mut &'a [u8],
+}
+
+impl<'a> Reader<'a, '_> {
+	fn rest(&mut self) -> &mut &'a [u8] {
+		self.rest
+	}
+}
+
+/// The larger of two references, replacing the one a `&mut` points at.
+fn keep_larger<'a>(r: &mut &'a Pair, other: &'a Pair) {
+	if other.n > r.n {
+		*r = other;
+	}
+}
+
+/// A `&mut` to a `&mut`, written through twice over, then pointed elsewhere.
+fn retarget<'a>(r: &mut &'a mut u32, other: &'a mut u32, by: u8) {
+	**r += u32::from(by);
+	if by % 2 == 0 {
+		*r = other;
+	}
+	**r += 1;
+}
+
+/// The next two items, through std's `Iterator` for `&mut I` when `it` is one.
+fn next_two<I: Iterator<Item = u8>>(mut it: I) -> u8 {
+	let first = it.next().unwrap_or(0xee);
+	first.wrapping_add(it.next().unwrap_or(0xdd))
+}
+
+/// Called twice, through std's `FnMut` for `&mut F` when `f` is one.
+fn call_twice<F: FnMut(u8) -> u8>(mut f: F) -> u8 {
+	f(1).wrapping_add(f(2))
+}
+
+/// A `&mut` to a reference: replaced, read, and written through, held, passed on, swapped,
+/// and through an impl that forwards a trait through `&mut T`.
+pub fn to_refs(data: &[u8], out: &mut Vec<u8>) {
+	let [n, rest @ ..] = data else {
+		return;
+	};
+	let n = usize::from(*n);
+	// Out of bounds past the end, which panics.
+	let mut bytes = rest;
+	let front = take_front(&mut bytes, n % (rest.len() + 2));
+	out.extend_from_slice(front);
+	out.push(bytes.len() as u8);
+	// Through a struct's field, lent on.
+	let mut reader = Reader { rest: &mut bytes };
+	while let Some((&b, tail)) = reader.rest().split_first() {
+		*reader.rest() = tail;
+		if b % 5 == 0 {
+			break;
+		}
+		out.push(b);
+	}
+	out.push(bytes.len() as u8);
+	// Of a slice that isn't bytes, and of a `str`.
+	let words: Vec<u32> = rest.iter().map(|&b| u32::from(b) << 8).collect();
+	let mut tail: &[u32] = &words;
+	while let [first, more @ ..] = tail {
+		out.extend_from_slice(&first.to_be_bytes());
+		let tail_ref = &mut tail;
+		*tail_ref = more;
+	}
+	let mut text = String::new();
+	for &b in rest {
+		text.push(char::from(b'a' + b % 26));
+	}
+	let mut s = text.as_str();
+	let s_ref = &mut s;
+	*s_ref = &s_ref[(n % 3).min(s_ref.len())..];
+	out.extend_from_slice(s.as_bytes());
+	// Swapped and replaced by std.
+	let (mut a, mut b) = (rest, &rest[rest.len() / 2..]);
+	std::mem::swap(&mut a, &mut b);
+	let old = std::mem::replace(&mut b, &[]);
+	out.extend_from_slice(&[a.len() as u8, b.len() as u8, old.len() as u8]);
+	// A reference to an object, replaced.
+	let pairs: Vec<Pair> = rest.iter().map(|&n| Pair { n }).collect();
+	let first = Pair { n: 0 };
+	let mut largest = &first;
+	for p in &pairs {
+		keep_larger(&mut largest, p);
+	}
+	out.push(largest.n);
+	// A `&mut` to a `&mut`: a number's place, and an object.
+	let (mut x, mut y) = (0u32, 100u32);
+	let mut r = &mut x;
+	retarget(&mut r, &mut y, n as u8);
+	*r += 1000;
+	out.extend_from_slice(&x.to_be_bytes());
+	out.extend_from_slice(&y.to_be_bytes());
+	let mut count = 0u32;
+	let mut pair = Pair { n: 1 };
+	out.extend_from_slice(&tally_all(&mut &mut count, rest).to_be_bytes());
+	out.extend_from_slice(&tally_all(&mut &mut pair, rest).to_be_bytes());
+	out.extend_from_slice(&tally_all(&mut &mut &mut count, rest).to_be_bytes());
+	out.push(pair.n);
+	// std's impls forwarding through a `&mut`.
+	let mut it = rest.iter().copied();
+	out.push(next_two(&mut it));
+	out.push(next_two(&mut &mut it));
+	let mut r = &mut it;
+	for b in &mut r {
+		if b % 3 == 0 {
+			break;
+		}
+		out.push(b);
+	}
+	out.push(it.count() as u8);
+	let mut calls = 0u8;
+	let mut counted = |b: u8| {
+		calls = calls.wrapping_add(b);
+		calls
+	};
+	out.push(call_twice(&mut counted));
+	out.push(call_twice(&mut &mut counted));
+}

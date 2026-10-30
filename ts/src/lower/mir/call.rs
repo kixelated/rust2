@@ -55,8 +55,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if crate::lower::iter::is_next(tcx, def_id)
 					&& dest.as_local().is_some_and(|l| self.next_results.contains(&l)) =>
 			{
-				let iter_ty = gargs.skip_binder().type_at(0);
-				let recv = self.operand_frozen(&args[0].node, span, &mut pre);
+				let mut iter_ty = gargs.skip_binder().type_at(0);
+				// Through std's `Iterator` for `&mut I`, whose `&mut` to it is an `rt.Place`: the
+				// place it borrows, then what each `&mut` points at.
+				let mut recv = match args[0].node.place() {
+					Some(p) if iter_ty.is_ref() => {
+						iter_ty = iter_ty.builtin_deref(true).expect("a reference");
+						self.place_expr(tcx.mk_place_deref(p), span, &mut pre)
+					}
+					_ => self.operand_frozen(&args[0].node, span, &mut pre),
+				};
+				while let ty::Ref(_, inner, rustc_ast::Mutability::Mut) = *iter_ty.kind() {
+					recv = recv.member("v");
+					iter_ty = inner;
+				}
 				if self.range_nexts.contains(&dest.local)
 					&& let Some(name) = self.var(dest.local)
 				{
@@ -287,13 +299,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			if let ty::FnDef(inner, inner_args) = *callee_ty.peel_refs().kind() {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
-			// A `&mut` to a function JS copies, such as a box of one, is its place: call what is there.
-			let f = match callee.node.place() {
+			// A `&mut` to a function JS copies, such as a box of one, is its place: call what is
+			// there, through each `&mut` std's impls for one forward through.
+			let mut f = match callee.node.place() {
 				Some(p) if self.b.t.place_pointee(p.ty(&self.mir.local_decls, tcx).ty).is_some() => {
 					self.place_expr(tcx.mk_place_deref(p), span, out)
 				}
 				_ => self.operand(&callee.node, span, out),
 			};
+			let mut through = callee_ty;
+			while let Some(inner) = self.b.t.place_pointee(through) {
+				f = f.member("v");
+				through = inner;
+			}
 			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call, or of a box of one,
 			// drops it after, as rustc's shim does, where an `FnOnce` closure's body drops
 			// what it owns.
