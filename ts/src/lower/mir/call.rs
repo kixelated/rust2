@@ -175,7 +175,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
 				// The runtime compares and hashes bytes in whichever form it is given them.
 				("PartialOrd" | "Ord" | "PartialEq", _) | ("Hash", "hash") => true,
-				("slice", "iter" | "iter_mut") => true,
+				("slice", "iter" | "iter_mut") | ("array", "each_ref" | "each_mut") => true,
 				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
 				_ => false,
 			};
@@ -385,6 +385,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let lends = match library::key(tcx, def_id) {
 			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
 				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut" | "split_first_mut" | "split_last_mut")
+				| ("array", "each_mut")
 				| ("dyn Any", "downcast_mut")
 				| ("Peekable", "peek_mut")
 				| ("LocalKey", "with_borrow_mut")

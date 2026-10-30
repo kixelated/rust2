@@ -294,6 +294,10 @@ export function copy$u8s(v: Uint8Array): Uint8Array {
 	return v.slice();
 }
 
+export function copy$u8ss(v: Uint8Array[]): Uint8Array[] {
+	return v.map(copy$u8s);
+}
+
 export function copy$units(v: undefined[]): undefined[] {
 	return v.slice();
 }
