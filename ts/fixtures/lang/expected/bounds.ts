@@ -5,7 +5,7 @@ import { copy$Bound_u8, copy$Bound_usize } from "./lib.ts";
 import * as Asked from "./bounds.Asked.ts";
 import * as Item from "./bounds.Item.ts";
 import * as Key from "./bounds.Key.ts";
-import { map$Option_Item_u8_bounds_closure4, map$Option_u32_u8_bounds_closure2, map$Option_u8_u8_u8_bounds_closure9 } from "./core/option.ts";
+import { map$1iekgsb, map$0a57co2, map$1hdkvwd } from "./core/option.ts";
 
 export const LOG: rt.LocalKey<rt.RefCell<rt.ByteVec>> = /* @__PURE__ */ new rt.LocalKey(LOG$init, false);
 
@@ -143,7 +143,7 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u32Add(_217 as rt.u32, 1000);
 			}));
 			const drain: rt.Iter<rt.u32> = rt.vecDrain(words, range);
-			rt.iterExtendBytes(out, rt.iterOption(map$Option_u32_u8_bounds_closure2(rt.iterToOption(drain.nextBack()), (w: rt.u32): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterOption(map$0a57co2(rt.iterToOption(drain.nextBack()), (w: rt.u32): rt.u8 => {
 				return w & 0xff;
 			})));
 			rt.byteVecPush(out, drain.len() & 0xff);
@@ -155,7 +155,7 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _78: Asked.Asked<rt.usize> = asked$usize(s, e, i, j);
 			const drain2: rt.Iter<Item.Item> = rt.vecDrain(items, rt.boundsOf(_78, Asked.startBound$RangeBounds_usize_usize, Asked.endBound$RangeBounds_usize_usize), rt.drop);
 			flush(out);
-			rt.iterExtendBytes(out, rt.iterOption(map$Option_Item_u8_bounds_closure4(rt.iterToOption(drain2.next()), (x5: Item.Item): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterOption(map$1iekgsb(rt.iterToOption(drain2.next()), (x5: Item.Item): rt.u8 => {
 				const _010: rt.u8 = x5.tag;
 				x5[Symbol.dispose]();
 				return _010;
@@ -186,7 +186,7 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			const _117: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] = [bound$usize$2(s, i), bound$usize$2(e, j)];
 			const drain3: rt.Iter<Item.Item> = rt.dequeDrain(queue, _117, rt.drop);
-			rt.iterExtendBytes(out, rt.iterOption(map$Option_Item_u8_bounds_closure4(rt.iterToOption(drain3.nextBack()), (x2: Item.Item): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterOption(map$1iekgsb(rt.iterToOption(drain3.nextBack()), (x2: Item.Item): rt.u8 => {
 				const _07: rt.u8 = x2.tag;
 				x2[Symbol.dispose]();
 				return _07;
@@ -223,7 +223,7 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.byteVecPush(out, _165[1]);
 			}
 			const _180: [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>] = [bound$u8(s, a), bound$u8(e, b)];
-			rt.iterExtendBytes(out, rt.iterOption(map$Option_u8_u8_u8_bounds_closure9(rt.iterToOption(rt.btreeRange(map, _180).nextBack()), (_216: [rt.u8, rt.u8]): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterOption(map$1hdkvwd(rt.iterToOption(rt.btreeRange(map, _180).nextBack()), (_216: [rt.u8, rt.u8]): rt.u8 => {
 				return _216[0];
 			})));
 			const iter4: rt.Iter<[rt.u8, rt.Place<rt.u8>]> = rt.btreeRangeMut(map, range2);

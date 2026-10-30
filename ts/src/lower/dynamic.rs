@@ -258,7 +258,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 					continue;
 				}
 			};
-			let mut b = Body::new(self, args);
+			let mut b = Body::new(self);
 			let params: Vec<Param> = sig.inputs()[1..]
 				.iter()
 				.map(|input| Param {

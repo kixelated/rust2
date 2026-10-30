@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- An instance of a generic std function, such as `core/option.ts`'s, is named for a hash
+  of its text, `map$1cf8u0y`, rather than for its type arguments and the closure of one
+  of the instances merged into it, `map$Option_u64_u64_rescale_closure0`. A caller that
+  imports one by name takes the new name from the output.
 - `rt.hashInt` is one function per width, as std writes each integer: `rt.hash8` for a
   `u8`, `i8`, or `bool`, `rt.hash16`, `rt.hash32` for a `char`, `usize`, or `isize` too,
   `rt.hash64`, and `rt.hash128`. `rt.Hasher` is an interface, and `rt.hashFinish` of a

@@ -58,7 +58,10 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 		return None;
 	}
 	t.program.merge();
-	t.program.name();
+	if let Err(msg) = t.program.name() {
+		tcx.dcx().err(format!("rust2-ts: {msg}"));
+		return None;
+	}
 	Some(t.program)
 }
 
@@ -1151,6 +1154,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Atomic
 					| library::Std::OnceCell
 					| library::Std::OnceLock
+					| library::Std::Once
+					| library::Std::OnceState
 					| library::Std::LazyCell
 					| library::Std::LazyLock
 					| library::Std::Waker
@@ -1467,6 +1472,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					};
 					Type::Rt(name, args)
 				}
+				library::Std::Once => Type::Rt("Once", vec![]),
+				library::Std::OnceState => Type::Rt("OnceState", vec![]),
 				library::Std::LazyCell => Type::Rt("LazyCell", vec![self.ty(args.type_at(0), span)]),
 				library::Std::LazyLock => Type::Rt("LazyLock", vec![self.ty(args.type_at(0), span)]),
 				library::Std::Waker => Type::Rt("Waker", vec![]),

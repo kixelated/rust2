@@ -277,6 +277,17 @@ pub fn call<'tcx>(
 		("Atomic", _) => return atomic(b, call, name, args),
 		("LazyCell" | "LazyLock", "force") => first(args).member("force").call(vec![]),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
+		// A `OnceLock` of `true`, which nothing poisons, as a panic aborts.
+		("Once", "new") => once_unrun(),
+		("Once", "is_completed") => first(args).member("v").binary("===", Expr::lit("true")),
+		// With what drops `f`, as `discards` says, uncalled if the `Once` has run.
+		("Once", "call_once" | "call_once_force") => {
+			let Some(droppers) = b.t.droppers([call.args.type_at(0)], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			Expr::rt("onceCall", args.into_iter().chain(droppers).collect())
+		}
+		("OnceState", "is_poisoned") => Expr::rt("onceIsPoisoned", args),
 		("From", "from") if matches!(self_std, Some(Std::OnceCell | Std::OnceLock)) => {
 			let cell = self_ty.expect("a `From` impl's type");
 			Expr::New(Box::new(Expr::Rt(once_class(b, cell).into())), args)
@@ -514,6 +525,11 @@ pub fn once_new<'tcx>(b: &Body<'_, '_, 'tcx>, cell: Ty<'tcx>) -> Expr {
 		Box::new(Expr::Rt(once_class(b, cell).into())),
 		vec![b.t.none(args.type_at(0))],
 	)
+}
+
+/// `Once::new()`: an `rt.OnceLock` holding nothing, as no function has run.
+pub fn once_unrun() -> Expr {
+	Expr::New(Box::new(Expr::Rt("OnceLock".into())), vec![Expr::undefined()])
 }
 
 /// The runtime class of `cell`, a `OnceCell` or `OnceLock`.

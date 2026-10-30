@@ -96,6 +96,8 @@ unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_so
 comparing pointers to `u32` in an atomic, which JS has no address of at fixtures/reject/src/lib.rs:746:15
 a constant of type `&u32`, a pointer into memory translation can't name at fixtures/reject/src/lib.rs:747:3
 passing `Spent`, which drops, to `Vec::drain`, which is not supported yet at fixtures/reject/src/lib.rs:768:4
+passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet at fixtures/reject/src/lib.rs:768:29
+passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:768:56
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:149:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:169:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:203:2

@@ -2,7 +2,7 @@
 
 import * as rt from "../rt.ts";
 
-export function then$bool_BytesMut_reserves_closure0(self: boolean, f: () => rt.BytesMut): rt.BytesMut | undefined {
+export function then$1y5f3ge(self: boolean, f: () => rt.BytesMut): rt.BytesMut | undefined {
 	if (!self) {
 		return undefined;
 	}

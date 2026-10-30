@@ -360,7 +360,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		span: Span,
 	) -> Option<Expr> {
 		let tcx = self.tcx;
-		let gargs = self.b.subst(gargs);
 		let call = library::Call {
 			def_id,
 			args: gargs,

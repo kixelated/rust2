@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Halves, copy$MaybeUninit_u32s, copy$Option_Pair, copy$Outer, copy$Pair$2, copy$u32_u32, copy$u32s_u8, copy$units, drop$List_Arc_u8, drop$List_String } from "./lib.ts";
-import { mapOr$Option_Pair_u8_copies_closure0, mapOr$Option_u8_Arc_u8_u8_shared_closure0, filter$Option_u32_sentinels_closure0 } from "./core/option.ts";
+import { mapOr$08xz81a, mapOr$1wxcg5q, filter$0tnmmii } from "./core/option.ts";
 import type * as Halves from "./pointers.Halves.ts";
 import type * as Inner from "./pointers.Inner.ts";
 import type * as Links from "./pointers.Links.ts";
@@ -122,7 +122,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _22: rt.Arc<rt.u8> = rt.arcClone(held);
 			List.pushBack$Arc_u8(list, key2, _22);
 		} else if (_19 === 1) {
-			rt.byteVecPush(out, mapOr$Option_u8_Arc_u8_u8_shared_closure0(List.remove$Arc_u8(list, key2), 255, (_2: [rt.u8, rt.Arc<rt.u8>]): rt.u8 => {
+			rt.byteVecPush(out, mapOr$1wxcg5q(List.remove$Arc_u8(list, key2), 255, (_2: [rt.u8, rt.Arc<rt.u8>]): rt.u8 => {
 				const v: rt.Arc<rt.u8> = _2[1];
 				const _0: rt.u8 = v.value;
 				v[Symbol.dispose]();
@@ -301,9 +301,9 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _35: [rt.u8, rt.u8] = snapshot(v);
 		const before: rt.u8 = _35[0];
 		const after: rt.u8 = _35[1];
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(y[0] & 0xff, x[0] & 0xff, h.at0[0] & 0xff, g.at0[0] & 0xff, mapOr$Option_Pair_u8_copies_closure0(old, 0, (o: Pair.Pair): rt.u8 => {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(y[0] & 0xff, x[0] & 0xff, h.at0[0] & 0xff, g.at0[0] & 0xff, mapOr$08xz81a(old, 0, (o: Pair.Pair): rt.u8 => {
 			return o.a & 0xff;
-		}), mapOr$Option_Pair_u8_copies_closure0(held, 0, (o2: Pair.Pair): rt.u8 => {
+		}), mapOr$08xz81a(held, 0, (o2: Pair.Pair): rt.u8 => {
 			return o2.a & 0xff;
 		}), before, after)));
 	}
@@ -326,7 +326,7 @@ export function sentinels(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let p!: rt.Place<rt.u32 | undefined>;
 	let _19!: rt.u8;
 	for (const byte of rt.byteSliceView(data)) {
-		let some: rt.u32 | undefined = filter$Option_u32_sentinels_closure0(byte as rt.u32, (v: rt.u32): boolean => {
+		let some: rt.u32 | undefined = filter$0tnmmii(byte as rt.u32, (v: rt.u32): boolean => {
 			return rt.u32Rem(v, 2) === 0;
 		});
 		if (rt.u8Rem(byte, 3) === 0) {
