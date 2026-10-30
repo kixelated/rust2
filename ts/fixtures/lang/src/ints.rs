@@ -1,6 +1,7 @@
 //! Every integer type's arithmetic, one operation per case so a panic hides nothing, and
 //! its parsing.
 
+use std::convert::Infallible;
 use std::num::IntErrorKind;
 
 /// Take an integer's big-endian bytes from the front of `data`, zero-padded.
@@ -450,5 +451,75 @@ pub fn parses(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		9 => i64, 64, i64::MAX as u128 + 1;
 		10 => i128, 128, i128::MAX as u128 + 1;
 		11 => isize, 32, isize::MAX as u128 + 1;
+	}
+}
+
+/// Each conversion from `$from` that can't fail, of what `data` holds and the type's
+/// limits: `try_from` and `try_into` as std types them, `Result<_, Infallible>`.
+macro_rules! widen {
+	($data:expr, $out:expr, $from:ty => $($to:ty),+) => {{
+		let (taken, _) = take!($from, $data);
+		for v in [taken, <$from>::MIN, <$from>::MAX] {
+			$(
+				let named: Result<$to, Infallible> = <$to>::try_from(v);
+				match named {
+					Ok(w) => $out.extend_from_slice(&w.to_be_bytes()),
+					Err(never) => match never {},
+				}
+				let into: Result<$to, Infallible> = v.try_into();
+				let Ok(w) = into;
+				$out.push(u8::from(into == named) | u8::from(w == <$to>::from(v)) << 1);
+			)+
+		}
+	}};
+}
+
+/// Every integer conversion that can't fail on wasm32, from the type `kind` picks: to
+/// itself, wider, and to `usize` and `isize` where std has `From`; and a `char`'s and the
+/// crate's own, which convert the same way.
+pub fn widenings(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match kind % 13 {
+		0 => widen!(data, out, u8 => u8, u16, u32, u64, u128, usize, i16, i32, i64, i128, isize),
+		1 => widen!(data, out, u16 => u16, u32, u64, u128, usize, i32, i64, i128),
+		2 => widen!(data, out, u32 => u32, u64, u128, i64, i128),
+		3 => widen!(data, out, u64 => u64, u128, i128),
+		4 => widen!(data, out, u128 => u128),
+		5 => widen!(data, out, usize => usize),
+		6 => widen!(data, out, i8 => i8, i16, i32, i64, i128, isize),
+		7 => widen!(data, out, i16 => i16, i32, i64, i128, isize),
+		8 => widen!(data, out, i32 => i32, i64, i128),
+		9 => widen!(data, out, i64 => i64, i128),
+		10 => widen!(data, out, i128 => i128),
+		11 => widen!(data, out, isize => isize),
+		_ => {
+			let (b, _) = take!(u8, data);
+			for b in [b, u8::MIN, u8::MAX] {
+				let named: Result<char, Infallible> = char::try_from(b);
+				let Ok(c) = named;
+				for c in [c, char::MIN, char::MAX] {
+					let wide: Result<u32, Infallible> = u32::try_from(c);
+					let wider: Result<u64, Infallible> = c.try_into();
+					let widest: Result<u128, Infallible> = c.try_into();
+					let Ok(a) = wide;
+					let Ok(b) = wider;
+					let Ok(c) = widest;
+					out.extend_from_slice(&a.to_be_bytes());
+					out.extend_from_slice(&b.to_be_bytes());
+					out.extend_from_slice(&c.to_be_bytes());
+				}
+				let own: Result<Scaled, Infallible> = b.try_into();
+				let Ok(Scaled(s)) = own;
+				out.extend_from_slice(&s.to_be_bytes());
+			}
+		}
+	}
+}
+
+/// A type of the crate's own that `From` makes, which `try_from` converts by.
+struct Scaled(u32);
+
+impl From<u8> for Scaled {
+	fn from(b: u8) -> Self {
+		Scaled(u32::from(b) * 1000)
 	}
 }

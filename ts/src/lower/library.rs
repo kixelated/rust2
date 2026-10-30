@@ -1161,6 +1161,15 @@ fn mapping<'tcx>(
 				"TryFrom" => (targ(gargs, 0), targ(gargs, 1)),
 				_ => (targ(gargs, 1), targ(gargs, 0)),
 			};
+			// Where `From` holds, std's blanket impl converts by it and can't fail: its error
+			// is `Infallible`, which is `!`.
+			if let ty::Adt(_, result) = b.t.sig(call.def_id, call.args).output().kind()
+				&& result.type_at(1).is_never()
+			{
+				let mut values = args;
+				let value = b.convert(values.pop()?, from, to, span, out);
+				return Some(Expr::rt("Ok", vec![value]));
+			}
 			let (Some(int), Some(_)) = (Int::of(to), Int::of(from)) else {
 				return None;
 			};
