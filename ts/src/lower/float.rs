@@ -1,24 +1,83 @@
-//! `f64`: a JS number, which is the same IEEE 754 double, so its arithmetic and
-//! comparisons are JS's operators, rounded as Rust's are. Where JS differs from std, as
-//! in rounding half away from zero, `max` and `min` around NaN, and casts that saturate,
-//! the runtime has std's. The functions std leaves to the platform's libm are `Math`'s.
+//! `f64` and `f32`. An `f64` is a JS number, which is the same IEEE 754 double, so its
+//! arithmetic and comparisons are JS's operators, rounded as Rust's are. An `f32` is a
+//! number a single holds exactly: each arithmetic result is rounded to one by
+//! `Math.fround`, which gives the single nearest the exact value, since a double holds
+//! the sum, product, quotient, or square root of singles closely enough. Where JS differs
+//! from std, as in rounding half away from zero, `max` and `min` around NaN, and casts
+//! that saturate, the runtime has std's. The functions std leaves to the platform's libm
+//! are `Math`'s.
 
 use rustc_middle::mir::{BinOp, UnOp};
-use rustc_middle::ty::{self, Ty};
+use rustc_middle::ty::{self, ScalarInt, Ty};
 use rustc_span::Span;
 
 use super::body::Body;
 use super::num::{Int, Operand};
 use crate::ts::{Expr, Type};
 
-/// The TypeScript type of an `f64`.
-pub fn ty() -> Type {
-	Type::Rt("f64", Vec::new())
+/// A float type JS has a value of.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Float {
+	F32,
+	F64,
 }
 
-/// Whether `ty` is `f64`. The other float types have no JS value yet.
+impl Float {
+	/// `ty`'s, if it is `f32` or `f64`. The other float types have no JS value yet.
+	pub fn of(ty: Ty<'_>) -> Option<Self> {
+		match ty.kind() {
+			ty::Float(ty::FloatTy::F32) => Some(Self::F32),
+			ty::Float(ty::FloatTy::F64) => Some(Self::F64),
+			_ => None,
+		}
+	}
+
+	/// The Rust name, which also prefixes the type's runtime functions: `rt.f32Round`.
+	pub fn name(self) -> &'static str {
+		match self {
+			Self::F32 => "f32",
+			Self::F64 => "f64",
+		}
+	}
+
+	/// The TypeScript type of a value.
+	pub fn ty(self) -> Type {
+		Type::Rt(self.name(), Vec::new())
+	}
+
+	/// `e`, a number JS computed exactly or as a double, rounded to this type.
+	pub fn round(self, e: Expr) -> Expr {
+		match self {
+			Self::F32 => Expr::ident("Math").member("fround").call(vec![e]),
+			Self::F64 => e,
+		}
+	}
+
+	/// A constant from its bits.
+	pub fn constant(self, int: ScalarInt) -> Expr {
+		match self {
+			Self::F32 => lit32(f32::from_bits(int.to_u32())),
+			Self::F64 => lit(f64::from_bits(int.to_u64())),
+		}
+	}
+
+	/// `v`, which this type holds exactly, as a literal.
+	pub fn lit(self, v: f64) -> Expr {
+		match self {
+			Self::F32 => lit32(v as f32),
+			Self::F64 => lit(v),
+		}
+	}
+
+	/// The type's runtime function `name`, uncalled.
+	fn func(self, name: &str) -> Expr {
+		Expr::rt_of(self.name(), name)
+	}
+}
+
+/// Whether `ty` is a float type JS has a value of.
 pub fn is(ty: Ty<'_>) -> bool {
-	matches!(ty.kind(), ty::Float(ty::FloatTy::F64))
+	Float::of(ty).is_some()
 }
 
 /// `v` as a literal: the shortest digits that read back as it, as Rust's `Debug` prints them.
@@ -40,60 +99,93 @@ pub fn lit(v: f64) -> Expr {
 	}
 }
 
-/// `l op r` of two `f64`s, which JS's operators round as Rust's do.
-pub fn binary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: BinOp, l: Expr, r: Expr, span: Span) -> Expr {
-	let js = match op {
-		BinOp::Add => "+",
-		BinOp::Sub => "-",
-		BinOp::Mul => "*",
-		BinOp::Div => "/",
-		// Both are C's `fmod`: exact, with the dividend's sign.
-		BinOp::Rem => "%",
-		BinOp::Eq => "===",
-		BinOp::Ne => "!==",
-		BinOp::Lt => "<",
-		BinOp::Le => "<=",
-		BinOp::Gt => ">",
-		BinOp::Ge => ">=",
-		_ => return b.err(span, format!("`{op:?}` on `f64`")),
-	};
-	l.binary(js, r)
+/// An `f32` as a literal: the double it is exactly, or a NaN other than `f32::NAN` from its bits.
+fn lit32(v: f32) -> Expr {
+	match v {
+		_ if v.is_nan() && v.to_bits() != f32::NAN.to_bits() => {
+			let u32 = Int {
+				bits: 32,
+				signed: false,
+				pointer: false,
+			};
+			Expr::rt("f32FromBits", vec![u32.lit(i128::from(v.to_bits()))])
+		}
+		_ => lit(f64::from(v)),
+	}
 }
 
-pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, span: Span) -> Expr {
+/// `l op r` of two floats, which JS's operators compute as Rust's do, an `f32`'s rounded.
+pub fn binary<'tcx>(b: &mut Body<'_, '_, 'tcx>, float: Float, op: BinOp, l: Expr, r: Expr, span: Span) -> Expr {
+	let rounds = |js| float.round(l.clone().binary(js, r.clone()));
+	match op {
+		BinOp::Add => rounds("+"),
+		BinOp::Sub => rounds("-"),
+		BinOp::Mul => rounds("*"),
+		BinOp::Div => rounds("/"),
+		// Both are C's `fmod`, which is exact, with the dividend's sign.
+		BinOp::Rem => l.binary("%", r),
+		BinOp::Eq => l.binary("===", r),
+		BinOp::Ne => l.binary("!==", r),
+		BinOp::Lt => l.binary("<", r),
+		BinOp::Le => l.binary("<=", r),
+		BinOp::Gt => l.binary(">", r),
+		BinOp::Ge => l.binary(">=", r),
+		_ => b.err(span, format!("`{op:?}` on `{}`", float.name())),
+	}
+}
+
+pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, float: Float, op: UnOp, value: Expr, span: Span) -> Expr {
 	match op {
 		UnOp::Neg => Expr::unary("-", value),
-		_ => b.err(span, format!("`{op:?}` on `f64`")),
+		_ => b.err(span, format!("`{op:?}` on `{}`", float.name())),
 	}
 }
 
 /// `value as to` where either side is a float.
 pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to: Ty<'tcx>, span: Span) -> Expr {
-	match (Int::of(from), Int::of(to)) {
-		_ if is(from) && is(to) => value.expr,
+	match (Float::of(from), Float::of(to), Int::of(from), Int::of(to)) {
+		(Some(f), Some(t), ..) if f == t => value.expr,
+		// Every single is exactly a double.
+		(Some(Float::F32), Some(Float::F64), ..) => Expr::As(Box::new(value.expr), Float::F64.ty()),
+		(Some(Float::F64), Some(Float::F32), ..) => Float::F32.round(value.expr),
 		// `From<bool>`, which `as` has no form of.
-		_ if from.is_bool() && is(to) => Expr::Cond(Box::new(value.expr), Box::new(lit(1.0)), Box::new(lit(0.0))),
-		// An integer to the nearest `f64`, rounded once: exact up to 2^53, which narrow ones are.
-		(Some(int), None) if is(to) => match value.value {
-			Some(c) if int.signed => lit(c as f64),
-			Some(c) => lit(c as u128 as f64),
-			None if int.big() => int.method("toF64", vec![value.expr]),
-			None => Expr::As(Box::new(value.expr), ty()),
+		(None, Some(t), ..) if from.is_bool() => {
+			Expr::Cond(Box::new(value.expr), Box::new(t.lit(1.0)), Box::new(t.lit(0.0)))
+		}
+		// An integer to the nearest float, rounded once: an integer of at most 32 bits is
+		// exactly a double, which then rounds to a single once.
+		(None, Some(t), Some(int), _) => match (value.value, t) {
+			(Some(c), Float::F64) if int.signed => lit(c as f64),
+			(Some(c), Float::F64) => lit(c as u128 as f64),
+			(Some(c), Float::F32) if int.signed => lit32(c as f32),
+			(Some(c), Float::F32) => lit32(c as u128 as f32),
+			(None, Float::F64) if int.big() => int.method("toF64", vec![value.expr]),
+			(None, Float::F32) if int.big() => int.method("toF32", vec![value.expr]),
+			(None, Float::F64) => Expr::As(Box::new(value.expr), t.ty()),
+			(None, Float::F32) => Float::F32.round(value.expr),
 		},
-		// Truncated, saturated at the type's bounds, and 0 for NaN.
-		(None, Some(int)) if is(from) => int.method("fromF64", vec![value.expr]),
+		// Truncated, saturated at the type's bounds, and 0 for NaN, of an `f32` as the double it is.
+		(Some(f), None, _, Some(int)) => {
+			let value = match f {
+				Float::F32 => Expr::As(Box::new(value.expr), Float::F64.ty()),
+				Float::F64 => value.expr,
+			};
+			int.method("fromF64", vec![value])
+		}
 		_ => b.err(span, format!("a cast from `{from}` to `{to}`")),
 	}
 }
 
-/// A call of `f64`'s own `name`, or `None` if it is not mapped.
-pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, name: &str, args: Vec<Expr>, span: Span) -> Option<Expr> {
-	let math = |f: &str, args: Vec<Expr>| Expr::ident("Math").member(f).call(args);
-	let rt = |f: &str, args: Vec<Expr>| Expr::rt_of("f64", f).call(args);
+/// A call of the float type's own `name`, or `None` if it is not mapped.
+pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, float: Float, name: &str, args: Vec<Expr>, span: Span) -> Option<Expr> {
+	let math = |f: &str, args: Vec<Expr>| float.round(Expr::ident("Math").member(f).call(args));
+	let rt = |f: &str, args: Vec<Expr>| float.func(f).call(args);
 	let one = |args: Vec<Expr>| <[Expr; 1]>::try_from(args).ok().map(|[x]| x);
 	Some(match name {
 		// Exact in JS as in std.
-		"floor" | "ceil" | "trunc" | "abs" | "sqrt" => math(name, args),
+		"floor" | "ceil" | "trunc" | "abs" => Expr::ident("Math").member(name).call(args),
+		// Correctly rounded, so a single's is its double's rounded once.
+		"sqrt" => math(name, args),
 		// libm's in Rust, the engine's in JS: each within a few ULPs, the README says how many.
 		"exp" | "log2" | "log10" | "cbrt" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sinh" | "cosh"
 		| "tanh" | "asinh" | "acosh" | "atan2" | "hypot" => math(name, args),
@@ -101,16 +193,29 @@ pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, name: &str, args: Vec<Expr>, spa
 		"exp_m1" => math("expm1", args),
 		"ln_1p" => math("log1p", args),
 		"exp2" => math("pow", vec![Expr::lit("2"), one(args)?]),
+		// std divides the two `ln`s, each of the type.
 		"log" => {
 			let [x, base] = <[Expr; 2]>::try_from(args).ok()?;
-			math("log", vec![x]).binary("/", math("log", vec![base]))
+			float.round(math("log", vec![x]).binary("/", math("log", vec![base])))
 		}
 		"is_nan" => Expr::ident("Number").member("isNaN").call(args),
 		"is_finite" => Expr::ident("Number").member("isFinite").call(args),
-		"recip" => Expr::lit("1").binary("/", one(args)?),
-		// std multiplies by these constants, rounded once.
-		"to_degrees" => one(args)?.binary("*", lit(180.0 / std::f64::consts::PI)),
-		"to_radians" => one(args)?.binary("*", lit(std::f64::consts::PI / 180.0)),
+		"recip" => float.round(Expr::lit("1").binary("/", one(args)?)),
+		// std multiplies by these constants, of the type, rounded once.
+		"to_degrees" => {
+			let c = match float {
+				Float::F32 => lit32(57.295_78_f32),
+				Float::F64 => lit(180.0 / std::f64::consts::PI),
+			};
+			float.round(one(args)?.binary("*", c))
+		}
+		"to_radians" => {
+			let c = match float {
+				Float::F32 => lit32(std::f32::consts::PI / 180.0),
+				Float::F64 => lit(std::f64::consts::PI / 180.0),
+			};
+			float.round(one(args)?.binary("*", c))
+		}
 		"round" | "round_ties_even" | "fract" | "signum" | "copysign" | "is_infinite" | "is_normal"
 		| "is_subnormal" | "is_sign_positive" | "is_sign_negative" | "next_up" | "next_down" | "max" | "min"
 		| "midpoint" | "to_bits" | "from_bits" | "to_be_bytes" | "to_le_bytes" | "from_be_bytes" | "from_le_bytes"
@@ -120,7 +225,13 @@ pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, name: &str, args: Vec<Expr>, spa
 		// wasm32 is little-endian.
 		"to_ne_bytes" => rt("toLeBytes", args),
 		"from_ne_bytes" => rt("fromLeBytes", args),
-		"mul_add" => b.err(span, "`f64::mul_add`, which rounds once, where JS would round twice"),
+		"mul_add" => b.err(
+			span,
+			format!(
+				"`{}::mul_add`, which rounds once, where JS would round twice",
+				float.name()
+			),
+		),
 		_ => return None,
 	})
 }

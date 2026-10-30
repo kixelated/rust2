@@ -67,7 +67,7 @@ and each type a module of its own beside it, holding the type and its functions
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
-`rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
+`rt/task.ts`, `f64`'s and `f32`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods, `==` of a `Result` and of std's errors, `cmp::max` and `min`, and the `str::parse` and
 `from_str_radix` of an integer or a `NonZero` and `bool`'s `str::parse`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
@@ -82,6 +82,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `f64` | `rt.f64`: a `number` branded so, which is the same IEEE 754 double |
+| `f32` | `rt.f32`: a `number` branded so, which a single holds exactly |
 | `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
@@ -167,6 +168,19 @@ NaN an operation makes, so a NaN's payload and sign are the engine's: Node and C
 keep them through `from_bits` and `to_bits`, but V8 quiets a signaling NaN stored in an
 array, as a `Vec<f64>` holds it.
 
+An `f32` is a JS number a single holds exactly. Each arithmetic result, and each of
+`sqrt`, `recip`, and libm's functions, rounds to a single with `Math.fround`, which gives
+the single nearest the exact value, since a double holds the exact result closely enough;
+`%`, comparisons, and negation need no rounding. Its methods compute in singles where std
+does, as `div_euclid`, `powi`, and `atanh` do, and in doubles where std does, as wasm32's
+`midpoint` does. A cast to `f64` is the same number, and `f64 as f32` is `Math.fround`;
+an integer rounds to a single once, never through the nearest double, which could round
+twice. A NaN keeps its sign and payload at the top of a double NaN's, so `from_bits` and
+`to_bits` keep a signaling one, which JS's conversion from a single would quiet, and V8
+quiets one stored in an array as it does an `f64`'s.
+`Duration`'s `f32` methods are std's: `as_secs_f32` and `div_duration_f32` round each step
+to a single, and the rest go through `f64` as std's do.
+
 `format!`, `write!`, `panic!`, `assert!`, and the other macros of `format_args!`
 translate, as do `Display` and `Debug` impls, derived and thiserror's included. The
 runtime ports `core::fmt`, so the text matches native Rust's byte for byte. A placeholder
@@ -174,11 +188,13 @@ becomes a function writing its value, and `fmt::Arguments` an array of literal p
 and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take every option but `{:p}`:
 fill, alignment, `+`, `#`, `0`, `x?` and `X?`, a width and a precision, each also from an
-argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers, `e` and `E` for `f64`. An `f64`
+argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers, `e` and `E` for floats. An `f64`
 prints std's digits: the shortest that read back as it, the greater of two as close where
 JS's would take the even one, or its exact value rounded half to even to a precision,
-where `toFixed` rounds half up. `str::parse::<f64>` takes std's grammar, not `Number`'s,
-and rounds to the nearest double. The `str::parse` and `from_str_radix` of an integer or a
+where `toFixed` rounds half up. An `f32` prints the shortest digits that read back as the
+single, found as Dragon does, which JS has no function for. `str::parse` of a float takes
+std's grammar, not `Number`'s, and rounds to the nearest of the type once, so an `f32`
+never rounds through a double. The `str::parse` and `from_str_radix` of an integer or a
 `NonZero` are core's own, over the string's UTF-8 bytes; their `ParseIntError` is
 `rt.ParseIntError`, `{ kind }`, whose `IntErrorKind` is the variant's name. `bool`'s is
 core's too, failing with an `rt.ParseBoolError`; a `char`'s is `rt.charFromStr`, failing with
@@ -381,7 +397,7 @@ of them:
   `split_off`, `try_reclaim`, `try_unsplit`, and `spare_capacity_mut`, which read it.
 - `Buf` and `BufMut` of a `Bytes`, a `BytesMut`, a `&[u8]`, and a `Vec<u8>` map: the
   required methods, `has_remaining`, `copy_to_slice`, `copy_to_bytes`, each `get_` and
-  `put_` of an integer or `f64`, `put_slice`, `put_bytes`, and `put`, whose panics are
+  `put_` of an integer or a float, `put_slice`, `put_bytes`, and `put`, whose panics are
   `bytes`'. `put` of the crate's own `Buf` into a `Vec<u8>` reads it through its methods
   as `bytes` does, and into a `BytesMut` is refused, as `bytes` picks those methods by its
   capacity. The provided `copy_to_bytes` of the crate's own `Buf`, whose `BytesMut` has
@@ -611,7 +627,7 @@ fields overlap in different types ([unsafe](/quest/m3/ts-unsafe.md)), and trait 
 behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a `dyn Error`, binds to
 hand-written TS ([bindings](#bindings)).
 
-These fail translation: `f32` ([`f32`](/quest/m3/ts-f32.md)), async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
+These fail translation: `f16` and `f128`, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`, a std
