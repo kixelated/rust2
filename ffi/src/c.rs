@@ -129,6 +129,9 @@ impl Header<'_> {
 		for name in abi.options.keys() {
 			self.value(&Ty::Struct(name.clone()));
 		}
+		for name in abi.tuples.keys() {
+			self.value(&Ty::Struct(name.clone()));
+		}
 		for i in 0..api.records.len() {
 			self.value(&Ty::Struct(abi.record(i)));
 		}
@@ -281,6 +284,16 @@ impl Header<'_> {
 			self.line(format!(
 				"typedef struct {name} {{\n\tbool some;\n\t{value};\n}} {name};\n"
 			));
+			return;
+		}
+		if let Some(elements) = abi.tuples.get(name) {
+			let elements: Vec<Ty> = elements.iter().map(|e| abi.ty(e)).collect();
+			let mut decls = Vec::new();
+			for (n, element) in elements.iter().enumerate() {
+				self.value(element);
+				decls.push(format!("\t{};", self.decl(element, &format!("_{n}"))));
+			}
+			self.line(format!("typedef struct {name} {{\n{}\n}} {name};\n", decls.join("\n")));
 			return;
 		}
 		if let Some(i) = (0..abi.api.records.len()).find(|&i| &abi.record(i) == name) {

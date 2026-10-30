@@ -83,6 +83,38 @@ fun script() {
 			println("divide err ${e.message}")
 		}
 	}
+	// A tuple inside another type is a Pair, a Triple, or a longer tuple class.
+	for (n in listOf(98305uL, 0uL)) {
+		val spread = spread(n)
+		println(if (spread == null) "spread none" else "spread ${spread.first} ${spread.second} ${spread.third} ${spread.fourth}")
+	}
+	for (needle in listOf("lo", "x")) {
+		val found = find("hello".encodeToByteArray(), needle.encodeToByteArray())
+		println(if (found == null) "find none" else "find ${found.first} ${found.second}")
+	}
+	val statRows = rows(listOf(Point(1, 2), Point(3, 3)))
+	println("rows ${statRows.joinToString(", ") { (name, shape, p) -> "$name ${shape.debug()} ${p.x} ${p.y}" }}")
+	// Each handle in a tuple moves in, as one taken by value does.
+	Board.new(listOf(Pair("low", Counter.new("l", 1u)), Pair("high", Counter.new("h", 9u)))).use { board ->
+		val ranked = board.ranked()
+		println("ranked ${ranked.joinToString(", ") { (name, counter) -> "$name ${counter.name()} ${counter.get()}" }}")
+		ranked.forEach { it.second.close() }
+	}
+	val span = Span(Pair(2u, 10u), Pair("s", Shape.SQUARE))
+	val (lowerHalf, upperHalf) = halves(span)
+	println("halves ${lowerHalf.first} ${lowerHalf.second} ${upperHalf.first} ${upperHalf.second} ${span.debug()}")
+	val (swappedN, swappedText) = swapped(Pair("t", 4u))
+	println("swapped $swappedN $swappedText")
+	for (value in listOf(null, Tuple1<UInt?>(null), Tuple1<UInt?>(3u))) {
+		val doubled = doubled(value)
+		println(if (doubled == null) "doubled None" else "doubled Some((${doubled.first?.let { "Some($it)" } ?: "None"},))")
+	}
+	// A borrowed or boxed tuple of one is a tuple, not its element.
+	val lentOne = lentBack(Tuple1(byteArrayOf(1, 2))).first.use { it.toByteArray().toList() }
+	val boxedOne = boxedTuple(byteArrayOf(3)).first.use { it.toByteArray().toList() }
+	println("lent back $lentOne boxed $boxedOne")
+	// A borrowed string and an owned one share a tuple struct.
+	println("title Some((\"${title(true)!!.first}\",)) ${if (title(false) == null) "None" else "Some"} named Some((\"${named("x")!!.first}\",))")
 
 	// Each lent counter is a new handle to a clone.
 	val registry = Registry.new(Counter.new("first", 1u))
@@ -129,6 +161,15 @@ fun script() {
 	).map { count(it) }
 	println("count ${counts.joinToString(" ")}")
 	println("end ${bound(end(3u))} ${bound(end(0u))}")
+	val (endsStart, endsEnd) = ends(3u)
+	println("ends ${bound(endsStart)} ${bound(endsEnd)}")
+	for (n in listOf(2uL, 5uL)) {
+		try {
+			println("below ${below(n, 3u)}")
+		} catch (e: BoundsU64Exception) {
+			println("below err ${bound(e.error.start)} ${bound(e.error.end)}")
+		}
+	}
 	val window = Window(RangeU64(2u, 8u), end(5u))
 	println("window ${window.contains(4u)} ${window.contains(6u)} ${window.debug()}")
 
