@@ -8,7 +8,7 @@ parameter.
 
 hang's `catalog::Audio::ranked` and `catalog::Video::ranked` are the consumer. They return
 `impl Iterator<Item = (&String, &AudioConfig)>` (and `&VideoConfig`), which
-[#213](https://github.com/kixelated/rust2/pull/213) collects into an array but refuses for
+[#213](https://github.com/moq-dev/rust2/pull/213) collects into an array but refuses for
 the tuple. They export as an array of pairs, each a string and a clone of the config object.
 The same refusal holds back moq-net's `stats::Snapshot::{control, traffic, sessions}` (`Vec`s
 of 2- and 3-tuples) and moq-mux's `codec::annexb::find_start_code` (`Option<(usize, usize)>`),

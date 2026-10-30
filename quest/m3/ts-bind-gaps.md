@@ -3,7 +3,7 @@
 ## Goal
 
 rust2-ts's [bindings](/ts/README.md) cover a bound type as a collection key, through its
-binding's `Hash`, `Eq`, and `Ord`, which [#127](https://github.com/kixelated/rust2/pull/127)
+binding's `Hash`, `Eq`, and `Ord`, which [#127](https://github.com/moq-dev/rust2/pull/127)
 refuses.
 
 ## Plan

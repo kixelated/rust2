@@ -31,10 +31,14 @@ check:
     just driver check
     just uniffi check
 
+# Run what CI's Check runs: the lints, then the tests.
+ci:
+    just check
+    just test
+
 # Run the tests.
 test:
     bash .claude/hooks/direnv.test.sh
-    bun .github/land.test.ts
     just ts test
     just ffi test
     just driver test

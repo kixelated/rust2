@@ -11,7 +11,7 @@ until then.
 ## Plan
 
 Decided with the maintainer on 2026-10-25, from the spike
-([kixelated/rust2#41](https://github.com/kixelated/rust2/pull/41)): adopt the exporter, and fold
+([moq-dev/rust2#41](https://github.com/moq-dev/rust2/pull/41)): adopt the exporter, and fold
 the fork's paused feature quests into it.
 
 Decided with the maintainer on 2026-10-27: this is an epic, with each item a child ranked by
