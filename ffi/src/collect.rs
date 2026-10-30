@@ -2200,18 +2200,22 @@ impl<'tcx> Collector<'tcx> {
 			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
 				.map(|clause| infcx.deeply_resolve_ignoring_regions(clause))
 				.collect();
-			// The self type matches `target` but for its lifetimes, which line up in order. A
-			// lifetime that outlives a `'static` one, as `'b: 'a` makes `'b`, is `'static` too.
-			let ours = infcx.deeply_resolve_ignoring_regions(trait_ref.self_ty());
-			let mut pinned: Vec<_> = (ours.walk().zip(target.walk()))
-				.filter_map(|(ours, theirs)| Some((ours.as_region()?, theirs.as_region()?)))
-				.filter(|&(_, theirs)| theirs.is_static() || statics.contains(&theirs))
-				.map(|(ours, _)| ours)
-				.collect();
+			// Each of the implementation's lifetimes that matching `target` relates to one that is
+			// `'static`, and each that outlives one of those, as `'b: 'a` makes `'b`.
+			let forever = |r: ty::Region<'tcx>| r.is_static() || statics.contains(&r);
+			let mut pinned: Vec<_> = infcx.with_region_constraints(|data| {
+				(data.constraints.iter())
+					.filter_map(|(c, _)| match (c.sub.is_var(), c.sup.is_var()) {
+						(true, false) if forever(c.sup) => Some(c.sub),
+						(false, true) if forever(c.sub) => Some(c.sup),
+						_ => None,
+					})
+					.collect()
+			});
 			while let Some(long) = (implied.iter())
 				.filter_map(|clause| clause.as_region_outlives_clause())
 				.map(|pred| pred.skip_binder())
-				.find(|pred| (pred.1.is_static() || pinned.contains(&pred.1)) && !pinned.contains(&pred.0))
+				.find(|pred| (forever(pred.1) || pinned.contains(&pred.1)) && !pinned.contains(&pred.0))
 				.map(|pred| pred.0)
 			{
 				pinned.push(long);

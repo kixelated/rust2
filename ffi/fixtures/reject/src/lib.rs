@@ -416,6 +416,21 @@ pub fn outlived(value: impl Into<Outlived<'static>>) -> u32 {
 	*value.into().0.0
 }
 
+/// Excluded, two lifetimes, what converts into a `Held` for the second converting into it.
+pub struct Paired<'a, 'b>(pub &'a u32, pub Held<'b>);
+
+impl<'a, 'b, T: Into<Held<'b>>> From<T> for Paired<'a, 'b> {
+	fn from(value: T) -> Self {
+		Paired(&0, value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the second of its target's two
+/// `'static` lifetimes demands.
+pub fn paired(value: impl Into<Paired<'static, 'static>>) -> u32 {
+	*value.into().1.0
+}
+
 /// Excluded, a `'static` borrow, from what converts into one.
 pub struct Pinned(pub &'static u32);
 
