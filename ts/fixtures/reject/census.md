@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 96
-- Function instances: 109
+- Refusals: 97
+- Function instances: 113
 - Generic functions no instance reached, lowered over their type parameters: 7
 
 ## By construct
@@ -23,6 +23,7 @@
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:13 |
+| 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:428:2 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:68:2 |
@@ -102,6 +103,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:483:17 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:363:16 |
 | 1 | `Bits` | fixtures/reject/src/lib.rs:643:1 |
+| 1 | `Blank` | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BytesMut` | fixtures/reject/src/lib.rs:437:6 |
 | 1 | `Counted` | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:169:1 |
@@ -150,6 +152,7 @@ The type or module each refused type or path belongs to.
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:126:2 |
 | 2 | replacing the value behind a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:483:17 |
+| 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | `Blank` | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | `Counted` | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | `std::sync::Arc` | fixtures/reject/src/lib.rs:428:2 |
 | 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:396:18 |
@@ -345,6 +348,12 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:372:13: passing `{closure@fixtures/reject/src/lib.rs:372:28: 372:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet
 - fixtures/reject/src/lib.rs:373:16: passing `{closure@fixtures/reject/src/lib.rs:373:25: 373:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet
+
+</details>
+
+<details><summary>`Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported (1)</summary>
+
+- fixtures/reject/src/lib.rs:725:2: `Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported
 
 </details>
 

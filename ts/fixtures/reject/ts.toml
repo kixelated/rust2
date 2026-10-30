@@ -76,5 +76,6 @@ roots = [
     "element_pointer",
     "units_compared",
     "dangling_enum",
+    "blank_bytes",
 ]
 printable = ["Meters"]

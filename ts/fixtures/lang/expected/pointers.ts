@@ -211,7 +211,7 @@ export function unchecked(data: rt.ByteSlice, out: rt.ByteVec): void {
 	uninit.v = 7;
 	uninit;
 	const held: rt.Arc<rt.u8> = new rt.Arc(0);
-	let dropped: rt.Arc<rt.u8> = rt.arcClone(held);
+	const dropped: rt.Arc<rt.u8> = rt.arcClone(held);
 	for (const byte of rt.byteSliceView(data)) {
 		const at: rt.usize = rt.u8Rem(byte, 4) as rt.usize;
 		const _23: rt.u32[] = counts;
@@ -227,7 +227,7 @@ export function unchecked(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, boxed.v & 0xff);
 	rt.byteVecPush(out, slot & 0xff);
 	rt.byteVecPush(out, held.strong & 0xff);
-	rt.place(() => dropped, (value3) => dropped = value3).v[Symbol.dispose]();
+	dropped[Symbol.dispose]();
 	rt.byteVecPush(out, held.strong & 0xff);
 	held[Symbol.dispose]();
 }
@@ -244,7 +244,7 @@ export function nested(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const pair: [rt.u32, rt.u32] = _8[1];
 	rt.ptrWrite(inner, { a: 1, b: 2 });
 	rt.ptrWrite(pair, [3, 4] as [rt.u32, rt.u32]);
-	rt.place(() => p.n, (value) => p.n = value).v = 5;
+	p.n = 5;
 	for (const byte of rt.byteSliceView(data)) {
 		const v: rt.u32 = byte as rt.u32;
 		const _25: rt.u8 = rt.u8Rem(byte, 6);
