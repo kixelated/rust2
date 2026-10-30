@@ -614,16 +614,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		if super::place::transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() {
 			return values.pop().unwrap_or_else(Expr::undefined);
 		}
-		match crate::lower::library::std_path(tcx, def_id)
-			.iter()
-			.map(String::as_str)
-			.collect::<Vec<_>>()
-			.as_slice()
-		{
-			["marker", "PhantomData"] => return Expr::undefined(),
-			["iter", "sources", "empty", "Empty"] => return Expr::rt("iterEmpty", Vec::new()),
-			_ => {}
-		}
+		let values = match self.b.zero_sized_std(ty, values, span) {
+			Ok(made) => return made,
+			Err(values) => values,
+		};
 		if !self.b.t.own(def_id) {
 			return self.err(span, format!("constructing `{ty}` {}", self.b.t.foreign(def_id)));
 		}

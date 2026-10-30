@@ -13,8 +13,9 @@
 //! mutable ones written through, their parts by inclusive and checked ranges and by fixed
 //! size, `Vec::drain`, the order, equality, and hashes of bytes, ranges of `Bound`s and of
 //! the crate's own `RangeBounds`, the equality of `Result`s and std's errors, inclusive
-//! ranges read through each adaptor, iterators' size hints, and the capacity overflows
-//! collections reserving by them panic with.
+//! ranges read through each adaptor, iterators' size hints, the capacity overflows
+//! collections reserving by them panic with, and zero-sized values, which MIR never
+//! assigns.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -65,5 +66,6 @@ mod utf8;
 #[path = "../../wasm.rs"]
 mod wasm;
 mod wrappers;
+mod zeros;
 #[cfg(target_arch = "wasm32")]
 use harness::entry;
