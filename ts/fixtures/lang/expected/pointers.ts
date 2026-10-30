@@ -363,9 +363,9 @@ export function sentinels(data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const count: rt.Arc<undefined> = new rt.Arc(undefined);
-	let num: rt.Cell<rt.u32> = new rt.Cell(4294967295 - 1);
+	const num: rt.Cell<rt.u32> = new rt.Cell(4294967295 - 1);
 	const pair: rt.Cell<Duo.Duo> = new rt.Cell({ _0: 0, _1: 255 });
-	let text: rt.Cell<string> = new rt.Cell("");
+	const text: rt.Cell<string> = new rt.Cell("");
 	const held: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(0, rt.arcClone(count)));
 	for (const op of rt.byteSliceView(data)) {
 		const n: rt.u8 = rt.u8Div(op, 8);
@@ -429,19 +429,14 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return p4.n;
 			}));
 		} else if (_23 === 6) {
-			const _126: rt.Cell<rt.u32> = new rt.Cell(n as rt.u32);
-			const old3 = num;
-			num = _126;
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(old3.v).reverse()));
-			const _133: rt.Cell<string> = new rt.Cell(rt.fmtToString((f: rt.Formatter) => rt.u8Display(n, f)));
-			const old4 = text;
-			text = _133;
-			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(old4.v))));
-			const _140: Duo.Duo = { _0: n, _1: ~n & 0xff };
-			Object.assign(pair.v, _140);
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(renewNum(num, n as rt.u32)).reverse()));
+			const _134: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(n, f));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(renewText(text, _134)))));
+			const _136: Duo.Duo = { _0: n, _1: ~n & 0xff };
+			Object.assign(pair.v, _136);
 		} else {
-			const _146: rt.Arc<undefined> = rt.arcClone(count);
-			const made: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _146));
+			const _142: rt.Arc<undefined> = rt.arcClone(count);
+			const made: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _142));
 			Wrapped.withMut$Held_unit_cells_closure5(made, (p2: Held.Held): void => {
 				p2.n = p2.n ^ 85;
 			});
@@ -453,12 +448,122 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()));
-	const _169: Duo.Duo = pair.v;
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_169._0, _169._1)));
+	const _165: Duo.Duo = pair.v;
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_165._0, _165._1)));
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))));
 	held[Symbol.dispose]();
 	rt.byteVecPush(out, count.strong & 0xff);
 	count[Symbol.dispose]();
+}
+
+export function renewNum(cell: rt.Cell<rt.u32>, value: rt.u32): rt.u32 {
+	return rt.replaceIn(cell, new rt.Cell(value)).v;
+}
+
+export function renewText(cell: rt.Cell<string>, value: string): string {
+	return rt.replaceIn(cell, new rt.Cell(value)).v;
+}
+
+/**
+ * Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
+ * `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
+ * parts are, ones a helper writes through a `&mut` into the object there, and one taken
+ * through two helpers and read while the variable is borrowed, which is assigned after.
+ * Each is a function of its own, as a loop assigns its variables again.
+ */
+export function rebound(data: rt.ByteSlice, out: rt.ByteVec): void {
+	for (const n of rt.byteSliceView(data)) {
+		const _10: rt.u8 = rt.u8Rem(n, 5);
+		if (_10 === 0) {
+			rt.iterExtendBytes(out, rt.iterSlice(replacedBefore(n)));
+		} else if (_10 === 1) {
+			rt.iterExtendBytes(out, rt.iterSlice(partsReplaced(n)));
+		} else if (_10 === 2) {
+			rt.iterExtendBytes(out, rt.iterSlice(writtenInPlace(n)));
+		} else if (_10 === 3) {
+			rt.iterExtendBytes(out, rt.iterSlice(cellWrittenInPlace(n)));
+		} else {
+			rt.iterExtendBytes(out, rt.iterSlice(borrowedThrough(n)));
+		}
+	}
+}
+
+export function replacedBefore(n: rt.u8): Uint8Array {
+	let pair: [rt.u8, rt.u8] = [n, ~n & 0xff];
+	const old2 = pair;
+	pair = [n ^ 1, n] as [rt.u8, rt.u8];
+	const old: [rt.u8, rt.u8] = old2;
+	const p: [rt.u8, rt.u8] = pair;
+	p[1] = p[1] ^ old[0];
+	return Uint8Array.of(pair[0], pair[1]);
+}
+
+export function partsReplaced(n: rt.u8): Uint8Array {
+	const pair: [rt.u8, rt.u8] = [n, ~n & 0xff];
+	const p: [rt.u8, rt.u8] = pair;
+	const _7: rt.u8 = rt.u8WrappingAdd(n, 1);
+	const old2 = pair[0];
+	pair[0] = _7;
+	const old: rt.u8 = old2;
+	const swapped = pair[0];
+	pair[0] = pair[1];
+	pair[1] = swapped;
+	const taken2 = pair[1];
+	pair[1] = 0;
+	return Uint8Array.of(p[0], p[1], old, taken2);
+}
+
+export function writtenInPlace(n: rt.u8): Uint8Array {
+	const a: Duo.Duo = { _0: n, _1: 1 };
+	const b: Duo.Duo = { _0: 2, _1: n };
+	const p: Duo.Duo = a;
+	const old: Duo.Duo = renew(a, { _0: n ^ 3, _1: n ^ 4 });
+	const between: Duo.Duo = copy$Duo(p);
+	exchange(a, b);
+	const swapped: Duo.Duo = copy$Duo(p);
+	assign(a, { _0: old._1, _1: b._0 });
+	return Uint8Array.of(between._0, between._1, swapped._0, swapped._1, p._0, p._1);
+}
+
+export function cellWrittenInPlace(n: rt.u8): Uint8Array {
+	const cell: rt.Cell<rt.u32> = new rt.Cell((((n as rt.u32)) << 9) >>> 0);
+	const p: rt.Place<rt.u32> = cell;
+	const old: rt.u32 = renewNum(cell, rt.u32Add(n as rt.u32, 7));
+	return Uint8Array.of(old & 0xff, (old >>> 9) & 0xff, p.v & 0xff, (clear(cell) & 0xff) ^ (p.v & 0xff));
+}
+
+export function borrowedThrough(n: rt.u8): Uint8Array {
+	let d: Duo.Duo = { _0: n, _1: ~n & 0xff };
+	const first: rt.u8 = flipped(d);
+	d = { _0: d._1, _1: d._0 };
+	return Uint8Array.of(first, d._0, d._1);
+}
+
+export function renew(at: Duo.Duo, value: Duo.Duo): Duo.Duo {
+	return rt.replaceIn(at, copy$Duo(value));
+}
+
+export function exchange(a: Duo.Duo, b: Duo.Duo): void {
+	Object.assign(a, rt.replaceIn(b, a));
+}
+
+export function assign(at: Duo.Duo, value: Duo.Duo): void {
+	Object.assign(at, copy$Duo(value));
+}
+
+export function clear(cell: rt.Cell<rt.u32>): rt.u32 {
+	return rt.replaceIn(cell, new rt.Cell(0)).v;
+}
+
+/** The first of `d`, flipped through the pointer `pointer_of` gives. */
+export function flipped(d: Duo.Duo): rt.u8 {
+	const p: Duo.Duo = pointerOf(d);
+	p._0 = p._0 ^ 90;
+	return p._0;
+}
+
+export function pointerOf(d: Duo.Duo): Duo.Duo {
+	return d;
 }
 
 //# sourceMappingURL=pointers.ts.map

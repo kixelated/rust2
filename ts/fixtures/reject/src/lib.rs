@@ -679,6 +679,61 @@ pub fn variable_reassigned(n: u32) -> u32 {
 	unsafe { (*p).0 + pair.1 }
 }
 
+/// A pointer to a variable's object, which `mem::replace` of the whole variable replaces.
+pub fn variable_replaced(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let old = std::mem::replace(&mut pair, (0, 0));
+	unsafe { (*p).0 + old.1 }
+}
+
+/// A pointer to a variable's object, which `mem::swap` replaces.
+pub fn variable_swapped(n: u32) -> u32 {
+	let mut a = (n, n);
+	let mut b = (0, 0);
+	let p = &raw mut a;
+	std::mem::swap(&mut a, &mut b);
+	unsafe { (*p).0 + b.1 }
+}
+
+/// A pointer to a variable's object, which a whole write through a `&mut` to it replaces.
+pub fn assigned_through(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let r = &mut pair;
+	*r = (0, 0);
+	unsafe { (*p).0 }
+}
+
+/// A pointer `NonNull::from` makes of a `&mut` to a variable, which an assignment replaces.
+pub fn nonnull_reassigned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = std::ptr::NonNull::from(&mut pair);
+	pair = (0, 0);
+	unsafe { p.as_ref().0 + pair.1 }
+}
+
+/// A pointer cast from a `&mut` to a variable, which an assignment replaces.
+pub fn cast_reassigned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &mut pair as *mut (u32, u32);
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+pub struct Window {
+	pub range: (u32, u32),
+}
+
+/// A pointer to a part kept as an object, which `mem::replace` of the part elsewhere replaces.
+pub fn range_of(w: &mut Window) -> *mut (u32, u32) {
+	&raw mut w.range
+}
+
+pub fn range_replaced(w: &mut Window) -> (u32, u32) {
+	std::mem::replace(&mut w.range, (0, 0))
+}
+
 /// A pointer to an element kept as an object.
 pub fn element_pointer(n: u32) -> u32 {
 	let mut pairs = [(n, n); 2];
@@ -706,6 +761,15 @@ pub fn cell_reassigned(n: u32) -> u32 {
 
 pub struct Hits {
 	pub count: std::cell::UnsafeCell<u32>,
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` itself, which
+/// `mem::take` of the whole variable replaces.
+pub fn cell_taken(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new(n);
+	let p = cell.get();
+	let old = std::mem::take(&mut cell);
+	unsafe { *p + old.into_inner() }
 }
 
 /// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` in a struct, which a

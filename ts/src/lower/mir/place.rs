@@ -15,7 +15,7 @@ use rustc_middle::ty::{self, Instance, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::{Env, Fx, Pending, Slot};
-use crate::lower::library::{Flow, Std};
+use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
 use crate::lower::{AdtRepr, ObjectKind, byte_array, bytes_ref};
 use crate::program::{SymKind, Symbol};
@@ -1788,22 +1788,17 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// it would not: JS keeps each part on its path that is an object, from what the last
 	/// pointer on it points at or from a local, in an object the crate may give another
 	/// object in its place, which the pointer would not see. With `cells`, an `rt.Cell` on
-	/// the path is such an object, as one is for the pointer `UnsafeCell::get` gives.
+	/// the path is such an object, as one is for the pointer `UnsafeCell::get` gives. A
+	/// place read through a reference to a place this body borrows is that place.
 	pub(super) fn out_of_step(&self, place: Place<'tcx>, cells: bool) -> Option<String> {
 		let (tcx, decls, t) = (self.tcx, &self.mir.local_decls, &self.b.t);
+		let place = self.through_borrows(place, false);
 		let elems = place.projection.as_slice();
-		let start = elems
-			.iter()
-			.rposition(|e| matches!(e, ProjectionElem::Deref))
-			.map_or(0, |i| i + 1);
-		let object = |ty: Ty<'tcx>| {
-			!(t.polymorphic() && ty.has_param())
-				&& (t.pointee(ty) == crate::lower::pointer::Pointee::Object || cells && t.std_of(ty) == Some(Std::Cell))
-		};
+		let start = past_pointers(place);
 		for i in start..elems.len() {
 			let base = Place::ty_from(place.local, &elems[..i], decls, tcx).ty;
 			let ty = Place::ty_from(place.local, &elems[..=i], decls, tcx).ty;
-			if !object(ty)
+			if !self.pointed_object(ty, cells)
 				|| matches!(
 					elems[i],
 					ProjectionElem::OpaqueCast(_) | ProjectionElem::UnwrapUnsafeBinder(_)
@@ -1828,35 +1823,80 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				));
 			}
 		}
-		let ty = place.ty(decls, tcx).ty;
-		if start == 0 && object(ty) && self.assigned_after(place.local) {
-			return Some(format!(
-				"a raw pointer to `{ty}` in a variable assigned again while it may point there"
-			));
-		}
-		None
+		self.reassigned(place, cells)
 	}
 
-	/// Why the pointer `UnsafeCell::get` gives of the cell `receiver` refers to, holding a
-	/// `held`, would not keep pointing where Rust's does, if it would not: the `rt.Cell`
-	/// itself, or the object it holds, judged as [`Self::out_of_step`] judges a raw pointer.
-	pub(super) fn cell_out_of_step(&self, receiver: &Operand<'tcx>, held: Ty<'tcx>) -> Option<String> {
+	/// Why a raw pointer made of `place` here, read through no borrow of this body's, would
+	/// not see the object it points at given another, if it would not: the variable it is
+	/// in, or a part on its path, assigned again while it may point there.
+	fn reassigned(&self, place: Place<'tcx>, cells: bool) -> Option<String> {
+		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
+		(self.pointed_object(ty, cells) && self.assigned_after(place, past_pointers(place)))
+			.then(|| format!("a raw pointer to `{ty}` in a variable assigned again while it may point there"))
+	}
+
+	/// Whether a raw pointer to a `ty` is the object JS keeps it in, or with `cells`, is or
+	/// holds an `rt.Cell`. Only an instance decides what a parameter is.
+	fn pointed_object(&self, ty: Ty<'tcx>, cells: bool) -> bool {
+		let t = &self.b.t;
+		!(t.polymorphic() && ty.has_param())
+			&& (t.pointee(ty) == crate::lower::pointer::Pointee::Object || cells && t.std_of(ty) == Some(Std::Cell))
+	}
+
+	/// Why the pointer std's `def_id` makes of what `reference` points at would not keep
+	/// pointing where Rust's does, if it would not: `UnsafeCell::get`'s, holding a `T`, is
+	/// the `rt.Cell` itself or the object it holds, judged as [`Self::out_of_step`] judges a
+	/// raw pointer, and any other's by the variable it is in.
+	pub(super) fn made_out_of_step(
+		&self,
+		def_id: rustc_hir::def_id::DefId,
+		gargs: ty::GenericArgsRef<'tcx>,
+		reference: &Operand<'tcx>,
+	) -> Option<String> {
 		let tcx = self.tcx;
-		let reference = receiver.place()?;
-		let cell = match reference.as_local().and_then(|local| self.def_rvalue(local)) {
-			Some(mir::Rvalue::Ref(_, _, place)) => *place,
-			_ => tcx.mk_place_deref(reference),
-		};
+		let pointee = tcx.mk_place_deref(reference.place()?);
+		if library::key(tcx, def_id).is_none_or(|(owner, _)| owner != "UnsafeCell") {
+			return self.reassigned(self.through_borrows(pointee, false), false);
+		}
+		let held = gargs.type_at(0);
 		let place = match self.b.t.pointee(held) {
-			crate::lower::pointer::Pointee::Object => tcx.mk_place_field(cell, FieldIdx::ZERO, held),
-			crate::lower::pointer::Pointee::Place => cell,
+			crate::lower::pointer::Pointee::Object => tcx.mk_place_field(pointee, FieldIdx::ZERO, held),
+			crate::lower::pointer::Pointee::Place => pointee,
 		};
 		self.out_of_step(place, true)
 	}
 
-	/// Whether `local` may be assigned whole after the statement being lowered, before its
-	/// storage ends.
-	fn assigned_after(&self, local: Local) -> bool {
+	/// `place`, read through each reference that the body borrows a place into, as that
+	/// place, or with `aliases`, only through each alias of one, which a whole write through
+	/// assigns.
+	fn through_borrows(&self, place: Place<'tcx>, aliases: bool) -> Place<'tcx> {
+		crate::lower::copy::through_borrows(self.tcx, place, |local| match self.def_rvalue(local) {
+			Some(mir::Rvalue::Ref(_, _, borrowed))
+				if self.defs[local] == 1 && (!aliases || self.alias_of_place(local)) =>
+			{
+				Some(*borrowed)
+			}
+			_ => None,
+		})
+	}
+
+	/// Whether something on the path of `place` from its `start`, a part with no pointer
+	/// on its path after, may be assigned whole after the statement being lowered, before
+	/// its local's storage ends: by an assignment, directly or through an alias of it, or
+	/// by a std call whose lowering gives what its `&mut` argument borrows another value.
+	/// A whole value written through a reference that is no alias is written into the
+	/// object there, which gives only its parts other objects.
+	fn assigned_after(&self, place: Place<'tcx>, start: usize) -> bool {
+		let tcx = self.tcx;
+		let assigns = |written: Place<'tcx>| {
+			let written = self.through_borrows(written, true);
+			let len = written.projection.len();
+			let through = matches!(written.projection.last(), Some(ProjectionElem::Deref));
+			written.local == place.local
+				&& len >= start
+				&& place.projection.starts_with(&written.projection)
+				&& !(through && len == place.projection.len())
+		};
 		let blocks = &self.mir.basic_blocks;
 		let mut seen = FxHashSet::default();
 		let mut stack = vec![(self.at.block, self.at.statement_index + 1)];
@@ -1865,11 +1905,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			let mut ended = false;
 			for stmt in &data.statements[from.min(data.statements.len())..] {
 				match &stmt.kind {
-					mir::StatementKind::StorageDead(l) | mir::StatementKind::StorageLive(l) if *l == local => {
+					mir::StatementKind::StorageDead(l) | mir::StatementKind::StorageLive(l) if *l == place.local => {
 						ended = true;
 						break;
 					}
-					mir::StatementKind::Assign(assign) if assign.0.as_local() == Some(local) => return true,
+					mir::StatementKind::Assign(assign) if assigns(assign.0) => return true,
 					_ => {}
 				}
 			}
@@ -1877,10 +1917,24 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				continue;
 			}
 			let term = data.terminator();
-			if let mir::TerminatorKind::Call { destination, .. } = &term.kind
-				&& destination.as_local() == Some(local)
+			if let mir::TerminatorKind::Call {
+				func, args, destination, ..
+			} = &term.kind
 			{
-				return true;
+				if assigns(*destination) {
+					return true;
+				}
+				let rebinds = func
+					.const_fn_def()
+					.is_some_and(|(def_id, _)| crate::lower::pointer::rebinds(tcx, def_id));
+				if rebinds
+					&& args
+						.iter()
+						.filter_map(|a| a.node.place())
+						.any(|r| assigns(tcx.mk_place_deref(r)))
+				{
+					return true;
+				}
 			}
 			for next in term.successors() {
 				if seen.insert(next) {
@@ -1890,6 +1944,15 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		}
 		false
 	}
+}
+
+/// Where the path of `place` starts past the last pointer on it.
+fn past_pointers(place: Place<'_>) -> usize {
+	place
+		.projection
+		.iter()
+		.rposition(|e| matches!(e, ProjectionElem::Deref))
+		.map_or(0, |i| i + 1)
 }
 
 /// An `rt.ByteSlice` of `bytes`.

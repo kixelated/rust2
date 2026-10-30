@@ -168,6 +168,33 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 }
 
+/// Whether std's `def_id` with `args` makes a raw pointer to what its first argument, a
+/// reference, points at: `UnsafeCell::get`, `MaybeUninit::as_ptr` and `as_mut_ptr`, and
+/// `NonNull::from`.
+pub fn from_reference<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
+	let Some((owner, name)) = super::library::key(tcx, def_id) else {
+		return false;
+	};
+	match (owner.as_str(), name.as_str()) {
+		("UnsafeCell", "get") | ("MaybeUninit", "as_ptr" | "as_mut_ptr") => true,
+		("From", "from") => {
+			matches!(args.type_at(0).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::NonNull))
+				&& args.type_at(1).is_ref()
+		}
+		_ => false,
+	}
+}
+
+/// Whether std's `def_id` is one whose lowering gives what a `&mut` argument borrows
+/// another value, rather than writing into it, where the `&mut` is an alias of a
+/// borrowed place: the place is assigned again.
+pub fn rebinds(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if owner == "mem" && matches!(name.as_str(), "replace" | "take" | "swap")
+	)
+}
+
 /// Whether std's `def_id` is one this module maps that lends a place: it makes the
 /// `rt.Place` of the `&mut` it returns.
 pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
