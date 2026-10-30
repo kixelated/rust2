@@ -764,7 +764,11 @@ impl std::ops::RangeBounds<usize> for Spent {
 	}
 }
 
-pub fn spent_range(v: &mut Vec<u8>, q: &mut std::collections::VecDeque<u8>, map: &std::collections::BTreeMap<usize, u8>) -> usize {
+pub fn spent_range(
+	v: &mut Vec<u8>,
+	q: &mut std::collections::VecDeque<u8>,
+	map: &std::collections::BTreeMap<usize, u8>,
+) -> usize {
 	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
 }
 

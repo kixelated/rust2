@@ -88,7 +88,7 @@ The type or module each refused type or path belongs to.
 | 4 | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:271:52 |
 | 3 | `(u32, u32)` | fixtures/reject/src/lib.rs:669:10 |
-| 3 | `Spent` | fixtures/reject/src/lib.rs:768:4 |
+| 3 | `Spent` | fixtures/reject/src/lib.rs:772:4 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:321:2 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:289:6 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:372:13 |
@@ -106,7 +106,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::std` | fixtures/reject/src/lib.rs:628:11 |
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:483:17 |
-| 1 | `BTreeMap` | fixtures/reject/src/lib.rs:768:56 |
+| 1 | `BTreeMap` | fixtures/reject/src/lib.rs:772:56 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:363:16 |
 | 1 | `BinaryHeap` | fixtures/reject/src/lib.rs:730:7 |
 | 1 | `Bits` | fixtures/reject/src/lib.rs:643:1 |
@@ -125,8 +125,8 @@ The type or module each refused type or path belongs to.
 | 1 | `Span2` | fixtures/reject/src/lib.rs:669:10 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:545:30 |
-| 1 | `VecDeque` | fixtures/reject/src/lib.rs:768:29 |
-| 1 | `Vec` | fixtures/reject/src/lib.rs:768:4 |
+| 1 | `VecDeque` | fixtures/reject/src/lib.rs:772:29 |
+| 1 | `Vec` | fixtures/reject/src/lib.rs:772:4 |
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:535:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:593:32 |
@@ -218,9 +218,9 @@ The type or module each refused type or path belongs to.
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:203:2 |
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `Entry::or_insert_with` | fixtures/reject/src/lib.rs:372:13 |
 | 1 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | `{closure}`, `Iterator::for_each` | fixtures/reject/src/lib.rs:373:16 |
-| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `BTreeMap::range` | fixtures/reject/src/lib.rs:768:56 |
-| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `Vec::drain` | fixtures/reject/src/lib.rs:768:4 |
-| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `VecDeque::drain` | fixtures/reject/src/lib.rs:768:29 |
+| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `BTreeMap::range` | fixtures/reject/src/lib.rs:772:56 |
+| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `Vec::drain` | fixtures/reject/src/lib.rs:772:4 |
+| 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `VecDeque::drain` | fixtures/reject/src/lib.rs:772:29 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `str::contains` | fixtures/reject/src/lib.rs:380:4 |
 | 1 | replacing the value behind a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:131:2 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:643:1 |
@@ -277,9 +277,9 @@ The type or module each refused type or path belongs to.
 <details><summary>passing `_`, which drops, to `_`, which is not supported yet (4)</summary>
 
 - fixtures/reject/src/lib.rs:380:4: passing `{closure@fixtures/reject/src/lib.rs:380:13: 380:27}`, which drops, to `str::contains`, which is not supported yet
-- fixtures/reject/src/lib.rs:768:4: passing `Spent`, which drops, to `Vec::drain`, which is not supported yet
-- fixtures/reject/src/lib.rs:768:29: passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet
-- fixtures/reject/src/lib.rs:768:56: passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet
+- fixtures/reject/src/lib.rs:772:4: passing `Spent`, which drops, to `Vec::drain`, which is not supported yet
+- fixtures/reject/src/lib.rs:772:29: passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet
+- fixtures/reject/src/lib.rs:772:56: passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet
 
 </details>
 
