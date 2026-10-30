@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { copy$Option_u8_u8, copy$u32s } from "./lib.ts";
 import { thenSome$bool_u32, then$bool_Vec_u8_restock_closure0 } from "./core/bool.ts";
-import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_Option_u8_u8_refs_closure2_closure0, mapOr$Option_String_u8_refs_closure1, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
+import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapOrDefault$Option_String, unwrapOrDefault$Option_Vec_u8, map$Option_u8_u8_elements_closure8, map$Option_u8_u8_u8_elements_closure9, map$Option_u8_u8_u8_u8_lent_closure2, mapOr$Option_Option_u8_u8_copies_closure3, mapOr$Option_String_u8_refs_closure1, mapOr$Option_u32_u32_lent_closure4, mapOr$Option_u8_bool_take_largest_closure0, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, andThen$Option_u32_u32_lent_closure3, filter$Option_u8_u8_lent_closure1, or$Option_u8 } from "./core/option.ts";
 import * as Counts from "./refs.Counts.ts";
 import * as Cursor from "./refs.Cursor.ts";
 import type * as Fetch from "./refs.Fetch.ts";
@@ -170,7 +170,7 @@ export function fill(seen: rt.Place<rt.u8 | undefined>, s: rt.Place<string>, nex
 export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _170!: rt.u8;
 	const _117: (a0: rt.u8 | undefined | rt.None) => rt.u8 = (o: rt.u8 | undefined | rt.None): rt.u8 => {
-		return mapOr$Option_Option_u8_u8_refs_closure2_closure0(o, 221, (o2: rt.u8 | undefined): rt.u8 => {
+		return mapOr$Option_Option_u8_u8_copies_closure3(o, 221, (o2: rt.u8 | undefined): rt.u8 => {
 			return unwrapOr$Option_u8(o2, 238);
 		});
 	};

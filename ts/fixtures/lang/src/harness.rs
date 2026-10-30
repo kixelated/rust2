@@ -119,6 +119,10 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("fmt::wrapped", |_, data, out| fmt::wrapped(data, out)),
 		("refs::to_refs", |_, data, out| refs::to_refs(data, out)),
 		("orders::orders", orders::orders),
+		("counts::cloned_arcs", |_, data, out| counts::cloned_arcs(data, out)),
+		("counts::cloned_rcs", |_, data, out| counts::cloned_rcs(data, out)),
+		("counts::copies", |_, data, out| counts::copies(data, out)),
+		("statics::cells", |_, data, out| statics::cells(data, out)),
 	]
 }
 
