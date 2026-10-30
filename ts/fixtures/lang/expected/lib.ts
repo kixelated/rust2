@@ -121,6 +121,13 @@ export function copy$MaybeUninit_u32s(v: rt.u32[]): rt.u32[] {
 	return v.slice();
 }
 
+export function copy$MaybeUninit_u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
+	if (v === undefined) {
+		return v;
+	}
+	return [v[0], v[1]];
+}
+
 export function copy$Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8]): [rt.Mutex<rt.u8>, rt.u8] {
 	return [v[0], v[1]];
 }

@@ -34,6 +34,13 @@ export function then$1xpp3sz(self: boolean, f: () => Guard.Guard): Guard.Guard |
 	return f();
 }
 
+export function then$06wuxll(self: boolean, f: () => Guard.Guard | undefined): Guard.Guard | undefined | rt.None {
+	if (!self) {
+		return rt.None;
+	}
+	return f();
+}
+
 export function then$1j9nint(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _5: boolean = false;

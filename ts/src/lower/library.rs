@@ -750,8 +750,10 @@ fn takes_none(owner: &str, name: &str) -> bool {
 			) | (
 				"Iterator",
 				"next" | "nth" | "last" | "find" | "max" | "min" | "max_by_key" | "min_by_key"
-			) | ("Iterator", "max_by" | "min_by" | "reduce")
-				| ("Peekable", "peek" | "next_if" | "next_if_eq")
+			) | (
+				"Iterator",
+				"max_by" | "min_by" | "reduce" | "find_map" | "filter_map" | "map_while"
+			) | ("Peekable", "peek" | "next_if" | "next_if_eq")
 				| (
 					"OnceCell" | "OnceLock",
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
@@ -759,6 +761,8 @@ fn takes_none(owner: &str, name: &str) -> bool {
 				| ("DoubleEndedIterator", "next_back" | "nth_back" | "rfind")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
 				| ("ptr", "as_ref" | "as_mut")
+				| ("from_fn", "from_fn")
+				| ("successors", "successors")
 		)
 }
 
