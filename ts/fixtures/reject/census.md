@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 110
-- Function instances: 128
+- Refusals: 111
+- Function instances: 129
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -36,6 +36,7 @@
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:281:6 |
+| 1 | `_` of `_` items with a `_`, which is not supported yet | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, which is not supported yet | fixtures/reject/src/lib.rs:591:4 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:313:2 |
@@ -108,6 +109,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:475:17 |
 | 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:355:16 |
+| 2 | `str` | fixtures/reject/src/lib.rs:372:4 |
 | 1 | `BTreeMap` | fixtures/reject/src/lib.rs:797:56 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:355:16 |
 | 1 | `BinaryHeap` | fixtures/reject/src/lib.rs:755:7 |
@@ -136,6 +138,7 @@ The type or module each refused type or path belongs to.
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:527:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:585:32 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
+| 1 | `next_if_eq` | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
@@ -148,10 +151,10 @@ The type or module each refused type or path belongs to.
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | `std::std::Layout` | fixtures/reject/src/lib.rs:618:15 |
 | 1 | `std::str` | fixtures/reject/src/lib.rs:485:4 |
+| 1 | `std::string::String` | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `std::sync::Mutex` | fixtures/reject/src/lib.rs:567:12 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:501:40 |
 | 1 | `std::task::Poll` | fixtures/reject/src/lib.rs:96:34 |
-| 1 | `str` | fixtures/reject/src/lib.rs:372:4 |
 | 1 | `u64` | fixtures/reject/src/lib.rs:87:2 |
 | 1 | `value` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `{async closure}` | fixtures/reject/src/lib.rs:62:2 |
@@ -176,6 +179,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | `Maybe`, `value`, `Option`, `T \| undefined`, `Option` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | `Waiting`, `poll`, `Poll`, `rt.Poll`, `Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:281:6 |
+| 1 | `_` of `_` items with a `_`, which is not supported yet | `next_if_eq`, `std::string::String`, `str` | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:755:7 |
@@ -462,6 +466,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_` of `_` by `_`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:281:6: `HashMap::contains_key` of `std::collections::HashMap<Id, u8>` by `u8`, which is not supported yet
+
+</details>
+
+<details><summary>`_` of `_` items with a `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:840:27: `next_if_eq` of `std::string::String` items with a `str`, which is not supported yet
 
 </details>
 
