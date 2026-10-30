@@ -114,7 +114,9 @@ pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, name: &str, args: Vec<Expr>, spa
 		"round" | "round_ties_even" | "fract" | "signum" | "copysign" | "is_infinite" | "is_normal"
 		| "is_subnormal" | "is_sign_positive" | "is_sign_negative" | "next_up" | "next_down" | "max" | "min"
 		| "midpoint" | "to_bits" | "from_bits" | "to_be_bytes" | "to_le_bytes" | "from_be_bytes" | "from_le_bytes"
-		| "total_cmp" | "powi" | "powf" | "sin_cos" | "atanh" | "div_euclid" | "rem_euclid" => rt(&super::camel(name), args),
+		| "total_cmp" | "powi" | "powf" | "sin_cos" | "atanh" | "div_euclid" | "rem_euclid" | "clamp" => {
+			rt(&super::camel(name), args)
+		}
 		// wasm32 is little-endian.
 		"to_ne_bytes" => rt("toLeBytes", args),
 		"from_ne_bytes" => rt("fromLeBytes", args),

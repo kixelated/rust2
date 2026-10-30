@@ -126,6 +126,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::returned", |_, data, out| iters::returned(data, out)),
 		("hashes::values", hashes::values),
 		("hashes::random", |_, data, out| hashes::random(data, out)),
+		("floats::formats", floats::formats),
+		("floats::parses", floats::parses),
 	]
 }
 

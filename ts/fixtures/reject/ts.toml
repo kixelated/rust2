@@ -54,7 +54,7 @@ roots = [
     "bytes_mut_capacity",
     "bytes_mut_put",
     "fma",
-    "float_printed",
+    "int_parsed",
     "weak_object",
     "generic_object",
     "first_of",
