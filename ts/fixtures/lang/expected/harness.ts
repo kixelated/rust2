@@ -9,7 +9,7 @@ import { captures } from "./captures.ts";
 import { cells } from "./cells.ts";
 import { chars } from "./chars.ts";
 import { chunks } from "./chunks.ts";
-import { hashMaps, sets, btreeMaps, deques, vecs, stores, optionals, setOps } from "./collections.ts";
+import { hashMaps, sets, btreeMaps, deques, vecs, stores, optionals, setOps, unlikeEqs } from "./collections.ts";
 import { combinators } from "./combinators.ts";
 import { arcs, clonedArcs, cyclicArcs, uniqueArcs, clonedRcs, cyclicRcs, rcs, uniqueRcs, copies } from "./counts.ts";
 import { cows } from "./cows.ts";
@@ -194,7 +194,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		lent(data70, out71);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["floats::mul_adds", mulAdds as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["singles::mul_adds", singles_mulAdds as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["fmt::collections", (_2171: rt.u8, data71: rt.ByteSlice, out72: rt.ByteVec): undefined => {
 		collections(data71, out72);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::unlike_eqs", unlikeEqs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
 }
 
 /** Run one case. */

@@ -544,4 +544,14 @@ const setOps = [
 const zerosOp = op("zeros::zeros");
 const zeros = Array.from({ length: 7 * 4 }, (_, i) => Uint8Array.of(zerosOp, i % 7, ...Array.from({ length: Math.floor(i / 7) }, (_, b) => b)));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds];
+/**
+ * `collections::unlike_eqs` of every pair of positions where `eq` and `ne` disagree and each
+ * length the right side may lose, over no items, one, two, a wrapped deque's four, and nine,
+ * whose positions are all within it.
+ */
+const unlikeEqsOp = op("collections::unlike_eqs");
+const unlikeEqs = [[], [5], [1, 2], [0, 7, 2, 9], [3, 3, 3, 3, 3, 3, 3, 3, 3]].flatMap((bytes) =>
+	Array.from({ length: 128 }, (_, kind) => Uint8Array.of(unlikeEqsOp, kind, ...bytes)),
+);
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs];
