@@ -703,6 +703,41 @@ export function vecPop<T>(v: T[], none: None): T | None {
 	return v.length === 0 ? none : (v.pop() as T);
 }
 
+/**
+ * `Vec::pop_if`: the last element if `f` takes it, given the element, or else `none`. An
+ * empty `v` drops `f` by `dropF` uncalled.
+ */
+export function vecPopIf<T>(v: T[], f: (item: T) => boolean, dropF?: (f: (item: T) => boolean) => void): T | undefined;
+export function vecPopIf<T>(v: T[], f: (item: T) => boolean, dropF: ((f: (item: T) => boolean) => void) | undefined, none: None): T | None;
+export function vecPopIf<T>(v: T[], f: (item: T) => boolean, dropF?: (f: (item: T) => boolean) => void, none?: None): T | None | undefined {
+	if (v.length === 0) {
+		dropF?.(f);
+		return none;
+	}
+	return f(v[v.length - 1]) ? (v.pop() as T) : none;
+}
+
+/** `Vec::pop_if` of an element JS copies, which `f` takes the place of. */
+export function vecPopIfMut<T>(v: T[], f: (item: Place<T>) => boolean, dropF?: (f: (item: Place<T>) => boolean) => void): T | undefined;
+export function vecPopIfMut<T>(
+	v: T[],
+	f: (item: Place<T>) => boolean,
+	dropF: ((f: (item: Place<T>) => boolean) => void) | undefined,
+	none: None,
+): T | None;
+export function vecPopIfMut<T>(
+	v: T[],
+	f: (item: Place<T>) => boolean,
+	dropF?: (f: (item: Place<T>) => boolean) => void,
+	none?: None,
+): T | None | undefined {
+	if (v.length === 0) {
+		dropF?.(f);
+		return none;
+	}
+	return f(new AtIndex(v, v.length - 1)) ? (v.pop() as T) : none;
+}
+
 /** `Vec::remove`: the element at `i`, with those after it moved down. */
 export function vecRemove<T>(v: T[], i: number): T {
 	if (i >= v.length) panic(`removal index (is ${i}) should be < len (is ${v.length})`);
@@ -1007,6 +1042,19 @@ export function byteVecPush(v: ByteVec, byte: number): void {
 /** `Vec::pop`: the last byte, or `undefined` if empty. */
 export function byteVecPop(v: ByteVec): number | undefined {
 	return v.length === 0 ? undefined : v.data[--v.length];
+}
+
+/** `Vec::pop_if`, which `f` takes the last byte's place in. An empty `v` drops `f` by `dropF` uncalled. */
+export function byteVecPopIf(
+	v: ByteVec,
+	f: (byte: Place<number>) => boolean,
+	dropF?: (f: (byte: Place<number>) => boolean) => void,
+): number | undefined {
+	if (v.length === 0) {
+		dropF?.(f);
+		return undefined;
+	}
+	return f(new AtIndex(v.data, v.length - 1)) ? v.data[--v.length] : undefined;
 }
 
 /** `Vec::extend_from_slice`. */

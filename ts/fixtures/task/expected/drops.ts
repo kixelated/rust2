@@ -294,11 +294,12 @@ export class heldFuture {
  */
 export function ordered(log: Log.Log, id: rt.u32): void {
 	let _208!: rt.u32;
-	const key: (a0: rt.u32) => Key.Key = (n2: rt.u32): Key.Key => {
-		return Key.new(rt.u32Add(id, n2), Log.clone$Clone(log));
+	let _267!: rt.u32;
+	const key: (a0: rt.u32) => Key.Key = (n6: rt.u32): Key.Key => {
+		return Key.new(rt.u32Add(id, n6), Log.clone$Clone(log));
 	};
-	const guard: (a0: rt.u32) => Guard.Guard = (n3: rt.u32): Guard.Guard => {
-		return Guard.new(rt.u32Add(id, n3), Log.clone$Clone(log));
+	const guard: (a0: rt.u32) => Guard.Guard = (n7: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n7), Log.clone$Clone(log));
 	};
 	const map: rt.BTreeMap<Key.Key, Guard.Guard> = rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, Guard.Guard>;
 	const _10: Key.Key = key(1);
@@ -399,6 +400,65 @@ export function ordered(log: Log.Log, id: rt.u32): void {
 	const _254: rt.usize = queue.n;
 	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_248, f), (f: rt.Formatter) => rt.usizeDisplay(_251, f), (f: rt.Formatter) => rt.usizeDisplay(_254, f)];
 	Log.note(log, rt.fmtFormat(["left ", args18[0], " ", args18[1], " ", args18[2]]));
+	const sink: Log.Log = Log.new();
+	const many: rt.BTreeSet<Key.Key> = rt.btreeNew(Key.cmp$Ord) as rt.BTreeSet<Key.Key>;
+	let iterStart2: rt.u32 = 0;
+	const iterEnd2: rt.u32 = 400;
+	while ((_267 = iterStart2++) < iterEnd2) {
+		const _273: Key.Key = Key.new(_267, Log.clone$Clone(sink));
+		rt.btreeAdd(many, _273, rt.drop);
+	}
+	const found: (a0: rt.BTreeSet<Key.Key>) => rt.usize = (many2: rt.BTreeSet<Key.Key>): rt.usize => {
+		return rt.iterCount(rt.iterFilter(new rt.Range(0, 400), (_2: rt.u32): boolean => {
+			const _57: Key.Key = Key.new(_2, Log.clone$Clone(sink));
+			const _06: boolean = rt.btreeContains(many2, _57);
+			_57[Symbol.dispose]();
+			return _06;
+		}));
+	};
+	const iter3: rt.Iter<rt.u32> = rt.iterStepBy(new rt.Range(0, 400), 3);
+	while (true) {
+		const _282: rt.u32 | rt.Done = iter3.next();
+		if (_282 === rt.DONE) {
+			break;
+		}
+		const _289: Key.Key = Key.new(_282, Log.clone$Clone(sink));
+		rt.drop(rt.btreeReplace(many, _289));
+	}
+	const _298: rt.usize = found(many);
+	const _303: rt.usize = rt.btreeLen(many);
+	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_298, f), (f: rt.Formatter) => rt.usizeDisplay(_303, f)];
+	Log.note(log, rt.fmtFormat(["replaced ", args20[0], " ", args20[1]]));
+	const iter4: rt.Iter<rt.u32> = rt.iterStepBy(new rt.Range(0, 400), 7);
+	while (true) {
+		const _314: rt.u32 | rt.Done = iter4.next();
+		if (_314 === rt.DONE) {
+			break;
+		}
+		const _322: Key.Key = Key.new(_314, Log.clone$Clone(sink));
+		rt.drop(rt.btreeKey(many, _322, true));
+		_322[Symbol.dispose]();
+	}
+	const _331: rt.usize = found(many);
+	const _336: rt.usize = rt.btreeLen(many);
+	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_331, f), (f: rt.Formatter) => rt.usizeDisplay(_336, f)];
+	Log.note(log, rt.fmtFormat(["taken ", args22[0], " ", args22[1]]));
+	const iter5: rt.Iter<rt.u32> = rt.iterStepBy(new rt.Range(0, 400), 5);
+	while (true) {
+		const _347: rt.u32 | rt.Done = iter5.next();
+		if (_347 === rt.DONE) {
+			break;
+		}
+		const _354: Key.Key = Key.new(_347, Log.clone$Clone(sink));
+		rt.btreeDelete(many, _354, rt.drop);
+		_354[Symbol.dispose]();
+	}
+	const _363: rt.usize = found(many);
+	const _368: rt.usize = rt.btreeLen(many);
+	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_363, f), (f: rt.Formatter) => rt.usizeDisplay(_368, f)];
+	Log.note(log, rt.fmtFormat(["removed ", args24[0], " ", args24[1]]));
+	rt.btreeDrop(many, rt.drop);
+	sink[Symbol.dispose]();
 	rt.dequeDrop(queue, rt.drop);
 	rt.btreeDrop(set, rt.drop);
 	rt.drop(removed);
@@ -736,7 +796,7 @@ export function elements(log: Log.Log, id: rt.u32): void {
 	const _7: (a0: Guard.Guard | undefined) => rt.u32 | undefined = (o3: Guard.Guard | undefined): rt.u32 | undefined => {
 		return map$0lq7mno(o3, Guard.id);
 	};
-	const _245: (a0: Key.Key | undefined) => rt.u32 | undefined = (o4: Key.Key | undefined): rt.u32 | undefined => {
+	const _348: (a0: Key.Key | undefined) => rt.u32 | undefined = (o4: Key.Key | undefined): rt.u32 | undefined => {
 		return map$0782hf5(o4, (k: Key.Key): rt.u32 => {
 			return k.id;
 		});
@@ -782,201 +842,325 @@ export function elements(log: Log.Log, id: rt.u32): void {
 		rt.drop(_77.v);
 		_77.v = undefined;
 	}
+	const kept: Guard.Guard | undefined | rt.None = rt.vecPopIfMut(v, (o9: rt.Place<Guard.Guard | undefined>): boolean => {
+		rt.drop(o9.v);
+		o9.v = undefined;
+		return false;
+	}, undefined, rt.None);
+	const taken: Guard.Guard | undefined | rt.None = rt.vecPopIfMut(v, (o10: rt.Place<Guard.Guard | undefined>): boolean => {
+		const _318: Guard.Guard | undefined = guard(12);
+		rt.drop(o10.v);
+		o10.v = _318;
+		return true;
+	}, undefined, rt.None);
+	const _95: boolean = kept !== rt.None;
+	const _98: rt.u32 | undefined | rt.None = map$0ccnsmq(taken, (o11: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o11, Guard.id);
+	});
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_95, f), (f: rt.Formatter) => rt.fmtOption(_98, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["pop_if ", args6[0], " ", args6[1]]));
+	rt.drop(taken);
 	while (true) {
-		const _83: Guard.Guard | undefined | rt.None = rt.vecPop(v, rt.None);
-		if (_83 !== rt.None) {
-			const o: Guard.Guard | undefined = _83;
+		const _107: Guard.Guard | undefined | rt.None = rt.vecPop(v, rt.None);
+		if (_107 !== rt.None) {
+			const o: Guard.Guard | undefined = _107;
 			const part2 = _7(o);
-			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.u32Debug)];
-			Log.note(log, rt.fmtFormat(["pop ", args6[0]]));
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.u32Debug)];
+			Log.note(log, rt.fmtFormat(["pop ", args8[0]]));
 			rt.drop(o);
 		} else {
 			break;
 		}
 	}
-	const part4 = map$0ccnsmq(rt.vecPop(v, rt.None), (o9: Guard.Guard | undefined): rt.u32 | undefined => {
-		const _010: rt.u32 | undefined = _7(o9);
-		rt.drop(o9);
-		return _010;
+	const part4 = map$0ccnsmq(rt.vecPop(v, rt.None), (o12: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _011: rt.u32 | undefined = _7(o12);
+		rt.drop(o12);
+		return _011;
 	});
-	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part4, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["popped ", args8[0]]));
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part4, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["popped ", args10[0]]));
+	const captured = guard(14);
+	const _151: Guard.Guard | undefined | rt.None = rt.vecPopIfMut(v, rt.closure((_2: rt.Place<Guard.Guard | undefined>): boolean => {
+		const _012: boolean = Guard.id(captured) > 0;
+		captured[Symbol.dispose]();
+		return _012;
+	}, (): void => {
+		captured[Symbol.dispose]();
+	}), rt.drop, rt.None);
+	const part5 = _151 !== rt.None;
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part5, f)];
+	const _145: string = rt.fmtFormat(["uncalled ", args12[0]]);
+	rt.drop(_151);
+	Log.note(log, _145);
+	v.push(undefined as Guard.Guard | undefined);
+	const captured2 = guard(15);
+	const part8 = map$0ccnsmq(rt.vecPopIfMut(v, rt.closure((o13: rt.Place<Guard.Guard | undefined>): boolean => {
+		const part6 = Guard.id(captured2);
+		const args52: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part6, f)];
+		Log.note(log, rt.fmtFormat(["test ", args52[0]]));
+		const _013: boolean = o13.v === undefined;
+		captured2[Symbol.dispose]();
+		return _013;
+	}, (): void => {
+		captured2[Symbol.dispose]();
+	}), rt.drop, rt.None), (o14: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _014: rt.u32 | undefined = _7(o14);
+		rt.drop(o14);
+		return _014;
+	});
+	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part8, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["called ", args14[0]]));
 	const q: rt.VecDeque<Guard.Guard | undefined> = rt.dequeNew() as rt.VecDeque<Guard.Guard | undefined>;
 	rt.dequePushBack(q, undefined as Guard.Guard | undefined);
-	const _122: Guard.Guard | undefined = guard(4);
-	rt.dequePushBack(q, _122);
-	const _128: Guard.Guard | undefined = guard(5);
-	rt.dequePushFront(q, _128);
+	const _186: Guard.Guard | undefined = guard(4);
+	rt.dequePushBack(q, _186);
+	const _192: Guard.Guard | undefined = guard(5);
+	rt.dequePushFront(q, _192);
 	rt.dequePushBack(q, undefined as Guard.Guard | undefined);
-	const _141: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeEnd(q, false, rt.None), (o10: Guard.Guard | undefined): rt.u32 | undefined => {
-		return map$0lq7mno(o10, Guard.id);
-	});
-	const _145: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeEnd(q, true, rt.None), (o11: Guard.Guard | undefined): rt.u32 | undefined => {
-		return map$0lq7mno(o11, Guard.id);
-	});
-	const _149: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeGet(q, 4, rt.None), (o12: Guard.Guard | undefined): rt.u32 | undefined => {
-		return map$0lq7mno(o12, Guard.id);
-	});
-	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_141, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_145, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_149, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["deque ", args10[0], " ", args10[1], " ", args10[2]]));
-	const _158: rt.Place<Guard.Guard | undefined> | undefined = rt.dequeEndMut(q);
-	if (_158 !== undefined) {
-		rt.drop(_158.v);
-		_158.v = undefined;
-	}
-	const removed: Guard.Guard | undefined | rt.None = rt.dequeRemove(q, 2, rt.None);
-	const _171: rt.u32 | undefined | rt.None = map$0ccnsmq(removed, (o13: Guard.Guard | undefined): rt.u32 | undefined => {
-		return map$0lq7mno(o13, Guard.id);
-	});
-	const _175: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeRemove(q, 3, rt.None), (o14: Guard.Guard | undefined): rt.u32 | undefined => {
-		const _015: rt.u32 | undefined = _7(o14);
-		rt.drop(o14);
-		return _015;
-	});
-	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_171, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_175, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["remove ", args12[0], " ", args12[1]]));
-	rt.drop(removed);
-	const _188: Guard.Guard | undefined = guard(6);
-	rt.dequePushBack(q, _188);
-	const front: Guard.Guard | undefined | rt.None = rt.dequePopFront(q, rt.None);
-	const part6 = map$0ccnsmq(front, (o15: Guard.Guard | undefined): rt.u32 | undefined => {
+	const _205: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeEnd(q, false, rt.None), (o15: Guard.Guard | undefined): rt.u32 | undefined => {
 		return map$0lq7mno(o15, Guard.id);
 	});
-	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part6, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["front ", args14[0]]));
+	const _209: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeEnd(q, true, rt.None), (o16: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o16, Guard.id);
+	});
+	const _213: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeGet(q, 4, rt.None), (o17: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o17, Guard.id);
+	});
+	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_205, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_209, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_213, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["deque ", args16[0], " ", args16[1], " ", args16[2]]));
+	const _222: rt.Place<Guard.Guard | undefined> | undefined = rt.dequeEndMut(q);
+	if (_222 !== undefined) {
+		rt.drop(_222.v);
+		_222.v = undefined;
+	}
+	const removed: Guard.Guard | undefined | rt.None = rt.dequeRemove(q, 2, rt.None);
+	const _235: rt.u32 | undefined | rt.None = map$0ccnsmq(removed, (o18: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o18, Guard.id);
+	});
+	const _239: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeRemove(q, 3, rt.None), (o19: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _019: rt.u32 | undefined = _7(o19);
+		rt.drop(o19);
+		return _019;
+	});
+	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_235, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_239, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["remove ", args18[0], " ", args18[1]]));
+	rt.drop(removed);
+	const _252: Guard.Guard | undefined = guard(6);
+	rt.dequePushBack(q, _252);
+	const _258: Guard.Guard | undefined = guard(13);
+	rt.dequePushBack(q, _258);
+	rt.dequePushFront(q, undefined as Guard.Guard | undefined);
+	const back: Guard.Guard | undefined | rt.None = rt.dequeSwapRemove(q, 0, true, rt.None);
+	const _273: rt.u32 | undefined | rt.None = map$0ccnsmq(back, (o20: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o20, Guard.id);
+	});
+	const _277: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeSwapRemove(q, 9, false, rt.None), (o21: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _021: rt.u32 | undefined = _7(o21);
+		rt.drop(o21);
+		return _021;
+	});
+	const _283: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeSwapRemove(q, 1, false, rt.None), (o22: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _022: rt.u32 | undefined = _7(o22);
+		rt.drop(o22);
+		return _022;
+	});
+	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_273, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_277, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_283, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["swap_remove ", args20[0], " ", args20[1], " ", args20[2]]));
+	rt.drop(back);
+	const front: Guard.Guard | undefined | rt.None = rt.dequePopFront(q, rt.None);
+	const part12 = map$0ccnsmq(front, (o23: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o23, Guard.id);
+	});
+	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part12, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["front ", args22[0]]));
 	while (true) {
-		const _207: Guard.Guard | undefined | rt.None = rt.dequePopBack(q, rt.None);
-		if (_207 !== rt.None) {
-			const o2: Guard.Guard | undefined = _207;
-			const part8 = _7(o2);
-			const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part8, f, rt.u32Debug)];
-			Log.note(log, rt.fmtFormat(["back ", args16[0]]));
+		const _310: Guard.Guard | undefined | rt.None = rt.dequePopBack(q, rt.None);
+		if (_310 !== rt.None) {
+			const o2: Guard.Guard | undefined = _310;
+			const part14 = _7(o2);
+			const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part14, f, rt.u32Debug)];
+			Log.note(log, rt.fmtFormat(["back ", args24[0]]));
 			rt.drop(o2);
 		} else {
 			break;
 		}
 	}
-	const _231: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequePopFront(q, rt.None), (o16: Guard.Guard | undefined): rt.u32 | undefined => {
-		const _017: rt.u32 | undefined = _7(o16);
-		rt.drop(o16);
-		return _017;
+	const _334: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequePopFront(q, rt.None), (o24: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _024: rt.u32 | undefined = _7(o24);
+		rt.drop(o24);
+		return _024;
 	});
-	const _237: rt.u32 | undefined | rt.None = map$0ccnsmq(front, (o17: Guard.Guard | undefined): rt.u32 | undefined => {
-		const _018: rt.u32 | undefined = _7(o17);
-		rt.drop(o17);
-		return _018;
+	const _340: rt.u32 | undefined | rt.None = map$0ccnsmq(front, (o25: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _025: rt.u32 | undefined = _7(o25);
+		rt.drop(o25);
+		return _025;
 	});
-	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_231, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_237, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["emptied ", args18[0], " ", args18[1]]));
+	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_334, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_340, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["emptied ", args26[0], " ", args26[1]]));
 	const heap: rt.BinaryHeap<Key.Key | undefined> = rt.heapNew() as rt.BinaryHeap<Key.Key | undefined>;
-	const _249: Key.Key | undefined = key(7);
-	rt.heapPush(heap, _249, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
+	const _352: Key.Key | undefined = key(7);
+	rt.heapPush(heap, _352, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
 	rt.heapPush(heap, undefined as Key.Key | undefined, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
-	const _258: Key.Key | undefined = key(8);
-	rt.heapPush(heap, _258, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
-	const part11 = map$0hegtde(rt.heapPeek(heap, rt.None), (o18: Key.Key | undefined): rt.u32 | undefined => {
-		return map$0782hf5(o18, (k2: Key.Key): rt.u32 => {
+	const _361: Key.Key | undefined = key(8);
+	rt.heapPush(heap, _361, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
+	const part17 = map$0hegtde(rt.heapPeek(heap, rt.None), (o26: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o26, (k2: Key.Key): rt.u32 => {
 			return k2.id;
 		});
 	});
-	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part11, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["heap ", args20[0]]));
+	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part17, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["heap ", args28[0]]));
 	const top: Key.Key | undefined | rt.None = rt.heapPop(heap, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)), rt.None);
-	const part12 = map$0hegtde(top, (o19: Key.Key | undefined): rt.u32 | undefined => {
-		return map$0782hf5(o19, (k3: Key.Key): rt.u32 => {
+	const part18 = map$0hegtde(top, (o27: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o27, (k3: Key.Key): rt.u32 => {
 			return k3.id;
 		});
 	});
-	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part12, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["top ", args22[0]]));
+	const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part18, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["top ", args30[0]]));
 	rt.drop(top);
 	const sorted: rt.BTreeSet<Key.Key | undefined> = rt.btreeNew(rt.cmpOption(Key.cmp$Ord)) as rt.BTreeSet<Key.Key | undefined>;
-	const _294: Key.Key | undefined = key(9);
-	rt.btreeAdd(sorted, _294, rt.drop);
+	const _397: Key.Key | undefined = key(9);
+	rt.btreeAdd(sorted, _397, rt.drop);
 	rt.btreeAdd(sorted, undefined as Key.Key | undefined, rt.drop);
-	const _303: Key.Key | undefined = key(10);
-	rt.btreeAdd(sorted, _303, rt.drop);
-	const _313: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeFirstKey(sorted, false, rt.None), (o20: Key.Key | undefined): rt.u32 | undefined => {
-		return map$0782hf5(o20, (k4: Key.Key): rt.u32 => {
+	const _406: Key.Key | undefined = key(10);
+	rt.btreeAdd(sorted, _406, rt.drop);
+	const _416: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeFirstKey(sorted, false, rt.None), (o28: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o28, (k4: Key.Key): rt.u32 => {
 			return k4.id;
 		});
 	});
-	const _317: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeFirstKey(sorted, true, rt.None), (o21: Key.Key | undefined): rt.u32 | undefined => {
-		return map$0782hf5(o21, (k5: Key.Key): rt.u32 => {
+	const _420: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeFirstKey(sorted, true, rt.None), (o29: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o29, (k5: Key.Key): rt.u32 => {
 			return k5.id;
 		});
 	});
-	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_313, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_317, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["set ", args24[0], " ", args24[1]]));
-	const least: Key.Key | undefined | rt.None = rt.btreePopKey(sorted, false, rt.None);
-	const most: Key.Key | undefined | rt.None = rt.btreePopKey(sorted, true, rt.None);
-	const _335: rt.u32 | undefined | rt.None = map$0hegtde(least, (o22: Key.Key | undefined): rt.u32 | undefined => {
-		const _027: rt.u32 | undefined = _245(o22);
-		rt.drop(o22);
-		return _027;
-	});
-	const _339: rt.u32 | undefined | rt.None = map$0hegtde(most, (o23: Key.Key | undefined): rt.u32 | undefined => {
-		const _028: rt.u32 | undefined = _245(o23);
-		rt.drop(o23);
-		return _028;
-	});
-	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_335, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_339, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["popped ", args26[0], " ", args26[1]]));
-	const hashed_: rt.HashSet<Key.Key | undefined> = rt.hashNew(rt.hashing(rt.hashOption(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined), rt.eqOption(Key.eq$PartialEq))) as rt.HashSet<Key.Key | undefined>;
-	const _350: Key.Key | undefined = key(11);
-	rt.hashAdd(hashed_, _350, rt.drop);
-	const part15 = map$0hegtde(rt.hashKey(hashed_, undefined, false, rt.None), (o24: Key.Key | undefined): rt.u32 | undefined => {
-		return map$0782hf5(o24, (k6: Key.Key): rt.u32 => {
+	const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_416, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_420, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["set ", args32[0], " ", args32[1]]));
+	const _430: Key.Key | undefined = key(9);
+	const replaced: Key.Key | undefined | rt.None = rt.btreeReplace(sorted, _430, rt.None);
+	const _440: rt.u32 | undefined | rt.None = map$0hegtde(replaced, (o30: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o30, (k6: Key.Key): rt.u32 => {
 			return k6.id;
 		});
 	});
-	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part15, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["hashed ", args28[0]]));
+	const _444: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeReplace(sorted, undefined as Key.Key | undefined, rt.None), (o31: Key.Key | undefined): rt.u32 | undefined => {
+		const _036: rt.u32 | undefined = _348(o31);
+		rt.drop(o31);
+		return _036;
+	});
+	const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_440, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_444, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["replace ", args34[0], " ", args34[1]]));
+	rt.drop(replaced);
+	const _466: Key.Key | undefined = key(10);
+	const part20 = map$0hegtde(rt.btreeKey(sorted, _466, false, rt.None), (o32: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o32, (k7: Key.Key): rt.u32 => {
+			return k7.id;
+		});
+	});
+	const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part20, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	const _458: string = rt.fmtFormat(["get ", args36[0]]);
+	rt.drop(_466);
+	Log.note(log, _458);
+	const _477: Key.Key | undefined = key(10);
+	const taken2: Key.Key | undefined | rt.None = rt.btreeKey(sorted, _477, true, rt.None);
+	rt.drop(_477);
+	const _487: rt.u32 | undefined | rt.None = map$0hegtde(taken2, (o33: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o33, (k8: Key.Key): rt.u32 => {
+			return k8.id;
+		});
+	});
+	const _496: Key.Key | undefined = key(14);
+	const _493: Key.Key | undefined | rt.None = rt.btreeKey(sorted, _496, true, rt.None);
+	const _491: boolean = _493 !== rt.None;
+	const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_487, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtBool(_491, f)];
+	const _483: string = rt.fmtFormat(["take ", args38[0], " ", args38[1]]);
+	rt.drop(_493);
+	rt.drop(_496);
+	Log.note(log, _483);
+	rt.drop(taken2);
+	const _508: Key.Key | undefined = key(10);
+	rt.btreeAdd(sorted, _508, rt.drop);
+	const least: Key.Key | undefined | rt.None = rt.btreePopKey(sorted, false, rt.None);
+	const most: Key.Key | undefined | rt.None = rt.btreePopKey(sorted, true, rt.None);
+	const _522: rt.u32 | undefined | rt.None = map$0hegtde(least, (o34: Key.Key | undefined): rt.u32 | undefined => {
+		const _041: rt.u32 | undefined = _348(o34);
+		rt.drop(o34);
+		return _041;
+	});
+	const _526: rt.u32 | undefined | rt.None = map$0hegtde(most, (o35: Key.Key | undefined): rt.u32 | undefined => {
+		const _042: rt.u32 | undefined = _348(o35);
+		rt.drop(o35);
+		return _042;
+	});
+	const args40: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_522, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_526, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["popped ", args40[0], " ", args40[1]]));
+	const hashed_: rt.HashSet<Key.Key | undefined> = rt.hashNew(rt.hashing(rt.hashOption(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined), rt.eqOption(Key.eq$PartialEq))) as rt.HashSet<Key.Key | undefined>;
+	const _537: Key.Key | undefined = key(11);
+	rt.hashAdd(hashed_, _537, rt.drop);
+	const part23 = map$0hegtde(rt.hashKey(hashed_, undefined, false, rt.None), (o36: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o36, (k9: Key.Key): rt.u32 => {
+			return k9.id;
+		});
+	});
+	const args42: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part23, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["hashed ", args42[0]]));
 	rt.hashAdd(hashed_, undefined as Key.Key | undefined, rt.drop);
-	const _380: rt.u32 | undefined | rt.None = map$0hegtde(rt.hashKey(hashed_, undefined, true, rt.None), (o25: Key.Key | undefined): rt.u32 | undefined => {
-		const _031: rt.u32 | undefined = _245(o25);
-		rt.drop(o25);
-		return _031;
+	const _567: rt.u32 | undefined | rt.None = map$0hegtde(rt.hashKey(hashed_, undefined, true, rt.None), (o37: Key.Key | undefined): rt.u32 | undefined => {
+		const _045: rt.u32 | undefined = _348(o37);
+		rt.drop(o37);
+		return _045;
 	});
-	const _384: rt.u32 | undefined | rt.None = map$0hegtde(rt.hashKey(hashed_, undefined, true, rt.None), (o26: Key.Key | undefined): rt.u32 | undefined => {
-		const _032: rt.u32 | undefined = _245(o26);
-		rt.drop(o26);
-		return _032;
+	const _571: rt.u32 | undefined | rt.None = map$0hegtde(rt.hashKey(hashed_, undefined, true, rt.None), (o38: Key.Key | undefined): rt.u32 | undefined => {
+		const _046: rt.u32 | undefined = _348(o38);
+		rt.drop(o38);
+		return _046;
 	});
-	const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_380, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_384, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["taken ", args30[0], " ", args30[1]]));
-	const _398: Key.Key | undefined = key(11);
-	const held_: Key.Key | undefined | rt.None = rt.hashKey(hashed_, _398, true, rt.None);
-	rt.drop(_398);
-	const part19 = map$0hegtde(held_, (o27: Key.Key | undefined): rt.u32 | undefined => {
-		const _033: rt.u32 | undefined = _245(o27);
-		rt.drop(o27);
-		return _033;
+	const args44: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_567, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_571, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["taken ", args44[0], " ", args44[1]]));
+	const _584: Key.Key | undefined = key(11);
+	const replaced2: Key.Key | undefined | rt.None = rt.hashReplace(hashed_, _584, rt.None);
+	const part26 = map$0hegtde(replaced2, (o39: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o39, (k10: Key.Key): rt.u32 => {
+			return k10.id;
+		});
 	});
-	const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part19, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
-	Log.note(log, rt.fmtFormat(["held ", args32[0]]));
-	const _421: rt.usize = heap.d.length;
-	const _424: rt.usize = rt.btreeLen(sorted);
-	const _427: rt.usize = rt.hashLen(hashed_);
-	const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_421, f), (f: rt.Formatter) => rt.usizeDisplay(_424, f), (f: rt.Formatter) => rt.usizeDisplay(_427, f)];
-	Log.note(log, rt.fmtFormat(["left ", args34[0], " ", args34[1], " ", args34[2]]));
+	const args46: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part26, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["replaced ", args46[0]]));
+	rt.drop(replaced2);
+	const _605: Key.Key | undefined = key(11);
+	const held_: Key.Key | undefined | rt.None = rt.hashKey(hashed_, _605, true, rt.None);
+	rt.drop(_605);
+	const part28 = map$0hegtde(held_, (o40: Key.Key | undefined): rt.u32 | undefined => {
+		const _049: rt.u32 | undefined = _348(o40);
+		rt.drop(o40);
+		return _049;
+	});
+	const args48: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part28, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["held ", args48[0]]));
+	const _628: rt.usize = heap.d.length;
+	const _631: rt.usize = rt.btreeLen(sorted);
+	const _634: rt.usize = rt.hashLen(hashed_);
+	const args50: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_628, f), (f: rt.Formatter) => rt.usizeDisplay(_631, f), (f: rt.Formatter) => rt.usizeDisplay(_634, f)];
+	Log.note(log, rt.fmtFormat(["left ", args50[0], " ", args50[1], " ", args50[2]]));
 	rt.hashDrop(hashed_, rt.drop);
 	rt.btreeDrop(sorted, rt.drop);
 	rt.heapDrop(heap, rt.drop);
 	rt.dequeDrop(q, rt.drop);
+	rt.drop(kept);
 	rt.dropAll(v);
 }
 
 /**
  * What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and
- * `min` of the operand they do not return, read by the keys' counts; and what
- * `or_insert` drops of a value JS copies, which it returns a place for.
+ * `min` of the operand they do not return, read by the keys' counts; what `or_insert`
+ * drops of a value JS copies, which it returns a place for; and what `into_inner` gives.
  */
 export function arcs(log: Log.Log, id: rt.u32): void {
 	const count: (a0: string, a1: rt.Arc<string>) => undefined = (what: string, key: rt.Arc<string>): undefined => {
 		const _92: rt.usize = key.strong;
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, what), (f: rt.Formatter) => rt.usizeDisplay(_92, f)];
-		Log.note(log, rt.fmtFormat([args8[0], " ", args8[1]]));
+		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, what), (f: rt.Formatter) => rt.usizeDisplay(_92, f)];
+		Log.note(log, rt.fmtFormat([args14[0], " ", args14[1]]));
 	};
 	const name: rt.Arc<string> = new rt.Arc("name");
 	const other: rt.Arc<string> = new rt.Arc("other");
@@ -1024,9 +1208,38 @@ export function arcs(log: Log.Log, id: rt.u32): void {
 	const part9 = rt.btreeLen(tags);
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part9, f)];
 	Log.note(log, rt.fmtFormat(["tags ", args6[0]]));
+	const shared_: rt.Arc<Guard.Guard> = new rt.Arc(Guard.new(rt.u32Add(id, 5), Log.clone$Clone(log)));
+	const weak: rt.Weak<Guard.Guard> = new rt.Weak(shared_);
+	const clone: rt.Arc<Guard.Guard> = rt.arcClone(shared_);
+	const _176: Guard.Guard | undefined = rt.arcIntoInner(shared_);
+	const part10 = _176 !== undefined;
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(part10, f)];
+	const _170: string = rt.fmtFormat(["into_inner ", args8[0]]);
+	rt.drop(_176);
+	Log.note(log, _170);
+	const inner: Guard.Guard | undefined = rt.arcIntoInner(clone);
+	const _188: rt.u32 | undefined = map$0lq7mno(inner, Guard.id);
+	const _194: rt.Arc<Guard.Guard> | undefined = rt.weakUpgrade(weak);
+	const _192: boolean = _194 !== undefined;
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_188, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtBool(_192, f)];
+	const _184: string = rt.fmtFormat(["into_inner ", args10[0], " ", args10[1]]);
+	rt.drop(_194);
+	Log.note(log, _184);
+	rt.drop(inner);
+	const held_: rt.Arc<Guard.Guard | undefined> = new rt.Arc(Guard.new(rt.u32Add(id, 6), Log.clone$Clone(log)));
+	const again: rt.Arc<Guard.Guard | undefined> = rt.arcClone(held_);
+	rt.drop(rt.arcIntoInner(held_, rt.None));
+	const inner2: Guard.Guard | undefined | rt.None = rt.arcIntoInner(again, rt.None);
+	const part11 = map$0ccnsmq(inner2, (o: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o, Guard.id);
+	});
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part11, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["rc ", args12[0]]));
+	rt.drop(inner2);
 	rt.hashDrop(map, rt.drop);
 	count("dropped", name);
 	count("dropped", other);
+	weak[Symbol.dispose]();
 	rt.btreeDrop(tags, undefined, drop$Held);
 	rt.btreeDrop(tree, rt.drop);
 	other[Symbol.dispose]();
