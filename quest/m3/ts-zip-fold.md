@@ -17,7 +17,3 @@ both `fold` and `try_fold`, which agree for every other adaptor, so the zip need
 tell them apart.
 
 Public API: the translator's output.
-
-## Related
-
-- [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - the upper bound std's fold reads
