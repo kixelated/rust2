@@ -109,7 +109,7 @@ impl Wake for Plain {
 type Boxed<'a> = Pin<Box<dyn Future<Output = u64> + 'a>>;
 
 /// Boxed futures over a channel: `Box::pin` of an async fn, awaited, and of a `&mut` to a
-/// `poll_fn`, whose box drops without dropping it, then a queue of
+/// `poll_fn` and to a `&mut` to it, whose box drops without dropping it, then a queue of
 /// `Pin<Box<dyn Future>>`s of an async block, kio's `Pending`, a struct of the crate's,
 /// and a `poll_fn`, each owning a guard. A `poll_fn` boxed in a [`Forward`] polls the
 /// queue in turn through [`poll_unsized`], as moq's tasks do through kio's
@@ -126,7 +126,10 @@ pub async fn boxed(mut rx: Consumer, guard: Guard) -> u64 {
 		Poll::Ready(4)
 	});
 	let erased: Boxed<'_> = Box::pin(&mut lend);
-	let lent = erased.await + (&mut lend).await;
+	let lent = erased.await;
+	let mut lending = &mut lend;
+	let twice: Boxed<'_> = Box::pin(&mut lending);
+	let lent = lent + twice.await + (&mut lend).await;
 	guard.note(&format!("lent {lent}"));
 	drop(lend);
 	let (block, waiting, ready) = (

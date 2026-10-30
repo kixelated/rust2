@@ -73,8 +73,15 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		let tcx = self.t.tcx;
 		let object = match from.kind() {
 			ty::Dynamic(..) | ty::Coroutine(..) => true,
-			// What a reference or a box points at, which its JS value is.
-			ty::Ref(_, inner, _) => return self.future_object(*inner, value, true, dropped, span),
+			// What a reference or a box points at, which its JS value is, but for a `&mut` to a
+			// reference, which is an `rt.Place` of it.
+			ty::Ref(_, inner, _) => {
+				let value = match self.t.place_pointee(from).is_some_and(|t| t.is_ref()) {
+					true => value.member("v"),
+					false => value,
+				};
+				return self.future_object(*inner, value, true, dropped, span);
+			}
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::PollFn | Std::Pending) => true,
 				Some(Std::Box | Std::Pin) => {

@@ -172,7 +172,7 @@ export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
 
 /**
  * Boxed futures over a channel: `Box::pin` of an async fn, awaited, and of a `&mut` to a
- * `poll_fn`, whose box drops without dropping it, then a queue of
+ * `poll_fn` and to a `&mut` to it, whose box drops without dropping it, then a queue of
  * `Pin<Box<dyn Future>>`s of an async block, kio's `Pending`, a struct of the crate's,
  * and a `poll_fn`, each owning a guard. A `poll_fn` boxed in a [`Forward`] polls the
  * queue in turn through [`poll_unsized`], as moq's tasks do through kio's
@@ -193,10 +193,11 @@ export class boxedFuture {
 	#id!: rt.u32;
 	#log!: Log.Log;
 	#lend!: rt.Future<rt.u64>;
-	#lent!: rt.u64;
 	#awaitee$2!: rt.Future<rt.u64>;
+	#lent!: rt.u64;
+	#awaitee$3!: rt.Future<rt.u64>;
 	#pinned!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>>;
-	#awaitee$3!: Forward.Forward;
+	#awaitee$4!: Forward.Forward;
 	#saved!: boolean;
 	#saved$2!: boolean;
 
@@ -218,9 +219,11 @@ export class boxedFuture {
 			}
 			if (this.#state === 4) {
 				rt.drop(this.#awaitee$2);
-			} else if (this.#state !== 5) {
-				if (this.#state === 6) {
-					this.#awaitee$3[Symbol.dispose]();
+			} else if (this.#state === 5) {
+				rt.drop(this.#awaitee$3);
+			} else if (this.#state !== 6) {
+				if (this.#state === 7) {
+					this.#awaitee$4[Symbol.dispose]();
 					this.#pinned[Symbol.dispose]();
 				} else {
 					return;
@@ -243,87 +246,105 @@ export class boxedFuture {
 		b0: {
 			b1: {
 				b2: {
-					if (this.#state === 0) {
-						this.#saved$2 = false;
-						this.#saved = false;
-						this.#saved$2 = true;
-						this.#awaitee = new recvFuture(this.#rx);
-					} else if (this.#state === 1) {
-						rt.asyncFnResumed();
-					} else if (this.#state !== 3) {
-						if (this.#state === 4) {
-							break b2;
+					b3: {
+						if (this.#state === 0) {
+							this.#saved$2 = false;
+							this.#saved = false;
+							this.#saved$2 = true;
+							this.#awaitee = new recvFuture(this.#rx);
+						} else if (this.#state === 1) {
+							rt.asyncFnResumed();
+						} else if (this.#state !== 3) {
+							if (this.#state === 4) {
+								break b3;
+							}
+							if (this.#state === 5) {
+								break b2;
+							}
+							if (this.#state === 6) {
+								break b1;
+							}
+							break b0;
 						}
-						if (this.#state === 5) {
-							break b1;
+						const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+						if (_7 !== rt.Pending) {
+							const result: rt.u64 | undefined = _7;
+							rt.drop(this.#awaitee);
+							this.#first = unwrapOr$Option_u64(result, 0);
+							const arg = this.#first;
+							const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
+							const _17: string = rt.fmtFormat(["first ", args2[0]]);
+							Guard.note(this.#guard, _17);
+							const _28: [rt.u32, Log.Log] = [Guard.id(this.#guard), Log.clone$Clone(Guard.log(this.#guard))];
+							this.#id = _28[0];
+							this.#log = _28[1];
+							const captured = Guard.new(rt.u32Add(this.#id, 900), Log.clone$Clone(this.#log));
+							this.#lend = new rt.PollFn(rt.closure((_22: rt.Context): rt.Poll<rt.u64> => {
+								Guard.note(captured, "lent");
+								return 4;
+							}, (): void => {
+								captured[Symbol.dispose]();
+							}), rt.drop);
+							this.#saved = true;
+							this.#awaitee$2 = new rt.DynFuture(this.#lend, rt.futurePoll);
+						} else {
+							this.#state = 3;
+							return rt.Pending;
 						}
-						break b0;
 					}
-					const _7: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-					if (_7 !== rt.Pending) {
-						const result: rt.u64 | undefined = _7;
-						rt.drop(this.#awaitee);
-						this.#first = unwrapOr$Option_u64(result, 0);
-						const arg = this.#first;
-						const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg, f)];
-						const _17: string = rt.fmtFormat(["first ", args2[0]]);
-						Guard.note(this.#guard, _17);
-						const _28: [rt.u32, Log.Log] = [Guard.id(this.#guard), Log.clone$Clone(Guard.log(this.#guard))];
-						this.#id = _28[0];
-						this.#log = _28[1];
-						const captured = Guard.new(rt.u32Add(this.#id, 900), Log.clone$Clone(this.#log));
-						this.#lend = new rt.PollFn(rt.closure((_22: rt.Context): rt.Poll<rt.u64> => {
-							Guard.note(captured, "lent");
-							return 4;
-						}, (): void => {
-							captured[Symbol.dispose]();
-						}), rt.drop);
-						this.#saved = true;
-						this.#awaitee$2 = new rt.DynFuture(this.#lend, rt.futurePoll);
+					const _45: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
+					if (_45 !== rt.Pending) {
+						const lent2: rt.u64 = _45;
+						rt.drop(this.#awaitee$2);
+						this.#awaitee$2 = this.#lend;
+						const twice: rt.Future<rt.u64> = new rt.DynFuture(this.#awaitee$2, rt.futurePoll);
+						this.#lent = lent2;
+						this.#awaitee$3 = twice;
 					} else {
-						this.#state = 3;
+						this.#state = 4;
 						return rt.Pending;
 					}
 				}
-				const _45: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
-				if (_45 !== rt.Pending) {
-					this.#lent = _45;
-					rt.drop(this.#awaitee$2);
-					this.#awaitee$2 = this.#lend;
+				const _57: rt.Poll<rt.u64> = this.#awaitee$3.poll(_2);
+				if (_57 !== rt.Pending) {
+					const result2: rt.u64 = _57;
+					rt.drop(this.#awaitee$3);
+					this.#lent = rt.u64Add(this.#lent, result2);
+					this.#awaitee$3 = this.#lend;
 				} else {
-					this.#state = 4;
+					this.#state = 5;
 					return rt.Pending;
 				}
 			}
-			const _55: rt.Poll<rt.u64> = this.#awaitee$2.poll(_2);
-			if (_55 !== rt.Pending) {
-				this.#lent = rt.u64Add(this.#lent, _55);
+			const _68: rt.Poll<rt.u64> = this.#awaitee$3.poll(_2);
+			if (_68 !== rt.Pending) {
+				this.#lent = rt.u64Add(this.#lent, _68);
 				const arg2 = this.#lent;
 				const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(arg2, f)];
-				const _66: string = rt.fmtFormat(["lent ", args4[0]]);
-				Guard.note(this.#guard, _66);
+				const _79: string = rt.fmtFormat(["lent ", args4[0]]);
+				Guard.note(this.#guard, _79);
 				this.#saved = false;
 				this.#lend[Symbol.dispose]();
-				const _82: [Guard.Guard, Guard.Guard, Guard.Guard] = [Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 600), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 700), Log.clone$Clone(this.#log))];
-				const block: Guard.Guard = _82[0];
-				const waiting: Guard.Guard = _82[1];
-				const ready: Guard.Guard = _82[2];
+				const _95: [Guard.Guard, Guard.Guard, Guard.Guard] = [Guard.new(rt.u32Add(this.#id, 500), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 600), Log.clone$Clone(this.#log)), Guard.new(rt.u32Add(this.#id, 700), Log.clone$Clone(this.#log))];
+				const block: Guard.Guard = _95[0];
+				const waiting: Guard.Guard = _95[1];
+				const ready: Guard.Guard = _95[2];
 				const next: Consumer.Consumer = Consumer.clone$Clone(this.#rx);
 				this.#saved$2 = false;
-				const _105: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
+				const _118: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
 				let captured2 = next;
 				const captured3 = waiting;
-				const _108: rt.Future<rt.u64> = new rt.DynFuture(wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
-					return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value2: rt.u64 | undefined): rt.u64 => {
+				const _121: rt.Future<rt.u64> = new rt.DynFuture(wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
+					return map$Poll_Option_u64_u64_boxed_closure0_closure3_closure0(Consumer.pollRecv(captured2, waiter), (value3: rt.u64 | undefined): rt.u64 => {
 						Guard.note(captured3, "waited");
-						return rt.u64Add(unwrapOr$Option_u64(value2, 0), 2);
+						return rt.u64Add(unwrapOr$Option_u64(value3, 0), 2);
 					});
 				}, (): void => {
 					captured2[Symbol.dispose]();
 					captured3[Symbol.dispose]();
 				})), Pending.poll$Future_boxed_closure0_closure3, rt.drop);
 				const captured4 = ready;
-				const queue: rt.Future<rt.u64>[] = [_105, _108, new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
+				const queue: rt.Future<rt.u64>[] = [_118, _121, new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
 					Guard.note(captured4, "ready");
 					return 3;
 				}, (): void => {
@@ -339,12 +360,12 @@ export class boxedFuture {
 				let captured6 = queue;
 				let captured7: rt.u64 = 0;
 				let captured8 = last;
-				this.#awaitee$3 = new Forward.Forward(new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
+				this.#awaitee$4 = new Forward.Forward(new rt.PollFn(rt.closure((cx: rt.Context): rt.Poll<rt.u64> => {
 					let i: rt.usize = 0;
 					while (i < captured6.length) {
-						const _88: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured6[rt.idx(captured6, i)], cx);
-						if (_88 !== rt.Pending) {
-							captured7 = rt.u64Add(captured7, _88);
+						const _84: rt.Poll<rt.u64> = pollUnsized$dyn_Future_u64(captured6[rt.idx(captured6, i)], cx);
+						if (_84 !== rt.Pending) {
+							captured7 = rt.u64Add(captured7, _84);
 							rt.drop(rt.vecSwapRemove(captured6, i));
 						} else {
 							i = rt.usizeAdd(i, 1);
@@ -353,24 +374,24 @@ export class boxedFuture {
 					if (!((captured6.length === 0))) {
 						return rt.Pending;
 					}
-					return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value4: rt.u64): rt.u64 => {
-						return rt.u64Add(captured7, value4);
+					return map$Poll_u64_u64_boxed_closure0_closure1_closure0(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value5: rt.u64): rt.u64 => {
+						return rt.u64Add(captured7, value5);
 					});
 				}, (): void => {
 					rt.dropAll(captured6);
 				}), rt.drop));
 			} else {
-				this.#state = 5;
+				this.#state = 6;
 				return rt.Pending;
 			}
 		}
-		const _133: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$3, _2);
-		if (_133 !== rt.Pending) {
-			const total: rt.u64 = _133;
-			this.#awaitee$3[Symbol.dispose]();
+		const _146: rt.Poll<rt.u64> = Forward.poll$Future(this.#awaitee$4, _2);
+		if (_146 !== rt.Pending) {
+			const total: rt.u64 = _146;
+			this.#awaitee$4[Symbol.dispose]();
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Display(total, f)];
-			const _143: string = rt.fmtFormat(["boxed ", args6[0]]);
-			Guard.note(this.#guard, _143);
+			const _156: string = rt.fmtFormat(["boxed ", args6[0]]);
+			Guard.note(this.#guard, _156);
 			this.#pinned[Symbol.dispose]();
 			this.#saved = false;
 			this.#log[Symbol.dispose]();
@@ -379,7 +400,7 @@ export class boxedFuture {
 			this.#state = 1;
 			return total;
 		}
-		this.#state = 6;
+		this.#state = 7;
 		return rt.Pending;
 	}
 }
