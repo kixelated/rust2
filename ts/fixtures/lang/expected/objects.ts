@@ -72,9 +72,8 @@ export function writeThrough$u8(p: rt.Place<rt.u8>, by: rt.u8): void {
 /** Replaces an `Arc` through a pointer's `DerefMut`. */
 export function replaceThrough$Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
 	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
-	const _4: rt.Place<rt.Arc<rt.u8>> = p;
-	_4.v[Symbol.dispose]();
-	_4.v = _3;
+	p.v[Symbol.dispose]();
+	p.v = _3;
 }
 
 /** Replaces an `Arc` through a pointer's `DerefMut`. */
