@@ -827,7 +827,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	}
 
 	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
-	/// unassigned since it holds nothing: JS needs it made.
+	/// unassigned since it holds nothing: JS needs it made, as the crate's or as std's
+	/// `fmt::Error` and `ParseBoolError` are.
 	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
 		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
 			return None;
@@ -843,10 +844,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				),
 			});
 		}
-		let ty::Adt(adt, _) = ty.kind() else {
+		let ty::Adt(adt, args) = ty.kind() else {
 			return None;
 		};
-		if !adt.is_struct() || !self.b.t.own(adt.did()) || adt.all_fields().next().is_some() {
+		if !adt.is_struct() || adt.all_fields().next().is_some() {
+			return None;
+		}
+		use crate::lower::library::Std;
+		if matches!(Std::of(self.tcx, adt.did()), Some(Std::FmtError | Std::ParseBoolError)) {
+			let span = self.local_span(local);
+			return Some(self.adt(adt.did(), rustc_abi::FIRST_VARIANT, args, Vec::new(), ty, span));
+		}
+		if !self.b.t.own(adt.did()) {
 			return None;
 		}
 		let info = self.b.t.adt(*adt, self.local_span(local));

@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 111
+- Refusals: 112
 - Function instances: 129
 - Generic functions no instance reached, lowered over their type parameters: 10
 
@@ -27,6 +27,7 @@
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:364:13 |
+| 2 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | fixtures/reject/src/lib.rs:750:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:435:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:420:2 |
@@ -36,7 +37,6 @@
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:281:6 |
-| 1 | `_` of `_` items with a `_`, which is not supported yet | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, which is not supported yet | fixtures/reject/src/lib.rs:591:4 |
 | 1 | `_` through a held type's own, which is not supported yet | fixtures/reject/src/lib.rs:313:2 |
@@ -45,6 +45,7 @@
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:429:6 |
 | 1 | `f64::mul_add`, which rounds once, where JS would round twice | fixtures/reject/src/lib.rs:480:4 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | fixtures/reject/src/lib.rs:74:10 |
+| 1 | `next_if_eq` of `_` items with a `_`, which is not supported yet | fixtures/reject/src/lib.rs:840:27 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:231:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | a cast from `_` to `_` | fixtures/reject/src/lib.rs:87:2 |
@@ -73,7 +74,6 @@
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:263:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:355:16 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | fixtures/reject/src/lib.rs:635:1 |
-| 1 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:484:32 |
 
 ## By API
 
@@ -138,14 +138,14 @@ The type or module each refused type or path belongs to.
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:527:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:585:32 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
-| 1 | `next_if_eq` | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
-| 1 | `std::char::ParseCharError` | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:835:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
+| 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:415:2 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:760:15 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
@@ -179,7 +179,6 @@ The type or module each refused type or path belongs to.
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | `Maybe`, `value`, `Option`, `T \| undefined`, `Option` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | `Waiting`, `poll`, `Poll`, `rt.Poll`, `Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:281:6 |
-| 1 | `_` of `_` items with a `_`, which is not supported yet | `next_if_eq`, `std::string::String`, `str` | fixtures/reject/src/lib.rs:840:27 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:755:7 |
@@ -193,6 +192,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:289:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | `BytesMut::capacity` | fixtures/reject/src/lib.rs:429:6 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | `Sink` | fixtures/reject/src/lib.rs:74:10 |
+| 1 | `next_if_eq` of `_` items with a `_`, which is not supported yet | `std::string::String`, `str` | fixtures/reject/src/lib.rs:840:27 |
 | 1 | a `zip` of `_` and `_`, which std reads by index, of items that drop, which is not supported yet | `std::iter::Map`, `std::ops::Range` | fixtures/reject/src/lib.rs:231:30 |
 | 1 | a `zip` of `_`, whose closures std calls one item further through `next` than through `fold` | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | a cast from `_` to `_` | `u64`, `f32` | fixtures/reject/src/lib.rs:87:2 |
@@ -252,7 +252,8 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:620:11 |
 | 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:623:3 |
 | 1 | unsupported call to `_` | `std::str::parse` | fixtures/reject/src/lib.rs:485:4 |
-| 1 | unsupported type `_` from another crate | `std::char::ParseCharError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | unsupported type `_` from another crate | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | unsupported type `_` from another crate | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
 
 ## Spans
 
@@ -267,7 +268,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:415:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:475:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:475:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
-- fixtures/reject/src/lib.rs:485:4: unsupported call to `core::str::<impl str>::parse::<char>`
+- fixtures/reject/src/lib.rs:485:4: unsupported call to `core::str::<impl str>::parse::<std::net::Ipv4Addr>`
 - fixtures/reject/src/lib.rs:591:2: unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:591:17: unsupported call to `std::any::TypeId::of::<u8>`
 - fixtures/reject/src/lib.rs:618:15: unsupported call to `std::alloc::Layout::new::<u8>`
@@ -415,6 +416,13 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>unsupported type `_` from another crate (2)</summary>
+
+- fixtures/reject/src/lib.rs:484:32: unsupported type `std::net::AddrParseError` from another crate
+- fixtures/reject/src/lib.rs:484:32: unsupported type `std::net::Ipv4Addr` from another crate
+
+</details>
+
 <details><summary>`Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:750:2: `Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported
@@ -469,12 +477,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_` of `_` items with a `_`, which is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:840:27: `next_if_eq` of `std::string::String` items with a `str`, which is not supported yet
-
-</details>
-
 <details><summary>`_` of `_`, which drops `_`, which is not supported yet (1)</summary>
 
 - fixtures/reject/src/lib.rs:53:13: `into_keys` of `std::collections::HashMap<u8, Noisy>`, which drops `Noisy`, which is not supported yet
@@ -520,6 +522,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make (1)</summary>
 
 - fixtures/reject/src/lib.rs:74:10: `fmt::Arguments` with a placeholder, or not made in place, written to `Sink`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make
+
+</details>
+
+<details><summary>`next_if_eq` of `_` items with a `_`, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:840:27: `next_if_eq` of `std::string::String` items with a `str`, which is not supported yet
 
 </details>
 
@@ -688,11 +696,5 @@ The type or module each refused type or path belongs to.
 <details><summary>union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart (1)</summary>
 
 - fixtures/reject/src/lib.rs:635:1: union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart
-
-</details>
-
-<details><summary>unsupported type `_` from another crate (1)</summary>
-
-- fixtures/reject/src/lib.rs:484:32: unsupported type `std::char::ParseCharError` from another crate
 
 </details>
