@@ -95,5 +95,8 @@ roots = [
     "string_retained",
     "byte_key",
     "peeked_str",
+    "put_replaced",
+    "object_replaced",
+    "closure_replaced",
 ]
 printable = ["Meters"]

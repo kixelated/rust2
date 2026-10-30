@@ -240,7 +240,7 @@ reference. Only a type the crate writes into in place is copied, or one holding 
 type by value: a value of any other type never changes once made, so it is shared. A
 write counts through a field, an element, a reference, or a box, and a mutable reference
 a std function's parameters take, where the crate calls it or takes it as a value, or
-one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for every type its bounds allow. A caller must
+one kept other than in a local, counts as a write into what it points at. A write over a type parameter counts for the type each instance translation reaches gives it, a closure's and one reached through a trait object included. A caller must
 not change in place what it passes to or gets from the translation either.
 
 A `&mut` to a value JS copies, which no JS value can point at, such as a number, an

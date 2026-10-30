@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 119
-- Function instances: 137
+- Refusals: 122
+- Function instances: 145
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -10,8 +10,8 @@
 | ---: | --- | --- |
 | 16 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 8 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:669:10 |
+| 7 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:661:10 |
 | 5 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:4 |
-| 4 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:661:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:377:2 |
 | 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:11 |
 | 3 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:242:16 |
@@ -81,7 +81,7 @@ The type or module each refused type or path belongs to.
 
 | Count | API | First |
 | ---: | --- | --- |
-| 10 | `(u32, u32)` | fixtures/reject/src/lib.rs:661:10 |
+| 13 | `(u32, u32)` | fixtures/reject/src/lib.rs:661:10 |
 | 7 | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:377:2 |
 | 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
@@ -124,14 +124,17 @@ The type or module each refused type or path belongs to.
 | 1 | `HashSet` | fixtures/reject/src/lib.rs:258:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:289:9 |
 | 1 | `Hits` | fixtures/reject/src/lib.rs:773:21 |
+| 1 | `Lane` | fixtures/reject/src/lib.rs:965:19 |
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `Only` | fixtures/reject/src/lib.rs:790:11 |
+| 1 | `Plain` | fixtures/reject/src/lib.rs:919:10 |
 | 1 | `Sink` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `Span2` | fixtures/reject/src/lib.rs:661:10 |
 | 1 | `String` | fixtures/reject/src/lib.rs:867:4 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:537:30 |
+| 1 | `Track` | fixtures/reject/src/lib.rs:945:19 |
 | 1 | `VecDeque` | fixtures/reject/src/lib.rs:861:29 |
 | 1 | `Vec` | fixtures/reject/src/lib.rs:861:4 |
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:548:2 |
@@ -207,7 +210,10 @@ The type or module each refused type or path belongs to.
 | 1 | a dangling pointer to `_`, a value of no bytes made of more than structs and tuples | `Only` | fixtures/reject/src/lib.rs:790:11 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:96:34 |
 | 1 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | `std::vec::Vec` | fixtures/reject/src/lib.rs:630:10 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Lane` | fixtures/reject/src/lib.rs:965:19 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Plain` | fixtures/reject/src/lib.rs:919:10 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Span2` | fixtures/reject/src/lib.rs:661:10 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Track` | fixtures/reject/src/lib.rs:945:19 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Window` | fixtures/reject/src/lib.rs:722:2 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:740:15 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Hits` | fixtures/reject/src/lib.rs:773:21 |
@@ -293,6 +299,18 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a raw pointer to `_` in `_`, which the crate may put another object in place of (7)</summary>
+
+- fixtures/reject/src/lib.rs:661:10: a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:722:2: a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:740:15: a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:773:21: a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:919:10: a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:945:19: a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:965:19: a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of
+
+</details>
+
 <details><summary>passing `_`, which drops, to `_`, which is not supported yet (5)</summary>
 
 - fixtures/reject/src/lib.rs:372:4: passing `{closure@fixtures/reject/src/lib.rs:372:13: 372:27}`, which drops, to `str::contains`, which is not supported yet
@@ -300,15 +318,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:861:29: passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet
 - fixtures/reject/src/lib.rs:861:56: passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet
 - fixtures/reject/src/lib.rs:867:4: passing `{closure@fixtures/reject/src/lib.rs:867:11: 867:19}`, which drops, to `String::retain`, which is not supported yet
-
-</details>
-
-<details><summary>a raw pointer to `_` in `_`, which the crate may put another object in place of (4)</summary>
-
-- fixtures/reject/src/lib.rs:661:10: a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:722:2: a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:740:15: a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:773:21: a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of
 
 </details>
 

@@ -145,6 +145,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::rebound", |_, data, out| pointers::rebound(data, out)),
 		("slices::ranges", slices::ranges),
 		("iters::reducers", |_, data, out| iters::reducers(data, out)),
+		("pointers::writers", |_, data, out| pointers::writers(data, out)),
 	]
 }
 
