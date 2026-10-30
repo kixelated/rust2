@@ -435,8 +435,9 @@ static int script(void) {
 	api_pair_u32 twins = {.left = 7, .right = 7};
 	printf("even %s %s\n", api_pair_u32_even(&pair) ? "true" : "false",
 	       api_pair_u32_even(&twins) ? "true" : "false");
-	api_pair_size_u8 sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
-	api_pair_u8_size flipped = api_pair_size_u8_swap(&sizes);
+	/* An instance renamed alone, beside another of `Pair` that keeps its name. */
+	api_size_tag sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
+	api_pair_u8_size flipped = api_size_tag_swap(&sizes);
 	printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", api_pair_u8_size_debug(&flipped), "\n");
 	api_pair_u32 byte = {.left = 258, .right = 9};

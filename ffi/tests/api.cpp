@@ -359,7 +359,8 @@ int script() {
 	print("", pair.debug(), " ");
 	std::printf("%s\n", yes(pair == swapped));
 	std::printf("even %s %s\n", yes(pair.even()), yes(api::pair_u32{7, 7}.even()));
-	api::pair_size_u8 sizes = api::tag({1, 2}, 3);
+	// An instance renamed alone, beside another of `Pair` that keeps its name.
+	api::size_tag sizes = api::tag({1, 2}, 3);
 	api::pair_u8_size flipped = sizes.swap();
 	std::printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", flipped.debug(), "\n");

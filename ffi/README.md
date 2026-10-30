@@ -173,8 +173,11 @@ refused, and the census counts why.
   name. A type instance's methods are named through it, and a function instance appends
   its arguments' names, a reference's by what it borrows. An `exclude` of a type or method
   by the generic type's path leaves it out of every instance, and by the instance's path
-  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
-  `rename` by the generic item's path renames each of its instances.
+  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one. A
+  `rename` matches paths as `exclude` does: by the generic item's path it renames each of
+  its instances, and by an instance's path (`"catalog::Producer<moq_mux::catalog::hang::Extra>"`)
+  that one alone, whose arguments then add nothing to its name, while the others keep
+  theirs. The longer path wins, and at one length, the instance's.
 
 ## C++
 

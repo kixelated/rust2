@@ -20,9 +20,11 @@ exclude = [
     "Timed",
 ]
 
-# The field `Retry::limit`, whose name its method takes.
+# The field `Retry::limit`, whose name its method takes, and one instance of `Pair`, whose
+# other instances keep their names.
 [rename]
 "field@Retry::limit" = "retry_limit_setting"
+"Pair<dep_fixture::Size, u8>" = "size_tag"
 
 # Exported into the same library: `grow` names its types.
 [crates.dep-fixture]
