@@ -12,6 +12,7 @@ import * as List from "./pointers.List.ts";
 import type * as Node from "./pointers.Node.ts";
 import type * as Outer from "./pointers.Outer.ts";
 import type * as Pair from "./pointers.Pair.ts";
+import type * as Span from "./pointers.Span.ts";
 import * as Wrapped from "./pointers.Wrapped.ts";
 
 /** Put `node` in the list just before `at`. */
@@ -468,14 +469,17 @@ export function renewText(cell: rt.Cell<string>, value: string): string {
  * Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
  * `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
  * parts are, ones a helper writes through a `&mut` into the object there, and one taken
- * through two helpers and read while the variable is borrowed, which is assigned after.
+ * through two helpers and read while the variable is borrowed, which is assigned after;
+ * and one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be.
  * Each is a function of its own, as a loop assigns its variables again.
  */
 export function rebound(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const n of rt.byteSliceView(data)) {
-		const _10: rt.u8 = rt.u8Rem(n, 5);
+		const _10: rt.u8 = rt.u8Rem(n, 6);
 		if (_10 === 0) {
 			rt.iterExtendBytes(out, rt.iterSlice(replacedBefore(n)));
+		} else if (_10 === 5) {
+			rt.iterExtendBytes(out, rt.iterSlice(lentAsValue(n)));
 		} else if (_10 === 1) {
 			rt.iterExtendBytes(out, rt.iterSlice(partsReplaced(n)));
 		} else if (_10 === 2) {
@@ -496,6 +500,18 @@ export function replacedBefore(n: rt.u8): Uint8Array {
 	const p: [rt.u8, rt.u8] = pair;
 	p[1] = p[1] ^ old[0];
 	return Uint8Array.of(pair[0], pair[1]);
+}
+
+export function lentAsValue(n: rt.u8): Uint8Array {
+	const span: Span.Span = { range: [n, ~n & 0xff] as [rt.u8, rt.u8] };
+	const other: [rt.u8, rt.u8] = [0, 0];
+	let r: [rt.u8, rt.u8] = other;
+	const p: [rt.u8, rt.u8] = span.range;
+	const old2 = r;
+	r = span.range;
+	old2[0] = n ^ 1;
+	r[0] = r[0] ^ 3;
+	return Uint8Array.of(p[0], p[1], other[0], span.range[0]);
 }
 
 export function partsReplaced(n: rt.u8): Uint8Array {

@@ -1950,14 +1950,13 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				if assigns(*destination) {
 					return true;
 				}
-				let rebinds = func
+				let rebound = func
 					.const_fn_def()
-					.is_some_and(|(def_id, _)| crate::lower::pointer::rebinds(tcx, def_id));
-				if rebinds
-					&& args
-						.iter()
-						.filter_map(|a| a.node.place())
-						.any(|r| assigns(tcx.mk_place_deref(r)))
+					.map_or(0, |(def_id, _)| crate::lower::pointer::rebinds(tcx, def_id));
+				if args[..rebound]
+					.iter()
+					.filter_map(|a| a.node.place())
+					.any(|r| assigns(tcx.mk_place_deref(r)))
 				{
 					return true;
 				}

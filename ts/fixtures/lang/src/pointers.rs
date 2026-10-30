@@ -596,12 +596,14 @@ fn renew_text(cell: &mut UnsafeCell<String>, value: String) -> String {
 /// Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
 /// `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
 /// parts are, ones a helper writes through a `&mut` into the object there, and one taken
-/// through two helpers and read while the variable is borrowed, which is assigned after.
+/// through two helpers and read while the variable is borrowed, which is assigned after;
+/// and one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be.
 /// Each is a function of its own, as a loop assigns its variables again.
 pub fn rebound(data: &[u8], out: &mut Vec<u8>) {
 	for &n in data {
-		match n % 5 {
+		match n % 6 {
 			0 => out.extend(replaced_before(n)),
+			5 => out.extend(lent_as_value(n)),
 			1 => out.extend(parts_replaced(n)),
 			2 => out.extend(written_in_place(n)),
 			3 => out.extend(cell_written_in_place(n)),
@@ -616,6 +618,21 @@ fn replaced_before(n: u8) -> [u8; 2] {
 	let p = &raw mut pair;
 	unsafe { (*p).1 ^= old.0 };
 	[pair.0, pair.1]
+}
+
+struct Span {
+	range: (u8, u8),
+}
+
+fn lent_as_value(n: u8) -> [u8; 4] {
+	let mut span = Span { range: (n, !n) };
+	let mut other = (0, 0);
+	let mut r = &mut other;
+	let p = &raw mut span.range;
+	let old = std::mem::replace(&mut r, &mut span.range);
+	old.0 = n ^ 1;
+	r.0 ^= 3;
+	unsafe { [(*p).0, (*p).1, other.0, span.range.0] }
 }
 
 fn parts_replaced(n: u8) -> [u8; 4] {

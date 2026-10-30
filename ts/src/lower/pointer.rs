@@ -192,14 +192,18 @@ pub fn from_reference<'tcx>(
 	}
 }
 
-/// Whether std's `def_id` is one whose lowering gives what a `&mut` argument borrows
-/// another value, rather than writing into it, where the `&mut` is an alias of a
-/// borrowed place: the place is assigned again.
-pub fn rebinds(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
-	matches!(
-		super::library::key(tcx, def_id),
-		Some((owner, name)) if owner == "mem" && matches!(name.as_str(), "replace" | "take" | "swap")
-	)
+/// How many of std's `def_id`'s first arguments are `&mut`s whose lowering gives what
+/// they borrow another value, rather than writing into it, where one is an alias of a
+/// borrowed place: the place is assigned again. `mem::replace`'s value is no such one.
+pub fn rebinds(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> usize {
+	match super::library::key(tcx, def_id) {
+		Some((owner, name)) if owner == "mem" => match name.as_str() {
+			"replace" | "take" => 1,
+			"swap" => 2,
+			_ => 0,
+		},
+		_ => 0,
+	}
 }
 
 /// Whether std's `def_id` is one this module maps that lends a place: it makes the

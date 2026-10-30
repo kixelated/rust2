@@ -658,13 +658,11 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 		} = &terminator.kind
 		{
 			self.store_through(*destination);
-			if func
+			let rebound = func
 				.const_fn_def()
-				.is_some_and(|(def_id, _)| super::pointer::rebinds(self.tcx, def_id))
-			{
-				for arg in args.iter().filter_map(|a| a.node.place()) {
-					self.store_through(self.tcx.mk_place_deref(arg));
-				}
+				.map_or(0, |(def_id, _)| super::pointer::rebinds(self.tcx, def_id));
+			for arg in args[..rebound].iter().filter_map(|a| a.node.place()) {
+				self.store_through(self.tcx.mk_place_deref(arg));
 			}
 		}
 		match &terminator.kind {
