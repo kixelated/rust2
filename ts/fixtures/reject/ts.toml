@@ -79,5 +79,6 @@ roots = [
     "blank_bytes",
     "heap_optional",
     "places_sorted",
+    "pointer_statics",
 ]
 printable = ["Meters"]
