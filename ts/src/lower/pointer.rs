@@ -206,6 +206,19 @@ pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> boo
 	) || super::stock::is_stock(tcx, def_id)
 }
 
+/// Which of std's `def_id`'s parameters its mapping takes as what the `&mut` it declares
+/// points at, rather than the `rt.Place` that `&mut` may be: not a type parameter that
+/// one instantiates, as `Pin::new`'s pointer.
+pub fn pointees(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Vec<bool> {
+	let takes_place = takes_place(tcx, def_id);
+	let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+	tcx.instantiate_bound_regions_with_erased(sig)
+		.inputs()
+		.iter()
+		.map(|t| !takes_place && matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+		.collect()
+}
+
 /// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or
 /// take a raw pointer: its mapping, `None` if it has none, or its arguments back if it is
 /// no such call.

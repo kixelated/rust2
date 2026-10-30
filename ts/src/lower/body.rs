@@ -236,16 +236,20 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let gargs = self.subst(gargs);
 		let sig = self.t.sig(def_id, gargs);
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
-		// std's mappings take a `&mut` that is an `rt.Place` as what it points at, as a call's
-		// operands pass it.
-		let pointee = self.t.mapped(def_id, gargs) && !super::pointer::takes_place(tcx, def_id);
+		// std's mappings take a `&mut` they declare that is an `rt.Place` as what it points
+		// at, as a call's operands pass it.
+		let pointees = match self.t.mapped(def_id, gargs) {
+			true => super::pointer::pointees(tcx, def_id),
+			false => Vec::new(),
+		};
 		let values: Vec<Expr> = std::iter::zip(&names, sig.inputs())
-			.map(|(name, &ty)| match ty.kind() {
-				ty::Ref(_, _, rustc_ast::Mutability::Mut) if pointee && self.t.place_pointee(ty).is_some() => {
-					Expr::ident(name).member("v")
-				}
-				_ => Expr::ident(name),
-			})
+			.enumerate()
+			.map(
+				|(i, (name, &ty))| match pointees.get(i) == Some(&true) && self.t.place_pointee(ty).is_some() {
+					true => Expr::ident(name).member("v"),
+					false => Expr::ident(name),
+				},
+			)
 			.collect();
 		// A binding's export, or a function whose body translates, is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))

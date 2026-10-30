@@ -39,6 +39,12 @@ fn through_mutex<P: std::ops::Deref<Target = Mutex<u8>>>(p: P) -> u8 {
 	*p.lock().unwrap()
 }
 
+/// A pin of a byte, made through a function pointer, that writes the byte.
+fn pin_via<'a>(p: &'a mut u8) -> Pin<&'a mut u8> {
+	let f: fn(&'a mut u8) -> Pin<&'a mut u8> = Pin::new;
+	f(p)
+}
+
 fn locked_by(n: u8) -> Mutex<u8> {
 	Mutex::new(n.wrapping_add(3))
 }
@@ -210,6 +216,9 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	// A mutable reference to each, read through the shared `Deref`.
 	out.extend_from_slice(&[through_arc(&mut Arc::clone(&held)), through(&mut pinned)]);
 	out.push(through_mutex(&mut locked_by(by)));
+	let mut pinned_byte = by;
+	*Pin::get_mut(pin_via(&mut pinned_byte)) ^= 0x5a;
+	out.push(pinned_byte);
 	let mut owned = Arc::clone(&held);
 	let lent = Pin::new(&mut owned);
 	out.extend_from_slice(&[Arc::strong_count(&*lent) as u8, **lent]);

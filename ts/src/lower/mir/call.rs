@@ -316,13 +316,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if let Some(err) = self.std_places(def_id, gargs, result, span) {
 					return err;
 				}
-				let takes_place = crate::lower::pointer::takes_place(tcx, def_id);
-				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
-				let inputs = tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec();
-				inputs
-					.iter()
-					.map(|t| !takes_place && matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
-					.collect()
+				crate::lower::pointer::pointees(tcx, def_id)
 			}
 		};
 		let values = self.operands(local, &pointees, args, result, span, out);
