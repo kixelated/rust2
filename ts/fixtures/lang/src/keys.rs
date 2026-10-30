@@ -643,8 +643,11 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let mut nested: HashMap<(Option<[u8; 2]>, Vec<u8>), usize> = HashMap::new();
 	let mut shared: HashMap<Arc<Vec<u8>>, usize> = HashMap::new();
 	let mut arcs: HashMap<Arc<[u8; 2]>, usize> = HashMap::new();
+	let mut boxed: HashMap<Box<[u8; 2]>, usize> = HashMap::new();
 	let mut tree: BTreeMap<[u8; 2], usize> = BTreeMap::new();
 	let mut ordered: BTreeSet<Vec<u8>> = BTreeSet::new();
+	let pairs: Vec<[u8; 2]> = data.windows(2).map(|w| [w[0] % 4, w[1] % 4]).collect();
+	let borrowed: HashSet<&[u8; 2]> = pairs.iter().collect();
 	for (i, w) in data.windows(2).enumerate() {
 		let key = [w[0] % 4, w[1] % 4];
 		let s = &data[i..(i + kind as usize % 3).min(data.len())];
@@ -655,6 +658,7 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		out.push(nested.insert((opt, s.to_vec()), i).map_or(0xcc, |old| old as u8));
 		out.push(shared.insert(Arc::new(s.to_vec()), i).map_or(0xcc, |old| old as u8));
 		out.push(arcs.insert(Arc::new(key), i).map_or(0xcc, |old| old as u8));
+		out.push(boxed.insert(Box::new(key), i).map_or(0xcc, |old| old as u8));
 		out.push(tree.insert(key, i).map_or(0xcc, |old| old as u8));
 		out.push(ordered.insert(s.to_vec()) as u8);
 	}
@@ -668,7 +672,9 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let key = [data.get(i).map_or(0, |b| b % 4), data.get(j).map_or(0, |b| b % 4)];
 			out.push(arrays.get(&key).map_or(0xdd, |v| *v as u8));
 			out.push(arcs.get(&key).map_or(0xdd, |v| *v as u8));
+			out.push(boxed.get(&key).map_or(0xdd, |v| *v as u8));
 			out.push(tree.get(&key).map_or(0xdd, |v| *v as u8));
+			out.push(borrowed.contains(&&key) as u8);
 			out.push(ordered.contains(s) as u8);
 			if s.len() >= 2 {
 				let two = &s[..2];

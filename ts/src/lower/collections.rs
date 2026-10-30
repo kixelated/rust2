@@ -162,8 +162,11 @@ pub fn call<'tcx>(
 		&& !matches!(name, "range" | "range_mut")
 		&& bytes(b, peel(b, by))
 	{
-		let key = peel(b, arg(coll, 0));
-		let key = arc_of(b, key).map_or(key, |inner| peel(b, inner));
+		// The key as held, through boxes and `Arc`s: a reference to an array is a slice already.
+		let mut key = arg(coll, 0);
+		while let Some(Std::Box | Std::Arc) = b.t.std_of(key) {
+			key = arg(key, 0);
+		}
 		if let (true, Some(at)) = (super::byte_array(key), args.get_mut(1)) {
 			*at = Expr::rt("byteSliceView", vec![std::mem::replace(at, Expr::undefined())]);
 		}
