@@ -20,7 +20,7 @@
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:110:2 |
 | 3 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
-| 2 | `_` of `_`, whose `_` is its own, which is not supported yet | fixtures/reject/src/lib.rs:21:4 |
+| 2 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | fixtures/reject/src/lib.rs:21:4 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:510:23 |
 | 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:501:40 |
@@ -98,7 +98,6 @@ The type or module each refused type or path belongs to.
 | 2 | `Poll` | fixtures/reject/src/lib.rs:91:20 |
 | 2 | `Reused` | fixtures/reject/src/lib.rs:21:4 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:510:23 |
-| 2 | `clone_from` | fixtures/reject/src/lib.rs:21:4 |
 | 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:510:23 |
 | 2 | `dyn std::any::Any` | fixtures/reject/src/lib.rs:585:32 |
 | 2 | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
@@ -193,8 +192,8 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:819:7 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashSet::get`, `Option` | fixtures/reject/src/lib.rs:258:6 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find_map`, `Option` | fixtures/reject/src/lib.rs:41:11 |
-| 1 | `_` of `_`, whose `_` is its own, which is not supported yet | `slice::clone_from_slice`, `Reused`, `clone_from` | fixtures/reject/src/lib.rs:331:4 |
-| 1 | `_` of `_`, whose `_` is its own, which is not supported yet | `slice::fill`, `Reused`, `clone_from` | fixtures/reject/src/lib.rs:21:4 |
+| 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::clone_from_slice`, `Reused` | fixtures/reject/src/lib.rs:331:4 |
+| 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::fill`, `Reused` | fixtures/reject/src/lib.rs:21:4 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::collections::HashSet::get` | fixtures/reject/src/lib.rs:899:6 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:242:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:242:16 |
@@ -388,7 +387,7 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>`_` of `_`, whose `_` is its own, which is not supported yet (2)</summary>
+<details><summary>`_` of `_`, whose `clone_from` is its own, which is not supported yet (2)</summary>
 
 - fixtures/reject/src/lib.rs:21:4: `slice::fill` of `Reused`, whose `clone_from` is its own, which is not supported yet
 - fixtures/reject/src/lib.rs:331:4: `slice::clone_from_slice` of `Reused`, whose `clone_from` is its own, which is not supported yet
