@@ -855,9 +855,16 @@ pub fn to_refs(data: &[u8], out: &mut Vec<u8>) {
 	let mut it = rest.iter().copied();
 	out.push(next_two(&mut it));
 	out.push(next_two(&mut &mut it));
+	out.push(next_two(Box::new(&mut &mut it)));
 	let mut r = &mut it;
 	for b in &mut r {
 		if b % 3 == 0 {
+			break;
+		}
+		out.push(b);
+	}
+	for b in Box::new(&mut &mut it) {
+		if b % 4 == 0 {
 			break;
 		}
 		out.push(b);
@@ -873,4 +880,6 @@ pub fn to_refs(data: &[u8], out: &mut Vec<u8>) {
 	out.push(call_once(&mut counted));
 	out.push(call_once(&mut &mut counted));
 	out.push(call_once(&mut &mut &mut counted));
+	out.push(call_twice(Box::new(&mut counted)));
+	out.push(call_twice(Box::new(&mut &mut counted)));
 }

@@ -1138,6 +1138,11 @@ export function retarget(r: rt.Place<rt.Place<rt.u32>>, other: rt.Place<rt.u32>,
 }
 
 /** The next two items, through std's `Iterator` for `&mut I` when `it` is one. */
+export function nextTwo$Box_Copied_Iter_u8(it: rt.Place<rt.Iter<rt.u8>>): rt.u8 {
+	return rt.u8WrappingAdd(unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 238), unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 221));
+}
+
+/** The next two items, through std's `Iterator` for `&mut I` when `it` is one. */
 export function nextTwo$Copied_Iter_u8(it: rt.Place<rt.Iter<rt.u8>>): rt.u8 {
 	return rt.u8WrappingAdd(unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 238), unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 221));
 }
@@ -1145,6 +1150,16 @@ export function nextTwo$Copied_Iter_u8(it: rt.Place<rt.Iter<rt.u8>>): rt.u8 {
 /** The next two items, through std's `Iterator` for `&mut I` when `it` is one. */
 export function nextTwo$Copied_Iter_u8$2(it: rt.Iter<rt.u8>): rt.u8 {
 	return rt.u8WrappingAdd(unwrapOr$Option_u8(rt.iterToOption(it.next()), 238), unwrapOr$Option_u8(rt.iterToOption(it.next()), 221));
+}
+
+/** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
+export function callTwice$Box_to_refs_closure3(f: rt.Place<(a0: rt.u8) => rt.u8>): rt.u8 {
+	return rt.u8WrappingAdd(f.v(1), f.v(2));
+}
+
+/** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
+export function callTwice$Box_to_refs_closure3$2(f: (a0: rt.u8) => rt.u8): rt.u8 {
+	return rt.u8WrappingAdd(f(1), f(2));
 }
 
 /** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
@@ -1266,35 +1281,54 @@ export function toRefs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, nextTwo$Copied_Iter_u8$2(it));
 		let _208: rt.Iter<rt.u8> = it;
 		rt.byteVecPush(out, nextTwo$Copied_Iter_u8(rt.place(() => _208, (value13) => _208 = value13)));
+		let _213: rt.Iter<rt.u8> = it;
+		rt.byteVecPush(out, nextTwo$Box_Copied_Iter_u8(rt.place(() => _213, (value14) => _213 = value14)));
 		let r2: rt.Iter<rt.u8> = it;
-		const iter3: rt.Place<rt.Iter<rt.u8>> = rt.place(() => r2, (value14) => r2 = value14);
+		const iter3: rt.Place<rt.Iter<rt.u8>> = rt.place(() => r2, (value15) => r2 = value15);
 		while (true) {
-			const _213: rt.u8 | rt.Done = iter3.v.next();
-			if (_213 === rt.DONE) {
+			const _218: rt.u8 | rt.Done = iter3.v.next();
+			if (_218 === rt.DONE) {
 				break;
 			}
-			const b4: rt.u8 = _213;
+			const b4: rt.u8 = _218;
 			if (!(rt.u8Rem(b4, 3) === 0)) {
 				rt.byteVecPush(out, b4);
 			} else {
 				break;
 			}
 		}
+		let _229: rt.Iter<rt.u8> = it;
+		const iter4: rt.Place<rt.Iter<rt.u8>> = rt.place(() => _229, (value16) => _229 = value16);
+		while (true) {
+			const _231: rt.u8 | rt.Done = iter4.v.next();
+			if (_231 === rt.DONE) {
+				break;
+			}
+			const b5: rt.u8 = _231;
+			if (!(rt.u8Rem(b5, 4) === 0)) {
+				rt.byteVecPush(out, b5);
+			} else {
+				break;
+			}
+		}
 		rt.byteVecPush(out, rt.iterCount(it) & 0xff);
 		let calls: rt.u8 = 0;
-		const counted: (a0: rt.u8) => rt.u8 = (b6: rt.u8): rt.u8 => {
-			calls = rt.u8WrappingAdd(calls, b6);
+		const counted: (a0: rt.u8) => rt.u8 = (b7: rt.u8): rt.u8 => {
+			calls = rt.u8WrappingAdd(calls, b7);
 			return calls;
 		};
 		rt.byteVecPush(out, callTwice$to_refs_closure3$2(counted));
-		let _234: (a0: rt.u8) => rt.u8 = counted;
-		rt.byteVecPush(out, callTwice$to_refs_closure3(rt.place(() => _234, (value15) => _234 = value15)));
+		let _252: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callTwice$to_refs_closure3(rt.place(() => _252, (value17) => _252 = value17)));
 		rt.byteVecPush(out, callOnce$to_refs_closure3$3(counted));
-		let _241: (a0: rt.u8) => rt.u8 = counted;
-		rt.byteVecPush(out, callOnce$to_refs_closure3$2(rt.place(() => _241, (value16) => _241 = value16)));
-		let _246: (a0: rt.u8) => rt.u8 = counted;
-		let _245: rt.Place<(a0: rt.u8) => rt.u8> = rt.place(() => _246, (value17) => _246 = value17);
-		rt.byteVecPush(out, callOnce$to_refs_closure3(rt.place(() => _245, (value18) => _245 = value18)));
+		let _259: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callOnce$to_refs_closure3$2(rt.place(() => _259, (value18) => _259 = value18)));
+		let _264: (a0: rt.u8) => rt.u8 = counted;
+		let _263: rt.Place<(a0: rt.u8) => rt.u8> = rt.place(() => _264, (value19) => _264 = value19);
+		rt.byteVecPush(out, callOnce$to_refs_closure3(rt.place(() => _263, (value20) => _263 = value20)));
+		rt.byteVecPush(out, callTwice$Box_to_refs_closure3$2(counted));
+		let _273: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callTwice$Box_to_refs_closure3(rt.place(() => _273, (value21) => _273 = value21)));
 	}
 }
 

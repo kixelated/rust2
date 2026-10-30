@@ -231,17 +231,26 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 		.ok()
 }
 
-/// Whether `ty` is a `&mut` to a `&mut`, which is an `rt.Place` of it.
-fn through_mut(ty: Ty<'_>) -> bool {
-	matches!(*ty.kind(), ty::Ref(_, inner, ty::Mutability::Mut) if inner.is_ref())
+/// Whether `ty` is a `&mut` to a `&mut`, which is an `rt.Place` of it, or a box of one,
+/// which is what it holds.
+pub fn through_mut(ty: Ty<'_>) -> bool {
+	match ty.boxed_ty() {
+		Some(inner) => through_mut(inner),
+		None => matches!(*ty.kind(), ty::Ref(_, inner, ty::Mutability::Mut) if inner.is_ref()),
+	}
 }
 
-/// `value`, a `ty`, read through each `&mut` to a `&mut`, which std's `Iterator` for `&mut I`
-/// forwards through, down to the last `&mut` and its JS value.
-fn peel_mut<'tcx>(mut ty: Ty<'tcx>, mut value: Expr) -> (Ty<'tcx>, Expr) {
+/// `value`, a `ty`, read through each box and `&mut` to a `&mut` that std's `Iterator` for
+/// `Box<I>` and `&mut I` forward through, down to the last `&mut` and its JS value.
+pub fn peel_mut<'tcx>(mut ty: Ty<'tcx>, mut value: Expr) -> (Ty<'tcx>, Expr) {
 	while through_mut(ty) {
-		value = value.member("v");
-		ty = ty.builtin_deref(true).expect("a reference");
+		ty = match ty.boxed_ty() {
+			Some(inner) => inner,
+			None => {
+				value = value.member("v");
+				ty.builtin_deref(true).expect("a reference")
+			}
+		};
 	}
 	(ty, value)
 }

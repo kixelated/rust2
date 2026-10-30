@@ -55,20 +55,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if crate::lower::iter::is_next(tcx, def_id)
 					&& dest.as_local().is_some_and(|l| self.next_results.contains(&l)) =>
 			{
-				let mut iter_ty = gargs.skip_binder().type_at(0);
-				// Through std's `Iterator` for `&mut I`, whose `&mut` to it is an `rt.Place`: the
-				// place it borrows, then what each `&mut` points at.
-				let mut recv = match args[0].node.place() {
-					Some(p) if iter_ty.is_ref() => {
-						iter_ty = iter_ty.builtin_deref(true).expect("a reference");
-						self.place_expr(tcx.mk_place_deref(p), span, &mut pre)
+				let self_ty = gargs.skip_binder().type_at(0);
+				let (iter_ty, recv) = match args[0].node.place() {
+					// Through std's `Iterator` for `&mut I` and `Box<I>`: what the last `&mut`
+					// points at, read through the `rt.Place` of each `&mut` to a `&mut` before it.
+					Some(p) if self_ty.is_ref() || crate::lower::iter::through_mut(self_ty) => {
+						let value = self.place_expr(tcx.mk_place_deref(p), span, &mut pre);
+						let (last, value) = crate::lower::iter::peel_mut(self_ty, value);
+						(last.builtin_deref(true).unwrap_or(last), value)
 					}
-					_ => self.operand_frozen(&args[0].node, span, &mut pre),
+					_ => (self_ty, self.operand_frozen(&args[0].node, span, &mut pre)),
 				};
-				while let ty::Ref(_, inner, rustc_ast::Mutability::Mut) = *iter_ty.kind() {
-					recv = recv.member("v");
-					iter_ty = inner;
-				}
 				if self.range_nexts.contains(&dest.local)
 					&& let Some(name) = self.var(dest.local)
 				{
@@ -300,7 +297,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				return self.b.call_def(inner, inner_args.skip_binder(), values, span, out);
 			}
 			// A `&mut` to a function JS copies, such as a box of one, or to a reference to one, as
-			// std's impls for a `&mut` forward through, is its place: call what is there.
+			// std's impls for a `&mut` and a box forward through, is its place: call what is
+			// there. A box is what it holds.
 			let mut through = callee.node.ty(&self.mir.local_decls, tcx);
 			let mut f = match callee.node.place() {
 				Some(p) if let Some(pointee) = self.b.t.place_pointee(through) => {
@@ -309,9 +307,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				_ => self.operand(&callee.node, span, out),
 			};
-			while let Some(inner) = self.b.t.place_pointee(through) {
-				f = f.member("v");
-				through = inner;
+			loop {
+				through = match (through.boxed_ty(), self.b.t.place_pointee(through)) {
+					(Some(inner), _) => inner,
+					(None, Some(inner)) => {
+						f = f.member("v");
+						inner
+					}
+					(None, None) => break,
+				};
 			}
 			// `FnOnce::call_once` of a closure that `Fn` or `FnMut` call, or of a box of one,
 			// drops it after, as rustc's shim does, where an `FnOnce` closure's body drops
