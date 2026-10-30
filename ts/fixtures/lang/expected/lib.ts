@@ -164,6 +164,10 @@ export function copy$Option_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8]
 	return v === undefined ? v : copy$u8_u8(v);
 }
 
+export function copy$Option_u8s(v: Uint8Array | undefined): Uint8Array | undefined {
+	return v === undefined ? v : copy$u8s(v);
+}
+
 export function copy$Option_usize_u8(v: [rt.usize, rt.u8] | undefined): [rt.usize, rt.u8] | undefined {
 	return v === undefined ? v : copy$usize_u8(v);
 }

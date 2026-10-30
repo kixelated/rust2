@@ -33,7 +33,7 @@ roots = [
     "filter_owned_bytes",
     "copied_closure",
     "optional",
-    "byte_keys",
+    "set_keys",
     "borrowed",
     "raw_keys",
     "shifted",
@@ -85,5 +85,6 @@ roots = [
     "spent_range",
     "bound_ranges",
     "string_retained",
+    "byte_key",
 ]
 printable = ["Meters"]

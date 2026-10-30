@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
 - Refusals: 110
-- Function instances: 127
+- Function instances: 128
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -11,14 +11,14 @@
 | 16 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 5 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:377:2 |
-| 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:42 |
+| 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:11 |
+| 3 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:242:16 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:252:14 |
 | 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:661:10 |
 | 3 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:102:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:110:2 |
 | 3 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
-| 2 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:242:16 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:510:23 |
 | 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:501:40 |
@@ -27,7 +27,6 @@
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:364:13 |
-| 2 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | fixtures/reject/src/lib.rs:750:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:435:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:420:2 |
@@ -65,14 +64,15 @@
 | 1 | an upcast from `_` to `_`, which is not supported yet | fixtures/reject/src/lib.rs:585:32 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:36:43 |
-| 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:263:52 |
+| 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:263:75 |
 | 1 | comparing pointers to `()`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:717:2 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | fixtures/reject/src/lib.rs:771:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | fixtures/reject/src/lib.rs:649:2 |
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:395:53 |
-| 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:263:52 |
+| 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:263:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:355:16 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | fixtures/reject/src/lib.rs:635:1 |
+| 1 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:484:32 |
 
 ## By API
 
@@ -85,9 +85,8 @@ The type or module each refused type or path belongs to.
 | 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
 | 5 | `u32` | fixtures/reject/src/lib.rs:608:27 |
 | 4 | `(u32, u32)` | fixtures/reject/src/lib.rs:661:10 |
-| 4 | `Iterator` | fixtures/reject/src/lib.rs:41:42 |
+| 4 | `Iterator` | fixtures/reject/src/lib.rs:41:11 |
 | 4 | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
-| 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:263:52 |
 | 4 | `{closure}` | fixtures/reject/src/lib.rs:364:13 |
 | 3 | `Spent` | fixtures/reject/src/lib.rs:797:4 |
 | 3 | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:685:15 |
@@ -99,6 +98,7 @@ The type or module each refused type or path belongs to.
 | 2 | `dyn std::any::Any` | fixtures/reject/src/lib.rs:585:32 |
 | 2 | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `std::any::TypeId` | fixtures/reject/src/lib.rs:591:2 |
+| 2 | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:263:75 |
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:53:13 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:242:16 |
 | 2 | `std::iter::Map` | fixtures/reject/src/lib.rs:155:23 |
@@ -107,6 +107,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::std` | fixtures/reject/src/lib.rs:620:11 |
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:475:17 |
+| 2 | `std::vec::Vec` | fixtures/reject/src/lib.rs:355:16 |
 | 1 | `BTreeMap` | fixtures/reject/src/lib.rs:797:56 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:355:16 |
 | 1 | `BinaryHeap` | fixtures/reject/src/lib.rs:755:7 |
@@ -138,10 +139,10 @@ The type or module each refused type or path belongs to.
 | 1 | `poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:548:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
+| 1 | `std::char::ParseCharError` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | `std::collections::HashSet` | fixtures/reject/src/lib.rs:835:6 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
-| 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
-| 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:415:2 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:760:15 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
@@ -179,7 +180,8 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:591:4 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:755:7 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashSet::get`, `Option` | fixtures/reject/src/lib.rs:258:6 |
-| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find`, `Option` | fixtures/reject/src/lib.rs:41:42 |
+| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find_map`, `Option` | fixtures/reject/src/lib.rs:41:11 |
+| 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::collections::HashSet::get` | fixtures/reject/src/lib.rs:835:6 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:242:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:242:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:313:2 |
@@ -213,13 +215,13 @@ The type or module each refused type or path belongs to.
 | 1 | an upcast from `_` to `_`, which is not supported yet | `dyn Keyed`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:585:32 |
 | 1 | arithmetic on `_` | `f32` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | collecting `_`, whose `None` is `rt.None`, which is not supported yet | `Option` | fixtures/reject/src/lib.rs:36:43 |
-| 1 | comparing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:263:52 |
+| 1 | comparing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:263:75 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:771:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | `u32` | fixtures/reject/src/lib.rs:649:2 |
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:395:53 |
 | 1 | constructing `_` from another crate | `std::iter::Map` | fixtures/reject/src/lib.rs:155:23 |
 | 1 | constructing `_` from another crate | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
-| 1 | hashing `_` as a key, which is not supported yet | `std::vec::Vec` | fixtures/reject/src/lib.rs:263:52 |
+| 1 | hashing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:263:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | `std::vec::Vec`, `Batched` | fixtures/reject/src/lib.rs:355:16 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::fold` | fixtures/reject/src/lib.rs:149:2 |
 | 1 | overriding `_`, which std's adaptors call in place of `next` or beside it | `Iterator::size_hint` | fixtures/reject/src/lib.rs:203:2 |
@@ -246,8 +248,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:620:11 |
 | 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:623:3 |
 | 1 | unsupported call to `_` | `std::str::parse` | fixtures/reject/src/lib.rs:485:4 |
-| 1 | unsupported type `_` from another crate | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:484:32 |
-| 1 | unsupported type `_` from another crate | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:484:32 |
+| 1 | unsupported type `_` from another crate | `std::char::ParseCharError` | fixtures/reject/src/lib.rs:484:32 |
 
 ## Spans
 
@@ -262,7 +263,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:415:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:475:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:475:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
-- fixtures/reject/src/lib.rs:485:4: unsupported call to `core::str::<impl str>::parse::<std::net::Ipv4Addr>`
+- fixtures/reject/src/lib.rs:485:4: unsupported call to `core::str::<impl str>::parse::<char>`
 - fixtures/reject/src/lib.rs:591:2: unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:591:17: unsupported call to `std::any::TypeId::of::<u8>`
 - fixtures/reject/src/lib.rs:618:15: unsupported call to `std::alloc::Layout::new::<u8>`
@@ -293,9 +294,17 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_` of `_`, whose `None` is `rt.None`, which is not supported yet (3)</summary>
 
-- fixtures/reject/src/lib.rs:41:42: `Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
+- fixtures/reject/src/lib.rs:41:11: `Iterator::find_map` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:258:6: `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:755:7: `BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
+
+</details>
+
+<details><summary>`_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it (3)</summary>
+
+- fixtures/reject/src/lib.rs:242:16: `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+- fixtures/reject/src/lib.rs:242:38: `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+- fixtures/reject/src/lib.rs:835:6: `std::collections::HashSet::<T, S, A>::get` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
 
 </details>
 
@@ -343,13 +352,6 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:16:15: `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None`
 - fixtures/reject/src/lib.rs:17:2: `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None`
-
-</details>
-
-<details><summary>`_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it (2)</summary>
-
-- fixtures/reject/src/lib.rs:242:16: `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
-- fixtures/reject/src/lib.rs:242:38: `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
 
 </details>
 
@@ -406,13 +408,6 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:364:13: passing `{closure@fixtures/reject/src/lib.rs:364:28: 364:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet
 - fixtures/reject/src/lib.rs:365:16: passing `{closure@fixtures/reject/src/lib.rs:365:25: 365:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet
-
-</details>
-
-<details><summary>unsupported type `_` from another crate (2)</summary>
-
-- fixtures/reject/src/lib.rs:484:32: unsupported type `std::net::AddrParseError` from another crate
-- fixtures/reject/src/lib.rs:484:32: unsupported type `std::net::Ipv4Addr` from another crate
 
 </details>
 
@@ -640,7 +635,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>comparing `_` as a key, which is not supported yet (1)</summary>
 
-- fixtures/reject/src/lib.rs:263:52: comparing `std::vec::Vec<u8>` as a key, which is not supported yet
+- fixtures/reject/src/lib.rs:263:75: comparing `std::collections::BTreeSet<u8>` as a key, which is not supported yet
 
 </details>
 
@@ -670,7 +665,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>hashing `_` as a key, which is not supported yet (1)</summary>
 
-- fixtures/reject/src/lib.rs:263:52: hashing `std::vec::Vec<u8>` as a key, which is not supported yet
+- fixtures/reject/src/lib.rs:263:75: hashing `std::collections::BTreeSet<u8>` as a key, which is not supported yet
 
 </details>
 
@@ -683,5 +678,11 @@ The type or module each refused type or path belongs to.
 <details><summary>union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart (1)</summary>
 
 - fixtures/reject/src/lib.rs:635:1: union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart
+
+</details>
+
+<details><summary>unsupported type `_` from another crate (1)</summary>
+
+- fixtures/reject/src/lib.rs:484:32: unsupported type `std::char::ParseCharError` from another crate
 
 </details>

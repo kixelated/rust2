@@ -712,12 +712,15 @@ fn takes_none(owner: &str, name: &str) -> bool {
 			(
 				"Option",
 				"is_some" | "is_none" | "as_ref" | "copied" | "cloned" | "iter" | "iter_mut"
-			) | ("Iterator", "next")
+			) | (
+				"Iterator",
+				"next" | "nth" | "last" | "find" | "max" | "min" | "max_by_key" | "min_by_key"
+			) | ("Peekable", "peek" | "next_if")
 				| (
 					"OnceCell" | "OnceLock",
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
 				)
-				| ("DoubleEndedIterator", "next_back" | "nth_back")
+				| ("DoubleEndedIterator", "next_back" | "nth_back" | "rfind")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
 				| ("ptr", "as_ref" | "as_mut")
 		)

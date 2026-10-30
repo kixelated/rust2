@@ -340,4 +340,10 @@ const subslices = [0, 1, 2, 3, 4].flatMap((n) =>
 	}),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices];
+/**
+ * `nested::consumers`, whose first byte is also `nth`'s index: of no items, `None` before
+ * `Some`, `nth` past the end, only `None`s, keys all tied, and `find` stopping early.
+ */
+const consumers = [[], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 3, 0x90, 0x92, 5]].map((bytes) => Uint8Array.of(op("nested::nested"), 3, ...bytes));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers];
