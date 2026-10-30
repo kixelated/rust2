@@ -3,7 +3,7 @@
 ## Goal
 
 Decide, by measurement, whether rust2-ts still needs `-Zbuild-std` now that it aborts on
-panic ([#187](https://github.com/kixelated/rust2/pull/187)), and drop it if not, making the
+panic ([#187](https://github.com/moq-dev/rust2/pull/187)), and drop it if not, making the
 translator's builds faster and simpler.
 
 ## Plan

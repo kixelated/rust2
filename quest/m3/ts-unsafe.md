@@ -17,7 +17,7 @@ annotations or config; this quest is what retires them.
 Decided with the maintainer on 2026-10-28, typed pointers: a raw pointer is what its
 reference is, the object, an `rt.Place`, or `rt.NULL`, and a pointer into a slice or `Vec`
 is `{ array, index }`. Byte reinterpretation, pointer-to-integer casts, and raw allocation
-are refused with a span. [#201](https://github.com/kixelated/rust2/pull/201) landed `Box`
+are refused with a span. [#201](https://github.com/moq-dev/rust2/pull/201) landed `Box`
 to raw and back, `NonNull`, `MaybeUninit`, raw reads and writes, `get_unchecked`, and
 unions whose overlapping fields share a type, which took hashlink from 375 refusals to
 none of its own `unsafe`.
@@ -40,7 +40,7 @@ none of its own `unsafe`.
   if a consumer's pointer is refused only by that.
 - A slice's pointer cast to an array's of its length, `*(s as *const [u8] as *const
   [u8; N])`, which `bytes`' `Buf::get_u16` and wider read a crate's own buffer through
-  ([#222](https://github.com/kixelated/rust2/pull/222)): the bytes keep their type, so
+  ([#222](https://github.com/moq-dev/rust2/pull/222)): the bytes keep their type, so
   this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
   range, and each integer's `from_le_bytes` and `from_ne_bytes`, and `chunks_vectored`
   needs `std::io::IoSlice`: 184 of moq-net's 196 refusals in `bytes`, the rest being 12

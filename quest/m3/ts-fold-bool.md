@@ -3,7 +3,7 @@
 ## Goal
 
 rust2-ts drops the dead arms of a match that a `bool` already decided, as
-[#175](https://github.com/kixelated/rust2/pull/175) does for a match an `if` or guard sits
+[#175](https://github.com/moq-dev/rust2/pull/175) does for a match an `if` or guard sits
 in front of: `if matches!(s, Shape::Dot) { match s { .. } }`, and `==` of a crate enum's
 derived `PartialEq`. Output only shrinks; the differential tests stay equal.
 
