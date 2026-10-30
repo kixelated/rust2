@@ -1,17 +1,15 @@
-# [M] C++ bindings on MSVC and Clang
+# [S] C++ bindings on MSVC and Apple Clang
 
 ## Goal
 
-The exporter's C++ header, which GCC builds and tests on Linux in `just ffi test` and
-`just ffi moq`, builds and passes the same tests with MSVC on Windows and Clang on Linux
-and macOS, at C++17, 20, and 23, with and without exceptions and RTTI, in CI at least
-nightly.
+The nightly's `Export moq-net to C++` jobs pass on MSVC and Apple Clang: the exporter's C++
+header passes `just ffi test cpp` and `just ffi moq-cpp` with MSVC on Windows and Apple
+Clang on macOS, as it does with GCC and Clang on Linux.
 
 ## Plan
 
-- One nightly job per platform, as `uniffi-cpp` runs the fork's. The exporter is a rustc
-  driver that runs on the host, so Windows either runs it there or builds an export made
-  on Linux; the tests' link flags (`-lpthread -ldl -lm`) and compiler flags are GCC's and
-  need MSVC's.
-- Clang 21 passed every configuration locally when the generator landed; CI has no Clang
-  yet.
+- The jobs landed before any run of theirs: read the first nightly's, and fix what it
+  finds at the source, in the generator or the recipes, never by loosening flags.
+- Unproven on those runners: the exporter, a rustc driver, running on Windows; cl's flags
+  and the environment `Launch-VsDevShell.ps1` sets; the standin's paths under Git Bash;
+  and MSVC's `/W4` warnings with no GCC or Clang counterpart, such as printf's formats.

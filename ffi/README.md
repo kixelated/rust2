@@ -86,7 +86,7 @@ export's, and adds nothing; another crate's type is refused.
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>`, or a bound implying one, as a supertrait does | `X`, or `&X` and then `String` or `Vec<T>` where `X` is `str` or `[T]` |
-| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes: a source parameter by its bounds as above, so `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes`, and any other source as it is, so `impl<'a, V> From<&'a V> for Timed<&'a V>` takes `&V` |
+| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes: a source parameter by its bounds as above, so `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes`, and by each `Into<Y>` whose `Y` does not map, what converts into `Y` in turn, each `Y` once and refusing a chain longer than the crate's recursion limit; any other source as it is, so `impl<'a, V> From<&'a V> for Timed<&'a V>` takes `&V`. Two sources C passes as one buffer, such as `String` and `Vec<u8>`, are refused, unless they are forms of one value, as `&str` and `String` are |
 | `impl IntoIterator<Item = X>`, where `X` is no type parameter | `Vec<X>` |
 | another type parameter | `serde_json::Value` for a serde `Serialize` or `Deserialize` bound, else the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too and no bound, its own or one a supertrait implies, makes it outlive the call, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
 
@@ -174,8 +174,11 @@ refused, and the census counts why.
   name. A type instance's methods are named through it, and a function instance appends
   its arguments' names, a reference's by what it borrows. An `exclude` of a type or method
   by the generic type's path leaves it out of every instance, and by the instance's path
-  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
-  `rename` by the generic item's path renames each of its instances.
+  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one. A
+  `rename` matches paths as `exclude` does: by the generic item's path it renames each of
+  its instances, and by an instance's path (`"catalog::Producer<moq_mux::catalog::hang::Extra>"`)
+  that one alone, whose arguments then add nothing to its name, while the others keep
+  theirs. The longer path wins, and at one length, the instance's.
 
 ## C++
 
@@ -185,7 +188,8 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 - **Names** are the C names without the prefix, in a namespace of it: `moq_track_producer`
   is `moq::track_producer`, and its method `moq_track_producer_append_group` is
   `moq::track_producer::append_group`. A keyword takes a trailing `_` (`counter::new_`),
-  as does a member named as its class or one of its fields.
+  as does a member named as its class or one of its fields, and a parameter named as a
+  member or as anything in the namespace, which it would hide.
 - **Objects** are classes owning their handle, move-only unless `Clone`, whose copy
   clones. `&self` methods are `const`, and `self` methods are `&&`, so a call that moves
   the value out reads `std::move(c).into_label()`. A handle taken by value is moved into,
@@ -289,6 +293,7 @@ refusal, which is a bug in the exporter's inference rather than in the crate.
 ```bash
 just ffi test     # export the fixtures, build them, and drive api from C, C++, and Kotlin
 just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
+just ffi moq-cpp  # the same export, running only moq/moq.cpp
 just ffi census   # census each into target/census
 nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C, C++, and Kotlin, and moq's rs/moq-c
 ```
@@ -313,3 +318,10 @@ QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp
 same through the C++ header, short of the catalog's field, at C++17 without exceptions or
 RTTI, as OBS builds it, serving on an executor's thread and blocking on each read, and
 `moq/moq.kt` through the Kotlin, serving in a coroutine and suspending on each read.
+
+The C++ builds take `CXX`, or `c++`, with every warning an error and `-Wshadow`, which
+stands in for MSVC's warnings that a name hides another. On Windows they take MSVC's `cl`
+from a developer environment, at `/W4` with `/permissive-`, and `/std:c++latest` for 23.
+They link what rustc prints a program linking the library needs. Nightly runs
+`just ffi test cpp` and `just ffi moq-cpp` with Clang on Linux and macOS and with MSVC on
+Windows.

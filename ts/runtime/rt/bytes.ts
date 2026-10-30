@@ -167,6 +167,50 @@ export function bytesAdvance(p: Place<Bytes>, cnt: usize): void {
 	p.v = new ByteSlice(b.data, b.start + cnt, b.length - cnt);
 }
 
+/** `<&[u8] as Buf>::advance`, which panics as reads past the end do. */
+export function byteSliceAdvance(p: Place<ByteSlice>, cnt: usize): void {
+	const b = p.v;
+	if (cnt > b.length) panicAdvance(cnt, b.length);
+	p.v = new ByteSlice(b.data, b.start + cnt, b.length - cnt);
+}
+
+/** `<&[u8] as Buf>::copy_to_bytes`: a copy of its first `len` bytes, read past. */
+export function byteSliceCopyToBytes(p: Place<ByteSlice>, len: usize): Bytes {
+	const b = p.v;
+	if (len > b.length) panicAdvance(len, b.length);
+	p.v = new ByteSlice(b.data, b.start + len, b.length - len);
+	return bytesCopyFromSlice(new ByteSlice(b.data, b.start, len));
+}
+
+/**
+ * `Buf::copy_to_bytes` as `bytes` provides it, of a buffer read through its own methods:
+ * `BytesMut::put` of a `Take` of `len` of it into a new `BytesMut` of capacity `len`, which
+ * isn't 0 once anything remains, so it reserves and copies chunk by chunk, then freezes.
+ */
+export function bufCopyToBytes<B>(
+	src: B,
+	len: usize,
+	remaining: (src: B) => usize,
+	chunk: (src: B) => ByteSlice,
+	advance: (src: B, cnt: usize) => void,
+): Bytes {
+	if (remaining(src) < len) panicAdvance(len, remaining(src));
+	const out = bytesMutWithCapacity(len);
+	let limit: number = len;
+	// The `Take`'s `remaining`, which reads the buffer's each time.
+	const left = () => Math.min(remaining(src), limit);
+	if (left() === 0) return bytesMutFreeze(out);
+	bytesMutReserve(out, left() as usize);
+	while (left() !== 0) {
+		const c = chunk(src);
+		const s = c.length > limit ? new ByteSlice(c.data, c.start, limit) : c;
+		bytesMutExtend(out, s);
+		advance(src, s.length as usize);
+		limit -= s.length;
+	}
+	return bytesMutFreeze(out);
+}
+
 /** `Buf::get_*` of `Bytes`: its first `n` bytes, the other way around if `le`, read past. */
 export function bytesRead(p: Place<Bytes>, n: usize, le: boolean): Uint8Array {
 	const b = p.v;

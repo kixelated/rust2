@@ -116,6 +116,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("collections::optionals", collections::optionals),
 		("objects::objects", |_, data, out| objects::objects(data, out)),
 		("holds::holds", holds::holds),
+		("fmt::wrapped", |_, data, out| fmt::wrapped(data, out)),
+		("refs::to_refs", |_, data, out| refs::to_refs(data, out)),
 	]
 }
 

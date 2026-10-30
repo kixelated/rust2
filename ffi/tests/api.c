@@ -351,6 +351,7 @@ static int script(void) {
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
 	printf("each %u\n", api_each(2, print_visit, NULL));
 	printf("offset %u\n", api_offset(seven, NULL, 3));
+	printf("shift %u\n", api_shift(seven, NULL, 4));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */
@@ -428,6 +429,12 @@ static int script(void) {
 	api_buf binary = {.ptr = (const uint8_t *)"\xff\0a", .len = 3};
 	print("hex ", api_hex(binary), "\n");
 	print("timed hex ", api_timed_hex(binary), "\n");
+	print("sample hex ", api_sample_hex(binary), "\n");
+	print("queued hex ", api_queued_hex(binary), "\n");
+	print("tick ", api_tick_name((api_label){.name = str("tick")}), "\n");
+	print("rooted ", api_rooted_name((api_label){.name = str("rooted")}), "\n");
+	print("stored ", api_stored_text(str("stored")), "\n");
+	print("layer ", api_layer_name((api_label){.name = str("layer")}), "\n");
 	api_event events[3] = {
 		{.tag = API_EVENT_MOVED, .moved = {._0 = p}},
 		{.tag = API_EVENT_NAMED, .named = {.name = str("n")}},
@@ -555,8 +562,9 @@ static int script(void) {
 	api_pair_u32 twins = {.left = 7, .right = 7};
 	printf("even %s %s\n", api_pair_u32_even(&pair) ? "true" : "false",
 	       api_pair_u32_even(&twins) ? "true" : "false");
-	api_pair_size_u8 sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
-	api_pair_u8_size flipped = api_pair_size_u8_swap(&sizes);
+	/* An instance renamed alone, beside another of `Pair` that keeps its name. */
+	api_size_tag sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
+	api_pair_u8_size flipped = api_size_tag_swap(&sizes);
 	printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", api_pair_u8_size_debug(&flipped), "\n");
 	api_pair_u32 byte = {.left = 258, .right = 9};
@@ -581,7 +589,7 @@ static int script(void) {
 	/* Generic functions and methods, at each implementation of the trait bounding them, by
 	   reference, which leaves C its handle. */
 	api_counter *from_point = api_counter_seeded_point(str("p"), (api_point){.x = -3, .y = 4});
-	api_counter *from_size = api_counter_seeded_size(str("s"), (api_size){.width = 5, .height = 6});
+	api_counter *from_size = api_counter_from_size(str("s"), (api_size){.width = 5, .height = 6});
 	api_counter *from_counter = api_counter_seeded_counter(str("c"), from_point);
 	/* Two instances whose arguments share a last segment: one takes its module too. */
 	api_counter *from_polar = api_counter_seeded_polar_point(str("q"), (api_polar_point){.turns = 1, .distance = 2});
