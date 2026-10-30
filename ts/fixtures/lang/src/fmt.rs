@@ -4,6 +4,9 @@
 #![allow(dead_code, reason = "fields only `Debug` reads")]
 
 use std::fmt;
+use std::ops::{Range, RangeToInclusive};
+use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::generics::Wrap;
 use crate::shapes::{Point, Shape};
@@ -557,6 +560,107 @@ pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 			put(out, &format!("{}", r.unwrap_err()));
 		}
 	}
+}
+
+/// `Debug` that pads its text, so a width and precision passed to it show, and marks `#`.
+#[derive(Clone, Copy)]
+pub struct Clip(&'static str);
+
+impl fmt::Debug for Clip {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		if f.alternate() {
+			f.write_str("#")?;
+		}
+		f.pad(self.0)
+	}
+}
+
+#[derive(Debug)]
+pub struct Shared {
+	arc: Arc<Pair>,
+	span: Range<u16>,
+	upto: RangeToInclusive<u8>,
+}
+
+/// std's ranges' `Debug`, which passes its options to each bound, and an `Arc`'s `Debug`
+/// and `Display`, which pass them to what it holds.
+pub fn wrapped(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let (a, b) = (i32::from(at(0)) - 128, i32::from(at(1)) - 100);
+	let w = usize::from(at(2) % 10);
+	put(
+		out,
+		&format!("{:?} {:?} {:?} {:?} {:?} {:?}", a..b, a..=b, a.., ..b, ..=b, ..),
+	);
+	put(
+		out,
+		&format!(
+			"{:5?}|{:<4?}|{:+?}|{:05?}|{:x?}|{:#X?}|{:w$?}|{:^w$?}|{:>3?}|{:#?}",
+			a..b,
+			a..=b,
+			a..,
+			..b,
+			..=b,
+			a..b,
+			a..=b,
+			..=b,
+			..,
+			a..b
+		),
+	);
+	let lo = Clip(STRINGS[usize::from(at(3)) % STRINGS.len()]);
+	let hi = Clip(STRINGS[usize::from(at(4)) % STRINGS.len()]);
+	put(
+		out,
+		&format!(
+			"{:?}|{:8.2?}|{:#?}|{:_>w$.1?}|{:#4?}",
+			lo..hi,
+			lo..=hi,
+			..hi,
+			lo..,
+			..=lo
+		),
+	);
+	let (x, y) = (u32::from(at(5)) * 0x101, u32::from(at(6)));
+	put(
+		out,
+		&format!("{:?}|{:>9?}|{:#?}", Hex(x)..Hex(y), Hex(x)..=Hex(y), ..Hex(y)),
+	);
+	let pairs = Pair(at(7), -1)..Pair(1, i64::MIN);
+	put(out, &format!("{pairs:?}|{pairs:#?}|{pairs:x?}|{pairs:+?}"));
+	// Iteration leaves an inclusive range in the state its `Debug` prints.
+	let mut drained = (at(8) % 4)..=(at(9) % 4);
+	while drained.next().is_some() {}
+	let mut top = at(8).max(250)..=255;
+	while top.next().is_some() {}
+	let mut back = 0..=(at(9) % 3);
+	while back.next_back().is_some() {}
+	let mut far = at(8)..=at(9);
+	far.nth(usize::from(at(10) % 8));
+	put(out, &format!("{drained:?} {top:?} {back:?} {far:?} {:?}", 0..=0));
+
+	let arc = Arc::new(Hex(x));
+	put(out, &format!("{arc}|{arc:>12}|{arc:#}|{arc:?}|{arc:>6?}|{arc:#?}"));
+	put(out, &arc.to_string());
+	let nested = Arc::new(Arc::new(a));
+	put(
+		out,
+		&format!("{nested}|{nested:+05}|{nested:?}|{nested:x?}|{nested:#X?}|{nested:<6?}|{nested:^+w$}"),
+	);
+	let rc = Rc::new(STRINGS[usize::from(at(3)) % STRINGS.len()].to_string());
+	put(out, &format!("{rc}|{rc:>8.2}|{rc:?}"));
+	let list = Arc::new([Pair(at(7), 2), Pair(3, -4)].to_vec());
+	put(out, &format!("{list:?} {list:#?}"));
+	let held = Arc::new(a)..Arc::new(b);
+	put(out, &format!("{held:?} {held:+04?} {:?}", Arc::new(lo)..Arc::new(hi)));
+	let shared = Shared {
+		arc: Arc::new(Pair(at(7), 5)),
+		span: u16::from(at(8))..300,
+		upto: ..=at(9),
+	};
+	put(out, &format!("{shared:?} {shared:#?}"));
+	let t: Arc<str> = Arc::from(STRINGS[usize::from(at(3)) % STRINGS.len()]);
+	put(out, &format!("{t} {t:?} {t:>9.2}"));
 }
 
 /// An error only a TypeScript caller prints, as moq's callers print its errors: nothing
