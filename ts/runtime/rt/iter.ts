@@ -19,7 +19,7 @@
 // an order each kind of iterator has its own, the `owned` functions follow it, dispatching
 // on the kind, so a bundle that never drops an item carries none of it.
 
-import { ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result } from "../rt.ts";
+import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter } from "./collections.ts";
 import { type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
@@ -215,6 +215,34 @@ export function iterSlice<T>(s: ArrayLike<T>, drop?: Drop<T>): Iter<T> {
 /** `slice::IterMut` of elements JS copies: the place of each. */
 export function iterSliceMut<T>(s: { [i: number]: T; length: number }): Iter<Place<T>> {
 	return new SliceMutIter(s);
+}
+
+/** `slice::windows`: each run of `size` elements, panicking on a size of 0 as std's does. */
+export function sliceWindows<T>(s: T[], size: number): Iter<T[]> {
+	if (size === 0) panic("window size must be non-zero");
+	return new PartsIter(s, s.length, size, 1, (s, start, end) => s.slice(start, end));
+}
+
+/** `slice::chunks`: each `size` elements, the last fewer, panicking on a size of 0 as std's does. */
+export function sliceChunks<T>(s: T[], size: number): Iter<T[]> {
+	if (size === 0) panic("chunk size must be non-zero");
+	return new PartsIter(s, s.length, size, size, (s, start, end) => s.slice(start, end));
+}
+
+/** `slice::windows` of bytes. */
+export function byteSliceWindows(s: ByteSlice, size: number): Iter<ByteSlice> {
+	if (size === 0) panic("window size must be non-zero");
+	return new PartsIter(s, s.length, size, 1, byteSlicePart);
+}
+
+/** `slice::chunks` of bytes. */
+export function byteSliceChunks(s: ByteSlice, size: number): Iter<ByteSlice> {
+	if (size === 0) panic("chunk size must be non-zero");
+	return new PartsIter(s, s.length, size, size, byteSlicePart);
+}
+
+function byteSlicePart(s: ByteSlice, start: number, end: number): ByteSlice {
+	return new ByteSlice(s.data, s.start + start, end - start);
 }
 
 /** `Option::iter`, and with what drops its item, `option::IntoIter`. */
@@ -934,6 +962,61 @@ class SliceMutIter<T> extends Iter<Place<T>> {
 
 	override nextBack(): Place<T> | Done {
 		return this.front < this.back ? new AtIndex(this.s, --this.back) : DONE;
+	}
+
+	override len(): number {
+		return this.back - this.front;
+	}
+
+	override advanceBy(n: number): number {
+		const step = Math.min(n, this.back - this.front);
+		this.front += step;
+		return n - step;
+	}
+
+	override advanceBackBy(n: number): number {
+		const step = Math.min(n, this.back - this.front);
+		this.back -= step;
+		return n - step;
+	}
+}
+
+/**
+ * `slice::Windows` and `Chunks` of `s`, of `length` elements: the part from each `step`th
+ * element on, `size` long or up to the end, as `part` slices it, while one starts before
+ * the end and, for windows, which step by 1, is `size` long.
+ */
+class PartsIter<S> extends Iter<S> {
+	private readonly s: S;
+	private readonly length: number;
+	private readonly size: number;
+	private readonly step: number;
+	private readonly part: (s: S, start: number, end: number) => S;
+	private front = 0;
+	/** How many parts there are, less those taken from the back. */
+	private back: number;
+
+	constructor(s: S, length: number, size: number, step: number, part: (s: S, start: number, end: number) => S) {
+		super();
+		this.s = s;
+		this.length = length;
+		this.size = size;
+		this.step = step;
+		this.part = part;
+		this.back = step === 1 ? Math.max(length - size + 1, 0) : Math.ceil(length / size);
+	}
+
+	private at(i: number): S {
+		const start = i * this.step;
+		return this.part(this.s, start, Math.min(start + this.size, this.length));
+	}
+
+	next(): S | Done {
+		return this.front < this.back ? this.at(this.front++) : DONE;
+	}
+
+	override nextBack(): S | Done {
+		return this.front < this.back ? this.at(--this.back) : DONE;
 	}
 
 	override len(): number {
