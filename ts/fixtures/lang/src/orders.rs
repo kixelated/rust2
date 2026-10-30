@@ -153,6 +153,7 @@ fn sorted(data: &[u8], out: &mut Vec<u8>) {
 		out.push(items().is_sorted_by_key(move |x| x.key + (&k).key) as u8);
 		let key = move |x: Item| x.key + (&l).key;
 		out.push(items().collect::<Vec<_>>().into_iter().is_sorted_by_key(&key) as u8);
+		out.push(items().collect::<Vec<_>>().into_iter().is_sorted_by_key(Box::new(&key)) as u8);
 		flush(out);
 		let strings: Vec<String> = bytes.iter().map(|b| (b % 16).to_string()).collect();
 		out.extend([

@@ -204,6 +204,7 @@ export function sorted(data: rt.ByteSlice, out: rt.ByteVec): void {
 			captured4[Symbol.dispose]();
 		});
 		rt.byteVecPush(out, rt.iterIsSortedBy(rt.iterMap(rt.iterSlice(rt.iterToArray(items()), rt.drop), rt.lent(key)), rt.le, true) ? 1 : 0);
+		rt.byteVecPush(out, rt.iterIsSortedBy(rt.iterMap(rt.iterSlice(rt.iterToArray(items()), rt.drop), rt.lent(key)), rt.le, true) ? 1 : 0);
 		flush(out);
 		const strings: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(_12)), (b7: rt.u8): string => {
 			const _415: rt.u8 = rt.u8Rem(b7, 16);

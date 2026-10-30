@@ -493,9 +493,11 @@ pub fn call<'tcx>(
 				_ => {
 					let key = targ(2)?;
 					let le = super::collections::test_fn(b, key, "le", span);
-					// A reference to a function is the function, which the map would drop.
+					// The map drops its function as the iterator drops, so one through a reference
+					// or box is lent, as one owned that drops is refused with such an iterator.
 					let (mut f, f_ty) = (rest.into_iter().next()?, targ(1)?);
-					if f_ty.is_ref() && b.t.drops(f_ty.peel_refs()) {
+					let owned = matches!(f_ty.kind(), ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..));
+					if !owned && drops_iter(b, self_ty, span) {
 						f = Expr::rt("lent", vec![f]);
 					}
 					(Expr::rt("iterMap", vec![recv.clone(), f]), le, key)
