@@ -35,6 +35,8 @@ module's value too, an `rt.Atomic` of the value the static's memory starts with.
 Left: the counters' cost, below.
 
 - `Send` and `Sync` bounds have no meaning in JS; accept them.
-- Measure the counter overhead on the [TS benchmark](/ts/README.md#bench).
+- Measure the counter overhead on the [TS benchmark](/ts/README.md#bench). Pending as of
+  2026-10-29: the host's CI runners spoil A/A runs, so this waits until the maintainer
+  freezes them.
 
 Public API: the translator's output for shared and interior-mutable types.
