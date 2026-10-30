@@ -204,6 +204,8 @@ pub struct Translator<'a, 'tcx> {
 	copy_shims: rustc_data_structures::fx::FxHashMap<Ty<'tcx>, SymId>,
 	/// Each module value, by the item it stands for: a thread-local's key or a static.
 	pub values: rustc_data_structures::fx::FxHashMap<DefId, SymId>,
+	/// The statics whose values are being read, which a pointer within one can't name yet.
+	pub reading: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
 	/// The bodies of other crates whose writes count: those the run before reached.
@@ -393,6 +395,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			drop_shims: Default::default(),
 			copy_shims: Default::default(),
 			values: Default::default(),
+			reading: Default::default(),
 			// Once the bindings are known.
 			writes: Default::default(),
 			read,
@@ -1145,6 +1148,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Atomic
 					| library::Std::OnceCell
 					| library::Std::OnceLock
+					| library::Std::LazyCell
+					| library::Std::LazyLock
 					| library::Std::Waker
 					| library::Std::Context
 					| library::Std::Pin
@@ -1463,6 +1468,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					};
 					Type::Rt(name, args)
 				}
+				library::Std::LazyCell => Type::Rt("LazyCell", vec![self.ty(args.type_at(0), span)]),
+				library::Std::LazyLock => Type::Rt("LazyLock", vec![self.ty(args.type_at(0), span)]),
 				library::Std::Waker => Type::Rt("Waker", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {

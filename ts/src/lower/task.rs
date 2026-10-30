@@ -211,6 +211,7 @@ pub fn call<'tcx>(
 		}
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
+			Some(Std::LazyCell | Std::LazyLock) if name == "deref" => first(args).member("force").call(vec![]),
 			// A pin is its pointer, which derefs as it does: an `Arc` to the value it holds, and
 			// a reference to what it points at.
 			Some(Std::Pin) => match self_ty.map(|t| t.kind()) {
@@ -278,6 +279,7 @@ pub fn call<'tcx>(
 			Expr::rt("localKeyInitializeWith", args.into_iter().chain(none).collect())
 		}
 		("Atomic", _) => return atomic(b, call, name, args),
+		("LazyCell" | "LazyLock", "force") => first(args).member("force").call(vec![]),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
 		("From", "from") if matches!(self_std, Some(Std::OnceCell | Std::OnceLock)) => {
 			let cell = self_ty.expect("a `From` impl's type");
@@ -375,6 +377,25 @@ fn atomic<'tcx>(
 		args.extend(int.filter(|int| int.big()).map(|int| int.func("eq")));
 		Expr::rt(f, args)
 	};
+	// A pointer compares as `ptr::eq` does only where it is the object it points at.
+	let generics = tcx.generics_of(imp).count();
+	let atomic = tcx
+		.type_of(imp)
+		.instantiate(tcx, &call.args[..generics])
+		.skip_norm_wip();
+	if let ty::Adt(_, atomic_args) = atomic.kind()
+		&& let ty::RawPtr(pointee, _) = atomic_args.type_at(0).kind()
+		&& matches!(
+			name,
+			"compare_exchange" | "compare_exchange_weak" | "try_update" | "fetch_update" | "update"
+		)
+		&& (b.t.pointee(*pointee) == super::pointer::Pointee::Place || b.t.zero_sized(*pointee))
+	{
+		return Ok(Some(b.err(
+			call.span,
+			format!("comparing pointers to `{pointee}` in an atomic, which JS has no address of"),
+		)));
+	}
 	let e = match name {
 		"new" => Expr::New(Box::new(Expr::Rt("Atomic".into())), args),
 		"load" => Expr::rt("atomicLoad", args),

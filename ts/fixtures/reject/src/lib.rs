@@ -74,10 +74,10 @@ pub fn written(s: &mut String, n: u8) {
 	let _ = write!(s, "{n}");
 }
 
-static COUNT: u8 = 0;
+static mut COUNT: u8 = 0;
 
 pub fn statics() -> u8 {
-	COUNT
+	unsafe { COUNT }
 }
 
 pub struct Meters(pub u64);
@@ -699,4 +699,16 @@ pub enum Only {
 /// A dangling pointer to an enum of no bytes, whose value is its variant's tag.
 pub fn dangling_enum() -> bool {
 	unsafe { std::ptr::NonNull::<Only>::dangling().as_ptr().as_ref().is_some() }
+}
+
+/// A pointer into memory the translation can't name.
+static NAMED: &u32 = &5;
+
+static SLOT: std::sync::atomic::AtomicPtr<u32> = std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+pub fn pointer_statics(p: *mut u32) -> u32 {
+	use std::sync::atomic::Ordering::Relaxed;
+	// Two `rt.Place`s of one place are two objects, which `===` can't tell are one.
+	let _ = SLOT.compare_exchange(p, std::ptr::null_mut(), Relaxed, Relaxed);
+	*NAMED
 }

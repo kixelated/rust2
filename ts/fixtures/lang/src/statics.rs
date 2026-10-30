@@ -1,10 +1,17 @@
 //! `static` atomics, each one value every use shares: of every kind, at module level and
 //! in a function, as kio's `waiter` keeps its ids, starting from a value of the type's
-//! extremes. Each case leaves every static as it found it, so a fresh instance and a
-//! reused one agree.
+//! extremes. Statics of any type, read from the memory rustc evaluated: a struct holding
+//! an atomic, an `AtomicPtr` as parking_lot keeps its table in, std's `OnceLock` and
+//! `LazyLock`; and `const`s holding cells, each use of which is a value of its own, as
+//! lock_api's `RawMutex::INIT` is. Each case leaves every static as it found it, or reads
+//! only what it holds whatever ran before, so a fresh instance and a reused one agree.
 
+use std::cell::LazyCell;
+use std::mem::MaybeUninit;
+use std::ptr;
 use std::sync::atomic::Ordering::{AcqRel, Acquire, Relaxed, SeqCst};
-use std::sync::atomic::{AtomicBool, AtomicI8, AtomicI64, AtomicU64, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicI8, AtomicI64, AtomicPtr, AtomicU8, AtomicU32, AtomicU64, AtomicUsize};
+use std::sync::{LazyLock, OnceLock};
 
 static COUNT: AtomicU64 = AtomicU64::new(u64::MAX - 2);
 static SIGNED: AtomicI8 = AtomicI8::new(-128);
@@ -69,4 +76,147 @@ fn next(reset: bool) -> u8 {
 		}
 		false => NEXT.fetch_add(1, Relaxed) as u8,
 	}
+}
+
+/// A static's counter beside what it never changes, as foldhash's seed storage keeps its state.
+struct Counter {
+	name: &'static str,
+	hits: AtomicU32,
+	limit: u32,
+	steps: [u8; 3],
+	state: Option<(u8, char)>,
+}
+
+static COUNTER: Counter = Counter {
+	name: "hits",
+	hits: AtomicU32::new(u32::MAX - 1),
+	limit: 3,
+	steps: [1, 2, 4],
+	state: Some((9, 'z')),
+};
+
+/// A lock's state as lock_api's `RawMutex::INIT` holds it: every use a lock of its own.
+struct Raw {
+	locked: AtomicBool,
+	count: AtomicU8,
+}
+
+#[allow(
+	clippy::declare_interior_mutable_const,
+	reason = "each use is a fresh lock, as `RawMutex::INIT` is"
+)]
+const INIT: Raw = Raw {
+	locked: AtomicBool::new(false),
+	count: AtomicU8::new(200),
+};
+
+/// A boxed node a pointer static holds.
+struct Node {
+	value: u8,
+}
+
+/// Null, as parking_lot's `HASHTABLE` starts.
+static SLOT: AtomicPtr<Node> = AtomicPtr::new(ptr::null_mut());
+
+/// A null pointer constant, as wasmtimer's are.
+const NONE: *mut Node = ptr::null_mut();
+
+/// Filled only by the first call that gets here, with the value every call gives.
+static ONCE: OnceLock<(u8, u32)> = OnceLock::new();
+
+/// How many lazy statics' functions ran, and so the order they finished in.
+static MADE: AtomicU8 = AtomicU8::new(0);
+
+/// Made by a function item, when first forced.
+static FIRST: LazyLock<Vec<u8>> = LazyLock::new(first);
+
+/// Made by a closure, which forces `FIRST` before it finishes.
+static SECOND: LazyLock<(u8, Vec<u8>)> = LazyLock::new(|| {
+	let first = FIRST.clone();
+	(MADE.fetch_add(1, Relaxed), first)
+});
+
+fn first() -> Vec<u8> {
+	vec![MADE.fetch_add(1, Relaxed), 7, 8]
+}
+
+/// How many times `LAZY`'s function ran in this call.
+static FORCED: AtomicU8 = AtomicU8::new(0);
+
+/// Each use a cell of its own, which runs its function once, when first forced.
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const LAZY: LazyCell<u8> = LazyCell::new(|| FORCED.fetch_add(1, Relaxed) + 10);
+
+/// Uninitialized, as moq-net's `UNINIT` frame is.
+const EMPTY: MaybeUninit<u16> = MaybeUninit::uninit();
+
+/// Each byte an operation on statics and constants read from memory; each puts what it read.
+pub fn cells(data: &[u8], out: &mut Vec<u8>) {
+	out.extend(COUNTER.name.as_bytes());
+	out.extend(COUNTER.steps);
+	match COUNTER.state {
+		Some((n, c)) => out.extend([n, c as u8]),
+		None => out.push(0xff),
+	}
+	// Two uses of one `const`, each its own lock.
+	let a = INIT;
+	let b = INIT;
+	let c = &INIT;
+	// Every lazy static, forced from either path, has run its function once.
+	let (made, from) = &*SECOND;
+	out.extend([*made, FIRST[0], from[0], FIRST[1]]);
+	for &op in data {
+		let n = op / 8;
+		match op % 8 {
+			// Wraps past `u32::MAX`, as an atomic's arithmetic does.
+			0 => out.extend(
+				COUNTER
+					.hits
+					.fetch_add(u32::from(n) % COUNTER.limit, AcqRel)
+					.to_le_bytes(),
+			),
+			1 => out.push(u8::from(a.locked.swap(n % 2 == 0, Acquire))),
+			2 => out.extend([
+				a.count.fetch_add(n, Relaxed),
+				b.count.load(Relaxed),
+				c.count.load(Relaxed),
+			]),
+			3 => out.push(u8::from(b.locked.load(Relaxed))),
+			4 => {
+				// Swapped between null and a box, as parking_lot's table is grown.
+				let node = Box::into_raw(Box::new(Node { value: n }));
+				let old = SLOT.swap(node, AcqRel);
+				out.push(u8::from(old.is_null()));
+				out.push(unsafe { (*SLOT.load(Acquire)).value });
+				match SLOT.compare_exchange(old, NONE, AcqRel, Acquire) {
+					Ok(_) => out.push(0xfd),
+					Err(seen) => out.push(u8::from(seen == node)),
+				}
+				match SLOT.compare_exchange(node, NONE, AcqRel, Acquire) {
+					Ok(seen) => out.push(unsafe { Box::from_raw(seen) }.value),
+					Err(_) => out.push(0xfc),
+				}
+				out.push(u8::from(SLOT.load(Relaxed).is_null()));
+			}
+			5 => {
+				let (seen, len) = ONCE.get_or_init(|| (3, 9));
+				out.extend([*seen, *len as u8, u8::from(ONCE.get().is_some())]);
+			}
+			6 => {
+				// Neither cell runs its function before it is forced, and each runs it once.
+				let x = LAZY;
+				let y = LAZY;
+				out.push(FORCED.load(Relaxed));
+				out.extend([*y, *x, *y, *LazyCell::force(&x)]);
+				out.push(FORCED.swap(0, Relaxed));
+			}
+			_ => {
+				let mut slots = [EMPTY; 3];
+				let i = usize::from(n) % 3;
+				slots[i].write(u16::from(n) * 300);
+				out.extend(unsafe { slots[i].assume_init() }.to_le_bytes());
+			}
+		}
+	}
+	COUNTER.hits.store(u32::MAX - 1, Relaxed);
 }
