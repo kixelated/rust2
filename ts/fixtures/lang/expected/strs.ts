@@ -1214,6 +1214,8 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		})));
 		rt.iterEmpty();
 		put(out, rt.stringFromStrings(rt.iterEmpty()));
+		put(out, rt.stringExtendChars("", rt.iterRev(rt.strChars(s))));
+		put(out, rt.stringExtend("", rt.iterSlice(parts)));
 		const owned: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (p6: string): string => {
 			return p6;
 		}));
@@ -1223,10 +1225,10 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		put(out, rt.stringFromStrings(rt.iterFrom({ items: owned, nexts }, (it: Counted.Counted<string>) => Counted.next$Iterator_String(it))));
 	} else if (_21 === 2) {
 		let t: string = "é";
-		const _137: rt.char[] = chars;
-		extendChars(rt.place(() => t, (value) => t = value), _137, kind);
-		const _141: rt.Iter<rt.char> = rt.iterRev(rt.strChars(s));
-		t = rt.stringExtendChars(t, _141);
+		const _153: rt.char[] = chars;
+		extendChars(rt.place(() => t, (value) => t = value), _153, kind);
+		const _157: rt.Iter<rt.char> = rt.iterRev(rt.strChars(s));
+		t = rt.stringExtendChars(t, _157);
 		named.name = rt.stringExtendChars(named.name, rt.iterSlice(chars));
 		rt.iterEmpty();
 		named.name = rt.stringExtendChars(named.name, rt.iterEmpty());
@@ -1235,19 +1237,19 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		put(out, t);
 	} else {
 		let t2: string = "";
-		const _163: rt.Iter<string> = rt.strSplit(s, "/");
-		t2 = rt.stringExtend(t2, _163);
-		const _168: rt.Iter<string> = rt.iterMap(rt.iterSlice(parts), (p: string): string => {
+		const _179: rt.Iter<string> = rt.strSplit(s, "/");
+		t2 = rt.stringExtend(t2, _179);
+		const _184: rt.Iter<string> = rt.iterMap(rt.iterSlice(parts), (p: string): string => {
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, p)];
 			return rt.fmtFormat([args2[0], "é"]);
 		});
-		t2 = rt.stringExtend(t2, _168);
-		const _174: rt.Iter<string> = rt.iterRev(rt.iterSlice(parts));
-		named.name = rt.stringExtend(named.name, _174);
-		const _181: rt.Iter<string> = rt.iterMap(rt.iterSlice(parts), (p2: string): string => {
+		t2 = rt.stringExtend(t2, _184);
+		const _190: rt.Iter<string> = rt.iterRev(rt.iterSlice(parts));
+		named.name = rt.stringExtend(named.name, _190);
+		const _197: rt.Iter<string> = rt.iterMap(rt.iterSlice(parts), (p2: string): string => {
 			return p2;
 		});
-		named.name = rt.stringExtend(named.name, _181);
+		named.name = rt.stringExtend(named.name, _197);
 		rt.iterEmpty();
 		named.name = rt.stringExtend(named.name, rt.iterEmpty());
 		const counted4: Counted.Counted<string> = { items: parts, nexts };

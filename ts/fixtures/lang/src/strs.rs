@@ -702,6 +702,10 @@ pub fn iters(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 					.collect::<String>(),
 			);
 			put(out, &std::iter::empty::<String>().collect::<String>());
+			let cow: std::borrow::Cow<str> = s.chars().rev().collect();
+			put(out, &cow);
+			let boxed: Box<str> = parts.iter().copied().collect();
+			put(out, &boxed);
 			let owned: Vec<String> = parts.iter().map(|p| p.to_string()).collect();
 			put(
 				out,

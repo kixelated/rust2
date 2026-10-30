@@ -803,12 +803,17 @@ fn collect<'tcx>(
 			Some(Expr::rt(collect, tail(args, vec![dropper])))
 		}
 		// From chars or text, as `extend` of an empty one, but for an owned string's, which
-		// the rest extend once `next` gives it.
-		Std::String if matches!(b.t.std_of(item), Some(Std::String | Std::Cow)) => {
-			let drops = iter_drops(b, from, span);
-			Some(Expr::rt("stringFromStrings", tail(vec![iter], vec![drops])))
+		// the rest extend once `next` gives it. A `Cow<str>` and a `Box<str>` own the `String`
+		// std's collects.
+		Std::String | Std::Cow | Std::Box if std == Std::String || args.types().next().is_some_and(|t| t.is_str()) => {
+			match b.t.std_of(item) {
+				Some(Std::String | Std::Cow) => {
+					let drops = iter_drops(b, from, span);
+					Some(Expr::rt("stringFromStrings", tail(vec![iter], vec![drops])))
+				}
+				_ => string_extend(b, Expr::Str(String::new()), iter, item, from, span),
+			}
 		}
-		Std::String => string_extend(b, Expr::Str(String::new()), iter, item, from, span),
 		_ => super::collections::collect(b, ty, iter, from, span),
 	}
 }
