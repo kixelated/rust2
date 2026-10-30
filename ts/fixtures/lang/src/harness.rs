@@ -138,6 +138,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::cells", |_, data, out| pointers::cells(data, out)),
 		("ints::parses", ints::parses),
 		("strs::edits", strs::edits),
+		("slices::subslices", slices::subslices),
 	]
 }
 

@@ -35,7 +35,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.union_whole(*place, span).is_some() {
 					return Some(self.err(span, "a reference to a union's field kept in more than one slot"));
 				}
-				if let Some(e) = self.mut_subslice(*kind, *place, span) {
+				if let Some(e) = self.mut_subslice(*kind, *place, span, out) {
 					return Some(e);
 				}
 				if let mir::BorrowKind::Mut { .. } = kind {

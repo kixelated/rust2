@@ -32,6 +32,7 @@ generic std gap is planned here even when moq never calls it.
 - [Closures that return an Option whose None is rt.None](/quest/m3/ts-option-closures.md) - `find_map`, `filter_map`, and `map_while` to `Option<Option<u8>>` keep `None` apart from `Some(None)`
 - [Byte arrays compared for equality and hashed](/quest/m3/ts-byte-keys.md) - `==` of byte arrays, and byte arrays, slices, and vectors as hash keys, translate
 - [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate
-- [Mutable subslices of other values](/quest/m3/ts-mut-subslices.md) - `&mut v[a..b]` and `split_at_mut` of other than bytes translate, writing through
+- [A slice's parts by inclusive range, checked range, and fixed size](/quest/m3/ts-slice-ranges.md) - `&v[a..=b]`, `get_mut(a..b)`, and `first_chunk_mut` translate, writing through
+- [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it

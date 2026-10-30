@@ -1369,6 +1369,20 @@ fn mapping<'tcx>(
 				false => rt2(args, "slice", &super::camel(&name)),
 			}
 		}
+		// Halves of bytes are views already, and of other values the runtime's views.
+		("slice", "split_at_mut" | "split_at_mut_checked") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name.replace("_mut", ""))),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		// The element is lent as `first_mut` lends it, and the rest as a view.
+		("slice", "split_first_mut" | "split_last_mut") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => {
+				let mut values = args;
+				values.push(Expr::lit(b.t.needs_place(targ(gargs, 0)).to_string()));
+				rt2(values, "slice", &super::camel(&name))
+			}
+		},
 		("ChunksExact" | "RChunksExact", "remainder") | ("ChunksExactMut" | "RChunksExactMut", "into_remainder") => {
 			Expr::rt("partsRemainder", args)
 		}
