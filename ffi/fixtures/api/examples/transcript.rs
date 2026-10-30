@@ -162,6 +162,12 @@ fn main() {
 		ttl: None,
 	};
 	println!("tick {}", api_lib::tick_name(tick));
+	let rooted = Label {
+		name: "rooted".to_string(),
+		at: None,
+		ttl: None,
+	};
+	println!("rooted {}", api_lib::rooted_name(rooted));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}

@@ -311,6 +311,7 @@ static int script(void) {
 	print("sample hex ", api_sample_hex(binary), "\n");
 	print("queued hex ", api_queued_hex(binary), "\n");
 	print("tick ", api_tick_name((api_label){.name = str("tick")}), "\n");
+	print("rooted ", api_rooted_name((api_label){.name = str("rooted")}), "\n");
 	api_event events[3] = {
 		{.tag = API_EVENT_MOVED, .moved = {._0 = p}},
 		{.tag = API_EVENT_NAMED, .named = {.name = str("n")}},

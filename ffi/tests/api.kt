@@ -140,6 +140,7 @@ fun script() {
 	println("sample hex ${sampleHex(binary)}")
 	println("queued hex ${queuedHex(binary)}")
 	println("tick ${tickName(Label("tick", null, null))}")
+	println("rooted ${rootedName(Label("rooted", null, null))}")
 	for (event in listOf(Event.Moved(p), Event.Named("n"), Event.Done)) {
 		println(describe(event))
 	}

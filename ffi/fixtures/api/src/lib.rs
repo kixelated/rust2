@@ -762,6 +762,29 @@ pub fn tick_name(tick: impl Into<Tick>) -> String {
 	tick.into().0
 }
 
+/// A label's name, scoped to a lifetime it borrows nothing for.
+pub struct Scoped<'a>(String, std::marker::PhantomData<&'a ()>);
+
+impl From<Label> for Scoped<'_> {
+	fn from(label: Label) -> Self {
+		Self(label.name, std::marker::PhantomData)
+	}
+}
+
+/// What converts into a `Scoped<'static>`, which an owned label does.
+pub struct Rooted(Scoped<'static>);
+
+impl<T: Into<Scoped<'static>>> From<T> for Rooted {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// The name a `Rooted` takes, through a target whose lifetime is `'static`.
+pub fn rooted_name(rooted: impl Into<Rooted>) -> String {
+	rooted.into().0.0
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }
