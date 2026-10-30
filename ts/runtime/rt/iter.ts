@@ -2722,9 +2722,9 @@ export function peekableNextIf<T>(p: Peekable<T>, f: (item: T) => boolean, none?
 }
 
 /** `Peekable::next_if_eq`: `next_if` by `eq` of the next item and `expected`. */
-export function peekableNextIfEq<T>(p: Peekable<T>, expected: T, eq: (a: T, b: T) => boolean): T | undefined;
-export function peekableNextIfEq<T>(p: Peekable<T>, expected: T, eq: (a: T, b: T) => boolean, none: None): T | None;
-export function peekableNextIfEq<T>(p: Peekable<T>, expected: T, eq: (a: T, b: T) => boolean, none?: None): T | undefined | None {
+export function peekableNextIfEq<T, U>(p: Peekable<T>, expected: U, eq: (a: T, b: U) => boolean): T | undefined;
+export function peekableNextIfEq<T, U>(p: Peekable<T>, expected: U, eq: (a: T, b: U) => boolean, none: None): T | None;
+export function peekableNextIfEq<T, U>(p: Peekable<T>, expected: U, eq: (a: T, b: U) => boolean, none?: None): T | undefined | None {
 	return peekableNextIf(p, (item: T) => eq(item, expected), none);
 }
 

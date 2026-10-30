@@ -3,15 +3,18 @@
 import * as rt from "./rt.ts";
 import * as Blob from "./bind/blob.ts";
 import * as checksum from "./bind/checksum.ts";
+import * as Nibble from "./bind/nibble.ts";
 import * as skip from "./bind/skip.ts";
 import * as Tally from "./bind/tally.ts";
+import { unwrapOr$0r2bmpr, unwrapOr$1rbuegs, mapOr$174crag } from "./core/option.ts";
 
 /**
  * Split the input as `Blob`, compare and hash the parts, skip its leading zeros, and
- * count tallies down as they drop. A first byte of 1 slices out of order, which panics.
+ * count tallies down as they drop, then key collections by bound types. A first byte of
+ * 1 slices out of order, which panics.
  */
 export function run(input: rt.ByteSlice): rt.ByteVec {
-	let _125: boolean = false;
+	let _128: boolean = false;
 	const out: rt.ByteVec = new rt.ByteVec();
 	const bytes: Blob.Blob = Blob.copyFromSlice(input);
 	const mid: rt.usize = rt.usizeDiv(Blob.len(bytes), 2);
@@ -57,20 +60,104 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	rt.byteVecPush(out, count.strong & 0xff);
 	const _110: rt.u8 = Tally.get(b) & 0xff;
 	rt.byteVecPush(out, _110);
-	_125 = true;
+	_128 = true;
 	const held: Tally.Tally | undefined = b;
 	if (rt.byteSliceFirst(input) === 2) {
-		_125 = false;
+		_128 = false;
 		rt.drop(held);
 	}
 	rt.byteVecPush(out, count.strong & 0xff);
+	keys(input, bytes, out);
 	const _0: rt.ByteVec = out;
-	if (_125) {
+	if (_128) {
 		rt.drop(held);
 	}
-	_125 = false;
+	_128 = false;
 	count[Symbol.dispose]();
 	return _0;
+}
+
+/**
+ * Collections keyed by `Blob`s, equal by their bytes wherever they are sliced from, and by
+ * `Nibble`s, equal by their low bits: what each finds, keeps, and orders.
+ */
+export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): void {
+	let _12!: rt.usize;
+	let _143!: rt.u8;
+	const seen: rt.HashSet<Blob.Blob> = rt.hashNew(rt.hashing(Blob.hash$Hash, Blob.eq$PartialEq, true)) as rt.HashSet<Blob.Blob>;
+	const counts: rt.HashMap<Blob.Blob, rt.u8> = rt.hashNew(rt.hashing(Blob.hash$Hash, Blob.eq$PartialEq, true)) as rt.HashMap<Blob.Blob, rt.u8>;
+	const sorted: rt.BTreeSet<Blob.Blob> = rt.btreeNew(Blob.cmp$Ord) as rt.BTreeSet<Blob.Blob>;
+	const firsts: rt.BTreeMap<Blob.Blob, rt.u8> = rt.btreeNew(Blob.cmp$Ord) as rt.BTreeMap<Blob.Blob, rt.u8>;
+	const _10: rt.usize = Blob.len(bytes);
+	let iterStart: rt.usize = 0;
+	const iterEnd: rt.usize = _10;
+	while ((_12 = iterStart++) < iterEnd) {
+		const at: rt.usize = _12;
+		const part: Blob.Blob = Blob.slice(bytes, new rt.Range(at, rt.min(rt.usizeAdd(at, 2), Blob.len(bytes))));
+		const _26: Blob.Blob = Blob.clone$Clone(part);
+		rt.byteVecPush(out, rt.hashAdd(seen, _26) ? 1 : 0);
+		const _31: Blob.Blob = Blob.clone$Clone(part);
+		const _28: rt.Place<rt.u8> = rt.entryOrInsertMut(rt.entry(counts, _31), 0);
+		_28.v = rt.u8Add(_28.v, 1);
+		const _36: Blob.Blob = Blob.clone$Clone(part);
+		rt.btreeAdd(sorted, _36);
+		rt.entryOrInsertMut(rt.entry(firsts, part), at & 0xff);
+	}
+	rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
+	rt.byteVecPush(out, rt.hashLen(counts) & 0xff);
+	const probe: Blob.Blob = Blob.copyFromSlice(unwrapOr$1rbuegs(rt.byteSliceGetRange(input, 0, 2), input));
+	rt.byteVecPush(out, rt.hashContains(seen, probe) ? 1 : 0);
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(counts, probe), 0));
+	rt.byteVecPush(out, rt.btreeContains(sorted, probe) ? 1 : 0);
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.btreeGet(firsts, probe), 255));
+	const _81: { start: Blob.Blob } = { start: Blob.clone$Clone(probe) };
+	rt.byteVecPush(out, rt.iterCount(rt.btreeRangeKeys(sorted, _81, Blob.eq$PartialEq, rt.cmpGt(Blob.partialCmp$PartialOrd))) & 0xff);
+	const iter2: rt.Iter<[Blob.Blob, rt.u8]> = rt.btreeIter(firsts);
+	while (true) {
+		const _87: [Blob.Blob, rt.u8] | rt.Done = iter2.next();
+		if (_87 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, Blob.len(_87[0]) & 0xff);
+		rt.byteVecExtendFromSlice(out, Blob.deref$Deref(_87[0]));
+		rt.byteVecPush(out, _87[1]);
+	}
+	rt.byteVecPush(out, rt.hashDelete(seen, probe) ? 1 : 0);
+	rt.byteVecPush(out, rt.btreeDelete(sorted, probe) ? 1 : 0);
+	rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
+	const nibbles: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash, Nibble.eq$PartialEq, true)) as rt.HashSet<Nibble.Nibble>;
+	const lasts: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash, Nibble.eq$PartialEq, true)) as rt.HashMap<Nibble.Nibble, rt.u8>;
+	const ordered: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
+	const values: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
+	for (const byte of rt.byteSliceView(input)) {
+		const key: Nibble.Nibble = Nibble.new(byte);
+		rt.byteVecPush(out, rt.hashAdd(nibbles, key) ? 1 : 0);
+		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashInsert(lasts, key, byte), 255));
+		rt.btreeAdd(ordered, key);
+		rt.btreeInsert(values, key, byte);
+	}
+	rt.byteVecPush(out, rt.hashLen(nibbles) & 0xff);
+	let iterStart2: rt.u8 = 0;
+	const iterEnd2: rt.u8 = 16;
+	while ((_143 = iterStart2++) < iterEnd2) {
+		const key3: Nibble.Nibble = Nibble.new(rt.u8Mul(_143, 17));
+		rt.byteVecPush(out, mapOr$174crag(rt.hashKey(nibbles, key3), 255, (n: Nibble.Nibble): rt.u8 => {
+			return Nibble.get(n);
+		}));
+		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(lasts, key3), 255));
+	}
+	const iter5: rt.Iter<[Nibble.Nibble, rt.u8]> = rt.btreeIter(values);
+	while (true) {
+		const _164: [Nibble.Nibble, rt.u8] | rt.Done = iter5.next();
+		if (_164 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, Nibble.get(_164[0]));
+		rt.byteVecPush(out, _164[1]);
+	}
+	rt.iterExtendBytes(out, rt.iterMap(rt.btreeKeys(ordered), (n2: Nibble.Nibble): rt.u8 => {
+		return Nibble.get(n2);
+	}));
 }
 
 //# sourceMappingURL=harness.ts.map

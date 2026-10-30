@@ -1,6 +1,8 @@
 //! Immutable bytes that clones and slices share, read through `unsafe`: a dependency's
 //! type that a consumer binds rather than translates.
 
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 use std::ops::{Bound, Deref, RangeBounds};
 use std::sync::Arc;
 
@@ -91,6 +93,26 @@ impl Deref for Blob {
 impl PartialEq for Blob {
 	fn eq(&self, other: &Self) -> bool {
 		**self == **other
+	}
+}
+
+impl Eq for Blob {}
+
+impl Hash for Blob {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		(**self).hash(state);
+	}
+}
+
+impl PartialOrd for Blob {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Blob {
+	fn cmp(&self, other: &Self) -> Ordering {
+		(**self).cmp(&**other)
 	}
 }
 

@@ -447,6 +447,14 @@ const ranges = [0, 1, 2, 3, 4].flatMap((n) => {
 const reducers = [[], [9], [9, 9], [8, 4, 12, 0x40, 0x80]].map((bytes) => Uint8Array.of(op("iters::reducers"), 0, ...bytes));
 
 /**
+ * `iters::peeked_others` of no items, one, a run that matches the first throughout, and
+ * items that each match one comparison and miss the next.
+ */
+const peekedOthers = [[], [3], [4, 4, 4, 4], [0, 1, 2, 3, 4, 5, 6], [1, 0, 0, 2, 5, 9]].map((bytes) =>
+	Uint8Array.of(op("iters::peeked_others"), 0, ...bytes),
+);
+
+/**
  * `edits` of each kind over zero to four items, at every three bounds up to one past the
  * end, so parts are empty, at the end, backwards, and out of bounds.
  */
@@ -493,4 +501,4 @@ const reserves = Array.from({ length: 13 * 5 * 5 * 4 * 5 }, (_, i) =>
 	Uint8Array.of(reservesOp, i % 65, Math.floor(i / 65) % 5, Math.floor(i / 325) % 4, Math.floor(i / 1300)),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...hints, ...reserves];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves];

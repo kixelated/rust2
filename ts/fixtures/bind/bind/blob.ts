@@ -51,3 +51,16 @@ export function deref$Deref(self: Blob): rt.ByteSlice {
 export function eq$PartialEq(self: Blob, other: Blob): boolean {
 	return rt.byteSliceEq(self, other);
 }
+
+export function hash$Hash(self: Blob, state: rt.Hasher): undefined {
+	rt.hashBytes(self, state);
+	return undefined;
+}
+
+export function partialCmp$PartialOrd(self: Blob, other: Blob): rt.Ordering {
+	return rt.cmpBytes(self, other);
+}
+
+export function cmp$Ord(self: Blob, other: Blob): rt.Ordering {
+	return rt.cmpBytes(self, other);
+}

@@ -3,6 +3,7 @@ roots = ["harness::run"]
 
 [bind]
 "buf::Blob" = "bind/blob.ts"
+"key::Nibble" = "bind/nibble.ts"
 "raw::checksum" = "bind/checksum.ts"
 "raw::skip" = "bind/skip.ts"
 "raw::Tally" = { file = "bind/tally.ts", drop = true }

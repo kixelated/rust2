@@ -12,7 +12,7 @@ use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Param, Type};
+use crate::ts::{Expr, Param, StmtKind, Type};
 
 /// `Iterator::next`, and the trait's `Item`.
 fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
@@ -484,16 +484,32 @@ pub fn call<'tcx>(
 		"peek" | "next_if" => method(&camel, [rest, none.into_iter().collect()].concat()),
 		// An item JS copies is lent as its place, and an object as itself.
 		"peek_mut" => method(&camel, vec![Expr::lit(b.t.needs_place(item).to_string())]),
-		// By the item's own `PartialEq`, which `eq_fn` has only of the item's type.
+		// By the item's `PartialEq<T>`: `eq_fn` of its own type, else the impl's `eq`, as a
+		// call to it lowers.
 		"next_if_eq" => {
 			let expected = targ(1)?;
-			if expected != item {
-				return Some(b.err(
-					span,
-					format!("`next_if_eq` of `{item}` items with a `{expected}`, which is not supported yet"),
-				));
-			}
-			let eq = super::collections::eq_fn(b, item, span);
+			let eq = match expected == item {
+				true => super::collections::eq_fn(b, item, span),
+				false => {
+					let eq = super::collections::trait_fn(tcx, "PartialEq", "eq");
+					let eq = b.fn_value(eq, tcx.mk_args(&[item.into(), expected.into()]), span);
+					match super::byte_array(item) {
+						// The `eq` takes a `&[u8; N]`, an `rt.ByteSlice` of the item's bytes.
+						true => {
+							let (a, c) = (b.fresh("a"), b.fresh("b"));
+							let lent = Expr::rt("byteSliceFrom", vec![Expr::ident(&a)]);
+							let call = eq.call(vec![lent, Expr::ident(&c)]);
+							let params = [a, c].map(|name| Param { name, ty: None }).into();
+							Expr::Arrow(
+								params,
+								Type::Builtin("boolean"),
+								vec![StmtKind::Return(Some(call)).at(None)],
+							)
+						}
+						false => eq,
+					}
+				}
+			};
 			method(&camel, [rest, vec![eq], none.into_iter().collect()].concat())
 		}
 		// By the comparator, which `best` calls with the best so far and then the next, as
