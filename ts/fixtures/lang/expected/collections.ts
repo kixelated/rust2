@@ -102,7 +102,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _80: rt.Iter<[rt.u8, rt.u16]> = rt.iterMap(rt.hashIter(map), (_231: [rt.u8, rt.u16]): [rt.u8, rt.u16] => {
 			return [_231[0], _231[1]] as [rt.u8, rt.u16];
 		});
-		const iter2: rt.Iter<[rt.u8, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, _80, true, undefined, undefined, undefined, 4));
+		const iter2: rt.Iter<[rt.u8, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, _80, true, undefined, undefined, "next", 4));
 		while (true) {
 			const _86: [rt.u8, rt.u16] | rt.Done = iter2.next();
 			if (_86 === rt.DONE) {
@@ -134,7 +134,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			}
 		}
 		const _136: rt.Iter<rt.u64> = rt.hashKeys(map2);
-		const iter4: rt.Iter<rt.u64> = rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _136, true, undefined, undefined, 8));
+		const iter4: rt.Iter<rt.u64> = rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _136, true, undefined, "next", 8));
 		while (true) {
 			const _142: rt.u64 | rt.Done = iter4.next();
 			if (_142 === rt.DONE) {
@@ -189,7 +189,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _238: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.hashIter(map3), (_212: [Nibble.Nibble, rt.u8]): [rt.u8, rt.u8] => {
 			return [_212[0]._0, _212[1]] as [rt.u8, rt.u8];
 		});
-		const iter6: rt.Iter<[rt.u8, rt.u8]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _238, true, undefined, undefined, undefined, 2));
+		const iter6: rt.Iter<[rt.u8, rt.u8]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _238, true, undefined, undefined, "next", 2));
 		while (true) {
 			const _243: [rt.u8, rt.u8] | rt.Done = iter6.next();
 			if (_243 === rt.DONE) {
@@ -213,7 +213,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, before.n & 0xff);
 		rt.byteVecPush(out, rt.hashIndex(pairs, key).n & 0xff);
 		const _278: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.hashIter(pairs);
-		const iter7: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, _278, true, undefined, undefined, undefined, 6));
+		const iter7: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, _278, true, undefined, undefined, "next", 6));
 		while (true) {
 			const _282: [Pair.Pair, Tally.Tally] | rt.Done = iter7.next();
 			if (_282 === rt.DONE) {
@@ -339,7 +339,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _486: rt.Iter<[Rank.Rank, rt.u16]> = rt.iterMap(rt.hashIter(ranks), (_230: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
 			return [_230[0], _230[1].n] as [Rank.Rank, rt.u16];
 		});
-		const iter14: rt.Iter<[Rank.Rank, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, _486, true, undefined, undefined, undefined, 6));
+		const iter14: rt.Iter<[Rank.Rank, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, _486, true, undefined, undefined, "next", 6));
 		while (true) {
 			const _492: [Rank.Rank, rt.u16] | rt.Done = iter14.next();
 			if (_492 === rt.DONE) {
@@ -416,7 +416,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _596: rt.Iter<rt.u8> = rt.iterMap(rt.hashKeys(clashes), (k8: Clash.Clash): rt.u8 => {
 			return k8._0;
 		});
-		rt.iterExtendBytes(out, rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _596, true, undefined, undefined, 1)), undefined, true);
+		rt.iterExtendBytes(out, rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _596, true, undefined, "next", 1)), undefined, true);
 		const copy3: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashClone(clashes, undefined, copy$Tally);
 		rt.byteVecPush(out, rt.hashLen(copy3) & 0xff);
 		rt.byteVecPush(out, rt.hashContains(copy3, { _0: 1 }) ? 1 : 0);
@@ -515,7 +515,7 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			rt.byteVecPush(out, unwrapOr$1j4op5y(_113, 255) & 0xff);
 		}
-		rt.byteVecPush(out, rt.iterToArray(rt.btreeRangeKeys(sorted, new rt.Range(4, 12)), undefined, 2).length & 0xff);
+		rt.byteVecPush(out, rt.iterToArray(rt.btreeRangeKeys(sorted, new rt.Range(4, 12)), "next", 2).length & 0xff);
 		rt.hashRetain(hashed, (v5: rt.u16): boolean => {
 			return rt.u16Rem(v5, 3) !== 0;
 		});
@@ -722,16 +722,16 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		if (_158 === 0) {
 			within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, new rt.Range(lo, hi)), (_236: [rt.u8, rt.u8]): rt.u8 => {
 				return _236[0];
-			}));
+			}), "next");
 		} else if (_158 === 1) {
 			const _167: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(lo, hi, rt.u8Step);
 			within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, _167), (_235: [rt.u8, rt.u8]): rt.u8 => {
 				return _235[0];
-			}));
+			}), "next");
 		} else {
 			within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, { start: lo }), (_234: [rt.u8, rt.u8]): rt.u8 => {
 				return _234[0];
-			}));
+			}), "next");
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(within));
 		rt.iterExtendBytes(out, rt.btreeValues(map), undefined, true);
@@ -966,7 +966,7 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, _93[0] ^ _93[1]);
 	}
-	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.dequeDrain(q, undefined))));
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.dequeDrain(q, undefined), "next")));
 	rt.byteVecPush(out, q.n === 0 ? 1 : 0);
 	const _111: rt.Iter<Tally.Tally> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_25: rt.u8): Tally.Tally => {
 		return { n: _25 as rt.u16 };
@@ -1021,14 +1021,14 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const q2: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _198, undefined, 1, true);
 	const _201: rt.usize = rt.usizeRem(a, 4);
 	if (_201 === 0) {
-		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, new rt.Range(a, b2)));
+		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, new rt.Range(a, b2)), "next");
 	} else if (_201 === 1) {
 		const _208: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b2, rt.usizeStep);
-		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, _208));
+		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, _208), "next");
 	} else if (_201 === 2) {
-		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { end: b2 }));
+		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { end: b2 }), "next");
 	} else {
-		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { start: a }));
+		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { start: a }), "next");
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(drained2));
 	rt.iterExtendBytes(out, rt.dequeIter(q2), undefined, true);
@@ -1303,7 +1303,7 @@ export function getMut$OptionMap_unit_HashMap_u8_unit(self: rt.HashMap<rt.u8, un
 export function sorted$OptionMap_Option_String_HashMap_u8_Option_String(self: rt.HashMap<rt.u8, string | undefined>): [rt.u8, string | undefined][] {
 	const all: [rt.u8, string | undefined][] = rt.iterToArray(rt.iterMap(rt.hashIter(self), (_2: [rt.u8, string | undefined]): [rt.u8, string | undefined] => {
 		return [_2[0], clone$14nprly(_2[1])] as [rt.u8, string | undefined];
-	}), undefined, 16);
+	}), "next", 16);
 	rt.sliceSortByKey(all, (_22: [rt.u8, string | undefined]): rt.u8 => {
 		return _22[0];
 	}, rt.lt);
@@ -1313,7 +1313,7 @@ export function sorted$OptionMap_Option_String_HashMap_u8_Option_String(self: rt
 export function sorted$OptionMap_Option_u8_HashMap_u8_Option_u8(self: rt.HashMap<rt.u8, rt.u8 | undefined>): [rt.u8, rt.u8 | undefined][] {
 	const all: [rt.u8, rt.u8 | undefined][] = rt.iterToArray(rt.iterMap(rt.hashIter(self), (_2: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] => {
 		return [_2[0], _2[1]] as [rt.u8, rt.u8 | undefined];
-	}), undefined, 3);
+	}), "next", 3);
 	rt.sliceSortByKey(all, (_22: [rt.u8, rt.u8 | undefined]): rt.u8 => {
 		return _22[0];
 	}, rt.lt);
@@ -1325,7 +1325,7 @@ export function sorted$OptionMap_unit_HashMap_u8_unit(self: rt.HashMap<rt.u8, un
 		const _5: rt.u8 = _2[0];
 		_2[1];
 		return [_5, undefined] as [rt.u8, undefined];
-	}), undefined, 1);
+	}), "next", 1);
 	rt.sliceSortByKey(all, (_22: [rt.u8, undefined]): rt.u8 => {
 		return _22[0];
 	}, rt.lt);
@@ -1640,7 +1640,7 @@ export function optionals(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_56, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_50, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBool(_53, f)];
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " "])));
 		}
-		const all: [[rt.u8, boolean], rt.u8 | undefined][] = rt.iterToArray(rt.hashIter(map), undefined, 4);
+		const all: [[rt.u8, boolean], rt.u8 | undefined][] = rt.iterToArray(rt.hashIter(map), "next", 4);
 		rt.sliceSort(all, rt.cmpLt(rt.cmpTuple([rt.cmpTuple([rt.cmp, rt.cmp]), rt.cmpOption(rt.cmp)])));
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(all, f, (value: [[rt.u8, boolean], rt.u8 | undefined], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0][0], f), (f: rt.Formatter) => rt.fmtBool(value[0][1], f)], f), (f: rt.Formatter) => rt.fmtOption(value[1], f, rt.u8Debug)], f))];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0]])));
@@ -1783,10 +1783,10 @@ export function setOpsOf$Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (
 		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$Nibble(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Nibble(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Nibble(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Nibble(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), "next", 4), put, out);
 		putHints$Nibble_Union_Nibble_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
 		putHints$Nibble_Intersection_Nibble_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
 		putHints$Nibble_Difference_Nibble_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
@@ -1822,7 +1822,7 @@ export function setOpsOf$Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (
 			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$Nibble(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
+			putSorted$Nibble(rt.iterToArray(rt.hashKeys(_175), "next", 4), put, out);
 		}
 	}
 }
@@ -1880,10 +1880,10 @@ export function setOpsOf$Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make
 		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$Option_u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Option_u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Option_u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), "next", 4), put, out);
 		putHints$Option_u8_Union_Option_u8_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
 		putHints$Option_u8_Intersection_Option_u8_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
 		putHints$Option_u8_Difference_Option_u8_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
@@ -1919,7 +1919,7 @@ export function setOpsOf$Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make
 			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$Option_u8(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
+			putSorted$Option_u8(rt.iterToArray(rt.hashKeys(_175), "next", 4), put, out);
 		}
 	}
 }
@@ -1977,10 +1977,10 @@ export function setOpsOf$Reverse_Option_u8(left: rt.ByteSlice, right: rt.ByteSli
 		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), "next", 4), put, out);
 		putHints$Reverse_Option_u8_Union_Reverse_Option_u8_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
 		putHints$Reverse_Option_u8_Intersection_Reverse_Option_u8_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
 		putHints$Reverse_Option_u8_Difference_Reverse_Option_u8_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
@@ -2016,7 +2016,7 @@ export function setOpsOf$Reverse_Option_u8(left: rt.ByteSlice, right: rt.ByteSli
 			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
+			putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashKeys(_175), "next", 4), put, out);
 		}
 	}
 }
@@ -2074,10 +2074,10 @@ export function setOpsOf$u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: 
 		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
-		putSorted$u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), "next", 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), "next", 4), put, out);
 		putHints$u8_Union_u8_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
 		putHints$u8_Intersection_u8_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
 		putHints$u8_Difference_u8_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
@@ -2113,7 +2113,7 @@ export function setOpsOf$u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: 
 			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$u8(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
+			putSorted$u8(rt.iterToArray(rt.hashKeys(_175), "next", 4), put, out);
 		}
 	}
 }
@@ -2171,10 +2171,10 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
 		putHints$u8s_Union_u8s_RandomState(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
 		putHints$u8s_Intersection_u8s_RandomState(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
 		putHints$u8s_Difference_u8s_RandomState(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
@@ -2210,7 +2210,7 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashKeys(_175), rt.byteSliceFrom), undefined, 4), put, out);
+			putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashKeys(_175), rt.byteSliceFrom), "next", 4), put, out);
 		}
 	}
 }
