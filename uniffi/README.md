@@ -10,7 +10,7 @@ Nothing is published to crates.io yet, so depend on a revision of this repositor
 
 ```toml
 [dependencies]
-uniffi = { git = "https://github.com/kixelated/rust2", rev = "<rev>" }
+uniffi = { git = "https://github.com/moq-dev/rust2", rev = "<rev>" }
 ```
 
 Every crate keeps its upstream name (`uniffi`, `uniffi_core`, `uniffi_bindgen`, ...), so code
@@ -28,7 +28,7 @@ The generators read a cdylib built against this runtime:
 
 The flake builds them all as `packages.uniffi`, and each one alone as `uniffi-bindgen`,
 `uniffi-bindgen-go`, `uniffi-bindgen-dart`, and `uniffi-bindgen-cpp`. Without Nix:
-`cargo install --git https://github.com/kixelated/rust2 --rev <rev> uniffi-bindgen-go`.
+`cargo install --git https://github.com/moq-dev/rust2 --rev <rev> uniffi-bindgen-go`.
 
 Upstream's [user guide](https://mozilla.github.io/uniffi-rs/0.32/) applies, minus Ruby. The
 generators document their options in [go/docs](go/docs/CONFIGURATION.md),

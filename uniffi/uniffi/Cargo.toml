@@ -1,8 +1,8 @@
 [package]
 name = "uniffi"
 description = "A hard fork of UniFFI: a multi-language bindings generator for rust"
-homepage = "https://github.com/kixelated/rust2/tree/main/uniffi"
-repository = "https://github.com/kixelated/rust2"
+homepage = "https://github.com/moq-dev/rust2/tree/main/uniffi"
+repository = "https://github.com/moq-dev/rust2"
 # Incrementing the minor version here means a breaking change to consumers.
 # A change to the FFI contract also updates `uniffi_meta::UNIFFI_CONTRACT_VERSION`.
 version = "0.1.0"

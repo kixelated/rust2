@@ -10,7 +10,7 @@ all of std.
 ## Plan
 
 Moved from the m2 drop quest on 2026-10-27, once moq-net, its model, and kio had no
-drop refusal left ([#139](https://github.com/kixelated/rust2/pull/139)). Each is refused
+drop refusal left ([#139](https://github.com/moq-dev/rust2/pull/139)). Each is refused
 with a span where std's order is one JS's can't follow yet:
 
 - A closure that owns a value that drops given to a std function that takes another
