@@ -213,8 +213,10 @@ pub struct Translator<'a, 'tcx> {
 	pub deferred: rustc_data_structures::fx::FxHashSet<SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
-	/// The bodies of other crates whose writes count: those the run before reached.
-	read: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// The instances whose writes count: those the runs before reached.
+	read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+	/// The instances whose bodies lowered from MIR, a closure's included.
+	lowered: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
 	/// The trait of each trait object, by its principal trait.
 	objects: rustc_data_structures::fx::FxHashMap<DefId, dynamic::Object>,
 	/// The class wrapping each type as each trait object.
@@ -335,10 +337,12 @@ impl Erased {
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
-	/// A translator that has run `reach`, with what it copies settled. Whether code writes
-	/// into a type in place decides that, and of another crate's code, only what
-	/// translation reaches runs, which it knows once it has reached it. So it runs again
-	/// while it reaches a body whose writes it didn't read.
+	/// A translator that has run `reach`, with what it copies and refuses settled. Whether
+	/// code writes into a type in place decides that, and of another crate's code, only what
+	/// translation reaches runs, and of a generic body, only the instances it reaches, which
+	/// it knows once it has reached them. So it runs again while it reaches a body whose
+	/// writes it didn't read, or an instance of one writing a type parameter that it didn't
+	/// judge by.
 	fn settle<R>(
 		tcx: TyCtxt<'tcx>,
 		config: &'a Config,
@@ -350,11 +354,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			let mut t = Self::new(tcx, config, census, read)?;
 			t.bind();
 			let out = reach(&mut t);
-			let reached: Vec<DefId> = t
+			let reached: Vec<Instance<'tcx>> = t
 				.instances
 				.keys()
-				.map(|instance| instance.def_id())
-				.filter(|&def_id| !def_id.is_local() && t.crates.translates(def_id) && !t.read.contains(&def_id))
+				.chain(&t.lowered)
+				.copied()
+				.filter(|&instance| t.crates.translates(instance.def_id()) && t.writes.unread(instance))
 				.collect();
 			// The config's errors are reported as they are found, so only once.
 			if reached.is_empty() || tcx.dcx().has_errors().is_some() {
@@ -369,7 +374,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		tcx: TyCtxt<'tcx>,
 		config: &'a Config,
 		census: bool,
-		read: rustc_data_structures::fx::FxHashSet<DefId>,
+		read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
 	) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
@@ -405,6 +410,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Once the bindings are known.
 			writes: Default::default(),
 			read,
+			lowered: Default::default(),
 			held: false,
 			sites: Default::default(),
 			site: None,
