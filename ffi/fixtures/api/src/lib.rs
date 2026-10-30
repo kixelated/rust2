@@ -704,6 +704,64 @@ pub fn timed_text<'a, T: serde::Serialize + 'a>(value: impl Into<Timed<&'a T>>) 
 	serde_json::to_string(value.into().value).expect("a JSON document serializes")
 }
 
+/// A timed payload on a track, which what converts into one converts into.
+pub struct Sample(Timed<Bytes>);
+
+impl<T: Into<Timed<Bytes>>> From<T> for Sample {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// A sample's bytes in hex, which need not be UTF-8, two conversions from what C lends.
+pub fn sample_hex(sample: impl Into<Sample>) -> String {
+	hex(sample.into().0.value)
+}
+
+/// A sample queued past the conversion, so what converts into it is owned.
+pub struct Queued(Sample);
+
+impl<T: Into<Sample> + 'static> From<T> for Queued {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// A queued sample's bytes in hex, which need not be UTF-8, three conversions from owned bytes.
+pub fn queued_hex(queued: impl Into<Queued>) -> String {
+	hex(queued.into().0.0.value)
+}
+
+/// A name from a label, or from what converts into a `Tock`, which converts from what
+/// converts into a `Tick`: a cycle, which only the label leaves.
+pub struct Tick(String);
+
+impl From<Label> for Tick {
+	fn from(label: Label) -> Self {
+		Self(label.name)
+	}
+}
+
+impl<T: Into<Tock> + Copy> From<T> for Tick {
+	fn from(value: T) -> Self {
+		Self(value.into().0)
+	}
+}
+
+/// What converts into a `Tick` converts into a `Tock`.
+pub struct Tock(String);
+
+impl<T: Into<Tick> + Copy> From<T> for Tock {
+	fn from(value: T) -> Self {
+		Self(value.into().0)
+	}
+}
+
+/// The name a `Tick` takes.
+pub fn tick_name(tick: impl Into<Tick>) -> String {
+	tick.into().0
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }

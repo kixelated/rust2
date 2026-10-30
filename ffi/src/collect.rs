@@ -2005,47 +2005,60 @@ impl<'tcx> Collector<'tcx> {
 			let target = || bound.skip_binder().trait_ref.args.type_at(1);
 			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
 				// An `Into` target that does not map takes what converts into it instead.
-				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
-					.then(|| self.sources(def_id, target()));
-				// A source that must outlive the call, or converts into a parameter that must, owns
-				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not taken.
-				let sources = (into.into_iter().flatten())
-					.filter(|(x, _)| !outlives || !x.walk().any(|arg| arg.as_region().is_some()))
-					.map(|(x, source)| (x, outlives || source));
-				for (target, outlives) in std::iter::once((target(), outlives)).chain(sources) {
+				let sources = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
+					.then(|| self.sources(def_id, target(), outlives));
+				let sources = (sources.into_iter().flatten()).map(|(x, outlives, imp)| (x, outlives, Some(imp)));
+				for (target, outlives, imp) in std::iter::once((target(), outlives, None)).chain(sources) {
 					let owned = match target.kind() {
 						ty::Str => string,
 						ty::Slice(elem) => self.vec_of(*elem),
 						_ => {
-							candidates.push(target);
+							candidates.push((target, imp));
 							continue;
 						}
 					};
 					// A borrow of what C lends, unless the parameter outlives the call, then the
 					// owned form, which meets bounds that only owned types implement.
 					if !outlives {
-						candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target));
+						candidates.push((Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target), imp));
 					}
-					candidates.extend(owned);
+					candidates.extend(owned.map(|owned| (owned, imp)));
 				}
 			} else if Some(tr) == self.range_bounds {
-				candidates.extend(self.bounds(target()));
+				candidates.extend(self.bounds(target()).map(|ty| (ty, None)));
 			} else if tcx.is_diagnostic_item(sym::IntoIterator, tr) {
-				candidates.extend(self.items(&identity.clauses, param).and_then(|item| self.vec_of(item)));
+				let items = self.items(&identity.clauses, param).and_then(|item| self.vec_of(item));
+				candidates.extend(items.map(|ty| (ty, None)));
 			} else if serde(tcx, tr) {
-				candidates.extend(self.json());
+				candidates.extend(self.json().map(|ty| (ty, None)));
 			}
 		}
-		candidates.extend(string);
+		candidates.extend(string.map(|ty| (ty, None)));
 		if let Some(bytes) = self.bytes {
-			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
+			candidates.push((Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()), None));
 		}
-		candidates.extend(self.vec_of(tcx.types.u8));
+		candidates.extend(self.vec_of(tcx.types.u8).map(|ty| (ty, None)));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
-		candidates
-			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));
+		candidates.retain(|&(candidate, _)| {
+			self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param)
+		});
+		// Two sources that C passes as one buffer but that hold different values, as a
+		// `String` and a `Vec<u8>` do, leave the caller no say in which conversion runs. Forms
+		// of one value, as `&str` and `String` are, convert alike.
+		let buffers: Vec<_> = (candidates.iter())
+			.filter_map(|&(ty, imp)| Some((ty, self.ty(ty, Pos::Param).ok()?.buffer()?, imp?)))
+			.collect();
+		for (i, (x, buffer, _)) in buffers.iter().enumerate() {
+			if let Some((y, _, imp)) = (buffers[..i].iter()).find(|(_, other, _)| other != buffer) {
+				return Err(Why {
+					construct: "ambiguous conversion",
+					detail: x.to_string(),
+					note: Some((tcx.def_span(*imp), format!("`{y}` converts too, which C passes alike"))),
+				});
+			}
+		}
 		if !candidates.is_empty() {
-			return Ok(candidates);
+			return Ok(candidates.into_iter().map(|(candidate, _)| candidate).collect());
 		}
 		// A bound on one of the crate's traits takes a foreign implementation.
 		let local: Vec<_> = bounds
@@ -2091,11 +2104,45 @@ impl<'tcx> Collector<'tcx> {
 			.filter(|item| !item.has_non_region_param())
 	}
 
-	/// What `impl Into<target>` takes through the `From` implementations into `target`: a
-	/// source that is a type parameter by each `Into<X>` or `AsRef<X>` its bounds imply, and
-	/// whether they make it outlive the call, so `impl<B: Into<Bytes>> From<B> for
-	/// Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes; any other source as it is.
-	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<(Ty<'tcx>, bool)> {
+	/// What `impl Into<target>` takes through chains of `From` implementations into
+	/// `target`, closest first, each with whether it must outlive the call, as `outlives`
+	/// says the parameter must, and the implementation it converts through. A source that
+	/// is a type parameter takes each `X` of its `Into<X>` or `AsRef<X>` bounds, so
+	/// `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` makes `impl Into<Timed<Bytes>>`
+	/// bytes, and an `Into<X>` whose `X` does not map takes what converts into `X` in turn,
+	/// each target once, which ends a cycle. Any other source is taken as it is.
+	fn sources(&self, def_id: DefId, target: Ty<'tcx>, outlives: bool) -> Vec<(Ty<'tcx>, bool, DefId)> {
+		let sig = self.tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+		let (statics, _) = self.borrows(def_id, sig.skip_binder());
+		let mut targets = vec![(target, outlives)];
+		let mut found = Vec::new();
+		let mut i = 0;
+		while let Some(&(target, outlives)) = targets.get(i) {
+			i += 1;
+			for (x, lasting, imp, into) in self.hop(def_id, target, &statics) {
+				// A source that must outlive the call, or converts into a parameter that must, owns
+				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not taken.
+				if outlives && x.walk().any(|arg| arg.as_region().is_some()) {
+					continue;
+				}
+				let outlives = outlives || lasting;
+				if into && !self.maps(x, Pos::Param) {
+					if !targets.contains(&(x, outlives)) {
+						targets.push((x, outlives));
+					}
+				} else if !found.iter().any(|&(y, o, _)| (y, o) == (x, outlives)) {
+					found.push((x, outlives, imp));
+				}
+			}
+		}
+		found
+	}
+
+	/// The sources of the `From` implementations into `target`, each with whether it must
+	/// outlive the call, its implementation, and whether a type parameter's `Into` bound
+	/// names it, so what converts into it converts into `target` too. `statics` are the
+	/// lifetimes the export makes `'static`.
+	fn hop(&self, def_id: DefId, target: Ty<'tcx>, statics: &[ty::Region<'tcx>]) -> Vec<(Ty<'tcx>, bool, DefId, bool)> {
 		let tcx = self.tcx;
 		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
 			return Vec::new();
@@ -2103,8 +2150,6 @@ impl<'tcx> Collector<'tcx> {
 		let Some(simple) = simplify_type(tcx, target, TreatParams::AsRigid) else {
 			return Vec::new();
 		};
-		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
-		let (statics, _) = self.borrows(def_id, sig.skip_binder());
 		let mut found = Vec::new();
 		for &imp in tcx
 			.trait_impls_of(from)
@@ -2142,8 +2187,8 @@ impl<'tcx> Collector<'tcx> {
 					continue;
 				}
 				let x = tcx.erase_and_anonymize_regions(infcx.deeply_resolve_ignoring_regions(source));
-				if !x.has_non_region_infer() && !found.contains(&(x, false)) {
-					found.push((x, false));
+				if !x.has_non_region_infer() {
+					found.push((x, false, imp, false));
 				}
 				continue;
 			}
@@ -2159,10 +2204,11 @@ impl<'tcx> Collector<'tcx> {
 					tcx.is_diagnostic_item(sym::Into, bound.def_id())
 						|| tcx.is_diagnostic_item(sym::AsRef, bound.def_id())
 				}) {
+				let into = tcx.is_diagnostic_item(sym::Into, bound.def_id());
 				let bound = bound.skip_binder();
 				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
-				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&(x, outlives)) {
-					found.push((x, outlives));
+				if bound.self_ty() == source && !x.has_non_region_infer() {
+					found.push((x, outlives, imp, into));
 				}
 			}
 		}

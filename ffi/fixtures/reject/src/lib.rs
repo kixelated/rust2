@@ -373,6 +373,36 @@ pub fn kept<'a>(value: impl Into<Held<'a>> + 'static) -> u32 {
 	*value.into().0
 }
 
+/// Excluded, a name from a string, or from bytes that need not be UTF-8.
+pub struct Called(pub String);
+
+impl From<String> for Called {
+	fn from(name: String) -> Self {
+		Called(name)
+	}
+}
+
+impl From<Vec<u8>> for Called {
+	fn from(name: Vec<u8>) -> Self {
+		Called(String::from_utf8_lossy(&name).into_owned())
+	}
+}
+
+/// Excluded, what converts into a name.
+pub struct Caller(pub Called);
+
+impl<T: Into<Called>> From<T> for Caller {
+	fn from(value: T) -> Self {
+		Caller(value.into())
+	}
+}
+
+/// Takes a string or bytes through `Called`'s conversions, which C, passing either as one
+/// buffer, cannot pick between.
+pub fn call(caller: impl Into<Caller>) -> String {
+	caller.into().0.0
+}
+
 /// A range is a value, not an iterator to collect: one that maps to no range is refused.
 pub fn alphabet() -> std::ops::Range<char> {
 	'a'..'z'
