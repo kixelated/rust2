@@ -13,6 +13,7 @@ generic std gap is planned here even when moq never calls it.
 
 ## Required
 
+- [A pointer to a variable that std's mapping rebinds](/quest/m3/ts-pointer-rebind.md) - a raw pointer to a variable `mem::replace` rebinds is refused rather than left on the old object
 - [Retrial Cranelift on moq's tests](/quest/m3/cranelift-unwind.md) - waits on upstream: moq's tests pass under Cranelift, so its CI can weigh it again
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
@@ -32,3 +33,4 @@ generic std gap is planned here even when moq never calls it.
 - [The rest of a slice's chunks](/quest/m3/ts-slice-chunks.md) - `chunks_exact`, `rchunks`, and the mutable chunks translate
 - [Iterator consumers over items whose None is rt.None](/quest/m3/ts-option-items.md) - `nth`, `last`, and `find` of an iterator of `Option` keep `None` apart from `Some(None)`
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
+- [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it

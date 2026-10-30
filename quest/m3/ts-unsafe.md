@@ -37,7 +37,10 @@ none of its own `unsafe`.
 - A pointer to a part kept as an object is refused where the crate may put another
   object there, judged by type over the whole program: a generic function writing a whole
   `T` counts for every `T` its bounds allow. Judge by the instances translation reaches
-  if a consumer's pointer is refused only by that.
+  if a consumer's pointer is refused only by that, and drop the bounds the lang fixture
+  puts on its copies of crossbeam-epoch's `OnceLock` and `UnsafeCell` wrapper for it.
+- `UnsafeCell::raw_get`, `from_mut`, and `replace`, refused with their span: none is in
+  moq's census at the pin.
 - A slice's pointer cast to an array's of its length, `*(s as *const [u8] as *const
   [u8; N])`, which `bytes`' `Buf::get_u16` and wider read a crate's own buffer through
   ([#222](https://github.com/moq-dev/rust2/pull/222)): the bytes keep their type, so
