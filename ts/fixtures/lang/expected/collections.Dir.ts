@@ -23,7 +23,7 @@ export function eq$PartialEq(self: Dir, other: Dir): boolean {
 }
 
 export function hash$Hash_DefaultHasher(self: Dir, state: rt.Hasher): void {
-	rt.hashInt(rising(self), state);
+	rt.hash8(rising(self), state);
 }
 
 //# sourceMappingURL=collections.Dir.ts.map

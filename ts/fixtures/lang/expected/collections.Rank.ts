@@ -22,12 +22,12 @@ export function eq$PartialEq(self: Rank, other: Rank): boolean {
 }
 
 export function hash$Hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
-	rt.hashInt({ Low: 0, Mid: 1, High: 2 }[self.tag], state);
+	rt.hash32({ Low: 0, Mid: 1, High: 2 }[self.tag], state);
 	if (self.tag === "Mid") {
-		rt.hashInt(self._0, state);
+		rt.hash8(self._0, state);
 	} else if (self.tag === "High") {
-		rt.hashInt(self.x, state);
-		rt.hashInt(self.y, state);
+		rt.hash8(self.x, state);
+		rt.hash8(self.y, state);
 	}
 }
 

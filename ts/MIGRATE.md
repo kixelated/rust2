@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `rt.hashInt` is one function per width, as std writes each integer: `rt.hash8` for a
+  `u8`, `i8`, or `bool`, `rt.hash16`, `rt.hash32` for a `char`, `usize`, or `isize` too,
+  `rt.hash64`, and `rt.hash128`. `rt.Hasher` is an interface, and `rt.hashFinish` of a
+  `DefaultHasher` is std's SipHash-1-3 of what was written, a whole `rt.u64`.
 - A `&mut` to an `Arc` or a `Waker`, pinned or boxed too, is an `rt.Place` of it, as a `&mut`
   to a number is, rather than the object: a caller passes one as `{ v: arc }` and reads
   the `Arc` it holds after the call from `v`.

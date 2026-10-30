@@ -15,7 +15,7 @@ export function eq$PartialEq(self: Nibble, other: Nibble): boolean {
 }
 
 export function hash$Hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
-	rt.hashInt(self._0 & 15, state);
+	rt.hash8(self._0 & 15, state);
 }
 
 export function cmp$Ord(self: Nibble, other: Nibble): rt.Ordering {
