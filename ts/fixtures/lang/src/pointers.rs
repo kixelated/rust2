@@ -1,10 +1,13 @@
 //! Raw pointers: a circular list of boxed nodes as `hashlink`'s `LinkedHashMap` keeps one,
 //! linked through a union and holding a `MaybeUninit` entry, with a free list of nodes to
 //! reuse; pointers to numbers, to fields, and to whole values, read, written, swapped,
-//! and compared; and pointers to the parts of a struct kept as objects.
+//! and compared; pointers to the parts of a struct kept as objects; and the pointers
+//! `UnsafeCell::get` gives.
 
+use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
 use std::sync::Arc;
 
 struct Links<V> {
@@ -447,4 +450,137 @@ pub fn sentinels(data: &[u8], out: &mut Vec<u8>) {
 			out.push(units.as_ref().len() as u8);
 		}
 	}
+}
+
+/// A struct JS keeps as an object, which Rust copies. It has no `Default`, which
+/// `generics::reset` would count as replaced whole.
+#[derive(Clone, Copy)]
+struct Duo(u8, u8);
+
+/// A struct JS keeps as an object, owning a count.
+struct Held {
+	n: u8,
+	count: Rc<()>,
+}
+
+/// crossbeam-epoch's own wrapper over `UnsafeCell`, which lends its pointer to a closure.
+struct Wrapped<T>(UnsafeCell<T>);
+
+/// What a `Wrapped` holds. A whole `T` written through the pointer it lends counts as a
+/// write of every type the bound allows, which would refuse `nested`'s pointers.
+trait Lent {}
+
+impl Lent for Held {}
+
+impl<T: Lent> Wrapped<T> {
+	const fn new(value: T) -> Self {
+		Self(UnsafeCell::new(value))
+	}
+
+	fn with<R>(&self, f: impl FnOnce(*const T) -> R) -> R {
+		f(self.0.get())
+	}
+
+	fn with_mut<R>(&self, f: impl FnOnce(*mut T) -> R) -> R {
+		f(self.0.get())
+	}
+}
+
+/// `UnsafeCell`s of a number, a string, a struct Rust copies, and one that owns a count: written
+/// through `get` and `get_mut`, read through another `get` and before a write, assigned
+/// through `get`, which drops what each held, replaced whole, and their values taken out.
+pub fn cells(data: &[u8], out: &mut Vec<u8>) {
+	let count = Rc::new(());
+	let mut num = UnsafeCell::new(u32::MAX - 1);
+	let mut pair = UnsafeCell::new(Duo(0, 0xff));
+	let mut text = UnsafeCell::new(String::new());
+	let mut held = Wrapped::new(Held {
+		n: 0,
+		count: Rc::clone(&count),
+	});
+	for &op in data {
+		let n = op / 8;
+		match op % 8 {
+			// A write through one pointer, seen through another, and a value read out before it.
+			0 => {
+				let (a, b) = (&num, &num);
+				let before = unsafe { *b.get() };
+				unsafe { *a.get() = (*b.get()).wrapping_add(u32::from(n) << 26) };
+				out.extend(before.to_le_bytes());
+				out.extend(unsafe { *b.get() }.to_le_bytes());
+			}
+			1 => {
+				*num.get_mut() ^= u32::from(n);
+				out.extend(num.get_mut().to_le_bytes());
+			}
+			// A part written, then the whole, with a copy read out before each.
+			2 => {
+				let before = unsafe { *pair.get() };
+				unsafe { (*pair.get()).0 = n };
+				let between = unsafe { *pair.get() };
+				let p = pair.get();
+				unsafe { *p = Duo((*p).1, (*p).0) };
+				pair.get_mut().1 ^= 0x80;
+				out.extend([
+					before.0,
+					before.1,
+					between.0,
+					between.1,
+					pair.get_mut().0,
+					pair.get_mut().1,
+				]);
+			}
+			3 => {
+				unsafe { (*text.get()).push(char::from(b'a' + n % 26)) };
+				text.get_mut().push('!');
+				out.extend(unsafe { &*text.get() }.as_bytes());
+			}
+			// Assigned through the pointer, which drops what it held, or written over, which
+			// leaks it.
+			4 => {
+				let fresh = Held {
+					n,
+					count: Rc::clone(&count),
+				};
+				match n % 2 {
+					0 => held.with_mut(|p| unsafe { *p = fresh }),
+					_ => held.with_mut(|p| unsafe { ptr::write(p, fresh) }),
+				}
+				out.extend([held.with(|p| unsafe { (*p).n }), Rc::strong_count(&count) as u8]);
+			}
+			5 => {
+				held.with_mut(|p| unsafe { (*p).n = (*p).n.wrapping_add(n) });
+				held.0.get_mut().n ^= 1;
+				out.push(held.with(|p| unsafe { (*p).n }));
+			}
+			// Each of a number and a string replaced whole, its old value taken out. A cell of
+			// an object can't be, as a pointer `get` gave would keep the old object.
+			6 => {
+				let old = std::mem::replace(&mut num, UnsafeCell::new(u32::from(n)));
+				out.extend(old.into_inner().to_le_bytes());
+				let old = std::mem::replace(&mut text, UnsafeCell::new(n.to_string()));
+				out.extend(old.into_inner().as_bytes());
+				*pair.get_mut() = Duo(n, !n);
+			}
+			// One made, written through `get`, and its value taken out and dropped.
+			_ => {
+				let made = Wrapped::new(Held {
+					n,
+					count: Rc::clone(&count),
+				});
+				made.with_mut(|p| unsafe { (*p).n ^= 0x55 });
+				out.push(Rc::strong_count(&count) as u8);
+				let made = made.0.into_inner();
+				out.push(made.n);
+				drop(made);
+				out.push(Rc::strong_count(&count) as u8);
+			}
+		}
+	}
+	out.extend(num.into_inner().to_le_bytes());
+	let Duo(a, b) = pair.into_inner();
+	out.extend([a, b]);
+	out.extend(text.into_inner().as_bytes());
+	drop(held);
+	out.push(Rc::strong_count(&count) as u8);
 }

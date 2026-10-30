@@ -13,7 +13,9 @@
 //! into in place, so a later write leaves it be.
 //!
 //! A `MaybeUninit<T>` is a `T`: `undefined` where JS copies a `T` and it holds none yet,
-//! or an object whose parts hold none yet where a pointer to it is the object.
+//! or an object whose parts hold none yet where a pointer to it is the object. An
+//! `UnsafeCell<T>` is an `rt.Cell`, which is the place a pointer to `T` is, or else holds
+//! the object it is.
 
 use rustc_middle::ty::{self, Ty, TypeVisitableExt};
 use rustc_span::Span;
@@ -146,7 +148,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							.iter()
 							.map(|f| self.field_ty(f.did, args))
 							.collect();
-						let values = tys.into_iter().map(|t| self.shell(t, span)).collect();
+						// A class's constructor types each of its parameters.
+						let plain = self.plain(info.sym);
+						let values = tys
+							.into_iter()
+							.map(|t| match plain {
+								true => self.shell(t, span),
+								false => self.uninit(t, span),
+							})
+							.collect();
 						self.construct(info.sym, &ctor, &fields, values)
 					}
 					AdtRepr::Slots(_) => Expr::Object(Vec::new()),
@@ -166,6 +176,7 @@ pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 		Some((owner, name)) if matches!(
 			(owner.as_str(), name.as_str()),
 			("MaybeUninit", "as_mut_ptr" | "write" | "assume_init_mut" | "assume_init_drop")
+				| ("UnsafeCell", "get_mut")
 				| ("NonNull" | "ptr", "as_mut")
 				| ("Box", "leak")
 		)
@@ -191,6 +202,7 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 				"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "as_ref" | "as_mut" | "cast" | "cast_const"
 					| "cast_mut" | "eq" | "read" | "read_unaligned" | "read_volatile" | "drop_in_place"
 			) | ("Box", "into_raw" | "leak" | "from_raw")
+				| ("UnsafeCell", "new" | "get" | "get_mut" | "into_inner")
 		)
 	)
 }
@@ -219,9 +231,9 @@ pub fn pointees(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Vec<bo
 		.collect()
 }
 
-/// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or
-/// take a raw pointer: its mapping, `None` if it has none, or its arguments back if it is
-/// no such call.
+/// A call of std's raw pointer, `NonNull`, `MaybeUninit`, `UnsafeCell`, or `Box` functions
+/// that make or take a raw pointer: its mapping, `None` if it has none, or its arguments
+/// back if it is no such call.
 pub fn call<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
@@ -395,6 +407,12 @@ pub fn call<'tcx>(
 			};
 			b.t.drop_value(value, pointee(), span).unwrap_or_else(Expr::undefined)
 		}
+		// An `rt.Cell`, which is the place a pointer to a value JS copies is, and holds the
+		// object a pointer to any other is.
+		("UnsafeCell", "new") => Expr::New(Box::new(Expr::Rt("Cell".into())), vec![arg()]),
+		("UnsafeCell", "get") if kind(b, pointee()) == Some(Pointee::Place) => arg(),
+		("UnsafeCell", "get_mut") if b.t.needs_place(pointee()) => arg(),
+		("UnsafeCell", "get" | "get_mut" | "into_inner") => arg().member("v"),
 		("mem", "forget") => Expr::undefined(),
 		_ => return Err(args.collect()),
 	};
