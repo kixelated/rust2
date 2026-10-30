@@ -669,65 +669,64 @@ export function iterProduct<T>(it: Iter<T>, mul: (a: T, b: T) => T, one: T, drop
 export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMax<T>(it: Iter<T>, lt: Lt<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, (item: T) => item, byLt(lt), false, drops, drop), none);
+	return iterToOption(best(it, (item: T) => item, lt, false, drops, drop), none);
 }
 
 /** `min`, by `lt`, as `iterMax`: the first of the least. */
 export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMin<T>(it: Iter<T>, lt: Lt<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, (item: T) => item, byLt(lt), true, drops, drop), none);
+	return iterToOption(best(it, (item: T) => item, lt, true, drops, drop), none);
 }
 
 /** `max_by_key`, by `lt` of the keys, as `iterMax`, each item's key taken once. */
 export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMaxByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, f, byLt(lt), false, drops, drop), none);
+	return iterToOption(best(it, f, lt, false, drops, drop), none);
 }
 
 /** `min_by_key`, by `lt` of the keys, as `iterMin`, each item's key taken once. */
 export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMinByKey<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, f, byLt(lt), true, drops, drop), none);
+	return iterToOption(best(it, f, lt, true, drops, drop), none);
 }
 
 /** `max_by`, by `compare`, as `iterMax`: the last of the greatest. */
 export function iterMaxBy<T>(it: Iter<T>, compare: Compare<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMaxBy<T>(it: Iter<T>, compare: Compare<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMaxBy<T>(it: Iter<T>, compare: Compare<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, (item: T) => item, compare, false, drops, drop), none);
+	return iterToOption(best(it, (item: T) => item, byCompare(compare), false, drops, drop), none);
 }
 
 /** `min_by`, by `compare`, as `iterMin`: the first of the least. */
 export function iterMinBy<T>(it: Iter<T>, compare: Compare<T>, drops?: boolean, drop?: Drop<T>): T | undefined;
 export function iterMinBy<T>(it: Iter<T>, compare: Compare<T>, drops: boolean | undefined, drop: Drop<T> | undefined, none: None): T | None;
 export function iterMinBy<T>(it: Iter<T>, compare: Compare<T>, drops = false, drop?: Drop<T>, none?: None): T | undefined | None {
-	return iterToOption(best(it, (item: T) => item, compare, true, drops, drop), none);
+	return iterToOption(best(it, (item: T) => item, byCompare(compare), true, drops, drop), none);
 }
 
 /** A `PartialOrd::lt`. */
 type Lt<T> = (a: T, b: T) => boolean;
 
-/** An `Ord::cmp`, as `max_by` and `min_by` call it: of the best so far and then the next. */
+/** A comparator, as `max_by` and `min_by` call it: of the best so far, and then the next. */
 type Compare<T> = (best: T, next: T) => Ordering;
 
 /**
- * `lt` as the comparator `best` reads: `Greater` where the next is `lt` the best, as
- * `Ord::max` and `min` test it, and otherwise `Less`, which `best` treats as `Equal`.
+ * `compare` as the `lt` that `best` tests the next and the best by: whether the best is
+ * `Greater`, which std's `cmp::max_by` keeps and `min_by` replaces.
  */
-function byLt<T>(lt: Lt<T>): Compare<T> {
-	return (best, next) => (lt(next, best) ? 1 : -1);
+function byCompare<T>(compare: Compare<T>): Lt<T> {
+	return (next, best) => compare(best, next) > 0;
 }
 
 /**
  * The item of the greatest key, the last of equal ones, or of the least if `least`, the
- * first, as std's `reduce` by `cmp::max_by` or `min_by` keeps it: the first by `next`,
- * and the rest by `fold`, each compared by `compare` with the best's and dropped as it
- * loses. The next wins unless the best is `Greater`, or if `least`, only then.
+ * first, as std's `reduce` by `Ord::max` or `min` keeps it: the first by `next`, and the
+ * rest by `fold`, each tested for `lt` the best's and dropped as it loses.
  */
-function best<T, K>(it: Iter<T>, f: (item: T) => K, compare: Compare<K>, least: boolean, drops: boolean, drop?: Drop<T>): T | Done {
+function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, drops: boolean, drop?: Drop<T>): T | Done {
 	if (!drops && drop === undefined) {
 		let best = it.next();
 		if (best === DONE) return DONE;
@@ -735,7 +734,7 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, compare: Compare<K>, least: 
 		const folded = it.folded();
 		for (let item = folded.next(); item !== DONE; item = folded.next()) {
 			const k = f(item);
-			if ((compare(key, k) > 0) === least) [best, key] = [item, k];
+			if (least ? lt(k, key) : !lt(k, key)) [best, key] = [item, k];
 		}
 		return best;
 	}
@@ -746,7 +745,7 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, compare: Compare<K>, least: 
 	}
 	const [, item] = it.fold<[K, T]>([f(first), first], (best, item) => {
 		const k = f(item);
-		const wins = (compare(best[0], k) > 0) === least;
+		const wins = least ? lt(k, best[0]) : !lt(k, best[0]);
 		drop?.(wins ? best[1] : item);
 		return wins ? [k, item] : best;
 	});
