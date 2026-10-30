@@ -31,6 +31,7 @@ generic std gap is planned here even when moq never calls it.
 - [References to byte-array keys a collection yields](/quest/m3/ts-byte-key-refs.md) - `keys`, `iter`, `get_key_value`, and `HashSet::get` of a `[u8; N]` key translate
 - [An array as a slice](/quest/m3/ts-array-as-slice.md) - `<[T; N]>::as_slice` and `as_mut_slice` translate
 - [Closures that return an Option whose None is rt.None](/quest/m3/ts-option-closures.md) - `find_map`, `filter_map`, and `map_while` to `Option<Option<u8>>` keep `None` apart from `Some(None)`
+- [Peekable::next_if_eq against another type](/quest/m3/ts-next-if-eq-other.md) - `next_if_eq` with an expected value of another type than the item, such as a `&str` of `String` items, translates
 - [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate
 - [A slice's parts by inclusive range, checked range, and fixed size](/quest/m3/ts-slice-ranges.md) - `&v[a..=b]`, `get_mut(a..b)`, and `first_chunk_mut` translate, writing through
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
