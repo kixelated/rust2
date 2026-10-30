@@ -2,9 +2,10 @@
 //! in a function, as kio's `waiter` keeps its ids, starting from a value of the type's
 //! extremes. Statics of any type, read from the memory rustc evaluated: a struct holding
 //! an atomic, an `AtomicPtr` as parking_lot keeps its table in, std's `OnceLock` and
-//! `LazyLock`; and `const`s holding cells, each use of which is a value of its own, as
-//! lock_api's `RawMutex::INIT` is. Each case leaves every static as it found it, or reads
-//! only what it holds whatever ran before, so a fresh instance and a reused one agree.
+//! `LazyLock`, and one pointing at a static declared after it; and `const`s holding
+//! cells, each use of which is a value of its own, as lock_api's `RawMutex::INIT` is. Each
+//! case leaves every static as it found it, or reads only what it holds whatever ran
+//! before, so a fresh instance and a reused one agree.
 
 use std::cell::LazyCell;
 use std::mem::MaybeUninit;
@@ -94,6 +95,11 @@ static COUNTER: Counter = Counter {
 	steps: [1, 2, 4],
 	state: Some((9, 'z')),
 };
+
+/// A static that points at one declared after it, so is made after it.
+static SHARED: &AtomicU8 = &LATER;
+
+static LATER: AtomicU8 = AtomicU8::new(40);
 
 /// A lock's state as lock_api's `RawMutex::INIT` holds it: every use a lock of its own.
 struct Raw {
@@ -209,6 +215,11 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 				out.push(FORCED.load(Relaxed));
 				out.extend([*y, *x, *y, *LazyCell::force(&x)]);
 				out.push(FORCED.swap(0, Relaxed));
+			}
+			7 if n % 2 == 0 => {
+				// One atomic, through either static.
+				out.extend([SHARED.fetch_add(n, Relaxed), LATER.load(Relaxed)]);
+				LATER.store(40, Relaxed);
 			}
 			_ => {
 				let mut slots = [EMPTY; 3];

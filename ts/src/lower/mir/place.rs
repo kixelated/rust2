@@ -1310,6 +1310,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		self.b.t.reading.remove(&item);
 		let (sym, new) = self.module_value(item);
 		if new {
+			// After each value of its module it reads, which would otherwise be made later.
+			let mut value = value;
+			let syms = &self.b.t.program.syms;
+			let mut order = syms[sym].order;
+			value.syms_mut(&mut |id| {
+				let read = &syms[*id];
+				if read.kind == SymKind::Value && read.module == syms[sym].module {
+					order = order.max(read.order + 1);
+				}
+			});
+			self.b.t.program.syms[sym].order = order;
 			let ty = self.b.t.ty(ty, span);
 			self.b.t.program.items.push(Item::Value {
 				sym,

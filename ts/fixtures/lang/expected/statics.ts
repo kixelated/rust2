@@ -95,6 +95,10 @@ export const NEXT: rt.Atomic<rt.u64> = /* @__PURE__ */ new rt.Atomic(1);
 
 export const COUNTER: Counter.Counter = /* @__PURE__ */ { name: "hits", hits: new rt.Atomic(4294967294), limit: 3, steps: Uint8Array.of(1, 2, 4), state: [9, 122] };
 
+export const LATER: rt.Atomic<rt.u8> = /* @__PURE__ */ new rt.Atomic(40);
+
+export const SHARED: rt.Atomic<rt.u8> = /* @__PURE__ */ LATER;
+
 export const SLOT: rt.Atomic<Node.Node> = /* @__PURE__ */ new rt.Atomic(rt.NULL);
 
 export const ONCE: rt.OnceLock<[rt.u8, rt.u32]> = /* @__PURE__ */ new rt.OnceLock(undefined);
@@ -140,13 +144,21 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _46: rt.u8 = rt.u8Rem(op, 8);
 		if (_46 === 0) {
 			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicFetch(COUNTER.hits, rt.u32WrappingAdd, rt.u32Rem(n2 as rt.u32, COUNTER.limit), 3)).reverse()));
-		} else if (_46 === 1) {
+			continue;
+		}
+		if (_46 === 1) {
 			rt.byteVecPush(out, rt.atomicSwap(a.locked, rt.u8Rem(n2, 2) === 0, 2) ? 1 : 0);
-		} else if (_46 === 2) {
+			continue;
+		}
+		if (_46 === 2) {
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(a.count, rt.u8WrappingAdd, n2, 0), rt.atomicLoad(b.count, 0), rt.atomicLoad(_19.count, 0))));
-		} else if (_46 === 3) {
+			continue;
+		}
+		if (_46 === 3) {
 			rt.byteVecPush(out, rt.atomicLoad(b.locked, 0) ? 1 : 0);
-		} else if (_46 === 4) {
+			continue;
+		}
+		if (_46 === 4) {
 			const node: Node.Node = { value: n2 };
 			const old: Node.Node = rt.atomicSwap(SLOT, node, 3);
 			rt.byteVecPush(out, old === rt.NULL ? 1 : 0);
@@ -164,12 +176,16 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.byteVecPush(out, 252);
 			}
 			rt.byteVecPush(out, rt.atomicLoad(SLOT, 0) === rt.NULL ? 1 : 0);
-		} else if (_46 === 5) {
+			continue;
+		}
+		if (_46 === 5) {
 			const _119: [rt.u8, rt.u32] = rt.onceGetOrInit(ONCE, (): [rt.u8, rt.u32] => {
 				return [3, 9] as [rt.u8, rt.u32];
 			});
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_119[0], _119[1] & 0xff, ONCE.v !== undefined ? 1 : 0)));
-		} else if (_46 === 6) {
+			continue;
+		}
+		if (_46 === 6) {
 			const x: rt.LazyCell<rt.u8> = new rt.LazyCell((): rt.u8 => {
 				return rt.u8Add(rt.atomicFetch(FORCED, rt.u8WrappingAdd, 1, 0), 10);
 			});
@@ -179,24 +195,31 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, rt.atomicLoad(FORCED, 0));
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(y.force(), x.force(), y.force(), x.force())));
 			rt.byteVecPush(out, rt.atomicSwap(FORCED, 0, 0));
-		} else {
-			const item = (undefined as unknown) as rt.u16;
-			const slots: rt.u16[] = Array.from({ length: 3 }, (): rt.u16 => {
-				return item;
-			});
-			const i: rt.usize = rt.usizeRem(n2 as rt.usize, 3);
-			if (!(i < 3)) {
-				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
-			}
-			const _162: rt.u16 = rt.u16Mul(n2 as rt.u16, 300);
-			const uninit = rt.place(() => slots[i], (value) => slots[i] = value);
-			uninit.v = _162;
-			uninit;
-			if (!(i < 3)) {
-				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
-			}
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u16ToBeBytes(slots[i]).reverse()));
+			continue;
 		}
+		if (_46 === 7) {
+			if (rt.u8Rem(n2, 2) === 0) {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED, rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0))));
+				rt.atomicStore(LATER, 40, 0);
+				continue;
+			}
+		}
+		const item = (undefined as unknown) as rt.u16;
+		const slots: rt.u16[] = Array.from({ length: 3 }, (): rt.u16 => {
+			return item;
+		});
+		const i: rt.usize = rt.usizeRem(n2 as rt.usize, 3);
+		if (!(i < 3)) {
+			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
+		}
+		const _176: rt.u16 = rt.u16Mul(n2 as rt.u16, 300);
+		const uninit = rt.place(() => slots[i], (value) => slots[i] = value);
+		uninit.v = _176;
+		uninit;
+		if (!(i < 3)) {
+			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
+		}
+		rt.iterExtendBytes(out, rt.iterSlice(rt.u16ToBeBytes(slots[i]).reverse()));
 	}
 	rt.atomicStore(COUNTER.hits, 4294967295 - 1, 0);
 }
