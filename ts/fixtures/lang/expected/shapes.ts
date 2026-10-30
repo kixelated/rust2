@@ -1859,6 +1859,208 @@ export function rematched(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	reseated(data, out);
+	decidedByBool(data, out);
+}
+
+/** A match a `bool` already decided: `matches!`, and `==` of a derived `PartialEq`. */
+export function decidedByBool(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _4!: boolean;
+	let _7!: rt.u8;
+	let _9!: boolean;
+	let _12!: rt.u8;
+	let _17!: boolean;
+	let _20!: rt.u8;
+	let wide!: boolean;
+	let _29!: rt.u8;
+	let _37!: rt.u8;
+	let _43!: rt.u8;
+	let _52!: rt.u8;
+	let _61!: rt.u8;
+	let _73!: rt.u8;
+	let dot!: boolean;
+	let _82!: rt.u8;
+	let dot2!: boolean;
+	let _91!: rt.u8;
+	let seen!: boolean;
+	let _99!: rt.u8;
+	let _105!: rt.u8;
+	let _111!: rt.u8;
+	let _113!: boolean;
+	const s: Shape.Shape = shape(data);
+	if (s.tag === "Dot") {
+		_4 = true;
+	} else {
+		_4 = false;
+	}
+	if (_4) {
+		if (s.tag === "Line") {
+			_7 = 60;
+		} else {
+			_7 = 61;
+		}
+		rt.byteVecPush(out, _7);
+	}
+	if (s.tag === "Line" || s.tag === "Rect") {
+		_9 = true;
+	} else {
+		_9 = false;
+	}
+	if (_9) {
+		if (s.tag === "Dot") {
+			_12 = 62;
+		} else if (s.tag === "Line") {
+			_12 = s._0.x & 0xff;
+		} else {
+			_12 = s.width & 0xff;
+		}
+		rt.byteVecPush(out, _12);
+	}
+	if (s.tag === "Line") {
+		_17 = true;
+	} else {
+		_17 = false;
+	}
+	if (!_17) {
+		if (s.tag === "Line") {
+			_20 = s._1.y & 0xff;
+		} else {
+			_20 = 63;
+		}
+		rt.byteVecPush(out, _20);
+	}
+	if (!(data.length > 2)) {
+		wide = false;
+	} else if (s.tag === "Rect") {
+		wide = true;
+	} else {
+		wide = false;
+	}
+	if (!wide) {
+		if (s.tag === "Rect") {
+			_29 = 65;
+		} else {
+			_29 = 66;
+		}
+	} else if (s.tag === "Rect") {
+		_29 = s.height & 0xff;
+	} else {
+		_29 = 64;
+	}
+	rt.byteVecPush(out, _29);
+	if (Shape.eq$PartialEq(s, { tag: "Dot" } as Shape.Shape)) {
+		if (s.tag === "Line") {
+			_37 = 67;
+		} else {
+			_37 = 68;
+		}
+		rt.byteVecPush(out, _37);
+	}
+	if (!Shape.eq$PartialEq(s, { tag: "Dot" } as Shape.Shape)) {
+		if ((s as Shape.Shape).tag === "Dot") {
+			_43 = 69;
+		} else {
+			_43 = 70;
+		}
+		rt.byteVecPush(out, _43);
+	}
+	const line = { tag: "Line", _0: Point.new(0, 0), _1: Point.new(0, 0) } as Shape.Shape;
+	if (Shape.eq$PartialEq(s, line)) {
+		if ((s as Shape.Shape).tag === "Line") {
+			_52 = (((s as Shape.Shape) as { tag: "Line"; _0: Point.Point; _1: Point.Point })._1.x & 0xff) ^ 71;
+		} else {
+			_52 = 72;
+		}
+		rt.byteVecPush(out, _52);
+	}
+	if (!Shape.eq$PartialEq(s, line)) {
+		if ((s as Shape.Shape).tag === "Line") {
+			_61 = 73;
+		} else {
+			_61 = 74;
+		}
+		rt.byteVecPush(out, _61);
+	}
+	const t: Shape.Shape = shape(rt.byteSliceRange(data, rt.min(data.length, 1)));
+	if (t.tag === "Rect") {
+		if (Shape.eq$PartialEq(s, t)) {
+			if ((s as Shape.Shape).tag === "Rect") {
+				_73 = (((s as Shape.Shape) as { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 }).width & 0xff) ^ 75;
+			} else {
+				_73 = 76;
+			}
+			rt.byteVecPush(out, _73);
+		}
+	}
+	let m: Shape.Shape = s;
+	if ((m as Shape.Shape).tag === "Dot") {
+		dot = true;
+	} else {
+		dot = false;
+	}
+	m = t;
+	if (dot) {
+		if (m.tag === "Line") {
+			_82 = 77;
+		} else {
+			_82 = 78;
+		}
+		rt.byteVecPush(out, _82);
+	}
+	if ((s as Shape.Shape).tag === "Dot") {
+		dot2 = true;
+	} else {
+		dot2 = false;
+	}
+	if (data.length > 3) {
+		dot2 = !dot2;
+	}
+	if (dot2) {
+		if ((s as Shape.Shape).tag === "Line") {
+			_91 = 79;
+		} else {
+			_91 = 80;
+		}
+		rt.byteVecPush(out, _91);
+	}
+	if ((s as Shape.Shape).tag === "Dot") {
+		seen = true;
+	} else {
+		seen = false;
+	}
+	const at: rt.Place<boolean> = rt.place(() => seen, (value) => seen = value);
+	if (!seen) {
+		rt.byteVecPush(out, 85);
+	} else {
+		at.v = data.length > 4;
+		if (!seen) {
+			_99 = 84;
+		} else {
+			_99 = 83;
+		}
+		rt.byteVecPush(out, _99);
+	}
+	let cur: Shape.Shape = s;
+	let wasDot: boolean = false;
+	let iterStart: rt.u8 = 0;
+	const iterEnd: rt.u8 = 3;
+	while ((_105 = iterStart++) < iterEnd) {
+		const i: rt.u8 = _105;
+		if (wasDot) {
+			if (cur.tag === "Dot") {
+				_111 = 81;
+			} else {
+				_111 = 82;
+			}
+			rt.byteVecPush(out, _111);
+		}
+		if (cur.tag === "Dot") {
+			_113 = true;
+		} else {
+			_113 = false;
+		}
+		wasDot = _113;
+		cur = shape(rt.byteSliceFrom(Uint8Array.of(i, i)));
+	}
 }
 
 /**
