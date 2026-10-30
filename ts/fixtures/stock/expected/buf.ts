@@ -461,7 +461,7 @@ export function reads(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rest));
 		const vec: rt.ByteVec = new rt.ByteVec();
 		const _59: Pieces.Pieces = Pieces.new(input, cut);
-		rt.byteVecPutBuf(vec, _59, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf);
+		rt.byteVecPutBuf(vec, _59, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf as (a0: Pieces.Pieces, a1: rt.usize) => undefined);
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(vec));
 		const slice: rt.ByteSlice = input;
 		rt.byteVecPush(out, slice.length === input.length ? 1 : 0);
@@ -593,7 +593,7 @@ export function readAll$Provided(buf: Provided.Provided, ops: rt.ByteSlice, read
 		}
 	}
 	const n: rt.usize = Provided.remaining$Buf$2(buf);
-	return rt.byteSliceToByteVec(rt.bufCopyToBytes(buf, n, Provided.remaining$Buf, Provided.chunk$Buf, Provided.advance$Buf));
+	return rt.byteSliceToByteVec(rt.bufCopyToBytes(buf, n, Provided.remaining$Buf, Provided.chunk$Buf, Provided.advance$Buf as (a0: Provided.Provided, a1: rt.usize) => undefined));
 }
 
 /** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */

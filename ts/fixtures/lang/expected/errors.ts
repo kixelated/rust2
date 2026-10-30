@@ -379,49 +379,49 @@ export function pairs$Vec_Result_bool_ParseBoolError(values: rt.Result<boolean, 
 export function parsed$NonZero_u32(all: string[]): rt.Result<rt.u32, rt.ParseIntError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.u32, rt.ParseIntError> => {
 		return parse$1o8vfr6(s);
-	}));
+	}), undefined, 8, true);
 }
 
 export function parsed$bool(all: string[]): rt.Result<boolean, rt.ParseBoolError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<boolean, rt.ParseBoolError> => {
 		return parse$0vh4cry(s);
-	}));
+	}), undefined, 1, true);
 }
 
 export function parsed$char(all: string[]): rt.Result<rt.char, rt.ParseCharError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.char, rt.ParseCharError> => {
 		return rt.charFromStr(s);
-	}));
+	}), undefined, 8, true);
 }
 
 export function parsed$f64(all: string[]): rt.Result<rt.f64, rt.ParseFloatError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.f64, rt.ParseFloatError> => {
 		return rt.f64FromStr(s);
-	}));
+	}), undefined, 16, true);
 }
 
 export function parsed$i128(all: string[]): rt.Result<rt.i128, rt.ParseIntError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.i128, rt.ParseIntError> => {
 		return parse$0zwe7sh(s);
-	}));
+	}), undefined, 32, true);
 }
 
 export function parsed$i8(all: string[]): rt.Result<rt.i8, rt.ParseIntError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.i8, rt.ParseIntError> => {
 		return parse$1fq462u(s);
-	}));
+	}), undefined, 2, true);
 }
 
 export function parsed$u64(all: string[]): rt.Result<rt.u64, rt.ParseIntError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.u64, rt.ParseIntError> => {
 		return parse$1q1obm6(s);
-	}));
+	}), undefined, 16, true);
 }
 
 export function parsed$u8(all: string[]): rt.Result<rt.u8, rt.ParseIntError>[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.u8, rt.ParseIntError> => {
 		return parse$0yt2578(s);
-	}));
+	}), undefined, 2, true);
 }
 
 /**
@@ -462,74 +462,74 @@ export function eqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _78: rt.Iter<rt.i64> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_27: rt.u8): rt.i64 => {
 			return rt.i64Mul((_27 << 24) >> 24 as rt.i64, 2);
 		});
-		rt.iterExtend(ints, _78);
+		rt.iterExtend(ints, _78, undefined, 8, true);
 		pairs$Result_i8_TryFromIntError(rt.iterToArray(rt.iterMap(rt.iterSlice(ints), (a03: rt.i64): rt.Result<rt.i8, rt.TryFromIntError> => {
 			return rt.i8TryFrom(a03);
-		})), out);
+		}), undefined, 2, true), out);
 	} else if (_32 === 9) {
 		pairs$Result_str_Utf8Error(rt.iterToArray(rt.iterMap(rt.iterSlice(bytes), (b6: rt.ByteSlice): rt.Result<string, rt.Utf8Error> => {
 			return rt.strFromUtf8(b6);
-		})), out);
+		}), undefined, 12, true), out);
 	} else if (_32 === 10) {
 		pairs$Result_String_FromUtf8Error(rt.iterToArray(rt.iterMap(rt.iterSlice(bytes), (b5: rt.ByteSlice): rt.Result<string, rt.FromUtf8Error> => {
 			return rt.stringFromUtf8(rt.byteSliceToByteVec(b5));
-		})), out);
+		}), undefined, 20, true), out);
 	} else if (_32 === 11) {
 		const secs: rt.f64[] = [0.0, -0.0, 1.5, -1.0, NaN, Infinity, -Infinity, 1e30];
 		const _105: rt.Iter<rt.f64> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_25: rt.u8): rt.f64 => {
 			return (((_25 << 24) >> 24 as rt.f64)) / 4.0;
 		});
-		rt.iterExtend(secs, _105);
+		rt.iterExtend(secs, _105, undefined, 8, true);
 		pairs$Result_Duration_TryFromFloatSecsError(rt.iterToArray(rt.iterMap(rt.iterSlice(secs), (a02: rt.f64): rt.Result<rt.Duration, rt.TryFromFloatSecsError> => {
 			return rt.durationTryFromSecsF64(a02);
-		})), out);
+		}), undefined, 16, true), out);
 	} else if (_32 === 12) {
 		pairs$Result_Option_u8_ParseIntError(rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s6: string): rt.Result<rt.u8 | undefined, rt.ParseIntError> => {
 			return map$0r57egs(parse$0yt2578(s6), (v10: rt.u8): rt.u8 | undefined => {
 				return rt.u8CheckedSub(v10, 1);
 			});
-		})), out);
+		}), undefined, 2, true), out);
 		pairs$Result_Result_char_ParseCharError_ParseBoolError(rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s7: string): rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError> => {
 			const _68: string = s7;
 			return map$0fm1w6u(parse$0vh4cry(s7), (_24: boolean): rt.Result<rt.char, rt.ParseCharError> => {
 				return rt.charFromStr(_68);
 			});
-		})), out);
+		}), undefined, 8, true), out);
 		pairs$Result_u8_IntErrorKind(rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s8: string): rt.Result<rt.u8, rt.IntErrorKind> => {
 			return mapErr$0u5yxjj(parse$0yt2578(s8), (e: rt.ParseIntError): rt.IntErrorKind => {
 				return e.kind;
 			});
-		})), out);
+		}), undefined, 2, true), out);
 	} else if (_32 === 13) {
 		pairs$Result_u16_never(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.Result<rt.u16, never> => {
 			return rt.Ok(_2 as rt.u16);
-		})), out);
+		}), undefined, 2, true), out);
 		pairs$Result_unit_Error(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_22: rt.u8): rt.Result<undefined, rt.FmtError> => {
 			if (!(rt.u8Rem(_22, 2) === 0)) {
 				return rt.Err(new rt.FmtError());
 			}
 			return rt.OK;
-		})), out);
+		}), undefined, 1, true), out);
 	} else {
 		pairs$Option_Result_u8_ParseIntError(rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s: string): rt.Result<rt.u8, rt.ParseIntError> | undefined => {
 			const _73: string = s;
 			return then$0afp4no(!((s.length === 0)), (): rt.Result<rt.u8, rt.ParseIntError> => {
 				return parse$0yt2578(_73);
 			});
-		})), out);
-		pairs$Vec_Result_bool_ParseBoolError(rt.iterToArray(rt.iterMap(rt.sliceChunks(all, 2), parsed$bool)), out);
+		}), undefined, 2, true), out);
+		pairs$Vec_Result_bool_ParseBoolError(rt.iterToArray(rt.iterMap(rt.sliceChunks(all, 2), parsed$bool), undefined, 12, true), out);
 		pairs$Result_char_ParseCharError_usize(rt.iterToArray(rt.iterMap(rt.iterSlice(all), (s2: string): [rt.Result<rt.char, rt.ParseCharError>, rt.usize] => {
 			return [rt.charFromStr(s2), rt.usizeRem(rt.stringLen(s2), 2)] as [rt.Result<rt.char, rt.ParseCharError>, rt.usize];
-		})), out);
+		}), undefined, 12, true), out);
 		pairs$ParseCharError(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(all), (s3: string): rt.ParseCharError | undefined => {
 			return err$02r96h1(rt.charFromStr(s3));
-		}), "next"), out);
+		}), "next", 1), out);
 		pairs$ParseBoolError(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(all), (s4: string): rt.ParseBoolError | undefined => {
 			return err$1ujom0k(parse$0vh4cry(s4));
-		}), "next"), out);
+		}), "next", 0), out);
 		pairs$ParseIntError(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(all), (s5: string): rt.ParseIntError | undefined => {
 			return err$0jf6smd(parse$1fq462u(s5));
-		}), "next"), out);
+		}), "next", 1), out);
 	}
 }
 

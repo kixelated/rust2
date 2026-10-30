@@ -6,7 +6,7 @@ import { thenSome$0d5am30 } from "./core/bool.ts";
 /** Steps of an operation and an operand on one cell, each putting what it read. */
 export function cellOption(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => rt.u8 | undefined = maybe;
-	const put: (a0: rt.ByteVec, a1: rt.u8 | undefined) => void = putMaybe;
+	const put: (a0: rt.ByteVec, a1: rt.u8 | undefined) => undefined = putMaybe as (a0: rt.ByteVec, a1: rt.u8 | undefined) => undefined;
 	let cell: rt.OnceCell<rt.u8 | undefined, rt.None> = new rt.OnceCell(rt.None);
 	let dataData: Uint8Array = data.data;
 	let dataStart: number = data.start;
@@ -106,7 +106,7 @@ export function cellString(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => string = (v3: rt.u8): string => {
 		return rt.fmtToString((f: rt.Formatter) => rt.u8Display(v3, f));
 	};
-	const put: (a0: rt.ByteVec, a1: string) => void = (out2: rt.ByteVec, t6: string): void => {
+	const put: (a0: rt.ByteVec, a1: string) => undefined = (out2: rt.ByteVec, t6: string): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(t6));
 	};
 	let cell: rt.OnceCell<string> = new rt.OnceCell(undefined);
@@ -206,7 +206,7 @@ export function cellString(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** Steps of an operation and an operand on one cell, each putting what it read. */
 export function cellU64(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => rt.u64 = wide;
-	const put: (a0: rt.ByteVec, a1: rt.u64) => void = (out2: rt.ByteVec, t6: rt.u64): void => {
+	const put: (a0: rt.ByteVec, a1: rt.u64) => undefined = (out2: rt.ByteVec, t6: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u64ToBeBytes(t6)));
 	};
 	let cell: rt.OnceCell<rt.u64> = new rt.OnceCell(undefined);
@@ -308,7 +308,7 @@ export function cellU8(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => rt.u8 = (v3: rt.u8): rt.u8 => {
 		return v3;
 	};
-	const put: (a0: rt.ByteVec, a1: rt.u8) => void = (out2: rt.ByteVec, t6: rt.u8): void => {
+	const put: (a0: rt.ByteVec, a1: rt.u8) => undefined = (out2: rt.ByteVec, t6: rt.u8): undefined => {
 		rt.byteVecPush(out2, t6);
 	};
 	let cell: rt.OnceCell<rt.u8> = new rt.OnceCell(undefined);
@@ -407,8 +407,8 @@ export function cellU8(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Steps of an operation and an operand on one cell, each putting what it read. */
 export function cellUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const make: (a0: rt.u8) => void = (_2: rt.u8): void => {};
-	const put: (a0: rt.ByteVec, a1: undefined) => void = (out2: rt.ByteVec, _3: undefined): void => {
+	const make: (a0: rt.u8) => undefined = (_2: rt.u8): undefined => {};
+	const put: (a0: rt.ByteVec, a1: undefined) => undefined = (out2: rt.ByteVec, _3: undefined): undefined => {
 		rt.byteVecPush(out2, 170);
 	};
 	let cell: rt.OnceCell<undefined, rt.None> = new rt.OnceCell(rt.None);
@@ -445,14 +445,14 @@ export function cellUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 				put(out, undefined);
 			}
 		} else if (_18 === 2) {
-			const _34: undefined = rt.onceGetOrInit(cell, (): void => {
+			const _34: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				make(v2);
 			}, undefined, rt.None);
 			put(out, _34);
 		} else if (_18 === 3) {
 			let seen: rt.u8 = 2;
 			const _44: rt.OnceCell<undefined, rt.None> = cell;
-			const t: undefined = rt.onceGetOrInit(cell, (): void => {
+			const t: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				seen = _44.v !== rt.None ? 1 : 0;
 				make(v2);
 			}, undefined, rt.None);
@@ -467,7 +467,7 @@ export function cellUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_18 === 5) {
 			const _60: rt.OnceCell<undefined, rt.None> = cell;
-			const _57: undefined = rt.onceGetOrInit(cell, (): void => {
+			const _57: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				make(v2 ^ 1);
 				rt.onceSet(_60, undefined, rt.None);
 				make(v2);
@@ -476,8 +476,8 @@ export function cellUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_18 === 6) {
 			const inner: rt.ByteVec = new rt.ByteVec();
 			const _69: rt.OnceCell<undefined, rt.None> = cell;
-			const t2: undefined = rt.onceGetOrInit(cell, (): void => {
-				put(inner, rt.onceGetOrInit(_69, (): void => {
+			const t2: undefined = rt.onceGetOrInit(cell, (): undefined => {
+				put(inner, rt.onceGetOrInit(_69, (): undefined => {
 					make(v2 ^ 1);
 				}, undefined, rt.None));
 				make(v2);
@@ -485,7 +485,7 @@ export function cellUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 			put(out, t2);
 			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(inner));
 		} else if (_18 === 7) {
-			const _76: undefined = rt.onceGetOrInit(cell, (): void => {
+			const _76: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(v2, f)];
 				rt.panicFmt(["init ", args2[0]]);
 			}, undefined, rt.None);
@@ -506,14 +506,14 @@ export function cellUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Steps on the cell and value type `kind` picks. */
 export function cells(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const cases: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = [cellU8, lockU8, cellU64, lockU64, cellOption, lockOption, cellUnit, lockUnit, cellString, lockString];
+	const cases: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => undefined> = [cellU8 as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, lockU8 as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, cellU64 as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, lockU64 as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, cellOption as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, lockOption as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, cellUnit as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, lockUnit as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, cellString as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, lockString as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined];
 	cases[rt.idx(cases, rt.usizeRem(kind as rt.usize, cases.length))](data, out);
 }
 
 /** Steps of an operation and an operand on one cell, each putting what it read. */
 export function lockOption(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => rt.u8 | undefined = maybe;
-	const put: (a0: rt.ByteVec, a1: rt.u8 | undefined) => void = putMaybe;
+	const put: (a0: rt.ByteVec, a1: rt.u8 | undefined) => undefined = putMaybe as (a0: rt.ByteVec, a1: rt.u8 | undefined) => undefined;
 	let cell: rt.OnceLock<rt.u8 | undefined, rt.None> = new rt.OnceLock(rt.None);
 	let dataData: Uint8Array = data.data;
 	let dataStart: number = data.start;
@@ -613,7 +613,7 @@ export function lockString(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => string = (v3: rt.u8): string => {
 		return rt.fmtToString((f: rt.Formatter) => rt.u8Display(v3, f));
 	};
-	const put: (a0: rt.ByteVec, a1: string) => void = (out2: rt.ByteVec, t6: string): void => {
+	const put: (a0: rt.ByteVec, a1: string) => undefined = (out2: rt.ByteVec, t6: string): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.stringAsBytes(t6));
 	};
 	let cell: rt.OnceLock<string> = new rt.OnceLock(undefined);
@@ -713,7 +713,7 @@ export function lockString(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** Steps of an operation and an operand on one cell, each putting what it read. */
 export function lockU64(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => rt.u64 = wide;
-	const put: (a0: rt.ByteVec, a1: rt.u64) => void = (out2: rt.ByteVec, t6: rt.u64): void => {
+	const put: (a0: rt.ByteVec, a1: rt.u64) => undefined = (out2: rt.ByteVec, t6: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u64ToBeBytes(t6)));
 	};
 	let cell: rt.OnceLock<rt.u64> = new rt.OnceLock(undefined);
@@ -815,7 +815,7 @@ export function lockU8(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const make: (a0: rt.u8) => rt.u8 = (v3: rt.u8): rt.u8 => {
 		return v3;
 	};
-	const put: (a0: rt.ByteVec, a1: rt.u8) => void = (out2: rt.ByteVec, t6: rt.u8): void => {
+	const put: (a0: rt.ByteVec, a1: rt.u8) => undefined = (out2: rt.ByteVec, t6: rt.u8): undefined => {
 		rt.byteVecPush(out2, t6);
 	};
 	let cell: rt.OnceLock<rt.u8> = new rt.OnceLock(undefined);
@@ -914,8 +914,8 @@ export function lockU8(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Steps of an operation and an operand on one cell, each putting what it read. */
 export function lockUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const make: (a0: rt.u8) => void = (_2: rt.u8): void => {};
-	const put: (a0: rt.ByteVec, a1: undefined) => void = (out2: rt.ByteVec, _3: undefined): void => {
+	const make: (a0: rt.u8) => undefined = (_2: rt.u8): undefined => {};
+	const put: (a0: rt.ByteVec, a1: undefined) => undefined = (out2: rt.ByteVec, _3: undefined): undefined => {
 		rt.byteVecPush(out2, 170);
 	};
 	let cell: rt.OnceLock<undefined, rt.None> = new rt.OnceLock(rt.None);
@@ -952,14 +952,14 @@ export function lockUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 				put(out, undefined);
 			}
 		} else if (_18 === 2) {
-			const _34: undefined = rt.onceGetOrInit(cell, (): void => {
+			const _34: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				make(v2);
 			}, undefined, rt.None);
 			put(out, _34);
 		} else if (_18 === 3) {
 			let seen: rt.u8 = 2;
 			const _44: rt.OnceLock<undefined, rt.None> = cell;
-			const t: undefined = rt.onceGetOrInit(cell, (): void => {
+			const t: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				seen = _44.v !== rt.None ? 1 : 0;
 				make(v2);
 			}, undefined, rt.None);
@@ -974,7 +974,7 @@ export function lockUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		} else if (_18 === 5) {
 			const _60: rt.OnceLock<undefined, rt.None> = cell;
-			const _57: undefined = rt.onceGetOrInit(cell, (): void => {
+			const _57: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				make(v2 ^ 1);
 				rt.onceSet(_60, undefined, rt.None);
 				make(v2);
@@ -983,8 +983,8 @@ export function lockUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_18 === 6) {
 			const inner: rt.ByteVec = new rt.ByteVec();
 			const _69: rt.OnceLock<undefined, rt.None> = cell;
-			const t2: undefined = rt.onceGetOrInit(cell, (): void => {
-				put(inner, rt.onceGetOrInit(_69, (): void => {
+			const t2: undefined = rt.onceGetOrInit(cell, (): undefined => {
+				put(inner, rt.onceGetOrInit(_69, (): undefined => {
 					make(v2 ^ 1);
 				}, undefined, rt.None));
 				make(v2);
@@ -992,7 +992,7 @@ export function lockUnit(data: rt.ByteSlice, out: rt.ByteVec): void {
 			put(out, t2);
 			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(inner));
 		} else if (_18 === 7) {
-			const _76: undefined = rt.onceGetOrInit(cell, (): void => {
+			const _76: undefined = rt.onceGetOrInit(cell, (): undefined => {
 				const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(v2, f)];
 				rt.panicFmt(["init ", args2[0]]);
 			}, undefined, rt.None);

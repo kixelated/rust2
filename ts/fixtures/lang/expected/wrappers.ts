@@ -309,7 +309,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		}));
 		bounds$RangeInclusive_u64(out, placed);
 		const each: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		rt.iterForEach(rt.iterBorrow(each), (x6: rt.u64): void => {
+		rt.iterForEach(rt.iterBorrow(each), (x6: rt.u64): undefined => {
 			rt.byteVecPush(out, rt.u64Low(x6) & 0xff);
 		});
 		bounds$RangeInclusive_u64(out, each);
@@ -326,7 +326,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		putU64(out, unwrapOr$1tvry1i(rt.iterMax(rt.iterBorrow(most), rt.lt), 238));
 		bounds$RangeInclusive_u64(out, most);
 		const collected: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		rt.byteVecPush(out, rt.iterToArray(rt.iterBorrow(collected)).length & 0xff);
+		rt.byteVecPush(out, rt.iterToArray(rt.iterBorrow(collected), undefined, 8, true).length & 0xff);
 		bounds$RangeInclusive_u64(out, collected);
 		const gathered: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _154: Tally.Tally = rt.iterFold(rt.iterBorrow(gathered), new Tally.Tally(0), (t: Tally.Tally, x7: rt.u64): Tally.Tally => {
@@ -339,23 +339,23 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		bounds$RangeInclusive_u64(out, gathered);
 		const keyed: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _166: rt.RangeInclusive<rt.u64> = keyed;
-		rt.byteVecPush(out, rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, rt.iterBorrow(_166), true)) & 0xff);
+		rt.byteVecPush(out, rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, rt.iterBorrow(_166), true, undefined, undefined, 8, true)) & 0xff);
 		bounds$RangeInclusive_u64(out, keyed);
 		const queued: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _176: rt.RangeInclusive<rt.u64> = queued;
-		rt.byteVecPush(out, rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u64>, rt.iterBorrow(_176)).n & 0xff);
+		rt.byteVecPush(out, rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u64>, rt.iterBorrow(_176), undefined, 8, true).n & 0xff);
 		bounds$RangeInclusive_u64(out, queued);
 		const hashed: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const _186: rt.RangeInclusive<rt.u64> = hashed;
-		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hash64, rt.u64Eq)) as rt.HashSet<rt.u64>, rt.iterBorrow(_186))) & 0xff);
+		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hash64, rt.u64Eq)) as rt.HashSet<rt.u64>, rt.iterBorrow(_186), undefined, undefined, 117440512)) & 0xff);
 		bounds$RangeInclusive_u64(out, hashed);
 		const extended: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
 		const held: rt.u64[] = [];
-		rt.iterExtend(held, rt.iterBorrow(extended));
+		rt.iterExtend(held, rt.iterBorrow(extended), undefined, 8, true);
 		rt.byteVecPush(out, held.length & 0xff);
 		bounds$RangeInclusive_u64(out, extended);
 		const narrow: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(rt.u64Low(lo) & 0xff, rt.u64Low(hi) & 0xff, rt.u8Step);
-		rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterBorrow(narrow)))));
+		rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterBorrow(narrow), undefined, true))), undefined, true);
 		rt.byteVecPush(out, rt.rangeInclusiveStart(narrow));
 		rt.byteVecPush(out, rt.rangeInclusiveIsEmpty(narrow) ? 1 : 0);
 		bounds$RangeTo_u64(out, { end: b });
@@ -422,10 +422,10 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, rt.btreeLen(map) & 0xff);
 		rt.byteVecPush(out, rt.btreeLen(above) & 0xff);
 		const _397: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-		const set: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _397, true);
+		const set: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _397, true, undefined, undefined, 1, true);
 		const _402: rt.u8 = at(2);
 		const high: rt.BTreeSet<rt.u8> = rt.btreeSplitOff(set, _402);
-		rt.iterExtendBytes(out, rt.iterChain(rt.btreeKeys(set), rt.btreeKeys(high)));
+		rt.iterExtendBytes(out, rt.iterChain(rt.btreeKeys(set), rt.btreeKeys(high)), undefined, true);
 		rt.byteVecPush(out, rt.btreeLen(high) & 0xff);
 	} else if (_21 === 2) {
 		const _417: [rt.u8, rt.u8] = [at(0), at(1)];
@@ -440,7 +440,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _461: rt.Iter<[rt.u8, rt.usize]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): [rt.u8, rt.usize] => {
 			return [_2[1], _2[0]] as [rt.u8, rt.usize];
 		});
-		const iter4: rt.Iter<[rt.u8, rt.usize]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpReverse(rt.cmp)) as rt.BTreeMap<rt.u8, rt.usize>, _461, true));
+		const iter4: rt.Iter<[rt.u8, rt.usize]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpReverse(rt.cmp)) as rt.BTreeMap<rt.u8, rt.usize>, _461, true, undefined, undefined, undefined, 8, true));
 		while (true) {
 			const _467: [rt.u8, rt.usize] | rt.Done = iter4.next();
 			if (_467 === rt.DONE) {
@@ -451,7 +451,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		}
 		const ranked: [rt.u8, rt.usize][] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_23: [rt.usize, rt.u8]): [rt.u8, rt.usize] => {
 			return [_23[1], _23[0]] as [rt.u8, rt.usize];
-		}));
+		}), undefined, 8, true);
 		rt.sliceSortByKey(ranked, (_25: [rt.u8, rt.usize]): [rt.u8, rt.usize] => {
 			return [rt.u8Rem(_25[0], 4), _25[1]] as [rt.u8, rt.usize];
 		}, rt.cmpLt(rt.cmpTuple([rt.cmpReverse(rt.cmp), rt.cmp])));

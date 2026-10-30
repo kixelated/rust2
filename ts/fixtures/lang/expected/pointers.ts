@@ -381,13 +381,13 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const before: rt.u32 = num.v;
 			const _32: rt.u32 = rt.u32WrappingAdd(num.v, (((n as rt.u32)) << 26) >>> 0);
 			num.v = _32;
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(before).reverse()));
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(before).reverse()), undefined, true);
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()), undefined, true);
 		} else if (_23 === 1) {
 			const _46: rt.u32 = n as rt.u32;
 			const _47: rt.Place<rt.u32> = num;
 			_47.v = (_47.v ^ _46) >>> 0;
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()), undefined, true);
 		} else if (_23 === 2) {
 			const before2: Duo.Duo = copy$Duo(pair.v);
 			pair.v._0 = n;
@@ -396,19 +396,19 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.ptrWrite(p, { _0: p._1, _1: p._0 });
 			const _67: Duo.Duo = pair.v;
 			_67._1 = _67._1 ^ 128;
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(before2._0, before2._1, between._0, between._1, pair.v._0, pair.v._1)));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(before2._0, before2._1, between._0, between._1, pair.v._0, pair.v._1)), undefined, true);
 		} else if (_23 === 3) {
 			const _83: rt.Place<string> = text;
 			_83.v = _83.v + String.fromCodePoint(rt.u8Add(97, rt.u8Rem(n, 26)) as rt.char);
 			const _91: rt.Place<string> = text;
 			_91.v = _91.v + "!";
-			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))), undefined, true);
 		} else if (_23 === 4) {
 			const _99: rt.Arc<undefined> = rt.arcClone(count);
 			const fresh: Held.Held = new Held.Held(n, _99);
 			if (rt.u8Rem(n, 2) === 0) {
 				const captured2 = fresh;
-				Wrapped.withMut$Held_unit_cells_closure0(held, rt.closure((p6: Held.Held): void => {
+				Wrapped.withMut$Held_unit_cells_closure0(held, rt.closure((p6: Held.Held): undefined => {
 					const _311: Held.Held = captured2;
 					p6[Symbol.dispose]();
 					rt.ptrWrite(p6, _311);
@@ -417,7 +417,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				}));
 			} else {
 				const captured = fresh;
-				Wrapped.withMut$Held_unit_cells_closure1(held, rt.closure((p5: Held.Held): void => {
+				Wrapped.withMut$Held_unit_cells_closure1(held, rt.closure((p5: Held.Held): undefined => {
 					rt.ptrWrite(p5, captured);
 				}, (): void => {
 					captured[Symbol.dispose]();
@@ -425,9 +425,9 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(Wrapped.with$Held_u8_cells_closure2(held, (p7: Held.Held): rt.u8 => {
 				return p7.n;
-			}), count.strong & 0xff)));
+			}), count.strong & 0xff)), undefined, true);
 		} else if (_23 === 5) {
-			Wrapped.withMut$Held_unit_cells_closure3(held, (p3: Held.Held): void => {
+			Wrapped.withMut$Held_unit_cells_closure3(held, (p3: Held.Held): undefined => {
 				p3.n = rt.u8WrappingAdd(p3.n, n);
 			});
 			const _119: Held.Held = held._0.v;
@@ -436,15 +436,15 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return p4.n;
 			}));
 		} else if (_23 === 6) {
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(renewNum(num, n as rt.u32)).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(renewNum(num, n as rt.u32)).reverse()), undefined, true);
 			const _134: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(n, f));
-			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(renewText(text, _134)))));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(renewText(text, _134)))), undefined, true);
 			const _136: Duo.Duo = { _0: n, _1: ~n & 0xff };
 			Object.assign(pair.v, _136);
 		} else {
 			const _142: rt.Arc<undefined> = rt.arcClone(count);
 			const made_: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _142));
-			Wrapped.withMut$Held_unit_cells_closure5(made_, (p2: Held.Held): void => {
+			Wrapped.withMut$Held_unit_cells_closure5(made_, (p2: Held.Held): undefined => {
 				p2.n = p2.n ^ 85;
 			});
 			rt.byteVecPush(out, count.strong & 0xff);
@@ -454,10 +454,10 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, count.strong & 0xff);
 		}
 	}
-	rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()), undefined, true);
 	const _165: Duo.Duo = pair.v;
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_165._0, _165._1)));
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_165._0, _165._1)), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))), undefined, true);
 	held[Symbol.dispose]();
 	rt.byteVecPush(out, count.strong & 0xff);
 	count[Symbol.dispose]();
@@ -484,19 +484,19 @@ export function rebound(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const n of rt.byteSliceView(data)) {
 		const _10: rt.u8 = rt.u8Rem(n, 7);
 		if (_10 === 0) {
-			rt.iterExtendBytes(out, rt.iterSlice(replacedBefore(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(replacedBefore(n)), undefined, true);
 		} else if (_10 === 6) {
-			rt.iterExtendBytes(out, rt.iterSlice(retargeted(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(retargeted(n)), undefined, true);
 		} else if (_10 === 5) {
-			rt.iterExtendBytes(out, rt.iterSlice(lentAsValue(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(lentAsValue(n)), undefined, true);
 		} else if (_10 === 1) {
-			rt.iterExtendBytes(out, rt.iterSlice(partsReplaced(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(partsReplaced(n)), undefined, true);
 		} else if (_10 === 2) {
-			rt.iterExtendBytes(out, rt.iterSlice(writtenInPlace(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(writtenInPlace(n)), undefined, true);
 		} else if (_10 === 3) {
-			rt.iterExtendBytes(out, rt.iterSlice(cellWrittenInPlace(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(cellWrittenInPlace(n)), undefined, true);
 		} else {
-			rt.iterExtendBytes(out, rt.iterSlice(borrowedThrough(n)));
+			rt.iterExtendBytes(out, rt.iterSlice(borrowedThrough(n)), undefined, true);
 		}
 	}
 }
@@ -607,9 +607,9 @@ export function put$ByCall(slot: ByCall.ByCall, value: ByCall.ByCall): void {
 	Object.assign(slot, copy$ByCall(value));
 }
 
-export function resetter$ByClosure(slot: ByClosure.ByClosure): () => void {
+export function resetter$ByClosure(slot: ByClosure.ByClosure): () => undefined {
 	const captured = slot;
-	return (): void => {
+	return (): undefined => {
 		rt.ptrWrite(captured, copy$ByClosure(ByClosure.default$Default()));
 	};
 }
@@ -630,7 +630,7 @@ export function writers(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else {
 			_12 = byClosure(n);
 		}
-		rt.iterExtendBytes(out, rt.iterSlice(_12));
+		rt.iterExtendBytes(out, rt.iterSlice(_12), undefined, true);
 	}
 }
 
@@ -671,7 +671,7 @@ export function nudge(g: Gauge.Gauge, n: rt.u8): void {
  */
 export function made(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const _5 of rt.byteSliceView(data)) {
-		rt.iterExtendBytes(out, rt.iterSlice(madeParts(_5)));
+		rt.iterExtendBytes(out, rt.iterSlice(madeParts(_5)), undefined, true);
 	}
 }
 

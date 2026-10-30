@@ -312,7 +312,7 @@ export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
 export function order(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let v: rt.u32[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u64Low(rt.u64Clamp(takeU64(data)[0], 1, 65536))), (i: rt.u32): rt.u32 => {
 		return rt.u32Rem(rt.u32Mul(i, 40503), 1 << 16);
-	}));
+	}), undefined, 4, true);
 	if (selector === 0) {
 		rt.sliceSort(v, rt.lt);
 	} else if (selector === 1) {

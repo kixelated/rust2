@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A closure, a `fn` pointer, a `dyn Fn`, or a function item as a value returns
+  `undefined` for `()`, not `void`, as in `(a0: rt.u8) => undefined`: a caller passes such
+  a parameter a function typed `=> undefined`.
 - An instance of a generic std function, such as `core/option.ts`'s, is named for a hash
   of its text, `map$1cf8u0y`, rather than for its type arguments and the closure of one
   of the instances merged into it, `map$Option_u64_u64_rescale_closure0`. A caller that

@@ -9,7 +9,7 @@
 import { fmtCharDebug, type Place, panic, panicFmt, stringLen } from "../rt.ts";
 import { type Bounds, boundsRange } from "./collections.ts";
 import type { char, u8, usize } from "./int.ts";
-import { DONE, type Done, Iter, iterForEach, iterSlice } from "./iter.ts";
+import { DONE, type Done, Iter, iterForEach, iterSlice, type SizeHint } from "./iter.ts";
 import { drop as dispose } from "./task.ts";
 
 const encoder = /* @__PURE__ */ new TextEncoder();
@@ -121,9 +121,10 @@ class Chars extends Iter<char> {
 		return this.#s.codePointAt(this.#back) as char;
 	}
 
-	/** std's: a char per four bytes of what is left. */
-	override lower(): number {
-		return Math.ceil(utf8Len(this.#s, this.#front, this.#back) / 4);
+	/** std's: a char per four bytes of what is left, and at most one per byte. */
+	override sizeHint(): SizeHint {
+		const bytes = utf8Len(this.#s, this.#front, this.#back);
+		return [Math.ceil(bytes / 4), bytes];
 	}
 
 	/** `as_str`: what is left. */
@@ -470,7 +471,7 @@ export function stringSplitOff(s: string, i: usize): [string, string] {
  * char, once it reserved the iterator's lower bound, which panics past `isize::MAX`.
  */
 export function stringExtendChars(s: string, it: Iter<char>, drops = false): string {
-	stringReserve(s, it.lower());
+	stringReserve(s, it.sizeHint()[0]);
 	iterForEach(
 		it,
 		(c) => {

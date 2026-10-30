@@ -417,6 +417,14 @@ export function map$132mdj8(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u8) => r
 	return self;
 }
 
+export function map$03hz3l7(self: rt.Result<rt.u8, rt.u8>, op: (a0: rt.u8) => undefined): rt.Result<undefined, rt.u8> {
+	if (self.ok) {
+		op(self.value);
+		return rt.OK;
+	}
+	return self as rt.Result<undefined, rt.u8>;
+}
+
 export function mapOr$1mu5bvh(self: rt.Result<rt.u8, rt.u16>, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self.ok) {
 		return f(self.value);
@@ -466,14 +474,22 @@ export function mapErr$1lsqfgi(self: rt.Result<rt.u8, rt.u16>, op: (a0: rt.u16) 
 	return rt.Err(op(self.error));
 }
 
-export function inspect$07pitc0(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => void): rt.Result<rt.u8, rt.u16> {
+export function mapErr$1whfgss(self: rt.Result<rt.u8, undefined>, op: (a0: undefined) => undefined): rt.Result<rt.u8, undefined> {
+	if (self.ok) {
+		return self;
+	}
+	op(undefined);
+	return rt.ERR;
+}
+
+export function inspect$16o3gle(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => undefined): rt.Result<rt.u8, rt.u16> {
 	if (self.ok) {
 		f(self.value);
 	}
 	return self;
 }
 
-export function inspectErr$0vdsz1l(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => void): rt.Result<rt.u8, rt.u16> {
+export function inspectErr$06tv5sa(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u16) => undefined): rt.Result<rt.u8, rt.u16> {
 	if (!self.ok) {
 		f(self.error);
 	}
@@ -565,6 +581,13 @@ export function unwrapOr$0nhd29g(self: rt.Result<rt.u16, rt.TryFromIntError>, de
 }
 
 export function unwrapOr$0hnup9g(self: rt.Result<rt.u16, rt.u16>, default_: rt.u16): rt.u16 {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
+export function unwrapOr$0u9zzk3(self: rt.Result<rt.u32, rt.TryFromIntError>, default_: rt.u32): rt.u32 {
 	if (self.ok) {
 		return self.value;
 	}

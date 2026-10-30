@@ -341,7 +341,8 @@ pub fn call<'tcx>(
 		let source = targ(2)?;
 		let iter = iter_of(b.t, source)?;
 		let items = into_iter(b, source, args.pop()?, span)?;
-		return collect(b, targ(0)?, targ(1)?, items, iter, span);
+		let trusted = implements(b.t, iter, "TrustedLen");
+		return collect(b, targ(0)?, targ(1)?, items, iter, trusted, span);
 	}
 
 	// `Vec::extend` with an iterator, which it drops once done.
@@ -362,13 +363,17 @@ pub fn call<'tcx>(
 		{
 			items = Expr::rt("iterMap", vec![items, copy]);
 		}
-		let extend = match vec_args.type_at(0).kind() {
-			ty::Uint(ty::UintTy::U8) => "iterExtendBytes",
-			_ => "iterExtend",
+		// Of a `TrustedLen` iterator, by `for_each`, and reserving its upper bound first.
+		let trusted = implements(b.t, iter, "TrustedLen");
+		let take = iter_take(b, iter, trusted, span);
+		let (extend, reserve) = match vec_args.type_at(0).kind() {
+			ty::Uint(ty::UintTy::U8) => ("iterExtendBytes", vec![take, Expr::lit(trusted.to_string())]),
+			_ => {
+				let size = size_of(b, vec_args.type_at(0), span);
+				("iterExtend", vec![take, size, Expr::lit(trusted.to_string())])
+			}
 		};
-		// Of a `TrustedLen` iterator, by `for_each`.
-		let take = iter_take(b, iter, implements(b.t, iter, "TrustedLen"), span);
-		return Some(Expr::rt(extend, tail(vec![v, items], vec![take])));
+		return Some(Expr::rt(extend, tail(vec![v, items], reserve)));
 	}
 
 	let self_ty = match (owner, name) {
@@ -476,8 +481,9 @@ pub fn call<'tcx>(
 			let drops = iter_drops(b, self_ty, span);
 			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
 		}
-		// `ExactSizeIterator::len` is each iterator's own.
+		// `ExactSizeIterator::len` and `size_hint` are each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
+		"size_hint" => Some(recv.member("sizeHint").call(rest)),
 		"nth" | "find" | "rfind" => {
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, [dropper].into_iter().chain(none).collect()))
@@ -634,7 +640,8 @@ pub fn call<'tcx>(
 			let into = into_fn(b, targ(1)?, span)?.unwrap_or_else(Expr::undefined);
 			let fused = fused(b, self_ty, Some(targ(2)?));
 			let size = array_size(b, targ(1)?);
-			method("flatMap", tail(rest, vec![into, fused, size]))
+			let one_shot = Expr::lit(implements(b.t, inner, "OneShot").to_string());
+			method("flatMap", tail(rest, vec![into, fused, size, one_shot]))
 		}
 		"flatten" => {
 			let inner = iter_of(b.t, item)?;
@@ -642,7 +649,8 @@ pub fn call<'tcx>(
 			let into = into_fn(b, item, span)?.unwrap_or_else(Expr::undefined);
 			let fused = fused(b, self_ty, None);
 			let size = array_size(b, item);
-			method("flatten", tail(Vec::new(), vec![into, fused, size]))
+			let one_shot = Expr::lit(implements(b.t, inner, "OneShot").to_string());
+			method("flatten", tail(Vec::new(), vec![into, fused, size, one_shot]))
 		}
 		"copied" | "cloned" => {
 			let ty::Ref(_, inner, _) = item.kind() else {
@@ -670,7 +678,10 @@ pub fn call<'tcx>(
 				(_, None) => method("cloned", Vec::new()),
 			}
 		}
-		"collect" => collect(b, targ(1)?, item, recv, self_ty, span),
+		"collect" => {
+			let trusted = implements(b.t, self_ty, "TrustedLen");
+			collect(b, targ(1)?, item, recv, self_ty, trusted, span)
+		}
 		_ => None,
 	}
 }
@@ -688,6 +699,22 @@ pub(super) fn tail(mut args: Vec<Expr>, mut tail: Vec<Expr>) -> Vec<Expr> {
 /// Whether `e` is `undefined`, as the dropper of what doesn't drop is.
 fn undefined(e: &Expr) -> bool {
 	matches!(e, Expr::Lit(l) if l == "undefined")
+}
+
+/// The size and alignment of a `ty` in bytes on wasm32, by which std's collections of it
+/// reserve, or else what stands in for a figure of them: `undefined` over parameters, which
+/// only a census's instance, which never runs, has.
+pub(super) fn layout<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Result<(u64, u64), Expr> {
+	match b.t.tcx.layout_of(b.t.typing_env_pub().as_query_input(ty)) {
+		Ok(layout) => Ok((layout.size.bytes(), layout.align.abi.bytes())),
+		Err(_) if ty.has_param() => Err(Expr::undefined()),
+		Err(_) => Err(b.err(span, format!("reserving for `{ty}`, whose layout is unknown"))),
+	}
+}
+
+/// The size of a `ty` in bytes, as `layout` gives it, by which std's `Vec` of it reserves.
+pub(super) fn size_of<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+	layout(b, ty, span).map_or_else(|e| e, |(size, _)| Expr::lit(size.to_string()))
 }
 
 /// Whether an iterator of type `ty`, with `held` beside it, drops and is a `FusedIterator`,
@@ -825,13 +852,15 @@ fn core_trait(tcx: ty::TyCtxt<'_>, name: &str) -> Option<DefId> {
 		.find(|&tr| tcx.item_name(tr).as_str() == name)
 }
 
-/// `iter.collect::<ty>()` of `item`s, from an iterator of type `from`, which it drops.
+/// `iter.collect::<ty>()` of `item`s, from an iterator of type `from`, which it drops, and
+/// which std's reserves for as it does a `TrustedLen` one if `trusted`.
 fn collect<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	ty: Ty<'tcx>,
 	item: Ty<'tcx>,
 	iter: Expr,
 	from: Ty<'tcx>,
+	trusted: bool,
 	span: Span,
 ) -> Option<Expr> {
 	let tcx = b.t.tcx;
@@ -843,9 +872,12 @@ fn collect<'tcx>(
 		Std::Vec => Some(match args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => {
 				let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
-				Expr::rt("iterToByteVec", tail(vec![iter], vec![take]))
+				Expr::rt(
+					"iterToByteVec",
+					tail(vec![iter], vec![take, Expr::lit(trusted.to_string())]),
+				)
 			}
-			_ => to_array(b, iter, from, args.type_at(0), span),
+			_ => to_array(b, iter, from, args.type_at(0), trusted, span),
 		}),
 		// The values, collected as the `Ok` or `Some` type is, until the first `Err` or `None`.
 		std @ (Std::Result | Std::Option) => {
@@ -864,8 +896,9 @@ fn collect<'tcx>(
 			}
 			let value_ty = b.t.ty(value, span);
 			// What it collects from is what `from` yields up to the first `Err` or `None`, which
-			// std's collects in place of `from`'s source as it would `from`.
-			let values = collect(b, args.type_at(0), value, Expr::ident("values"), from, span)?;
+			// std's collects in place of `from`'s source as it would `from`, but never trusts
+			// the length of.
+			let values = collect(b, args.type_at(0), value, Expr::ident("values"), from, false, span)?;
 			let param = Param {
 				name: "values".into(),
 				ty: Some(Type::Rt("Iter", vec![value_ty])),
@@ -890,7 +923,7 @@ fn collect<'tcx>(
 				_ => string_extend(b, Expr::Str(String::new()), iter, item, from, span),
 			}
 		}
-		_ => super::collections::collect(b, ty, iter, from, span),
+		_ => super::collections::collect(b, ty, iter, from, trusted, span),
 	}
 }
 
@@ -956,17 +989,23 @@ fn drops_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> boo
 /// `rt.iterToArray` of `iter`, an iterator of type `from`, collected into a `Vec<elem>` as
 /// std's does: by `next` where it collects in place of the `Vec` its items come from, by
 /// `try_fold`, which drops the closures the iterator holds only with it, where its own
-/// `fold` drops them first.
+/// `fold` drops them first. It reserves as std's does for a `TrustedLen` iterator if
+/// `trusted`.
 pub(super) fn to_array<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	iter: Expr,
 	from: Ty<'tcx>,
 	elem: Ty<'tcx>,
+	trusted: bool,
 	span: Span,
 ) -> Expr {
 	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
 	let take = iter_take(b, from, folds, span);
-	Expr::rt("iterToArray", tail(vec![iter], vec![take]))
+	let size = size_of(b, elem, span);
+	Expr::rt(
+		"iterToArray",
+		tail(vec![iter], vec![take, size, Expr::lit(trusted.to_string())]),
+	)
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place

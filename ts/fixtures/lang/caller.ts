@@ -484,4 +484,37 @@ const iters = Array.from({ length: 12 }, (_, kind) => [[], [2, 7, 9, 14], [0, 2,
 const hintedOp = op("strs::hinted");
 const hinted = Array.from({ length: 10 * 7 * 21 }, (_, i) => Uint8Array.of(hintedOp, i % 10, Math.floor(i / 10) % 7, Math.floor(i / 70)));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers];
+/**
+ * `hints::hints` of each iterator, each pair of lengths, and each of its arms, read three
+ * times each way, with as many bytes as the first length's index.
+ */
+const hintsOp = op("hints::hints");
+const hints = Array.from({ length: 24 * 8 * 8 * 8 * 2 }, (_, i) => {
+	const [kind, n, m, arm, back] = [i % 24, Math.floor(i / 24) % 8, Math.floor(i / 192) % 8, Math.floor(i / 1536) % 8, Math.floor(i / 12288)];
+	const steps = (arm << 5) | ((back ? 0b101 : 0b010) << 2) | 3;
+	return Uint8Array.of(hintsOp, kind, n, m, steps, ...Array.from({ length: n }, (_, b) => b * 37));
+});
+
+/** `hints::reserves` of each collection and element type, each shape, length, and limit on what it reads. */
+const reservesOp = op("hints::reserves");
+const reserves = Array.from({ length: 13 * 5 * 5 * 4 * 5 }, (_, i) =>
+	Uint8Array.of(reservesOp, i % 65, Math.floor(i / 65) % 5, Math.floor(i / 325) % 4, Math.floor(i / 1300)),
+);
+
+/**
+ * `collections::set_ops` of one key against 30, which std's B-tree looks up in the larger
+ * rather than merging, of each key type: a key below the rest, at either end, between, and
+ * above. Then `Nibble`s equal to another set's but for their high bits, of hash sets as
+ * large as each other and one larger, where std's picks which set's to yield by size.
+ */
+const setOpsOp = op("collections::set_ops");
+const setOps = [
+	...[15, 16, 17, 18, 19].flatMap((kind) => [0x20, 0x21, 0x25, 0x3e, 0x3f].map((single) => Uint8Array.of(setOpsOp, kind, single, ...Array.from({ length: 30 }, (_, i) => 0x41 + i)))),
+	...[
+		[0x01, 0x02, 0x13, 0x21, 0x32, 0x44],
+		[0x01, 0x02, 0x13, 0x21, 0x32, 0x44, 0x55],
+		[0x01, 0x02, 0x13, 0x55, 0x21, 0x32, 0x44],
+	].map((data) => Uint8Array.of(setOpsOp, 3, ...data)),
+];
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps];

@@ -37,7 +37,7 @@ export function digest$Arc_u8s(value: rt.Arc<Uint8Array>, out: rt.ByteVec): void
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
 export function digest$Dirs(value: Dir.Dir[], out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	rt.hashSlice(Dir.hash$Hash_DefaultHasher)(value, h);
+	rt.hashSlice(Dir.hash$Hash_DefaultHasher as (a0: Dir.Dir, a1: rt.Hasher) => undefined)(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -121,7 +121,7 @@ export function digest$Shape(value: Shape.Shape, out: rt.ByteVec): void {
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
 export function digest$Small_Small(value: [Small.Small, Small.Small], out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	rt.hashTuple([Small.hash$Hash_DefaultHasher, Small.hash$Hash_DefaultHasher])(value, h);
+	rt.hashTuple([Small.hash$Hash_DefaultHasher as (a0: Small.Small, a1: rt.Hasher) => undefined, Small.hash$Hash_DefaultHasher as (a0: Small.Small, a1: rt.Hasher) => undefined])(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -388,7 +388,7 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		digest$u8_str_u64([n & 0xff, "pair", rt.u64Cast(w(4, 8))] as [rt.u8, string, rt.u64], out);
 		const words: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_23: rt.u8): rt.u16 => {
 			return rt.u16Mul(_23 as rt.u16, 257);
-		}));
+		}), undefined, 2, true);
 		digest$Vec_u16(words, out);
 		digest$u16s(rt.sliceRange(words, rt.usizeDiv(words.length, 2)), out);
 		digest$u32s([n, (n ^ 1) >>> 0, n >>> 3], out);
@@ -400,7 +400,7 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const n2: rt.u64 = rt.u64Cast(w(0, 8));
 		digest$Packet({ id: n2, flags: unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), name: unwrapOr$01jdcm7(rt.strFromUtf8(data), "?"), tags: rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u16 => {
 			return _2 as rt.u16;
-		})), next: thenSome$0n2gkz4(rt.u64Rem(n2, 3) !== 0, rt.u64Low(n2) | 0) }, out);
+		}), undefined, 2, true), next: thenSome$0n2gkz4(rt.u64Rem(n2, 3) !== 0, rt.u64Low(n2) | 0) }, out);
 		const _188: rt.u64 = rt.u64Rem(n2, 3);
 		if (_188 === 0) {
 			shape = { tag: "Dot" } as Shape.Shape;
@@ -483,14 +483,14 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, n, rt.hash64), rt.hashOne(s, n, rt.hash64)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(other.state, text, rt.hashStr), rt.hashOne(other.state, text, rt.hashStr)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr])), rt.hashOne(copy, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr]))) ? 1 : 0);
-		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, Nibble.hash$Hash_DefaultHasher), rt.hashOne(s, { _0: b ^ 240 }, Nibble.hash$Hash_DefaultHasher)) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined), rt.hashOne(s, { _0: b ^ 240 }, Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined)) ? 1 : 0);
 		const arc: rt.Arc<string> = new rt.Arc(text);
 		const _84: rt.Arc<string> = rt.arcClone(arc);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, _84, rt.hashArc(rt.hashStr), rt.drop), rt.hashOne(s, arc, rt.hashArc(rt.hashStr))) ? 1 : 0);
 		rt.byteVecPush(out, arc.strong & 0xff);
 		const drops: rt.Cell<rt.u8> = new rt.Cell(0);
 		const counted: Counted.Counted = new Counted.Counted(b, drops);
-		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, Counted.hash$Hash_DefaultHasher), rt.hashOne(s, new Counted.Counted(b, drops), Counted.hash$Hash_DefaultHasher, rt.drop)) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, Counted.hash$Hash_DefaultHasher as (a0: Counted.Counted, a1: rt.Hasher) => undefined), rt.hashOne(s, new Counted.Counted(b, drops), Counted.hash$Hash_DefaultHasher as (a0: Counted.Counted, a1: rt.Hasher) => undefined, rt.drop)) ? 1 : 0);
 		rt.byteVecPush(out, drops.v);
 		counted[Symbol.dispose]();
 		rt.byteVecPush(out, drops.v);
@@ -498,7 +498,7 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const keys: rt.u64[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u64 => {
 		return rt.u64Mul(_2 as rt.u64, 1103823438081);
-	}));
+	}), undefined, 8, true);
 	rt.sliceSortByKey(keys, (k2: rt.u64): rt.u64 => {
 		return rt.hashOne(other.state, k2, rt.hash64);
 	}, rt.lt);

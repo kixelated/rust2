@@ -22,4 +22,8 @@ export function cmp$Ord(self: Nibble, other: Nibble): rt.Ordering {
 	return rt.cmp(other._0 & 15, self._0 & 15);
 }
 
+export function partialCmp$PartialOrd(self: Nibble, other: Nibble): rt.Ordering | undefined {
+	return cmp$Ord(self, other);
+}
+
 //# sourceMappingURL=collections.Nibble.ts.map

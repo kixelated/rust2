@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import { thenSome$1af3oea, then$1xpp3sz, then$1j9nint, then$0kxuq3f } from "../core/bool.ts";
 import { map$1raha9y, map$0b0x7xy, map$1thjygq, mapOr$0nrpycp } from "../core/option.ts";
-import { map$1rk4yqp, mapErr$1c43xsx, inspectErr$014ax37, andThen$1so3lx6 } from "../core/result.ts";
+import { map$1rk4yqp, mapErr$1c43xsx, inspectErr$0hrcm18, andThen$1so3lx6 } from "../core/result.ts";
 import * as Holder from "../drops/closures.Holder.ts";
 import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
@@ -234,7 +234,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	const i: Guard.Guard = _89[0];
 	const j: Guard.Guard = _89[1];
 	const captured9 = i;
-	const _97: rt.Result<rt.u32, rt.u32> = inspectErr$014ax37(ok, rt.closure((_2: rt.u32): void => {
+	const _97: rt.Result<rt.u32, rt.u32> = inspectErr$0hrcm18(ok, rt.closure((_2: rt.u32): undefined => {
 		const part = Guard.id(captured9);
 		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 		Log.note(log, rt.fmtFormat(["inspect ", args18[0]]));
@@ -243,7 +243,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured9[Symbol.dispose]();
 	}));
 	const captured10 = j;
-	const inspected: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_97, inspectErr$014ax37(err, rt.closure((_24: rt.u32): void => {
+	const inspected: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_97, inspectErr$0hrcm18(err, rt.closure((_24: rt.u32): undefined => {
 		const part2 = Guard.id(captured10);
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
 		Log.note(log, rt.fmtFormat(["inspect ", args20[0]]));
@@ -440,7 +440,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 		captured4[Symbol.dispose]();
 	}), rt.drop);
 	const captured5 = e;
-	const chained: rt.Iter<Guard.Guard> = rt.iterInspect(_106, rt.closure((g7: Guard.Guard): void => {
+	const chained: rt.Iter<Guard.Guard> = rt.iterInspect(_106, rt.closure((g7: Guard.Guard): undefined => {
 		const _92: rt.u32 = Guard.id(g7);
 		const _11: rt.u32 = Guard.id(captured5);
 		const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_92, f), (f: rt.Formatter) => rt.u32Display(_11, f)];
@@ -511,7 +511,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 		return thenSome$1af3oea(n7 < 3, rt.u32Add(n7, Guard.id(captured9)));
 	}, (): void => {
 		captured9[Symbol.dispose]();
-	})), "next");
+	})), "next", 4);
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part5, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["map_while ", args12[0]]));
 	const _237: [Guard.Guard, Guard.Guard] = [guard(19), guard(20)];
@@ -606,7 +606,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	const o: Guard.Guard = guard(28);
 	const _369: rt.Iter<rt.u32> = rt.iterSlice([1, 2]);
 	const captured17 = o;
-	const _372: (a0: rt.u32) => void = rt.closure((_214: rt.u32): void => {
+	const _372: (a0: rt.u32) => undefined = rt.closure((_214: rt.u32): undefined => {
 		const part7 = rt.u32Add(_214, Guard.id(captured17));
 		const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part7, f)];
 		Log.note(log, rt.fmtFormat(["each ", args30[0]]));

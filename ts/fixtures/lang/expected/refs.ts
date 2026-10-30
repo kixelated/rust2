@@ -22,7 +22,7 @@ export function bump(x: rt.Place<rt.u32>, by: rt.u8): void {
 export function bumpThrice(x: rt.Place<rt.u32>, by: rt.u8): void {
 	bump(x, by);
 	bump(x, 1);
-	((n: rt.u8): void => {
+	((n: rt.u8): undefined => {
 		bump(x, n);
 	})(by);
 }
@@ -64,7 +64,7 @@ export function rename(name: rt.Place<string | undefined>, b: rt.u8): string | u
 /** A `&mut Option` passed on from inside a closure std calls. */
 export function largestOf(seen: rt.Place<rt.u8 | undefined>, items: rt.ByteSlice): rt.u8 {
 	let taken_: rt.u8 = 0;
-	rt.iterForEach(rt.iterSlice(rt.byteSliceView(items)), (_2: rt.u8): void => {
+	rt.iterForEach(rt.iterSlice(rt.byteSliceView(items)), (_2: rt.u8): undefined => {
 		if (takeLargest(seen, _2) !== undefined) {
 			taken_ = rt.u8WrappingAdd(taken_, 1);
 		}
@@ -174,7 +174,7 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return unwrapOr$0r2bmpr(o2, 238);
 		});
 	};
-	const _275: (a0: rt.Place<rt.u32>, a1: rt.u8) => void = (x3: rt.Place<rt.u32>, b8: rt.u8): void => {
+	const _275: (a0: rt.Place<rt.u32>, a1: rt.u8) => undefined = (x3: rt.Place<rt.u32>, b8: rt.u8): undefined => {
 		bump(x3, b8);
 	};
 	const by: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 3);
@@ -184,7 +184,7 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const held: rt.u32[] = [1, 2, 3];
 	const v: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
 		return _2 as rt.u32;
-	}));
+	}), undefined, 4, true);
 	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
 	while (true) {
 		const _18: [rt.usize, rt.u8] | rt.Done = iter.next();
@@ -314,7 +314,7 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	const _257: rt.Iter<[rt.u8, rt.u32]> = rt.hashIter(hash);
-	const iter6: rt.Iter<[rt.u8, rt.u32]> = rt.iterChain(rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _257, true, undefined, undefined, "next")), rt.btreeIter(tree));
+	const iter6: rt.Iter<[rt.u8, rt.u32]> = rt.iterChain(rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _257, true, undefined, undefined, "next", 8)), rt.btreeIter(tree));
 	while (true) {
 		const _264: [rt.u8, rt.u32] | rt.Done = iter6.next();
 		if (_264 === rt.DONE) {
@@ -508,7 +508,7 @@ export function defaulted(data: rt.ByteSlice, out: rt.ByteVec): void {
 			(_16.v as Listing.Listing).source = _17;
 		} else if (_11 === 3) {
 			const _22: rt.Place<Listing.Listing | undefined> = rt.place(() => listing, (value2) => listing = value2);
-			const relist: (a0: rt.u8) => void = (b2: rt.u8): void => {
+			const relist: (a0: rt.u8) => undefined = (b2: rt.u8): undefined => {
 				if (_22.v === undefined) {
 					_22.v = Listing.default$Default();
 				}
@@ -557,7 +557,7 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let held: rt.ByteVec = rt.byteSliceToByteVec(data);
 	let wide: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
 		return rt.u32Mul(_2 as rt.u32, 1000);
-	}));
+	}), undefined, 4, true);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(poll$taken_closure1(data, (b4: rt.u8): boolean => {
 		const taken_ = held;
 		held = new rt.ByteVec();
@@ -566,7 +566,7 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.byteVecPush(held, rt.u8Div(x, 2));
 			}
 		}
-		((): void => {
+		((): undefined => {
 			const _34: rt.u32[] = [];
 			const old2 = wide;
 			wide = _34;
@@ -574,7 +574,7 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return _25 > ((b4 as rt.u32));
 			}), (x3: rt.u32): rt.u32 => {
 				return rt.u32Div(x3, 2);
-			}), "next");
+			}), "next", 4);
 		})();
 		return held.length === 0;
 	}) as rt.u32)));
@@ -591,20 +591,20 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const swapped: rt.ByteVec = new rt.ByteVec();
 	for (const _39 of rt.byteSliceView(data)) {
 		const _45: rt.ByteVec = swap(_39);
-		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_45)));
+		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_45)), undefined, true);
 	}
-	const list_: (a0: rt.u8) => void = (b6: rt.u8): void => {
+	const list_: (a0: rt.u8) => undefined = (b6: rt.u8): undefined => {
 		const taken2 = pair[1].listed;
 		pair[1].listed = new rt.ByteVec();
 		pair[1].stale = taken2;
 		rt.byteVecPush(pair[1].listed, b6);
 	};
-	rt.iterForEach(rt.iterSlice(rt.byteSliceView(data)), (_26: rt.u8): void => {
+	rt.iterForEach(rt.iterSlice(rt.byteSliceView(data)), (_26: rt.u8): undefined => {
 		list_(_26);
 	});
 	for (const _57 of rt.byteSliceView(data)) {
 		const _63: rt.ByteVec = unwrapOrDefault$0wx44sw(restock(pair[1], _57));
-		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_63)));
+		rt.iterExtendBytes(swapped, rt.iterSlice(rt.byteVecView(_63)), undefined, true);
 	}
 	const taken3 = pair[1].stale;
 	pair[1].stale = new rt.ByteVec();
@@ -628,12 +628,12 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _326!: rt.u8;
 	const v: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
 		return _2 as rt.u32;
-	}));
+	}), undefined, 4, true);
 	const bytes: rt.ByteVec = rt.byteSliceToByteVec(data);
 	const pairs: [rt.u8, rt.u8 | undefined][] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_22: rt.u8): [rt.u8, rt.u8 | undefined] => {
 		const b8: rt.u8 = _22;
 		return [b8, rt.u8CheckedSub(b8, 100)] as [rt.u8, rt.u8 | undefined];
-	}));
+	}), undefined, 3, true);
 	const by: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 1);
 	const _13: rt.Place<rt.u32> | undefined = rt.sliceFirstMut(v);
 	if (_13 !== undefined) {
@@ -704,7 +704,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const iter5: rt.Iter<rt.Place<rt.u32>> = rt.iterSlice(rt.iterToArray(rt.iterFilter(rt.iterSliceMut(v), (x8: rt.Place<rt.u32>): boolean => {
 		return rt.u32Rem(x8.v, 2) === 0;
-	}), "next"));
+	}), "next", 4));
 	while (true) {
 		const _120: rt.Place<rt.u32> | rt.Done = iter5.next();
 		if (_120 === rt.DONE) {
@@ -753,11 +753,11 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const tree: rt.BTreeMap<rt.u8, rt.u32> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>;
 	const queue: rt.VecDeque<rt.u32> = rt.dequeNew() as rt.VecDeque<rt.u32>;
 	for (const b2 of rt.byteSliceView(data)) {
-		rt.entryOrInsert(rt.entryAndModify(rt.entry(hash, rt.u8Rem(b2, 5)), (x9: [rt.u8, rt.u8]): void => {
+		rt.entryOrInsert(rt.entryAndModify(rt.entry(hash, rt.u8Rem(b2, 5)), (x9: [rt.u8, rt.u8]): undefined => {
 			x9[1] = rt.u8WrappingAdd(x9[1], b2);
 		}), [b2, 0] as [rt.u8, rt.u8]);
 		const _213: rt.u32 = b2 as rt.u32;
-		const _214: rt.Place<rt.u32> = rt.entryOrInsertWithMut(rt.entryAndModifyMut(rt.entry(tree, rt.u8Rem(b2, 4)), (x10: rt.Place<rt.u32>): void => {
+		const _214: rt.Place<rt.u32> = rt.entryOrInsertWithMut(rt.entryAndModifyMut(rt.entry(tree, rt.u8Rem(b2, 4)), (x10: rt.Place<rt.u32>): undefined => {
 			x10.v = rt.u32Add(x10.v, 1);
 		}), (): rt.u32 => {
 			return 0;
@@ -966,7 +966,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_480.v = rt.u32Mul(_480.v, 3);
 	}
 	const _486: rt.Iter<[rt.u8, rt.u32]> = rt.hashIter(scalars);
-	const iter29: rt.Iter<[rt.u8, rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _486, true, undefined, undefined, "next"));
+	const iter29: rt.Iter<[rt.u8, rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _486, true, undefined, undefined, "next", 8));
 	while (true) {
 		const _490: [rt.u8, rt.u32] | rt.Done = iter29.next();
 		if (_490 === rt.DONE) {
@@ -1007,7 +1007,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return k6[1] === 0;
 	});
 	const _541: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.hashIter(paired);
-	const iter33: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u32>, _541, true, undefined, undefined, "next"));
+	const iter33: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u32>, _541, true, undefined, undefined, "next", 8));
 	while (true) {
 		const _545: [[rt.u8, rt.u8], rt.u32] | rt.Done = iter33.next();
 		if (_545 === rt.DONE) {
@@ -1020,7 +1020,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(x3)));
 	}
 	const _560: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.hashIter(hash);
-	const iter34: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>, _560, true, undefined, undefined, "next"));
+	const iter34: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>, _560, true, undefined, undefined, "next", 3));
 	while (true) {
 		const _564: [rt.u8, [rt.u8, rt.u8]] | rt.Done = iter34.next();
 		if (_564 === rt.DONE) {
@@ -1261,7 +1261,7 @@ export function toRefs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, bytes.length & 0xff);
 		let tail2: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 1))), (_2: rt.u8): rt.u32 => {
 			return (((_2 as rt.u32)) << 8) >>> 0;
-		}));
+		}), undefined, 4, true);
 		while (tail2.length >= 1) {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(tail2[0])));
 			tail2 = tail2.slice(1, tail2.length - 0);
@@ -1298,7 +1298,7 @@ export function toRefs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, left.length & 0xff);
 		const pairs: Pair.Pair[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 1))), (_22: rt.u8): Pair.Pair => {
 			return { n: _22 };
-		}));
+		}), undefined, 1, true);
 		const first: Pair.Pair = { n: 0 };
 		let largest: Pair.Pair = first;
 		for (const _147 of pairs) {

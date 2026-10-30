@@ -417,7 +417,7 @@ export function hashed(log: Log.Log, id: rt.u32): void {
 	const guard: (a0: rt.u32) => Guard.Guard = (n2: rt.u32): Guard.Guard => {
 		return Guard.new(rt.u32Add(id, n2), Log.clone$Clone(sink));
 	};
-	const tally: (a0: string) => void = (what: string): void => {
+	const tally: (a0: string) => undefined = (what: string): undefined => {
 		const text: rt.ByteVec = Log.text(sink);
 		const sum: rt.u32 = rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(text))), (_2: rt.u8): rt.u32 => {
 			return _2 as rt.u32;
@@ -426,7 +426,7 @@ export function hashed(log: Log.Log, id: rt.u32): void {
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, what), (f: rt.Formatter) => rt.usizeDisplay(_152, f), (f: rt.Formatter) => rt.u32Display(sum, f)];
 		Log.note(log, rt.fmtFormat([args10[0], ": ", args10[1], " ", args10[2]]));
 	};
-	const map: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+	const map: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
 	const _15: Key.Key = key(1);
 	const _18: Guard.Guard = guard(1);
 	rt.drop(rt.hashInsert(map, _15, _18, rt.drop));
@@ -480,7 +480,7 @@ export function hashed(log: Log.Log, id: rt.u32): void {
 		return rt.u32Rem(k.id, 2) === 0;
 	}, rt.drop, rt.drop);
 	tally("retain");
-	const set: rt.HashSet<Key.Key> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
+	const set: rt.HashSet<Key.Key> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashSet<Key.Key>;
 	const _151: Key.Key = key(10);
 	rt.hashAdd(set, _151, rt.drop);
 	const _156: Key.Key = key(11);
@@ -504,7 +504,7 @@ export function hashed(log: Log.Log, id: rt.u32): void {
 	const counted: (a0: rt.u32) => Key.Key = (n3: rt.u32): Key.Key => {
 		return new Key.Key(rt.u32Add(id, n3), Log.clone$Clone(sink), true);
 	};
-	const counts: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
+	const counts: rt.HashMap<Key.Key, Guard.Guard> = rt.hashNew(rt.hashing(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined, Key.eq$PartialEq)) as rt.HashMap<Key.Key, Guard.Guard>;
 	const _207: Key.Key = counted(20);
 	const _210: Guard.Guard = guard(20);
 	rt.drop(rt.hashInsert(counts, _207, _210, rt.drop));
@@ -515,7 +515,7 @@ export function hashed(log: Log.Log, id: rt.u32): void {
 		return guard(22);
 	});
 	const _237: Key.Key = counted(20);
-	rt.entryOrInsert(rt.entryAndModify(rt.entry(counts, _237, rt.drop), (_27: Guard.Guard): void => {}), guard(23), rt.drop);
+	rt.entryOrInsert(rt.entryAndModify(rt.entry(counts, _237, rt.drop), (_27: Guard.Guard): undefined => {}), guard(23), rt.drop);
 	const _245: Key.Key = counted(22);
 	const _243: rt.Entry<Key.Key, Guard.Guard> = rt.entry(counts, _245, rt.drop);
 	if (rt.entryOccupied(_243)) {
@@ -922,7 +922,7 @@ export function elements(log: Log.Log, id: rt.u32): void {
 	});
 	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_335, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_339, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
 	Log.note(log, rt.fmtFormat(["popped ", args26[0], " ", args26[1]]));
-	const hashed_: rt.HashSet<Key.Key | undefined> = rt.hashNew(rt.hashing(rt.hashOption(Key.hash$Hash_DefaultHasher), rt.eqOption(Key.eq$PartialEq))) as rt.HashSet<Key.Key | undefined>;
+	const hashed_: rt.HashSet<Key.Key | undefined> = rt.hashNew(rt.hashing(rt.hashOption(Key.hash$Hash_DefaultHasher as (a0: Key.Key, a1: rt.Hasher) => undefined), rt.eqOption(Key.eq$PartialEq))) as rt.HashSet<Key.Key | undefined>;
 	const _350: Key.Key | undefined = key(11);
 	rt.hashAdd(hashed_, _350, rt.drop);
 	const part15 = map$0hegtde(rt.hashKey(hashed_, undefined, false, rt.None), (o24: Key.Key | undefined): rt.u32 | undefined => {
@@ -973,7 +973,7 @@ export function elements(log: Log.Log, id: rt.u32): void {
  * `or_insert` drops of a value JS copies, which it returns a place for.
  */
 export function arcs(log: Log.Log, id: rt.u32): void {
-	const count: (a0: string, a1: rt.Arc<string>) => void = (what: string, key: rt.Arc<string>): void => {
+	const count: (a0: string, a1: rt.Arc<string>) => undefined = (what: string, key: rt.Arc<string>): undefined => {
 		const _92: rt.usize = key.strong;
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, what), (f: rt.Formatter) => rt.usizeDisplay(_92, f)];
 		Log.note(log, rt.fmtFormat([args8[0], " ", args8[1]]));
@@ -1062,7 +1062,7 @@ export function edited(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		return rt.iterToArray(rt.iterMap(rt.iterSlice(v13), (k: Key.Key): string => {
 			const _43: rt.u32 = rt.u32Sub(k.id, id);
 			return rt.fmtToString((f: rt.Formatter) => rt.u32Display(_43, f));
-		})).join(",");
+		}), undefined, 12, true).join(",");
 	};
 	const _8: rt.u8 = rt.u8Rem(arg, 9);
 	if (_8 === 0) {

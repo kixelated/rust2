@@ -12,7 +12,9 @@
 //! `Hash` writes into `DefaultHasher` and `RandomState`, slices' `windows` and chunks,
 //! mutable ones written through, their parts by inclusive and checked ranges and by fixed
 //! size, `Vec::drain`, the order, equality, and hashes of bytes, ranges of `Bound`s and of
-//! the crate's own `RangeBounds`, inclusive ranges read through each adaptor, and the equality of `Result`s and std's errors.
+//! the crate's own `RangeBounds`, the equality of `Result`s and std's errors, inclusive
+//! ranges read through each adaptor, iterators' size hints, and the capacity overflows
+//! collections reserving by them panic with.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -40,6 +42,7 @@ mod folds;
 mod generics;
 pub mod harness;
 mod hashes;
+mod hints;
 mod holds;
 mod ints;
 mod iters;

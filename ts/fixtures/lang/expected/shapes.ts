@@ -380,7 +380,7 @@ export function shares(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const lenses: Lens.Lens[] = [];
 	lenses.push(copy$Lens(lens));
 	const _114: rt.Iter<Lens.Lens> = rt.iterSlice([lens]);
-	rt.iterExtend(lenses, rt.iterMap(_114, copy$Lens));
+	rt.iterExtend(lenses, rt.iterMap(_114, copy$Lens), undefined, 8, true);
 	const iter4: rt.Iter<Lens.Lens> = rt.iterCopied(rt.iterSlice(lenses), copy$Lens);
 	while (true) {
 		const _124: Lens.Lens | rt.Done = iter4.next();
@@ -1447,7 +1447,7 @@ export function payloads(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	let caught: rt.Result<rt.u8, rt.u8> = parity(rt.u8WrappingAdd(n, 3));
-	const bump_: () => void = (): void => {
+	const bump_: () => undefined = (): undefined => {
 		if (!caught.ok) {
 			caught = rt.Err(rt.u8WrappingAdd(caught.error, 5));
 		}
@@ -2058,7 +2058,7 @@ export function reseated(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, _19);
 	let r3: Shape.Shape = a;
 	if (r3.tag === "Dot") {
-		((): void => {
+		((): undefined => {
 			r3 = b;
 		})();
 		if ((r3 as Shape.Shape).tag === "Line") {
@@ -2176,7 +2176,7 @@ export function uninhabited(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** Closures capturing by reference and by move, and functions as values. */
 export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let sum: rt.u32 = 0;
-	const add: (a0: rt.u8) => void = (v: rt.u8): void => {
+	const add: (a0: rt.u8) => undefined = (v: rt.u8): undefined => {
 		sum = rt.u32Add(sum, v as rt.u32);
 	};
 	for (const _8 of rt.byteSliceView(data)) {
@@ -2212,7 +2212,7 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Replaces `a` whole from a closure. */
 export function overwrite(a: rt.ByteSlice): void {
-	((): void => {
+	((): undefined => {
 		a.data.set(Uint8Array.of(9), a.start);
 	})();
 }
