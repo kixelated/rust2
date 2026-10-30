@@ -1172,3 +1172,150 @@ fn put_sorted<T: Ord>(mut items: Vec<&T>, put: fn(&T) -> u8, out: &mut Vec<u8>) 
 	items.sort();
 	put_all(items.into_iter(), put, out);
 }
+
+/// An item that equals a `Right` of the same remainder by 4, but whose `ne` sees the
+/// remainder by 3, so what `!=` finds tells which std calls. Each call adds to the log,
+/// in order.
+struct Left<'a>(u16, &'a std::cell::Cell<u16>);
+
+struct Right(u16);
+
+impl Left<'_> {
+	fn log(&self, by: u16) {
+		self.1.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ by));
+	}
+}
+
+impl PartialEq<Right> for Left<'_> {
+	fn eq(&self, other: &Right) -> bool {
+		self.log(0x100);
+		self.0 % 4 == other.0 % 4
+	}
+
+	fn ne(&self, other: &Right) -> bool {
+		self.log(0x200);
+		self.0 % 3 != other.0 % 3
+	}
+}
+
+/// The other way, by the remainder by 4, with `ne`'s default.
+impl<'a> PartialEq<Left<'a>> for Right {
+	fn eq(&self, other: &Left<'a>) -> bool {
+		other.log(0x400);
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+/// A byte against a `Right`, read from a typed array.
+impl PartialEq<Right> for u8 {
+	fn eq(&self, other: &Right) -> bool {
+		u16::from(*self) % 4 == other.0 % 4
+	}
+}
+
+/// A pair against a `Right` by its sum, which reads the array through the reference `eq`
+/// takes.
+impl PartialEq<Right> for [u8; 2] {
+	fn eq(&self, other: &Right) -> bool {
+		(u16::from(self[0]) + u16::from(self[1])) % 4 == other.0 % 4
+	}
+}
+
+/// Whether a comparison found its sides equal, then the log of the calls it made.
+fn put_eq(eq: bool, log: &std::cell::Cell<u16>, out: &mut Vec<u8>) {
+	out.push(eq as u8);
+	out.extend(log.replace(0).to_le_bytes());
+}
+
+/// `==` and `!=` of sequences whose items compare by their own `PartialEq<U>`, and of a
+/// `VecDeque` against each other sequence: of unequal lengths, empty, with items `eq` and
+/// `ne` disagree on at the positions `kind` picks, and a deque wrapped around its buffer.
+/// Then `next_if_eq` of such sequences, matching and missing.
+pub fn unlike_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let log = std::cell::Cell::new(0);
+	let lefts = || data.iter().map(|&b| Left(b.into(), &log)).collect::<Vec<_>>();
+	// Of the same remainders by 3 and 4 but where only `ne`'s or only `eq`'s is.
+	let (by_ne, by_eq) = (usize::from(kind & 7), usize::from(kind >> 3 & 7));
+	let step = |i: usize| match i {
+		_ if i == by_eq => 3,
+		_ if i == by_ne => 4,
+		_ => 12,
+	};
+	let mut rights: Vec<Right> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &b)| Right(u16::from(b) + step(i)))
+		.collect();
+	if kind & 0x40 != 0 {
+		rights.pop();
+	}
+	let at = |i: usize| u16::from(data.get(i).copied().unwrap_or(0));
+	let pair = || [Right(at(0) + 12), Right(at(1) + 12)];
+
+	let mut mine = lefts();
+	put_eq(mine == rights.as_slice(), &log, out);
+	put_eq(mine != rights, &log, out);
+	put_eq(mine[..] == rights[..], &log, out);
+	put_eq(rights == mine, &log, out);
+	put_eq(&mut mine[..] == rights, &log, out);
+	put_eq(mine == pair(), &log, out);
+	put_eq(mine == &pair(), &log, out);
+	put_eq(mine.as_slice() == pair(), &log, out);
+	let two = [Left(at(0), &log), Left(at(1), &log)];
+	put_eq(two == pair(), &log, out);
+	put_eq(two != pair(), &log, out);
+	put_eq(two == rights[..], &log, out);
+	put_eq(two == rights.as_slice(), &log, out);
+	put_eq(Vec::<Left>::new() == Vec::<Right>::new(), &log, out);
+	put_eq(Vec::<Left>::new() == rights, &log, out);
+	put_eq(mine == [] as [Right; 0], &log, out);
+	put_eq(data.to_vec() == rights, &log, out);
+	put_eq(data == rights.as_slice(), &log, out);
+	let pairs: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+	put_eq(pairs[..] == rights[..pairs.len().min(rights.len())], &log, out);
+	put_eq(vec![lefts(), lefts()] == [rights.as_slice(), &rights[..]], &log, out);
+
+	// Wrapped around: the first half pushed to the front backwards, the rest to the back.
+	let half = data.len() / 2;
+	let mut q = std::collections::VecDeque::new();
+	for &b in data[..half].iter().rev() {
+		q.push_front(Left(b.into(), &log));
+	}
+	for &b in &data[half..] {
+		q.push_back(Left(b.into(), &log));
+	}
+	put_eq(q == rights.as_slice(), &log, out);
+	put_eq(q == rights, &log, out);
+	put_eq(q != rights.as_slice(), &log, out);
+	put_eq(q == &mut rights[..], &log, out);
+	put_eq(q == pair(), &log, out);
+	put_eq(q == &pair(), &log, out);
+	put_eq(q == &mut pair(), &log, out);
+	let mut bytes = std::collections::VecDeque::new();
+	for &b in data[..half].iter().rev() {
+		bytes.push_front(b);
+	}
+	bytes.extend(&data[half..]);
+	let stepped: Vec<u8> = data.iter().enumerate().map(|(i, &b)| b ^ (i == by_eq) as u8).collect();
+	put_eq(bytes == stepped, &log, out);
+	put_eq(bytes == data, &log, out);
+	put_eq(bytes == [data.first().copied().unwrap_or(0), 0], &log, out);
+	let wide: std::collections::VecDeque<u16> = bytes.iter().map(|&b| u16::from(b)).collect();
+	let mut wrapped = std::collections::VecDeque::new();
+	for &b in stepped.iter().rev() {
+		wrapped.push_front(u16::from(b));
+	}
+	put_eq(wide == wrapped, &log, out);
+	put_eq(vec![wide.clone()] == [wrapped], &log, out);
+
+	let mut it = vec![lefts(), lefts(), lefts()].into_iter().peekable();
+	let exact: Vec<Right> = data.iter().map(|&b| Right(b.into())).collect();
+	put_eq(it.next_if_eq(exact.as_slice()).is_some(), &log, out);
+	put_eq(it.next_if_eq(&rights.as_slice()).is_some(), &log, out);
+	put_eq(it.next_if_eq(&exact[..half]).is_some(), &log, out);
+	out.push(it.count() as u8);
+	let mut it = vec![bytes.clone(), bytes].into_iter().peekable();
+	put_eq(it.next_if_eq(&data.to_vec()).is_some(), &log, out);
+	put_eq(it.next_if_eq(&stepped).is_some(), &log, out);
+	out.push(it.count() as u8);
+}

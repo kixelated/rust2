@@ -12,7 +12,7 @@ use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Param, StmtKind, Type};
+use crate::ts::{Expr, Param, Type};
 
 /// `Iterator::next`, and the trait's `Item`.
 fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
@@ -492,29 +492,14 @@ pub fn call<'tcx>(
 		// An item JS copies is lent as its place, and an object as itself.
 		"peek_mut" => method(&camel, vec![Expr::lit(b.t.needs_place(item).to_string())]),
 		// By the item's `PartialEq<T>`: `eq_fn` of its own type, else the impl's `eq`, as a
-		// call to it lowers.
+		// call to it lowers, given a `&T`.
 		"next_if_eq" => {
 			let expected = targ(1)?;
 			let eq = match expected == item {
 				true => super::collections::eq_fn(b, item, span),
 				false => {
-					let eq = super::collections::trait_fn(tcx, "PartialEq", "eq");
-					let eq = b.fn_value(eq, tcx.mk_args(&[item.into(), expected.into()]), span);
-					match super::byte_array(item) {
-						// The `eq` takes a `&[u8; N]`, an `rt.ByteSlice` of the item's bytes.
-						true => {
-							let (a, c) = (b.fresh("a"), b.fresh("b"));
-							let lent = Expr::rt("byteSliceFrom", vec![Expr::ident(&a)]);
-							let call = eq.call(vec![lent, Expr::ident(&c)]);
-							let params = [a, c].map(|name| Param { name, ty: None }).into();
-							Expr::Arrow(
-								params,
-								Type::Builtin("boolean"),
-								vec![StmtKind::Return(Some(call)).at(None)],
-							)
-						}
-						false => eq,
-					}
+					let by = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, expected);
+					super::collections::impl_eq(b, "eq", item, expected, [item, by], span)
 				}
 			};
 			method(&camel, [rest, vec![eq], none.into_iter().collect()].concat())

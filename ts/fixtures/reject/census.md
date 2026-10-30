@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 126
-- Function instances: 152
+- Refusals: 124
+- Function instances: 149
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 17 | unsupported call to `_` | fixtures/reject/src/lib.rs:138:11 |
+| 15 | unsupported call to `_` | fixtures/reject/src/lib.rs:138:11 |
 | 12 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:658:10 |
 | 8 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:666:10 |
 | 5 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:374:4 |
@@ -83,16 +83,16 @@ The type or module each refused type or path belongs to.
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:379:2 |
 | 6 | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 6 | `f16` | fixtures/reject/src/lib.rs:7:14 |
-| 5 | `Gap` | fixtures/reject/src/lib.rs:1008:10 |
+| 5 | `Gap` | fixtures/reject/src/lib.rs:988:10 |
 | 5 | `Iterator` | fixtures/reject/src/lib.rs:42:4 |
 | 5 | `u32` | fixtures/reject/src/lib.rs:605:27 |
 | 4 | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:737:15 |
 | 4 | `std::pin::Pin` | fixtures/reject/src/lib.rs:112:2 |
-| 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:357:16 |
 | 4 | `{closure}` | fixtures/reject/src/lib.rs:366:13 |
 | 3 | `Spent` | fixtures/reject/src/lib.rs:853:4 |
 | 3 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:55:13 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:315:2 |
+| 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:357:16 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:283:6 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:93:20 |
 | 2 | `Reused` | fixtures/reject/src/lib.rs:21:4 |
@@ -104,7 +104,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::any::TypeId` | fixtures/reject/src/lib.rs:588:2 |
 | 2 | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:265:75 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:244:16 |
-| 2 | `std::mem::MaybeUninit` | fixtures/reject/src/lib.rs:1022:19 |
+| 2 | `std::mem::MaybeUninit` | fixtures/reject/src/lib.rs:1002:19 |
 | 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:192:8 |
 | 2 | `std::std` | fixtures/reject/src/lib.rs:617:11 |
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:104:2 |
@@ -121,17 +121,17 @@ The type or module each refused type or path belongs to.
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:283:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:291:9 |
 | 1 | `Hits` | fixtures/reject/src/lib.rs:770:21 |
-| 1 | `Lane` | fixtures/reject/src/lib.rs:972:19 |
+| 1 | `Lane` | fixtures/reject/src/lib.rs:952:19 |
 | 1 | `Maybe` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Noisy` | fixtures/reject/src/lib.rs:55:13 |
 | 1 | `Only` | fixtures/reject/src/lib.rs:787:11 |
-| 1 | `Plain` | fixtures/reject/src/lib.rs:926:10 |
+| 1 | `Plain` | fixtures/reject/src/lib.rs:906:10 |
 | 1 | `Sink` | fixtures/reject/src/lib.rs:76:10 |
 | 1 | `Span2` | fixtures/reject/src/lib.rs:658:10 |
 | 1 | `String` | fixtures/reject/src/lib.rs:859:4 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:534:30 |
-| 1 | `Track` | fixtures/reject/src/lib.rs:952:19 |
+| 1 | `Track` | fixtures/reject/src/lib.rs:932:19 |
 | 1 | `VecDeque` | fixtures/reject/src/lib.rs:853:29 |
 | 1 | `Vec` | fixtures/reject/src/lib.rs:853:4 |
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:545:2 |
@@ -142,9 +142,8 @@ The type or module each refused type or path belongs to.
 | 1 | `poll` | fixtures/reject/src/lib.rs:545:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:545:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:588:4 |
-| 1 | `std::collections::VecDeque` | fixtures/reject/src/lib.rs:896:27 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:184:51 |
-| 1 | `std::iter::Extend` | fixtures/reject/src/lib.rs:1030:6 |
+| 1 | `std::iter::Extend` | fixtures/reject/src/lib.rs:1010:6 |
 | 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:233:30 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:481:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:481:32 |
@@ -167,13 +166,13 @@ The type or module each refused type or path belongs to.
 | ---: | --- | --- | --- |
 | 6 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:666:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | `std::borrow::Cow` | fixtures/reject/src/lib.rs:379:2 |
-| 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Gap` | fixtures/reject/src/lib.rs:1008:10 |
+| 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Gap` | fixtures/reject/src/lib.rs:988:10 |
 | 3 | unsupported type `_` | `f16` | fixtures/reject/src/lib.rs:7:14 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::scan`, `Option` | fixtures/reject/src/lib.rs:42:4 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:507:23 |
-| 2 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::mem::MaybeUninit`, `Gap` | fixtures/reject/src/lib.rs:1022:19 |
+| 2 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::mem::MaybeUninit`, `Gap` | fixtures/reject/src/lib.rs:1002:19 |
 | 2 | a raw pointer to `_` in a variable assigned again while it may point there | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:746:15 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:128:2 |
 | 2 | replacing the value behind a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:112:2 |
@@ -191,7 +190,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::clone_from_slice`, `Reused` | fixtures/reject/src/lib.rs:333:4 |
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::fill`, `Reused` | fixtures/reject/src/lib.rs:21:4 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::collections::HashMap::into_keys` | fixtures/reject/src/lib.rs:891:6 |
-| 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Extend::extend` | fixtures/reject/src/lib.rs:1030:6 |
+| 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Extend::extend` | fixtures/reject/src/lib.rs:1010:6 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:244:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:244:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:315:2 |
@@ -210,10 +209,10 @@ The type or module each refused type or path belongs to.
 | 1 | a dangling pointer to `_`, a value of no bytes made of more than structs and tuples | `Only` | fixtures/reject/src/lib.rs:787:11 |
 | 1 | a future of `_`, which can be `rt.Pending`, as the future's own `Pending` is | `std::task::Poll` | fixtures/reject/src/lib.rs:98:34 |
 | 1 | a raw pointer to `_` behind a reference, which is the object and not where it is kept | `std::vec::Vec` | fixtures/reject/src/lib.rs:627:10 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Lane` | fixtures/reject/src/lib.rs:972:19 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Plain` | fixtures/reject/src/lib.rs:926:10 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Lane` | fixtures/reject/src/lib.rs:952:19 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Plain` | fixtures/reject/src/lib.rs:906:10 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Span2` | fixtures/reject/src/lib.rs:658:10 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Track` | fixtures/reject/src/lib.rs:952:19 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Track` | fixtures/reject/src/lib.rs:932:19 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Window` | fixtures/reject/src/lib.rs:719:2 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:737:15 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Hits` | fixtures/reject/src/lib.rs:770:21 |
@@ -246,12 +245,10 @@ The type or module each refused type or path belongs to.
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:632:1 |
 | 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:588:2 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:391:2 |
-| 1 | unsupported call to `_` | `<std::collections::VecDeque as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:896:27 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:417:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:138:11 |
 | 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:816:15 |
-| 1 | unsupported call to `_` | `<std::vec::Vec as std::clone::Clone>::clone_from` | fixtures/reject/src/lib.rs:986:10 |
-| 1 | unsupported call to `_` | `<std::vec::Vec as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:911:27 |
+| 1 | unsupported call to `_` | `<std::vec::Vec as std::clone::Clone>::clone_from` | fixtures/reject/src/lib.rs:966:10 |
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:348:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:588:17 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:192:8 |
@@ -264,7 +261,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (17)</summary>
+<details><summary>unsupported call to `_` (15)</summary>
 
 - fixtures/reject/src/lib.rs:138:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
 - fixtures/reject/src/lib.rs:192:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
@@ -280,9 +277,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:617:11: unsupported call to `std::alloc::alloc`
 - fixtures/reject/src/lib.rs:620:3: unsupported call to `std::alloc::dealloc`
 - fixtures/reject/src/lib.rs:816:15: unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted`
-- fixtures/reject/src/lib.rs:896:27: unsupported call to `<std::collections::VecDeque<u8> as std::cmp::PartialEq<std::vec::Vec<u8>>>::eq`
-- fixtures/reject/src/lib.rs:911:27: unsupported call to `<std::vec::Vec<Left> as std::cmp::PartialEq<&[Right]>>::eq`
-- fixtures/reject/src/lib.rs:986:10: unsupported call to `<std::vec::Vec<u8> as std::clone::Clone>::clone_from`
+- fixtures/reject/src/lib.rs:966:10: unsupported call to `<std::vec::Vec<u8> as std::clone::Clone>::clone_from`
 
 </details>
 
@@ -292,14 +287,14 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:719:2: a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:737:15: a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:770:21: a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:926:10: a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:952:19: a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:972:19: a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1008:10: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1009:10: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1010:58: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1022:19: a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1023:19: a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:906:10: a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:932:19: a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:952:19: a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:988:10: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:989:10: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:990:58: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1002:19: a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1003:19: a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of
 
 </details>
 
@@ -331,7 +326,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:244:16: `std::iter::Iterator::filter` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
 - fixtures/reject/src/lib.rs:244:38: `std::iter::Iterator::count` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
 - fixtures/reject/src/lib.rs:891:6: `std::collections::HashMap::<K, V, S, A>::into_keys` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
-- fixtures/reject/src/lib.rs:1030:6: `std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
+- fixtures/reject/src/lib.rs:1010:6: `std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it
 
 </details>
 

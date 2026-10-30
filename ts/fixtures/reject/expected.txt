@@ -107,17 +107,15 @@ passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet a
 passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet at fixtures/reject/src/lib.rs:853:56
 passing `{closure@fixtures/reject/src/lib.rs:859:11: 859:19}`, which drops, to `String::retain`, which is not supported yet at fixtures/reject/src/lib.rs:859:4
 `std::collections::HashMap::<K, V, S, A>::into_keys` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:891:6
-unsupported call to `<std::collections::VecDeque<u8> as std::cmp::PartialEq<std::vec::Vec<u8>>>::eq` at fixtures/reject/src/lib.rs:896:27
-unsupported call to `<std::vec::Vec<Left> as std::cmp::PartialEq<&[Right]>>::eq` at fixtures/reject/src/lib.rs:911:27
-a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:926:10
-a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:952:19
-a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:972:19
-a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1008:10
-a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1009:10
-a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1010:58
-a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1022:19
-a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1023:19
-`std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:1030:6
+a raw pointer to `(u32, u32)` in `Plain`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:906:10
+a raw pointer to `(u32, u32)` in `Track`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:932:19
+a raw pointer to `(u32, u32)` in `Lane`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:952:19
+a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:988:10
+a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:989:10
+a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:990:58
+a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1002:19
+a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1003:19
+`std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:1010:6
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:151:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:171:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:205:2
