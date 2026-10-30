@@ -206,7 +206,8 @@ core's too, failing with an `rt.ParseBoolError`; a `char`'s is `rt.charFromStr`,
 an `rt.ParseCharError`, `{ kind }`, its private `CharErrorKind`'s name. `==` of a `Result`
 and of std's errors is their derived `PartialEq`, from core's MIR, so two errors are equal
 where their kinds are, private or not. `Debug` of a string or `char` escapes by
-std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
+std's Unicode tables, which the runtime carries, not the engine's. `Debug` of std's
+collections writes their items in the order each iterates, a hash map's or set's included. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after

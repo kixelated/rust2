@@ -307,6 +307,22 @@ pub fn std_impl<'tcx>(
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![value.member("d"), f, item])
 			}
+			// Each writes its items as its iterator reads them: a deque from its head.
+			(Std::VecDeque, Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				rt("list", vec![Expr::rt("dequeIter", vec![value]), f, item])
+			}
+			(std @ (Std::HashSet | Std::BTreeSet), Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				let keys = if std == Std::HashSet { "hashKeys" } else { "btreeKeys" };
+				rt("set", vec![Expr::rt(keys, vec![value]), f, item])
+			}
+			(std @ (Std::HashMap | Std::BTreeMap), Trait::Debug) => {
+				let key = b.fmt_fn(tr, args.type_at(0), span);
+				let val = b.fmt_fn(tr, args.type_at(1), span);
+				let entries = if std == Std::HashMap { "hashIter" } else { "btreeIter" };
+				rt("map", vec![Expr::rt(entries, vec![value]), f, key, val])
+			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);
 				let none = b.t.none_arg(args.type_at(0));
