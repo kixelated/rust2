@@ -72,7 +72,7 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_17 === 6) {
 			rt.byteVecPush(out, false ? 1 : 0);
 		} else {
-			const tally4: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
+			const tally4: rt.Mutex<Tally.Tally> = (rt.Ok(rt.mutexLock(shared.value)) as { ok: true; value: rt.Mutex<Tally.Tally> }).value;
 			rt.byteVecPush(out, tally4.value.seen.length & 0xff);
 			rt.mutexUnlock(tally4);
 		}

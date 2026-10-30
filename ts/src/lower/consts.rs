@@ -151,7 +151,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::ParseIntError, _) => {
 							Expr::Object(vec![(Key::Name("kind".into()), values.pop().unwrap())])
 						}
-						(Std::IntErrorKind, _) => Expr::As(
+						(Std::ErrorKind, _) => Expr::As(
 							Box::new(Expr::Str(adt.variant(variant).name.to_string())),
 							self.t.ty(ty, span),
 						),

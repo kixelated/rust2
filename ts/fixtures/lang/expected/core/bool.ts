@@ -129,6 +129,13 @@ export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 |
 	return f();
 }
 
+export function then$0afp4no(self: boolean, f: () => rt.Result<rt.u8, rt.ParseIntError>): rt.Result<rt.u8, rt.ParseIntError> | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
 export function then$1i9qaz4(self: boolean, _: () => rt.ByteVec): rt.ByteVec | undefined {
 	if (!self) {
 		return undefined;
