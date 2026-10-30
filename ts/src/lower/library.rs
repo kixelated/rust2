@@ -1098,8 +1098,8 @@ fn mapping<'tcx>(
 	// Methods on integers.
 	if let Some(int) = int_named(&owner) {
 		let method = match name.as_str() {
-			"from_be_bytes" => "fromBeBytes",
-			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
+			"from_be_bytes" | "from_le_bytes" | "from_ne_bytes" => "fromBeBytes",
+			"to_be_bytes" | "to_le_bytes" | "to_ne_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
 			"trailing_zeros" => "trailingZeros",
@@ -1116,10 +1116,19 @@ fn mapping<'tcx>(
 			"is_multiple_of" => "isMultipleOf",
 			_ => return None,
 		};
+		// wasm32 is little-endian, so the native bytes are the little-endian ones: the
+		// big-endian bytes, the other way around. The caller may still hold the array it
+		// reads, so it reverses a copy; the bytes it makes are its own.
+		let args = match name.as_str() {
+			"from_le_bytes" | "from_ne_bytes" => args
+				.into_iter()
+				.map(|a| a.method("slice", Vec::new()).method("reverse", Vec::new()))
+				.collect(),
+			_ => args,
+		};
 		let e = int.method(method, args);
-		// The big-endian bytes, the other way around.
 		return Some(match name.as_str() {
-			"to_le_bytes" => e.method("reverse", Vec::new()),
+			"to_le_bytes" | "to_ne_bytes" => e.method("reverse", Vec::new()),
 			_ => e,
 		});
 	}
