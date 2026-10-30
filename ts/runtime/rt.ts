@@ -7,7 +7,7 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import type { ParseFloatError } from "./rt/float.ts";
-import { type char, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import { type char, type ParseCharError, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Range, RangeInclusive } from "./rt/iter.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
 
@@ -1055,6 +1055,9 @@ export function charIsAsciiDigit(c: char): boolean {
 /** `core::fmt::Error`. */
 export class FmtError {}
 
+/** `core::str::ParseBoolError`. */
+export class ParseBoolError {}
+
 /** `fmt::Result`. */
 export type FmtResult = Result<undefined, FmtError>;
 
@@ -1603,6 +1606,26 @@ export function fmtParseIntErrorDisplay(e: ParseIntError, f: Formatter): FmtResu
 		NotAPowerOfTwo: "number is not a power of two",
 	};
 	return fmtPad(f, messages[e.kind]);
+}
+
+/** `Debug` of `ParseBoolError`. */
+export function fmtParseBoolErrorDebug(_: ParseBoolError, f: Formatter): FmtResult {
+	return f.out.writeStr("ParseBoolError");
+}
+
+/** `Display` of `ParseBoolError`. */
+export function fmtParseBoolErrorDisplay(_: ParseBoolError, f: Formatter): FmtResult {
+	return fmtPad(f, "provided string was not `true` or `false`");
+}
+
+/** `Debug` of `ParseCharError`. */
+export function fmtParseCharErrorDebug(e: ParseCharError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseCharError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseCharError`. */
+export function fmtParseCharErrorDisplay(e: ParseCharError, f: Formatter): FmtResult {
+	return fmtPad(f, e.kind === "EmptyString" ? "cannot parse char from empty string" : "too many characters in string");
 }
 
 /** `Debug` of `ParseFloatError`. */

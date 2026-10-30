@@ -1,6 +1,6 @@
 //! `str` and `String` over `char`: iterated from both ends, searched by a `char`, a
 //! predicate, or a `&str`, trimmed, split, sliced by byte offsets, built a char at a
-//! time, and edited in place. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
+//! time, edited in place, and parsed into a `bool`, a `char`, or a `NonZero`. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
 //! so byte offsets and code units part. Predicates log each char they are called with, so
 //! where a search stops is output too.
 
@@ -503,5 +503,145 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 		put(out, &s);
 		put(out, &named.name);
+	}
+}
+
+/// Where `bool`, `char`, and `NonZero` parse or fail: case, whitespace, each UTF-8 width,
+/// a sign, zero, and every integer type's bounds and one past them.
+const PARSE_EDGES: &[&str] = &[
+	"true",
+	"false",
+	"True",
+	"FALSE",
+	"",
+	" true",
+	"true ",
+	"t",
+	"truefalse",
+	"a",
+	"\u{e9}",
+	"\u{800}",
+	"\u{1f600}",
+	"\u{10ffff}",
+	"ab",
+	"a\u{1f600}",
+	"\u{1f600}a",
+	"\u{e9}\u{e9}",
+	"0",
+	"+0",
+	"-0",
+	"000",
+	"1",
+	"+1",
+	"-1",
+	"+",
+	"-",
+	"--1",
+	"+-1",
+	"1_0",
+	"0x1",
+	"127",
+	"128",
+	"-128",
+	"-129",
+	"255",
+	"256",
+	"32767",
+	"32768",
+	"-32768",
+	"-32769",
+	"65535",
+	"65536",
+	"2147483647",
+	"2147483648",
+	"-2147483648",
+	"-2147483649",
+	"4294967295",
+	"4294967296",
+	"9223372036854775807",
+	"9223372036854775808",
+	"-9223372036854775808",
+	"-9223372036854775809",
+	"18446744073709551615",
+	"18446744073709551616",
+	"170141183460469231731687303715884105727",
+	"170141183460469231731687303715884105728",
+	"-170141183460469231731687303715884105728",
+	"-170141183460469231731687303715884105729",
+	"340282366920938463463374607431768211455",
+	"340282366920938463463374607431768211456",
+];
+
+/// One parse of `s` as `$t` each way std offers: its value, or its error by `Display`
+/// and `Debug`, padded, truncated, and pretty.
+macro_rules! parse_as {
+	($t:ty, $s:expr, $out:expr) => {{
+		let (s, out): (&str, &mut Vec<u8>) = ($s, $out);
+		for parsed in [s.parse::<$t>(), <$t as std::str::FromStr>::from_str(s)] {
+			match parsed {
+				Ok(v) => put(out, &format!("{v:?}")),
+				Err(e) => put(out, &format!("{e}|{e:?}|{e:>50}|{e:<3.5}|{e:>20?}|{e:#?}")),
+			}
+		}
+		s.parse::<$t>()
+	}};
+}
+
+/// `NonZero`'s parse, then its error's `IntErrorKind`, and `from_str_radix` in `radix`.
+macro_rules! parse_nonzero {
+	($t:ty, $s:expr, $radix:expr, $out:expr) => {{
+		let (s, radix, out): (&str, u32, &mut Vec<u8>) = ($s, $radix, $out);
+		if let Err(e) = parse_as!(std::num::NonZero<$t>, s, out) {
+			put(out, &format!("{:?}", e.kind()));
+		}
+		match std::num::NonZero::<$t>::from_str_radix(s, radix) {
+			Ok(v) => put(out, &format!("{v}")),
+			Err(e) => put(out, &format!("{e}|{e:?}")),
+		}
+	}};
+}
+
+/// `str::parse` of the type `kind` picks, `bool`, `char`, or a `NonZero` of each integer,
+/// of every edge, of text of chars of every UTF-8 width, or of bytes mapped into an
+/// alphabet of signs, digits, and the letters of `true` and `false`.
+pub fn parses(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	const ALPHABET: &[u8] = b"0123456789+-truefalsTF ";
+	let radix = 2 + u32::from(data.first().copied().unwrap_or(0)) % 35;
+	let one = match kind / 14 % 3 {
+		0 => None,
+		1 => Some(text(data)),
+		_ => {
+			let mut s = String::new();
+			for &b in data {
+				s.push(char::from(ALPHABET[usize::from(b) % ALPHABET.len()]));
+			}
+			Some(s)
+		}
+	};
+	let all: Vec<&str> = match &one {
+		Some(s) => vec![s],
+		None => PARSE_EDGES.to_vec(),
+	};
+	for s in all {
+		match kind % 14 {
+			0 => {
+				let _ = parse_as!(bool, s, out);
+			}
+			1 => {
+				let _ = parse_as!(char, s, out);
+			}
+			2 => parse_nonzero!(u8, s, radix, out),
+			3 => parse_nonzero!(u16, s, radix, out),
+			4 => parse_nonzero!(u32, s, radix, out),
+			5 => parse_nonzero!(u64, s, radix, out),
+			6 => parse_nonzero!(u128, s, radix, out),
+			7 => parse_nonzero!(usize, s, radix, out),
+			8 => parse_nonzero!(i8, s, radix, out),
+			9 => parse_nonzero!(i16, s, radix, out),
+			10 => parse_nonzero!(i32, s, radix, out),
+			11 => parse_nonzero!(i64, s, radix, out),
+			12 => parse_nonzero!(i128, s, radix, out),
+			_ => parse_nonzero!(isize, s, radix, out),
+		}
 	}
 }

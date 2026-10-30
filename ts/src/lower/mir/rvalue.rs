@@ -574,6 +574,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
 				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
+				(Std::ParseBoolError, _) => Expr::New(Box::new(Expr::Rt("ParseBoolError".into())), Vec::new()),
 				// `ResumeTy`, an async body's context.
 				(Std::Context, _) => values.pop().unwrap_or_else(Expr::undefined),
 				(Std::RangeTo | Std::RangeToInclusive, _) => {
