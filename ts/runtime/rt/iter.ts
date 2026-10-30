@@ -220,29 +220,129 @@ export function iterSliceMut<T>(s: { [i: number]: T; length: number }): Iter<Pla
 /** `slice::windows`: each run of `size` elements, panicking on a size of 0 as std's does. */
 export function sliceWindows<T>(s: T[], size: number): Iter<T[]> {
 	if (size === 0) panic("window size must be non-zero");
-	return new PartsIter(s, s.length, size, 1, (s, start, end) => s.slice(start, end));
+	return new PartsIter(s, s.length, size, 1, Math.max(s.length - size + 1, 0), false, sliceCopy);
 }
 
 /** `slice::chunks`: each `size` elements, the last fewer, panicking on a size of 0 as std's does. */
 export function sliceChunks<T>(s: T[], size: number): Iter<T[]> {
-	if (size === 0) panic("chunk size must be non-zero");
-	return new PartsIter(s, s.length, size, size, (s, start, end) => s.slice(start, end));
+	return chunks(s, s.length, size, false, false, sliceCopy);
+}
+
+/** `slice::chunks_exact`: each `size` elements, leaving the rest as its remainder. */
+export function sliceChunksExact<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, true, false, sliceCopy);
+}
+
+/** `slice::rchunks`: `chunks` from the back, the last part the front of the slice. */
+export function sliceRchunks<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, false, true, sliceCopy);
+}
+
+/** `slice::rchunks_exact`: `chunks_exact` from the back, the remainder the front. */
+export function sliceRchunksExact<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, true, true, sliceCopy);
+}
+
+/** `slice::chunks_mut`: as `chunks`, but each part a view of `s` that writes through to it. */
+export function sliceChunksMut<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, false, false, sliceView);
+}
+
+/** `slice::chunks_exact_mut`. */
+export function sliceChunksExactMut<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, true, false, sliceView);
+}
+
+/** `slice::rchunks_mut`. */
+export function sliceRchunksMut<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, false, true, sliceView);
+}
+
+/** `slice::rchunks_exact_mut`. */
+export function sliceRchunksExactMut<T>(s: T[], size: number): Iter<T[]> {
+	return chunks(s, s.length, size, true, true, sliceView);
 }
 
 /** `slice::windows` of bytes. */
 export function byteSliceWindows(s: ByteSlice, size: number): Iter<ByteSlice> {
 	if (size === 0) panic("window size must be non-zero");
-	return new PartsIter(s, s.length, size, 1, byteSlicePart);
+	return new PartsIter(s, s.length, size, 1, Math.max(s.length - size + 1, 0), false, byteSlicePart);
 }
 
-/** `slice::chunks` of bytes. */
+/** `slice::chunks` and `chunks_mut` of bytes, whose parts are views already. */
 export function byteSliceChunks(s: ByteSlice, size: number): Iter<ByteSlice> {
+	return chunks(s, s.length, size, false, false, byteSlicePart);
+}
+
+/** `slice::chunks_exact` and `chunks_exact_mut` of bytes. */
+export function byteSliceChunksExact(s: ByteSlice, size: number): Iter<ByteSlice> {
+	return chunks(s, s.length, size, true, false, byteSlicePart);
+}
+
+/** `slice::rchunks` and `rchunks_mut` of bytes. */
+export function byteSliceRchunks(s: ByteSlice, size: number): Iter<ByteSlice> {
+	return chunks(s, s.length, size, false, true, byteSlicePart);
+}
+
+/** `slice::rchunks_exact` and `rchunks_exact_mut` of bytes. */
+export function byteSliceRchunksExact(s: ByteSlice, size: number): Iter<ByteSlice> {
+	return chunks(s, s.length, size, true, true, byteSlicePart);
+}
+
+/**
+ * `remainder` of a `ChunksExact` or an `RChunksExact`, and `into_remainder` of their
+ * `_mut` forms: what no part holds, however many parts were taken.
+ */
+export function partsRemainder<S>(parts: Iter<S>): S {
+	return (parts as PartsIter<S>).remainder();
+}
+
+/** `size` elements at a time, all of them or `exact`ly so, from the back if `rev`. */
+function chunks<S>(s: S, length: number, size: number, exact: boolean, rev: boolean, part: (s: S, start: number, end: number) => S): Iter<S> {
 	if (size === 0) panic("chunk size must be non-zero");
-	return new PartsIter(s, s.length, size, size, byteSlicePart);
+	const count = exact ? Math.floor(length / size) : Math.ceil(length / size);
+	return new PartsIter(s, length, size, size, count, rev, part);
+}
+
+function sliceCopy<T>(s: T[], start: number, end: number): T[] {
+	return s.slice(start, end);
 }
 
 function byteSlicePart(s: ByteSlice, start: number, end: number): ByteSlice {
 	return new ByteSlice(s.data, s.start + start, end - start);
+}
+
+/**
+ * `s[start..end]` lent mutably: an array whose every element is `s`'s, read and written
+ * where it is, as a JS array has no views of its own. Its own array, holes of the same
+ * length, answers for the rest, such as `length` and the methods.
+ */
+function sliceView<T>(s: T[], start: number, end: number): T[] {
+	const length = end - start;
+	const at = (key: string | symbol): number => {
+		if (typeof key !== "string") return -1;
+		const i = Number(key);
+		return Number.isInteger(i) && i >= 0 && i < length && String(i) === key ? start + i : -1;
+	};
+	return new Proxy(new Array<T>(length), {
+		get: (target, key) => {
+			const i = at(key);
+			return i < 0 ? Reflect.get(target, key) : s[i];
+		},
+		set: (target, key, value) => {
+			const i = at(key);
+			if (i < 0) return Reflect.set(target, key, value);
+			s[i] = value;
+			return true;
+		},
+		has: (target, key) => at(key) >= 0 || Reflect.has(target, key),
+		ownKeys: (target) => [...Array.from({ length }, (_, i) => String(i)), ...Reflect.ownKeys(target)],
+		getOwnPropertyDescriptor: (target, key) => {
+			const i = at(key);
+			if (i < 0) return Reflect.getOwnPropertyDescriptor(target, key);
+			return { value: s[i], writable: true, enumerable: true, configurable: true };
+		},
+	});
 }
 
 /** `Option::iter`, and with what drops its item, `option::IntoIter`. */
@@ -991,24 +1091,39 @@ class PartsIter<S> extends Iter<S> {
 	private readonly length: number;
 	private readonly size: number;
 	private readonly step: number;
+	private readonly count: number;
+	/** Whether the first part is at the back of the slice, as `rchunks`' is. */
+	private readonly rev: boolean;
 	private readonly part: (s: S, start: number, end: number) => S;
 	private front = 0;
 	/** How many parts there are, less those taken from the back. */
 	private back: number;
 
-	constructor(s: S, length: number, size: number, step: number, part: (s: S, start: number, end: number) => S) {
+	constructor(s: S, length: number, size: number, step: number, count: number, rev: boolean, part: (s: S, start: number, end: number) => S) {
 		super();
 		this.s = s;
 		this.length = length;
 		this.size = size;
 		this.step = step;
+		this.count = count;
+		this.rev = rev;
 		this.part = part;
-		this.back = step === 1 ? Math.max(length - size + 1, 0) : Math.ceil(length / size);
+		this.back = count;
 	}
 
 	private at(i: number): S {
+		if (this.rev) {
+			const end = this.length - i * this.step;
+			return this.part(this.s, Math.max(end - this.size, 0), end);
+		}
 		const start = i * this.step;
 		return this.part(this.s, start, Math.min(start + this.size, this.length));
+	}
+
+	/** What the parts leave over, at the end the parts don't start from. */
+	remainder(): S {
+		const held = this.count * this.size;
+		return this.rev ? this.part(this.s, 0, this.length - held) : this.part(this.s, held, this.length);
 	}
 
 	next(): S | Done {
