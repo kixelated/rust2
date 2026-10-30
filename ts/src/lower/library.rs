@@ -1310,6 +1310,10 @@ fn mapping<'tcx>(
 			};
 			rt2(values, "slice", &super::camel(name))
 		}
+		("slice", "windows" | "chunks") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
@@ -1541,6 +1545,13 @@ fn mapping<'tcx>(
 				}
 			};
 			rt2(values, of, &f)
+		}
+		// Of a range, which `Vec<T, A>::drain::<R>` takes.
+		("Vec", "drain") if let Some(msg) = super::collections::unread_range(b, call) => b.err(span, msg),
+		("Vec", "drain") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecDrain", args),
+		("Vec", "drain") => {
+			let dropper = b.t.dropper(targ(gargs, 0), span);
+			Expr::rt("vecDrain", super::iter::tail(args, vec![dropper]))
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;

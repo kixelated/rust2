@@ -100,9 +100,9 @@ pub fn call<'tcx>(
 				return Ok(Some(test.test(b, order, out)));
 			}
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
-				// The library maps the integers' and `bool`'s.
+				// The library maps the integers', `bool`'s, and byte slices'.
 				let t = peel(b, t);
-				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || !std_key(b, t) {
+				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !std_key(b, t) {
 					return Err(args);
 				}
 				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
@@ -694,6 +694,7 @@ fn btree<'tcx>(
 			};
 			Expr::rt(f, super::iter::tail(values, droppers))
 		}
+		(_, "range" | "range_mut") if let Some(msg) = unread_range(b, call) => b.err(span, msg),
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
 		(_, "range_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRangeMut", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
@@ -853,6 +854,7 @@ fn deque<'tcx>(
 		}
 		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
+		(_, "drain") if let Some(msg) = unread_range(b, call) => b.err(span, msg),
 		(_, "drain") => {
 			let droppers = entry_droppers(b, coll, span);
 			Expr::rt("dequeDrain", super::iter::tail(values, droppers))
@@ -1210,6 +1212,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => true,
 		ty::Tuple(tys) => !tys.is_empty() && tys.iter().all(held),
 		_ if let Some(elem) = elements_of(b, ty) => held(elem),
+		_ if bytes(b, ty) => true,
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
 			held(inner)
 		}
@@ -1237,6 +1240,31 @@ fn elements_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		_ => return None,
 	};
 	(!matches!(elem.kind(), ty::Uint(ty::UintTy::U8))).then_some(elem)
+}
+
+/// Whether `ty` is a `Vec`, a slice, or an array of bytes: a typed array, an `rt.ByteSlice`
+/// behind a reference, or an `rt.ByteVec`.
+fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	let elem = match ty.kind() {
+		ty::Slice(elem) | ty::Array(elem, _) => *elem,
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Vec) => arg(ty, 0),
+		_ => return false,
+	};
+	matches!(elem.kind(), ty::Uint(ty::UintTy::U8))
+}
+
+/// Why the runtime can't read the range `call` takes last as an `rt.Bounds`, if it can't:
+/// it reads std's range types, not a tuple of `Bound`s or the crate's own `RangeBounds`.
+pub fn unread_range<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<String> {
+	let range = *b.t.sig(call.def_id, call.args).inputs().last()?;
+	match b.t.std_of(range) {
+		Some(
+			Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull,
+		) => None,
+		_ => Some(format!(
+			"a range of `{range}`, whose bounds the runtime doesn't read, which is not supported yet"
+		)),
+	}
 }
 
 /// What `ty` holds if it is an `Arc`.
@@ -1270,6 +1298,8 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
 		}
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
+		// Whichever form it has, as the key it is or the operand a reference passes.
+		_ if bytes(b, ty) => Expr::Rt("cmpBytes".into()),
 		ty::Adt(adt, _) if b.t.own(adt.did()) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)

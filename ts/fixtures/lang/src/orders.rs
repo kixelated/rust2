@@ -1,12 +1,13 @@
 //! Ordering in std: `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, the
 //! `is_sorted` family, and `BinaryHeap`, of a type that logs each comparison std makes of
 //! it and each drop, so which tests run, in what order, which of equal values comes out,
-//! and when each value drops all show.
+//! and when each value drops all show. Then byte arrays, slices, and vectors, by their
+//! bytes and then their length.
 
 use std::cell::RefCell;
 use std::cmp::{self, Ordering, Reverse};
-use std::collections::BinaryHeap;
 use std::collections::binary_heap::PeekMut;
+use std::collections::{BTreeMap, BinaryHeap};
 
 thread_local! {
 	static LOG: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
@@ -270,4 +271,56 @@ fn values(data: &[u8], out: &mut Vec<u8>) {
 		*top = (0, 0);
 	}
 	out.extend(pairs.into_sorted_vec().into_iter().flat_map(|(a, b)| [a, b]));
+}
+
+/// Byte arrays, slices, and vectors, of the same length and of others, ordered as std
+/// orders them, by their bytes and then by length: directly, through `Ord`'s defaults, as
+/// keys and items, and in tuples, owned and borrowed.
+pub fn bytes(data: &[u8], out: &mut Vec<u8>) {
+	for w in data.windows(2) {
+		let (a, b) = ([w[0] % 4, w[1] % 4], [w[1] % 4, w[0] % 2]);
+		out.extend([(a < b) as u8, (a <= b) as u8, (a > b) as u8, (a >= b) as u8]);
+		out.extend([a.cmp(&b) as u8, a.partial_cmp(&b).unwrap() as u8]);
+		out.extend([cmp::max(a, b)[0], a.min(b)[1], a.clamp([1, 1], [2, 2])[1]]);
+		let pair = (a, b[0]);
+		out.push((pair < (b, a[1])) as u8);
+	}
+	// Each prefix against each suffix: a shorter one that is a prefix of the other is less.
+	let cut = data.len().min(6);
+	for i in 0..=cut {
+		for j in 0..=cut {
+			let (s, t) = (&data[..i], &data[j..cut]);
+			out.extend([s.cmp(t) as u8, (s < t) as u8, (s >= t) as u8]);
+			let (v, u) = (s.to_vec(), t.to_vec());
+			out.extend([v.cmp(&u) as u8, (v > u) as u8, (v <= u) as u8]);
+		}
+	}
+	let mut arrays: Vec<[u8; 2]> = data
+		.chunks(2)
+		.map(|c| [c[0] % 4, c.get(1).map_or(0, |b| b % 4)])
+		.collect();
+	out.extend(arrays.iter().max().map_or([9, 9], |a| *a));
+	out.extend(arrays.iter().min().map_or([9, 9], |a| *a));
+	let mut heap: BinaryHeap<[u8; 2]> = arrays.iter().copied().collect();
+	while let Some(a) = heap.pop() {
+		out.extend(a);
+	}
+	let keys: BTreeMap<[u8; 2], usize> = arrays.iter().copied().enumerate().map(|(i, a)| (a, i)).collect();
+	out.extend(keys.into_iter().flat_map(|(k, i)| [k[0], k[1], i as u8]));
+	arrays.sort();
+	out.extend(arrays.iter().flatten());
+	let mut slices: Vec<&[u8]> = data.chunks(3).collect();
+	slices.sort_by(|a, b| b.cmp(a));
+	out.extend(slices.iter().map(|s| s.len() as u8));
+	let mut vecs: Vec<(Vec<u8>, usize)> = data.chunks(3).enumerate().map(|(i, c)| (c.to_vec(), i)).collect();
+	vecs.sort();
+	out.extend(vecs.iter().map(|(_, i)| *i as u8));
+	let mut refs: Vec<(&[u8; 2], u8)> = Vec::new();
+	for w in data.windows(2) {
+		if let Some((a, _)) = w.split_first_chunk::<2>() {
+			refs.push((a, w[0] / 64));
+		}
+	}
+	refs.sort();
+	out.extend(refs.iter().map(|(a, n)| a[0] ^ n));
 }
