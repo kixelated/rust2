@@ -750,7 +750,7 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 				.instantiate(self.tcx, args.skip_binder())
 				.skip_norm_wip();
 			// Those that point a pointer elsewhere or read through it replace nothing.
-			let replace = !super::pointer::keeps(self.tcx, def_id);
+			let replace = !super::pointer::keeps(self.tcx, def_id, args.skip_binder());
 			for &input in sig.skip_binder().inputs() {
 				self.pointees(input, replace);
 			}

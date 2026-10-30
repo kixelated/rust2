@@ -151,6 +151,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("strs::iters", strs::iters),
 		("strs::drains", strs::drains),
 		("strs::hinted", strs::hinted),
+		("pointers::made", |_, data, out| pointers::made(data, out)),
 		("ints::widenings", ints::widenings),
 	]
 }
