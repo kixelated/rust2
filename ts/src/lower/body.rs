@@ -222,7 +222,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A function item as a value.
+	/// A function item as a value, typed as one: a declared function's `()` result is `void`,
+	/// which a value's type says is `undefined`.
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let sig = self.t.sig(def_id, gargs);
@@ -246,16 +247,26 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
 		{
-			if let Some(sym) = self.t.bound_fn(instance, span) {
-				return Expr::Sym(sym);
-			}
-			if self.t.lowers(instance) {
-				return Expr::Sym(self.t.callee(instance, span));
+			let sym = match self.t.bound_fn(instance, span) {
+				Some(sym) => Some(sym),
+				None => self.t.lowers(instance).then(|| self.t.callee(instance, span)),
+			};
+			if let Some(sym) = sym {
+				return match sig.output().is_unit() {
+					true => Expr::As(Box::new(Expr::Sym(sym)), self.t.fn_ty(sig.inputs(), sig.output(), span)),
+					false => Expr::Sym(sym),
+				};
 			}
 		}
 		let mut body = Vec::new();
 		let call = self.call_def(def_id, gargs, values, span, &mut body);
-		body.push(StmtKind::Return(Some(call.typed())).at(None));
+		body.push(
+			match sig.output().is_unit() {
+				true => StmtKind::Expr(call),
+				false => StmtKind::Return(Some(call.typed())),
+			}
+			.at(None),
+		);
 		let params = names
 			.into_iter()
 			.zip(sig.inputs())
@@ -264,7 +275,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Param { name, ty: Some(ty) }
 			})
 			.collect();
-		let ret = self.t.ret_ty(sig.output(), span);
+		let ret = self.t.ty(sig.output(), span);
 		Expr::Arrow(params, ret, body)
 	}
 }

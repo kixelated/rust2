@@ -163,7 +163,9 @@ impl<'tcx> Translator<'_, 'tcx> {
 		for method in &object.methods {
 			let args = method_args(tcx, method.def_id, ty);
 			let sig = self.sig(method.def_id, args);
-			let func = self.fn_ty(&sig.inputs()[1..], sig.output(), span);
+			// The methods it holds are declared, so their `()` is `void`.
+			let params = sig.inputs()[1..].iter().map(|t| self.ty(*t, span)).collect();
+			let func = Type::Func(params, Box::new(self.ret_ty(sig.output(), span)));
 			members.push((method.name.clone(), func));
 		}
 		self.program.items.push(Item::Union {

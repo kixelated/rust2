@@ -4,7 +4,7 @@ import * as rt from "../rt.ts";
 import * as DecodeError from "../coding/decode.DecodeError.ts";
 import { read } from "../coding/varint.ts";
 import type * as Form from "../coding/varint.Form.ts";
-import { mapErr$06mnjtr, inspectErr$0f2ndta } from "../core/result.ts";
+import { mapErr$06mnjtr, inspectErr$156koiv } from "../core/result.ts";
 import type * as Control from "../stats.Control.ts";
 
 /**
@@ -158,7 +158,7 @@ export function bytes(self: Decoder): rt.Result<rt.ByteSlice, DecodeError.Decode
 			return { tag: "BoundsExceeded" } as DecodeError.DecodeError;
 		});
 		if (_3.ok) {
-			return inspectErr$0f2ndta(slice(self, _3.value), (_22: DecodeError.DecodeError): void => {
+			return inspectErr$156koiv(slice(self, _3.value), (_22: DecodeError.DecodeError): undefined => {
 				self.buf = start;
 			});
 		}

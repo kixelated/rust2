@@ -118,7 +118,7 @@ export function mapErr$1c43xsx(self: rt.Result<rt.u32, rt.u32>, op: (a0: rt.u32)
 	return _0;
 }
 
-export function inspectErr$014ax37(self: rt.Result<rt.u32, rt.u32>, f: (a0: rt.u32) => void): rt.Result<rt.u32, rt.u32> {
+export function inspectErr$0hrcm18(self: rt.Result<rt.u32, rt.u32>, f: (a0: rt.u32) => undefined): rt.Result<rt.u32, rt.u32> {
 	let _8: boolean = false;
 	_8 = true;
 	if (!self.ok) {

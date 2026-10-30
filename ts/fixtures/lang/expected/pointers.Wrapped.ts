@@ -28,19 +28,19 @@ export function with$Held_u8_cells_closure4(self: Wrapped<Held.Held>, f: (a0: He
 	return f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure0(self: Wrapped<Held.Held>, f: (a0: Held.Held) => void): void {
+export function withMut$Held_unit_cells_closure0(self: Wrapped<Held.Held>, f: (a0: Held.Held) => undefined): void {
 	f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure1(self: Wrapped<Held.Held>, f: (a0: Held.Held) => void): void {
+export function withMut$Held_unit_cells_closure1(self: Wrapped<Held.Held>, f: (a0: Held.Held) => undefined): void {
 	f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure3(self: Wrapped<Held.Held>, f: (a0: Held.Held) => void): void {
+export function withMut$Held_unit_cells_closure3(self: Wrapped<Held.Held>, f: (a0: Held.Held) => undefined): void {
 	f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure5(self: Wrapped<Held.Held>, f: (a0: Held.Held) => void): void {
+export function withMut$Held_unit_cells_closure5(self: Wrapped<Held.Held>, f: (a0: Held.Held) => undefined): void {
 	f(self._0.v);
 }
 

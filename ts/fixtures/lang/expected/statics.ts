@@ -251,13 +251,13 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _13: rt.u8 = rt.u8Rem(op, 6);
 		if (_13 === 0) {
 			rt.byteVecPush(out, once.v === true ? 1 : 0);
-			rt.onceCall(once, (): void => {
+			rt.onceCall(once, (): undefined => {
 				rt.byteVecPush(out, n);
 			});
 			rt.byteVecPush(out, once.v === true ? 1 : 0);
 		} else if (_13 === 1) {
 			const captured5 = rt.arcClone(owned);
-			rt.onceCall(once, rt.closure((state: rt.OnceState): void => {
+			rt.onceCall(once, rt.closure((state: rt.OnceState): undefined => {
 				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.onceIsPoisoned(state) ? 1 : 0, once.v === true ? 1 : 0, n)), undefined, true);
 				captured5[Symbol.dispose]();
 			}, (): void => {
@@ -266,10 +266,10 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, owned.strong & 0xff);
 		} else if (_13 === 2) {
 			const fresh: rt.Once = new rt.OnceLock(undefined);
-			rt.onceCall(fresh, (): void => {
+			rt.onceCall(fresh, (): undefined => {
 				rt.byteVecPush(out, fresh.v === true ? 1 : 0);
 				if (rt.u8Rem(n, 2) === 1) {
-					rt.onceCall(fresh, (): void => {
+					rt.onceCall(fresh, (): undefined => {
 						rt.byteVecPush(out, 238);
 					});
 				}
@@ -277,12 +277,12 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, fresh.v === true ? 1 : 0);
 		} else if (_13 === 3) {
 			if (!(rt.u8Rem(n, 2) === 1)) {
-				rt.onceCall(STARTED, (): void => {});
+				rt.onceCall(STARTED, (): undefined => {});
 				rt.byteVecPush(out, STARTED.v === true ? 1 : 0);
 			} else {
 				const fresh2: rt.Once = new rt.OnceLock(undefined);
-				rt.onceCall(fresh2, (_26: rt.OnceState): void => {
-					rt.onceCall(fresh2, (_27: rt.OnceState): void => {
+				rt.onceCall(fresh2, (_26: rt.OnceState): undefined => {
+					rt.onceCall(fresh2, (_27: rt.OnceState): undefined => {
 						rt.byteVecPush(out, 238);
 					});
 				});

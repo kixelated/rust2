@@ -165,9 +165,9 @@ export class helpersFuture {
 export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
 	const relay: Relay.Relay = new Relay.Relay(task.clone(), Guard.new(id, log));
 	if (rt.u32Rem(id, 2) === 0) {
-		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake, (arc2: rt.Arc<Relay.Relay>) => arc2[Symbol.dispose](), Relay.wakeByRef$Wake);
+		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake as (a0: rt.Arc<Relay.Relay>) => undefined, (arc2: rt.Arc<Relay.Relay>) => arc2[Symbol.dispose](), Relay.wakeByRef$Wake as (a0: rt.Arc<Relay.Relay>) => undefined);
 	}
-	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake, (arc: rt.Arc<Plain.Plain>) => arc[Symbol.dispose]());
+	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake as (a0: rt.Arc<Plain.Plain>) => undefined, (arc: rt.Arc<Plain.Plain>) => arc[Symbol.dispose]());
 }
 
 /**

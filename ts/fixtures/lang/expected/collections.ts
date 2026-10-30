@@ -149,9 +149,9 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			rt.byteVecPush(out, rt.hashIndex(map2, _163));
 		}
 	} else if (_4 === 2) {
-		const map3: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
-		const pairs: rt.HashMap<Pair.Pair, Tally.Tally> = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
-		const ranks: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
+		const map3: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
+		const pairs: rt.HashMap<Pair.Pair, Tally.Tally> = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher as (a0: Pair.Pair, a1: rt.Hasher) => undefined, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
+		const ranks: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher as (a0: Rank.Rank, a1: rt.Hasher) => undefined, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
 		const tuples: rt.HashMap<[rt.u8, string], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
 		let iterStart: rt.usize = 1;
 		const iterEnd: rt.usize = data.length;
@@ -237,7 +237,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			const a2: rt.u8 = _306;
 			const b4: rt.u8 = _305[1];
 			const _318: Rank.Rank = rank(b4, a2);
-			const t4: Tally.Tally = rt.entryOrInsertWith(rt.entryAndModify(rt.entry(ranks, _318), (t9: Tally.Tally): void => {
+			const t4: Tally.Tally = rt.entryOrInsertWith(rt.entryAndModify(rt.entry(ranks, _318), (t9: Tally.Tally): undefined => {
 				t9.n = t9.n ^ 3;
 			}), (): Tally.Tally => {
 				return { n: b4 as rt.u16 };
@@ -382,7 +382,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			return _2[1].length;
 		}), rt.usizeAdd, 0) & 0xff);
 		rt.byteVecPush(out, rt.hashLen(words) === 0 ? 1 : 0);
-		const clashes: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
+		const clashes: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashNew(rt.hashing(Clash.hash$Hash_DefaultHasher as (a0: Clash.Clash, a1: rt.Hasher) => undefined, Clash.eq$PartialEq)) as rt.HashMap<Clash.Clash, Tally.Tally>;
 		const iter18: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
 		while (true) {
 			const _568: [rt.usize, rt.u8] | rt.Done = iter18.next();
@@ -499,7 +499,7 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}), undefined, true);
 	} else if (_4 === 1) {
 		const nibbles: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
-		const seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
+		const seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
 		for (const b2 of rt.byteSliceView(data)) {
 			rt.byteVecPush(out, rt.btreeAdd(nibbles, { _0: b2 }) ? 1 : 0);
 			rt.byteVecPush(out, rt.hashAdd(seen, { _0: b2 }) ? 1 : 0);
@@ -526,7 +526,7 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		}
 		rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
-		const dirs: rt.HashSet<Dir.Dir> = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
+		const dirs: rt.HashSet<Dir.Dir> = rt.hashNew(rt.hashing(Dir.hash$Hash_DefaultHasher as (a0: Dir.Dir, a1: rt.Hasher) => undefined, Dir.eq$PartialEq, true)) as rt.HashSet<Dir.Dir>;
 		for (const _151 of rt.byteSliceView(data)) {
 			const _160: rt.usize = rt.usizeRem(_151 as rt.usize, 3);
 			if (!(_160 < 3)) {
@@ -1430,7 +1430,7 @@ export function optional$Option_u8_HashMap_u8_Option_u8(map: rt.HashMap<rt.u8, r
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$unit_BTreeMap_u8_unit(map: rt.BTreeMap<rt.u8, undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => void, out: rt.ByteVec): void {
+export function optional$unit_BTreeMap_u8_unit(map: rt.BTreeMap<rt.u8, undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => undefined, out: rt.ByteVec): void {
 	let read!: string;
 	for (const b of rt.byteSliceView(data)) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
@@ -1471,7 +1471,7 @@ export function optional$unit_BTreeMap_u8_unit(map: rt.BTreeMap<rt.u8, undefined
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$unit_HashMap_u8_unit(map: rt.HashMap<rt.u8, undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => void, out: rt.ByteVec): void {
+export function optional$unit_HashMap_u8_unit(map: rt.HashMap<rt.u8, undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => undefined, out: rt.ByteVec): void {
 	let read!: string;
 	for (const b of rt.byteSliceView(data)) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
@@ -1535,9 +1535,9 @@ export function optionals(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 	} else if (_4 === 1) {
 		optional$Option_u8_BTreeMap_u8_Option_u8(made$BTreeMap_u8_Option_u8(), data, some, out);
 	} else if (_4 === 2) {
-		optional$unit_HashMap_u8_unit(rt.hashNew() as rt.HashMap<rt.u8, undefined>, data, (_22: rt.u8): void => {}, out);
+		optional$unit_HashMap_u8_unit(rt.hashNew() as rt.HashMap<rt.u8, undefined>, data, (_22: rt.u8): undefined => {}, out);
 	} else if (_4 === 3) {
-		optional$unit_BTreeMap_u8_unit(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, undefined>, data, (_2: rt.u8): void => {}, out);
+		optional$unit_BTreeMap_u8_unit(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, undefined>, data, (_2: rt.u8): undefined => {}, out);
 	} else if (_4 === 4) {
 		optional$Option_String_HashMap_u8_Option_String(made$HashMap_u8_Option_String(), data, (b2: rt.u8): string | undefined => {
 			return map$0oc32h1(some(b2), (b3: rt.u8): string => {

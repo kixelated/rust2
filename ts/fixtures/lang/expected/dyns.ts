@@ -547,7 +547,7 @@ export function twice(f: (a0: rt.u8) => rt.u8, x: rt.u8): rt.u8 {
 	return f(f(x));
 }
 
-export function bumpAll(f: (a0: rt.u8) => void, xs: rt.ByteSlice): void {
+export function bumpAll(f: (a0: rt.u8) => undefined, xs: rt.ByteSlice): void {
 	for (const _5 of rt.byteSliceView(xs)) {
 		f(_5);
 	}
@@ -599,7 +599,7 @@ export function fns(data: rt.ByteSlice, out: rt.ByteVec): void {
 		put(out, rt.fmtFormat([args4[0], " "]));
 		let sum: rt.u32 = 0;
 		const seen: rt.ByteVec = new rt.ByteVec();
-		bumpAll((x2: rt.u8): void => {
+		bumpAll((x2: rt.u8): undefined => {
 			sum = rt.u32WrappingAdd(sum, x2 as rt.u32);
 			rt.byteVecPush(seen, x2);
 		}, rt.byteSliceRange(data, 2));

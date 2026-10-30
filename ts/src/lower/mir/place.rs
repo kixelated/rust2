@@ -39,6 +39,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// A value of type `!`, as a generic instantiated at `!` reads: native code never
 			// gets here, and `tsc` sees that through `rt.unreachable`.
 			Slot::Unit if self.mir.local_decls[local].ty.is_never() => Expr::rt("unreachable", vec![Expr::undefined()]),
+			// A function item holds no value, so each read names the function.
+			Slot::Unit if let ty::FnDef(def_id, args) = *self.mir.local_decls[local].ty.kind() => {
+				self.b.fn_value(def_id, args.skip_binder(), span)
+			}
 			Slot::Unit => Expr::undefined(),
 			// Passed on or kept, a `&mut` to a borrowed place JS copies is its `rt.Place`.
 			Slot::Alias(Some(target)) if self.points_at_place(local) => {
