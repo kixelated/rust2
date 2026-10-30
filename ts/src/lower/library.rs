@@ -1546,17 +1546,18 @@ fn mapping<'tcx>(
 			};
 			rt2(values, of, &f)
 		}
-		// Of a range, which `Vec<T, A>::drain::<R>` takes.
+		// Of a range, which `Vec<T, A>::drain::<R>` takes, and which `bounds` refuses if it
+		// drops, as the other operand is the vector.
 		("Vec", "drain") => {
 			let range = args.pop()?;
 			args.push(super::collections::bounds(b, call, range));
-			match is_u8(targ(gargs, 0)) {
+			return Some(match is_u8(targ(gargs, 0)) {
 				true => Expr::rt("byteVecDrain", args),
 				false => {
 					let dropper = b.t.dropper(targ(gargs, 0), span);
 					Expr::rt("vecDrain", super::iter::tail(args, vec![dropper]))
 				}
-			}
+			});
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;

@@ -1258,13 +1258,21 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 }
 
 /// Makes `range`, the range `call` takes last, what an `rt.Bounds` reads: std's range types
-/// and a pair of `Bound`s are already, and any other `RangeBounds` becomes a function of its
-/// `start_bound` and `end_bound`, which the runtime calls where std's does.
+/// and a pair of `Bound`s are already, and any other `RangeBounds` becomes `rt.boundsOf` of
+/// it and its `start_bound` and `end_bound`, which the runtime calls where std's does. A
+/// range that drops is refused, since std drops it once it has read the bounds.
 pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) -> Expr {
 	let tcx = b.t.tcx;
 	let span = call.span;
 	let sig = b.t.sig(call.def_id, call.args);
 	let ty = *sig.inputs().last().expect("a range");
+	if b.t.drops(ty) {
+		let (owner, name) = library::key(tcx, call.def_id).expect("a function of std");
+		return b.err(
+			span,
+			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
+		);
+	}
 	let pair = |t: &Ty<'tcx>| b.t.std_of(*t) == Some(Std::Bound);
 	match (ty.kind(), b.t.std_of(ty)) {
 		(
