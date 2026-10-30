@@ -218,8 +218,8 @@ pub fn binary<'tcx>(
 	span: Span,
 ) -> Expr {
 	let (lty, rty) = (lty.peel_refs(), rty.peel_refs());
-	if float::is(lty) {
-		return float::binary(b, op, l.expr, r.expr, span);
+	if let Some(float) = float::Float::of(lty) {
+		return float::binary(b, float, op, l.expr, r.expr, span);
 	}
 	let compare = match op {
 		BinOp::Eq => Some("==="),
@@ -344,8 +344,8 @@ pub fn binary<'tcx>(
 
 pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let ty = ty.peel_refs();
-	if float::is(ty) {
-		return float::unary(b, op, value, span);
+	if let Some(float) = float::Float::of(ty) {
+		return float::unary(b, float, op, value, span);
 	}
 	match (op, ty.kind()) {
 		(UnOp::Not, ty::Bool) => value.not(),
