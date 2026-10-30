@@ -305,9 +305,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
 	joined: FxHashSet<Local>,
-	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
-	/// its arms.
-	switched: FxHashSet<String>,
+	/// The paths a switch lowered so far tests the variant of, with the enum it tests,
+	/// which `tsc` narrows in its arms. An `Option`'s `Some` is the path itself, so it
+	/// may be tested as both.
+	switched: FxHashSet<(String, Ty<'tcx>)>,
 	/// Locals whose variant some switch tests, or that std takes, directly or through a
 	/// reference to them.
 	tested: IndexVec<Local, bool>,
@@ -1383,6 +1384,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		assigned && switched
 	}
 
+	/// Whether the switch on the discriminant `local` tests it, rather than going the one
+	/// way its type leaves.
+	fn discr_tested(&self, local: Local) -> bool {
+		self.mir.basic_blocks.iter().any(|data| {
+			matches!(
+				&data.terminator().kind,
+				TerminatorKind::SwitchInt { discr: Operand::Move(p) | Operand::Copy(p), targets }
+					if p.as_local() == Some(local) && !self.switch_targets(targets).0.is_empty()
+			)
+		})
+	}
+
 	/// The parameters: `_1` through the argument count, but a closure's environment or a
 	/// coroutine's `this`.
 	pub fn params(&mut self) -> Vec<Param> {
@@ -2286,7 +2299,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					let ty = p.ty(&self.mir.local_decls, self.tcx).ty;
 					let target = self.place_expr(*p, span, out);
-					let target = self.path(target, "scrutinee", out);
+					// A switch whose other variants can't exist tests nothing, so the read
+					// runs only for its effects.
+					let target = match self.discr_tested(local) {
+						true => self.path(target, "scrutinee", out),
+						false => {
+							let target = self.fold_exprs(Vec::new(), vec![target], false, out).remove(0);
+							if self.part_reads(&target).0 {
+								self.emit(vec![StmtKind::Expr(target).at(None)], false, out);
+							}
+							Expr::undefined()
+						}
+					};
 					self.slots[local] = Slot::Discr(Some((target, ty)));
 					return;
 				}
@@ -2564,7 +2588,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
 			Some(Slot::Discr(Some((scrut, ty)))) => {
 				if !arms.is_empty() && whole.is_none() {
-					self.switched.extend(scrut.path_key());
+					self.switched.extend(scrut.path_key().map(|key| (key, ty)));
 				}
 				let tests: Vec<Expr> = arms
 					.iter()

@@ -36,9 +36,9 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 	v.iter().map(|&b| (b > 1).then_some(())).collect()
 }
 
-/// The runtime's `pop` takes `None` to be `undefined`, which `Some(None)` is.
-pub fn iterators(mut v: Vec<Option<u8>>) -> bool {
-	v.pop().is_some()
+/// `into_inner` of a shared value that can be `undefined`: its `None` and `Some(None)` would both be.
+pub fn inner_option(value: std::sync::Arc<Option<u8>>) -> bool {
+	std::sync::Arc::into_inner(value).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -253,9 +253,9 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// A set's `get` of an item that can be `undefined`: its `None` and `Some(&None)` would both be.
-pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
-	set.get(&None).is_some()
+/// `into_inner` of a shared `()`: its `None` and `Some(())` would both be `undefined`.
+pub fn inner_unit(value: std::rc::Rc<()>) -> bool {
+	std::rc::Rc::into_inner(value).is_some()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.
@@ -812,11 +812,6 @@ impl bytes::Buf for Blank {
 
 pub fn blank_bytes(len: usize) -> usize {
 	bytes::Buf::copy_to_bytes(&mut Blank::Empty, len).len()
-}
-
-/// A heap's `pop` of an item that can be `undefined`: its `None` and `Some(None)` would both be.
-pub fn heap_optional(heap: &mut std::collections::BinaryHeap<Option<u8>>) -> bool {
-	heap.pop().is_some()
 }
 
 /// The places `iter_mut` lends, which the runtime would compare as the objects they are.

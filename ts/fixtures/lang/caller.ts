@@ -356,6 +356,13 @@ const consumers = [[], [6], [5], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 
 const closures = [[], [3], [0, 3], [1], [4, 7, 1], [1, 2, 0, 4, 5], [4, 0, 1, 3, 5], [2, 1, 4, 3, 8], [5, 4], [0, 1, 2], [0xf0], [0xf1]].map((bytes) => Uint8Array.of(op("nested::nested"), 5, ...bytes));
 
 /**
+ * `nested::elements`, whose first byte is also the index and whose odd bytes are each a
+ * `None` element: of no elements, one of each, only `None`s, and an index in range and
+ * past the end of each mix.
+ */
+const elements = [[], [1], [2], [1, 3], [3, 1, 5], [0, 1, 2], [2, 6, 1, 8], [5, 4, 3, 0x10, 7, 0x40], [7, 0x22, 9, 0x22, 1, 0x80, 3, 6]].map((bytes) => Uint8Array.of(op("nested::nested"), 6, ...bytes));
+
+/**
  * `ranges` of each kind, and each kind of `Bound` at the end, over zero to four items, at
  * every pair of bounds up to one past the end and at `usize::MAX`.
  */
@@ -404,4 +411,4 @@ const iters = Array.from({ length: 12 }, (_, kind) => [[], [2, 7, 9, 14], [0, 2,
 const hintedOp = op("strs::hinted");
 const hinted = Array.from({ length: 10 * 7 * 21 }, (_, i) => Uint8Array.of(hintedOp, i % 10, Math.floor(i / 10) % 7, Math.floor(i / 70)));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted];

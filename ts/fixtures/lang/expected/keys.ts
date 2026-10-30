@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Hop, copy$Horizon, copy$Option_u8s, copy$u8_Horizon, copy$u8s, drop$u8_Reverse_Arc_Lopsided } from "./lib.ts";
-import { thenSome$0rsp0eu } from "./core/bool.ts";
+import { thenSome$0rsp0eu, then$18np55d } from "./core/bool.ts";
 import { unwrapOr$1tvry1i, unwrapOr$1j4op5y, unwrapOr$0r2bmpr, map$120lney, map$146awhd, map$0lcwx9x, map$0gn4nwv, mapOr$04khdaj, mapOr$1dgdmlk, mapOr$1a3irjf, mapOr$1surhce, mapOr$1w1gbwl, mapOr$1be3nsj, mapOr$0z7fb2w, mapOr$02k4ito } from "./core/option.ts";
 import * as Hop from "./keys.Hop.ts";
 import * as Horizon from "./keys.Horizon.ts";
@@ -530,78 +530,94 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** `Option`s compared, ordered, and hashed, alone and in keys. */
 export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _10!: rt.usize;
+	let _12!: rt.usize;
+	const _313: (a0: rt.u8) => Way.Way | undefined | rt.None = (b2: rt.u8): Way.Way | undefined | rt.None => {
+		return then$18np55d(rt.u8Rem(b2, 5) !== 0, (): Way.Way | undefined => {
+			return way(b2);
+		});
+	};
 	const hashed: rt.HashMap<[rt.u8, Horizon.Horizon], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, Horizon.hash$Hash_DefaultHasher]), rt.eqTuple([rt.same, Horizon.eq$PartialEq]))) as rt.HashMap<[rt.u8, Horizon.Horizon], rt.u8>;
 	const sorted: rt.BTreeMap<[rt.u8, Horizon.Horizon], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmp, Horizon.cmp$Ord])) as rt.BTreeMap<[rt.u8, Horizon.Horizon], rt.u8>;
 	const ways: rt.HashMap<[Way.Way | undefined, boolean], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashOption(Way.hash$Hash_DefaultHasher), rt.hash8]), rt.eqTuple([rt.eqOption(Way.eq$PartialEq), rt.same]))) as rt.HashMap<[Way.Way | undefined, boolean], rt.u8>;
+	const bare: rt.HashMap<Way.Way | undefined, rt.u8> = rt.hashNew(rt.hashing(rt.hashOption(Way.hash$Hash_DefaultHasher), rt.eqOption(Way.eq$PartialEq), true)) as rt.HashMap<Way.Way | undefined, rt.u8>;
+	const deep: rt.HashSet<Way.Way | undefined | rt.None> = rt.hashNew(rt.hashing(rt.hashOption(rt.hashOption(Way.hash$Hash_DefaultHasher), rt.None), rt.eqOption(rt.eqOption(Way.eq$PartialEq), rt.None), true)) as rt.HashSet<Way.Way | undefined | rt.None>;
 	let iterStart: rt.usize = 1;
 	const iterEnd: rt.usize = data.length;
-	while ((_10 = iterStart++) < iterEnd) {
-		const i: rt.usize = _10;
-		const _18: rt.usize = rt.usizeSub(i, 1);
-		rt.idx(data, _18);
-		const _17: rt.u8 = data.data[data.start + _18];
+	while ((_12 = iterStart++) < iterEnd) {
+		const i: rt.usize = _12;
+		const _20: rt.usize = rt.usizeSub(i, 1);
+		rt.idx(data, _20);
+		const _19: rt.u8 = data.data[data.start + _20];
 		rt.idx(data, i);
-		const _16: [rt.u8, rt.u8] = [_17, data.data[data.start + i]];
-		const c: rt.u8 = _17;
-		const d: rt.u8 = _16[1];
-		const _27: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
-		const a: Hop.Hop | undefined = _27[0];
-		const b: Hop.Hop | undefined = _27[1];
+		const _18: [rt.u8, rt.u8] = [_19, data.data[data.start + i]];
+		const c: rt.u8 = _19;
+		const d: rt.u8 = _18[1];
+		const _29: [Hop.Hop | undefined, Hop.Hop | undefined] = [hop(c), hop(d)];
+		const a: Hop.Hop | undefined = _29[0];
+		const b: Hop.Hop | undefined = _29[1];
 		rt.byteVecPush(out, (rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) | (((!rt.eqOption(Hop.eq$PartialEq)(a, b) ? 1 : 0) << 1) & 0xff) | ((order(rt.cmpOption(Hop.cmp$Ord)(a, b)) << 2) & 0xff));
-		const _56: Hop.Hop | undefined = rt.ordMax(a, b, rt.cmpLt(rt.cmpOption(Hop.partialCmp$PartialOrd)));
-		const _53: rt.u8 = rt.eqOption(Hop.eq$PartialEq)(_56, b) ? 1 : 0;
-		const _62: Hop.Hop | undefined = rt.ordMin(a, b, rt.cmpLt(rt.cmpOption(Hop.partialCmp$PartialOrd)));
-		rt.byteVecPush(out, _53 | (((rt.eqOption(Hop.eq$PartialEq)(_62, a) ? 1 : 0) << 1) & 0xff));
+		const _58: Hop.Hop | undefined = rt.ordMax(a, b, rt.cmpLt(rt.cmpOption(Hop.partialCmp$PartialOrd)));
+		const _55: rt.u8 = rt.eqOption(Hop.eq$PartialEq)(_58, b) ? 1 : 0;
+		const _64: Hop.Hop | undefined = rt.ordMin(a, b, rt.cmpLt(rt.cmpOption(Hop.partialCmp$PartialOrd)));
+		rt.byteVecPush(out, _55 | (((rt.eqOption(Hop.eq$PartialEq)(_64, a) ? 1 : 0) << 1) & 0xff));
 		rt.byteVecPush(out, rt.u64Eq(hashOf$Option_Hop(a), hashOf$Option_Hop(b)) ? 1 : 0);
-		const _75: [rt.u8 | undefined, rt.u8 | undefined] = [small(c), small(d)];
-		const x: rt.u8 | undefined = _75[0];
-		const y: rt.u8 | undefined = _75[1];
-		const _80: [Side.Side | undefined, Side.Side | undefined] = [map$0gn4nwv(x, side), map$0gn4nwv(y, side)];
-		const s: Side.Side | undefined = _80[0];
-		const t: Side.Side | undefined = _80[1];
-		const _85: rt.u8 = (x === y ? 1 : 0) | (((rt.eqOption(Side.eq$PartialEq)(s, t) ? 1 : 0) << 1) & 0xff);
-		const _101: Side.Side | undefined = s;
-		const _104: Side.Side | undefined = t;
-		rt.byteVecPush(out, _85 | (((!rt.eqOption(Side.eq$PartialEq)(_101, _104) ? 1 : 0) << 2) & 0xff));
+		const _77: [rt.u8 | undefined, rt.u8 | undefined] = [small(c), small(d)];
+		const x: rt.u8 | undefined = _77[0];
+		const y: rt.u8 | undefined = _77[1];
+		const _82: [Side.Side | undefined, Side.Side | undefined] = [map$0gn4nwv(x, side), map$0gn4nwv(y, side)];
+		const s: Side.Side | undefined = _82[0];
+		const t: Side.Side | undefined = _82[1];
+		const _87: rt.u8 = (x === y ? 1 : 0) | (((rt.eqOption(Side.eq$PartialEq)(s, t) ? 1 : 0) << 1) & 0xff);
+		const _103: Side.Side | undefined = s;
+		const _106: Side.Side | undefined = t;
+		rt.byteVecPush(out, _87 | (((!rt.eqOption(Side.eq$PartialEq)(_103, _106) ? 1 : 0) << 2) & 0xff));
 		const pairs: [[rt.u64, rt.u64] | undefined, [rt.u64, rt.u64] | undefined] = [map$146awhd(a, (h2: Hop.Hop): [rt.u64, rt.u64] => {
 			return [h2._0, d as rt.u64] as [rt.u64, rt.u64];
 		}), map$146awhd(b, (h3: Hop.Hop): [rt.u64, rt.u64] => {
 			return [h3._0, c as rt.u64] as [rt.u64, rt.u64];
 		})];
-		const _119: [rt.u64, rt.u64] | undefined = rt.ordMax(pairs[0], pairs[1], rt.cmpLt(rt.cmpOption(rt.cmpTuple([rt.cmp, rt.cmp]))));
-		rt.byteVecPush(out, rt.eqOption(rt.eqTuple([rt.u64Eq, rt.u64Eq]))(_119, pairs[1]) ? 1 : 0);
-		const _125: [Skew.Skew | undefined, Skew.Skew | undefined] = [{ _0: rt.u8Rem(c, 4) }, { _0: rt.u8Rem(d, 4) }];
-		const p: Skew.Skew | undefined = _125[0];
-		const q: Skew.Skew | undefined = _125[1];
-		const _136: [[Skew.Skew, rt.u8], [Skew.Skew, rt.u8]] = [[{ _0: rt.u8Rem(c, 4) }, c] as [Skew.Skew, rt.u8], [{ _0: rt.u8Rem(d, 4) }, d] as [Skew.Skew, rt.u8]];
-		const u: [Skew.Skew, rt.u8] = _136[0];
-		const v: [Skew.Skew, rt.u8] = _136[1];
-		const _147: [rt.Arc<Skew.Skew>, rt.Arc<Skew.Skew>] = [new rt.Arc({ _0: rt.u8Rem(c, 4) }), new rt.Arc({ _0: rt.u8Rem(d, 4) })];
-		const m: rt.Arc<Skew.Skew> = _147[0];
-		const n: rt.Arc<Skew.Skew> = _147[1];
+		const _121: [rt.u64, rt.u64] | undefined = rt.ordMax(pairs[0], pairs[1], rt.cmpLt(rt.cmpOption(rt.cmpTuple([rt.cmp, rt.cmp]))));
+		rt.byteVecPush(out, rt.eqOption(rt.eqTuple([rt.u64Eq, rt.u64Eq]))(_121, pairs[1]) ? 1 : 0);
+		const _127: [Skew.Skew | undefined, Skew.Skew | undefined] = [{ _0: rt.u8Rem(c, 4) }, { _0: rt.u8Rem(d, 4) }];
+		const p: Skew.Skew | undefined = _127[0];
+		const q: Skew.Skew | undefined = _127[1];
+		const _138: [[Skew.Skew, rt.u8], [Skew.Skew, rt.u8]] = [[{ _0: rt.u8Rem(c, 4) }, c] as [Skew.Skew, rt.u8], [{ _0: rt.u8Rem(d, 4) }, d] as [Skew.Skew, rt.u8]];
+		const u: [Skew.Skew, rt.u8] = _138[0];
+		const v: [Skew.Skew, rt.u8] = _138[1];
+		const _149: [rt.Arc<Skew.Skew>, rt.Arc<Skew.Skew>] = [new rt.Arc({ _0: rt.u8Rem(c, 4) }), new rt.Arc({ _0: rt.u8Rem(d, 4) })];
+		const m: rt.Arc<Skew.Skew> = _149[0];
+		const n: rt.Arc<Skew.Skew> = _149[1];
 		rt.byteVecPush(out, partial(rt.cmpOption(Skew.partialCmp$PartialOrd)(p, q)) | ((partial(rt.cmpTuple([Skew.partialCmp$PartialOrd, rt.cmp])(u, v)) << 2) & 0xff) | ((partial(rt.cmpArc(Skew.partialCmp$PartialOrd)(m, n)) << 4) & 0xff));
 		rt.byteVecPush(out, order(rt.cmpOption(Skew.cmp$Ord)(p, q)) | ((order(rt.cmpTuple([Skew.cmp$Ord, rt.cmp])(u, v)) << 2) & 0xff) | ((order(rt.cmpArc(Skew.cmp$Ord)(m, n)) << 4) & 0xff));
-		const _200: [Picky.Picky | undefined, Picky.Picky | undefined] = [{ _0: rt.u8Rem(c, 3) }, { _0: rt.u8Rem(d, 3) }];
-		const g: Picky.Picky | undefined = _200[0];
-		const h: Picky.Picky | undefined = _200[1];
-		const _211: [[Picky.Picky | undefined, rt.u8], [Picky.Picky | undefined, rt.u8]] = [[{ _0: rt.u8Rem(c, 3) }, rt.u8Rem(c, 2)] as [Picky.Picky | undefined, rt.u8], [{ _0: rt.u8Rem(d, 3) }, rt.u8Rem(d, 2)] as [Picky.Picky | undefined, rt.u8]];
-		const j: [Picky.Picky | undefined, rt.u8] = _211[0];
-		const k: [Picky.Picky | undefined, rt.u8] = _211[1];
-		const _228: [rt.Arc<Picky.Picky | undefined>, rt.Arc<Picky.Picky | undefined>] = [new rt.Arc({ _0: rt.u8Rem(c, 3) }), new rt.Arc({ _0: rt.u8Rem(d, 3) })];
-		const r: rt.Arc<Picky.Picky | undefined> = _228[0];
-		const s2: rt.Arc<Picky.Picky | undefined> = _228[1];
+		const _202: [Picky.Picky | undefined, Picky.Picky | undefined] = [{ _0: rt.u8Rem(c, 3) }, { _0: rt.u8Rem(d, 3) }];
+		const g: Picky.Picky | undefined = _202[0];
+		const h: Picky.Picky | undefined = _202[1];
+		const _213: [[Picky.Picky | undefined, rt.u8], [Picky.Picky | undefined, rt.u8]] = [[{ _0: rt.u8Rem(c, 3) }, rt.u8Rem(c, 2)] as [Picky.Picky | undefined, rt.u8], [{ _0: rt.u8Rem(d, 3) }, rt.u8Rem(d, 2)] as [Picky.Picky | undefined, rt.u8]];
+		const j: [Picky.Picky | undefined, rt.u8] = _213[0];
+		const k: [Picky.Picky | undefined, rt.u8] = _213[1];
+		const _230: [rt.Arc<Picky.Picky | undefined>, rt.Arc<Picky.Picky | undefined>] = [new rt.Arc({ _0: rt.u8Rem(c, 3) }), new rt.Arc({ _0: rt.u8Rem(d, 3) })];
+		const r: rt.Arc<Picky.Picky | undefined> = _230[0];
+		const s2: rt.Arc<Picky.Picky | undefined> = _230[1];
 		rt.byteVecPush(out, (!rt.eqOption(Picky.eq$PartialEq)(g, h) ? 1 : 0) | (((!rt.eqTuple([rt.eqOption(Picky.eq$PartialEq), rt.same])(j, k) ? 1 : 0) << 1) & 0xff) | (((!rt.eqArc(rt.eqOption(Picky.eq$PartialEq))(r, s2) ? 1 : 0) << 2) & 0xff));
 		const key: [rt.u8, Horizon.Horizon] = [rt.u8Rem(c, 3), { exclude: a, local: rt.u8Rem(d, 2) === 0 }];
 		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashInsert(hashed, copy$u8_Horizon(key), i & 0xff), 204));
 		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.btreeInsert(sorted, copy$u8_Horizon(key), i & 0xff), 204));
-		const _281: [Way.Way | undefined, boolean] = [way(c), c < 128];
-		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashInsert(ways, _281, i & 0xff), 204));
-		const _291: [Way.Way | undefined, boolean] = [way(d), d < 128];
-		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(ways, _291), 221));
+		const _283: [Way.Way | undefined, boolean] = [way(c), c < 128];
+		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashInsert(ways, _283, i & 0xff), 204));
+		const _293: [Way.Way | undefined, boolean] = [way(d), d < 128];
+		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(ways, _293), 221));
 		rt.byteVecPush(out, rt.hashLen(ways) & 0xff);
-		const _303: [rt.u8, Horizon.Horizon] = [rt.u8Rem(d, 3), { exclude: b, local: false }];
-		rt.byteVecPush(out, rt.hashContains(hashed, _303) ? 1 : 0);
+		const _304: Way.Way | undefined = way(c);
+		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashInsert(bare, _304, i & 0xff), 204));
+		const _312: Way.Way | undefined = way(d);
+		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(bare, _312), 221));
+		const _319: Way.Way | undefined | rt.None = _313(c);
+		const _316: rt.u8 = rt.hashAdd(deep, _319) ? 1 : 0;
+		const _327: Way.Way | undefined | rt.None = _313(d);
+		rt.byteVecPush(out, _316 | (((rt.hashContains(deep, _327) ? 1 : 0) << 1) & 0xff));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashLen(bare) & 0xff, rt.hashLen(deep) & 0xff)));
+		const _345: [rt.u8, Horizon.Horizon] = [rt.u8Rem(d, 3), { exclude: b, local: false }];
+		rt.byteVecPush(out, rt.hashContains(hashed, _345) ? 1 : 0);
 		s2[Symbol.dispose]();
 		r[Symbol.dispose]();
 		n[Symbol.dispose]();
@@ -609,17 +625,17 @@ export function options(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const iter2: rt.Iter<[[rt.u8, Horizon.Horizon], rt.u8]> = rt.btreeIter(sorted);
 	while (true) {
-		const _310: [[rt.u8, Horizon.Horizon], rt.u8] | rt.Done = iter2.next();
-		if (_310 === rt.DONE) {
+		const _352: [[rt.u8, Horizon.Horizon], rt.u8] | rt.Done = iter2.next();
+		if (_352 === rt.DONE) {
 			break;
 		}
-		rt.byteVecPush(out, _310[0][0]);
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(mapOr$04khdaj(_310[0][1].exclude, 0, (h4: Hop.Hop): rt.u64 => {
+		rt.byteVecPush(out, _352[0][0]);
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(mapOr$04khdaj(_352[0][1].exclude, 0, (h4: Hop.Hop): rt.u64 => {
 			return h4._0;
 		}))));
-		rt.byteVecPush(out, (_310[0][1].exclude !== undefined ? 1 : 0) | (((_310[0][1].local ? 1 : 0) << 1) & 0xff));
-		rt.byteVecPush(out, _310[1]);
-		rt.byteVecPush(out, rt.hashIndex(hashed, [_310[0][0], copy$Horizon(_310[0][1])] as [rt.u8, Horizon.Horizon]));
+		rt.byteVecPush(out, (_352[0][1].exclude !== undefined ? 1 : 0) | (((_352[0][1].local ? 1 : 0) << 1) & 0xff));
+		rt.byteVecPush(out, _352[1]);
+		rt.byteVecPush(out, rt.hashIndex(hashed, [_352[0][0], copy$Horizon(_352[0][1])] as [rt.u8, Horizon.Horizon]));
 	}
 }
 
