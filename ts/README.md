@@ -68,7 +68,7 @@ from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
-`Option`'s, `Result`'s, and `Poll`'s methods, goes in a module under its crate's name, as
+`Option`'s, `Result`'s, and `Poll`'s methods and `cmp::max` and `min`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
 functions that the package's types make, so a module at the package's root named for a
@@ -88,14 +88,15 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
+| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, a `String`, or a reference, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
 | `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
 | `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
 | `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
 | `a..b`, `a..=b` | `rt.Range<T>`, `rt.RangeInclusive<T>`, which are iterators too |
 | `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
-| `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
+| `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque`, `BinaryHeap` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
+| `PeekMut<T>` | `rt.PeekMut<T>`, the `rt.Place` of a heap's greatest element, which sifts it down as it drops once `DerefMut` lent it |
 | `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
@@ -254,7 +255,8 @@ impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where
 elaboration put it. A panic drops nothing. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
 function of its type's own (`drop$Held`). `bool`'s, `Option`'s, `Result`'s, and `Poll`'s
-methods lower from core's MIR, so they drop what core's do, where core's do. The runtime
+methods and `cmp::max`, `min`, and their `_by` and `_by_key` forms lower from core's MIR,
+so they drop what core's do, where core's do. The runtime
 functions for std's collections, `Arc`, and the std functions that may discard an operand
 (`OnceCell::get_or_init`, a map's `insert`) take what drops each value they may drop, and
 drop it where std's do. So do iterators: one that owns its items, as a `Vec`'s `into_iter` or a
@@ -342,9 +344,11 @@ of them:
   `put_` of an integer or `f64`, `put_slice`, `put_bytes`, and `put`, whose panics are
   `bytes`'. `put` of the crate's own `Buf` into a `Vec<u8>` reads it through its methods
   as `bytes` does, and into a `BytesMut` is refused, as `bytes` picks those methods by its
-  capacity.
-  The rest of `bytes`, such as the provided methods of the crate's own `Buf` and the impls
-  forwarding through a `&mut` or a `Box`, translates from its MIR, refused where that is.
+  capacity. The provided `copy_to_bytes` of the crate's own `Buf`, whose `BytesMut` has
+  the capacity it asks for, reads it chunk by chunk through its methods.
+  The rest of `bytes`, such as the other provided methods of the crate's own `Buf` and the
+  impls forwarding through a `&mut` or a `Box`, translates from its MIR, refused where
+  that is.
 - `rand::rng()` is an `rt.ThreadRng`, whose `random` of an integer or `bool` and
   `random_range` of an integer range map to `rt/rand.ts`. Each value comes from
   `crypto.getRandomValues`, uniform as `rand`'s are, though no seed reproduces them, as
@@ -525,6 +529,14 @@ they need.
   calling only the comparator, as std permits of an unstable sort: JS's `sort` moves
   `undefined`, a `None`, to the end without comparing it, and each engine orders its
   comparisons differently.
+- A `BinaryHeap` is std's heap in an array, with std's sifts ported to the runtime: std's
+  move elements through raw pointers into its `Vec`, which no body of std's lowers
+  through, and the sifts decide which `PartialOrd` tests run and which of equal elements
+  leaves first. The sorts, `max` and `min`, the heap, and `is_sorted` take an integer's
+  tests as the runtime's `rt.lt`, `rt.le`, `rt.gt`, and `rt.ge` rather than through its
+  `partial_cmp`, `rt.cmpLt(rt.cmp)`: on `just ts bench`'s `order/` workloads that took
+  Firefox 0.8-0.86x the time on sorts and `max`/`min` and Chrome 0.66x on the heap, and
+  Chrome the same on the rest.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors would lower from std's own bodies, whose slice iterators are
   raw pointers, ES helpers lack most of them
@@ -579,7 +591,8 @@ what it captured, `mem::swap`, `replace`, or `take` of a reference's whole point
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
 reference, a switch on or a field of another crate's type without a mapping, and std
 functions without a mapping in `src/lower/library.rs`, but for `bool`'s, `Option`'s,
-`Result`'s, and `Poll`'s methods that take no `&mut`, which lower from core's MIR.
+`Result`'s, and `Poll`'s methods that take no `&mut`, and `cmp`'s `max` and `min` forms,
+which lower from core's MIR.
 
 ## Tests
 
@@ -674,11 +687,12 @@ frame headers decoded as they arrive a few bytes at a time, which prices a decod
 comes up `Short` and retries, iterator chains over bytes, a `BTreeMap` of 16, 256, and
 4096 keys, and timestamps converted between timescales as moq-net's `Timestamp::convert`
 does, whose products pass 2^53, then added by its `checked_add` and ordered by its `Ord`,
-whose cross products do too. Each runs four ways: natively, as wasm32 at moq-wasm's
+whose cross products do too, and integers sorted, searched for their greatest and least,
+and kept in a `BinaryHeap`. Each runs four ways: natively, as wasm32 at moq-wasm's
 size-optimized profile, hand-written (moq's `js/net` in `bench/moq.ts` and its `Timestamp`
 in `bench/timestamp.ts`, ES iterator helpers in `bench/iter.ts`, a sorted array in
-`bench/sorted.ts`, and `bigint` in `bench/rescale.ts`, as moq's `js/hang` converts
-timescales), and translated; every route's output must match
+`bench/sorted.ts`, `bigint` in `bench/rescale.ts`, as moq's `js/hang` converts
+timescales, and typed arrays and a heap of its own in `bench/order.ts`), and translated; every route's output must match
 native Rust's first. The JS routes run minified, the same bundles whose size it reports,
 in Node, Bun, Chrome, and Firefox, with the WASM route's copies across the boundary timed
 apart from its compute, and an A/A copy of the

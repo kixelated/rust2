@@ -13,6 +13,7 @@ import { Cursor, Reader, type StreamVersion, Writer } from "moq/js/net/src/strea
 import * as Varint from "moq/js/net/src/varint.ts";
 
 import { iterate } from "./iter.ts";
+import { order } from "./order.ts";
 import { rescale } from "./rescale.ts";
 import { ordered } from "./sorted.ts";
 import { interleave, stamp } from "./timestamp.ts";
@@ -59,6 +60,8 @@ export function run(input: Uint8Array): Uint8Array | Promise<Uint8Array> {
 			return stamp(data);
 		case 11:
 			return interleave(data);
+		case 12:
+			return order(selector, data);
 		default:
 			throw new Error(`unknown workload ${op}`);
 	}

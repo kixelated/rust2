@@ -141,10 +141,10 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			captured61[Symbol.dispose]();
 		})), (g73: Guard.Guard): rt.u32 => {
 			return rt.u32Rem(Guard.id(g73), 3);
-		}, rt.cmpLt(rt.cmp), true, rt.drop);
+		}, rt.lt, true, rt.drop);
 		const least: Guard.Guard | undefined = rt.iterMinByKey(rt.iterSlice(guards(6, 8), rt.drop), (g74: Guard.Guard): rt.u32 => {
 			return rt.u32Add(Guard.id(g74), Guard.id(d));
-		}, rt.cmpLt(rt.cmp), true, rt.drop);
+		}, rt.lt, true, rt.drop);
 		const _131: rt.u32 | undefined = map$Option_Guard_u32_folded_closure5_closure0(best, (g75: Guard.Guard): rt.u32 => {
 			const _082: rt.u32 = Guard.id(g75);
 			g75[Symbol.dispose]();
@@ -167,7 +167,7 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			return _077;
 		}, (): void => {
 			captured58[Symbol.dispose]();
-		})), rt.cmpLt(rt.cmp), true);
+		})), rt.lt, true);
 		const _148: rt.Iter<Guard.Guard> = rt.iterSlice(guards(4, 7), rt.drop);
 		_1085 = false;
 		const captured59 = id;

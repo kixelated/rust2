@@ -114,6 +114,7 @@ pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr 
 /// each, and the crate's own iterator what drops it.
 pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	let (ty, value) = peel_mut(ty, value);
 	let owned = !ty.is_ref();
 	if b.t.iter_item(ty).is_some() {
 		not_bound(b, ty, span);
@@ -196,7 +197,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 
 /// `iter`, over the elements of a slice or `Vec` of `elem`s, yielding references to them:
 /// a slice of each array of bytes.
-fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
+pub(super) fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
 	match super::byte_array(elem) {
 		true => Expr::rt("iterMap", vec![iter, Expr::Rt("byteSliceFrom".into())]),
 		false => iter,
@@ -228,6 +229,30 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 	let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
 	tcx.try_normalize_erasing_regions(t.typing_env_pub(), ty::Unnormalized::new_wip(projection))
 		.ok()
+}
+
+/// Whether `ty` is a `&mut` to a `&mut`, which is an `rt.Place` of it, or a box of one,
+/// which is what it holds.
+pub fn through_mut(ty: Ty<'_>) -> bool {
+	match ty.boxed_ty() {
+		Some(inner) => through_mut(inner),
+		None => matches!(*ty.kind(), ty::Ref(_, inner, ty::Mutability::Mut) if inner.is_ref()),
+	}
+}
+
+/// `value`, a `ty`, read through each box and `&mut` to a `&mut` that std's `Iterator` for
+/// `Box<I>` and `&mut I` forward through, down to the last `&mut` and its JS value.
+pub fn peel_mut<'tcx>(mut ty: Ty<'tcx>, mut value: Expr) -> (Ty<'tcx>, Expr) {
+	while through_mut(ty) {
+		ty = match ty.boxed_ty() {
+			Some(inner) => inner,
+			None => {
+				value = value.member("v");
+				ty.builtin_deref(true).expect("a reference")
+			}
+		};
+	}
+	(ty, value)
 }
 
 /// Refuse iterating `ty`, an iterator, if a binding stands in for it: it is no `rt.Iter`,
@@ -275,6 +300,8 @@ pub fn call<'tcx>(
 			}
 			return Some(Expr::rt("iterOption", args));
 		}
+		// A `&mut` to a `&mut` iterator is itself, an `rt.Place` that each use reads through.
+		("IntoIterator", "into_iter") if through_mut(targ(0)?) => return args.pop(),
 		("IntoIterator", "into_iter") => {
 			let value = args.pop()?;
 			return into_iter(b, targ(0)?, value, span);
@@ -337,7 +364,7 @@ pub fn call<'tcx>(
 	let item = b.t.iter_item(self_ty.peel_refs())?;
 	not_bound(b, self_ty, span);
 	let mut values = args.into_iter();
-	let recv = values.next()?;
+	let (self_ty, recv) = peel_mut(self_ty, values.next()?);
 	let rest: Vec<Expr> = values.collect();
 
 	// `next` by the protocol, as an `Option`.
@@ -481,6 +508,33 @@ pub fn call<'tcx>(
 			let lt = super::collections::test_fn(b, key, "lt", span);
 			let droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(item, span)];
 			method(&camel, tail([rest, vec![lt]].concat(), droppers))
+		}
+		// Whether each item and the next are in order: by `PartialOrd::le`, by a comparator,
+		// or by `le` of the keys a function makes, as std's maps to them. Not of places, as
+		// `max` is not.
+		"is_sorted" | "is_sorted_by" | "is_sorted_by_key" => {
+			let (items, compare, each) = match name {
+				"is_sorted_by" => (recv.clone(), rest.into_iter().next()?, item),
+				_ if b.t.has_place(item) => return None,
+				"is_sorted" => (recv.clone(), super::collections::test_fn(b, item, "le", span), item),
+				_ => {
+					let key = targ(2)?;
+					let le = super::collections::test_fn(b, key, "le", span);
+					// The map drops its function as the iterator drops, so one through a reference
+					// or box is lent, as one owned that drops is refused with such an iterator.
+					let (mut f, f_ty) = (rest.into_iter().next()?, targ(1)?);
+					let owned = matches!(f_ty.kind(), ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..));
+					if !owned && drops_iter(b, self_ty, span) {
+						f = Expr::rt("lent", vec![f]);
+					}
+					(Expr::rt("iterMap", vec![recv.clone(), f]), le, key)
+				}
+			};
+			let mut droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(each, span)];
+			if name == "is_sorted_by" {
+				droppers.push(b.t.dropper(targ(1)?, span));
+			}
+			Some(Expr::rt("iterIsSortedBy", tail(vec![items, compare], droppers)))
 		}
 		"rposition" => method(&camel, rest),
 		"rfind" => {
