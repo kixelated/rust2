@@ -441,13 +441,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Translate every queued function instance, and those they reach.
 	///
 	/// A census leaves an instance over type parameters to its own function's turn, since
-	/// its bounds are that function's, not the caller's. Translation never reaches one.
+	/// its bounds are that function's, not the caller's. Translation never reaches one. Each
+	/// other lowers as translation lowers it, even one a function lowered over its type
+	/// parameters reached.
 	fn drain(&mut self) {
+		let env = std::mem::replace(&mut self.env, TypingEnv::fully_monomorphized());
 		while let Some((instance, sym)) = self.queue.pop_front() {
 			if !self.census || !instance.args.has_param() {
 				self.function(instance, sym);
 			}
 		}
+		self.env = env;
 	}
 
 	/// Refuse a reached crate whose files another crate's would be: another crate's modules

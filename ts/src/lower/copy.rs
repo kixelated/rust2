@@ -51,14 +51,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			_ => return false,
 		};
-		object && self.writes.contains(&self.writes.into, self.tcx, ty, self.polymorphic())
+		object
+			&& self
+				.writes
+				.contains(&self.writes.into, self.tcx, ty, self.polymorphic())
 			|| parts.into_iter().any(|t| self.changes(t))
 	}
 
 	/// Whether the crate may give a part of a `ty` kept as a JS object another object: by
 	/// a write of the part, or of the whole value one object deep.
 	pub fn replaced(&self, ty: Ty<'tcx>) -> bool {
-		self.writes.contains(&self.writes.replaced, self.tcx, ty, self.polymorphic())
+		self.writes
+			.contains(&self.writes.replaced, self.tcx, ty, self.polymorphic())
 	}
 
 	/// `value`, a `ty` read out of where it is kept, as a value of its own, as Rust's read
@@ -393,7 +397,10 @@ impl<'tcx> Writes<'tcx> {
 		let writes = |types: &Types<'tcx>| types.generic.iter().any(|&(body, _)| body == def_id);
 		!instance.args.has_param()
 			&& (writes(&self.into) || writes(&self.replaced))
-			&& !self.reached.get(&def_id).is_some_and(|args| args.contains(&instance.args))
+			&& !self
+				.reached
+				.get(&def_id)
+				.is_some_and(|args| args.contains(&instance.args))
 	}
 
 	/// Whether `ty` is one of `types`. Over type parameters, as a census lowers some
@@ -411,14 +418,20 @@ impl<'tcx> Writes<'tcx> {
 		let found = types.generic.iter().any(|&(def_id, written)| match polymorphic {
 			// A parameter can be the array itself, as in `*dst = value` with `dst: &mut T`, and
 			// its slice pattern can be any array of that element.
-			true => instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored),
+			true => {
+				instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored)
+			}
 			false => self.reached.get(&def_id).is_some_and(|reached| {
 				reached.iter().any(|&args| {
 					let written = EarlyBinder::bind(tcx, written);
 					// One that doesn't normalize counts.
-					tcx.try_instantiate_and_normalize_erasing_regions(args, ty::TypingEnv::fully_monomorphized(), written)
-						.ok()
-						.is_none_or(|written| storage(tcx, written) == stored)
+					tcx.try_instantiate_and_normalize_erasing_regions(
+						args,
+						ty::TypingEnv::fully_monomorphized(),
+						written,
+					)
+					.ok()
+					.is_none_or(|written| storage(tcx, written) == stored)
 				})
 			}),
 		});
