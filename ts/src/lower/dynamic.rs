@@ -162,8 +162,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 		let mut members = Vec::new();
 		for method in &object.methods {
 			let args = method_args(tcx, method.def_id, ty);
-			let sig = tcx.fn_sig(method.def_id).instantiate(tcx, args).skip_norm_wip();
-			let sig = tcx.instantiate_bound_regions_with_erased(sig);
+			let sig = self.sig(method.def_id, args);
 			let func = self.fn_ty(&sig.inputs()[1..], sig.output(), span);
 			members.push((method.name.clone(), func));
 		}
@@ -247,8 +246,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 		let value = Expr::This.field(v);
 		for method in &object.methods {
 			let args = method_args(tcx, method.def_id, from);
-			let sig = tcx.fn_sig(method.def_id).instantiate(tcx, args).skip_norm_wip();
-			let sig = tcx.instantiate_bound_regions_with_erased(sig);
+			let sig = self.sig(method.def_id, args);
 			let receiver = match self.receiver(sig.inputs()[0], from, held, value.clone()) {
 				Some(receiver) => receiver,
 				None => {
@@ -501,8 +499,7 @@ pub fn call<'tcx>(
 	) {
 		return Err(args);
 	}
-	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
-	let sig = tcx.instantiate_bound_regions_with_erased(sig);
+	let sig = b.t.sig(call.def_id, call.args);
 	let receiver = sig.inputs()[0];
 	let object = match receiver.kind() {
 		ty::Adt(_, args) => args.type_at(0),

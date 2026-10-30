@@ -468,7 +468,7 @@ fn buf<'tcx>(
 		"copy_to_bytes" => rt("SplitTo", vec![this, args.next()?])?,
 		_ => {
 			let (ty, le) = scalar(name.strip_prefix("get_")?);
-			let out = signature(b.t.tcx, call).output();
+			let out = b.t.sig(call.def_id, call.args).output();
 			let le = Expr::lit(le.to_string());
 			match ty {
 				"uint" | "int" => {
@@ -524,7 +524,7 @@ fn buf_mut<'tcx>(
 		"put_bytes" => rt("PutFill", vec![this, args.next()?, args.next()?]),
 		_ => {
 			let (ty, le) = scalar(name.strip_prefix("put_")?);
-			let input = *signature(b.t.tcx, call).inputs().get(1)?;
+			let input = *b.t.sig(call.def_id, call.args).inputs().get(1)?;
 			let value = args.next()?;
 			let le = Expr::lit(le.to_string());
 			match ty {
@@ -633,12 +633,6 @@ fn scalar(name: &str) -> (&str, bool) {
 		Some(ty) => (ty, true),
 		None => (name, false),
 	}
-}
-
-/// The signature of the function `call` names, with its arguments.
-fn signature<'tcx>(tcx: TyCtxt<'tcx>, call: &Call<'tcx>) -> ty::FnSig<'tcx> {
-	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
-	tcx.instantiate_bound_regions_with_erased(sig)
 }
 
 /// A function of `rand`: `rng`, or a method of its `Rng` or `RngExt` on a `ThreadRng`.

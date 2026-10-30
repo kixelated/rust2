@@ -352,6 +352,7 @@ fn lent(data: &[u8], out: &mut Vec<u8>) {
 	defaulted(data, out);
 	taken(data, out);
 	elements(data, out);
+	kept(data, out);
 }
 
 /// moq-net's listing: a crate type's default, made in place only while there is none.
@@ -661,6 +662,50 @@ fn elements(data: &[u8], out: &mut Vec<u8>) {
 	for x in queue {
 		out.extend_from_slice(&x.to_be_bytes());
 	}
+}
+
+/// A struct a reference points into.
+struct Nest {
+	pair: Pair,
+}
+
+/// A struct holding a reference, which is replaced.
+struct Held<'a> {
+	at: &'a Nest,
+}
+
+/// References kept in a tuple, read after the index or reference they were borrowed
+/// through changes: each part reads what it borrowed when the tuple was made.
+fn kept(data: &[u8], out: &mut Vec<u8>) {
+	let by = data.first().copied().unwrap_or(4);
+	let mut v = [1u8, 2, 3, 4];
+	for (x, &b) in v.iter_mut().zip(data) {
+		*x ^= b;
+	}
+	let (x, y) = (
+		Nest { pair: Pair { n: by } },
+		Nest {
+			pair: Pair { n: by ^ 0xff },
+		},
+	);
+	let mut i = usize::from(by) % v.len();
+	let (mut r, q) = (&x, &y);
+	let mut held = Held { at: &x };
+	let copied = r;
+	let parts = (&v[i], &r.pair, &q.pair, &held.at.pair, &copied.pair, held.at, copied);
+	i = (i + 1) % v.len();
+	r = &y;
+	held.at = &y;
+	out.extend_from_slice(&[
+		*parts.0,
+		parts.1.n,
+		parts.2.n,
+		parts.3.n,
+		parts.4.n,
+		parts.5.pair.n,
+		parts.6.pair.n,
+	]);
+	out.extend_from_slice(&[*parts.0 ^ parts.1.n, v[i], r.pair.n, held.at.pair.n]);
 }
 
 fn seen_of(data: &[u8]) -> Option<u8> {

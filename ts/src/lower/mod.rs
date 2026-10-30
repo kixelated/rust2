@@ -869,6 +869,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			.instantiate_and_normalize_erasing_regions(args, self.typing_env(), EarlyBinder::bind(self.tcx, value))
 	}
 
+	/// `def_id`'s signature for `args`, with what its projections name, as `Deref::deref`'s
+	/// `&Self::Target`, where they resolve: a census's call over type parameters may leave one.
+	pub fn sig(&self, def_id: DefId, args: GenericArgsRef<'tcx>) -> ty::FnSig<'tcx> {
+		let sig = self.tcx.fn_sig(def_id).instantiate(self.tcx, args).skip_norm_wip();
+		let sig = self.tcx.instantiate_bound_regions_with_erased(sig);
+		self.tcx
+			.try_normalize_erasing_regions(self.typing_env(), ty::Unnormalized::new_wip(sig))
+			.unwrap_or(sig)
+	}
+
 	/// The standard library type `ty` is, if it is one with its own representation.
 	pub fn std_of(&self, ty: Ty<'tcx>) -> Option<library::Std> {
 		match ty.kind() {
@@ -1249,7 +1259,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				_ => Type::Array(Box::new(self.ty(*elem, span))),
 			},
 			ty::Param(param) => Type::Param(param.name.to_string()),
-			ty::FnDef(..) | ty::FnPtr(..) => {
+			ty::FnDef(def_id, args) => {
+				let sig = self.sig(*def_id, args.skip_binder());
+				self.fn_ty(sig.inputs(), sig.output(), span)
+			}
+			ty::FnPtr(..) => {
 				let sig = tcx.instantiate_bound_regions_with_erased(ty.fn_sig(tcx));
 				self.fn_ty(sig.inputs(), sig.output(), span)
 			}

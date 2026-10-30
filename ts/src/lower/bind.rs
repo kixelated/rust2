@@ -309,10 +309,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			if crate::lower::iter::is_next(tcx, def_id) {
 				self.err(span, "iterating a bound type, which is not supported yet");
 			}
-			let sig = tcx.instantiate_bound_regions_with_erased(
-				tcx.fn_sig(def_id).instantiate(tcx, instance.args).skip_norm_wip(),
-			);
-			let sig = tcx.normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(sig));
+			let sig = self.sig(def_id, instance.args);
 			// `=> undefined` for `()`, not `fn_ty`'s `=> void`, which accepts any return value.
 			let params = sig.inputs().iter().map(|t| self.ty(*t, span)).collect();
 			let ty = Type::Func(params, Box::new(self.ty(sig.output(), span)));

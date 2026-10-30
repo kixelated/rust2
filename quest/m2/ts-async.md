@@ -8,7 +8,7 @@ Differential tests against native Rust prove the same polls, wakes, drops, and r
 
 ## Plan
 
-Decided by the MIR spike ([#36](https://github.com/kixelated/rust2/pull/36)): an async
+Decided by the MIR spike ([#36](https://github.com/moq-dev/rust2/pull/36)): an async
 body is the state machine rustc's coroutine transform makes, lowered from MIR. Each
 coroutine instance is a class of its state, its captures, and the locals it keeps
 across an `.await`; its `poll` is the transform's resume function, a loop over a
@@ -30,8 +30,8 @@ moq-net still needs, by its census from MIR at the pinned revision:
 - `kio::Waiter::poll_future::<()>` does not normalize in moq-net's census, since `()` is
   no `Future`. It is reached from `util.rs`'s `future_task` closure, itself refused as a
   `Box<dyn FnMut>`, and the same call translates in the fixture
-  ([#141](https://github.com/kixelated/rust2/pull/141),
-  [#183](https://github.com/kixelated/rust2/pull/183)). Find where polymorphic lowering
+  ([#141](https://github.com/moq-dev/rust2/pull/141),
+  [#183](https://github.com/moq-dev/rust2/pull/183)). Find where polymorphic lowering
   makes the `()`.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a

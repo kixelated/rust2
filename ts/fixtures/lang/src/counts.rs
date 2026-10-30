@@ -1,8 +1,9 @@
 //! Strong and weak counts of `Arc`s and `Rc`s and their `Weak`s, through every way one is
 //! made and dropped: cloned, downgraded, upgraded, made dangling, made holding handles to
 //! itself, and held in a `Vec`, an `Option`, a struct, and a closure, of a value and of a
-//! trait object.
+//! trait object; and the values `get_mut` and `make_mut` write, alone or shared.
 
+use std::cell::RefCell;
 use std::rc::{self, Rc};
 use std::sync::{self, Arc, Mutex};
 
@@ -10,6 +11,16 @@ use std::sync::{self, Arc, Mutex};
 struct Noisy {
 	id: u8,
 	log: Arc<Mutex<Vec<u8>>>,
+}
+
+/// A clone is told apart by its id.
+impl Clone for Noisy {
+	fn clone(&self) -> Self {
+		Self {
+			id: self.id.wrapping_add(1),
+			log: self.log.clone(),
+		}
+	}
 }
 
 impl Drop for Noisy {
@@ -37,7 +48,7 @@ impl Id for Noisy {
 }
 
 macro_rules! counts {
-	($name:ident, $holder:ident, $cyclic:ident, $node:ident, $Ptr:ident, $weak:ident) => {
+	($name:ident, $holder:ident, $cyclic:ident, $node:ident, $unique:ident, $releasing:ident, $Ptr:ident, $weak:ident) => {
 		/// Holds a handle that doesn't keep its value.
 		struct $holder<T> {
 			weak: $weak::Weak<T>,
@@ -140,7 +151,7 @@ macro_rules! counts {
 			let mut weak: Vec<$weak::Weak<Noisy>> = Vec::new();
 			for &op in data {
 				let pick = usize::from(op >> 4);
-				match op % 10 {
+				match op % 12 {
 					0 => strong.push($Ptr::new(Noisy {
 						id: op,
 						log: log.clone(),
@@ -182,6 +193,28 @@ macro_rules! counts {
 						drop(read);
 						out.push($Ptr::weak_count(picked) as u8);
 					}
+					// The value no other handle shares, which `get_mut` lends.
+					9 if !strong.is_empty() => {
+						let len = strong.len();
+						match $Ptr::get_mut(&mut strong[pick % len]) {
+							Some(noisy) => {
+								noisy.id ^= 0x10;
+								out.push(noisy.id);
+							}
+							None => out.push(0xfc),
+						}
+					}
+					// A clone while another strong handle shares it, whose share drops, or the
+					// value moved away from the weak ones, which dangle.
+					10 if !strong.is_empty() => {
+						let len = strong.len();
+						let picked = &mut strong[pick % len];
+						let noisy = $Ptr::make_mut(picked);
+						noisy.id ^= 0x20;
+						out.push(noisy.id);
+						out.push($Ptr::strong_count(picked) as u8);
+						out.push($Ptr::weak_count(picked) as u8);
+					}
 					// Every count, of each strong handle and each weak one.
 					_ => {
 						for s in &strong {
@@ -205,14 +238,138 @@ macro_rules! counts {
 				drop(object);
 				out.push($weak::Weak::strong_count(&weak_object) as u8);
 			}
+			// One pinned, and one read through an `Option`.
+			drop($Ptr::pin(Noisy {
+				id: 0xe0,
+				log: log.clone(),
+			}));
+			out.push(
+				strong
+					.first()
+					.map($Ptr::clone)
+					.as_deref()
+					.map_or(0xfd, |noisy| noisy.id),
+			);
 			drop(strong);
 			out.extend(weak.iter().map(|w| w.upgrade().is_none() as u8));
 			out.extend(weak.iter().map(|w| $weak::Weak::weak_count(w) as u8));
 			drop(weak);
 			out.extend_from_slice(&log.lock().unwrap());
 		}
+
+		/// Releases the other handles to it when cloned, as its id says it was, and logs its
+		/// id when it drops.
+		struct $releasing {
+			id: u8,
+			others: Rc<RefCell<Vec<$Ptr<$releasing>>>>,
+			log: Rc<RefCell<Vec<u8>>>,
+		}
+
+		impl Clone for $releasing {
+			fn clone(&self) -> Self {
+				self.others.borrow_mut().clear();
+				Self {
+					id: self.id.wrapping_add(1),
+					others: self.others.clone(),
+					log: self.log.clone(),
+				}
+			}
+		}
+
+		impl Drop for $releasing {
+			fn drop(&mut self) {
+				self.log.borrow_mut().push(self.id);
+			}
+		}
+
+		/// Each byte an operation on pools of strong and weak handles of a byte JS copies,
+		/// the rest of it the handle it picks; each puts what it read and the picked
+		/// handle's counts.
+		pub fn $unique(data: &[u8], out: &mut Vec<u8>) {
+			let get_mut: fn(&mut $Ptr<u8>) -> Option<&mut u8> = $Ptr::get_mut;
+			let make_mut: fn(&mut $Ptr<u8>) -> &mut u8 = $Ptr::make_mut;
+			let mut strong: Vec<$Ptr<u8>> = vec![$Ptr::new(0)];
+			let mut weak: Vec<$weak::Weak<u8>> = Vec::new();
+			for &op in data {
+				let pick = usize::from(op >> 3) % strong.len();
+				match op % 7 {
+					0 => strong.push($Ptr::new(op)),
+					1 => {
+						let again = strong[pick].clone();
+						strong.push(again);
+					}
+					2 => weak.push($Ptr::downgrade(&strong[pick])),
+					3 if strong.len() > 1 => drop(strong.swap_remove(pick)),
+					3 => weak.clear(),
+					// Called directly, and through a function pointer.
+					4 => match if op & 0x80 == 0 {
+						$Ptr::get_mut(&mut strong[pick])
+					} else {
+						get_mut(&mut strong[pick])
+					} {
+						Some(value) => {
+							*value = value.wrapping_add(op);
+							out.push(*value);
+						}
+						None => out.push(0xfc),
+					},
+					5 => {
+						let value = if op & 0x80 == 0 {
+							$Ptr::make_mut(&mut strong[pick])
+						} else {
+							make_mut(&mut strong[pick])
+						};
+						*value ^= op;
+						out.push(*value);
+					}
+					_ => {
+						let pinned = $Ptr::pin(op);
+						let held = Some($Ptr::clone(&strong[pick]));
+						out.extend_from_slice(&[*pinned, held.as_deref().copied().unwrap_or(0xfb)]);
+					}
+				}
+				let picked = &strong[pick % strong.len()];
+				out.extend_from_slice(&[
+					**picked,
+					$Ptr::strong_count(picked) as u8,
+					$Ptr::weak_count(picked) as u8,
+				]);
+			}
+			for w in &weak {
+				out.push(w.upgrade().map_or(0xfd, |s| *s));
+				out.push($weak::Weak::strong_count(w) as u8);
+				out.push($weak::Weak::weak_count(w) as u8);
+			}
+			out.extend(strong.iter().map(|s| **s));
+			// A clone that releases the other handles leaves `make_mut` the last, which drops.
+			let others = Rc::new(RefCell::new(Vec::new()));
+			let log = Rc::new(RefCell::new(Vec::new()));
+			let mut first = $Ptr::new($releasing {
+				id: data.len() as u8,
+				others: others.clone(),
+				log: log.clone(),
+			});
+			let shared = data.first().map_or(1, |b| b % 3 + 1);
+			others
+				.borrow_mut()
+				.extend((0..shared).map(|_| $Ptr::clone(&first)));
+			$Ptr::make_mut(&mut first).id ^= 0x40;
+			out.extend_from_slice(&[first.id, $Ptr::strong_count(&first) as u8]);
+			out.extend_from_slice(&log.borrow());
+			drop(first);
+			out.extend_from_slice(&log.borrow());
+		}
 	};
 }
 
-counts!(arcs, ArcHolder, cyclic_arcs, ArcNode, Arc, sync);
-counts!(rcs, RcHolder, cyclic_rcs, RcNode, Rc, rc);
+counts!(
+	arcs,
+	ArcHolder,
+	cyclic_arcs,
+	ArcNode,
+	unique_arcs,
+	ArcReleasing,
+	Arc,
+	sync
+);
+counts!(rcs, RcHolder, cyclic_rcs, RcNode, unique_rcs, RcReleasing, Rc, rc);

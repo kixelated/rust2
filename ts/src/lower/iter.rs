@@ -521,11 +521,7 @@ pub fn call<'tcx>(
 		"zip" => {
 			let other_ty = targ(1)?;
 			let other = into_iter(b, other_ty, rest.into_iter().next()?, span)?;
-			let sig = tcx.fn_sig(call.def_id).instantiate(tcx, gargs).skip_norm_wip();
-			let zip = b.t.subst(
-				ty::List::empty(),
-				tcx.instantiate_bound_regions_with_erased(sig).output(),
-			);
+			let zip = b.t.sig(call.def_id, gargs).output();
 			let ty::Adt(_, sides) = zip.kind() else {
 				return None;
 			};
