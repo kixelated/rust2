@@ -10,7 +10,7 @@ through a `Take<&mut Self>`.
 
 ## Plan
 
-Found by [#222](https://github.com/kixelated/rust2/pull/222) on 2026-10-29: a `&mut` to a
+Found by [#222](https://github.com/moq-dev/rust2/pull/222) on 2026-10-29: a `&mut` to a
 type JS copies is an `rt.Place`, but a reference is never one, so `&mut &[u8]` is refused
 where it is made. moq-net's census refuses `<&mut &[u8] as Buf>::remaining` and
 `has_remaining` and `<&[u8] as Buf>::copy_to_bytes` in `transport/memory.rs`, which writes
