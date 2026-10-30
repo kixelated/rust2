@@ -25,6 +25,6 @@ generic std gap is planned here even when moq never calls it.
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
-- [Ordering in std](/quest/m3/ts-ordering.md) - `cmp::max`/`min`, `is_sorted`, and `BinaryHeap`, and #173's cost on integers measured
+- [Slice windows and chunks, Vec drain, and the order of byte arrays](/quest/m3/ts-slice-gaps.md) - `windows`, `chunks`, `Vec::drain`, and byte arrays' order translate
 - [Return a std iterator's next from a generic function](/quest/m3/ts-next-return.md) - `it.next()` returned from a generic function is an `Option`, as `tsc` expects
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does

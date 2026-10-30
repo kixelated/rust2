@@ -653,7 +653,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		rt.byteVecPush(out, mapOr$Option_u8_u8_u8_btree_maps_closure0(rt.iterToOption(rt.btreeRange(map, { start: 4 }).nextBack()), 255, (_230: [rt.u8, rt.u8]): rt.u8 => {
 			return _230[0] ^ _230[1];
 		}));
-		rt.byteVecPush(out, mapOr$Option_u8_u8_btree_maps_closure5(rt.iterMax(rt.btreeValues(map), rt.cmpLt(rt.cmp)), 255, (v6: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$Option_u8_u8_btree_maps_closure5(rt.iterMax(rt.btreeValues(map), rt.lt), 255, (v6: rt.u8): rt.u8 => {
 			return v6;
 		}));
 		rt.btreeRemove(map, 3);
@@ -1231,7 +1231,7 @@ export function sorted$OptionMap_Option_String_HashMap_u8_Option_String(self: rt
 	}));
 	rt.sliceSortByKey(all, (_22: [rt.u8, string | undefined]): rt.u8 => {
 		return _22[0];
-	}, rt.cmpLt(rt.cmp));
+	}, rt.lt);
 	return all;
 }
 
@@ -1241,7 +1241,7 @@ export function sorted$OptionMap_Option_u8_HashMap_u8_Option_u8(self: rt.HashMap
 	}));
 	rt.sliceSortByKey(all, (_22: [rt.u8, rt.u8 | undefined]): rt.u8 => {
 		return _22[0];
-	}, rt.cmpLt(rt.cmp));
+	}, rt.lt);
 	return all;
 }
 
@@ -1253,7 +1253,7 @@ export function sorted$OptionMap_unit_HashMap_u8_unit(self: rt.HashMap<rt.u8, un
 	}));
 	rt.sliceSortByKey(all, (_22: [rt.u8, undefined]): rt.u8 => {
 		return _22[0];
-	}, rt.cmpLt(rt.cmp));
+	}, rt.lt);
 	return all;
 }
 
