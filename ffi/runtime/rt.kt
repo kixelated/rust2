@@ -334,7 +334,7 @@ const val LENT = -2
 fun owned(given: Any?): Bytes? = when (given) {
 	null -> null
 	is ByteArray -> Bytes(given)
-	else -> Bytes((given as LongArray)[0])
+	else -> Bytes((given as kotlin.LongArray)[0])
 }
 
 /** Run [block] with the raw handle of [handle], or 0 for none, held until it returns. */
