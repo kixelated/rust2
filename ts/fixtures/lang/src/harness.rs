@@ -163,6 +163,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::peeked_others", |_, data, out| iters::peeked_others(data, out)),
 		("hints::hints", hints::hints),
 		("hints::reserves", hints::reserves),
+		("collections::set_ops", collections::set_ops),
 		("zeros::zeros", zeros::zeros),
 	]
 }

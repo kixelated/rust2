@@ -1,6 +1,6 @@
 //! Strong and weak counts of `Arc`s and `Rc`s and their `Weak`s, through every way one is
 //! made and dropped: cloned, downgraded, upgraded, made dangling, made holding handles to
-//! itself, and held in a `Vec`, an `Option`, a struct, and a closure, of a value and of a
+//! itself, unwrapped by `into_inner`, and held in a `Vec`, an `Option`, a struct, and a closure, of a value and of a
 //! trait object; the values `get_mut` and `make_mut` write, alone or shared; and the
 //! clones `Option`'s and an iterator's `cloned` make, through each type's `Clone`.
 
@@ -172,7 +172,13 @@ macro_rules! counts {
 						let again = strong[pick % strong.len()].clone();
 						strong.push(again);
 					}
-					2 if !strong.is_empty() => drop(strong.swap_remove(pick % strong.len())),
+					2 if !strong.is_empty() && op & 0x80 == 0 => drop(strong.swap_remove(pick % strong.len())),
+					// The value from the last strong handle alone, which its `Weak`s no longer
+					// upgrade after; another's share only drops.
+					2 if !strong.is_empty() => match $Ptr::into_inner(strong.swap_remove(pick % strong.len())) {
+						Some(noisy) => out.push(noisy.id),
+						None => out.push(0xfb),
+					},
 					3 if !strong.is_empty() => weak.push($Ptr::downgrade(&strong[pick % strong.len()])),
 					4 if !weak.is_empty() => {
 						let again = weak[pick % weak.len()].clone();
@@ -311,7 +317,8 @@ macro_rules! counts {
 						strong.push(again);
 					}
 					2 => weak.push($Ptr::downgrade(&strong[pick])),
-					3 if strong.len() > 1 => drop(strong.swap_remove(pick)),
+					3 if strong.len() > 1 && op & 0x80 == 0 => drop(strong.swap_remove(pick)),
+					3 if strong.len() > 1 => out.push($Ptr::into_inner(strong.swap_remove(pick)).unwrap_or(0xfb)),
 					3 => weak.clear(),
 					// Called directly, and through a function pointer.
 					4 => match if op & 0x80 == 0 {

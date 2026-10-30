@@ -74,6 +74,13 @@ export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt
 	return self;
 }
 
+export function unwrapOr$1kxjsqb(self: rt.u8 | undefined | rt.None, default_: rt.u8 | undefined): rt.u8 | undefined {
+	if (self === rt.None) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$0ujf6zi(self: Twin.Twin | undefined, default_: Twin.Twin): Twin.Twin {
 	if (self === undefined) {
 		return default_;
@@ -296,6 +303,13 @@ export function map$1u8sh4f(self: Named.Named | undefined, _: (a0: Named.Named) 
 		return undefined;
 	}
 	return [self];
+}
+
+export function map$09ua5et(self: Nibble.Nibble | undefined, f: (a0: Nibble.Nibble) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$0pkankm(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
@@ -791,6 +805,13 @@ export function mapOr$06rr3sb(self: rt.u8 | undefined, default_: rt.u8 | undefin
 }
 
 export function mapOr$1m2xzon(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0z4mj8g(self: rt.u8 | undefined, default_: rt.u16, f: (a0: rt.u8) => rt.u16): rt.u16 {
 	if (self === undefined) {
 		return default_;
 	}

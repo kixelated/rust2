@@ -3,9 +3,10 @@
 //! found through their translated `Hash` and `Eq` or ordered by their `Ord`. A hash
 //! map's iteration order is unspecified, so only what does not depend on it is written.
 
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Bound;
 
 use crate::generics::Wrap;
 use crate::iters::Bumped;
@@ -404,6 +405,17 @@ pub fn sets(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			out.push(sorted.first().copied().unwrap_or(0xff) as u8);
 			out.push(sorted.last().copied().unwrap_or(0xff) as u8);
+			let probe = data.first().map_or(0, |&b| b as u16 % 24);
+			for v in [
+				hashed.replace(probe),
+				sorted.replace(probe),
+				sorted.get(&probe).copied(),
+			] {
+				out.push(v.unwrap_or(0xff) as u8);
+			}
+			for v in [hashed.take(&probe), sorted.take(&probe), sorted.take(&probe)] {
+				out.push(v.unwrap_or(0xff) as u8);
+			}
 			let firsts: Vec<u16> = sorted.range(4..12).copied().collect();
 			out.push(firsts.len() as u8);
 			hashed.retain(|v| v % 3 != 0);
@@ -418,6 +430,23 @@ pub fn sets(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				out.push(nibbles.insert(Nibble(b)) as u8);
 				out.push(seen.insert(Nibble(b)) as u8);
 			}
+			// The equal key each holds apart from the one given: `replace` keeps the new one.
+			let held = |n: Option<Nibble>| n.map_or(0xee, |n| n.0);
+			let lent = |n: Option<&Nibble>| n.map_or(0xee, |n| n.0);
+			for &b in data.iter().rev() {
+				match b % 3 {
+					0 => out.extend([
+						held(nibbles.replace(Nibble(b ^ 0x30))),
+						held(seen.replace(Nibble(b ^ 0x30))),
+					]),
+					1 => out.extend([
+						held(nibbles.take(&Nibble(b ^ 0x50))),
+						held(seen.take(&Nibble(b ^ 0x50))),
+					]),
+					_ => out.extend([lent(nibbles.get(&Nibble(b ^ 0x70))), lent(seen.get(&Nibble(b ^ 0x70)))]),
+				}
+			}
+			out.extend(seen.get(&Nibble(0)).map(|n| n.0));
 			for n in &nibbles {
 				out.push(n.0);
 			}
@@ -623,6 +652,10 @@ pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 			pairs.pop_front();
 		}
 	}
+	// The item at an index, or none past the end, the end's moved into its place.
+	let at = data.last().map_or(0, |&b| b as usize % 6);
+	out.push(q.swap_remove_back(at).unwrap_or(0xe8));
+	out.push(q.swap_remove_front(at).unwrap_or(0xe7));
 	touch(&mut q).shrink_to_fit();
 	touch(&mut q).reserve(1);
 	out.push(q.len() as u8);
@@ -651,6 +684,10 @@ pub fn deques(data: &[u8], out: &mut Vec<u8>) {
 		t.n ^= 0xff;
 	}
 	out.extend(tallies.iter().map(|t| t.n as u8));
+	out.extend(copy.iter().map(|t| t.n as u8));
+	for t in [copy.swap_remove_front(at), copy.swap_remove_back(at)] {
+		out.push(t.map_or(0xe6, |t| t.n as u8));
+	}
 	out.extend(copy.iter().map(|t| t.n as u8));
 	q.extend(data.iter().copied());
 	q.insert(q.len() / 2, 0x42);
@@ -989,4 +1026,149 @@ pub fn optionals(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.extend_from_slice(format!("{all:?}").as_bytes());
 		}
 	}
+}
+
+/// `union`, `intersection`, `difference`, and `symmetric_difference` of two sets each way,
+/// by method and by operator, and whether one is a subset, superset, or disjoint from the
+/// other: of sets that overlap, are equal, are empty, are disjoint, or are one key against
+/// many, where std's B-tree searches the larger rather than merging. A B-tree's yield in
+/// its order, and the sets its operators build are read from both ends; a hash set's yield
+/// in the runtime's, so what each yields is sorted first. The `Nibble` an op yields shows
+/// which set's key of two equal ones std's picks.
+pub fn set_ops(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (mut left, mut right) = data.split_at(data.len() / 2);
+	let (evens, odds): (Vec<u8>, Vec<u8>);
+	match kind / 5 % 6 {
+		0 => {}
+		1 => right = left,
+		2 => left = &[],
+		3 => (left, right) = data.split_at(data.len().min(1)),
+		// Each map below keeps a byte's parity, so evens and odds never meet.
+		4 => {
+			evens = left.iter().map(|b| b & !1).collect();
+			odds = right.iter().map(|b| b | 1).collect();
+			(left, right) = (&evens, &odds);
+		}
+		// What an operator builds has its root even with no keys, so its range checks its
+		// bounds, and panics.
+		_ => {
+			let all: BTreeSet<u8> = data.iter().copied().collect();
+			let none = &all - &all;
+			let k = data.first().copied().unwrap_or(0);
+			out.push(none.range((Bound::Excluded(k), Bound::Excluded(k))).count() as u8);
+			return;
+		}
+	}
+	match kind % 5 {
+		0 => set_ops_of(left, right, |b| b % 32, |v| *v, out),
+		1 => set_ops_of(left, right, |b| [b % 4, b / 4 % 4], |k| k[0] << 4 | k[1], out),
+		2 => set_ops_of(
+			left,
+			right,
+			|b| (b % 32 != 0).then_some(b % 32),
+			|v| v.unwrap_or(0xee),
+			out,
+		),
+		3 => set_ops_of(left, right, Nibble, |n| n.0, out),
+		// Where `None` is the greatest key.
+		_ => set_ops_of(
+			left,
+			right,
+			|b| Reverse((b % 32 != 0).then_some(b % 32)),
+			|v| v.0.unwrap_or(0xee),
+			out,
+		),
+	}
+}
+
+fn set_ops_of<T: Ord + Hash + Clone>(
+	left: &[u8],
+	right: &[u8],
+	make: fn(u8) -> T,
+	put: fn(&T) -> u8,
+	out: &mut Vec<u8>,
+) {
+	let a: BTreeSet<T> = left.iter().map(|&b| make(b)).collect();
+	let b: BTreeSet<T> = right.iter().map(|&b| make(b)).collect();
+	for (x, y) in [(&a, &b), (&b, &a)] {
+		put_all(x.union(y), put, out);
+		put_all(x.intersection(y), put, out);
+		put_all(x.difference(y), put, out);
+		put_all(x.symmetric_difference(y), put, out);
+		put_hints(x.union(y), 1, out);
+		put_hints(x.intersection(y), 1, out);
+		put_hints(x.difference(y), 1, out);
+		put_hints(x.symmetric_difference(y), 1, out);
+		// Only the first, where the merge stops.
+		out.push(x.union(y).next().map_or(0xdd, put));
+		out.push(x.intersection(y).next().map_or(0xdd, put));
+		out.push(x.difference(y).next().map_or(0xdd, put));
+		out.push(x.symmetric_difference(y).next().map_or(0xdd, put));
+		out.extend([x.is_subset(y) as u8, x.is_superset(y) as u8, x.is_disjoint(y) as u8]);
+		for built in [x | y, x & y, x - y, x ^ y] {
+			put_all(built.iter(), put, out);
+			put_all(built.iter().rev(), put, out);
+		}
+	}
+	let a: HashSet<T> = left.iter().map(|&b| make(b)).collect();
+	let b: HashSet<T> = right.iter().map(|&b| make(b)).collect();
+	for (x, y) in [(&a, &b), (&b, &a)] {
+		put_sorted(x.union(y).collect(), put, out);
+		put_sorted(x.intersection(y).collect(), put, out);
+		put_sorted(x.difference(y).collect(), put, out);
+		put_sorted(x.symmetric_difference(y).collect(), put, out);
+		// Hints of what is left past an item would hang on the runtime's order.
+		put_hints(x.union(y), 0, out);
+		put_hints(x.intersection(y), 0, out);
+		put_hints(x.difference(y), 0, out);
+		put_hints(x.symmetric_difference(y), 0, out);
+		// Only the first, which is the runtime's pick, so only where it belongs is written.
+		out.push(
+			x.union(y)
+				.next()
+				.map_or(0xdd, |v| u8::from(x.contains(v) || y.contains(v))),
+		);
+		out.push(
+			x.intersection(y)
+				.next()
+				.map_or(0xdd, |v| u8::from(x.contains(v) && y.contains(v))),
+		);
+		out.push(x.difference(y).next().map_or(0xdd, |v| u8::from(!y.contains(v))));
+		out.push(
+			x.symmetric_difference(y)
+				.next()
+				.map_or(0xdd, |v| u8::from(x.contains(v) != y.contains(v))),
+		);
+		out.extend([x.is_subset(y) as u8, x.is_superset(y) as u8, x.is_disjoint(y) as u8]);
+		for built in [x | y, x & y, x - y, x ^ y] {
+			put_sorted(built.iter().collect(), put, out);
+		}
+	}
+}
+
+/// How many `items` there are, then each.
+fn put_all<'a, T: 'a>(items: impl Iterator<Item = &'a T>, put: fn(&T) -> u8, out: &mut Vec<u8>) {
+	let at = out.len();
+	out.push(0);
+	for item in items {
+		out.push(put(item));
+	}
+	out[at] = (out.len() - at - 1) as u8;
+}
+
+/// The size hint of `items`, and again after each of `read` more.
+fn put_hints<'a, T: 'a>(mut items: impl Iterator<Item = &'a T>, read: usize, out: &mut Vec<u8>) {
+	for i in 0..=read {
+		if i > 0 {
+			items.next();
+		}
+		let (lower, upper) = items.size_hint();
+		out.extend([lower as u8, upper.map_or(0xff, |n| n as u8)]);
+	}
+}
+
+/// [`put_all`] of `items` in order.
+fn put_sorted<T: Ord>(mut items: Vec<&T>, put: fn(&T) -> u8, out: &mut Vec<u8>) {
+	items.sort();
+	put_all(items.into_iter(), put, out);
 }

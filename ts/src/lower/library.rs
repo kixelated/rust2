@@ -730,6 +730,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Once", "call_once" | "call_once_force") => &[0],
 		("Arc" | "Rc", "new_cyclic") => &[1],
+		// `pop_if::<F>` drops its test uncalled if there is no element.
+		("Vec", "pop_if") => &[2],
 		// `is_sorted_by::<F>` drops its comparator before the last item, as `all` takes it.
 		("Iterator", "is_sorted_by") => &[1],
 		("LocalKey", "with" | "try_with" | "initialize_with" | "with_borrow_mut") => &[1],
@@ -758,6 +760,7 @@ fn takes_none(owner: &str, name: &str) -> bool {
 					"OnceCell" | "OnceLock",
 					"get" | "set" | "get_or_init" | "take" | "into_inner"
 				)
+				| ("Arc" | "Rc", "into_inner")
 				| ("DoubleEndedIterator", "next_back" | "nth_back" | "rfind")
 				| ("dyn Any", "downcast_ref" | "downcast_mut")
 				| ("ptr", "as_ref" | "as_mut")
@@ -773,14 +776,27 @@ pub(super) fn none_last(owner: &str, name: &str) -> bool {
 		(owner, name),
 		("Option", "unwrap" | "expect")
 			| ("slice", "first" | "last" | "get" | "first_mut" | "last_mut" | "get_mut")
-			| ("Vec", "pop")
+			| ("Vec", "pop" | "pop_if")
 			| (
 				"VecDeque",
-				"pop_front" | "pop_back" | "front" | "back" | "front_mut" | "back_mut" | "get" | "get_mut" | "remove"
+				"pop_front"
+					| "pop_back"
+					| "front"
+					| "back"
+					| "front_mut"
+					| "back_mut"
+					| "get"
+					| "get_mut"
+					| "remove"
+					| "swap_remove_front"
+					| "swap_remove_back"
 			)
 			| ("BinaryHeap", "pop" | "peek")
-			| ("HashSet", "get" | "take")
-			| ("BTreeSet", "first" | "last" | "pop_first" | "pop_last")
+			| ("HashSet", "get" | "take" | "replace")
+			| (
+				"BTreeSet",
+				"first" | "last" | "pop_first" | "pop_last" | "get" | "take" | "replace"
+			)
 			| ("HashMap" | "BTreeMap", "get" | "get_mut" | "insert" | "remove")
 	)
 }
@@ -1082,8 +1098,8 @@ fn mapping<'tcx>(
 	// Methods on integers.
 	if let Some(int) = int_named(&owner) {
 		let method = match name.as_str() {
-			"from_be_bytes" => "fromBeBytes",
-			"to_be_bytes" | "to_le_bytes" => "toBeBytes",
+			"from_be_bytes" | "from_le_bytes" | "from_ne_bytes" => "fromBeBytes",
+			"to_be_bytes" | "to_le_bytes" | "to_ne_bytes" => "toBeBytes",
 			"leading_ones" => "leadingOnes",
 			"leading_zeros" => "leadingZeros",
 			"trailing_zeros" => "trailingZeros",
@@ -1100,10 +1116,19 @@ fn mapping<'tcx>(
 			"is_multiple_of" => "isMultipleOf",
 			_ => return None,
 		};
+		// wasm32 is little-endian, so the native bytes are the little-endian ones: the
+		// big-endian bytes, the other way around. The caller may still hold the array it
+		// reads, so it reverses a copy; the bytes it makes are its own.
+		let args = match name.as_str() {
+			"from_le_bytes" | "from_ne_bytes" => args
+				.into_iter()
+				.map(|a| a.method("slice", Vec::new()).method("reverse", Vec::new()))
+				.collect(),
+			_ => args,
+		};
 		let e = int.method(method, args);
-		// The big-endian bytes, the other way around.
 		return Some(match name.as_str() {
-			"to_le_bytes" => e.method("reverse", Vec::new()),
+			"to_le_bytes" | "to_ne_bytes" => e.method("reverse", Vec::new()),
 			_ => e,
 		});
 	}
@@ -1697,6 +1722,10 @@ fn mapping<'tcx>(
 		// JS's `pop` returns `undefined` for no element, where an `rt.None` must follow.
 		("Vec", "pop") if sentinel_option(b.t, call).is_some() => Expr::rt("vecPop", args),
 		("Vec", "pop") => args.pop()?.method("pop", vec![]),
+		// The last element is lent to the test as its place where JS copies it.
+		("Vec", "pop_if") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecPopIf", args),
+		("Vec", "pop_if") if b.t.needs_place(targ(gargs, 0)) => Expr::rt("vecPopIfMut", args),
+		("Vec", "pop_if") => Expr::rt("vecPopIf", args),
 		("Vec", "len") => args.pop()?.member("length"),
 		("Vec", "is_empty") => args.pop()?.member("length").binary("===", Expr::lit("0")),
 		("Vec", "truncate") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecTruncate", args),
