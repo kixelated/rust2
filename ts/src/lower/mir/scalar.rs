@@ -1114,7 +1114,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 									els: Vec::new(),
 								}
 								.at(None);
-								self.emit(vec![check], None, false, out);
+								self.emit(vec![check], false, out);
 							}
 						}
 						parts.extend([pure(d.clone(), ds), pure(s.clone(), ss), pure(mid, steady)]);
@@ -1343,7 +1343,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		self.steady.insert(name.clone());
 		self.scalar_binds.push((name.clone(), ty));
 		let stmt = StmtKind::Expr(Expr::ident(&name).assign(value)).at(None);
-		self.emit(vec![stmt], Some(&name), false, out);
+		self.emit(vec![stmt], false, out);
 		(Expr::ident(name), true)
 	}
 
@@ -1380,7 +1380,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 						true => {
 							let name = self.b.fresh("part");
 							let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
-							self.emit(vec![stmt], None, false, out);
+							self.emit(vec![stmt], false, out);
 							Some(Expr::ident(name))
 						}
 						false => Some(value),
@@ -1403,7 +1403,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			.expect("a local held as its parts")
 			.assigned = true;
 		let stmt = StmtKind::Expr(Expr::ident(var).assign(value)).at(None);
-		self.emit(vec![stmt], Some(var), false, out);
+		self.emit(vec![stmt], false, out);
 	}
 }
 
