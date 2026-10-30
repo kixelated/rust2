@@ -10,6 +10,7 @@
 use rustc_middle::ty::{self, Instance, Ty};
 use rustc_span::Span;
 
+use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
@@ -1283,8 +1284,19 @@ pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) 
 			format!("passing `{ty}`, which drops, to `{owner}::{name}`, which is not supported yet"),
 		);
 	}
-	let pair = |t: &Ty<'tcx>| b.t.std_of(*t) == Some(Std::Bound);
-	match (ty.kind(), b.t.std_of(ty)) {
+	// Each instance decides for a range it is generic over.
+	if plain_bounds(b.t, ty) || b.t.deferred(ty) {
+		return range;
+	}
+	let args = tcx.mk_args(&[ty.into(), target.into()]);
+	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
+	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
+	Expr::rt("boundsOf", vec![range, start, end])
+}
+
+/// Whether an `rt.Bounds` reads `ty` as it is: std's range types and a pair of `Bound`s.
+pub fn plain_bounds<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	match (ty.kind(), t.std_of(ty)) {
 		(
 			_,
 			Some(
@@ -1295,16 +1307,10 @@ pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) 
 				| Std::RangeToInclusive
 				| Std::RangeFull,
 			),
-		) => return range,
-		(ty::Tuple(tys), _) if tys.len() == 2 && tys.iter().all(|t| pair(&t)) => return range,
-		// Each instance decides.
-		_ if b.t.deferred(ty) => return range,
-		_ => {}
+		) => true,
+		(ty::Tuple(tys), _) => tys.len() == 2 && tys.iter().all(|b| t.std_of(b) == Some(Std::Bound)),
+		_ => false,
 	}
-	let args = tcx.mk_args(&[ty.into(), target.into()]);
-	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
-	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
-	Expr::rt("boundsOf", vec![range, start, end])
 }
 
 /// Which of its inputs is the range `call` takes, and the `T` of the `RangeBounds<T>` it

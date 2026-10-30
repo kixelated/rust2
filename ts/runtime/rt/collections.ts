@@ -1366,8 +1366,7 @@ function bounds<K>(r: Bounds<K>): BoundPair<K> {
 	if (r === undefined) return [UNBOUNDED, UNBOUNDED];
 	if (typeof r === "function") return r();
 	if (Array.isArray(r)) return r as BoundPair<K>;
-	// A field test, not `instanceof`, so a bundle without `a..=b` leaves the class out.
-	if ("exhausted" in r) return [rangeInclusiveStartBound(r), rangeInclusiveEndBound(r)];
+	if (inclusive(r)) return [rangeInclusiveStartBound(r), rangeInclusiveEndBound(r)];
 	const start: RangeBound<K> = "start" in r ? { tag: "Included", _0: r.start } : UNBOUNDED;
 	if (!("end" in r)) return [start, UNBOUNDED];
 	return [start, { tag: "inclusive" in r ? "Included" : "Excluded", _0: r.end }];
@@ -1954,6 +1953,37 @@ export function boundsRange(r: Bounds<number>, n: number): [number, number] {
 		if (lo.tag === "Excluded") start++;
 	}
 	return [start, end];
+}
+
+/**
+ * A slice's index `r` other than `a..b`, `a..`, `..b`, and `..`, as the start and end of
+ * the part it reads within `n` elements, panicking as std's `index` does.
+ */
+export function sliceIndexBounds(r: Bounds<number>, n: number): [number, number] {
+	if (!inclusive(r)) return boundsRange(r, n);
+	// std checks `a..=b` by its own fields, not by the bounds it gives.
+	if (r.hi >= n) sliceIndexFail(r.lo, r.hi, n);
+	const bounds = sliceGetBounds(r, n);
+	if (bounds[0] > bounds[1]) sliceIndexFail(bounds[0], bounds[1], n);
+	return bounds;
+}
+
+/**
+ * A slice's index `r`, as `sliceIndexBounds` reads it, unchecked: what `get` reads, which
+ * gives `None` unless the start is at most the end and the end at most `n`.
+ */
+export function sliceGetBounds(r: Bounds<number>, n: number): [number, number] {
+	// An `a..=b` iterated to its end starts past it, at `b + 1`, which JS doesn't overflow.
+	if (inclusive(r)) return [r.exhausted ? r.hi + 1 : r.lo, r.hi + 1];
+	const [lo, hi] = bounds(r);
+	const start = lo.tag === "Unbounded" ? 0 : lo.tag === "Included" ? lo._0 : lo._0 + 1;
+	const end = hi.tag === "Unbounded" ? n : hi.tag === "Included" ? hi._0 + 1 : hi._0;
+	return [start, end];
+}
+
+/** Whether `r` is an `a..=b`: a field test, not `instanceof`, so a bundle without one leaves the class out. */
+function inclusive<K>(r: Bounds<K>): r is RangeInclusive<K> {
+	return typeof r === "object" && "exhausted" in r;
 }
 
 /** std's `slice_index_fail`, which names the end where neither bound is out of order. */

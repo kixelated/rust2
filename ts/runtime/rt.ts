@@ -328,14 +328,39 @@ export function sliceRangeMut<T>(s: T[], start: number, end: number = s.length):
 	return sliceView(s, start, end);
 }
 
+/** `get` of `start..end`: the part, or `undefined` unless it is within the slice. */
+export function sliceGetRange<T>(s: T[], start: number, end: number = s.length): T[] | undefined {
+	return start <= end && end <= s.length ? s.slice(start, end) : undefined;
+}
+
+/** `get_mut` of `start..end`: the runtime's view of it, or `undefined` as `sliceGetRange`. */
+export function sliceGetRangeMut<T>(s: T[], start: number, end: number = s.length): T[] | undefined {
+	return start <= end && end <= s.length ? sliceView(s, start, end) : undefined;
+}
+
+/** `last_chunk`: the last `n` elements, or `undefined` if fewer. */
+export function sliceLastChunk<T>(s: T[], n: number): T[] | undefined {
+	return n > s.length ? undefined : s.slice(s.length - n);
+}
+
+/** `last_chunk_mut`: a view of the last `n` elements, or `undefined` if fewer. */
+export function sliceLastChunkMut<T>(s: T[], n: number): T[] | undefined {
+	return n > s.length ? undefined : sliceView(s, s.length - n, s.length);
+}
+
+/** `split_last_chunk`: the rest and the last `n` elements, or `undefined` if fewer. */
+export function sliceSplitLastChunk<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : sliceSplitAt(s, s.length - n);
+}
+
+/** `split_last_chunk_mut`: views of the rest and the last `n` elements, or `undefined` if fewer. */
+export function sliceSplitLastChunkMut<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : sliceSplitAtMut(s, s.length - n);
+}
+
 /** `split_first`: the first element and the rest, or `undefined` if empty. */
 export function sliceSplitFirst<T>(s: T[]): [T, T[]] | undefined {
 	return s.length === 0 ? undefined : [s[0], s.slice(1)];
-}
-
-/** `split_first_chunk`: the first `n` elements and the rest, or `undefined` if shorter. */
-export function sliceSplitFirstChunk<T>(s: T[], n: number): [T[], T[]] | undefined {
-	return s.length < n ? undefined : [s.slice(0, n), s.slice(n)];
 }
 
 /** `split_at`, panicking past the length. */
@@ -651,6 +676,21 @@ export function byteSliceRange(s: ByteSlice, start: number, end: number = s.leng
 	return new ByteSlice(s.data, s.start + start, end - start);
 }
 
+/** `get` of `start..end`: the part, or `undefined` unless it is within the slice. */
+export function byteSliceGetRange(s: ByteSlice, start: number, end: number = s.length): ByteSlice | undefined {
+	return start <= end && end <= s.length ? new ByteSlice(s.data, s.start + start, end - start) : undefined;
+}
+
+/** `last_chunk`: the last `n` bytes, or `undefined` if fewer. */
+export function byteSliceLastChunk(s: ByteSlice, n: number): ByteSlice | undefined {
+	return n > s.length ? undefined : new ByteSlice(s.data, s.start + s.length - n, n);
+}
+
+/** `split_last_chunk`: the rest and the last `n` bytes, or `undefined` if fewer. */
+export function byteSliceSplitLastChunk(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
+	return n > s.length ? undefined : byteSliceSplitAt(s, s.length - n);
+}
+
 /** `split_first`: the first byte and the rest, or `undefined` if empty. */
 export function byteSliceSplitFirst(s: ByteSlice): [number, ByteSlice] | undefined {
 	return s.length === 0 ? undefined : [s.data[s.start], new ByteSlice(s.data, s.start + 1, s.length - 1)];
@@ -665,12 +705,6 @@ export function byteSliceSplitFirstMut(s: ByteSlice): [Place<number>, ByteSlice]
 export function byteSliceSplitLastMut(s: ByteSlice): [Place<number>, ByteSlice] | undefined {
 	const n = s.length - 1;
 	return n < 0 ? undefined : [new AtIndex(s.data, s.start + n), new ByteSlice(s.data, s.start, n)];
-}
-
-/** `split_first_chunk`: the first `n` bytes and the rest, or `undefined` if shorter. */
-export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
-	if (s.length < n) return undefined;
-	return [new ByteSlice(s.data, s.start, n), new ByteSlice(s.data, s.start + n, s.length - n)];
 }
 
 /** `*r` of a `&[u8; N]`: a copy of its bytes. */

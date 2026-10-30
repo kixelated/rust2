@@ -10,7 +10,8 @@
 //! of std types, the counts of shared pointers, arrays `array::from_fn` makes, maps of
 //! `Option`s, values held back past a write of a variable they name, what `Hash` writes
 //! into `DefaultHasher` and `RandomState`, slices' `windows` and chunks, mutable ones
-//! written through, `Vec::drain`, the order of bytes, and ranges of `Bound`s and of the
+//! written through, their parts by inclusive and checked ranges and by fixed size,
+//! `Vec::drain`, the order of bytes, and ranges of `Bound`s and of the
 //! crate's own `RangeBounds`.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and

@@ -47,6 +47,10 @@ export function copy$Bound_usize(v: rt.RangeBound<rt.usize>): rt.RangeBound<rt.u
 	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.usize>;
 }
 
+export function copy$Bound_usize_Bound_usize(v: [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>]): [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>] {
+	return [copy$Bound_usize(v[0]), copy$Bound_usize(v[1])];
+}
+
 export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
 	return { _0: v._0 };
 }

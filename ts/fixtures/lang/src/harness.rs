@@ -139,6 +139,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("ints::parses", ints::parses),
 		("strs::edits", strs::edits),
 		("slices::subslices", slices::subslices),
+		("slices::ranges", slices::ranges),
 	]
 }
 

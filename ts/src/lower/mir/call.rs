@@ -684,13 +684,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			// Indexing, whose result a `&mut` reads in place.
 			("Index" | "IndexMut", "index" | "index_mut") => self.index(&name, gargs, args, dest, span, out),
-			// Out of bounds is undefined, so the checked index's panic is one outcome of it.
-			("slice", "get_unchecked" | "get_unchecked_mut") => {
+			// Out of bounds is undefined, so the checked index's panic is one outcome of it; a
+			// part by a range is checked as indexing by it is, giving `None` where that panics.
+			("slice", "get_unchecked" | "get_unchecked_mut" | "get" | "get_mut")
+				if name.starts_with("get_unchecked") || Int::of(targ(1)?).is_none() =>
+			{
 				let slice = ty::Ty::new_slice(tcx, targ(0)?);
 				let gargs = tcx.mk_args(&[slice.into(), targ(1)?.into()]);
 				let name = match name.as_str() {
 					"get_unchecked" => "index",
-					_ => "index_mut",
+					"get_unchecked_mut" => "index_mut",
+					name => name,
 				};
 				self.index(name, gargs, args, dest, span, out)
 			}
@@ -1305,7 +1309,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// `container[index]`, or a slice of it by a range, which a reference reads in place.
+	/// `container[index]`, or a slice of it by a range, which a reference reads in place; or
+	/// `get` or `get_mut` of a slice by a range.
 	fn index(
 		&mut self,
 		name: &str,
@@ -1366,9 +1371,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Some((place, true)))
 			}
 			None => {
+				let get = matches!(name, "get" | "get_mut");
+				let lent = matches!(name, "index_mut" | "get_mut");
 				// The range's bounds are taken apart before the slice is read, while they are
-				// still held back.
-				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
+				// still held back. Any other range, as an `rt.Bounds`, is checked by the
+				// runtime, as std checks its own fields, into a start and end.
+				let bounds = match self.range_bounds(&args[1].node, index_ty, span, out) {
+					Some(bounds) => Ok(bounds),
+					None if crate::lower::collections::plain_bounds(self.b.t, index_ty) => {
+						Err(self.operand(&args[1].node, span, out))
+					}
+					None => return None,
+				};
 				let base = match container.kind() {
 					ty::Adt(..) => library::vec_view(base, elem_ty),
 					_ => base,
@@ -1376,18 +1390,33 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// All of a mutable slice of other values is the slice itself.
 				let full =
 					matches!(index_ty.kind(), ty::Adt(adt, _) if self.tcx.item_name(adt.did()).as_str() == "RangeFull");
-				if full && !bytes && name == "index_mut" {
+				if full && !bytes && lent {
 					return Some(Some((base, true)));
 				}
 				let base = self.path(base, "slice", out);
+				let (start, end) = match bounds {
+					Ok(bounds) => bounds,
+					Err(range) => {
+						let length = super::slice_member(base.clone(), "length");
+						let checked = match get {
+							true => "sliceGetBounds",
+							false => "sliceIndexBounds",
+						};
+						let pair = self.path(Expr::rt(checked, vec![range, length]), "bounds", out);
+						(pair.clone().index(Expr::lit("0")), Some(pair.index(Expr::lit("1"))))
+					}
+				};
 				let mut values = vec![base, start];
 				values.extend(end);
 				// A range of bytes is a view already, and one of other values lent mutably the
 				// runtime's view, as a JS array has none of its own.
-				let range = match (bytes, name) {
-					(true, _) => "byteSliceRange",
-					(false, "index_mut") => "sliceRangeMut",
-					(false, _) => "sliceRange",
+				let range = match (bytes, lent, get) {
+					(true, _, false) => "byteSliceRange",
+					(true, _, true) => "byteSliceGetRange",
+					(false, true, false) => "sliceRangeMut",
+					(false, true, true) => "sliceGetRangeMut",
+					(false, false, false) => "sliceRange",
+					(false, false, true) => "sliceGetRange",
 				};
 				Some(Some((Expr::rt(range, values), true)))
 			}
