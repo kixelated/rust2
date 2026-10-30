@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { drop$Arc_Wrap_Pair_Held, drop$Arc_str_Arc_str, drop$Held, drop$Key_Key, drop$Mutex_Held, drop$Option_Box_Held, drop$Option_Guard_Guard, drop$Option_Held, drop$Option_Result_Guard_u8, drop$Pair_Held, drop$Result_Guard_Guard, drop$Result_Guard_u8, drop$Wrap_Arc_Held, drop$Wrap_Guard, drop$Wrap_Held, drop$Wrap_Pair_Held, drop$Wrap_Vec_Wrap_Held } from "./lib.ts";
 import { thenSome$0zvoczk } from "./core/bool.ts";
-import { isSomeAnd$17cacqw, unwrapOr$0v6ziq2, unwrapOr$1tvry1i, mapOr$1w10sgd, mapOr$0ey19f0, okOr$1alhe7b, filter$1vqc90z, orElse$02wco5t, zip$1rr0evn, clone$1sxxxkp } from "./core/option.ts";
+import { isSomeAnd$17cacqw, unwrapOr$0v6ziq2, unwrapOr$1tvry1i, map$0lq7mno, map$0782hf5, map$0ccnsmq, map$0hegtde, mapOr$1w10sgd, mapOr$0ey19f0, okOr$1alhe7b, filter$1vqc90z, orElse$02wco5t, zip$1rr0evn, clone$1sxxxkp } from "./core/option.ts";
 import { ok$0whpnxs, err$0fnxqh3, asRef$01pd5k9, mapOr$1hlk3iq, mapOrElse$196aho3, andThen$0r804hk, unwrapOr$13024tg } from "./core/result.ts";
 import { scoped, discarded, iterated } from "./drops/closures.ts";
 import { folded as folds_folded, rfolded as folds_rfolded } from "./drops/folds.ts";
@@ -41,15 +41,17 @@ export function cells(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 }
 
 /**
- * Run scenario `arg % 15`: what every value std holds drops, where Rust drops it, and in
+ * Run scenario `arg % 16`: what every value std holds drops, where Rust drops it, and in
  * Rust's order.
  */
 export function run(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
 		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
 	};
-	const _6: rt.u8 = rt.u8Rem(arg, 15);
-	if (_6 === 14) {
+	const _6: rt.u8 = rt.u8Rem(arg, 16);
+	if (_6 === 15) {
+		elements(log, id);
+	} else if (_6 === 14) {
 		iterated(log, id);
 	} else if (_6 === 12) {
 		scoped(log, id);
@@ -723,6 +725,246 @@ export function options(log: Log.Log, id: rt.u32): void {
 	rt.drop(ok);
 	drop$Result_Guard_Guard(none);
 	drop$Result_Guard_Guard(some);
+}
+
+/**
+ * What std's accessors of elements that are each an `Option` of a value that drops give
+ * and drop: `None` for no element, apart from the `Some(None)` of a `None` one, and each
+ * value once, where Rust drops it.
+ */
+export function elements(log: Log.Log, id: rt.u32): void {
+	const _7: (a0: Guard.Guard | undefined) => rt.u32 | undefined = (o3: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o3, Guard.id);
+	};
+	const _245: (a0: Key.Key | undefined) => rt.u32 | undefined = (o4: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o4, (k: Key.Key): rt.u32 => {
+			return k.id;
+		});
+	};
+	const guard: (a0: rt.u32) => Guard.Guard = (n: rt.u32): Guard.Guard => {
+		return Guard.new(rt.u32Add(id, n), Log.clone$Clone(log));
+	};
+	const key: (a0: rt.u32) => Key.Key = (n2: rt.u32): Key.Key => {
+		return Key.new(rt.u32Add(id, n2), Log.clone$Clone(log));
+	};
+	const v2: Array<Guard.Guard | undefined> = [];
+	const _12: Guard.Guard | undefined = guard(1);
+	v2.push(_12);
+	v2.push(undefined as Guard.Guard | undefined);
+	const _21: Guard.Guard | undefined = guard(2);
+	v2.push(_21);
+	v2.push(undefined as Guard.Guard | undefined);
+	const v: Array<Guard.Guard | undefined> = v2;
+	const _34: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.sliceFirst(v, rt.None), (o5: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o5, Guard.id);
+	});
+	const _39: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.sliceLast(v, rt.None), (o6: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o6, Guard.id);
+	});
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_34, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_39, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["vec ", args2[0], " ", args2[1]]));
+	const _54: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.sliceGet(v, 1, rt.None), (o7: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o7, Guard.id);
+	});
+	const _59: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.sliceGet(v, 4, rt.None), (o8: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o8, Guard.id);
+	});
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_54, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_59, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["get ", args4[0], " ", args4[1]]));
+	const _68: rt.Place<Guard.Guard | undefined> | undefined = rt.sliceLastMut(v);
+	if (_68 !== undefined) {
+		const _73: Guard.Guard | undefined = guard(3);
+		rt.drop(_68.v);
+		_68.v = _73;
+	}
+	const _77: rt.Place<Guard.Guard | undefined> | undefined = rt.sliceFirstMut(v);
+	if (_77 !== undefined) {
+		rt.drop(_77.v);
+		_77.v = undefined;
+	}
+	while (true) {
+		const _83: Guard.Guard | undefined | rt.None = rt.vecPop(v, rt.None);
+		if (_83 !== rt.None) {
+			const o: Guard.Guard | undefined = _83;
+			const part2 = _7(o);
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.u32Debug)];
+			Log.note(log, rt.fmtFormat(["pop ", args6[0]]));
+			rt.drop(o);
+		} else {
+			break;
+		}
+	}
+	const part4 = map$0ccnsmq(rt.vecPop(v, rt.None), (o9: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _010: rt.u32 | undefined = _7(o9);
+		rt.drop(o9);
+		return _010;
+	});
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part4, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["popped ", args8[0]]));
+	const q: rt.VecDeque<Guard.Guard | undefined> = rt.dequeNew() as rt.VecDeque<Guard.Guard | undefined>;
+	rt.dequePushBack(q, undefined as Guard.Guard | undefined);
+	const _122: Guard.Guard | undefined = guard(4);
+	rt.dequePushBack(q, _122);
+	const _128: Guard.Guard | undefined = guard(5);
+	rt.dequePushFront(q, _128);
+	rt.dequePushBack(q, undefined as Guard.Guard | undefined);
+	const _141: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeEnd(q, false, rt.None), (o10: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o10, Guard.id);
+	});
+	const _145: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeEnd(q, true, rt.None), (o11: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o11, Guard.id);
+	});
+	const _149: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeGet(q, 4, rt.None), (o12: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o12, Guard.id);
+	});
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_141, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_145, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_149, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["deque ", args10[0], " ", args10[1], " ", args10[2]]));
+	const _158: rt.Place<Guard.Guard | undefined> | undefined = rt.dequeEndMut(q);
+	if (_158 !== undefined) {
+		rt.drop(_158.v);
+		_158.v = undefined;
+	}
+	const removed: Guard.Guard | undefined | rt.None = rt.dequeRemove(q, 2, rt.None);
+	const _171: rt.u32 | undefined | rt.None = map$0ccnsmq(removed, (o13: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o13, Guard.id);
+	});
+	const _175: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequeRemove(q, 3, rt.None), (o14: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _015: rt.u32 | undefined = _7(o14);
+		rt.drop(o14);
+		return _015;
+	});
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_171, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_175, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["remove ", args12[0], " ", args12[1]]));
+	rt.drop(removed);
+	const _188: Guard.Guard | undefined = guard(6);
+	rt.dequePushBack(q, _188);
+	const front: Guard.Guard | undefined | rt.None = rt.dequePopFront(q, rt.None);
+	const part6 = map$0ccnsmq(front, (o15: Guard.Guard | undefined): rt.u32 | undefined => {
+		return map$0lq7mno(o15, Guard.id);
+	});
+	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part6, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["front ", args14[0]]));
+	while (true) {
+		const _207: Guard.Guard | undefined | rt.None = rt.dequePopBack(q, rt.None);
+		if (_207 !== rt.None) {
+			const o2: Guard.Guard | undefined = _207;
+			const part8 = _7(o2);
+			const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part8, f, rt.u32Debug)];
+			Log.note(log, rt.fmtFormat(["back ", args16[0]]));
+			rt.drop(o2);
+		} else {
+			break;
+		}
+	}
+	const _231: rt.u32 | undefined | rt.None = map$0ccnsmq(rt.dequePopFront(q, rt.None), (o16: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _017: rt.u32 | undefined = _7(o16);
+		rt.drop(o16);
+		return _017;
+	});
+	const _237: rt.u32 | undefined | rt.None = map$0ccnsmq(front, (o17: Guard.Guard | undefined): rt.u32 | undefined => {
+		const _018: rt.u32 | undefined = _7(o17);
+		rt.drop(o17);
+		return _018;
+	});
+	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_231, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_237, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["emptied ", args18[0], " ", args18[1]]));
+	const heap: rt.BinaryHeap<Key.Key | undefined> = rt.heapNew() as rt.BinaryHeap<Key.Key | undefined>;
+	const _249: Key.Key | undefined = key(7);
+	rt.heapPush(heap, _249, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
+	rt.heapPush(heap, undefined as Key.Key | undefined, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
+	const _258: Key.Key | undefined = key(8);
+	rt.heapPush(heap, _258, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)));
+	const part11 = map$0hegtde(rt.heapPeek(heap, rt.None), (o18: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o18, (k2: Key.Key): rt.u32 => {
+			return k2.id;
+		});
+	});
+	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part11, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["heap ", args20[0]]));
+	const top: Key.Key | undefined | rt.None = rt.heapPop(heap, rt.cmpLe(rt.cmpOption(Key.partialCmp$PartialOrd)), rt.None);
+	const part12 = map$0hegtde(top, (o19: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o19, (k3: Key.Key): rt.u32 => {
+			return k3.id;
+		});
+	});
+	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part12, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["top ", args22[0]]));
+	rt.drop(top);
+	const sorted: rt.BTreeSet<Key.Key | undefined> = rt.btreeNew(rt.cmpOption(Key.cmp$Ord)) as rt.BTreeSet<Key.Key | undefined>;
+	const _294: Key.Key | undefined = key(9);
+	rt.btreeAdd(sorted, _294, rt.drop);
+	rt.btreeAdd(sorted, undefined as Key.Key | undefined, rt.drop);
+	const _303: Key.Key | undefined = key(10);
+	rt.btreeAdd(sorted, _303, rt.drop);
+	const _313: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeFirstKey(sorted, false, rt.None), (o20: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o20, (k4: Key.Key): rt.u32 => {
+			return k4.id;
+		});
+	});
+	const _317: rt.u32 | undefined | rt.None = map$0hegtde(rt.btreeFirstKey(sorted, true, rt.None), (o21: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o21, (k5: Key.Key): rt.u32 => {
+			return k5.id;
+		});
+	});
+	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_313, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_317, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["set ", args24[0], " ", args24[1]]));
+	const least: Key.Key | undefined | rt.None = rt.btreePopKey(sorted, false, rt.None);
+	const most: Key.Key | undefined | rt.None = rt.btreePopKey(sorted, true, rt.None);
+	const _335: rt.u32 | undefined | rt.None = map$0hegtde(least, (o22: Key.Key | undefined): rt.u32 | undefined => {
+		const _027: rt.u32 | undefined = _245(o22);
+		rt.drop(o22);
+		return _027;
+	});
+	const _339: rt.u32 | undefined | rt.None = map$0hegtde(most, (o23: Key.Key | undefined): rt.u32 | undefined => {
+		const _028: rt.u32 | undefined = _245(o23);
+		rt.drop(o23);
+		return _028;
+	});
+	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_335, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_339, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["popped ", args26[0], " ", args26[1]]));
+	const hashed_: rt.HashSet<Key.Key | undefined> = rt.hashNew(rt.hashing(rt.hashOption(Key.hash$Hash_DefaultHasher), rt.eqOption(Key.eq$PartialEq))) as rt.HashSet<Key.Key | undefined>;
+	const _350: Key.Key | undefined = key(11);
+	rt.hashAdd(hashed_, _350, rt.drop);
+	const part15 = map$0hegtde(rt.hashKey(hashed_, undefined, false, rt.None), (o24: Key.Key | undefined): rt.u32 | undefined => {
+		return map$0782hf5(o24, (k6: Key.Key): rt.u32 => {
+			return k6.id;
+		});
+	});
+	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part15, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["hashed ", args28[0]]));
+	rt.hashAdd(hashed_, undefined as Key.Key | undefined, rt.drop);
+	const _380: rt.u32 | undefined | rt.None = map$0hegtde(rt.hashKey(hashed_, undefined, true, rt.None), (o25: Key.Key | undefined): rt.u32 | undefined => {
+		const _031: rt.u32 | undefined = _245(o25);
+		rt.drop(o25);
+		return _031;
+	});
+	const _384: rt.u32 | undefined | rt.None = map$0hegtde(rt.hashKey(hashed_, undefined, true, rt.None), (o26: Key.Key | undefined): rt.u32 | undefined => {
+		const _032: rt.u32 | undefined = _245(o26);
+		rt.drop(o26);
+		return _032;
+	});
+	const args30: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_380, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_384, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["taken ", args30[0], " ", args30[1]]));
+	const _398: Key.Key | undefined = key(11);
+	const held_: Key.Key | undefined | rt.None = rt.hashKey(hashed_, _398, true, rt.None);
+	rt.drop(_398);
+	const part19 = map$0hegtde(held_, (o27: Key.Key | undefined): rt.u32 | undefined => {
+		const _033: rt.u32 | undefined = _245(o27);
+		rt.drop(o27);
+		return _033;
+	});
+	const args32: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part19, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug), rt.None)];
+	Log.note(log, rt.fmtFormat(["held ", args32[0]]));
+	const _421: rt.usize = heap.d.length;
+	const _424: rt.usize = rt.btreeLen(sorted);
+	const _427: rt.usize = rt.hashLen(hashed_);
+	const args34: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_421, f), (f: rt.Formatter) => rt.usizeDisplay(_424, f), (f: rt.Formatter) => rt.usizeDisplay(_427, f)];
+	Log.note(log, rt.fmtFormat(["left ", args34[0], " ", args34[1], " ", args34[2]]));
+	rt.hashDrop(hashed_, rt.drop);
+	rt.btreeDrop(sorted, rt.drop);
+	rt.heapDrop(heap, rt.drop);
+	rt.dequeDrop(q, rt.drop);
+	rt.dropAll(v);
 }
 
 /**

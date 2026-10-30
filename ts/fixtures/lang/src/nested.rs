@@ -2,19 +2,20 @@
 //! `Option<()>`, whose `None` is `rt.None` apart from each `Some`.
 
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-/// Run case `kind % 6` over `data`, whose bytes pick each `None`, `Some(None)`, or
+/// Run case `kind % 7` over `data`, whose bytes pick each `None`, `Some(None)`, or
 /// `Some(Some(_))`.
 pub fn nested(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind % 6 {
+	match kind % 7 {
 		0 => made(data, out),
 		1 => keys(data, out),
 		2 => iters(data, out),
 		3 => consumers(data, out),
 		4 => panics(data, out),
-		_ => closures(data, out),
+		5 => closures(data, out),
+		_ => elements(data, out),
 	}
 }
 
@@ -311,6 +312,96 @@ fn closures(data: &[u8], out: &mut Vec<u8>) {
 			),
 		}
 	}
+}
+
+/// Each accessor of an element of a `Vec`, a slice, a `VecDeque`, a `BinaryHeap`, or a set,
+/// over elements that are each `None` for an odd byte, and over `()`s, then a map keyed by
+/// them: an empty collection's and an out-of-range `None` apart from a `Some(None)`. The
+/// first byte is also the index.
+fn elements(data: &[u8], out: &mut Vec<u8>) {
+	let items: Vec<Option<u8>> = data.iter().map(|&b| (b % 2 == 0).then_some(b)).collect();
+	let at = data.first().map_or(0, |b| usize::from(*b) % 8);
+	let flip = |o: &mut Option<u8>| *o = o.map_or(Some(0x42), |_| None);
+	let mut v = items.clone();
+	out.extend([code(v.first().copied()), code(v.last().copied()), code(v.get(at).copied())]);
+	out.push(code(v[..].get(at..).and_then(|s| s.first()).copied()));
+	v.first_mut().map(flip);
+	v.last_mut().map(flip);
+	v.get_mut(at).map(flip);
+	out.extend([code(v.first().copied()), code(v.last().copied()), code(v.get(at).copied())]);
+	// Through each element, as `pop` reads past a `None` one.
+	while let Some(o) = v.pop() {
+		out.push(code(Some(o)));
+	}
+	out.push(code(v.pop()));
+	let mut units = vec![(); data.len()];
+	out.extend([units.first().is_some() as u8, units.last().is_some() as u8, units.get(at).is_some() as u8]);
+	out.extend([units.first_mut().is_some() as u8, units.last_mut().is_some() as u8, units.get_mut(at).is_some() as u8]);
+	let mut popped = 0u8;
+	while let Some(()) = units.pop() {
+		popped += 1;
+	}
+	out.push(popped);
+	let mut q: VecDeque<Option<u8>> = VecDeque::new();
+	for (i, &o) in items.iter().enumerate() {
+		match i % 2 {
+			0 => q.push_back(o),
+			_ => q.push_front(o),
+		}
+	}
+	out.extend([code(q.front().copied()), code(q.back().copied()), code(q.get(at).copied())]);
+	q.front_mut().map(flip);
+	q.back_mut().map(flip);
+	q.get_mut(at).map(flip);
+	out.extend([code(q.front().copied()), code(q.back().copied()), code(q.get(at).copied())]);
+	out.push(code(q.remove(at)));
+	while let Some(o) = q.pop_front() {
+		out.push(code(Some(o)));
+		if let Some(o) = q.pop_back() {
+			out.push(code(Some(o)));
+		}
+	}
+	out.extend([code(q.pop_front()), code(q.pop_back()), code(q.front().copied()), code(q.remove(0))]);
+	let mut unit_q = VecDeque::from(vec![(); data.len() * 2]);
+	out.extend([unit_q.front().is_some() as u8, unit_q.back().is_some() as u8, unit_q.get(at).is_some() as u8]);
+	out.extend([unit_q.pop_back().is_some() as u8, unit_q.remove(at).is_some() as u8, unit_q.pop_front().is_some() as u8]);
+	// `None` is the least, so the heap yields each `None` last.
+	let mut heap: BinaryHeap<Option<u8>> = items.iter().copied().collect();
+	out.push(code(heap.peek().copied()));
+	while let Some(o) = heap.pop() {
+		out.push(code(Some(o)));
+	}
+	out.extend([code(heap.peek().copied()), code(heap.pop())]);
+	let mut hashed: HashSet<Option<u8>> = HashSet::new();
+	out.extend([code(hashed.get(&None).copied()), code(hashed.take(&None))]);
+	hashed.extend(items.iter().copied());
+	let probe = data.last().map(|&b| (b % 2 == 0).then_some(b));
+	out.extend([code(hashed.get(&None).copied()), code(probe.and_then(|p| hashed.get(&p)).copied())]);
+	out.extend([code(hashed.take(&None)), code(hashed.take(&None)), code(hashed.get(&Some(1)).copied())]);
+	out.push(hashed.len() as u8);
+	let mut sorted: BTreeSet<Option<u8>> = items.iter().copied().collect();
+	out.extend([code(sorted.first().copied()), code(sorted.last().copied())]);
+	out.extend([code(sorted.pop_first()), code(sorted.pop_last())]);
+	while let Some(o) = sorted.pop_last() {
+		out.push(code(Some(o)));
+	}
+	out.extend([code(sorted.first().copied()), code(sorted.last().copied()), code(sorted.pop_first())]);
+	// Keyed by them, through what a set shares with a map.
+	let mut by: BTreeMap<Option<u8>, u8> = BTreeMap::new();
+	let mut hash_by: HashMap<Option<u8>, u8> = HashMap::new();
+	for (i, &o) in items.iter().enumerate() {
+		*by.entry(o).or_default() += i as u8;
+		hash_by.insert(o, i as u8);
+	}
+	for n in [by.get(&None), hash_by.get(&None), by.get(&Some(at as u8))] {
+		out.push(n.copied().unwrap_or(0xcc));
+	}
+	out.push(hash_by.remove(&None).unwrap_or(0xcc));
+	out.extend(by.first_key_value().map(|(&k, &n)| [code(Some(k)), n]).unwrap_or([0xcc; 2]));
+	for (&k, &n) in &by {
+		out.extend([code(Some(k)), n]);
+	}
+	out.push(hash_by.len() as u8);
 }
 
 fn panics(data: &[u8], out: &mut Vec<u8>) {

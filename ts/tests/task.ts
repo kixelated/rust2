@@ -385,7 +385,7 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["front", 0], ["run", 0], ["send", 4], ["send", 3], ["send", 7], ["send", 9], ["send", 5], ["run", 0], ["send", 6], ["run", 0], ["send", 1], ["step", 0], ["close", 0], ["run", 0]),
 	script(["open", 0], ["front", 0], ["front", 0], ["run", 0], ["send", 2], ["run", 0], ["send", 8], ["step", 0], ["drop", 1], ["run", 0], ["drop", 0]),
 	// Each scenario of values std holds that drop.
-	...Array.from({ length: 15 }, (_, arg) => script(["drops", arg])),
+	...Array.from({ length: 16 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its, a tuple's, and a box's `clone`, and `Ord`'s defaults.
 	...Array.from({ length: 9 }, (_, arg) => script(["edited", arg])),
 	// What boxed and shared trait objects drop, `dyn Any`s, and `dyn Fn*`s.
