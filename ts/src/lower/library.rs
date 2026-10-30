@@ -1711,6 +1711,13 @@ fn mapping<'tcx>(
 		("String", "as_str") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
 		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
+		// Of the place the `&mut` is, which it writes as it drops, and of a range, as `Vec::drain`.
+		("String", "drain") => {
+			let range = args.pop()?;
+			args.push(super::collections::bounds(b, call, range));
+			Expr::rt("stringDrain", args)
+		}
+		("Drain", "as_str") => Expr::rt("stringDrainAsStr", args),
 		("ParseIntError", "kind") => args.pop()?.member("kind"),
 		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {

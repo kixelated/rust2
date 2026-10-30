@@ -325,6 +325,14 @@ pub fn call<'tcx>(
 		_ => {}
 	}
 
+	// What `collect` calls.
+	if (owner, name) == ("FromIterator", "from_iter") {
+		let source = targ(2)?;
+		let iter = iter_of(b.t, source)?;
+		let items = into_iter(b, source, args.pop()?, span)?;
+		return collect(b, targ(0)?, targ(1)?, items, iter, span);
+	}
+
 	// `Vec::extend` with an iterator, which it drops once done.
 	if (owner, name) == ("Extend", "extend") {
 		let (vec, item, source) = (targ(0)?, targ(1)?, targ(2)?);
@@ -794,8 +802,41 @@ fn collect<'tcx>(
 			let args = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
 			Some(Expr::rt(collect, tail(args, vec![dropper])))
 		}
+		// From chars or text, as `extend` of an empty one, but for an owned string's, which
+		// the rest extend once `next` gives it.
+		Std::String if matches!(b.t.std_of(item), Some(Std::String | Std::Cow)) => {
+			let drops = iter_drops(b, from, span);
+			Some(Expr::rt("stringFromStrings", tail(vec![iter], vec![drops])))
+		}
+		Std::String => string_extend(b, Expr::Str(String::new()), iter, item, from, span),
 		_ => super::collections::collect(b, ty, iter, from, span),
 	}
+}
+
+/// `s` extended by `items`, an iterator of type `iter` of `item`s, as `String`'s `Extend`
+/// reads it, by `for_each`: of chars, through any `&`, or of text, a `&str`, `String`,
+/// `Box<str>`, or `Cow<str>`.
+pub(super) fn string_extend<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	s: Expr,
+	items: Expr,
+	item: Ty<'tcx>,
+	iter: Ty<'tcx>,
+	span: Span,
+) -> Option<Expr> {
+	let text = match *item.peel_refs().kind() {
+		ty::Char => false,
+		ty::Str => true,
+		ty::Adt(_, args) => match b.t.std_of(item)? {
+			Std::String => true,
+			Std::Box | Std::Cow => args.types().next().is_some_and(|t| t.is_str()),
+			_ => return None,
+		},
+		_ => return None,
+	};
+	let extend = if text { "stringExtend" } else { "stringExtendChars" };
+	let drops = iter_drops(b, iter, span);
+	Some(Expr::rt(extend, tail(vec![s, items], vec![drops])))
 }
 
 /// Whether an iterator of type `ty` that a runtime function takes by value drops what it

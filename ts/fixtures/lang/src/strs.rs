@@ -645,3 +645,184 @@ pub fn parses(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 	}
 }
+
+/// A crate's own iterator over `items`, which counts each `next` it is asked.
+struct Counted<'a, T> {
+	items: &'a [T],
+	nexts: &'a std::cell::Cell<u8>,
+}
+
+impl<T: Clone> Iterator for Counted<'_, T> {
+	type Item = T;
+
+	fn next(&mut self) -> Option<T> {
+		self.nexts.set(self.nexts.get() + 1);
+		let (first, rest) = self.items.split_first()?;
+		self.items = rest;
+		Some(first.clone())
+	}
+}
+
+/// `String` made from and extended by iterators of chars and of strings, each the kind
+/// picks, from text of chars of every UTF-8 width and its parts between `/`s.
+pub fn iters(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let s = text(data);
+	let chars: Vec<char> = s.chars().collect();
+	let parts: Vec<&str> = s.split('/').collect();
+	let nexts = std::cell::Cell::new(0);
+	let mut named = Named {
+		name: text(&data[..data.len() / 2]),
+	};
+	match kind % 4 {
+		0 => {
+			put(out, &s.chars().collect::<String>());
+			put(
+				out,
+				&s.chars().rev().filter(|c| !c.is_ascii_digit()).collect::<String>(),
+			);
+			put(out, &chars.iter().collect::<String>());
+			put(out, &String::from_iter(chars.iter().copied().skip(1)));
+			put(out, &std::iter::empty::<char>().collect::<String>());
+			put(out, &char::from_u32(u32::from(kind)).into_iter().collect::<String>());
+			let counted = Counted {
+				items: &chars,
+				nexts: &nexts,
+			};
+			put(out, &counted.collect::<String>());
+		}
+		1 => {
+			put(out, &parts.iter().copied().collect::<String>());
+			put(out, &s.split('/').rev().collect::<String>());
+			put(out, &parts.iter().map(|p| p.to_string()).collect::<String>());
+			put(
+				out,
+				&s.split('/')
+					.map(|p| format!("{p}{p}"))
+					.filter(|p| !p.is_empty())
+					.collect::<String>(),
+			);
+			put(out, &std::iter::empty::<String>().collect::<String>());
+			let owned: Vec<String> = parts.iter().map(|p| p.to_string()).collect();
+			put(
+				out,
+				&owned
+					.iter()
+					.map(|p| std::borrow::Cow::Borrowed(p.as_str()))
+					.collect::<String>(),
+			);
+			let counted = Counted {
+				items: &owned,
+				nexts: &nexts,
+			};
+			put(out, &counted.collect::<String>());
+		}
+		2 => {
+			// Through a `&mut`, on a local, and on a field.
+			let mut t = String::from("é");
+			extend_chars(&mut t, &chars, kind);
+			t.extend(s.chars().rev());
+			named.name.extend(&chars);
+			named.name.extend(std::iter::empty::<char>());
+			let counted = Counted {
+				items: &chars,
+				nexts: &nexts,
+			};
+			t.extend(counted);
+			put(out, &t);
+		}
+		_ => {
+			let mut t = String::new();
+			t.extend(s.split('/'));
+			t.extend(parts.iter().map(|p| format!("{p}é")));
+			named.name.extend(parts.iter().rev().copied());
+			named
+				.name
+				.extend(parts.iter().map(|p| std::borrow::Cow::Owned(p.to_string())));
+			named.name.extend(std::iter::empty::<&str>());
+			let counted = Counted {
+				items: &parts,
+				nexts: &nexts,
+			};
+			t.extend(counted);
+			put(out, &t);
+		}
+	}
+	put(out, &named.name);
+	out.push(nexts.get());
+}
+
+fn extend_chars(t: &mut String, chars: &[char], kind: u8) {
+	match kind / 4 % 3 {
+		0 => t.extend(chars.iter()),
+		1 => t.extend(chars.iter().copied().filter(|c| c.is_ascii_digit())),
+		_ => t.extend(Some('😀')),
+	}
+}
+
+/// `String::drain` of `s` by the range `form` picks, between offsets from `a` and `b`,
+/// read from either end by `steps`' bits, then dropped, forgotten, or read to its end.
+fn drain_by(s: &mut String, form: u8, a: u8, b: u8, steps: u8, out: &mut Vec<u8>) {
+	let (i, j) = (offset(s, a), offset(s, b));
+	let mut drain = match form % 8 {
+		0 => s.drain(i..j),
+		1 => s.drain(i..),
+		2 => s.drain(..j),
+		3 => s.drain(..),
+		4 => s.drain(i..=j),
+		5 => s.drain(..=j),
+		6 => s.drain((Bound::Excluded(i), Bound::Included(j))),
+		_ => s.drain((Bound::Included(i), Bound::Unbounded)),
+	};
+	// Up to three chars, each from the front or the back by a bit of `steps`.
+	for k in 0..steps % 4 {
+		let c = match steps >> (2 + k) & 1 {
+			0 => drain.next(),
+			_ => drain.next_back(),
+		};
+		put_char(out, c);
+	}
+	match form / 8 % 4 {
+		0 => {}
+		// Forgotten, a drain leaves the string as it was.
+		1 => std::mem::forget(drain),
+		2 => put(out, &drain.collect::<String>()),
+		_ => {
+			put(out, drain.as_str());
+			for c in drain.rev() {
+				put_char(out, Some(c));
+			}
+		}
+	}
+}
+
+/// `String::drain`s, four bytes each, on text of chars of every UTF-8 width: through a
+/// `&mut String`, on a local, and on a field, each printed after each drain. An offset off
+/// a char boundary or out of bounds panics as std's does.
+pub fn drains(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (head, ops) = data.split_at(data.len().min(usize::from(kind % 8)));
+	let mut s = text(head);
+	let mut named = Named { name: text(head) };
+	for op in ops.chunks(4) {
+		let [form, a, b, steps] = [
+			op[0],
+			*op.get(1).unwrap_or(&0),
+			*op.get(2).unwrap_or(&0x10),
+			*op.get(3).unwrap_or(&0),
+		];
+		match form / 32 % 4 {
+			0 => drain_by(&mut named.name, form, a, b, steps, out),
+			// On the local itself, with no `&mut` between.
+			1 => match form % 4 {
+				0 => put(out, &s.drain(..offset(&s, a)).collect::<String>()),
+				1 => out.push(s.drain(offset(&s, a)..).count() as u8),
+				2 => put_char(out, s.drain(..).last()),
+				_ => {
+					s.drain(offset(&s, a)..offset(&s, b));
+				}
+			},
+			_ => drain_by(&mut s, form, a, b, steps, out),
+		}
+		put(out, &s);
+		put(out, &named.name);
+	}
+}

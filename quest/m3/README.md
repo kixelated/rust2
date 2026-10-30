@@ -21,7 +21,6 @@ generic std gap is planned here even when moq never calls it.
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
-- [Strings from and into iterators](/quest/m3/ts-string-iters.md) - `collect::<String>`, `String::extend`, and `drain` translate
 - [Equality of Result and std's errors](/quest/m3/ts-error-eq.md) - `==` of a `Result` and of std's parse and conversion errors translates
 - [Placeholders written to a crate's own fmt::Write](/quest/m3/ts-fmt-calls.md) - `write!` with placeholders into a crate's own writer translates, its `write_str` seeing each call std makes
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
@@ -31,6 +30,7 @@ generic std gap is planned here even when moq never calls it.
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
 - [References to byte-array keys a collection yields](/quest/m3/ts-byte-key-refs.md) - `keys`, `iter`, `get_key_value`, and `HashSet::get` of a `[u8; N]` key translate
 - [An array as a slice](/quest/m3/ts-array-as-slice.md) - `<[T; N]>::as_slice` and `as_mut_slice` translate
+- [Size hints of std's iterators](/quest/m3/ts-size-hints.md) - `size_hint` translates, and a collect or extend that reserves past `isize::MAX` panics as std's does
 - [reduce, max_by, min_by, and Peekable's next_if_eq and peek_mut](/quest/m3/ts-iter-reducers.md) - the iterator consumers std returns an item from that have no mapping translate
 - [Closures that return an Option whose None is rt.None](/quest/m3/ts-option-closures.md) - `find_map`, `filter_map`, and `map_while` to `Option<Option<u8>>` keep `None` apart from `Some(None)`
 - [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate

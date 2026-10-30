@@ -152,8 +152,20 @@ export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | und
 	return v === undefined ? v : copy$Shape(v);
 }
 
+export function copy$Option_String_Strings(v: [string, string[]] | undefined): [string, string[]] | undefined {
+	return v === undefined ? v : copy$String_Strings(v);
+}
+
 export function copy$Option_Wrap_i16(v: Wrap.Wrap<rt.i16> | undefined): Wrap.Wrap<rt.i16> | undefined {
 	return v === undefined ? v : copy$Wrap_i16(v);
+}
+
+export function copy$Option_char_chars(v: [rt.char, rt.char[]] | undefined): [rt.char, rt.char[]] | undefined {
+	return v === undefined ? v : copy$char_chars(v);
+}
+
+export function copy$Option_str_strs(v: [string, string[]] | undefined): [string, string[]] | undefined {
+	return v === undefined ? v : copy$str_strs(v);
 }
 
 export function copy$Option_u64_u64(v: [rt.u64, rt.u64] | undefined): [rt.u64, rt.u64] | undefined {
@@ -230,6 +242,10 @@ export function copy$Shape(v: Shape.Shape): Shape.Shape {
 	return v;
 }
 
+export function copy$String_Strings(v: [string, string[]]): [string, string[]] {
+	return [v[0], v[1]];
+}
+
 export function copy$Tally(v: Tally.Tally): Tally.Tally {
 	return { n: v.n };
 }
@@ -258,6 +274,10 @@ export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap(v.value, v.count);
 }
 
+export function copy$char_chars(v: [rt.char, rt.char[]]): [rt.char, rt.char[]] {
+	return [v[0], v[1]];
+}
+
 export function copy$chars(v: rt.char[]): rt.char[] {
 	return v.slice();
 }
@@ -272,6 +292,10 @@ export function copy$str_forabfnu8au8bmutstdvecVecu8(v: [string, (a0: rt.u8, a1:
 
 export function copy$str_forabfnu8au8bmutstdvecVecu8s(v: [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][]): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void][] {
 	return v.map(copy$str_forabfnu8au8bmutstdvecVecu8);
+}
+
+export function copy$str_strs(v: [string, string[]]): [string, string[]] {
+	return [v[0], v[1]];
 }
 
 export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
