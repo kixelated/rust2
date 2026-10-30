@@ -5,15 +5,16 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-/// Run case `kind % 5` over `data`, whose bytes pick each `None`, `Some(None)`, or
+/// Run case `kind % 6` over `data`, whose bytes pick each `None`, `Some(None)`, or
 /// `Some(Some(_))`.
 pub fn nested(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	match kind % 5 {
+	match kind % 6 {
 		0 => made(data, out),
 		1 => keys(data, out),
 		2 => iters(data, out),
 		3 => consumers(data, out),
-		_ => panics(data, out),
+		4 => panics(data, out),
+		_ => closures(data, out),
 	}
 }
 
@@ -218,6 +219,98 @@ fn consumers(data: &[u8], out: &mut Vec<u8>) {
 	out.push(code(written.next_if_eq(&None)));
 	out.push(code(written.next_if_eq(&Some(n as u8))));
 	out.push(code(written.next()));
+}
+
+/// Each adaptor and source whose closure returns `pick`'s `Option<Option<u8>>` or `unit`'s
+/// `Option<()>`: its `None` ends or skips, where its `Some(None)` is an item. Each count is
+/// of the closure's calls.
+fn closures(data: &[u8], out: &mut Vec<u8>) {
+	let mut called = 0u8;
+	let found = data.iter().find_map(|&b| {
+		called += 1;
+		pick(b)
+	});
+	out.extend([code(found), called]);
+	out.push(data.iter().find_map(|&b| unit(b ^ 1)).map_or(0xd0, |()| 0xd1));
+	called = 0;
+	let kept: Vec<Option<u8>> = data
+		.iter()
+		.filter_map(|&b| {
+			called += 1;
+			pick(b)
+		})
+		.collect();
+	out.extend(kept.iter().map(|&o| code(Some(o))));
+	out.push(called);
+	let back: Vec<Option<u8>> = data.iter().filter_map(|&b| pick(b)).rev().collect();
+	out.extend(back.iter().map(|&o| code(Some(o))));
+	// Through `fold`.
+	let folded = data
+		.iter()
+		.filter_map(|&b| pick(b))
+		.fold(0u8, |n, o| n.wrapping_mul(3).wrapping_add(code(Some(o))));
+	out.push(folded);
+	out.push(data.iter().filter_map(|&b| unit(b)).count() as u8);
+	called = 0;
+	let whiles: Vec<Option<u8>> = data
+		.iter()
+		.map_while(|&b| {
+			called += 1;
+			pick(b)
+		})
+		.collect();
+	out.extend(whiles.iter().map(|&o| code(Some(o))));
+	out.extend([whiles.len() as u8, called]);
+	out.push(data.iter().map_while(|&b| unit(b)).count() as u8);
+	// Not fused: `next` calls the closure again after its `None`.
+	let mut rest = data.iter();
+	called = 0;
+	let mut made = std::iter::from_fn(|| {
+		called += 1;
+		pick(*rest.next()?)
+	});
+	let first: Vec<Option<u8>> = made.by_ref().collect();
+	let after = made.next();
+	out.extend(first.iter().map(|&o| code(Some(o))));
+	out.extend([first.len() as u8, code(after), called]);
+	let mut left = data.len();
+	out.push(
+		std::iter::from_fn(|| {
+			left = left.checked_sub(1)?;
+			unit(left as u8)
+		})
+		.count() as u8,
+	);
+	// From each `pick` of the first byte as the seed, each next from the bytes after.
+	let mut seen = Vec::new();
+	let mut rest = data.iter().skip(1);
+	let walked: Vec<Option<u8>> = std::iter::successors(data.first().and_then(|&b| pick(b)), |&prev| {
+		seen.push(code(Some(prev)));
+		pick(*rest.next()?)
+	})
+	.collect();
+	out.extend(walked.iter().map(|&o| code(Some(o))));
+	out.extend(seen);
+	let mut steps = 0u8;
+	let units = std::iter::successors(Some(()), |()| {
+		steps += 1;
+		(steps < 3).then_some(())
+	});
+	out.extend([units.count() as u8, steps]);
+	// `extend` reserves the size hint's lower bound, which is 1 while a `Some(())` or
+	// `Some(None)` is pending: past `isize::MAX`, before it reads an item.
+	if let [b @ 0xf0..=0xff] = *data {
+		let mut s = String::new();
+		let rest = (0..isize::MAX as usize).map(|_| -> char { panic!("read") });
+		match b % 2 {
+			0 => s.extend(std::iter::successors(Some(()), |()| None).map(|()| 'a').chain(rest)),
+			_ => s.extend(
+				std::iter::successors(Some(None::<u8>), |_| None)
+					.map(|_| 'a')
+					.chain(rest),
+			),
+		}
+	}
 }
 
 fn panics(data: &[u8], out: &mut Vec<u8>) {
