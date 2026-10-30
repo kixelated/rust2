@@ -167,11 +167,32 @@ export function map$Option_Arc_Made_u64_get_closure0(self: rt.Arc<Made.Made> | u
 	return f(self);
 }
 
+export function map$Option_Arc_Noisy_Arc_Noisy_clone(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => rt.Arc<counts_Noisy.Noisy>): rt.Arc<counts_Noisy.Noisy> | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return rt.arcClone(self);
+}
+
+export function map$Option_Arc_Noisy_Noisy_deref(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => counts_Noisy.Noisy): counts_Noisy.Noisy | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self.value;
+}
+
 export function map$Option_Arc_dyn_Shape_u32_shared_closure0(self: rt.Arc<Shape.Shape> | undefined, f: (a0: rt.Arc<Shape.Shape>) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
+}
+
+export function map$Option_Arc_u8_u8_deref(self: rt.Arc<rt.u8> | undefined, _: (a0: rt.Arc<rt.u8>) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self.value;
 }
 
 export function map$Option_Box_Named_u16_edits_closure31(self: Named.Named | undefined, f: (a0: Named.Named) => rt.u16): rt.u16 | undefined {
@@ -371,6 +392,13 @@ export function mapOr$Option_Named_u16_edits_closure33(self: Named.Named | undef
 }
 
 export function mapOr$Option_Nibble_u8_sets_closure4(self: Nibble.Nibble | undefined, default_: rt.u8, f: (a0: Nibble.Nibble) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$Option_Noisy_u8_arcs_closure2(self: counts_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: counts_Noisy.Noisy) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -690,6 +718,18 @@ export function okOrElse$Option_u8_u16_options_closure12(self: rt.u8 | undefined
 		return rt.Err(err());
 	}
 	return rt.Ok(self);
+}
+
+export function asDeref$Option_Arc_Noisy(self: rt.Arc<counts_Noisy.Noisy> | undefined): counts_Noisy.Noisy | undefined {
+	return map$Option_Arc_Noisy_Noisy_deref(self, (a0: rt.Arc<counts_Noisy.Noisy>): counts_Noisy.Noisy => {
+		return a0.value;
+	});
+}
+
+export function asDeref$Option_Arc_u8(self: rt.Arc<rt.u8> | undefined): rt.u8 | undefined {
+	return map$Option_Arc_u8_u8_deref(self, (a0: rt.Arc<rt.u8>): rt.u8 => {
+		return a0.value;
+	});
 }
 
 export function and$Option_u8_u8(self: rt.u8 | undefined, optb: rt.u8 | undefined): rt.u8 | undefined {

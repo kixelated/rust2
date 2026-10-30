@@ -9,10 +9,10 @@ against native Rust. `for _ in r.by_ref()` over a `RangeInclusive`, then using `
 
 ## Plan
 
-[#179](https://github.com/kixelated/rust2/pull/179) gave `rt.Iter` a `folded()`, which each
+[#179](https://github.com/moq-dev/rust2/pull/179) gave `rt.Iter` a `folded()`, which each
 consumer std folds reads through: the iterator itself, but a stepper of core's `try_fold`
 for a `RangeInclusive`, and its iterator's for a `&mut` borrow. A per-item method instead
-cost up to 58% on `just ts bench`. [#172](https://github.com/kixelated/rust2/pull/172)'s
+cost up to 58% on `just ts bench`. [#172](https://github.com/moq-dev/rust2/pull/172)'s
 per-kind `fold`, which consumers take where the iterator drops, forwards through each
 adaptor to the default `fold`, which reads through `folded()`. What remains is each
 adaptor where a consumer reads it by `next`:
@@ -28,7 +28,7 @@ adaptor where a consumer reads it by `next`:
 
 `for _ in r.by_ref()` fails `tsc` today (`rt.iterBorrow(r)` is an `Iter<usize>`, not the
 `rt.RangeInclusive<usize>` it is assigned to), found by
-[#147](https://github.com/kixelated/rust2/pull/147): `IntoIterator` for `&mut I` is typed as
+[#147](https://github.com/moq-dev/rust2/pull/147): `IntoIterator` for `&mut I` is typed as
 a plain iterator. The fixtures drain with `while r.next().is_some()` around it.
 
 Public API: the translator's output.

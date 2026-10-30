@@ -287,7 +287,7 @@ pub enum Type {
 	Bound(Int),
 	/// `(Bound<T>, Bound<T>)` of an integer, the form a `RangeBounds<T>` parameter takes.
 	Bounds(Int),
-	/// A tuple, only as what a function returns.
+	/// A tuple of one element or more.
 	Tuple(Vec<Type>),
 }
 

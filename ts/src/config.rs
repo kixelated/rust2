@@ -80,4 +80,6 @@ pub mod env {
 	pub const OUT: &str = "RUST2_TS_OUT";
 	/// Where to write a census instead of translating, absolute.
 	pub const CENSUS: &str = "RUST2_TS_CENSUS";
+	/// A sysroot of std checked for translation, which flake.nix builds once per toolchain.
+	pub const SYSROOT: &str = "RUST2_TS_SYSROOT";
 }

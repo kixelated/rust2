@@ -7,7 +7,9 @@ import { unwrapOr$Option_u32, unwrapOr$Option_u8, unwrapOr$Option_u8_u8, unwrapO
 import * as Counts from "./refs.Counts.ts";
 import * as Cursor from "./refs.Cursor.ts";
 import type * as Fetch from "./refs.Fetch.ts";
+import type * as Held from "./refs.Held.ts";
 import * as Listing from "./refs.Listing.ts";
+import type * as Nest from "./refs.Nest.ts";
 import type * as Pair from "./refs.Pair.ts";
 import type * as Pair2 from "./refs.Pair2.ts";
 
@@ -484,6 +486,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 	defaulted(data, out);
 	taken(data, out);
 	elements(data, out);
+	kept(data, out);
 }
 
 /** Filled in place by its default, through a `&mut` and from a closure, then reset. */
@@ -1043,6 +1046,48 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(_590)));
 	}
+}
+
+/**
+ * References kept in a tuple, read after the index or reference they were borrowed
+ * through changes: each part reads what it borrowed when the tuple was made.
+ */
+export function kept(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const by: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 4);
+	const v: Uint8Array = Uint8Array.of(1, 2, 3, 4);
+	const iter: rt.Iter<[rt.Place<rt.u8>, rt.u8]> = rt.iterZip(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(v))), rt.iterSlice(rt.byteSliceView(data)), true);
+	while (true) {
+		const _13: [rt.Place<rt.u8>, rt.u8] | rt.Done = iter.next();
+		if (_13 === rt.DONE) {
+			break;
+		}
+		_13[0].v = _13[0].v ^ _13[1];
+	}
+	const _20: [Nest.Nest, Nest.Nest] = [{ pair: { n: by } }, { pair: { n: by ^ 255 } }];
+	const x: Nest.Nest = _20[0];
+	const y: Nest.Nest = _20[1];
+	let i: rt.usize = rt.usizeRem(by as rt.usize, rt.byteSliceFrom(v).length);
+	let r: Nest.Nest = x;
+	const held: Held.Held = { at: x };
+	const copied: Nest.Nest = r;
+	const _42: rt.usize = i;
+	if (!(_42 < 4)) {
+		rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _42);
+	}
+	const _44: Pair.Pair = r.pair;
+	const _82: Nest.Nest = held.at;
+	const _48: Nest.Nest = held.at;
+	const part = v[_42];
+	i = rt.usizeRem(rt.usizeAdd(i, 1), rt.byteSliceFrom(v).length);
+	r = y;
+	held.at = y;
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(part, _44.n, y.pair.n, _82.pair.n, copied.pair.n, _48.pair.n, copied.pair.n)));
+	const _73: rt.u8 = part ^ _44.n;
+	const _77: rt.usize = i;
+	if (!(_77 < 4)) {
+		rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _77);
+	}
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_73, v[_77], r.pair.n, held.at.pair.n)));
 }
 
 export function seenOf(data: rt.ByteSlice): rt.u8 | undefined {

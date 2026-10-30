@@ -4,7 +4,7 @@
 
 rust2-ts translates `cmp::max` and `cmp::min` (the free functions), the `is_sorted`
 family, and `BinaryHeap`, proven by differential tests against native Rust, and the cost
-of [#173](https://github.com/kixelated/rust2/pull/173)'s comparison tests on integers is
+of [#173](https://github.com/moq-dev/rust2/pull/173)'s comparison tests on integers is
 measured and, if it shows, removed.
 
 ## Plan

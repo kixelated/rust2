@@ -5,9 +5,9 @@ use std::collections::HashMap;
 /// A generic type.
 pub struct Wrap<T>(pub T);
 
-/// A tuple inside an `Option`: only a returned tuple crosses, as out pointers.
-pub fn pair() -> Option<(u8, u8)> {
-	Some((1, 2))
+/// A tuple of references taken: C lends nothing inside a value.
+pub fn pair(pair: (&str, u8)) -> u8 {
+	pair.1
 }
 
 /// Another crate's type, which has no mapping.
@@ -573,4 +573,10 @@ impl std::str::pattern::Pattern for Slash {
 /// Halves split where the crate's own pattern says.
 pub fn halves() -> impl Iterator<Item = &'static str> {
 	"a/b".split(Slash)
+}
+
+/// Two tuples whose C names run their elements together alike: both are
+/// `reject_tuple_tuple_u8_u16_u32`.
+pub fn mixed(a: Option<((u8, u16), u32)>, b: Option<((u8, u16, u32),)>) -> bool {
+	a.is_some() && b.is_some()
 }

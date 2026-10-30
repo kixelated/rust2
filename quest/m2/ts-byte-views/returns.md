@@ -10,10 +10,10 @@ alone, with every differential test passing.
 ## Plan
 
 The [epic's](/quest/m2/ts-byte-views/README.md) hand edit measured Chrome 1.84x on varint
-decode and 1.65x on frames with locals and returns, against [#120](https://github.com/kixelated/rust2/pull/120).
+decode and 1.65x on frames with locals and returns, against [#120](https://github.com/moq-dev/rust2/pull/120).
 
 Decided with the maintainer on 2026-10-27, from
-[#138](https://github.com/kixelated/rust2/pull/138): remeasure after
+[#138](https://github.com/moq-dev/rust2/pull/138): remeasure after
 [arguments as parts](/quest/m2/ts-byte-views/arguments.md). #138 built a per-function
 scratch object (the function returns which variant it made and writes the parts into its
 module-level scratch), and it measured slower than `main` in Chrome (varint quic/1B 12.0
