@@ -65,7 +65,7 @@ pub enum Std {
 	RefCell,
 	Ref,
 	RefMut,
-	/// `rt.Cell<T>`, a place holding its value.
+	/// `rt.Cell<T>`, a place holding its value: a `Cell`'s or an `UnsafeCell`'s.
 	Cell,
 	/// `rt.LocalKey<T>`: a thread-local, a module's value.
 	LocalKey,
@@ -207,6 +207,7 @@ impl Std {
 			}
 		}
 		for (item, std) in [
+			(rustc_attr_ir::LangItem::UnsafeCell, Self::Cell),
 			(rustc_attr_ir::LangItem::Context, Self::Context),
 			(rustc_attr_ir::LangItem::ResumeTy, Self::Context),
 			(rustc_attr_ir::LangItem::Poll, Self::Poll),

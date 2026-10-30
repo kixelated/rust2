@@ -507,13 +507,14 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 	}
 
 	/// Whether a `ty` may be kept as a JS object that a pointer to it is: a tuple, an
-	/// array, a struct or union of a crate that translates, or a `MaybeUninit` of one.
+	/// array, a struct or union of a crate that translates, or a `MaybeUninit` of one; or
+	/// an `rt.Cell` of one, whose `v` is what `UnsafeCell::get` points at.
 	fn inline(&self, ty: Ty<'tcx>) -> bool {
 		match ty.kind() {
 			ty::Tuple(tys) => !tys.is_empty(),
 			ty::Array(..) | ty::Param(_) | ty::Alias(..) => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
-				Some(Std::MaybeUninit) => self.inline(args.type_at(0)),
+				Some(Std::MaybeUninit | Std::Cell) => self.inline(args.type_at(0)),
 				Some(_) => false,
 				None => !adt.is_enum() && (self.own)(adt.did()),
 			},

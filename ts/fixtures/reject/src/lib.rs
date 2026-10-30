@@ -686,6 +686,24 @@ pub fn element_pointer(n: u32) -> u32 {
 	unsafe { (*p).0 }
 }
 
+/// The pointer `UnsafeCell::get` gives to the object its `rt.Cell` holds, which a whole
+/// write of the cell elsewhere replaces with another object.
+pub fn cell_replaced(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new((n, n));
+	let p = cell.get();
+	let old = std::mem::replace(&mut cell, std::cell::UnsafeCell::new((0, 0)));
+	unsafe { (*p).0 + old.into_inner().1 }
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` itself, which an
+/// assignment of the whole variable replaces.
+pub fn cell_reassigned(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new(n);
+	let p = cell.get();
+	cell = std::cell::UnsafeCell::new(0);
+	unsafe { *p + cell.into_inner() }
+}
+
 /// Two pointers to values of no bytes, which Rust may put anywhere.
 pub fn units_compared() -> bool {
 	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();

@@ -74,6 +74,8 @@ roots = [
     "part_replaced",
     "variable_reassigned",
     "element_pointer",
+    "cell_replaced",
+    "cell_reassigned",
     "units_compared",
     "dangling_enum",
     "blank_bytes",
