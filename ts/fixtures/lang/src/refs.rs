@@ -813,6 +813,18 @@ pub fn to_refs(data: &[u8], out: &mut Vec<u8>) {
 	std::mem::swap(&mut a, &mut b);
 	let old = std::mem::replace(&mut b, &[]);
 	out.extend_from_slice(&[a.len() as u8, b.len() as u8, old.len() as u8]);
+	let taken = std::mem::take(&mut a);
+	out.extend_from_slice(&[a.len() as u8, taken.len() as u8]);
+	// Moved past by a closure that captured it by `&mut`.
+	let mut left = rest;
+	let mut skip = |n: usize| {
+		let at = n.min(left.len());
+		left = &left[at..];
+		at
+	};
+	out.push(skip(n % 3) as u8);
+	out.push(skip(1) as u8);
+	out.push(left.len() as u8);
 	// A reference to an object, replaced.
 	let pairs: Vec<Pair> = rest.iter().map(|&n| Pair { n }).collect();
 	let first = Pair { n: 0 };
