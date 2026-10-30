@@ -41,12 +41,16 @@ fn try_run(args: &[String]) -> Result<ExitCode, String> {
 	};
 	let sysroot = sysroot()?;
 	// `cargo clean` reads the profiles too. The sysroot is absolute for the wrapper, which
-	// cargo runs elsewhere, and empty for none.
+	// cargo runs elsewhere, and empty for none. The wrapper's version names it, so cargo
+	// must not cache that version by the executables alone, and must hash all of it into
+	// `-C metadata`, which on a nightly it does only with `-Zseparate-nightlies`.
 	let env = [
 		(config::env::CONFIG, args.config.as_os_str()),
 		output,
 		("CARGO_UNSTABLE_PROFILE_RUSTFLAGS", "true".as_ref()),
 		(config::env::SYSROOT, sysroot.as_deref().unwrap_or("").as_ref()),
+		("CARGO_CACHE_RUSTC_INFO", "0".as_ref()),
+		("CARGO_UNSTABLE_SEPARATE_NIGHTLIES", "true".as_ref()),
 	];
 	let mut cargo = profile_args(sysroot.is_none());
 	// The profile `PROFILE` sets, which cargo refuses to combine with one the cargo args
