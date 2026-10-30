@@ -6,6 +6,7 @@
 // JS doesn't specify which NaN an operation makes, so a NaN's payload and sign are the
 // engine's: `to_bits` reads what it keeps.
 
+import { Err, type FmtResult, type Formatter, fmtPadFormatted, fmtToString, Ok, panic, type Result } from "../rt.ts";
 import type { Ordering } from "./collections.ts";
 import { type f64, type u64, u64FromHalves } from "./int.ts";
 
@@ -216,3 +217,225 @@ export const f64Add = (a: f64, b: f64): f64 => a + b;
 
 /** `f64`'s `*`, which `Iterator::product` folds with. */
 export const f64Mul = (a: f64, b: f64): f64 => a * b;
+
+/** `f64::clamp`, which panics with both bounds' `Debug` unless `min <= max`. */
+export function f64Clamp(x: f64, min: f64, max: f64): f64 {
+	if (!(min <= max)) {
+		const debug = (v: f64) => fmtToString((f) => f64Debug(v, f));
+		panic(`min > max, or either was NaN. min = ${debug(min)}, max = ${debug(max)}`);
+	}
+	return x < min ? min : x > max ? max : x;
+}
+
+// Formatting, as `core::fmt::float` does it. A finite nonzero magnitude is digits and the
+// power of ten that `0.digits` scales by, as `flt2dec` makes them.
+
+/** `x`'s shortest digits that read back as it, the closest to it of those, and the greater of two as close. */
+function shortest(x: number): [string, number] {
+	// JS picks the shortest and then the closest too, but the even one of two as close.
+	const [m, e] = x.toExponential().split("e");
+	const digits = m.replace(".", "");
+	const exp = Number(e) + 1;
+	// Two are as close only where `x` ends half a digit past them: one more binary digit
+	// past the point than they have decimal ones.
+	const places = digits.length - exp + 1;
+	if (places < 1 || fractionBits(x) !== places) return [digits, exp];
+	const [all, at] = exact(x);
+	// The greater ending in 0 would be shorter, so it can't read back as `x`.
+	if (all !== digits + "5" || at !== exp || digits.endsWith("9")) return [digits, exp];
+	const up = digits.slice(0, -1) + String.fromCharCode(digits.charCodeAt(digits.length - 1) + 1);
+	return nearest(up, exp - up.length) === x ? [up, exp] : [digits, exp];
+}
+
+/** How many binary digits `x`, finite and nonzero, has past the point. */
+function fractionBits(x: number): number {
+	const view = bytes();
+	view.setFloat64(0, x);
+	const hi = view.getUint32(0);
+	const lo = view.getUint32(4);
+	const biased = (hi >>> 20) & 0x7ff;
+	// The significand's lowest set bit, in its low word or else its high one.
+	const word = lo !== 0 ? lo : (hi & 0xfffff) | (biased === 0 ? 0 : 0x100000);
+	const zeros = 31 - Math.clz32(word & -word) + (lo !== 0 ? 0 : 32);
+	return Math.max(0, 1075 - Math.max(biased, 1) - zeros);
+}
+
+/** `x`'s exact digits, without trailing zeros, which a double always has: its significand times a power of two. */
+function exact(x: number): [string, number] {
+	const view = bytes();
+	view.setFloat64(0, x);
+	const bits = view.getBigUint64(0);
+	const biased = Number(bits >> 52n);
+	const significand = biased === 0 ? bits : (bits & 0xf_ffff_ffff_ffffn) | 0x10_0000_0000_0000n;
+	const e = Math.max(biased, 1) - 1075;
+	// m * 2^-k is m * 5^k / 10^k.
+	const all = (e >= 0 ? significand << BigInt(e) : significand * 5n ** BigInt(-e)).toString();
+	return [all.slice(0, end(all, "0")), all.length + Math.min(e, 0)];
+}
+
+/** Where the run of `c` that ends `s` starts, scanned from the end, which a regex would retry from each `c` before it. */
+function end(s: string, c: string): number {
+	let i = s.length;
+	while (i > 0 && s[i - 1] === c) i--;
+	return i;
+}
+
+/** The first `n` of `digits`, rounded half to even on the rest, as `format_exact` does; none if they round to zero. */
+function round(digits: string, exp: number, n: number): [string, number] {
+	if (n >= digits.length) return [digits, exp];
+	if (n < 0) return ["", exp];
+	const kept = digits.slice(0, n);
+	const next = digits[n];
+	const half = next === "5" && /^0*$/.test(digits.slice(n + 1));
+	// A tie with no digit kept rounds to the zero before it, which is even.
+	const odd = n > 0 && kept.charCodeAt(n - 1) % 2 === 1;
+	if (next < "5" || (half && !odd)) return [kept, exp];
+	const nines = end(kept, "9");
+	if (nines === 0) return ["1".padEnd(Math.max(n, 1), "0"), exp + 1];
+	const carried = String.fromCharCode(kept.charCodeAt(nines - 1) + 1);
+	return [kept.slice(0, nines - 1) + carried + "0".repeat(n - nines), exp];
+}
+
+/** `digits_to_dec_str`: at least `frac` digits past the point. */
+function decimal(digits: string, exp: number, frac: number): string {
+	if (exp <= 0) return `0.${"0".repeat(-exp)}${digits}`.padEnd(2 + Math.max(frac, digits.length - exp), "0");
+	if (exp < digits.length) return `${digits.slice(0, exp)}.${digits.slice(exp)}`.padEnd(exp + 1 + Math.max(frac, digits.length - exp), "0");
+	return digits.padEnd(exp, "0") + (frac > 0 ? `.${"0".repeat(frac)}` : "");
+}
+
+/** `digits_to_exp_str`: at least `frac` digits past the point. */
+function exponential(digits: string, exp: number, frac: number, e: "e" | "E"): string {
+	const rest = digits.slice(1).padEnd(frac, "0");
+	return `${digits[0]}${rest === "" ? "" : `.${rest}`}${e}${exp - 1}`;
+}
+
+/** `0`, with `frac` zeros past the point. */
+const zero = (frac: number): string => (frac > 0 ? `0.${"0".repeat(frac)}` : "0");
+
+/** `to_shortest_str`: the shortest digits, with at least `frac` past the point. */
+function shortestFixed(x: number, frac: number): string {
+	if (x === 0) return zero(frac);
+	const [digits, exp] = shortest(x);
+	return decimal(digits, exp, frac);
+}
+
+/** `to_exact_fixed_str`: rounded to `frac` digits past the point. */
+function exactFixed(x: number, frac: number): string {
+	if (x === 0) return zero(frac);
+	const [all, at] = exact(x);
+	const [digits, exp] = round(all, at, at + frac);
+	return digits === "" ? zero(frac) : decimal(digits, exp, frac);
+}
+
+/** `to_shortest_exp_str` without a precision, else `to_exact_exp_str`: `precision` digits past the point. */
+function scientific(x: number, precision: number | undefined, e: "e" | "E"): string {
+	if (x === 0) return `${zero(precision ?? 0)}${e}0`;
+	if (precision === undefined) {
+		const [digits, exp] = shortest(x);
+		return exponential(digits, exp, 0, e);
+	}
+	const [all, at] = exact(x);
+	const [digits, exp] = round(all, at, precision + 1);
+	return exponential(digits, exp, precision, e);
+}
+
+/** Write `x` padded, its magnitude by `finite`: a NaN has no sign, and -0.0 has one. */
+function write(x: f64, f: Formatter, finite: (magnitude: number) => string): FmtResult {
+	if (x !== x) return fmtPadFormatted(f, "", "NaN");
+	const sign = f64IsSignNegative(x) ? "-" : f.spec.plus ? "+" : "";
+	const magnitude = Math.abs(x);
+	return fmtPadFormatted(f, sign, magnitude === Infinity ? "inf" : finite(magnitude));
+}
+
+/** `f64`'s `Display`: the shortest digits, or rounded to the precision. */
+export function f64Display(x: f64, f: Formatter): FmtResult {
+	const precision = f.spec.precision;
+	return write(x, f, (m) => (precision === undefined ? shortestFixed(m, 0) : exactFixed(m, precision)));
+}
+
+/** `f64`'s `Debug`: as `Display`, but with a point, and an exponent below 1e-4 and from 1e16. */
+export function f64Debug(x: f64, f: Formatter): FmtResult {
+	const precision = f.spec.precision;
+	return write(x, f, (m) => {
+		if (precision !== undefined) return exactFixed(m, precision);
+		return (m !== 0 && m < 1e-4) || m >= 1e16 ? scientific(m, undefined, "e") : shortestFixed(m, 1);
+	});
+}
+
+/** `f64`'s `LowerExp`. */
+export const f64LowerExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "e"));
+
+/** `f64`'s `UpperExp`. */
+export const f64UpperExp = (x: f64, f: Formatter): FmtResult => write(x, f, (m) => scientific(m, f.spec.precision, "E"));
+
+// Parsing, as `core::num::dec2flt` does it.
+
+/** `core::num::ParseFloatError`: whether the string was empty or not a float. */
+export type ParseFloatError = { readonly kind: "Empty" | "Invalid" };
+
+/** Every power of ten a double holds exactly. */
+const POWERS = [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
+
+/** `str::parse::<f64>`: std's grammar, without JS's whitespace, hex, or `Infinity`, rounded to the nearest double, half to even. */
+export function f64FromStr(s: string): Result<f64, ParseFloatError> {
+	if (s === "") return Err({ kind: "Empty" });
+	const signed = s[0] === "-" || s[0] === "+";
+	const rest = signed ? s.slice(1) : s;
+	const number = /^([0-9]*)(?:\.([0-9]*))?(?:[eE]([+-]?)([0-9]+))?$/.exec(rest);
+	let x: number;
+	if (number !== null && number[1].length + (number[2]?.length ?? 0) > 0) {
+		const [, int, frac = "", sign, digits = ""] = number;
+		// std stops adding exponent digits once past 0x10000.
+		let exp = 0;
+		for (let i = 0; i < digits.length; i++) if (exp < 0x10000) exp = exp * 10 + digits.charCodeAt(i) - 48;
+		x = nearest(int + frac, (sign === "-" ? -exp : exp) - frac.length);
+	} else if (/^(?:inf|infinity)$/i.test(rest)) {
+		x = Infinity;
+	} else if (/^nan$/i.test(rest)) {
+		x = NaN;
+	} else {
+		return Err({ kind: "Invalid" });
+	}
+	return Ok(s[0] === "-" ? -x : x);
+}
+
+/** The double nearest `digits * 10^exp`, half to even. */
+function nearest(digits: string, exp: number): number {
+	const last = end(digits, "0");
+	const trimmed = digits.slice(0, last).replace(/^0+/, "");
+	if (trimmed === "") return 0;
+	exp += digits.length - last;
+	const n = trimmed.length;
+	// Both operands exact, so the one operation rounds once, as Clinger's fast path does.
+	if (n <= 15 && Math.abs(exp) <= 22) return exp < 0 ? Number(trimmed) / POWERS[-exp] : Number(trimmed) * POWERS[exp];
+	// At least 10^309, or less than half the least subnormal.
+	if (n + exp > 310) return Infinity;
+	if (n + exp < -324) return 0;
+	const big = BigInt(trimmed);
+	return exp < 0 ? quotient(big, 10n ** BigInt(-exp)) : quotient(big * 10n ** BigInt(exp), 1n);
+}
+
+/** The double nearest `num / den`, half to even, built from its bits so nothing rounds twice. */
+function quotient(num: bigint, den: bigint): number {
+	const TWO52 = 1n << 52n;
+	// The power of two that leaves a 53-bit significand, or the subnormals' one.
+	let e = Math.max(num.toString(2).length - den.toString(2).length - 53, -1074);
+	const divide = (): [bigint, bigint, bigint] => {
+		const [n, d] = e < 0 ? [num << BigInt(-e), den] : [num, den << BigInt(e)];
+		return [n / d, n % d, d];
+	};
+	let [q, r, d] = divide();
+	if (q >= TWO52 << 1n) {
+		e++;
+		[q, r, d] = divide();
+	}
+	if (2n * r > d || (2n * r === d && (q & 1n) === 1n)) q++;
+	if (q === TWO52 << 1n) {
+		q = TWO52;
+		e++;
+	}
+	if (e + 1075 >= 2047) return Infinity;
+	const view = bytes();
+	view.setBigUint64(0, q < TWO52 ? q : (BigInt(e + 1075) << 52n) | (q - TWO52));
+	return view.getFloat64(0);
+}

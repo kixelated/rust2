@@ -1429,6 +1429,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+				library::Std::ParseFloatError => Type::Rt("ParseFloatError", vec![]),
 				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),
 				library::Std::Arguments => Type::Rt("Arguments", vec![]),
@@ -1522,6 +1523,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				library::Std::Ordering => Type::Rt("Ordering", vec![]),
 				library::Std::Hasher => Type::Rt("Hasher", vec![]),
+				library::Std::RandomState => Type::Rt("RandomState", vec![]),
 				library::Std::Duration => Type::Rt("Duration", vec![]),
 				library::Std::Bytes => Type::Rt("ByteSlice", vec![]),
 				library::Std::BytesMut => Type::Rt("BytesMut", vec![]),

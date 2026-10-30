@@ -12,7 +12,7 @@ export function eq$PartialEq(self: Horizon, other: Horizon): boolean {
 
 export function hash$Hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
 	rt.hashOption(Hop.hash$Hash_DefaultHasher)(self.exclude, state);
-	rt.hashInt(self.local, state);
+	rt.hash8(self.local, state);
 }
 
 export function partialCmp$PartialOrd(self: Horizon, other: Horizon): rt.Ordering | undefined {

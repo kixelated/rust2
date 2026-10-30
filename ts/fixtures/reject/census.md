@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 102
+- Refusals: 103
 - Function instances: 119
 - Generic functions no instance reached, lowered over their type parameters: 10
 
@@ -72,6 +72,7 @@
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:363:16 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:380:4 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | fixtures/reject/src/lib.rs:643:1 |
+| 1 | unsupported type `_` from another crate | fixtures/reject/src/lib.rs:492:31 |
 
 ## By API
 
@@ -125,17 +126,18 @@ The type or module each refused type or path belongs to.
 | 1 | `Waiting` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `[u8; 4]` | fixtures/reject/src/lib.rs:535:26 |
 | 1 | `dyn Keyed` | fixtures/reject/src/lib.rs:593:32 |
-| 1 | `f64` | fixtures/reject/src/lib.rs:493:2 |
 | 1 | `into_keys` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `poll` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:556:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:599:4 |
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
+| 1 | `std::num::ParseIntError` | fixtures/reject/src/lib.rs:492:31 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:423:2 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:735:15 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | `std::std::Layout` | fixtures/reject/src/lib.rs:626:15 |
+| 1 | `std::str` | fixtures/reject/src/lib.rs:493:4 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `std::sync::Mutex` | fixtures/reject/src/lib.rs:575:12 |
 | 1 | `std::sync::Weak` | fixtures/reject/src/lib.rs:509:40 |
@@ -215,7 +217,6 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `str::contains` | fixtures/reject/src/lib.rs:380:4 |
 | 1 | replacing the value behind a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:131:2 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:643:1 |
-| 1 | unsupported call to `_` | `<f64 as std::fmt::Display>::fmt` | fixtures/reject/src/lib.rs:493:2 |
 | 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:599:2 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:397:2 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:423:2 |
@@ -230,6 +231,8 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::std::Layout::new` | fixtures/reject/src/lib.rs:626:15 |
 | 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:628:11 |
 | 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:631:3 |
+| 1 | unsupported call to `_` | `std::str::parse` | fixtures/reject/src/lib.rs:493:4 |
+| 1 | unsupported type `_` from another crate | `std::num::ParseIntError` | fixtures/reject/src/lib.rs:492:31 |
 
 ## Spans
 
@@ -245,7 +248,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:423:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:483:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:483:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
-- fixtures/reject/src/lib.rs:493:2: unsupported call to `<f64 as std::fmt::Display>::fmt`
+- fixtures/reject/src/lib.rs:493:4: unsupported call to `core::str::<impl str>::parse::<u32>`
 - fixtures/reject/src/lib.rs:599:2: unsupported call to `<std::any::TypeId as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:599:17: unsupported call to `std::any::TypeId::of::<u8>`
 - fixtures/reject/src/lib.rs:626:15: unsupported call to `std::alloc::Layout::new::<u8>`
@@ -652,5 +655,11 @@ The type or module each refused type or path belongs to.
 <details><summary>union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart (1)</summary>
 
 - fixtures/reject/src/lib.rs:643:1: union `Bits`, whose fields overlap in `u32` and `f64`, which JS keeps apart
+
+</details>
+
+<details><summary>unsupported type `_` from another crate (1)</summary>
+
+- fixtures/reject/src/lib.rs:492:31: unsupported type `std::num::ParseIntError` from another crate
 
 </details>

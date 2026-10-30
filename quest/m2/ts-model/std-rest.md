@@ -3,9 +3,8 @@
 ## Goal
 
 rust2-ts translates the std calls the model's census still refuses outside other quests:
-`Vec`'s and `VecDeque`'s `capacity`, `reserve`, and `shrink_to`, and `RandomState` with
-`BuildHasher::hash_one`, also where another crate names it, as hashbrown's and hashlink's
-default hasher does, proven by differential tests against native Rust.
+`Vec`'s and `VecDeque`'s `capacity`, `reserve`, and `shrink_to`, and `String::with_capacity`,
+proven by differential tests against native Rust.
 
 ## Plan
 
@@ -19,8 +18,7 @@ the rest of what the census refused in std. Decided with the maintainer on 2026-
   capacity by element size, `with_capacity` exact, `shrink_to`, and what `collect` and
   `clone` allocate), through every runtime function that allocates. Measure push cost on
   the TS benchmark before and after.
-- **`RandomState`: random per state, from `crypto.getRandomValues`**, as std seeds from
-  the OS. It keys a treap's priorities in `track/demand/ranges.rs`, so a differential test
-  compares only what the values decide, such as equal inputs hashing equally.
+- `RandomState` and `BuildHasher::hash_one` landed first, in
+  [#261](https://github.com/moq-dev/rust2/pull/261), for hashbrown's default hasher.
 
 Public API: the translator's output.

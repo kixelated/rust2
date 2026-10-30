@@ -62,7 +62,8 @@ unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 `BytesMut::capacity`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:437:6
 `BufMut::put` of `Counted` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported at fixtures/reject/src/lib.rs:443:2
 `f64::mul_add`, which rounds once, where JS would round twice at fixtures/reject/src/lib.rs:488:4
-unsupported call to `<f64 as std::fmt::Display>::fmt` at fixtures/reject/src/lib.rs:493:11
+unsupported call to `core::str::<impl str>::parse::<u32>` at fixtures/reject/src/lib.rs:493:4
+unsupported type `std::num::ParseIntError` from another crate at fixtures/reject/src/lib.rs:492:31
 a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet at fixtures/reject/src/lib.rs:509:40
 `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:518:23
 `dyn Scaled<u8>`, a trait object of the generic trait `Scaled`, which is not supported yet at fixtures/reject/src/lib.rs:519:4
