@@ -22,4 +22,14 @@ export function ne$PartialEq_Right(self: Left, other: Right.Right): boolean {
 	return rt.u16Rem(self._0, 3) !== rt.u16Rem(other._0, 3);
 }
 
+export function eq$PartialEq_Right(self: Left, other: Right.Right): boolean {
+	log(self, 2048);
+	return rt.u16Rem(self._0, 5) === rt.u16Rem(other._0, 5);
+}
+
+export function eq$PartialEq_Left(self: Left, other: Left): boolean {
+	log(self, 4096);
+	return rt.u16Rem(self._0, 2) === rt.u16Rem(other._0, 2);
+}
+
 //# sourceMappingURL=collections.Left.ts.map

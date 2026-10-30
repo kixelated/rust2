@@ -498,6 +498,12 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 /// Whether a `ty` compares to an `other` as to another `ty`: as keys do, as bytes do, or
 /// by elements that do. Else the impl of `PartialEq<other>` is its own.
 fn alike<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, other: Ty<'tcx>) -> bool {
+	// A crate's type against a reference compares by an impl of the crate's own, which no
+	// reference's forwards to.
+	let (ty, other) = peel_pair(b, ty, other);
+	if (ty.is_ref() || other.is_ref()) && (local(b, peel(b, ty)) || local(b, peel(b, other))) {
+		return false;
+	}
 	let (ty, other) = (peel(b, ty), peel(b, other));
 	same_key(b, ty, other)
 		|| (bytes(b, ty) && bytes(b, other))
@@ -1862,7 +1868,7 @@ fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'
 	if b.t.deferred(pt) || b.t.deferred(pu) {
 		return Expr::undefined();
 	}
-	if alike(b, pt, pu) {
+	if alike(b, t, u) {
 		if own_ne(b, pt) {
 			return b.err(
 				span,
@@ -1873,8 +1879,7 @@ fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'
 		}
 		return eq_fn(b, pt, span);
 	}
-	// By the impl itself, which a reference's forwards to.
-	let (pt, pu) = (peel_refs(b, t), peel_refs(b, u));
+	let (pt, pu) = peel_pair(b, t, u);
 	let ne = trait_fn(tcx, "PartialEq", "ne");
 	let own = Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[pt.into(), pu.into()]))
 		.ok()
@@ -1883,11 +1888,16 @@ fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'
 	impl_eq(b, if own { "ne" } else { "eq" }, pt, pu, [t, u], span)
 }
 
-/// `ty` through references that are no `rt.Place`, which JS holds as what they point at.
-fn peel_refs<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-	match ty.kind() {
-		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => peel_refs(b, *inner),
-		_ => ty,
+/// `t` and `u` through the references std's `PartialEq` of two references forwards
+/// through, one of each at a time, while JS holds both as what they point at.
+fn peel_pair<'tcx>(b: &Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>) -> (Ty<'tcx>, Ty<'tcx>) {
+	match (t.kind(), u.kind()) {
+		(ty::Ref(_, t_in, _), ty::Ref(_, u_in, _))
+			if b.t.place_pointee(t).is_none() && b.t.place_pointee(u).is_none() =>
+		{
+			peel_pair(b, *t_in, *u_in)
+		}
+		_ => (t, u),
 	}
 }
 

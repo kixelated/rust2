@@ -1198,6 +1198,22 @@ impl PartialEq<Right> for Left<'_> {
 	}
 }
 
+/// Against a reference, by the remainder by 5, which no reference's impl forwards to.
+impl PartialEq<&Right> for Left<'_> {
+	fn eq(&self, other: &&Right) -> bool {
+		self.log(0x800);
+		self.0 % 5 == other.0 % 5
+	}
+}
+
+/// Against a reference to another, by the remainder by 2.
+impl<'a> PartialEq<&Left<'a>> for Left<'_> {
+	fn eq(&self, other: &&Left<'a>) -> bool {
+		self.log(0x1000);
+		self.0 % 2 == other.0 % 2
+	}
+}
+
 /// The other way, by the remainder by 4, with `ne`'s default.
 impl<'a> PartialEq<Left<'a>> for Right {
 	fn eq(&self, other: &Left<'a>) -> bool {
@@ -1274,6 +1290,12 @@ pub fn unlike_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let pairs: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
 	put_eq(pairs[..] == rights[..pairs.len().min(rights.len())], &log, out);
 	put_eq(vec![lefts(), lefts()] == [rights.as_slice(), &rights[..]], &log, out);
+	// By the impls against references, and through references of both, by `Right`'s.
+	let refs: Vec<&Right> = rights.iter().collect();
+	put_eq(mine == refs, &log, out);
+	put_eq(mine.iter().collect::<Vec<_>>() == refs, &log, out);
+	let others = lefts();
+	put_eq(mine == others.iter().collect::<Vec<_>>(), &log, out);
 
 	// Wrapped around: the first half pushed to the front backwards, the rest to the back.
 	let half = data.len() / 2;
