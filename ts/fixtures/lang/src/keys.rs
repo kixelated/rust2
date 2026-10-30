@@ -437,9 +437,10 @@ fn options(data: &[u8], out: &mut Vec<u8>) {
 	let mut hashed: HashMap<(u8, Horizon), u8> = HashMap::new();
 	let mut sorted: BTreeMap<(u8, Horizon), u8> = BTreeMap::new();
 	let mut ways: HashMap<(Option<Way>, bool), u8> = HashMap::new();
-	// Keyed by the `Option` itself, whose `Some` is the JS string `Way`'s own `Eq` reads.
+	// Keyed by the `Option` itself, and through a `Reverse`, whose `Some` is the JS string
+	// `Way`'s own `Eq` reads.
 	let mut bare: HashMap<Option<Way>, u8> = HashMap::new();
-	let mut deep: HashSet<Option<Option<Way>>> = HashSet::new();
+	let mut deep: HashSet<Option<Reverse<Option<Way>>>> = HashSet::new();
 	for i in 1..data.len() {
 		let (c, d) = (data[i - 1], data[i]);
 		let (a, b) = (hop(c), hop(d));
@@ -477,7 +478,7 @@ fn options(data: &[u8], out: &mut Vec<u8>) {
 		out.push(ways.len() as u8);
 		out.push(bare.insert(way(c), i as u8).unwrap_or(0xcc));
 		out.push(bare.get(&way(d)).copied().unwrap_or(0xdd));
-		let nested = |b: u8| (b % 5 != 0).then(|| way(b));
+		let nested = |b: u8| (b % 5 != 0).then(|| Reverse(way(b)));
 		out.push(deep.insert(nested(c)) as u8 | (deep.contains(&nested(d)) as u8) << 1);
 		out.extend([bare.len() as u8, deep.len() as u8]);
 		out.push(hashed.contains_key(&(

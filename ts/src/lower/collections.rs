@@ -529,9 +529,9 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 	};
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
 	// A fieldless enum is a JS string, which its own `Eq` may tell apart where JS can't,
-	// as is the `Some` of an `Option` of one.
+	// as is the `Some` of an `Option` of one, and a `Reverse` of one.
 	let mut held = key;
-	while let Some(inner) = option_of(b, held) {
+	while let Some(inner) = option_of(b, held).or_else(|| reverse_of(b, held)) {
 		held = peel(b, inner);
 	}
 	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt)) {

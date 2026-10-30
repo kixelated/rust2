@@ -116,13 +116,6 @@ export function then$1j955kq(self: boolean, _: () => Made.Made): Made.Made | und
 	return Made.default$Default();
 }
 
-export function then$18np55d(self: boolean, f: () => Way.Way | undefined): Way.Way | undefined | rt.None {
-	if (!self) {
-		return rt.None;
-	}
-	return f();
-}
-
 export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, Made.Made]): [rt.u64 | undefined, Made.Made] | undefined {
 	if (!self) {
 		return undefined;
@@ -140,6 +133,13 @@ export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 |
 export function then$0afp4no(self: boolean, f: () => rt.Result<rt.u8, rt.ParseIntError>): rt.Result<rt.u8, rt.ParseIntError> | undefined {
 	if (!self) {
 		return undefined;
+	}
+	return f();
+}
+
+export function then$18np55d(self: boolean, f: () => Way.Way | undefined): Way.Way | undefined | rt.None {
+	if (!self) {
+		return rt.None;
 	}
 	return f();
 }
