@@ -160,8 +160,12 @@ class Reader(bytes: ByteArray) {
 		return v
 	}
 
-	/** Bytes Rust handed over uncopied, as their owner, or null for none. */
-	fun owned(): Bytes? = b.getLong().let { if (it == 0L) null else Bytes(it) }
+	/** Bytes Rust handed over, copied or lent by their owner, or null for none. */
+	fun owned(): Bytes? = when (val n = b.getInt()) {
+		-1 -> null
+		LENT -> Bytes(b.getLong())
+		else -> Bytes(ByteArray(n).also { b.get(it) })
+	}
 
 	fun string(): String? {
 		val n = b.getInt()
@@ -321,6 +325,16 @@ class Free(buffer: java.nio.ByteBuffer, private val owner: Long) : Cleanup(buffe
 	}
 
 	override fun collected() = free()
+}
+
+/** What precedes a lent buffer's owner where an encoded one's length would. */
+const val LENT = -2
+
+/** Bytes a call returned: copied, lent by the owner a `LongArray` holds, or null for none. */
+fun owned(given: Any?): Bytes? = when (given) {
+	null -> null
+	is ByteArray -> Bytes(given)
+	else -> Bytes((given as kotlin.LongArray)[0])
 }
 
 /** Run [block] with the raw handle of [handle], or 0 for none, held until it returns. */

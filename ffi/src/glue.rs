@@ -273,7 +273,13 @@ impl Gen<'_> {
 			Type::Closure(params, ret) => self.closure(params, ret, e),
 			Type::Range(_) => format!("{e}.lift()"),
 			Type::Bound(_) | Type::Bounds(_) => format!("{e}.lift(w)"),
-			Type::Tuple(_) => unreachable!("a tuple is never taken"),
+			Type::Tuple(elements) => {
+				// The trailing comma makes `(x,)` a tuple, not parentheses.
+				let lifted: Vec<String> = (elements.iter().enumerate())
+					.map(|(n, ty)| format!("{},", self.lift(ty, &format!("{e}._{n}"))))
+					.collect();
+				format!("({})", lifted.concat())
+			}
 		}
 	}
 
@@ -369,7 +375,18 @@ impl Gen<'_> {
 			Type::Range(_) => format!("rt::Range::lower({e})"),
 			Type::Bound(_) => format!("rt::Bound::lower({e})"),
 			Type::Bounds(_) => format!("rt::Bounds::lower({e})"),
-			Type::Tuple(_) => unreachable!("a tuple is lowered element by element"),
+			Type::Tuple(elements) => {
+				let names: Vec<String> = (0..elements.len()).map(|n| format!("t{n},")).collect();
+				let fields: Vec<String> = (elements.iter().enumerate())
+					.map(|(n, ty)| format!("_{n}: {}", self.lower(ty, &format!("t{n}"))))
+					.collect();
+				format!(
+					"match {e} {{ ({}) => {} {{ {} }} }}",
+					names.concat(),
+					self.abi.tuple(elements),
+					fields.join(", ")
+				)
+			}
 		}
 	}
 
@@ -393,6 +410,12 @@ impl Gen<'_> {
 					.map(|free| format!("if {e}.some {{ {free} }}")),
 			},
 			Type::Box(inner) => self.free(inner, e),
+			Type::Tuple(elements) => {
+				let frees: Vec<String> = (elements.iter().enumerate())
+					.filter_map(|(n, ty)| self.free(ty, &format!("{e}._{n}")))
+					.collect();
+				(!frees.is_empty()).then(|| frees.join(" "))
+			}
 			Type::Object(i) => Some(format!(
 				"unsafe {{ rt::Object::<{}>::free({e}) }};",
 				self.object_path(*i)
@@ -409,6 +432,7 @@ impl Gen<'_> {
 			_ if Abi::is_buf(ty) => true,
 			Type::Object(_) | Type::List(_) => true,
 			Type::Option(inner) | Type::Box(inner) => self.owns(inner),
+			Type::Tuple(elements) => elements.iter().any(|ty| self.owns(ty)),
 			Type::Record(i) => self.abi.api.records[*i].fields.iter().any(|f| self.owns(&f.ty)),
 			Type::Enum(i) => self.abi.api.enums[*i]
 				.variants
@@ -465,6 +489,14 @@ impl Gen<'_> {
 				.expect("an array is freed");
 			self.line(format!(
 				"#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn {name}_free(this: {name}) {{\n\t{free}\n}}\n"
+			));
+		}
+		for (name, elements) in &self.abi.tuples.clone() {
+			let fields: String = (elements.iter().enumerate())
+				.map(|(n, ty)| format!("\tpub _{n}: {},\n", self.rs(&self.abi.ty(ty))))
+				.collect();
+			self.line(format!(
+				"#[repr(C)]\n#[derive(Clone, Copy)]\npub struct {name} {{\n{fields}}}\n"
 			));
 		}
 		for (name, inner) in &self.abi.options.clone() {

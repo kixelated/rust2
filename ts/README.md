@@ -7,7 +7,9 @@ rust2-ts --config ts.toml (--out dir | --census file.md) [--manifest-path Cargo.
 ```
 
 It runs `cargo check` on the package with itself as `RUSTC_WRAPPER`, for
-`wasm32-unknown-unknown`, with std built from source for it with every function's MIR, which needs the toolchain's `rust-src`. Every crate compiles as rustc
+`wasm32-unknown-unknown`, against std checked from source with every function's MIR. The flake's
+package and dev shell check it once per toolchain and pass it as `RUST2_TS_SYSROOT`; without
+that, each target directory checks it with `-Zbuild-std`, which needs the toolchain's `rust-src`. Every crate compiles as rustc
 would; the configured library is also translated, after type and borrow checking, starting from its roots and following
 what they reach. Every crate it depends on but std's translates with it as one program,
 as far as the roots reach: each compiles with every function's MIR, and its types and
@@ -104,7 +106,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | constant | its value, inlined as Rust inlines it |
 | a type that drops | a class with `[Symbol.dispose]`: its `Drop` impl, then its fields |
 | a type's function | a function of the type's module, taking `self` first: `Decoder.slice(dec, 4)` after `import * as Decoder` |
-| `Arc<T>`, `Rc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc` for either, with its strong and weak counts, and `new_cyclic`'s `Weak` upgrading only once its value is made; `rt.Weak`, counted in its `rt.Arc` until it drops, and of no `Arc` once made by `Weak::new`; `rt.Mutex`, its own guard, which a lock gives as `Ok` and the guard's drop unlocks: locking it again while held panics and `try_lock` gives `WouldBlock`, as wasm32's do, and a panic aborts, so nothing poisons it and `thread::panicking` is `false` |
+| `Arc<T>`, `Rc<T>`, `Weak<T>`, `Mutex<T>` | `rt.Arc` for either, with its strong and weak counts, and `new_cyclic`'s `Weak` upgrading only once its value is made, `get_mut` lending its value only while no other `Arc` or `Weak` shares it, and `make_mut` cloning it into a new `rt.Arc` while another `Arc` shares it, or moving it there while only `Weak`s do, which then dangle; `rt.Weak`, counted in its `rt.Arc` until it drops, and of no `Arc` once made by `Weak::new`; `rt.Mutex`, its own guard, which a lock gives as `Ok` and the guard's drop unlocks: locking it again while held panics and `try_lock` gives `WouldBlock`, as wasm32's do, and a panic aborts, so nothing poisons it and `thread::panicking` is `false` |
 | `PoisonError<T>`, `TryLockError<T>` | the `T` it holds; `rt.TryLockError<T>`, tagged as `Bound` is |
 | `Cell<T>`, `RefCell<T>`, `RwLock<T>` | `rt.Cell`, the place holding its value in `v`; `rt.RefCell` for either of the others, its own guard, counting its borrows: borrowing it while that conflicts panics as `RefCell`'s does, and locking it so aborts as wasm32's `RwLock` does |
 | `thread_local!`, `LocalKey<T>` | an `rt.LocalKey`, a module's value, which makes its value on first use from the `const` or the expression and never drops it, as wasm32's do; `with` calls its function on that value, `try_with` never fails, the `Cell` and `RefCell` helpers lower from std, and a `RefCell` key's `set` and `with_borrow_mut` borrow it as `borrow_mut` does |

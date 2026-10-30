@@ -47,6 +47,7 @@ Public API: the translator's output for moq-net's model.
 ## Required
 
 - [Shared ownership](/quest/m2/ts-shared.md) - kio's waiters are `Arc`/`Weak` with observable counts, and its atomics and locks are plain values
+- [Statics and constants read from memory](/quest/m2/ts-model/statics.md) - a `static` of any type and a `const` with no value tree translate from their evaluated value, including `AtomicPtr`, `LazyLock`, and lock_api's `RawMutex::INIT`
 - [Float formatting](/quest/m2/ts-model/floats.md) - `f64` formats and parses as std does
 - [The rest of std the model reaches](/quest/m2/ts-model/std-rest.md) - `Vec` and `VecDeque` capacity, and `RandomState`
 - [hashbrown as the runtime's map](/quest/m2/ts-model/hashbrown.md) - hashlink's `hashbrown` tables translate as `rt.HashMap`, with std's capacity

@@ -2721,20 +2721,24 @@ impl<'tcx> Collector<'tcx> {
 		(held, lent)
 	}
 
-	/// What a function returns: a tuple's elements each, or else one value.
+	/// What a function returns: a tuple returned whole, even a pair of bounds, is written
+	/// through an out pointer per element.
 	fn ret(&self, ty: Ty<'tcx>) -> Result<Type, Why> {
-		let ty::Tuple(list) = ty.kind() else {
-			return self.ty(ty, Pos::Return);
-		};
-		if list.is_empty() {
-			return Ok(Type::Unit);
+		match ty.kind() {
+			ty::Tuple(list) if !list.is_empty() => self.tuple(ty, Pos::Return),
+			_ => self.ty(ty, Pos::Return),
 		}
-		let mut elements = Vec::new();
-		for element in list.iter() {
-			match self.ty(element, Pos::Return)? {
-				Type::Unit => return Err(why("unit in a tuple", ty.to_string())),
-				element => elements.push(element),
-			}
+	}
+
+	/// The tuple `ty`, each element mapped as inside a value at `pos`.
+	fn tuple(&self, ty: Ty<'tcx>, pos: Pos) -> Result<Type, Why> {
+		let elements = (ty.tuple_fields().iter())
+			.map(|element| self.ty(element, pos.inner()))
+			.collect::<Result<Vec<_>, _>>()?;
+		// C lends nothing inside a value, and an element lowered back into one is a clone
+		// of what Rust lent.
+		if elements.iter().any(borrows) && !matches!(pos, Pos::Return | Pos::Returned) {
+			return Err(why("tuple of references", ty.to_string()));
 		}
 		Ok(Type::Tuple(elements))
 	}
@@ -3063,7 +3067,7 @@ impl<'tcx> Collector<'tcx> {
 				{
 					Type::Bounds(int)
 				}
-				_ => return Err(why("tuple", "")),
+				_ => self.tuple(ty, pos)?,
 			},
 			ty::Array(..) => return Err(why("array", ty.to_string())),
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
@@ -3130,6 +3134,7 @@ fn buildable(api: &Api, ty: &Type, held: &[bool]) -> bool {
 		Type::Object(i) => held[*i],
 		Type::Ref(_, inner) | Type::Box(inner) => buildable(api, inner, held),
 		Type::Record(i) => api.records[*i].fields.iter().all(|f| buildable(api, &f.ty, held)),
+		Type::Tuple(elements) => elements.iter().all(|ty| buildable(api, ty, held)),
 		Type::Enum(i) => api.enums[*i]
 			.variants
 			.iter()
@@ -3193,6 +3198,7 @@ fn borrows(ty: &Type) -> bool {
 	match ty {
 		Type::Ref(..) => true,
 		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => borrows(inner),
+		Type::Tuple(elements) => elements.iter().any(borrows),
 		_ => false,
 	}
 }

@@ -23,6 +23,9 @@ with a span where std's order is one JS's can't follow yet:
 - A `flatten` whose inner iterator holds items once ended.
 - A B-tree's `collect` of entries that drop, sorted by the crate's own `Ord`.
 - `DebugList::entries` of items that drop.
+- `RangeInclusive::new` of bounds that drop, such as `Arc::new(a)..=Arc::new(b)`, refused
+  where the range is built, found by [#247](https://github.com/moq-dev/rust2/pull/247) on
+  2026-10-29.
 
 Each `rt.Iter` has a `fold` and `rfold` that drop what it holds where std's do, and the
 by-value consumers std folds go through it: build on those rather than `rt.drop`.
