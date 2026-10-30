@@ -31,7 +31,7 @@ export function hash$Hash_DefaultHasher(self: Way, state: rt.Hasher): void {
 	} else {
 		_5 = false;
 	}
-	rt.hashInt(_5, state);
+	rt.hash8(_5, state);
 }
 
 //# sourceMappingURL=keys.Way.ts.map

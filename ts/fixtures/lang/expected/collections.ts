@@ -114,7 +114,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.hashClear(map);
 		rt.byteVecPush(out, rt.hashLen(map) & 0xff);
 	} else if (_4 === 1) {
-		const map2: rt.HashMap<rt.u64, rt.u8> = rt.hashNew(rt.hashing(rt.hashInt, rt.u64Eq)) as rt.HashMap<rt.u64, rt.u8>;
+		const map2: rt.HashMap<rt.u64, rt.u8> = rt.hashNew(rt.hashing(rt.hash64, rt.u64Eq)) as rt.HashMap<rt.u64, rt.u8>;
 		const iter3: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
 		while (true) {
 			const _110: [rt.usize, rt.u8] | rt.Done = iter3.next();
@@ -152,7 +152,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const map3: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashMap<Nibble.Nibble, rt.u8>;
 		const pairs: rt.HashMap<Pair.Pair, Tally.Tally> = rt.hashNew(rt.hashing(Pair.hash$Hash_DefaultHasher, Pair.eq$PartialEq)) as rt.HashMap<Pair.Pair, Tally.Tally>;
 		const ranks: rt.HashMap<Rank.Rank, Tally.Tally> = rt.hashNew(rt.hashing(Rank.hash$Hash_DefaultHasher, Rank.eq$PartialEq)) as rt.HashMap<Rank.Rank, Tally.Tally>;
-		const tuples: rt.HashMap<[rt.u8, string], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
+		const tuples: rt.HashMap<[rt.u8, string], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hashStr]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, string], rt.u8>;
 		let iterStart: rt.usize = 1;
 		const iterEnd: rt.usize = data.length;
 		while ((_174 = iterStart++) < iterEnd) {
@@ -326,9 +326,9 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const h: rt.Hasher = _461[0];
 		const counted: Tally.Tally = copy$Tally(_461[1]);
 		const _466: rt.Hasher = countedHasher(h, counted);
-		rt.hashInt(counted.n, _466);
+		rt.hash16(counted.n, _466);
 		const want: rt.Hasher = rt.hasher();
-		rt.hashInt(rt.u16Add(first as rt.u16, 1), want);
+		rt.hash16(rt.u16Add(first as rt.u16, 1), want);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashFinish(h), rt.hashFinish(want)) ? 1 : 0);
 		rt.hashRetain(ranks, (r2: Rank.Rank, t17: Tally.Tally): boolean => {
 			if (!(rt.u16Rem(t17.n, 2) === 0)) {
@@ -1545,7 +1545,7 @@ export function optionals(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			});
 		}, out);
 	} else {
-		const map: rt.HashMap<[rt.u8, boolean], rt.u8 | undefined> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hashInt, rt.hashInt]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, boolean], rt.u8 | undefined>;
+		const map: rt.HashMap<[rt.u8, boolean], rt.u8 | undefined> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, boolean], rt.u8 | undefined>;
 		for (const b of rt.byteSliceView(data)) {
 			const k: [rt.u8, boolean] = [rt.u8Rem(b, 4), (b & 16) !== 0];
 			const _29: rt.u8 = rt.u8Rem(rt.u8Div(b, 32), 4);

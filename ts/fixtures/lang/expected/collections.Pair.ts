@@ -10,8 +10,8 @@ export function eq$PartialEq(self: Pair, other: Pair): boolean {
 }
 
 export function hash$Hash_DefaultHasher(self: Pair, state: rt.Hasher): void {
-	rt.hashInt(self.a, state);
-	rt.hashInt(self.b, state);
+	rt.hash8(self.a, state);
+	rt.hash16(self.b, state);
 }
 
 export function cmp$Ord(self: Pair, other: Pair): rt.Ordering {

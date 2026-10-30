@@ -207,6 +207,13 @@ export function unwrapOr$Result_isize_isize(self: rt.Result<rt.isize, rt.isize>,
 	return default_;
 }
 
+export function unwrapOr$Result_str_Utf8Error(self: rt.Result<string, rt.Utf8Error>, default_: string): string {
+	if (self.ok) {
+		return self.value;
+	}
+	return default_;
+}
+
 export function unwrapOr$Result_u16_TryFromIntError(self: rt.Result<rt.u16, rt.TryFromIntError>, default_: rt.u16): rt.u16 {
 	if (self.ok) {
 		return self.value;

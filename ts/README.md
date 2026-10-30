@@ -66,7 +66,7 @@ and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
-in `rt/str.ts`, collections in `rt/collections.ts`, ownership, atomics, and async in
+in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods and `cmp::max` and `min`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
@@ -97,7 +97,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `a..`, `..b`, `..=b`, `Bound<T>` | `{ start }`, `{ end }`, `{ end, inclusive: true }`; `rt.RangeBound<T>`, a union tagged by variant |
 | `HashMap`, `HashSet`, `BTreeMap`, `BTreeSet`, `VecDeque`, `BinaryHeap` | `rt.HashMap<K, V>` and so on, each a plain object whose functions are the runtime's: `rt.hashGet(map, key)` |
 | `PeekMut<T>` | `rt.PeekMut<T>`, the `rt.Place` of a heap's greatest element, which sifts it down as it drops once `DerefMut` lent it |
-| `Ordering`, `DefaultHasher` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher` |
+| `Ordering`, `DefaultHasher`, `RandomState` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher`; `rt.RandomState`, the keys of the `DefaultHasher` it builds, never changed once made |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
 | `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
@@ -245,9 +245,14 @@ finds any other key, a 64-bit one past 2^53 included, through its translated `Ha
 so a map of `Arc<str>` finds a `&str`. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
-of the runtime's, mostly insertion order, which std leaves unspecified, as it does
-`DefaultHasher`'s values, which are the runtime's own too. So is how often the runtime
+of the runtime's, mostly insertion order, which std leaves unspecified, and hashes a key
+with a hasher of its own, as std's keys its at random. So is how often the runtime
 calls a key's `Hash`, `Eq`, or `Ord`.
+
+A `DefaultHasher` is std's SipHash-1-3, and `Hash` writes into it what std's impls write,
+so `DefaultHasher::new`'s hash of a value is native's. `RandomState::new` keys it as std
+does, from keys drawn once and the first raised by one for each state, drawn from
+`crypto.getRandomValues` where std asks the OS.
 Its iterators are `rt.Iter`s, so std's adaptors run over them.
 
 A value drops where Rust drops it, if dropping it does something JS can see: a `Drop`

@@ -28,7 +28,7 @@ export function eq$PartialEq(self: Named, other: Named): boolean {
 
 export function hash$Hash_DefaultHasher(self: Named, state: rt.Hasher): void {
 	rt.hashStr(self.name, state);
-	rt.hashInt(self.id, state);
+	rt.hash8(self.id, state);
 }
 
 export function partialCmp$PartialOrd(self: Named, other: Named): rt.Ordering | undefined {

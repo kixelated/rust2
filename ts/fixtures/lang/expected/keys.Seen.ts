@@ -52,7 +52,7 @@ export function cmp$Ord(self: Seen, other: Seen): rt.Ordering {
 }
 
 export function hash$Hash_DefaultHasher(self: Seen, state: rt.Hasher): void {
-	rt.hashInt({ Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[self.tag], state);
+	rt.hash32({ Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[self.tag], state);
 	if (self.tag === "Hop") {
 		rt.hashOption(Hop.hash$Hash_DefaultHasher)(self._0, state);
 	} else if (self.tag === "Twice") {

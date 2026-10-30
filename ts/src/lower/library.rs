@@ -133,6 +133,8 @@ pub enum Std {
 	Ordering,
 	/// `rt.Hasher`: `DefaultHasher`, which hash collections hash their keys with.
 	Hasher,
+	/// `rt.RandomState`: the keys of the `DefaultHasher` it builds, never changed once made.
+	RandomState,
 	/// `rt.Duration`: its seconds and nanoseconds, never changed once made.
 	Duration,
 	/// `bytes::Bytes`: an `rt.ByteSlice`, as `&[u8]` is.
@@ -254,6 +256,7 @@ impl Std {
 			["ops", "range", "Bound"] => Some(Self::Bound),
 			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
+			["hash", "random", "RandomState"] => Some(Self::RandomState),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
 			| [
 				"collections",

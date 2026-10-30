@@ -1512,6 +1512,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 				library::Std::Ordering => Type::Rt("Ordering", vec![]),
 				library::Std::Hasher => Type::Rt("Hasher", vec![]),
+				library::Std::RandomState => Type::Rt("RandomState", vec![]),
 				library::Std::Duration => Type::Rt("Duration", vec![]),
 				library::Std::Bytes => Type::Rt("ByteSlice", vec![]),
 				library::Std::BytesMut => Type::Rt("BytesMut", vec![]),

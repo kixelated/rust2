@@ -130,6 +130,7 @@ pub fn call<'tcx>(
 				return Ok(value);
 			}
 			("Hasher", _, Some(Std::Hasher), _) => return Ok(Some(hasher_call(b, name, args, span, out))),
+			("BuildHasher", _, Some(Std::RandomState), Some(t)) => (Std::RandomState, t.peel_refs()),
 			// The discriminant derived `Hash` and `Ord` read of an enum.
 			("intrinsics", "discriminant_value", ..) if let Some(t) = self_ty => {
 				let value = args.pop();
@@ -172,6 +173,7 @@ pub fn call<'tcx>(
 		Std::Entry => entry(b, coll, name, args, span),
 		Std::Ordering => ordering(name, args),
 		Std::Hasher if matches!(name, "new" | "default") => Some(Expr::rt("hasher", vec![])),
+		Std::RandomState => Some(random_state(b, call, coll, name, args)),
 		_ => return Err(args),
 	};
 	let Some(e) = e else {
@@ -608,7 +610,6 @@ fn derived_eq<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 
 /// The `Hasher` a hash collection of type `coll` hashes with: its `BuildHasher`'s.
 fn hasher_ty<'tcx>(b: &Body<'_, '_, 'tcx>, coll: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	let tcx = b.t.tcx;
 	let ty::Adt(_, args) = coll.kind() else {
 		return None;
 	};
@@ -616,6 +617,12 @@ fn hasher_ty<'tcx>(b: &Body<'_, '_, 'tcx>, coll: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	let state = args
 		.types()
 		.nth(if b.t.std_of(coll) == Some(Std::HashSet) { 1 } else { 2 })?;
+	built_hasher(b, state)
+}
+
+/// The `Hasher` a `BuildHasher` of type `state` builds, if it is `DefaultHasher`.
+fn built_hasher<'tcx>(b: &Body<'_, '_, 'tcx>, state: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	let tcx = b.t.tcx;
 	let hasher = trait_fn(tcx, "BuildHasher", "Hasher");
 	let projection = Ty::new_projection(tcx, ty::IsRigid::No, hasher, [state]);
 	let hasher = tcx
@@ -1102,6 +1109,31 @@ fn ordering(name: &str, mut values: Vec<Expr>) -> Option<Expr> {
 	Some(e)
 }
 
+/// A function of `RandomState`, or of a trait it implements: making one, which `Default`
+/// does too, its `Clone`, which is itself, and building its hasher, or hashing one value
+/// with it as `BuildHasher::hash_one` does.
+fn random_state<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	ty: Ty<'tcx>,
+	name: &str,
+	args: Vec<Expr>,
+) -> Expr {
+	let span = call.span;
+	let mut values = args.into_iter();
+	match (name, values.next()) {
+		("new" | "default", _) => Expr::rt("randomState", vec![]),
+		("clone", Some(state)) => state,
+		("build_hasher", Some(state)) => Expr::rt("buildHasher", vec![state]),
+		("hash_one", Some(state)) if let Some(value) = values.next() => {
+			let hasher = built_hasher(b, ty).expect("`RandomState` builds `DefaultHasher`");
+			let hash = hash_fn(b, library::targ(call.args, 1), hasher, span);
+			Expr::rt("hashOne", vec![state, value, hash])
+		}
+		_ => b.err(span, format!("`RandomState::{name}`, which is not supported yet")),
+	}
+}
+
 /// `Hasher`'s methods: writing an integer or a string, and `finish`.
 fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Vec<Expr>, span: Span, out: &mut Vec<Stmt>) -> Expr {
 	let mut values = args;
@@ -1114,12 +1146,22 @@ fn hasher_call(b: &mut Body<'_, '_, '_>, name: &str, args: Vec<Expr>, span: Span
 		*state = b.spill(saved, "state", out);
 	}
 	let swapped = |values: Vec<Expr>| values.into_iter().rev().collect::<Vec<_>>();
-	match name {
-		"finish" => Expr::rt("hashFinish", values),
-		"write_str" => Expr::rt("hashStr", swapped(values)),
-		n if n.starts_with("write_") => Expr::rt("hashInt", swapped(values)),
-		_ => b.err(span, format!("`Hasher::{name}`, which is not supported yet")),
-	}
+	let bits = match name {
+		"finish" => return Expr::rt("hashFinish", values),
+		"write_str" => return Expr::rt("hashStr", swapped(values)),
+		"write_u8" | "write_i8" => 8,
+		"write_u16" | "write_i16" => 16,
+		"write_u32" | "write_i32" | "write_usize" | "write_isize" | "write_length_prefix" => 32,
+		"write_u64" | "write_i64" => 64,
+		"write_u128" | "write_i128" => 128,
+		_ => return b.err(span, format!("`Hasher::{name}`, which is not supported yet")),
+	};
+	hash_int(bits).call(swapped(values))
+}
+
+/// `Hash::hash` of an integer of `bits`, which writes its bytes, `usize`'s 32 as on wasm32.
+fn hash_int(bits: u32) -> Expr {
+	Expr::Rt(format!("hash{bits}"))
 }
 
 /// The discriminant of `value`, an enum of the crate, as `discriminant_value` reads it.
@@ -1299,10 +1341,14 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
-		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("hashInt".into()),
+		// What std writes of each: a `bool` as a byte, a `char` as its `u32`.
+		ty::Bool => Expr::Rt("hash8".into()),
+		ty::Char => Expr::Rt("hash32".into()),
+		ty::Int(_) | ty::Uint(_) => hash_int(Int::of(ty).expect("an integer").bits),
 		ty::Str => Expr::Rt("hashStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("hashStr".into()),
-		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hashInt".into()),
+		// Its derived `Hash` writes its `i8` discriminant.
+		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("hash8".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationHash".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| hash_fn(b, t, hasher, span)).collect();
