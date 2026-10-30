@@ -314,7 +314,7 @@ export function refs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	const _257: rt.Iter<[rt.u8, rt.u32]> = rt.hashIter(hash);
-	const iter6: rt.Iter<[rt.u8, rt.u32]> = rt.iterChain(rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _257, true, undefined, undefined, undefined, 8)), rt.btreeIter(tree));
+	const iter6: rt.Iter<[rt.u8, rt.u32]> = rt.iterChain(rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _257, true, undefined, undefined, "next", 8)), rt.btreeIter(tree));
 	while (true) {
 		const _264: [rt.u8, rt.u32] | rt.Done = iter6.next();
 		if (_264 === rt.DONE) {
@@ -574,7 +574,7 @@ export function taken(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return _25 > ((b4 as rt.u32));
 			}), (x3: rt.u32): rt.u32 => {
 				return rt.u32Div(x3, 2);
-			}), undefined, 4);
+			}), "next", 4);
 		})();
 		return held.length === 0;
 	}) as rt.u32)));
@@ -704,7 +704,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const iter5: rt.Iter<rt.Place<rt.u32>> = rt.iterSlice(rt.iterToArray(rt.iterFilter(rt.iterSliceMut(v), (x8: rt.Place<rt.u32>): boolean => {
 		return rt.u32Rem(x8.v, 2) === 0;
-	}), undefined, 4));
+	}), "next", 4));
 	while (true) {
 		const _120: rt.Place<rt.u32> | rt.Done = iter5.next();
 		if (_120 === rt.DONE) {
@@ -966,7 +966,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_480.v = rt.u32Mul(_480.v, 3);
 	}
 	const _486: rt.Iter<[rt.u8, rt.u32]> = rt.hashIter(scalars);
-	const iter29: rt.Iter<[rt.u8, rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _486, true, undefined, undefined, undefined, 8));
+	const iter29: rt.Iter<[rt.u8, rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _486, true, undefined, undefined, "next", 8));
 	while (true) {
 		const _490: [rt.u8, rt.u32] | rt.Done = iter29.next();
 		if (_490 === rt.DONE) {
@@ -1007,7 +1007,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return k6[1] === 0;
 	});
 	const _541: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.hashIter(paired);
-	const iter33: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u32>, _541, true, undefined, undefined, undefined, 8));
+	const iter33: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u32>, _541, true, undefined, undefined, "next", 8));
 	while (true) {
 		const _545: [[rt.u8, rt.u8], rt.u32] | rt.Done = iter33.next();
 		if (_545 === rt.DONE) {
@@ -1020,7 +1020,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(x3)));
 	}
 	const _560: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.hashIter(hash);
-	const iter34: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>, _560, true, undefined, undefined, undefined, 3));
+	const iter34: rt.Iter<[rt.u8, [rt.u8, rt.u8]]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>, _560, true, undefined, undefined, "next", 3));
 	while (true) {
 		const _564: [rt.u8, [rt.u8, rt.u8]] | rt.Done = iter34.next();
 		if (_564 === rt.DONE) {

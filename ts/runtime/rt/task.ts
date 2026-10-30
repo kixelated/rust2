@@ -140,6 +140,16 @@ export function arcClone<T>(arc: Arc<T>): Arc<T> {
 	return arc;
 }
 
+/**
+ * `Arc::into_inner`: the value of the last strong `Arc`, after which its `Weak`s no
+ * longer upgrade, or else `none`, with `arc` no longer counted.
+ */
+export function arcIntoInner<T>(arc: Arc<T>): T | undefined;
+export function arcIntoInner<T>(arc: Arc<T>, none: None): T | None;
+export function arcIntoInner<T>(arc: Arc<T>, none?: None): T | None | undefined {
+	return --arc.strong === 0 ? arc.value : none;
+}
+
 /** `Arc::get_mut`: `arc`'s value, if no other `Arc` or `Weak` shares it. */
 export function arcGetMut<T>(arc: Arc<T>): T | undefined {
 	return arcUnique(arc) ? arc.value : undefined;

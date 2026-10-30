@@ -161,9 +161,11 @@ export function asSlices(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.sliceCopyFromSlice(all[_93], [op as rt.u32, (((op as rt.u32)) << 20) >>> 0]);
 			rt.sliceSwap(all, 0, 1);
 		} else if (_22 === 5) {
-			(([] as rt.u16[])).reverse();
+			const _108: rt.u16[] = [];
+			_108.reverse();
 			rt.byteSliceFill(rt.byteSliceFrom(Uint8Array.of()), op);
-			rt.byteVecPush(out, rt.u8Add((([] as rt.u16[])).length & 0xff, rt.byteSliceFrom(Uint8Array.of()).length & 0xff));
+			const _117: rt.u16[] = [];
+			rt.byteVecPush(out, rt.u8Add(_117.length & 0xff, rt.byteSliceFrom(Uint8Array.of()).length & 0xff));
 		} else if (_22 === 6) {
 			written(rt.byteSliceFrom(bytes), wide, op);
 		} else {

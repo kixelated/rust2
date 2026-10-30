@@ -178,6 +178,11 @@ pub fn call<'tcx>(
 		("Waker", "noop") => Expr::Rt("NOOP_WAKER".into()),
 		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
 		("Arc" | "Rc", "downgrade") | ("Weak", "new") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
+		// The value of the last strong one, which its count says, and else its `None`.
+		("Arc" | "Rc", "into_inner") => {
+			let none = b.t.none_arg(call.args.type_at(0));
+			Expr::rt("arcIntoInner", args.into_iter().chain(none).collect())
+		}
 		("Arc" | "Rc", "strong_count") => first(args).member("strong"),
 		("Arc" | "Rc", "weak_count") => first(args).member("weak"),
 		// Two `Arc`s of trait objects are views of the `Arc`s they were made from.

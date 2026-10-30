@@ -18,6 +18,7 @@ import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
 import type * as Big from "../hints.Big.ts";
+import type * as Unit from "../hints.Unit.ts";
 import type * as Quarter from "../iters.Quarter.ts";
 import type * as Tilt from "../iters.Tilt.ts";
 import { side, order } from "../keys.ts";
@@ -68,6 +69,13 @@ export function unwrapOr$039uout(self: Named.Named[] | undefined, default_: Name
 
 export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
 	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$1kxjsqb(self: rt.u8 | undefined | rt.None, default_: rt.u8 | undefined): rt.u8 | undefined {
+	if (self === rt.None) {
 		return default_;
 	}
 	return self;
@@ -297,6 +305,13 @@ export function map$1u8sh4f(self: Named.Named | undefined, _: (a0: Named.Named) 
 	return [self];
 }
 
+export function map$09ua5et(self: Nibble.Nibble | undefined, f: (a0: Nibble.Nibble) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0pkankm(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
 	if (self === rt.None) {
 		return rt.None;
@@ -327,6 +342,20 @@ export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices
 }
 
 export function map$1httady(self: string[] | undefined, f: (a0: string[]) => string): string | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1mp7tga(self: rt.i64[] | undefined, f: (a0: rt.i64[]) => rt.usize): rt.usize | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1c7fhtg(self: rt.ByteVec | undefined, f: (a0: rt.ByteVec) => rt.usize): rt.usize | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -691,6 +720,13 @@ export function mapOr$1cxlmys(self: Big.Big[] | undefined, default_: rt.usize, f
 	return f(self);
 }
 
+export function mapOr$0r2th8w(self: Unit.Unit[] | undefined, default_: rt.usize, f: (a0: Unit.Unit[]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$1kiffmd(self: rt.u16[] | undefined, default_: rt.u8, f: (a0: rt.u16[]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -783,6 +819,13 @@ export function mapOr$06rr3sb(self: rt.u8 | undefined, default_: rt.u8 | undefin
 }
 
 export function mapOr$1m2xzon(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0z4mj8g(self: rt.u8 | undefined, default_: rt.u16, f: (a0: rt.u8) => rt.u16): rt.u16 {
 	if (self === undefined) {
 		return default_;
 	}

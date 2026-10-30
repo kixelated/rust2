@@ -197,7 +197,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					} else {
 						for (const _190 of rt.iterToArray(rt.iterMap(rt.strMatchIndices(s, "/"), (_2: [rt.usize, string]): rt.usize => {
 							return _2[0];
-						}), undefined, 4)) {
+						}), "next", 4)) {
 							putOffset(out, _190);
 						}
 						break b0;
@@ -356,7 +356,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					});
 					put(out, rt.strSlice(s, part5));
 				} else if (_8 === 5) {
-					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), undefined, 8);
+					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
 					put(out, parts.join(p));
 					put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
 						return part3;
@@ -1184,8 +1184,8 @@ export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const s: string = text(data);
-	const chars: rt.char[] = rt.iterToArray(rt.strChars(s), undefined, 4);
-	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), undefined, 8);
+	const chars: rt.char[] = rt.iterToArray(rt.strChars(s), "next", 4);
+	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
 	const nexts: rt.Cell<rt.u8> = new rt.Cell(0);
 	const named: Named.Named = { name: text(rt.byteSliceRange(data, 0, rt.usizeDiv(data.length, 2))) };
 	const _21: rt.u8 = rt.u8Rem(kind, 4);
@@ -1197,7 +1197,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		put(out, rt.stringExtendChars("", rt.iterSlice(chars)));
 		put(out, rt.stringExtendChars("", rt.iterSkip(rt.iterSlice(chars), 1)));
 		rt.iterEmpty();
-		put(out, rt.stringExtendChars("", rt.iterEmpty()));
+		put(out, rt.stringExtendChars("", rt.iterEmpty() as rt.Iter<rt.char>));
 		put(out, rt.stringExtendChars("", rt.iterOption(rt.charFromU32(kind as rt.u32))));
 		put(out, rt.stringExtendChars("", rt.iterFrom({ items: chars, nexts }, (it: Counted.Counted<rt.char>) => Counted.next$Iterator_char(it))));
 	} else if (_21 === 1) {
@@ -1213,7 +1213,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			return !((p5.length === 0));
 		})));
 		rt.iterEmpty();
-		put(out, rt.stringFromStrings(rt.iterEmpty()));
+		put(out, rt.stringFromStrings(rt.iterEmpty() as rt.Iter<string>));
 		put(out, rt.stringExtendChars("", rt.iterRev(rt.strChars(s))));
 		put(out, rt.stringExtend("", rt.iterSlice(parts)));
 		const owned: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (p6: string): string => {
@@ -1231,7 +1231,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		t = rt.stringExtendChars(t, _157);
 		named.name = rt.stringExtendChars(named.name, rt.iterSlice(chars));
 		rt.iterEmpty();
-		named.name = rt.stringExtendChars(named.name, rt.iterEmpty());
+		named.name = rt.stringExtendChars(named.name, rt.iterEmpty() as rt.Iter<rt.char>);
 		const counted3: Counted.Counted<rt.char> = { items: chars, nexts };
 		t = rt.stringExtendChars(t, rt.iterFrom(counted3, (it: Counted.Counted<rt.char>) => Counted.next$Iterator_char(it)));
 		put(out, t);
@@ -1251,7 +1251,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		});
 		named.name = rt.stringExtend(named.name, _197);
 		rt.iterEmpty();
-		named.name = rt.stringExtend(named.name, rt.iterEmpty());
+		named.name = rt.stringExtend(named.name, rt.iterEmpty() as rt.Iter<string>);
 		const counted4: Counted.Counted<string> = { items: parts, nexts };
 		t2 = rt.stringExtend(t2, rt.iterFrom(counted4, (it: Counted.Counted<string>) => Counted.next$Iterator_str(it)));
 		put(out, t2);

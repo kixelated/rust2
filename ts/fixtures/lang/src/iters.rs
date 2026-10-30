@@ -832,6 +832,13 @@ pub fn own(data: &[u8], out: &mut Vec<u8>) {
 	};
 	let firsts: Vec<u8> = by_ref.by_ref().take(2).collect();
 	out.extend_from_slice(&firsts);
+	// `for` over a `&mut` to one, which reads on from where it stopped.
+	for n in by_ref.by_ref() {
+		if n % 4 == 0 {
+			break;
+		}
+		out.push(n);
+	}
 	out.push(by_ref.count() as u8);
 	// Two instances of one generic iterator, each with its own `next` on one class.
 	let halves: Vec<u8> = Halving { value: left }.collect();

@@ -523,13 +523,13 @@ export function eqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}), undefined, 12, true), out);
 		pairs$ParseCharError(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(all), (s3: string): rt.ParseCharError | undefined => {
 			return err$02r96h1(rt.charFromStr(s3));
-		}), undefined, 1), out);
+		}), "next", 1), out);
 		pairs$ParseBoolError(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(all), (s4: string): rt.ParseBoolError | undefined => {
 			return err$1ujom0k(parse$0vh4cry(s4));
-		}), undefined, 0), out);
+		}), "next", 0), out);
 		pairs$ParseIntError(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(all), (s5: string): rt.ParseIntError | undefined => {
 			return err$0jf6smd(parse$1fq462u(s5));
-		}), undefined, 1), out);
+		}), "next", 1), out);
 	}
 }
 

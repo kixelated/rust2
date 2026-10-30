@@ -4,6 +4,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use kio::Consumer;
@@ -343,6 +344,27 @@ fn ordered(log: &Log, id: u32) {
 	map.clear();
 	set.clear();
 	log.note(format!("left {} {} {}", map.len(), set.len(), queue.len()));
+	// Past one node, whose branches bound their children by keys: a key `replace`, `take`,
+	// or `remove` gives back drops, which a lookup through a branch still holding it would
+	// misread.
+	let sink = Log::new();
+	let mut many = BTreeSet::new();
+	for n in 0..400 {
+		many.insert(Key::new(n, sink.clone()));
+	}
+	let found = |many: &BTreeSet<Key>| (0..400).filter(|&n| many.contains(&Key::new(n, sink.clone()))).count();
+	for n in (0..400).step_by(3) {
+		drop(many.replace(Key::new(n, sink.clone())));
+	}
+	log.note(format!("replaced {} {}", found(&many), many.len()));
+	for n in (0..400).step_by(7) {
+		drop(many.take(&Key::new(n, sink.clone())));
+	}
+	log.note(format!("taken {} {}", found(&many), many.len()));
+	for n in (0..400).step_by(5) {
+		many.remove(&Key::new(n, sink.clone()));
+	}
+	log.note(format!("removed {} {}", found(&many), many.len()));
 }
 
 /// The same of hash collections, whose order of drops std leaves unspecified: each key
@@ -501,10 +523,31 @@ fn elements(log: &Log, id: u32) {
 	if let Some(o) = v.first_mut() {
 		*o = None;
 	}
+	// What the test changes in place it keeps, and what it doesn't take stays.
+	let kept = v.pop_if(|o| {
+		*o = None;
+		false
+	});
+	let taken = v.pop_if(|o| {
+		*o = Some(guard(12));
+		true
+	});
+	log.note(format!("pop_if {} {:?}", kept.is_some(), taken.as_ref().map(ids)));
+	drop(taken);
 	while let Some(o) = v.pop() {
 		log.note(format!("pop {:?}", ids(&o)));
 	}
 	log.note(format!("popped {:?}", v.pop().map(|o| ids(&o))));
+	// A test that owns a guard drops it uncalled without an element, and else once called.
+	let owned = guard(14);
+	log.note(format!("uncalled {}", v.pop_if(move |_| owned.id() > 0).is_some()));
+	v.push(None);
+	let owned = guard(15);
+	let called = v.pop_if(move |o| {
+		log.note(format!("test {}", owned.id()));
+		o.is_none()
+	});
+	log.note(format!("called {:?}", called.map(|o| ids(&o))));
 	let mut q = VecDeque::new();
 	q.push_back(None);
 	q.push_back(Some(guard(4)));
@@ -527,6 +570,16 @@ fn elements(log: &Log, id: u32) {
 	));
 	drop(removed);
 	q.push_back(Some(guard(6)));
+	q.push_back(Some(guard(13)));
+	q.push_front(None);
+	let back = q.swap_remove_back(0);
+	log.note(format!(
+		"swap_remove {:?} {:?} {:?}",
+		back.as_ref().map(ids),
+		q.swap_remove_front(9).map(|o| ids(&o)),
+		q.swap_remove_front(1).map(|o| ids(&o))
+	));
+	drop(back);
 	let front = q.pop_front();
 	log.note(format!("front {:?}", front.as_ref().map(ids)));
 	while let Some(o) = q.pop_back() {
@@ -555,6 +608,24 @@ fn elements(log: &Log, id: u32) {
 		sorted.first().map(keys),
 		sorted.last().map(keys)
 	));
+	// The key `replace` gives back drops when its caller drops it, and the one it keeps
+	// with the set; `get` and `take` find either by an equal key.
+	let replaced = sorted.replace(Some(key(9)));
+	log.note(format!(
+		"replace {:?} {:?}",
+		replaced.as_ref().map(keys),
+		sorted.replace(None).map(|o| keys(&o))
+	));
+	drop(replaced);
+	log.note(format!("get {:?}", sorted.get(&Some(key(10))).map(keys)));
+	let taken = sorted.take(&Some(key(10)));
+	log.note(format!(
+		"take {:?} {:?}",
+		taken.as_ref().map(keys),
+		sorted.take(&Some(key(14))).is_some()
+	));
+	drop(taken);
+	sorted.insert(Some(key(10)));
 	let least = sorted.pop_first();
 	let most = sorted.pop_last();
 	log.note(format!(
@@ -573,14 +644,17 @@ fn elements(log: &Log, id: u32) {
 		taken.map(|o| keys(&o)),
 		hashed.take(&None).map(|o| keys(&o))
 	));
+	let replaced = hashed.replace(Some(key(11)));
+	log.note(format!("replaced {:?}", replaced.as_ref().map(keys)));
+	drop(replaced);
 	let held = hashed.take(&Some(key(11)));
 	log.note(format!("held {:?}", held.map(|o| keys(&o))));
 	log.note(format!("left {} {} {}", heap.len(), sorted.len(), hashed.len()));
 }
 
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and
-/// `min` of the operand they do not return, read by the keys' counts; and what
-/// `or_insert` drops of a value JS copies, which it returns a place for.
+/// `min` of the operand they do not return, read by the keys' counts; what `or_insert`
+/// drops of a value JS copies, which it returns a place for; and what `into_inner` gives.
 fn arcs(log: &Log, id: u32) {
 	let count = |what: &str, key: &Arc<str>| log.note(format!("{what} {}", Arc::strong_count(key)));
 	let name: Arc<str> = Arc::from("name");
@@ -616,6 +690,25 @@ fn arcs(log: &Log, id: u32) {
 		Guard::new(id + 4, log.clone()),
 	));
 	log.note(format!("tags {}", tags.len()));
+	// `into_inner` gives the value from the last strong handle alone, after which a `Weak`
+	// no longer upgrades; another's only drops its share.
+	let shared = Arc::new(Guard::new(id + 5, log.clone()));
+	let weak = Arc::downgrade(&shared);
+	let clone = Arc::clone(&shared);
+	log.note(format!("into_inner {}", Arc::into_inner(shared).is_some()));
+	let inner = Arc::into_inner(clone);
+	log.note(format!(
+		"into_inner {:?} {}",
+		inner.as_ref().map(Guard::id),
+		weak.upgrade().is_some()
+	));
+	drop(inner);
+	let held = Rc::new(Some(Guard::new(id + 6, log.clone())));
+	let again = Rc::clone(&held);
+	drop(Rc::into_inner(held));
+	let inner = Rc::into_inner(again);
+	log.note(format!("rc {:?}", inner.as_ref().map(|o| o.as_ref().map(Guard::id))));
+	drop(inner);
 	drop(map);
 	count("dropped", &name);
 	count("dropped", &other);

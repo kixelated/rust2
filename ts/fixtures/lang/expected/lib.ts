@@ -152,6 +152,10 @@ export function copy$Option_Shape(v: Shape.Shape | undefined): Shape.Shape | und
 	return v === undefined ? v : copy$Shape(v);
 }
 
+export function copy$Option_Tally(v: Tally.Tally | undefined): Tally.Tally | undefined {
+	return v === undefined ? v : copy$Tally(v);
+}
+
 export function copy$Option_u64_u64(v: [rt.u64, rt.u64] | undefined): [rt.u64, rt.u64] | undefined {
 	return v === undefined ? v : copy$u64_u64(v);
 }

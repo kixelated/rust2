@@ -1176,7 +1176,8 @@ export function temporaries(log: Log.Log, id: rt.u32): void {
 	Guard.note(head, "head");
 	Guard.note(rest[1], "rest");
 	guard(1090)[Symbol.dispose]();
-	const part2 = ([] as Guard.Guard[]).length;
+	const _98: Guard.Guard[] = [];
+	const part2 = _98.length;
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part2, f)];
 	Log.note(log, rt.fmtFormat(["empty ", args8[0]]));
 	const captured = guard(1100);

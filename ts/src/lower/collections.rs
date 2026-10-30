@@ -510,7 +510,7 @@ pub fn place_call<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> bool {
 	let name = tcx.item_name(call.def_id);
 	let coll = impl_self_ty(b, call);
 	let (methods, value): (&[&str], usize) = match std {
-		Std::Vec => (&["retain_mut", "dedup_by", "dedup_by_key"], 0),
+		Std::Vec => (&["retain_mut", "dedup_by", "dedup_by_key", "pop_if"], 0),
 		Std::VecDeque => (&["get_mut", "front_mut", "back_mut", "iter_mut", "retain_mut"], 0),
 		Std::HashMap => (&["get_mut", "iter_mut", "values_mut", "retain"], 1),
 		Std::BTreeMap => (&["get_mut", "iter_mut", "values_mut", "range_mut", "retain"], 1),
@@ -603,6 +603,7 @@ fn hash<'tcx>(
 		(_, "get" | "get_mut") if !set => Expr::rt("hashGet", values),
 		(_, "get") => Expr::rt("hashKey", flagged(values, false, none)),
 		(_, "take") => Expr::rt("hashKey", flagged(values, true, none)),
+		(_, "replace") => Expr::rt("hashReplace", values),
 		(_, "get_key_value") => Expr::rt("hashGetKeyValue", values),
 		(_, "insert") if set => Expr::rt("hashAdd", values),
 		(_, "insert") => Expr::rt("hashInsert", values),
@@ -983,7 +984,9 @@ fn btree<'tcx>(
 		(_, "contains_key" | "contains") => Expr::rt("btreeContains", values),
 		(_, "get_mut") if !set && b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeGetMut", values),
 		(_, "get" | "get_mut") if !set => Expr::rt("btreeGet", values),
-		(_, "get") => Expr::rt("btreeGetKey", values),
+		(_, "get") => Expr::rt("btreeKey", first(values)),
+		(_, "take") => Expr::rt("btreeKey", last(values)),
+		(_, "replace") => Expr::rt("btreeReplace", values),
 		(_, "get_key_value") => Expr::rt("btreeGetKeyValue", values),
 		(_, "insert") if set => Expr::rt("btreeAdd", values),
 		(_, "insert") => Expr::rt("btreeInsert", values),
@@ -1189,6 +1192,8 @@ fn deque<'tcx>(
 		(_, "front" | "front_mut") => Expr::rt("dequeEnd", flagged(values, false, none)),
 		(_, "back" | "back_mut") => Expr::rt("dequeEnd", back(values)),
 		(_, "get" | "get_mut") => Expr::rt("dequeGet", values),
+		(_, "swap_remove_front") => Expr::rt("dequeSwapRemove", flagged(values, false, none)),
+		(_, "swap_remove_back") => Expr::rt("dequeSwapRemove", back(values)),
 		(_, "truncate") => Expr::rt("dequeTruncate", values),
 		(_, "retain_mut") if b.t.needs_place(item) => Expr::rt("dequeRetainMut", values),
 		(_, "retain" | "retain_mut") => Expr::rt("dequeRetain", values),

@@ -222,6 +222,38 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
+	/// A value of one of std's types made of zero-sized `values`, which MIR reads as a
+	/// constant rather than from what made it, or `values` back for another type.
+	pub fn zero_sized_std(&mut self, ty: Ty<'tcx>, values: Vec<Expr>, span: Span) -> Result<Expr, Vec<Expr>> {
+		let tcx = self.t.tcx;
+		let ty::Adt(adt, _) = ty.kind() else {
+			return Err(values);
+		};
+		match library::std_path(tcx, adt.did())
+			.iter()
+			.map(String::as_str)
+			.collect::<Vec<_>>()
+			.as_slice()
+		{
+			["marker", "PhantomData"] => return Ok(Expr::undefined()),
+			// Typed, as what reads it may infer nothing of it.
+			["iter", "sources", "empty", "Empty"] => {
+				let ts_ty = self.t.ty(ty, span);
+				return Ok(Expr::As(Box::new(Expr::rt("iterEmpty", Vec::new())), ts_ty));
+			}
+			_ => {}
+		}
+		let Some((make, gargs)) = super::iter::maker(self.t, ty) else {
+			return Err(values);
+		};
+		let mut pre = Vec::new();
+		let made = self.call_def(make, gargs, values, span, &mut pre);
+		Ok(match pre.is_empty() {
+			true => made,
+			false => self.err(span, format!("a constant of type `{ty}` whose making takes statements")),
+		})
+	}
+
 	/// A function item as a value, typed as one: a declared function's `()` result is `void`,
 	/// which a value's type says is `undefined`.
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
