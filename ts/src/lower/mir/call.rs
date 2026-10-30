@@ -378,7 +378,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// place a `&mut dyn Any` wraps, a `RefCell` key's value, or an `Arc`'s.
 		let lends = match library::key(tcx, def_id) {
 			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
-				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut")
+				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut" | "split_first_mut" | "split_last_mut")
 				| ("dyn Any", "downcast_mut")
 				| ("LocalKey", "with_borrow_mut")
 				| ("Arc" | "Rc", "get_mut" | "make_mut") => true,
@@ -527,13 +527,89 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 				done(next, true)
 			}
-			// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
-			("String", "push") => {
+			// A JS string can't change in place, so what the `&mut` borrows gets a new one.
+			("String", "push" | "push_str") | ("AddAssign", "add_assign")
+				if owner == "String" || targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::String)) =>
+			{
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let c = self.operand(&args[1].node, span, out);
-				let pushed = place.0.clone().binary("+", library::char_text(c));
+				let text = self.operand(&args[1].node, span, out);
+				let text = match name.as_str() {
+					"push" => library::char_text(text),
+					_ => text,
+				};
+				let pushed = place.0.clone().binary("+", text);
 				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
+			}
+			// No capacity is kept, and reading one is refused, but reserving past `isize::MAX`
+			// panics as std's does.
+			("String", "reserve" | "reserve_exact") => {
+				let values = self.operands(false, &[true, true], args, tcx.types.unit, span, out);
+				done(Expr::rt("stringReserve", values), true)
+			}
+			("String", "shrink_to_fit" | "shrink_to") => done(Expr::undefined(), false),
+			("String", "retain") if targ(0).is_some_and(|f| self.b.t.drops(f)) => {
+				let f = targ(0)?;
+				done(
+					self.err(
+						span,
+						format!("passing `{f}`, which drops, to `String::{name}`, which is not supported yet"),
+					),
+					false,
+				)
+			}
+			// The edited string, from the runtime with what it takes after the string.
+			(
+				"String",
+				"clear" | "truncate" | "insert" | "insert_str" | "retain" | "replace_range" | "extend_from_within",
+			) => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let mut values = vec![place.0.clone()];
+				values.extend(self.operands(false, &[], &args[1..], result, span, out));
+				if name == "insert" {
+					let c = values.pop()?;
+					values.push(library::char_text(c));
+				}
+				if name == "retain" {
+					let f = std::mem::replace(&mut values[1], Expr::undefined());
+					values[1] = library::called_through(self.b.t, targ(0)?, Some(f)).2?;
+				}
+				// A range std reads the bounds of, as `bounds` makes any `RangeBounds` one.
+				if matches!(name.as_str(), "replace_range" | "extend_from_within") {
+					let call = library::Call {
+						def_id,
+						args: gargs,
+						span,
+					};
+					let range = std::mem::replace(&mut values[1], Expr::undefined());
+					values[1] = crate::lower::collections::bounds(self.b, &call, range);
+				}
+				let edited = match name.as_str() {
+					"clear" => Expr::Str(String::new()),
+					"truncate" => Expr::rt("stringTruncate", values),
+					"insert" | "insert_str" => Expr::rt("stringInsertStr", values),
+					"retain" => Expr::rt("stringRetain", values),
+					"replace_range" => Expr::rt("stringReplaceRange", values),
+					_ => Expr::rt("stringExtendFromWithin", values),
+				};
+				self.set_borrowed(&place, edited, span, out);
+				done(Expr::undefined(), false)
+			}
+			// The runtime gives the edited string and what the edit returns.
+			("String", "pop" | "remove" | "split_off") => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let mut values = vec![place.0.clone()];
+				values.extend(self.operands(false, &[], &args[1..], result, span, out));
+				let f = match name.as_str() {
+					"pop" => "stringPop",
+					"remove" => "stringRemove",
+					_ => "stringSplitOff",
+				};
+				let edit = self.path(Expr::rt(f, values), "edit", out);
+				self.set_borrowed(&place, edit.clone().index(Expr::lit("0")), span, out);
+				done(edit.index(Expr::lit("1")), false)
 			}
 			("Write", "write_str" | "write_char" | "write_fmt")
 				if tcx
@@ -1290,10 +1366,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				Some(Some((place, true)))
 			}
 			None => {
-				if name == "index_mut" && !matches!(elem_ty.kind(), ty::Uint(ty::UintTy::U8)) {
-					// A JS array has no views, so a mutable subslice would be a copy.
-					return None;
-				}
 				// The range's bounds are taken apart before the slice is read, while they are
 				// still held back.
 				let (start, end) = self.range_bounds(&args[1].node, index_ty, span, out)?;
@@ -1301,12 +1373,21 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					ty::Adt(..) => library::vec_view(base, elem_ty),
 					_ => base,
 				};
+				// All of a mutable slice of other values is the slice itself.
+				let full =
+					matches!(index_ty.kind(), ty::Adt(adt, _) if self.tcx.item_name(adt.did()).as_str() == "RangeFull");
+				if full && !bytes && name == "index_mut" {
+					return Some(Some((base, true)));
+				}
 				let base = self.path(base, "slice", out);
 				let mut values = vec![base, start];
 				values.extend(end);
-				let range = match bytes {
-					true => "byteSliceRange",
-					false => "sliceRange",
+				// A range of bytes is a view already, and one of other values lent mutably the
+				// runtime's view, as a JS array has none of its own.
+				let range = match (bytes, name) {
+					(true, _) => "byteSliceRange",
+					(false, "index_mut") => "sliceRangeMut",
+					(false, _) => "sliceRange",
 				};
 				Some(Some((Expr::rt(range, values), true)))
 			}

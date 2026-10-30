@@ -32,6 +32,7 @@ import type * as Level from "./shapes.Level.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
+import type * as slices_Pair from "./slices.Pair.ts";
 import * as Lock from "./statics.Lock.ts";
 
 export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> {
@@ -176,6 +177,10 @@ export function copy$Pair(v: Pair.Pair): Pair.Pair {
 }
 
 export function copy$Pair$2(v: pointers_Pair.Pair): pointers_Pair.Pair {
+	return { a: v.a, b: v.b };
+}
+
+export function copy$Pair$3(v: slices_Pair.Pair): slices_Pair.Pair {
 	return { a: v.a, b: v.b };
 }
 

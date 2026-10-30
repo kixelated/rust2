@@ -231,14 +231,6 @@ pub fn zip_dropped(v: &[u8]) -> usize {
 	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
 }
 
-/// `rest` borrows the tail of `items` mutably, but a JS array has no views.
-pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
-	if let [_, rest @ ..] = items {
-		rest[0] = 9;
-	}
-	items[1]
-}
-
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
 pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::pin::Pin<&'a mut Noisy>) {
 	*dst = src;
@@ -488,8 +480,8 @@ pub fn fma(a: f64) -> f64 {
 	a.mul_add(2.0, 1.0)
 }
 
-/// Integer parsing is not translated yet.
-pub fn int_parsed(s: &str) -> Result<u32, std::num::ParseIntError> {
+/// Parsing a `char` is not translated yet.
+pub fn char_parsed(s: &str) -> Result<char, std::char::ParseCharError> {
 	s.parse()
 }
 
@@ -867,6 +859,12 @@ pub fn spent_range(
 	map: &std::collections::BTreeMap<usize, u8>,
 ) -> usize {
 	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
+}
+
+/// A closure that owns a value that drops, which `String::retain` would call but never drop.
+pub fn string_retained(s: &mut String) {
+	let n = Noisy(1);
+	s.retain(move |c| c as u8 != (&n).0);
 }
 
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names

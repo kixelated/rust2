@@ -300,13 +300,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						_ => "slice",
 					};
 					let base = self.path(e, "slice", out);
-					let end = match (from_end, ty.kind()) {
-						(false, _) => Expr::lit(to.to_string()),
-						(true, ty::Array(_, len)) if let Some(len) = len.try_to_target_usize(tcx) => {
-							Expr::lit((len - to).to_string())
-						}
-						(true, _) => base.clone().member("length").binary("-", Expr::lit(to.to_string())),
-					};
+					let end = self.subslice_end(&base, ty, to, from_end);
 					e = base.member(method).call(vec![Expr::lit(from.to_string()), end]);
 				}
 				ProjectionElem::OpaqueCast(_)
@@ -387,23 +381,48 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		in_bytes && byte_array(place.ty(&self.mir.local_decls, self.tcx).ty)
 	}
 
-	/// An error if `kind` borrows a subslice of other than bytes mutably: a JS array has
-	/// no views, so it would change a copy.
-	pub(super) fn mut_subslice(&mut self, kind: mir::BorrowKind, place: Place<'tcx>, span: Span) -> Option<Expr> {
+	/// Where a slice pattern's rest of `base`, a `ty`, ends: at `to`, or `to` before its end.
+	fn subslice_end(&self, base: &Expr, ty: Ty<'tcx>, to: u64, from_end: bool) -> Expr {
+		match (from_end, ty.kind()) {
+			(false, _) => Expr::lit(to.to_string()),
+			(true, ty::Array(_, len)) if let Some(len) = len.try_to_target_usize(self.tcx) => {
+				Expr::lit((len - to).to_string())
+			}
+			(true, _) => base.clone().member("length").binary("-", Expr::lit(to.to_string())),
+		}
+	}
+
+	/// A mutable borrow of a slice pattern's rest of other than bytes, which a JS array's
+	/// `slice` would copy: the runtime's view of it.
+	pub(super) fn mut_subslice(
+		&mut self,
+		kind: mir::BorrowKind,
+		place: Place<'tcx>,
+		span: Span,
+		out: &mut Vec<Stmt>,
+	) -> Option<Expr> {
 		if !matches!(kind, mir::BorrowKind::Mut { .. }) {
 			return None;
 		}
-		let elem = place.iter_projections().find_map(|(base, elem)| match elem {
-			ProjectionElem::Subslice { .. } => match base.ty(&self.mir.local_decls, self.tcx).ty.kind() {
-				ty::Array(elem, _) | ty::Slice(elem) if !matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => Some(*elem),
-				_ => None,
-			},
+		let (base, ty, from, to, from_end) = place.iter_projections().find_map(|(base, elem)| match elem {
+			ProjectionElem::Subslice { from, to, from_end } => {
+				let ty = base.ty(&self.mir.local_decls, self.tcx).ty;
+				match ty.kind() {
+					ty::Array(elem, _) | ty::Slice(elem) if !matches!(elem.kind(), ty::Uint(ty::UintTy::U8)) => {
+						Some((base, ty, from, to, from_end))
+					}
+					_ => None,
+				}
+			}
 			_ => None,
 		})?;
-		Some(self.err(
-			span,
-			format!("a mutable borrow of a subslice of `{elem}`, which JS would copy, having no views"),
-		))
+		if base.projection.len() + 1 != place.projection.len() {
+			return Some(self.err(span, format!("a mutable borrow within a subslice of `{ty}`")));
+		}
+		let base = self.place_expr(base.to_place(self.tcx), span, out);
+		let base = self.path(base, "slice", out);
+		let end = self.subslice_end(&base, ty, to, from_end);
+		Some(Expr::rt("sliceView", vec![base, Expr::lit(from.to_string()), end]))
 	}
 
 	/// `base`, a `ty`, cast to its `variant`, which MIR reads without a switch where the
@@ -560,6 +579,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
+				Some(Std::ParseIntError) => base.member("kind"),
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
@@ -1080,6 +1100,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(Std::Bound | Std::TryLockError) => scrut
 						.clone()
 						.member("tag")
+						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
+					Some(Std::IntErrorKind) => scrut
+						.clone()
 						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
 					_ => self.err(span, format!("a switch on `{ty}`")),
 				}

@@ -102,7 +102,8 @@ pub fn call<'tcx>(
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				// The library maps the integers', `bool`'s, and byte slices'.
 				let t = peel(b, t);
-				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !std_key(b, t) {
+				let kind = b.t.std_of(t) == Some(Std::IntErrorKind);
+				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !(std_key(b, t) || kind) {
 					return Err(args);
 				}
 				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
@@ -651,7 +652,7 @@ fn btree<'tcx>(
 		// std checks the ends by `==` and `>`, which a key of std's alone does as its `Ord`
 		// does, and one holding the crate's own type by that type's `PartialEq` and
 		// `PartialOrd`.
-		let target = range_target(b, call);
+		let target = range_input(b, call).1;
 		let own = |t: Ty<'tcx>| matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
 		if target.walk().filter_map(|arg| arg.as_type()).any(own) {
 			values.push(eq_fn(b, target, span));
@@ -1266,15 +1267,15 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	matches!(elem.kind(), ty::Uint(ty::UintTy::U8))
 }
 
-/// Makes `range`, the range `call` takes last, what an `rt.Bounds` reads: std's range types
+/// Makes `range`, the range `call` takes, what an `rt.Bounds` reads: std's range types
 /// and a pair of `Bound`s are already, and any other `RangeBounds` becomes `rt.boundsOf` of
 /// it and its `start_bound` and `end_bound`, which the runtime calls where std's does. A
 /// range that drops is refused, since std drops it once it has read the bounds.
 pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) -> Expr {
 	let tcx = b.t.tcx;
 	let span = call.span;
-	let sig = b.t.sig(call.def_id, call.args);
-	let ty = *sig.inputs().last().expect("a range");
+	let (input, target) = range_input(b, call);
+	let ty = b.t.sig(call.def_id, call.args).inputs()[input];
 	if b.t.drops(ty) {
 		let (owner, name) = library::key(tcx, call.def_id).expect("a function of std");
 		return b.err(
@@ -1300,16 +1301,15 @@ pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) 
 		_ if b.t.deferred(ty) => return range,
 		_ => {}
 	}
-	let target = range_target(b, call);
 	let args = tcx.mk_args(&[ty.into(), target.into()]);
 	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
 	let end = b.fn_value(trait_fn(tcx, "RangeBounds", "end_bound"), args, span);
 	Expr::rt("boundsOf", vec![range, start, end])
 }
 
-/// The `T` of the `RangeBounds<T>` that the range `call` takes last implements, from the
-/// function's own bound on its range's type.
-fn range_target<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Ty<'tcx> {
+/// Which of its inputs is the range `call` takes, and the `T` of the `RangeBounds<T>` it
+/// implements, from the function's own bound on its range's type.
+fn range_input<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> (usize, Ty<'tcx>) {
 	let tcx = b.t.tcx;
 	let bounds = tcx.parent(trait_fn(tcx, "RangeBounds", "start_bound"));
 	let sig = tcx
@@ -1317,16 +1317,16 @@ fn range_target<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Ty<'tcx> {
 		.instantiate_identity()
 		.skip_norm_wip()
 		.skip_binder();
-	let own = *sig.inputs().last().expect("a range");
-	let target = tcx
+	let (input, target) = tcx
 		.param_env(call.def_id)
 		.caller_bounds()
 		.find_map(|clause| {
 			let tr = clause.as_trait_clause()?.skip_binder().trait_ref;
-			(tr.def_id == bounds && tr.self_ty() == own).then(|| tr.args.type_at(1))
+			let input = sig.inputs().iter().position(|&ty| ty == tr.self_ty())?;
+			(tr.def_id == bounds).then(|| (input, tr.args.type_at(1)))
 		})
 		.expect("a range's bound");
-	b.t.subst(call.args, target)
+	(input, b.t.subst(call.args, target))
 }
 
 /// What `ty` holds if it is an `Arc`.
@@ -1388,7 +1388,11 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			int.func("eq")
 		}
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => Expr::Rt("same".into()),
-		ty::Adt(..) if library::string(tcx, ty) || b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("same".into()),
+		ty::Adt(..)
+			if library::string(tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::IntErrorKind)) =>
+		{
+			Expr::Rt("same".into())
+		}
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Duration) => Expr::Rt("durationEq".into()),
 		ty::Tuple(tys) if !tys.is_empty() => {
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();

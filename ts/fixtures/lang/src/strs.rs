@@ -1,8 +1,10 @@
 //! `str` and `String` over `char`: iterated from both ends, searched by a `char`, a
-//! predicate, or a `&str`, trimmed, split, sliced by byte offsets, and built a char at a
-//! time. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
+//! predicate, or a `&str`, trimmed, split, sliced by byte offsets, built a char at a
+//! time, and edited in place. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
 //! so byte offsets and code units part. Predicates log each char they are called with, so
 //! where a search stops is output too.
+
+use std::ops::Bound;
 
 use crate::fmt::put;
 
@@ -378,4 +380,128 @@ fn escape(parts: &[String]) -> String {
 		}
 	}
 	path
+}
+
+/// A byte offset into `s` from `b`: mostly where a char starts or the end, and otherwise
+/// any offset up to two past the end, inside a char or out of bounds.
+fn offset(s: &str, b: u8) -> usize {
+	if b & 0x70 == 0 {
+		return usize::from(b) % (s.len() + 3);
+	}
+	let mut skip = usize::from(b) % (s.chars().count() + 1);
+	for i in 0..s.len() {
+		if s.is_char_boundary(i) {
+			if skip == 0 {
+				return i;
+			}
+			skip -= 1;
+		}
+	}
+	s.len()
+}
+
+/// `String::retain` by a function behind a `&mut`, behind two, and boxed behind one.
+fn retain_by(s: &mut String, f: &mut fn(char) -> bool, how: u8) {
+	match how % 3 {
+		0 => s.retain(f),
+		1 => s.retain(&mut &mut *f),
+		_ => s.retain(Box::new(f)),
+	}
+}
+
+fn odd(c: char) -> bool {
+	u32::from(c) % 2 == 1
+}
+
+/// One edit of `s` by `op`, taking offsets and text from `a` and `b`, through a `&mut`.
+fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
+	let piece = text(&[a, b, a ^ b][..usize::from(a % 4)]);
+	let (i, j) = (offset(s, a), offset(s, b));
+	match op % 14 {
+		0 => s.push_str(&piece),
+		1 => *s += &piece,
+		2 if a % 4 == 0 => s.clear(),
+		2 => s.push(ALPHABET[usize::from(b % 16)]),
+		3 => s.truncate(i),
+		4 => put_char(out, s.pop()),
+		5 => put_char(out, Some(s.remove(i))),
+		6 => s.insert(i, ALPHABET[usize::from(b % 16)]),
+		7 => s.insert_str(i, &piece),
+		8 if b % 2 == 1 => {
+			let mut f: fn(char) -> bool = odd;
+			retain_by(s, &mut f, a);
+		}
+		8 => {
+			let mut seen = Vec::new();
+			s.retain(|c| {
+				seen.push(c);
+				u32::from(c) % 3 != u32::from(a % 3)
+			});
+			put_seen(out, &seen);
+		}
+		9 => put(out, &s.split_off(i)),
+		10 => match b % 7 {
+			0 => s.replace_range(i..j, &piece),
+			1 => s.replace_range(i.., &piece),
+			2 => s.replace_range(..j, &piece),
+			3 => s.replace_range(.., &piece),
+			4 => s.replace_range(i..=j, &piece),
+			5 => s.replace_range(..=j, &piece),
+			_ => s.replace_range((Bound::Excluded(i), Bound::Included(j)), &piece),
+		},
+		11 => match b % 5 {
+			0 => s.extend_from_within(i..j),
+			1 => s.extend_from_within(i..),
+			2 => s.extend_from_within(..=j),
+			3 => s.extend_from_within((Bound::Included(i), Bound::Excluded(j))),
+			_ => s.extend_from_within(..),
+		},
+		// Past `isize::MAX`, a capacity overflows; native Rust would allocate one up to it.
+		12 => match a % 4 {
+			0 => s.reserve(usize::MAX - usize::from(b)),
+			1 => s.reserve_exact(isize::MAX as usize - s.len() + 1 + usize::from(b % 2)),
+			_ => {
+				s.reserve(usize::from(a));
+				s.reserve_exact(usize::from(b));
+				s.shrink_to(usize::from(a));
+				s.shrink_to_fit();
+			}
+		},
+		_ => {
+			let capacity = match a % 4 {
+				0 => isize::MAX as usize + 1 + usize::from(b % 2),
+				_ => usize::from(a),
+			};
+			let mut fresh = String::with_capacity(capacity);
+			fresh.push_str(s);
+			*s = fresh;
+		}
+	}
+}
+
+/// `String`'s edits in place, three bytes each, on text of chars of every UTF-8 width:
+/// through a `&mut String`, on a local, and on a field, each printed after each edit.
+/// An offset off a char boundary or out of bounds panics as std's does.
+pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (head, ops) = data.split_at(data.len().min(usize::from(kind % 8)));
+	let mut s = text(head);
+	let mut named = Named { name: text(head) };
+	for op in ops.chunks(3) {
+		let [op, a, b] = [op[0], *op.get(1).unwrap_or(&0), *op.get(2).unwrap_or(&0x10)];
+		match op / 64 {
+			0 => edit(&mut named.name, op, a, b, out),
+			// On the local itself, with no `&mut` between.
+			1 => match op % 6 {
+				0 => s.push_str("é/"),
+				1 => s.truncate(offset(&s, a)),
+				2 => put_char(out, s.pop()),
+				3 => s.insert_str(offset(&s, a), "😀"),
+				4 => put(out, &s.split_off(offset(&s, a))),
+				_ => s.clear(),
+			},
+			_ => edit(&mut s, op, a, b, out),
+		}
+		put(out, &s);
+		put(out, &named.name);
+	}
 }

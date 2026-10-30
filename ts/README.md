@@ -68,7 +68,8 @@ from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
-`Option`'s, `Result`'s, and `Poll`'s methods and `cmp::max` and `min`, goes in a module under its crate's name, as
+`Option`'s, `Result`'s, and `Poll`'s methods, `cmp::max` and `min`, and an integer's `str::parse` and
+`from_str_radix`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
 functions that the package's types make, so a module at the package's root named for a
@@ -130,9 +131,9 @@ crate translation reaches is refused, and so are two versions of one crate it re
 
 An `rt.ByteSlice` is a range of a `Uint8Array`: its `data`, from `start`, for `length`
 bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it gets as
-`rt.byteSliceView(slice)`, a view of it. A mutable chunk of other values, as
-`chunks_mut` lends it, is a `Proxy` of an array whose elements are the slice's, read and
-written where they are, since a JS array has no views.
+`rt.byteSliceView(slice)`, a view of it. A mutable part of a slice of other values, as
+`&mut v[a..b]`, `split_at_mut`, and `chunks_mut` lend it, is a `Proxy` of an array whose
+elements are the slice's, read and written where they are, since a JS array has no views.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never
@@ -177,7 +178,9 @@ argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers, `e` and `E` for `f6
 prints std's digits: the shortest that read back as it, the greater of two as close where
 JS's would take the even one, or its exact value rounded half to even to a precision,
 where `toFixed` rounds half up. `str::parse::<f64>` takes std's grammar, not `Number`'s,
-and rounds to the nearest double. `Debug` of a string or `char` escapes by
+and rounds to the nearest double. An integer's `str::parse` and `from_str_radix` are core's
+own, over the string's UTF-8 bytes; its `ParseIntError` is `rt.ParseIntError`, `{ kind }`,
+whose `IntErrorKind` is the variant's name. `Debug` of a string or `char` escapes by
 std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
@@ -206,8 +209,11 @@ A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a sear
 closure, which it calls on each char it reads, in the order std reads them. An offset it
 returns, from `rfind` or `match_indices`, counts UTF-8 bytes, as Rust's does, and so does
 one `&s[a..b]` takes, which reads the string up to it and panics as std does inside a
-char. A JS string can't change in place, so `String::push` assigns a longer one to the
-local or field the `&mut` borrows. A `Cow<str>` is its text, borrowed or owned, so
+char. A JS string can't change in place, so `String`'s edits, `push_str`, `truncate`,
+`insert`, `retain`, `replace_range`, and the rest, assign the edited one to the local or
+field the `&mut` borrows, taking and checking byte offsets as std does. A `String` keeps no
+capacity: `with_capacity`, `reserve`, and `shrink_to_fit` do nothing, and `capacity` is
+refused. A `Cow<str>` is its text, borrowed or owned, so
 `to_mut` borrows the `Cow`'s own place, and code that tells its variants apart, a `match`
 on them or `Cow::is_borrowed`, is refused.
 
@@ -610,7 +616,7 @@ copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
 a pointer's address (`{:p}`), `write!` with a placeholder into
-the crate's own `fmt::Write`, a `str` pattern other than a
+the crate's own `fmt::Write`, `String::extend` and `drain`, a `str` pattern other than a
 `char`, a `&str`, a predicate, or chars, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a

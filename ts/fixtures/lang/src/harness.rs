@@ -136,6 +136,9 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("fmt::writes", |_, data, out| fmt::writes(data, out)),
 		("bounds::bounds", bounds::bounds),
 		("pointers::cells", |_, data, out| pointers::cells(data, out)),
+		("ints::parses", ints::parses),
+		("strs::edits", strs::edits),
+		("slices::subslices", slices::subslices),
 		("pointers::rebound", |_, data, out| pointers::rebound(data, out)),
 	]
 }

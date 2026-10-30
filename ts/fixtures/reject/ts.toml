@@ -29,7 +29,6 @@ roots = [
     "hinted",
     "fused",
     "zip_dropped",
-    "rest_mut",
     "replace_pinned_ref",
     "filter_owned_bytes",
     "copied_closure",
@@ -54,7 +53,7 @@ roots = [
     "bytes_mut_capacity",
     "bytes_mut_put",
     "fma",
-    "int_parsed",
+    "char_parsed",
     "weak_object",
     "generic_object",
     "first_of",
@@ -92,5 +91,7 @@ roots = [
     "places_sorted",
     "pointer_statics",
     "spent_range",
+    "bound_ranges",
+    "string_retained",
 ]
 printable = ["Meters"]
