@@ -979,3 +979,41 @@ impl Clone for Reused {
 		self.0.clone_from(&source.0);
 	}
 }
+
+pub struct Gap {
+	pub range: (u32, u32),
+	pub slot: std::mem::MaybeUninit<(u32, u32)>,
+}
+
+fn reset_gap(gap: &mut Gap) {
+	gap.range = (0, 0);
+	gap.slot = std::mem::MaybeUninit::new((0, 0));
+}
+
+/// The pointers `NonNull::from` makes of a `&mut` and of a `&` to a part kept as an object,
+/// and `into` of a `&mut`, which a write of the whole part elsewhere replaces with another
+/// object.
+pub fn made_part_replaced(n: u32) -> u32 {
+	let mut gap = Gap {
+		range: (n, n),
+		slot: std::mem::MaybeUninit::new((n, n)),
+	};
+	let p = std::ptr::NonNull::from(&mut gap.range);
+	let q = std::ptr::NonNull::from(&gap.range);
+	let r: std::ptr::NonNull<(u32, u32)> = (&mut gap.range).into();
+	reset_gap(&mut gap);
+	unsafe { p.as_ref().0 + q.as_ref().1 + r.as_ref().0 }
+}
+
+/// The pointers `MaybeUninit::as_ptr` and `as_mut_ptr` make to a part kept as an object,
+/// which a write of the whole part elsewhere replaces with another object.
+pub fn uninit_part_replaced(n: u32) -> u32 {
+	let mut gap = Gap {
+		range: (n, n),
+		slot: std::mem::MaybeUninit::new((n, n)),
+	};
+	let p = gap.slot.as_ptr();
+	let q = gap.slot.as_mut_ptr();
+	reset_gap(&mut gap);
+	unsafe { (*p).0 + (*q).1 }
+}
