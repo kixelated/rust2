@@ -2502,6 +2502,12 @@ export function boundsRange(r: Bounds<number>, n: number): [number, number] {
 	return [start, end];
 }
 
+/** `slice::range` itself: `r` within `n` elements, as `{ start, end }`, panicking as std's does. */
+export function boundsChecked(r: Bounds<number>, n: number): { start: number; end: number } {
+	const [start, end] = boundsRange(r, n);
+	return { start, end };
+}
+
 /**
  * A slice's index `r` other than `a..b`, `a..`, `..b`, and `..`, as the start and end of
  * the part it reads within `n` elements, panicking as std's `index` does.

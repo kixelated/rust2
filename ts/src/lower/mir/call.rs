@@ -594,7 +594,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					values[1] = library::called_through(self.b.t, targ(0)?, Some(f)).2?;
 				}
 				// A range std reads the bounds of, as `bounds` makes any `RangeBounds` one.
-				let mut ranged = None;
 				if matches!(name.as_str(), "replace_range" | "extend_from_within") {
 					let call = library::Call {
 						def_id,
@@ -602,9 +601,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						span,
 					};
 					let range = std::mem::replace(&mut values[1], Expr::undefined());
-					let bounds = crate::lower::collections::bounds(self.b, &call, range);
-					values[1] = bounds.bounds.clone();
-					ranged = Some(bounds);
+					let len = Expr::rt("stringLen", vec![values[0].clone()]);
+					values[1] = crate::lower::collections::bounds(self.b, &call, range).within(len);
 				}
 				let edited = match name.as_str() {
 					"clear" => Expr::Str(String::new()),
@@ -613,10 +611,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					"retain" => Expr::rt("stringRetain", values),
 					"replace_range" => Expr::rt("stringReplaceRange", values),
 					_ => Expr::rt("stringExtendFromWithin", values),
-				};
-				let edited = match ranged {
-					Some(ranged) => ranged.after(edited),
-					None => edited,
 				};
 				self.set_borrowed(&place, edited, span, out);
 				done(Expr::undefined(), false)

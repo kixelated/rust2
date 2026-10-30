@@ -1635,6 +1635,18 @@ impl Ranged {
 		let call = Expr::Lambda(vec![Param { name, ty: None }], Box::new(e));
 		Expr::rt("dropAfter", vec![range, call, drop])
 	}
+
+	/// The bounds, for a call that checks more once `slice::range` has checked them within
+	/// `len`, as `String`'s do its char boundaries: a range that drops drops between the two,
+	/// as std's does, and the call takes the checked `{ start, end }`.
+	pub fn within(self, len: Expr) -> Expr {
+		let Some((range, name, drop)) = self.dropped else {
+			return self.bounds;
+		};
+		let checked = Expr::rt("boundsChecked", vec![self.bounds, len]);
+		let call = Expr::Lambda(vec![Param { name, ty: None }], Box::new(checked));
+		Expr::rt("dropAfter", vec![range, call, drop])
+	}
 }
 
 /// Makes `range`, the range `call` takes, what an `rt.Bounds` reads: std's range types

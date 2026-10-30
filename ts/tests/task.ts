@@ -398,5 +398,5 @@ export const cases: Uint8Array[] = [
 	...Array.from({ length: 34 }, (_, arg) => script(["folded", arg])),
 	...Array.from({ length: 9 }, (_, arg) => script(["rfolded", arg])),
 	// Where std drops values inside its iterators and formatting.
-	...Array.from({ length: 9 }, (_, arg) => script(["inside", arg])),
+	...[...Array.from({ length: 10 }, (_, arg) => arg), 19, 29].map((arg) => script(["inside", arg])),
 ];

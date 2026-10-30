@@ -3,13 +3,14 @@
 import * as rt from "../rt.ts";
 import { drop$Key_Guard, drop$RangeInclusive_Key, drop$Range_Guard, drop$Range_Key } from "../lib.ts";
 import { map$1raha9y, map$0782hf5 } from "../core/option.ts";
+import * as Bomb from "../drops/inside.Bomb.ts";
 import * as Listed from "../drops/inside.Listed.ts";
 import * as Spent from "../drops/inside.Spent.ts";
 import * as Key from "../drops.Key.ts";
 import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
 
-/** Run scenario `arg % 9`. */
+/** Run scenario `arg % 10`. */
 export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	let _261!: rt.usize;
 	let _328!: rt.u32;
@@ -20,7 +21,7 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	const key: (a0: rt.u32) => Key.Key = (n6: rt.u32): Key.Key => {
 		return Key.new(rt.u32Add(id, n6), Log.clone$Clone(log));
 	};
-	const _8: rt.u8 = rt.u8Rem(arg, 9);
+	const _8: rt.u8 = rt.u8Rem(arg, 10);
 	if (_8 === 0) {
 		const iter: rt.Iter<rt.u8> = rt.iterSlice(Uint8Array.of(0, 1, 3));
 		while (true) {
@@ -64,14 +65,14 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		r.end[Symbol.dispose]();
 	} else if (_8 === 2) {
 		const v: Guard.Guard[] = rt.iterToArray(rt.iterMap(new rt.Range(1, 6), guard), undefined, 8, true);
-		const taken: Guard.Guard[] = rt.iterToArray(rt.dropAfter(new Spent.Spent(guard(10), 1, 3), (range9) => rt.vecDrain(v, rt.boundsOf(range9, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop), "fold", 8, true);
+		const taken: Guard.Guard[] = rt.iterToArray(rt.dropAfter(new Spent.Spent(guard(10), 1, 3), (range12) => rt.vecDrain(v, rt.boundsOf(range12, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop), "fold", 8, true);
 		const _136: rt.usize = taken.length;
 		const _139: rt.usize = v.length;
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_136, f), (f: rt.Formatter) => rt.usizeDisplay(_139, f)];
 		Log.note(log, rt.fmtFormat(["drained ", args10[0], " ", args10[1]]));
 		const _147: rt.Iter<Guard.Guard> = rt.iterMap(new rt.Range(6, 9), guard);
 		const q: rt.VecDeque<Guard.Guard> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Guard.Guard>, rt.iterSlice(rt.iterToArray(_147, undefined, 8, true)));
-		const it: rt.Iter<Guard.Guard> = rt.dropAfter(new Spent.Spent(guard(11), 0, 2), (range10) => rt.dequeDrain(q, rt.boundsOf(range10, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop);
+		const it: rt.Iter<Guard.Guard> = rt.dropAfter(new Spent.Spent(guard(11), 0, 2), (range13) => rt.dequeDrain(q, rt.boundsOf(range13, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop);
 		const part17 = map$1raha9y(rt.iterToOption(it.next()), (g12: Guard.Guard): rt.u32 => {
 			const _012: rt.u32 = Guard.id(g12);
 			g12[Symbol.dispose]();
@@ -81,23 +82,25 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		Log.note(log, rt.fmtFormat(["deque ", args12[0]]));
 		rt.drop(it);
 		let s: string = "abcdef";
-		const part18 = rt.stringExtendChars("", rt.dropAfter(new Spent.Spent(guard(12), 1, 3), (range11) => rt.stringDrain(rt.place(() => s, (value) => s = value), rt.boundsOf(range11, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop), true);
+		const _180: Spent.Spent = new Spent.Spent(guard(12), 1, 3);
+		const s4 = rt.place(() => s, (value2) => s = value2);
+		const part18 = rt.stringExtendChars("", rt.stringDrain(s4, rt.dropAfter(_180, (range14) => rt.boundsChecked(rt.boundsOf(range14, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.stringLen(s4.v)), rt.drop)), true);
 		const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part18)];
 		Log.note(log, rt.fmtFormat(["text ", args14[0]]));
 		const _190: Spent.Spent = new Spent.Spent(guard(13), 0, 1);
-		const _194: string = "xy";
-		s = rt.dropAfter(_190, (range12) => rt.stringReplaceRange(s, rt.boundsOf(range12, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), _194), rt.drop);
-		s = rt.dropAfter(new Spent.Spent(guard(14), 2, 4), (range13) => rt.stringExtendFromWithin(s, rt.boundsOf(range13, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop);
+		s = rt.stringReplaceRange(s, rt.dropAfter(_190, (range15) => rt.boundsChecked(rt.boundsOf(range15, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.stringLen(s)), rt.drop), "xy");
+		const _197: Spent.Spent = new Spent.Spent(guard(14), 2, 4);
+		s = rt.stringExtendFromWithin(s, rt.dropAfter(_197, (range16) => rt.boundsChecked(rt.boundsOf(range16, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.stringLen(s)), rt.drop));
 		const bytes: Uint8Array = Uint8Array.of(1, 2, 3, 4);
 		const _203: rt.ByteSlice = rt.byteSliceFrom(bytes);
-		const bounds = rt.dropAfter(new Spent.Spent(guard(15), 0, 2), (range14) => rt.boundsRange(rt.boundsOf(range14, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), _203.length), rt.drop);
+		const bounds = rt.dropAfter(new Spent.Spent(guard(15), 0, 2), (range17) => rt.boundsRange(rt.boundsOf(range17, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), _203.length), rt.drop);
 		rt.byteSliceCopyWithin(_203, bounds[0], bounds[1], 2);
 		[s, rt.byteSliceFrom(bytes)] as [string, rt.ByteSlice];
 		const _217: rt.Fmt = (f: rt.Formatter) => rt.fmtPad(f, s);
 		const arg2 = rt.byteSliceFrom(bytes);
 		const args16: rt.Fmt[] = [_217, (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(arg2), f, rt.u8Debug)];
 		Log.note(log, rt.fmtFormat(["edited ", args16[0], " ", args16[1]]));
-		const none: Guard.Guard[] = rt.iterToArray(rt.dropAfter(new Spent.Spent(guard(16), 1, 1), (range15) => rt.vecDrain(v, rt.boundsOf(range15, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop), "fold", 8, true);
+		const none: Guard.Guard[] = rt.iterToArray(rt.dropAfter(new Spent.Spent(guard(16), 1, 1), (range18) => rt.vecDrain(v, rt.boundsOf(range18, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop), "fold", 8, true);
 		const part19 = none.length;
 		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part19, f)];
 		Log.note(log, rt.fmtFormat(["none ", args18[0]]));
@@ -107,7 +110,7 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		rt.dropAll(v);
 	} else if (_8 === 3) {
 		const map: rt.BTreeMap<rt.usize, Guard.Guard> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.usize, Guard.Guard>;
-		const part13 = rt.iterCount(rt.dropAfter(new Spent.Spent(guard(1), 0, 1), (range5) => rt.btreeRange(map, rt.boundsOf(range5, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop));
+		const part13 = rt.iterCount(rt.dropAfter(new Spent.Spent(guard(1), 0, 1), (range8) => rt.btreeRange(map, rt.boundsOf(range8, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop));
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part13, f)];
 		Log.note(log, rt.fmtFormat(["empty ", args20[0]]));
 		let iterStart: rt.usize = 0;
@@ -117,10 +120,10 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const _267: Guard.Guard = guard(rt.u32Add(10, n2 as rt.u32));
 			rt.drop(rt.btreeInsert(map, n2, _267));
 		}
-		const part15 = rt.iterCount(rt.dropAfter(new Spent.Spent(guard(2), 1, 3), (range6) => rt.btreeRange(map, rt.boundsOf(range6, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop));
+		const part15 = rt.iterCount(rt.dropAfter(new Spent.Spent(guard(2), 1, 3), (range9) => rt.btreeRange(map, rt.boundsOf(range9, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop));
 		const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part15, f)];
 		Log.note(log, rt.fmtFormat(["map ", args22[0]]));
-		const iter3: rt.Iter<[rt.usize, Guard.Guard]> = rt.dropAfter(new Spent.Spent(guard(3), 2, 9), (range7) => rt.btreeRange(map, rt.boundsOf(range7, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop);
+		const iter3: rt.Iter<[rt.usize, Guard.Guard]> = rt.dropAfter(new Spent.Spent(guard(3), 2, 9), (range10) => rt.btreeRange(map, rt.boundsOf(range10, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop);
 		while (true) {
 			const _298: [rt.usize, Guard.Guard] | rt.Done = iter3.next();
 			if (_298 === rt.DONE) {
@@ -129,7 +132,7 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			Guard.note(_298[1], "ranged");
 		}
 		const set: rt.BTreeSet<rt.usize> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.usize>, new rt.Range(0, 5), true, undefined, undefined, 4, true);
-		const part16 = rt.iterCount(rt.dropAfter(new Spent.Spent(guard(4), 3, 5), (range8) => rt.btreeRangeKeys(set, rt.boundsOf(range8, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop));
+		const part16 = rt.iterCount(rt.dropAfter(new Spent.Spent(guard(4), 3, 5), (range11) => rt.btreeRangeKeys(set, rt.boundsOf(range11, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize)), rt.drop));
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part16, f)];
 		Log.note(log, rt.fmtFormat(["set ", args24[0]]));
 		rt.btreeDrop(map, undefined, rt.drop);
@@ -142,14 +145,14 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 			const _334: Key.Key = key(n3);
 			rt.btreeInsert(map2, _334, n3, rt.drop);
 		}
-		const part12 = rt.iterToArray(rt.iterMap(rt.dropAfter(new rt.Range(key(2), key(4)), (range2) => rt.btreeRange(map2, range2, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$Range_Key), (_2: [Key.Key, rt.u32]): rt.u32 => {
+		const part12 = rt.iterToArray(rt.iterMap(rt.dropAfter(new rt.Range(key(2), key(4)), (range5) => rt.btreeRange(map2, range5, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$Range_Key), (_2: [Key.Key, rt.u32]): rt.u32 => {
 			return _2[1];
 		}), "next", 4);
 		const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part12, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["keys ", args26[0]]));
-		const found2: rt.usize = rt.iterCount(rt.dropAfter(new rt.RangeInclusive(key(3), key(9)), (range3) => rt.btreeRange(map2, range3, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$RangeInclusive_Key));
+		const found2: rt.usize = rt.iterCount(rt.dropAfter(new rt.RangeInclusive(key(3), key(9)), (range6) => rt.btreeRange(map2, range6, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$RangeInclusive_Key));
 		const _371: rt.BTreeMap<Key.Key, rt.u32> = rt.btreeNew(Key.cmp$Ord) as rt.BTreeMap<Key.Key, rt.u32>;
-		const none2: rt.usize = rt.iterCount(rt.dropAfter(new rt.Range(key(5), key(6)), (range4) => rt.btreeRange(_371, range4, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$Range_Key));
+		const none2: rt.usize = rt.iterCount(rt.dropAfter(new rt.Range(key(5), key(6)), (range7) => rt.btreeRange(_371, range7, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$Range_Key));
 		rt.btreeDrop(_371, rt.drop);
 		const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(found2, f), (f: rt.Formatter) => rt.usizeDisplay(none2, f)];
 		Log.note(log, rt.fmtFormat(["keys ", args28[0], " ", args28[1]]));
@@ -338,10 +341,22 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		}, (): void => {
 			captured2[Symbol.dispose]();
 		}), undefined, true);
-	} else {
+	} else if (_8 === 8) {
 		const v3: Guard.Guard[] = rt.iterToArray(rt.iterMap(new rt.Range(1, 3), guard), undefined, 8, true);
-		rt.drop(rt.dropAfter(new Spent.Spent(guard(10), 1, 4), (range) => rt.vecDrain(v3, rt.boundsOf(range, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop));
+		rt.drop(rt.dropAfter(new Spent.Spent(guard(10), 1, 4), (range4) => rt.vecDrain(v3, rt.boundsOf(range4, Spent.startBound$RangeBounds_usize, Spent.endBound$RangeBounds_usize), rt.drop), rt.drop));
 		rt.dropAll(v3);
+	} else {
+		let s2: string = "é";
+		const bomb: Bomb.Bomb = new Bomb.Bomb(1, 2);
+		const _636: rt.u8 = rt.u8Rem(rt.u8Div(arg, 10), 3);
+		if (_636 === 0) {
+			const s3 = rt.place(() => s2, (value) => s2 = value);
+			rt.drop(rt.stringDrain(s3, rt.dropAfter(bomb, (range3) => rt.boundsChecked(rt.boundsOf(range3, Bomb.startBound$RangeBounds_usize, Bomb.endBound$RangeBounds_usize), rt.stringLen(s3.v)), rt.drop)));
+		} else if (_636 === 1) {
+			s2 = rt.stringReplaceRange(s2, rt.dropAfter(bomb, (range2) => rt.boundsChecked(rt.boundsOf(range2, Bomb.startBound$RangeBounds_usize, Bomb.endBound$RangeBounds_usize), rt.stringLen(s2)), rt.drop), "x");
+		} else {
+			s2 = rt.stringExtendFromWithin(s2, rt.dropAfter(bomb, (range) => rt.boundsChecked(rt.boundsOf(range, Bomb.startBound$RangeBounds_usize, Bomb.endBound$RangeBounds_usize), rt.stringLen(s2)), rt.drop));
+		}
 	}
 }
 

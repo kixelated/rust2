@@ -62,11 +62,30 @@ impl RangeBounds<usize> for Spent {
 	}
 }
 
-/// Run scenario `arg % 9`.
+/// A range whose drop panics, which shows where std drops it.
+struct Bomb(usize, usize);
+
+impl Drop for Bomb {
+	fn drop(&mut self) {
+		panic!("range {}..{} dropped", self.0, self.1);
+	}
+}
+
+impl RangeBounds<usize> for Bomb {
+	fn start_bound(&self) -> Bound<&usize> {
+		Bound::Included(&self.0)
+	}
+
+	fn end_bound(&self) -> Bound<&usize> {
+		Bound::Excluded(&self.1)
+	}
+}
+
+/// Run scenario `arg % 10`.
 pub(super) fn inside(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let key = |n: u32| Key::new(id + n, log.clone());
-	match arg % 9 {
+	match arg % 10 {
 		0 => {
 			for n in [0, 1, 3] {
 				log.note(format!("listed {:?}", Listed(id, log.clone(), n)));
@@ -196,10 +215,21 @@ pub(super) fn inside(log: &Log, id: u32, arg: u8) {
 				.map(guard)
 				.for_each(move |g| assert!(g.id() != id + 2, "g{} with {}", g.id(), c.id()));
 		}
-		_ => {
+		8 => {
 			// A range past the end, which panics with std's message.
 			let mut v: Vec<Guard> = (1..3).map(guard).collect();
 			v.drain(Spent(guard(10), 1, 4));
+		}
+		_ => {
+			// `String`'s drop the range once they have checked its bounds, before they check
+			// its char boundaries: a range in `é` that cuts it panics as it drops.
+			let mut s = String::from("é");
+			let bomb = Bomb(1, 2);
+			match arg / 10 % 3 {
+				0 => drop(s.drain(bomb)),
+				1 => s.replace_range(bomb, "x"),
+				_ => s.extend_from_within(bomb),
+			}
 		}
 	}
 }

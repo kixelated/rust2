@@ -1850,8 +1850,13 @@ fn mapping<'tcx>(
 		// Of the place the `&mut` is, which it writes as it drops, and of a range, as `Vec::drain`.
 		("String", "drain") => {
 			let ranged = super::collections::bounds(b, call, args.pop()?);
-			args.push(ranged.bounds.clone());
-			return Some(ranged.after(Expr::rt("stringDrain", args)));
+			let s = args.pop()?;
+			let s = match s.is_path() {
+				true => s,
+				false => b.spill(s, "s", out),
+			};
+			let len = Expr::rt("stringLen", vec![s.clone().member("v")]);
+			return Some(Expr::rt("stringDrain", vec![s, ranged.within(len)]));
 		}
 		("Drain", "as_str") => Expr::rt("stringDrainAsStr", args),
 		("ParseIntError", "kind") => args.pop()?.member("kind"),

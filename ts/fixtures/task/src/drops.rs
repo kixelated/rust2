@@ -726,8 +726,9 @@ pub fn rfolded(log: &Log, id: u32, arg: u8) {
 	folds::rfolded(log, id, arg);
 }
 
-/// Run scenario `arg % 9` of where std drops values inside its iterators and formatting.
-/// Two panic: one in a `for_each`, and a drain past the end, each with std's message.
+/// Run scenario `arg % 10` of where std drops values inside its iterators and formatting.
+/// Three panic, each with std's message: in a `for_each`, a drain past the end, and a
+/// range that panics as `String`'s drop it.
 pub fn inside(log: &Log, id: u32, arg: u8) {
 	inside::inside(log, id, arg);
 }
