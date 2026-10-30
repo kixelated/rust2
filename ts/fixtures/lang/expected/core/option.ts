@@ -30,6 +30,8 @@ import type * as Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
 import type * as Point from "../shapes.Point.ts";
 import type * as shapes_Shape from "../shapes.Shape.ts";
+import { digest, digestWords } from "../slices.ts";
+import type * as slices_Item from "../slices.Item.ts";
 import type * as Short from "../splits.Short.ts";
 
 export function isSomeAnd$09tpccf(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
@@ -242,6 +244,13 @@ export function map$146awhd(self: Hop.Hop | undefined, f: (a0: Hop.Hop) => [rt.u
 	return f(self);
 }
 
+export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1u8sh4f(self: Named.Named | undefined, _: (a0: Named.Named) => Named.Named[]): Named.Named[] | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -268,6 +277,20 @@ export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string)
 		return undefined;
 	}
 	return self;
+}
+
+export function map$0qyyft9(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return digestWords(self);
+}
+
+export function map$0a57co2(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$0rbsrz6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
@@ -320,6 +343,20 @@ export function map$1fmzefe(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, r
 }
 
 export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1xk4yz1(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return digest(self);
+}
+
+export function map$0c2keyb(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -656,6 +693,13 @@ export function mapOr$1t0muvr(self: rt.u8 | undefined, default_: rt.usize, f: (a
 }
 
 export function mapOr$0sl5app(self: Uint8Array | undefined, default_: rt.u8, f: (a0: Uint8Array) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0z7fb2w(self: rt.ByteSlice | undefined, default_: Uint8Array, f: (a0: rt.ByteSlice) => Uint8Array): Uint8Array {
 	if (self === undefined) {
 		return default_;
 	}

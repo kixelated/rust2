@@ -11,23 +11,16 @@ use crate::ts::{Expr, Key, Param, Stmt, StmtKind};
 
 pub struct Body<'b, 'a, 'tcx> {
 	pub t: &'b mut Translator<'a, 'tcx>,
-	/// The instance's generic arguments.
-	pub args: GenericArgsRef<'tcx>,
 	/// Every name in the function, so none shadows another.
 	names: FxHashSet<String>,
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
-	pub fn new(t: &'b mut Translator<'a, 'tcx>, args: GenericArgsRef<'tcx>) -> Self {
+	pub fn new(t: &'b mut Translator<'a, 'tcx>) -> Self {
 		Body {
 			t,
-			args,
 			names: FxHashSet::default(),
 		}
-	}
-
-	pub fn subst<T: ty::TypeFoldable<ty::TyCtxt<'tcx>>>(&self, value: T) -> T {
-		self.t.subst(self.args, value)
 	}
 
 	pub fn err(&mut self, span: Span, msg: impl Into<String>) -> Expr {
@@ -83,7 +76,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Expr {
 		let tcx = self.t.tcx;
-		let gargs = self.subst(gargs);
 
 		// A tuple struct or variant's constructor, called or passed as a value.
 		if let rustc_hir::def::DefKind::Ctor(..) = tcx.def_kind(def_id) {
@@ -233,7 +225,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	/// A function item as a value.
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
-		let gargs = self.subst(gargs);
 		let sig = self.t.sig(def_id, gargs);
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
 		// std's mappings take a `&mut` they declare that is an `rt.Place` as what it points

@@ -76,6 +76,9 @@ pub enum Std {
 	/// `rt.OnceCell<T>` and `rt.OnceLock<T>`: the `Option<T>` each holds.
 	OnceCell,
 	OnceLock,
+	/// `rt.Once`, an `rt.OnceLock` of `true`, and `rt.OnceState`, the `Once` it reports on.
+	Once,
+	OnceState,
 	/// `rt.LazyCell<T>` and `rt.LazyLock<T>`: the function that makes the value, then the value.
 	LazyCell,
 	LazyLock,
@@ -256,6 +259,8 @@ impl Std {
 			["sync", "atomic", "Ordering"] => Some(Self::AtomicOrdering),
 			["cell", "once", "OnceCell"] => Some(Self::OnceCell),
 			["sync", "once_lock", "OnceLock"] => Some(Self::OnceLock),
+			["sync", "once", "Once"] => Some(Self::Once),
+			["sync", "once", "OnceState"] => Some(Self::OnceState),
 			["cell", "lazy", "LazyCell"] => Some(Self::LazyCell),
 			["sync", "lazy_lock", "LazyLock"] => Some(Self::LazyLock),
 			["cmp", "Reverse"] => Some(Self::Reverse),
@@ -645,6 +650,7 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		("Vec", "retain" | "retain_mut" | "dedup" | "dedup_by" | "dedup_by_key" | "truncate" | "clear") => &[0],
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
+		("Once", "call_once" | "call_once_force") => &[0],
 		("Arc" | "Rc", "new_cyclic") => &[1],
 		// `is_sorted_by::<F>` drops its comparator before the last item, as `all` takes it.
 		("Iterator", "is_sorted_by") => &[1],
@@ -1310,6 +1316,10 @@ fn mapping<'tcx>(
 			};
 			rt2(values, "slice", &super::camel(name))
 		}
+		("slice", "windows" | "chunks") => match is_u8(targ(gargs, 0)) {
+			true => rt2(args, "byteSlice", &super::camel(&name)),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
 		("slice", "split_first_chunk") => {
 			let n = gargs.consts().next()?.try_to_target_usize(tcx)?;
 			let mut values = args;
@@ -1541,6 +1551,13 @@ fn mapping<'tcx>(
 				}
 			};
 			rt2(values, of, &f)
+		}
+		// Of a range, which `Vec<T, A>::drain::<R>` takes.
+		("Vec", "drain") if let Some(msg) = super::collections::unread_range(b, call) => b.err(span, msg),
+		("Vec", "drain") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecDrain", args),
+		("Vec", "drain") => {
+			let dropper = b.t.dropper(targ(gargs, 0), span);
+			Expr::rt("vecDrain", super::iter::tail(args, vec![dropper]))
 		}
 		("Vec", "as_slice" | "as_mut_slice") => {
 			let v = args.pop()?;

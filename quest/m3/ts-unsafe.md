@@ -51,5 +51,11 @@ none of its own `unsafe`.
   [#252](https://github.com/moq-dev/rust2/pull/252) mapped them to and that must track
   std's by hand. The lang fixture's `orders` differential case proves the translation
   still matches std's comparisons, pop order, and drops.
+- `Vec::drain` translates from std's MIR, whose `Drain` reads its range out and moves the
+  tail back through raw pointers into the `Vec`'s storage, replacing `rt.vecDrain` and
+  `rt.byteVecDrain`, the runtime port that
+  [the slice gaps' PR](https://github.com/moq-dev/rust2/pull/259) mapped it to. The lang
+  fixture's `slices::drains` differential case proves the translation still matches std's
+  items, drops, and what a forgotten drain leaves.
 
 Public API: the translator's output.
