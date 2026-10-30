@@ -147,7 +147,6 @@ const VERBATIM: &[&str] = &[
 	"BytesMut",
 	"Copy",
 	"Debug",
-	"DebugList::entries",
 	"Display",
 	"Drop",
 	"From",

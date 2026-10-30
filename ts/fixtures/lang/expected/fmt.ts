@@ -695,7 +695,9 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const held: rt.Range<rt.Arc<rt.i32>> = new rt.Range(new rt.Arc(a), new rt.Arc(b));
 	const _366: rt.Range<rt.Arc<Clip.Clip>> = new rt.Range(new rt.Arc(lo), new rt.Arc(hi));
 	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(held, f, (value: rt.Arc<rt.i32>, f: rt.Formatter) => rt.i32Debug(value.value, f)), (f: rt.Formatter) => rt.fmtRange(_366, f, (value: rt.Arc<Clip.Clip>, f: rt.Formatter) => Clip.fmt$Debug(value.value, f))];
-	put(out, rt.fmtFormat([args22[0], " ", rt.fmtSpec({ plus: true, zero: true, width: 4 }, args22[0]), " ", args22[1]]));
+	const _362: string = rt.fmtFormat([args22[0], " ", rt.fmtSpec({ plus: true, zero: true, width: 4 }, args22[0]), " ", args22[1]]);
+	rt.dropAll([_366.start, _366.end]);
+	put(out, _362);
 	const shared: Shared.Shared = new Shared.Shared(new rt.Arc({ _0: at(7), _1: 5 }), new rt.Range(at(8) as rt.u16, 300), { end: at(9), inclusive: true });
 	const args24: rt.Fmt[] = [(f: rt.Formatter) => Shared.fmt$Debug(shared, f)];
 	put(out, rt.fmtFormat([args24[0], " ", rt.fmtSpec({ alternate: true }, args24[0])]));
@@ -708,6 +710,7 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	put(out, rt.fmtFormat([args26[0], " ", args26[1], " ", rt.fmtSpec({ align: ">", width: 9, precision: 2 }, args26[0])]));
 	t[Symbol.dispose]();
 	shared[Symbol.dispose]();
+	rt.dropAll([held.start, held.end]);
 	list[Symbol.dispose]();
 	rc[Symbol.dispose]();
 	nested_[Symbol.dispose]();

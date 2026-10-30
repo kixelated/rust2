@@ -112,6 +112,18 @@ export function drop$Pair_Held(_1: Pair.Pair<Held.Held>): void {
 	_1.second[Symbol.dispose]();
 }
 
+export function drop$RangeInclusive_Key(value: rt.RangeInclusive<Key.Key>): void {
+	rt.dropAll([value.lo, value.hi]);
+}
+
+export function drop$Range_Guard(value: rt.Range<Guard.Guard>): void {
+	rt.dropAll([value.start, value.end]);
+}
+
+export function drop$Range_Key(value: rt.Range<Key.Key>): void {
+	rt.dropAll([value.start, value.end]);
+}
+
 export function drop$Result_Arc_Guard_Guard_Arc_dyn_Any(_1: rt.Result<rt.Arc<[Guard.Guard, Guard.Guard]>, rt.Arc<Any.Any>>): void {
 	if (_1.ok) {
 		rt.arcDrop(_1.value, drop$Guard_Guard);
