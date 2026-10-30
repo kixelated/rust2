@@ -843,6 +843,7 @@ const HINTED: [u32; 7] = [0, 5, 8, 9, 0x7fff_fffd, 0x8000_0000, u32::MAX];
 pub fn hinted(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let pick = |i: usize| HINTED[usize::from(data.get(i).copied().unwrap_or(0)) % HINTED.len()];
 	let (n, m) = (pick(0), pick(1));
+	let sub = usize::from(data.get(1).copied().unwrap_or(0)) / HINTED.len();
 	let mut t = String::from("aé");
 	t.push_str(&text(data.get(2..).unwrap_or(&[])));
 	let calls = std::cell::Cell::new(0usize);
@@ -851,7 +852,7 @@ pub fn hinted(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		assert!(calls.get() <= 8, "consumed");
 		ALPHABET[calls.get()]
 	};
-	match kind % 8 {
+	match kind % 10 {
 		0 => t.extend((0..n).map(f)),
 		1 => t = (0..=n).chain(0..n).map(f).collect(),
 		2 => t.extend(
@@ -871,6 +872,21 @@ pub fn hinted(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			_ => t.extend((0..n).zip(0..m).map(|(i, _)| f(i))),
 		},
 		6 => t.extend((0..n).flat_map(|i| [f(i), f(i)])),
+		// Sources whose hint is a few chars, which make it `n` only if each counts its own.
+		7 => t.extend(
+			(0..n.saturating_sub(5))
+				.map(f)
+				.chain(std::iter::once('x'))
+				.chain(Some('y'))
+				.chain("é😀".chars())
+				.chain(['z'].iter().copied()),
+		),
+		// Integers past 2^53.
+		8 => match sub % 3 {
+			0 => t.extend((1u64 << 60..(1u64 << 60) + u64::from(n)).map(|_| f(0))),
+			1 => t.extend((-(1i128 << 100)..-(1i128 << 100) + i128::from(n)).map(|_| f(0))),
+			_ => t.extend((1u64 << 60..=(1u64 << 60) + u64::from(n)).map(|_| f(0))),
+		},
 		_ => {
 			let mut chars = (0..n).map(f).enumerate().map(|(_, c)| c).rev().fuse().peekable();
 			put_char(out, chars.peek().copied());

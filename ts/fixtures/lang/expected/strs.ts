@@ -1408,7 +1408,7 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * else the chars panic with `consumed` past the eighth.
  */
 export function hinted(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _61!: rt.usize;
+	let _70!: rt.usize;
 	const pick: (a0: rt.usize) => rt.u32 = (i: rt.usize): rt.u32 => {
 		const _4: rt.usize = rt.usizeRem(unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0) as rt.usize, [0, 5, 8, 9, 2147483645, 2147483648, 4294967295].length);
 		if (!(_4 < 7)) {
@@ -1419,75 +1419,101 @@ export function hinted(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _7: [rt.u32, rt.u32] = [pick(0), pick(1)];
 	const n: rt.u32 = _7[0];
 	const m: rt.u32 = _7[1];
+	const sub: rt.usize = rt.usizeDiv(unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0) as rt.usize, [0, 5, 8, 9, 2147483645, 2147483648, 4294967295].length);
 	let t: string = "aé";
-	const _16: rt.Place<string> = rt.place(() => t, (value) => t = value);
-	const _17: string = text(unwrapOr$1rbuegs(rt.byteSliceGetRange(data, 2), rt.byteSliceFrom(Uint8Array.of())));
-	_16.v = _16.v + _17;
+	const _25: rt.Place<string> = rt.place(() => t, (value) => t = value);
+	const _26: string = text(unwrapOr$1rbuegs(rt.byteSliceGetRange(data, 2), rt.byteSliceFrom(Uint8Array.of())));
+	_25.v = _25.v + _26;
 	const calls: rt.Cell<rt.usize> = new rt.Cell(0);
 	const f: (a0: rt.u32) => rt.char = (_2: rt.u32): rt.char => {
 		rt.cellSet(calls, rt.usizeAdd(calls.v, 1));
 		if (!(calls.v <= 8)) {
 			rt.panicFmt(["consumed"]);
 		} else {
-			const _122: rt.usize = calls.v;
-			if (!(_122 < 16)) {
-				rt.panic("index out of bounds: the len is " + 16 + " but the index is " + _122);
+			const _127: rt.usize = calls.v;
+			if (!(_127 < 16)) {
+				rt.panic("index out of bounds: the len is " + 16 + " but the index is " + _127);
 			}
-			return [47, 92, 97, 48, 57, 127, 128, 233, 2047, 2048, 55295, 57344, 65535, 65536, 128512, 1114111][_122];
+			return [47, 92, 97, 48, 57, 127, 128, 233, 2047, 2048, 55295, 57344, 65535, 65536, 128512, 1114111][_127];
 		}
 	};
-	const _29: rt.u8 = rt.u8Rem(kind, 8);
-	if (_29 === 0) {
-		const _31: rt.Place<string> = rt.place(() => t, (value9) => t = value9);
-		const _32: rt.Iter<rt.char> = rt.iterMap(new rt.Range(0, n), f);
-		_31.v = rt.stringExtendChars(_31.v, _32);
-	} else if (_29 === 1) {
+	const _38: rt.u8 = rt.u8Rem(kind, 10);
+	if (_38 === 0) {
+		const _40: rt.Place<string> = rt.place(() => t, (value13) => t = value13);
+		const _41: rt.Iter<rt.char> = rt.iterMap(new rt.Range(0, n), f);
+		_40.v = rt.stringExtendChars(_40.v, _41);
+	} else if (_38 === 1) {
 		t = rt.stringExtendChars("", rt.iterMap(rt.iterChain(new rt.RangeInclusive(0, n, rt.u32Step), new rt.Range(0, n)), f));
-	} else if (_29 === 2) {
-		const _39: rt.Place<string> = rt.place(() => t, (value8) => t = value8);
-		const _40: rt.Iter<rt.char> = rt.iterSkip(rt.iterMap(new rt.Range(0, rt.u64Or(rt.u64Shl(n as rt.u64, 8), m as rt.u64), rt.u64Step), (i4: rt.u64): rt.char => {
+	} else if (_38 === 2) {
+		const _48: rt.Place<string> = rt.place(() => t, (value12) => t = value12);
+		const _49: rt.Iter<rt.char> = rt.iterSkip(rt.iterMap(new rt.Range(0, rt.u64Or(rt.u64Shl(n as rt.u64, 8), m as rt.u64), rt.u64Step), (i4: rt.u64): rt.char => {
 			return f(rt.u64Low(i4));
 		}), m as rt.usize);
-		_39.v = rt.stringExtendChars(_39.v, _40);
-	} else if (_29 === 3) {
-		const _52: rt.Place<string> = rt.place(() => t, (value7) => t = value7);
-		const _53: rt.Iter<rt.char> = rt.iterTake(rt.iterMap(new rt.Range(0, n), f), m as rt.usize);
-		_52.v = rt.stringExtendChars(_52.v, _53);
-	} else if (_29 === 4) {
-		const _57: rt.Place<string> = rt.place(() => t, (value6) => t = value6);
-		const _60: rt.Range<rt.u32> = new rt.Range(0, n);
+		_48.v = rt.stringExtendChars(_48.v, _49);
+	} else if (_38 === 3) {
+		const _61: rt.Place<string> = rt.place(() => t, (value11) => t = value11);
+		const _62: rt.Iter<rt.char> = rt.iterTake(rt.iterMap(new rt.Range(0, n), f), m as rt.usize);
+		_61.v = rt.stringExtendChars(_61.v, _62);
+	} else if (_38 === 4) {
+		const _66: rt.Place<string> = rt.place(() => t, (value10) => t = value10);
+		const _69: rt.Range<rt.u32> = new rt.Range(0, n);
 		if (!(n === 4294967295)) {
-			_61 = 1;
+			_70 = 1;
 		} else {
-			_61 = rt.usizeAdd(1, rt.usizeRem(m as rt.usize, 2));
+			_70 = rt.usizeAdd(1, rt.usizeRem(m as rt.usize, 2));
 		}
-		const _58: rt.Iter<rt.char> = rt.iterMap(rt.iterStepBy(_60, _61), f);
-		_57.v = rt.stringExtendChars(_57.v, _58);
-	} else if (_29 === 5) {
+		const _67: rt.Iter<rt.char> = rt.iterMap(rt.iterStepBy(_69, _70), f);
+		_66.v = rt.stringExtendChars(_66.v, _67);
+	} else if (_38 === 5) {
 		if (rt.u32Rem(m, 2) === 0) {
-			const _69: rt.Place<string> = rt.place(() => t, (value5) => t = value5);
-			const _70: rt.Iter<rt.char> = rt.iterChain(rt.iterMap(new rt.Range(0, n), f), rt.iterMap(new rt.Range(0, m), f));
-			_69.v = rt.stringExtendChars(_69.v, _70);
+			const _78: rt.Place<string> = rt.place(() => t, (value9) => t = value9);
+			const _79: rt.Iter<rt.char> = rt.iterChain(rt.iterMap(new rt.Range(0, n), f), rt.iterMap(new rt.Range(0, m), f));
+			_78.v = rt.stringExtendChars(_78.v, _79);
 		} else {
-			const _75: rt.Place<string> = rt.place(() => t, (value4) => t = value4);
-			const _76: rt.Iter<rt.char> = rt.iterMap(rt.iterZip(new rt.Range(0, n), new rt.Range(0, m), true), (_26: [rt.u32, rt.u32]): rt.char => {
-				return f(_26[0]);
+			const _84: rt.Place<string> = rt.place(() => t, (value8) => t = value8);
+			const _85: rt.Iter<rt.char> = rt.iterMap(rt.iterZip(new rt.Range(0, n), new rt.Range(0, m), true), (_211: [rt.u32, rt.u32]): rt.char => {
+				return f(_211[0]);
 			});
-			_75.v = rt.stringExtendChars(_75.v, _76);
+			_84.v = rt.stringExtendChars(_84.v, _85);
 		}
-	} else if (_29 === 6) {
-		const _82: rt.Place<string> = rt.place(() => t, (value3) => t = value3);
-		const _83: rt.Iter<rt.char> = rt.iterFlatMap(new rt.Range(0, n), (i2: rt.u32): rt.char[] => {
+	} else if (_38 === 6) {
+		const _91: rt.Place<string> = rt.place(() => t, (value7) => t = value7);
+		const _92: rt.Iter<rt.char> = rt.iterFlatMap(new rt.Range(0, n), (i2: rt.u32): rt.char[] => {
 			return [f(i2), f(i2)];
 		}, (value: rt.char[]) => rt.iterSlice(value), false, 2);
-		_82.v = rt.stringExtendChars(_82.v, _83);
+		_91.v = rt.stringExtendChars(_91.v, _92);
+	} else if (_38 === 7) {
+		const _96: rt.Place<string> = rt.place(() => t, (value6) => t = value6);
+		const _97: rt.Iter<rt.char> = rt.iterChain(rt.iterChain(rt.iterChain(rt.iterChain(rt.iterMap(new rt.Range(0, rt.u32SaturatingSub(n, 5)), f), rt.iterOnce(120)), rt.iterOption(121)), rt.strChars("é😀")), rt.iterSlice([122]));
+		_96.v = rt.stringExtendChars(_96.v, _97);
+	} else if (_38 === 8) {
+		const _112: rt.usize = rt.usizeRem(sub, 3);
+		if (_112 === 0) {
+			const _114: rt.Place<string> = rt.place(() => t, (value5) => t = value5);
+			const _115: rt.Iter<rt.char> = rt.iterMap(new rt.Range({ hi: 0x10000000, lo: 0 } as rt.u64, rt.u64Add({ hi: 0x10000000, lo: 0 } as rt.u64, n as rt.u64), rt.u64Step), (_210: rt.u64): rt.char => {
+				return f(0);
+			});
+			_114.v = rt.stringExtendChars(_114.v, _115);
+		} else if (_112 === 1) {
+			const _128: rt.Place<string> = rt.place(() => t, (value4) => t = value4);
+			const _129: rt.Iter<rt.char> = rt.iterMap(new rt.Range(rt.i128Neg(rt.i128Shl(1, 100)), rt.i128Add(rt.i128Neg(rt.i128Shl(1, 100)), n as rt.i128), rt.i128Step), (_27: rt.i128): rt.char => {
+				return f(0);
+			});
+			_128.v = rt.stringExtendChars(_128.v, _129);
+		} else {
+			const _146: rt.Place<string> = rt.place(() => t, (value3) => t = value3);
+			const _147: rt.Iter<rt.char> = rt.iterMap(new rt.RangeInclusive({ hi: 0x10000000, lo: 0 } as rt.u64, rt.u64Add({ hi: 0x10000000, lo: 0 } as rt.u64, n as rt.u64), rt.u64Step), (_24: rt.u64): rt.char => {
+				return f(0);
+			});
+			_146.v = rt.stringExtendChars(_146.v, _147);
+		}
 	} else {
-		const chars: rt.Peekable<rt.char> = rt.iterPeekable(rt.iterFuse(rt.iterRev(rt.iterMap(rt.iterEnumerate(rt.iterMap(new rt.Range(0, n), f)), (_25: [rt.usize, rt.char]): rt.char => {
-			return _25[1];
+		const chars: rt.Peekable<rt.char> = rt.iterPeekable(rt.iterFuse(rt.iterRev(rt.iterMap(rt.iterEnumerate(rt.iterMap(new rt.Range(0, n), f)), (_23: [rt.usize, rt.char]): rt.char => {
+			return _23[1];
 		}))));
 		putChar(out, rt.peekablePeek(chars));
-		const _99: rt.Place<string> = rt.place(() => t, (value2) => t = value2);
-		_99.v = rt.stringExtendChars(_99.v, chars);
+		const _172: rt.Place<string> = rt.place(() => t, (value2) => t = value2);
+		_172.v = rt.stringExtendChars(_172.v, chars);
 	}
 	put(out, t);
 }

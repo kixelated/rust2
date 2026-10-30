@@ -21,7 +21,7 @@
 
 import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter } from "./collections.ts";
-import { type Limbs, lt as wideLt, type Step } from "./int.ts";
+import { intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
 
 /** What `next` returns once an iterator is exhausted, which no item is. */
@@ -1021,6 +1021,10 @@ class SliceIter<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	[Symbol.dispose](): void {
 		if (this.drop === undefined) return;
 		const from = this.front;
@@ -1068,6 +1072,10 @@ class SliceMutIter<T> extends Iter<Place<T>> {
 
 	override len(): number {
 		return this.back - this.front;
+	}
+
+	override lower(): number {
+		return this.len();
 	}
 
 	override advanceBy(n: number): number {
@@ -1140,6 +1148,10 @@ class PartsIter<S> extends Iter<S> {
 		return this.back - this.front;
 	}
 
+	override lower(): number {
+		return this.len();
+	}
+
 	override advanceBy(n: number): number {
 		const step = Math.min(n, this.back - this.front);
 		this.front += step;
@@ -1180,6 +1192,10 @@ class OptionIter<T> extends Iter<T> implements Disposable {
 
 	override len(): number {
 		return this.some ? 1 : 0;
+	}
+
+	override lower(): number {
+		return this.len();
 	}
 
 	[Symbol.dispose](): void {
@@ -1232,6 +1248,10 @@ class SuccessorsIter<T> extends Iter<T> implements Disposable {
 		if (item === undefined) return DONE;
 		this.item = this.succ(item);
 		return item;
+	}
+
+	override lower(): number {
+		return this.item === undefined ? 0 : 1;
 	}
 
 	[Symbol.dispose](): void {
@@ -2520,8 +2540,9 @@ function step<T>(n: T, by: number, int: Step<T> | undefined): T | undefined {
 
 /** std's `Step::steps_between` of `a` and `b`, at most `b`, saturating at `usize::MAX`. */
 function stepsBetween<T>(a: T, b: T): number {
-	const n = typeof a === "bigint" ? Number((b as bigint) - (a as bigint)) : (b as number) - (a as number);
-	return Math.min(n, USIZE_MAX);
+	if (typeof a === "number" && typeof b === "number") return Math.min(b - a, USIZE_MAX);
+	const n = intToBig(b as number | Limbs) - intToBig(a as number | Limbs);
+	return n < USIZE_MAX ? Number(n) : USIZE_MAX;
 }
 
 /**

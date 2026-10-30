@@ -498,7 +498,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 		return [_2, Guard.id(captured8)];
 	}, (): void => {
 		captured8[Symbol.dispose]();
-	}), (value: rt.u32[]) => rt.iterSlice(value), true);
+	}), (value: rt.u32[]) => rt.iterSlice(value), true, 2);
 	while (rt.iterToOption(ended.next()) !== undefined) {
 	}
 	Log.note(log, rt.fmtFormat(["flat_map ended"]));

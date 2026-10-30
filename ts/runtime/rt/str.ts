@@ -120,6 +120,16 @@ class Chars extends Iter<char> {
 		this.#back = before(this.#s, this.#back);
 		return this.#s.codePointAt(this.#back) as char;
 	}
+
+	/** std's: a char per four bytes of what is left. */
+	override lower(): number {
+		return Math.ceil(utf8Len(this.#s, this.#front, this.#back) / 4);
+	}
+
+	/** `as_str`: what is left. */
+	rest(): string {
+		return this.#s.slice(this.#front, this.#back);
+	}
 }
 
 /**
@@ -506,41 +516,21 @@ export function stringDrain(s: Place<string>, r: Bounds<number>): Iter<char> {
 
 /** `Drain::as_str`: the chars `drain` has yet to yield. */
 export function stringDrainAsStr(drain: Iter<char>): string {
-	return (drain as StringDrain).rest();
+	return (drain as Chars).rest();
 }
 
-class StringDrain extends Iter<char> implements Disposable {
+class StringDrain extends Chars implements Disposable {
 	readonly #s: Place<string>;
 	readonly #text: string;
 	readonly #from: number;
 	readonly #to: number;
-	#front: number;
-	#back: number;
 
 	constructor(s: Place<string>, text: string, from: number, to: number) {
-		super();
+		super(text.slice(from, to));
 		this.#s = s;
 		this.#text = text;
-		this.#from = this.#front = from;
-		this.#to = this.#back = to;
-	}
-
-	next(): char | Done {
-		if (this.#front >= this.#back) return DONE;
-		const c = this.#text.codePointAt(this.#front) as number;
-		this.#front += c > 0xffff ? 2 : 1;
-		return c as char;
-	}
-
-	override nextBack(): char | Done {
-		if (this.#front >= this.#back) return DONE;
-		this.#back = before(this.#text, this.#back);
-		return this.#text.codePointAt(this.#back) as char;
-	}
-
-
-	rest(): string {
-		return this.#text.slice(this.#front, this.#back);
+		this.#from = from;
+		this.#to = to;
 	}
 
 	[Symbol.dispose](): void {
