@@ -1010,9 +1010,16 @@ fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -
 		]);
 		// Ranges by an array and by a slice, which order by the elements in turn.
 		out.push(tree.range(..key.clone()).count() as u8);
-		out.push(tree.range::<[T], _>((Bound::Excluded(&key[..]), Bound::Unbounded)).count() as u8);
+		out.push(
+			tree.range::<[T], _>((Bound::Excluded(&key[..]), Bound::Unbounded))
+				.count() as u8,
+		);
 		out.push(ordered.range::<[T; N], _>(&key..).map(|k| (k >= &key) as u8).sum());
-		out.push(ordered.range::<[T], _>((Bound::Unbounded, Bound::Included(&key[..]))).count() as u8);
+		out.push(
+			ordered
+				.range::<[T], _>((Bound::Unbounded, Bound::Included(&key[..])))
+				.count() as u8,
+		);
 	}
 	// The order std gives arrays, read by the values each holds, and keys compared.
 	out.extend(tree.values().copied());
@@ -1020,7 +1027,10 @@ fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -
 	for w in keys.windows(2) {
 		out.push((w[0] < w[1]) as u8 | ((w[0].cmp(w[1]) == w[0][..].cmp(&w[1][..])) as u8) << 1);
 	}
-	out.push(tree.first_key_value().map_or(0xdd, |(k, v)| (Some(k) == keys.first().copied()) as u8 ^ v));
+	out.push(
+		tree.first_key_value()
+			.map_or(0xdd, |(k, v)| (Some(k) == keys.first().copied()) as u8 ^ v),
+	);
 	out.push(ordered.last().map_or(0xdd, |k| (Some(&k) == keys.last()) as u8));
 	// Each removed by the slice it borrows as, then what is left.
 	let probe = make(data.first().copied().unwrap_or(0));
@@ -1074,7 +1084,9 @@ fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -
 			options.contains(&Some(key.clone())) as u8,
 			vecs.get(&key[..]).copied().unwrap_or(0xdd),
 			lists.contains(&key[..]) as u8,
-			lists.range::<[T], _>((Bound::Included(&key[..]), Bound::Unbounded)).count() as u8,
+			lists
+				.range::<[T], _>((Bound::Included(&key[..]), Bound::Unbounded))
+				.count() as u8,
 		]);
 	}
 	out.push(options.contains(&None) as u8);
