@@ -311,6 +311,83 @@ pub fn floats(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// `mul_add`, rounded once, of three operands, or of 32 sets made from a seed: any bits,
+/// a product's error alone, half the product's last place, where rounding the product
+/// first would tie, a product of half `c`'s last place, subnormal sums, products past `f64::MAX` that the sum brings back, and
+/// each side of where the runtime's fast path ends.
+pub fn mul_adds(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	if kind % 2 == 0 {
+		let (a, rest) = take(data);
+		let (b, rest) = take(rest);
+		let (c, _) = take(rest);
+		put_f64(out, a.mul_add(b, c));
+		return;
+	}
+	let mut state = take_bits(data).0 | 1;
+	for _ in 0..32 {
+		let r = step(&mut state);
+		let pick = |shift: u32, n: u64| ((r >> shift) % n) as i64;
+		let ea = pick(8, 64) - 32;
+		let e = pick(16, 64) - 32;
+		let a = near(step(&mut state), ea);
+		let b = near(step(&mut state), e - ea);
+		let c = step(&mut state);
+		let (a, b, c) = match r % 6 {
+			0 => (f64::from_bits(r), f64::from_bits(step(&mut state)), f64::from_bits(c)),
+			1 => (a, b, -(a * b)),
+			2 if r >> 63 == 0 => {
+				let p = (a * b).abs();
+				let half = [0.5, -0.5, 0.25, -0.75, 1.5][pick(24, 5) as usize];
+				(a, b, (p.next_up() - p) * half)
+			}
+			// A product that rounds to half `c`'s last place half the time, so `p + c` ties
+			// and only the product's error decides it.
+			2 => {
+				let c = near(c, e);
+				let half = (c.abs().next_up() - c.abs()) * 0.5;
+				(a, half / a, c)
+			}
+			3 => {
+				let ea = pick(24, 1000) - 500;
+				let e = -1000 - pick(40, 100);
+				let (a, b) = (near(r, ea), near(c, e - ea));
+				(
+					a,
+					b,
+					if r >> 63 == 0 {
+						-(a * b)
+					} else {
+						near(c >> 1, e + pick(48, 60) - 30)
+					},
+				)
+			}
+			4 => {
+				let ea = 990 + pick(24, 60);
+				let a = near(r, ea);
+				let b = near(c, 1023 - ea + pick(40, 4) - 1);
+				(a, b, near(c >> 1, 1020 + pick(48, 4)).copysign(-(a * b)))
+			}
+			_ => {
+				let ea = if r >> 63 == 0 {
+					990 + pick(24, 10)
+				} else {
+					pick(24, 1000) - 500
+				};
+				let (a, b) = (near(r, ea), near(c, -968 + pick(40, 8) - 4 - ea));
+				let p = (a * b).abs();
+				(a, b, (p.next_up() - p) * 0.5)
+			}
+		};
+		put_f64(out, a.mul_add(b, c));
+	}
+}
+
+/// A double of exponent `e`, or the nearest a finite one has, with the significand and sign of `bits`.
+fn near(bits: u64, e: i64) -> f64 {
+	let biased = (e + 1023).clamp(0, 2046) as u64;
+	f64::from_bits((bits & 0x800f_ffff_ffff_ffff) | (biased << 52))
+}
+
 /// A reading whose derived `Debug` writes each `f64` with the placeholder's options.
 #[derive(Debug)]
 struct Reading {

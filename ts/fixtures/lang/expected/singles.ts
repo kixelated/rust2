@@ -299,6 +299,84 @@ export function singles(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 	}
 }
 
+/**
+ * `mul_add`, rounded once, of three operands, or of 32 sets made from a seed: any bits,
+ * a product's error alone, products of 13-bit odd significands, which a double holds
+ * exactly halfway between two singles, plus a tiny addend, subnormal sums, products past
+ * `f32::MAX` that the sum brings back, and half the product's last place.
+ */
+export function mulAdds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _53!: [rt.f32, rt.f32, rt.f32];
+	let _95!: rt.f32;
+	const _63: (a0: rt.f32) => rt.f32 = (x: rt.f32): rt.f32 => {
+		return rt.f32FromBits((((rt.f32ToBits(x) & 4294963200) >>> 0) | 2048) >>> 0);
+	};
+	b0: {
+		if (!(rt.u8Rem(kind, 2) === 0)) {
+			let state: rt.u32 = (takeBits(data)[0] | 1) >>> 0;
+			let iterStart: rt.i32 = 0;
+			const iterEnd: rt.i32 = 32;
+			while (true) {
+				if (!(iterStart++ < iterEnd)) {
+					break b0;
+				}
+				const r: rt.u32 = step(rt.place(() => state, (value) => state = value));
+				const pick: (a0: rt.u32, a1: rt.u32) => rt.i32 = (shift: rt.u32, n: rt.u32): rt.i32 => {
+					return rt.u32Rem(rt.u32Shr(r, shift), n) | 0;
+				};
+				const ea: rt.i32 = rt.i32Sub(pick(4, 32), 16);
+				const e: rt.i32 = rt.i32Sub(pick(9, 32), 16);
+				const a2: rt.f32 = near(step(rt.place(() => state, (value2) => state = value2)), ea);
+				const b2: rt.f32 = near(step(rt.place(() => state, (value3) => state = value3)), rt.i32Sub(e, ea));
+				const c2: rt.u32 = step(rt.place(() => state, (value4) => state = value4));
+				const _54: rt.u32 = rt.u32Rem(r, 6);
+				if (_54 === 0) {
+					_53 = [rt.f32FromBits(r), rt.f32FromBits(step(rt.place(() => state, (value5) => state = value5))), rt.f32FromBits(c2)] as [rt.f32, rt.f32, rt.f32];
+				} else if (_54 === 1) {
+					_53 = [a2, b2, -Math.fround(a2 * b2)] as [rt.f32, rt.f32, rt.f32];
+				} else if (_54 === 2) {
+					_53 = [_63(a2), _63(b2), near(c2, rt.i32Sub(rt.i32Sub(e, 26), pick(14, 100)))] as [rt.f32, rt.f32, rt.f32];
+				} else if (_54 === 3) {
+					const ea2: rt.i32 = rt.i32Sub(pick(14, 120), 60);
+					const e2: rt.i32 = rt.i32Sub(-130, pick(21, 30));
+					const _90: [rt.f32, rt.f32] = [near(r, ea2), near(c2, rt.i32Sub(e2, ea2))];
+					const a4: rt.f32 = _90[0];
+					const b4: rt.f32 = _90[1];
+					if (!((r >>> 31) === 0)) {
+						_95 = near(c2 >>> 1, rt.i32Sub(rt.i32Add(e2, pick(26, 30)), 15));
+					} else {
+						_95 = -Math.fround(a4 * b4);
+					}
+					_53 = [a4, b4, _95] as [rt.f32, rt.f32, rt.f32];
+				} else if (_54 === 4) {
+					const ea3: rt.i32 = rt.i32Add(100, pick(14, 27));
+					const a5: rt.f32 = near(r, ea3);
+					const b5: rt.f32 = near(c2, rt.i32Sub(rt.i32Add(rt.i32Sub(127, ea3), pick(21, 4)), 1));
+					_53 = [a5, b5, rt.f32Copysign(near(c2 >>> 1, rt.i32Add(124, pick(26, 4))), -Math.fround(a5 * b5))] as [rt.f32, rt.f32, rt.f32];
+				} else {
+					const p: rt.f32 = Math.abs(Math.fround(a2 * b2));
+					const _143: rt.usize = pick(14, 5) >>> 0;
+					if (!(_143 < 5)) {
+						rt.panic("index out of bounds: the len is " + 5 + " but the index is " + _143);
+					}
+					const half: rt.f32 = [0.5, -0.5, 0.25, -0.75, 1.5][_143];
+					_53 = [a2, b2, Math.fround(Math.fround(rt.f32NextUp(p) - p) * half)] as [rt.f32, rt.f32, rt.f32];
+				}
+				putF32(out, rt.f32MulAdd(_53[0], _53[1], _53[2]));
+			}
+		}
+		const _9: [rt.f32, rt.ByteSlice] = take(data);
+		const a: rt.f32 = _9[0];
+		const _12: [rt.f32, rt.ByteSlice] = take(_9[1]);
+		putF32(out, rt.f32MulAdd(a, _12[0], take(_12[1])[0]));
+	}
+}
+
+/** A single of exponent `e`, or the nearest a finite one has, with the significand and sign of `bits`. */
+export function near(bits: rt.u32, e: rt.i32): rt.f32 {
+	return rt.f32FromBits((((bits & 2155872255) >>> 0) | (((rt.clamp(rt.i32Add(e, 127), 0, 254) >>> 0) << 23) >>> 0)) >>> 0);
+}
+
 /** xorshift32, for the singles and decimals a case makes from its seed. */
 export function step(state: rt.Place<rt.u32>): rt.u32 {
 	state.v = (state.v ^ ((state.v << 13) >>> 0)) >>> 0;

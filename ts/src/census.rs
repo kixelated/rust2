@@ -173,7 +173,6 @@ const VERBATIM: &[&str] = &[
 	"copy_nonoverlapping",
 	"dyn Future",
 	"f64",
-	"f64::mul_add",
 	"flatten",
 	"fmt::Arguments",
 	"fmt::Write",

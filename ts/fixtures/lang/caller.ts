@@ -199,6 +199,29 @@ const singlesParsed = [
 	`1${"0".repeat(60)}e-60`, `0.${"0".repeat(60)}1e61`, "1e65535", "1e-65536",
 ].map((text) => Uint8Array.of(singlesParsesOp, 0, ...new TextEncoder().encode(text)));
 
+/**
+ * `mul_adds`' operands at each width: signed zeros, a product that underflows to either
+ * zero, infinities and NaN, a product past the type's range whose sum is in it, subnormal
+ * sums and ties, products whose error alone survives, which rounding twice loses, and a
+ * product of half `c`'s last place, which only its error moves off a tie; then
+ * seeds for its sweeps.
+ */
+const mulAdds = (max: number, tiny: number, eps: number, op: number, bytes: (x: number) => number[]) => [
+	...[
+		[0, 1, -0], [-0, 1, -0], [0, -1, 0], [-0, -0, -0], [-0, 0, -0], [1, -1, 1], [-1, 1, 1],
+		[tiny, -(2 ** -30), 0], [tiny, 2 ** -30, -0], [-tiny, 2 ** -30, -0], [tiny, 0.5, 0], [tiny, 0.5, -0], [-tiny, 0.5, 0],
+		[tiny, 1.5, 0], [tiny, 0.5, tiny], [tiny, -0.5, tiny], [tiny, 2 ** 52, tiny],
+		[Infinity, 0, 1], [0, -Infinity, 1], [Infinity, 1, -Infinity], [Infinity, -1, -Infinity], [1, 1, Infinity], [max, 2, -Infinity], [max, -2, Infinity],
+		[NaN, 1, 1], [1, NaN, 1], [1, 1, NaN], [Infinity, 1, NaN],
+		[max, 2, -max], [max, -2, max], [max, 1 + eps, -max], [max, 1 + eps, 0], [max * 0.5, 2, max * eps * 0.25],
+		[1 + 2 ** -27, 1 - 2 ** -27, -1], [1 + eps, 1 + eps, -1], [1 + eps, 1 - eps, -1], [0.1, 10, -1], [3, 1 / 3, -1], [1 + eps, 1 + eps, -(1 + 2 * eps)],
+		[1 + 2 ** -12, 1 + 2 ** -12, tiny], [1 + 2 ** -12, 1 + 2 ** -12, -tiny], [1 + eps, 1 + eps / 2, 0], [eps / 2 + eps * eps / 2, 1 - eps / 2, 1], [eps / 2 + eps * eps / 2, 1 - eps / 2, -1],
+	].map((xs) => Uint8Array.of(op, 0, ...xs.flatMap(bytes))),
+	...Array.from({ length: 400 }, (_, i) => Uint8Array.of(op, 1, ...double(BigInt(i + 1) * 0x9e3779b97f4a7c15n & 0xffff_ffff_ffff_ffffn))),
+];
+const floatsMulAdds = mulAdds(Number.MAX_VALUE, 5e-324, 2 ** -52, op("floats::mul_adds"), double);
+const singlesMulAdds = mulAdds(3.4028234663852886e38, 2 ** -149, 2 ** -23, op("singles::mul_adds"), single);
+
 /** How many ULPs from native Rust's each float of `floats`' and `singles`' kind 7 may be, which Rust leaves to libm. */
 const ULPS = 2n;
 
@@ -521,4 +544,4 @@ const setOps = [
 const zerosOp = op("zeros::zeros");
 const zeros = Array.from({ length: 7 * 4 }, (_, i) => Uint8Array.of(zerosOp, i % 7, ...Array.from({ length: Math.floor(i / 7) }, (_, b) => b)));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds];
