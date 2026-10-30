@@ -361,8 +361,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				.copied()
 				.filter(|&instance| t.crates.translates(instance.def_id()) && t.writes.unread(instance))
 				.collect();
-			// The config's errors are reported as they are found, so only once.
-			if reached.is_empty() || tcx.dcx().has_errors().is_some() {
+			if reached.is_empty() {
 				return Some((t, out));
 			}
 			read = std::mem::take(&mut t.read);

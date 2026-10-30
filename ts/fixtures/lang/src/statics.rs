@@ -265,22 +265,14 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 /// crossbeam-epoch's own `OnceLock`, which keeps its collector: a value a `Once` guards,
 /// written through `UnsafeCell::get` in `call_once`'s function, read once `is_completed`
 /// says it ran, and dropped in place if it did.
-struct Lock<T: Locked> {
+struct Lock<T> {
 	once: Once,
 	value: UnsafeCell<MaybeUninit<T>>,
 }
 
-unsafe impl<T: Locked + Sync + Send> Sync for Lock<T> {}
+unsafe impl<T: Sync + Send> Sync for Lock<T> {}
 
-/// What a `Lock` holds. A write of its `T` through a pointer counts for every type the bound
-/// allows, which would refuse the pointers of `pointers::nested` and copy more elsewhere.
-trait Locked {}
-
-impl Locked for (u8, Rc<()>) {}
-impl Locked for Rc<()> {}
-impl Locked for Collector {}
-
-impl<T: Locked> Lock<T> {
+impl<T> Lock<T> {
 	const fn new() -> Self {
 		Self {
 			once: Once::new(),
@@ -300,7 +292,7 @@ impl<T: Locked> Lock<T> {
 	}
 }
 
-impl<T: Locked> Drop for Lock<T> {
+impl<T> Drop for Lock<T> {
 	fn drop(&mut self) {
 		if self.once.is_completed() {
 			unsafe { (*self.value.get()).assume_init_drop() };

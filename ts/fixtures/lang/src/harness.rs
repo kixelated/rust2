@@ -143,6 +143,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("keys::bytes", keys::bytes),
 		("strs::parses", strs::parses),
 		("pointers::rebound", |_, data, out| pointers::rebound(data, out)),
+		("pointers::writers", |_, data, out| pointers::writers(data, out)),
 	]
 }
 
