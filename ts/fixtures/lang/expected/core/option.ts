@@ -17,6 +17,7 @@ import type * as Twin from "../counts.Twin.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
+import type * as Quarter from "../iters.Quarter.ts";
 import type * as Tilt from "../iters.Tilt.ts";
 import { side, order } from "../keys.ts";
 import type * as Hop from "../keys.Hop.ts";
@@ -239,6 +240,13 @@ export function map$0xa0bn7(self: Named.Named | undefined, f: (a0: Named.Named) 
 	return f(self);
 }
 
+export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string): string | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
 export function map$0600mq0(self: Dir.Dir | undefined, f: (a0: Dir.Dir) => shapes_Shape.Shape): shapes_Shape.Shape | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -317,18 +325,18 @@ export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices
 	return f(self);
 }
 
-export function map$0lcwx9x(self: Way.Way | undefined, f: (a0: Way.Way) => boolean): boolean | undefined {
+export function map$1httady(self: string[] | undefined, f: (a0: string[]) => string): string | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
 }
 
-export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string): string | undefined {
+export function map$0lcwx9x(self: Way.Way | undefined, f: (a0: Way.Way) => boolean): boolean | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
-	return self;
+	return f(self);
 }
 
 export function map$0qyyft9(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
@@ -604,6 +612,13 @@ export function mapOr$0rtdylj(self: Point.Point | undefined, default_: rt.u8, f:
 	return f(self);
 }
 
+export function mapOr$1lznlgz(self: Quarter.Quarter | undefined, default_: rt.u8, f: (a0: Quarter.Quarter) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$1to2ul4(self: [Rank.Rank, Tally.Tally] | undefined, default_: rt.u8, f: (a0: [Rank.Rank, Tally.Tally]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -738,6 +753,13 @@ export function mapOr$15zxk73(self: rt.u8 | undefined, default_: rt.u64, f: (a0:
 }
 
 export function mapOr$1surhce(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0ev76sb(self: rt.Place<rt.u8> | undefined, default_: rt.u8, f: (a0: rt.Place<rt.u8>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -914,6 +936,12 @@ export function asDeref$0hypa7g(self: rt.Arc<counts_Noisy.Noisy> | undefined): c
 export function asDeref$0s3650c(self: rt.Arc<rt.u8> | undefined): rt.u8 | undefined {
 	return map$0ufgkyq(self, (a0: rt.Arc<rt.u8>): rt.u8 => {
 		return a0.value;
+	});
+}
+
+export function asDeref$0w8at8i(self: string | undefined): string | undefined {
+	return map$1uo1d4o(self, (a0: string): string => {
+		return a0;
 	});
 }
 

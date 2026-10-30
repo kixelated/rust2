@@ -115,7 +115,11 @@ pub fn call<'tcx>(
 					return Ok(Some(if name == "eq" { eq } else { eq.not() }));
 				}
 				let kind = b.t.std_of(t) == Some(Std::ErrorKind);
-				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_)) || bytes(b, t) || !(std_key(b, t) || kind) {
+				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
+					|| bytes(b, t)
+					|| !(std_key(b, t) || kind)
+					|| !alike(b, t, rhs)
+				{
 					return Err(args);
 				}
 				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
@@ -478,6 +482,15 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 	let (key, by) = (peel(b, key), peel(b, by));
 	tcx.erase_and_anonymize_regions(key) == tcx.erase_and_anonymize_regions(by)
 		|| (library::string(tcx, key) && library::string(tcx, by))
+}
+
+/// Whether a `ty` compares to an `other` as to another `ty`: as keys do, as bytes do, or
+/// by elements that do. Else the impl of `PartialEq<other>` is its own.
+fn alike<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, other: Ty<'tcx>) -> bool {
+	let (ty, other) = (peel(b, ty), peel(b, other));
+	same_key(b, ty, other)
+		|| (bytes(b, ty) && bytes(b, other))
+		|| matches!((elements_of(b, ty), elements_of(b, other)), (Some(t), Some(o)) if alike(b, t, o))
 }
 
 /// Whether `call` lends a value a collection or an atomic holds that JS copies, which its
