@@ -383,13 +383,18 @@ export function reducers(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 export function eq$PartialEq_Quarter_u8(self: rt.u8, other: Quarter.Quarter): boolean {
-	rt.cellSet(other._1, rt.u8Add(other._1.v, 16));
+	rt.cellSet(other._1, rt.u8WrappingAdd(other._1.v, 16));
 	return rt.u8Rem(self, 4) === rt.u8Rem(other._0, 4);
 }
 
 export function eq$PartialEq_Quarter_u8s(self: rt.ByteSlice, other: Quarter.Quarter): boolean {
-	rt.cellSet(other._1, rt.u8Add(other._1.v, 64));
+	rt.cellSet(other._1, rt.u8WrappingAdd(other._1.v, 64));
 	return rt.iterSum(rt.iterSlice(rt.byteSliceView(self)), rt.u8Add, 0) === other._0;
+}
+
+export function eq$PartialEq_Quarter_String(self: string, other: Quarter.Quarter): boolean {
+	rt.cellSet(other._1, rt.u8WrappingAdd(other._1.v, 4));
+	return rt.stringLen(self) === other._0 as rt.usize;
 }
 
 /**
@@ -523,9 +528,9 @@ export function peekedOthers(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const calls: rt.Cell<rt.u8> = new rt.Cell(0);
 	const it9: rt.Peekable<Uint8Array> = rt.iterPeekable(rt.iterMap(rt.byteSliceChunksExact(data, 2), (c: rt.ByteSlice): Uint8Array => {
 		rt.idx(c, 0);
-		const _314: rt.u8 = rt.u8Rem(c.data[c.start], 2);
+		const _317: rt.u8 = rt.u8Rem(c.data[c.start], 2);
 		rt.idx(c, 1);
-		return Uint8Array.of(_314, rt.u8Rem(c.data[c.start + 1], 2));
+		return Uint8Array.of(_317, rt.u8Rem(c.data[c.start + 1], 2));
 	}));
 	const _217: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(0, 1)), 0);
 	rt.byteVecPush(out, mapOr$0sl5app(rt.peekableNextIfEq(it9, _217, (a, b7): boolean => {
@@ -579,6 +584,16 @@ export function peekedOthers(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const it12: rt.Peekable<rt.u8> = rt.iterPeekable(rt.iterSlice(rt.byteSliceView(data)));
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.peekableNextIfEq(it12, { _0: want ^ 1, _1: calls }, eq$PartialEq_Quarter_u8), 170));
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.peekableNextIfEq(it12, { _0: want, _1: calls }, eq$PartialEq_Quarter_u8), 170));
+	const it13: rt.Peekable<string> = rt.iterPeekable(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_213: rt.u8): string => {
+		return rt.strSlice("ab", 0, rt.u8Rem(_213, 3) as rt.usize);
+	}));
+	rt.byteVecPush(out, mapOr$0lcrgk1(rt.peekableNextIfEq(it13, { _0: 1, _1: calls }, eq$PartialEq_Quarter_String), 170, (w4: string): rt.u8 => {
+		return rt.stringLen(w4) & 0xff;
+	}));
+	rt.byteVecPush(out, mapOr$0lcrgk1(rt.iterToOption(it13.next()), 170, (w5: string): rt.u8 => {
+		return rt.stringLen(w5) & 0xff;
+	}));
+	rt.byteVecPush(out, eq$PartialEq_Quarter_String("ab", { _0: want, _1: calls }) ? 1 : 0);
 	rt.byteVecPush(out, calls.v);
 }
 

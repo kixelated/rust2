@@ -135,6 +135,13 @@ export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.By
 	return self;
 }
 
+export function unwrapOr$1la41a6(self: Uint8Array | undefined, default_: Uint8Array): Uint8Array {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$14m5xjm(self: [rt.usize, rt.u8] | undefined, default_: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	if (self === undefined) {
 		return default_;
@@ -287,6 +294,21 @@ export function map$0pkankm(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | u
 		return rt.None;
 	}
 	return f(self);
+}
+
+export function map$0jcaaxx(self: [rt.u8 | undefined, rt.u8] | undefined, f: (a0: [rt.u8 | undefined, rt.u8]) => Uint8Array): Uint8Array | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0ju5zoy(self: rt.Place<rt.u8 | undefined> | undefined, f: (a0: rt.Place<rt.u8 | undefined>) => void): undefined | rt.None {
+	if (self === undefined) {
+		return rt.None;
+	}
+	f(self);
+	return undefined;
 }
 
 export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices_Pair.Pair[]) => rt.u8): rt.u8 | undefined {
@@ -911,6 +933,13 @@ export function and$06om98g(self: rt.u8 | undefined, optb: rt.u8 | undefined): r
 
 export function andThen$0qni7te(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => rt.u8 | undefined | rt.None): rt.u8 | undefined | rt.None {
 	if (self === rt.None) {
+		return rt.None;
+	}
+	return f(self);
+}
+
+export function andThen$0ocv8av(self: Array<rt.u8 | undefined> | undefined, f: (a0: Array<rt.u8 | undefined>) => rt.u8 | undefined | rt.None): rt.u8 | undefined | rt.None {
+	if (self === undefined) {
 		return rt.None;
 	}
 	return f(self);

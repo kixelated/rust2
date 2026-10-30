@@ -277,14 +277,14 @@ struct Quarter<'a>(u8, &'a std::cell::Cell<u8>);
 
 impl PartialEq<u8> for Quarter<'_> {
 	fn eq(&self, other: &u8) -> bool {
-		self.1.set(self.1.get() + 1);
+		self.1.set(self.1.get().wrapping_add(1));
 		self.0 % 4 == other % 4
 	}
 }
 
 impl PartialEq<Quarter<'_>> for u8 {
 	fn eq(&self, other: &Quarter<'_>) -> bool {
-		other.1.set(other.1.get() + 0x10);
+		other.1.set(other.1.get().wrapping_add(0x10));
 		self % 4 == other.0 % 4
 	}
 }
@@ -292,8 +292,16 @@ impl PartialEq<Quarter<'_>> for u8 {
 /// By the pair's sum, which reads the array through the reference `eq` takes.
 impl PartialEq<Quarter<'_>> for [u8; 2] {
 	fn eq(&self, other: &Quarter<'_>) -> bool {
-		other.1.set(other.1.get() + 0x40);
+		other.1.set(other.1.get().wrapping_add(0x40));
 		self.iter().sum::<u8>() == other.0
+	}
+}
+
+/// By the string's length, a std type compared by the crate's impl rather than std's.
+impl PartialEq<Quarter<'_>> for String {
+	fn eq(&self, other: &Quarter<'_>) -> bool {
+		other.1.set(other.1.get().wrapping_add(4));
+		self.len() == usize::from(other.0)
 	}
 }
 
@@ -363,6 +371,10 @@ pub fn peeked_others(data: &[u8], out: &mut Vec<u8>) {
 	let mut it = data.iter().copied().peekable();
 	out.push(it.next_if_eq(&Quarter(want ^ 1, &calls)).unwrap_or(0xaa));
 	out.push(it.next_if_eq(&Quarter(want, &calls)).unwrap_or(0xaa));
+	let mut it = data.iter().map(|&b| "ab"[..usize::from(b % 3)].to_string()).peekable();
+	out.push(it.next_if_eq(&Quarter(1, &calls)).map_or(0xaa, |w| w.len() as u8));
+	out.push(it.next().map_or(0xaa, |w| w.len() as u8));
+	out.push((String::from("ab") == Quarter(want, &calls)) as u8);
 	out.push(calls.get());
 }
 

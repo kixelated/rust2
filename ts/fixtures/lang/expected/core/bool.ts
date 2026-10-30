@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import * as Made from "../defaults.Made.ts";
+import type * as Way from "../keys.Way.ts";
 import type * as Void from "../shapes.Void.ts";
 
 export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | undefined {
@@ -140,6 +141,13 @@ export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 |
 export function then$0afp4no(self: boolean, f: () => rt.Result<rt.u8, rt.ParseIntError>): rt.Result<rt.u8, rt.ParseIntError> | undefined {
 	if (!self) {
 		return undefined;
+	}
+	return f();
+}
+
+export function then$18np55d(self: boolean, f: () => Way.Way | undefined): Way.Way | undefined | rt.None {
+	if (!self) {
+		return rt.None;
 	}
 	return f();
 }

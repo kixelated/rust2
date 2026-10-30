@@ -36,9 +36,9 @@ pub fn collected(v: &[u8]) -> Option<Vec<()>> {
 	v.iter().map(|&b| (b > 1).then_some(())).collect()
 }
 
-/// The runtime's `pop` takes `None` to be `undefined`, which `Some(None)` is.
-pub fn iterators(mut v: Vec<Option<u8>>) -> bool {
-	v.pop().is_some()
+/// `into_inner` of a shared value that can be `undefined`: its `None` and `Some(None)` would both be.
+pub fn inner_option(value: std::sync::Arc<Option<u8>>) -> bool {
+	std::sync::Arc::into_inner(value).is_some()
 }
 
 pub struct Noisy(pub u8);
@@ -253,9 +253,9 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// A set's `get` of an item that can be `undefined`: its `None` and `Some(&None)` would both be.
-pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
-	set.get(&None).is_some()
+/// `into_inner` of a shared `()`: its `None` and `Some(())` would both be `undefined`.
+pub fn inner_unit(value: std::rc::Rc<()>) -> bool {
+	std::rc::Rc::into_inner(value).is_some()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.
@@ -814,11 +814,6 @@ pub fn blank_bytes(len: usize) -> usize {
 	bytes::Buf::copy_to_bytes(&mut Blank::Empty, len).len()
 }
 
-/// A heap's `pop` of an item that can be `undefined`: its `None` and `Some(None)` would both be.
-pub fn heap_optional(heap: &mut std::collections::BinaryHeap<Option<u8>>) -> bool {
-	heap.pop().is_some()
-}
-
 /// The places `iter_mut` lends, which the runtime would compare as the objects they are.
 pub fn places_sorted(v: &mut [u8]) -> bool {
 	v.iter_mut().is_sorted()
@@ -902,6 +897,21 @@ pub fn byte_key(set: &std::collections::HashSet<[u8; 2]>, key: [u8; 2]) -> u8 {
 /// `next_if_eq` compares by the item's `PartialEq<Vec<u8>>`, which is refused as `==` is.
 pub fn peeked_deque(v: Vec<std::collections::VecDeque<u8>>) -> bool {
 	v.into_iter().peekable().next_if_eq(&vec![1]).is_some()
+}
+
+pub struct Left(pub u16);
+
+pub struct Right(pub u16);
+
+impl PartialEq<Right> for Left {
+	fn eq(&self, other: &Right) -> bool {
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+/// `Vec`s compare by their elements' `PartialEq<Right>`, not by `Left`'s own.
+pub fn unlike_elements(v: Vec<Vec<Left>>, w: &[Right]) -> bool {
+	v.into_iter().peekable().next_if_eq(&w).is_some()
 }
 
 pub struct Plain {

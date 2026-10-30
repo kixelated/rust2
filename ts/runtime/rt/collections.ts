@@ -515,10 +515,19 @@ export function hashDelete<K>(m: HashSet<K>, key: K, k?: (key: K) => void): bool
 	return entry !== undefined;
 }
 
-/** `HashSet::get`, and `HashSet::take` if `take`: the equal key the set holds. */
-export function hashKey<K>(m: HashSet<K>, key: K, take = false): K | undefined {
-	if (hashed(m, key)) return take ? hashRemoveEntry(m, key)?.[0] : slot(m, key)?.k;
-	if (!m.p.has(key)) return undefined;
+/** `HashSet::get`, and `HashSet::take` if `take`: the equal key the set holds, or else `none`. */
+export function hashKey<K>(m: HashSet<K>, key: K, take?: boolean): K | undefined;
+export function hashKey<K>(m: HashSet<K>, key: K, take: boolean, none: None): K | None;
+export function hashKey<K>(m: HashSet<K>, key: K, take = false, none?: None): K | None | undefined {
+	if (hashed(m, key) && take) {
+		const entry = hashRemoveEntry(m, key);
+		return entry === undefined ? none : entry[0];
+	}
+	if (hashed(m, key)) {
+		const s = slot(m, key);
+		return s === undefined ? none : s.k;
+	}
+	if (!m.p.has(key)) return none;
 	if (take) m.p.delete(key);
 	return key;
 }
@@ -1118,9 +1127,11 @@ export function btreeFirst<K, V>(m: BTreeMap<K, V>, last = false): [K, V] | unde
 	return [l.k[i], l.v[i]];
 }
 
-/** `BTreeSet::first`, and with `last`, `BTreeSet::last`. */
-export function btreeFirstKey<K, V>(m: BTreeMap<K, V>, last = false): K | undefined {
-	if (m.n === 0) return undefined;
+/** `BTreeSet::first`, and with `last`, `BTreeSet::last`, or else `none`. */
+export function btreeFirstKey<K, V>(m: BTreeMap<K, V>, last?: boolean): K | undefined;
+export function btreeFirstKey<K, V>(m: BTreeMap<K, V>, last: boolean, none: None): K | None;
+export function btreeFirstKey<K, V>(m: BTreeMap<K, V>, last = false, none?: None): K | None | undefined {
+	if (m.n === 0) return none;
 	const l = end(m, last);
 	return l.k[last ? l.k.length - 1 : 0];
 }
@@ -1135,9 +1146,12 @@ export function btreePop<K, V>(m: BTreeMap<K, V>, last = false): [K, V] | undefi
 	return entry;
 }
 
-/** `BTreeSet::pop_first`, and with `last`, `pop_last`. */
-export function btreePopKey<K, V>(m: BTreeMap<K, V>, last = false): K | undefined {
-	return btreePop(m, last)?.[0];
+/** `BTreeSet::pop_first`, and with `last`, `pop_last`, or else `none`. */
+export function btreePopKey<K, V>(m: BTreeMap<K, V>, last?: boolean): K | undefined;
+export function btreePopKey<K, V>(m: BTreeMap<K, V>, last: boolean, none: None): K | None;
+export function btreePopKey<K, V>(m: BTreeMap<K, V>, last = false, none?: None): K | None | undefined {
+	const entry = btreePop(m, last);
+	return entry === undefined ? none : entry[0];
 }
 
 /** Drop `m`: each key by `k` and each value by `v`, of those that drop, in key order. */
@@ -1745,8 +1759,11 @@ export function dequePushFront<T>(q: VecDeque<T>, item: T): void {
 	q.n++;
 }
 
-export function dequePopFront<T>(q: VecDeque<T>): T | undefined {
-	if (q.n === 0) return undefined;
+/** `pop_front`: the first item, or else `none`. */
+export function dequePopFront<T>(q: VecDeque<T>): T | undefined;
+export function dequePopFront<T>(q: VecDeque<T>, none: None): T | None;
+export function dequePopFront<T>(q: VecDeque<T>, none?: None): T | None | undefined {
+	if (q.n === 0) return none;
 	const item = q.b[q.h];
 	q.b[q.h] = undefined;
 	q.h = at(q, 1);
@@ -1754,22 +1771,29 @@ export function dequePopFront<T>(q: VecDeque<T>): T | undefined {
 	return item;
 }
 
-export function dequePopBack<T>(q: VecDeque<T>): T | undefined {
-	if (q.n === 0) return undefined;
+/** `pop_back`: the last item, or else `none`. */
+export function dequePopBack<T>(q: VecDeque<T>): T | undefined;
+export function dequePopBack<T>(q: VecDeque<T>, none: None): T | None;
+export function dequePopBack<T>(q: VecDeque<T>, none?: None): T | None | undefined {
+	if (q.n === 0) return none;
 	const i = at(q, --q.n);
 	const item = q.b[i];
 	q.b[i] = undefined;
 	return item;
 }
 
-/** `get` and `get_mut`. */
-export function dequeGet<T>(q: VecDeque<T>, i: number): T | undefined {
-	return i < q.n ? q.b[at(q, i)] : undefined;
+/** `get` and `get_mut`: the item at `i`, or else `none`. */
+export function dequeGet<T>(q: VecDeque<T>, i: number): T | undefined;
+export function dequeGet<T>(q: VecDeque<T>, i: number, none: None): T | None;
+export function dequeGet<T>(q: VecDeque<T>, i: number, none?: None): T | None | undefined {
+	return i < q.n ? (q.b[at(q, i)] as T) : none;
 }
 
-/** `front`, and with `back`, `back`. */
-export function dequeEnd<T>(q: VecDeque<T>, back = false): T | undefined {
-	return q.n === 0 ? undefined : q.b[at(q, back ? q.n - 1 : 0)];
+/** `front`, and with `back`, `back`, or else `none`. */
+export function dequeEnd<T>(q: VecDeque<T>, back?: boolean): T | undefined;
+export function dequeEnd<T>(q: VecDeque<T>, back: boolean, none: None): T | None;
+export function dequeEnd<T>(q: VecDeque<T>, back = false, none?: None): T | None | undefined {
+	return q.n === 0 ? none : (q.b[at(q, back ? q.n - 1 : 0)] as T);
 }
 
 /** `get_mut` of an item JS copies: its place, or `undefined` past the end. */
@@ -1854,10 +1878,12 @@ export function dequeContains<T>(q: VecDeque<T>, item: T, eq: (a: T, b: T) => bo
 	return false;
 }
 
-/** `remove`: the item at `i`, if any, with those after it moved up. */
-export function dequeRemove<T>(q: VecDeque<T>, i: number): T | undefined {
-	if (i >= q.n) return undefined;
-	const item = q.b[at(q, i)];
+/** `remove`: the item at `i`, with those after it moved up, or else `none`. */
+export function dequeRemove<T>(q: VecDeque<T>, i: number): T | undefined;
+export function dequeRemove<T>(q: VecDeque<T>, i: number, none: None): T | None;
+export function dequeRemove<T>(q: VecDeque<T>, i: number, none?: None): T | None | undefined {
+	if (i >= q.n) return none;
+	const item = q.b[at(q, i)] as T;
 	for (let j = i; j + 1 < q.n; j++) q.b[at(q, j)] = q.b[at(q, j + 1)];
 	dequePopBack(q);
 	return item;
@@ -2174,10 +2200,17 @@ export function heapPush<T>(h: BinaryHeap<T>, item: T, le: Test<T>): void {
 	siftUp(h.d, 0, h.d.length - 1, le);
 }
 
-/** `pop`: the greatest element, or `undefined` if empty, the last element sifted into its place to the bottom and back up. */
-export function heapPop<T>(h: BinaryHeap<T>, le: Test<T>): T | undefined {
+/** `peek` of an element that can be `undefined`: the greatest element, or `none` if empty. */
+export function heapPeek<T>(h: BinaryHeap<T>, none: None): T | None {
+	return h.d.length === 0 ? none : h.d[0];
+}
+
+/** `pop`: the greatest element, or `none` if empty, the last element sifted into its place to the bottom and back up. */
+export function heapPop<T>(h: BinaryHeap<T>, le: Test<T>): T | undefined;
+export function heapPop<T>(h: BinaryHeap<T>, le: Test<T>, none: None): T | None;
+export function heapPop<T>(h: BinaryHeap<T>, le: Test<T>, none?: None): T | None | undefined {
 	const d = h.d;
-	if (d.length === 0) return undefined;
+	if (d.length === 0) return none;
 	let item = d.pop() as T;
 	if (d.length > 0) {
 		[item, d[0]] = [d[0], item];
