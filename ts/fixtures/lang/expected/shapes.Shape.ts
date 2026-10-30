@@ -23,6 +23,30 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 }
 
+export function eq$PartialEq(self: Shape, other: Shape): boolean {
+	if (!({ Dot: 0, Line: 1, Rect: 2 }[self.tag] === { Dot: 0, Line: 1, Rect: 2 }[other.tag])) {
+		return false;
+	}
+	if (self.tag === "Line") {
+		if (other.tag === "Line") {
+			if (!Point.eq$PartialEq(self._0, other._0)) {
+				return false;
+			}
+			return Point.eq$PartialEq(self._1, other._1);
+		}
+	} else if (self.tag === "Rect") {
+		if (other.tag === "Rect") {
+			if (self.width === other.width) {
+				if (self.height === other.height) {
+					return Point.eq$PartialEq(self.corner, other.corner);
+				}
+			}
+			return false;
+		}
+	}
+	return true;
+}
+
 /** An enum with data, and one without. */
 export type Shape =
 	| { tag: "Dot" }

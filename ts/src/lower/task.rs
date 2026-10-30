@@ -132,6 +132,26 @@ pub fn call<'tcx>(
 	let e = match (owner, name) {
 		("Arc" | "Rc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
 		("Arc" | "Rc", "new_cyclic") => Expr::rt("arcNewCyclic", args),
+		// JS erases the pin.
+		("Arc" | "Rc", "pin") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
+		// A `&mut` to the value, which is where it is for one JS copies. `make_mut` takes the
+		// `Arc`'s place, which it may point at a new `Arc`.
+		("Arc" | "Rc", "get_mut" | "make_mut") if call.args.type_at(0).is_sized(tcx, b.t.typing_env_pub()) => {
+			let value = call.args.type_at(0);
+			let place = if b.t.needs_place(value) { "Place" } else { "" };
+			match name {
+				"get_mut" => Expr::rt(format!("arcGetMut{place}"), args),
+				_ => {
+					let clone = super::collections::clone_fn(b, value, call.span);
+					let arc = b.t.sig(call.def_id, call.args).inputs()[0].peel_refs();
+					let Some(droppers) = b.t.droppers([arc], call.span) else {
+						return Ok(Some(Expr::undefined()));
+					};
+					let values = args.into_iter().chain([clone]).chain(droppers).collect();
+					Expr::rt(format!("arcMakeMut{place}"), values)
+				}
+			}
+		}
 		// An `Arc<str>` of a string, which JS shares as it is.
 		("From", "from")
 			if let [arc, from] = call.args.as_slice()

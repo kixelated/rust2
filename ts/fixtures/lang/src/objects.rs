@@ -49,6 +49,12 @@ fn replace_through<P: std::ops::DerefMut<Target = Arc<u8>>>(mut p: P, by: u8) {
 	*p = Arc::new(by);
 }
 
+/// A pin of a byte, made through a function pointer, that writes the byte.
+fn pin_via<'a>(p: &'a mut u8) -> Pin<&'a mut u8> {
+	let f: fn(&'a mut u8) -> Pin<&'a mut u8> = Pin::new;
+	f(p)
+}
+
 fn locked_by(n: u8) -> Mutex<u8> {
 	Mutex::new(n.wrapping_add(3))
 }
@@ -236,6 +242,9 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	let guarded = Mutex::new(Arc::new(by));
 	replace_through(guarded.lock().unwrap(), by.wrapping_add(4));
 	out.push(**guarded.lock().unwrap());
+	let mut pinned_byte = by;
+	*Pin::get_mut(pin_via(&mut pinned_byte)) ^= 0x5a;
+	out.push(pinned_byte);
 	let mut owned = Arc::clone(&held);
 	let lent = Pin::new(&mut owned);
 	out.extend_from_slice(&[Arc::strong_count(&*lent) as u8, **lent]);

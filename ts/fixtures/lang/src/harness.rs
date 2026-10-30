@@ -100,6 +100,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("counts::rcs", |_, data, out| counts::rcs(data, out)),
 		("counts::cyclic_arcs", |_, data, out| counts::cyclic_arcs(data, out)),
 		("counts::cyclic_rcs", |_, data, out| counts::cyclic_rcs(data, out)),
+		("counts::unique_arcs", |_, data, out| counts::unique_arcs(data, out)),
+		("counts::unique_rcs", |_, data, out| counts::unique_rcs(data, out)),
 		("dyns::anys", |_, data, out| dyns::anys(data, out)),
 		("dyns::fns", |_, data, out| dyns::fns(data, out)),
 		("pointers::copies", |_, data, out| pointers::copies(data, out)),

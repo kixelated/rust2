@@ -179,6 +179,101 @@ pub fn divide(a: u64, b: u64) -> Result<(u64, u64), Error> {
 	}
 }
 
+/// `n` narrowed as [`widths`] does, unless 0: a tuple inside an `Option` is a struct.
+pub fn spread(n: u64) -> Option<(u8, i16, u32, u64)> {
+	(n != 0).then(|| widths(n))
+}
+
+/// Where `needle` first starts in `haystack`, and its length, as moq-mux's
+/// `find_start_code` returns it.
+pub fn find(haystack: &[u8], needle: &[u8]) -> Option<(usize, usize)> {
+	(haystack.windows(needle.len()))
+		.position(|window| window == needle)
+		.map(|at| (at, needle.len()))
+}
+
+/// Each point named by its index, with its shape: rows of tuples, as moq-net's stats
+/// snapshots return them.
+pub fn rows(points: &[Point]) -> Vec<(String, Shape, Point)> {
+	(points.iter().enumerate())
+		.map(|(i, p)| {
+			let shape = match p.x == p.y {
+				true => Shape::Square,
+				false => Shape::Circle,
+			};
+			(format!("p{i}"), shape, *p)
+		})
+		.collect()
+}
+
+/// Counters by name, which takes each counter's handle in a tuple.
+pub struct Board {
+	counters: std::collections::BTreeMap<String, Counter>,
+}
+
+impl Board {
+	pub fn new(counters: Vec<(String, Counter)>) -> Self {
+		Self {
+			counters: counters.into_iter().collect(),
+		}
+	}
+
+	/// Each name and its counter, highest first, as hang's `ranked`: each pair borrowed,
+	/// so each crosses as a clone.
+	pub fn ranked(&self) -> impl Iterator<Item = (&String, &Counter)> {
+		let mut ranked: Vec<_> = self.counters.iter().collect();
+		ranked.sort_by_key(|(_, counter)| std::cmp::Reverse(counter.get()));
+		ranked.into_iter()
+	}
+}
+
+/// A span: a record whose fields are tuples, one holding text.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Span {
+	pub bounds: (u32, u32),
+	pub named: Option<(String, Shape)>,
+}
+
+/// The span's two halves, each a tuple inside the tuple returned.
+pub fn halves(span: &Span) -> ((u32, u32), (u32, u32)) {
+	let (start, end) = span.bounds;
+	let mid = start + (end - start) / 2;
+	((start, mid), (mid, end))
+}
+
+/// `value` doubled: a tuple of one inside an `Option` keeps `None` apart from
+/// `Some((None,))`.
+pub fn doubled(value: Option<(Option<u32>,)>) -> Option<(Option<u32>,)> {
+	value.map(|(n,)| (n.map(|n| n * 2),))
+}
+
+/// A title, for formal speech: a tuple of one borrowed string, whose C struct one of an
+/// owned string shares.
+pub fn title(formal: bool) -> Option<(&'static str,)> {
+	formal.then_some(("Dr",))
+}
+
+/// `name`, unless empty: a tuple of one owned string.
+pub fn named(name: &str) -> Option<(String,)> {
+	(!name.is_empty()).then(|| (name.to_string(),))
+}
+
+/// `value` lent back: a borrowed tuple of one, returned as a clone, is a tuple, not its
+/// element, as only a tuple returned whole is.
+pub fn lent_back(value: &(Vec<u8>,)) -> &(Vec<u8>,) {
+	value
+}
+
+/// `bytes` in a boxed tuple of one, which is a tuple too.
+pub fn boxed_tuple(bytes: Vec<u8>) -> Box<(Vec<u8>,)> {
+	Box::new((bytes,))
+}
+
+/// `pair` with its sides swapped: a tuple taken by value.
+pub fn swapped(pair: (String, u32)) -> (u32, String) {
+	(pair.1, pair.0)
+}
+
 /// Holds counters and lends them: each borrowed return is a new handle to a clone.
 #[derive(Default)]
 pub struct Registry {
@@ -272,6 +367,21 @@ pub fn end(limit: u64) -> Bound<u64> {
 	match limit {
 		0 => Bound::Unbounded,
 		limit => Bound::Excluded(limit),
+	}
+}
+
+/// A range's two bounds, up to the end `limit` puts on it: returned whole, a tuple, not
+/// the pair a `RangeBounds` parameter takes.
+pub fn ends(limit: u64) -> (Bound<u64>, Bound<u64>) {
+	(Bound::Included(0), end(limit))
+}
+
+/// `n` if below `limit`, or else the bounds it falls outside: an error is the pair a
+/// `RangeBounds` parameter takes, not a tuple.
+pub fn below(n: u64, limit: u64) -> Result<u64, (Bound<u64>, Bound<u64>)> {
+	match n < limit {
+		true => Ok(n),
+		false => Err(ends(limit)),
 	}
 }
 
@@ -534,10 +644,10 @@ impl Drop for Token {
 	}
 }
 
-/// Bytes whose drop counts in [`dropped`], as a token's does.
-pub fn token_bytes(id: u32) -> Bytes {
+/// `len` bytes of `id`'s low byte, whose drop counts in [`dropped`], as a token's does.
+pub fn token_bytes(id: u32, len: u32) -> Bytes {
 	// The token is held only for its drop.
-	struct Owner(#[allow(dead_code)] Token, [u8; 4]);
+	struct Owner(#[allow(dead_code)] Token, Vec<u8>);
 
 	impl AsRef<[u8]> for Owner {
 		fn as_ref(&self) -> &[u8] {
@@ -545,7 +655,7 @@ pub fn token_bytes(id: u32) -> Bytes {
 		}
 	}
 
-	Bytes::from_owner(Owner(Token::new(id), id.to_le_bytes()))
+	Bytes::from_owner(Owner(Token::new(id), vec![id as u8; len as usize]))
 }
 
 /// A payload and its sequence number: a record, whose bytes cross in both ways.
