@@ -564,15 +564,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				"clear" | "truncate" | "insert" | "insert_str" | "retain" | "replace_range" | "extend_from_within",
 			) => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				// What follows the string passes as the mappings' arguments do, a `&mut F` as
-				// the closure it points at.
 				let result = dest.ty(&self.mir.local_decls, tcx).ty;
-				let pointees = vec![true; args.len() - 1];
 				let mut values = vec![place.0.clone()];
-				values.extend(self.operands(false, &pointees, &args[1..], result, span, out));
+				values.extend(self.operands(false, &[], &args[1..], result, span, out));
 				if name == "insert" {
 					let c = values.pop()?;
 					values.push(library::char_text(c));
+				}
+				// A `&mut` to a function JS copies is its place, at each reference to it.
+				if name == "retain" {
+					let mut f = targ(0)?;
+					while let ty::Ref(_, inner, _) = *f.kind() {
+						if self.b.t.place_pointee(f).is_some() {
+							values[1] = std::mem::replace(&mut values[1], Expr::undefined()).member("v");
+						}
+						f = inner;
+					}
 				}
 				let edited = match name.as_str() {
 					"clear" => Expr::Str(String::new()),
@@ -588,12 +595,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// The runtime gives the edited string and what the edit returns.
 			("String", "pop" | "remove" | "split_off") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				// What follows the string passes as the mappings' arguments do, a `&mut F` as
-				// the closure it points at.
 				let result = dest.ty(&self.mir.local_decls, tcx).ty;
-				let pointees = vec![true; args.len() - 1];
 				let mut values = vec![place.0.clone()];
-				values.extend(self.operands(false, &pointees, &args[1..], result, span, out));
+				values.extend(self.operands(false, &[], &args[1..], result, span, out));
 				let f = match name.as_str() {
 					"pop" => "stringPop",
 					"remove" => "stringRemove",
