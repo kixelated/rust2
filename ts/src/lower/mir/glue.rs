@@ -52,7 +52,7 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 				t.typing_env_pub(),
 				EarlyBinder::bind(tcx, body),
 			);
-			let mut b = Body::new(t, instance.args);
+			let mut b = Body::new(t);
 			let mut fx = Fx::new(&mut b, &mir, Env::Shim, span);
 			let params = fx.params();
 			let body = fx.lower();
