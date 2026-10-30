@@ -175,10 +175,10 @@ pub fn call<'tcx>(
 			*at = Expr::rt("byteSliceView", vec![std::mem::replace(at, Expr::undefined())]);
 		}
 	}
-	// Bytes of any form hash and compare alike, so each finds the others.
-	let alike = |key: Ty<'tcx>, by: Ty<'tcx>| same_key(b, key, by) || (bytes(b, peel(b, key)) && bytes(b, peel(b, by)));
+	// Elements of any form, an array, a slice, or a `Vec`, hash and compare alike, so each
+	// finds the others.
 	if let Some(by) = by
-		&& !alike(arg(coll, 0), by)
+		&& !alike(b, arg(coll, 0), by)
 	{
 		// An `Arc`'s `Hash`, `Eq`, and `Ord` are its value's, so the value it is looked up by
 		// stands in as an `Arc` of it, which the collection only compares.
