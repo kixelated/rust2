@@ -158,7 +158,7 @@ export function zeros(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return captured & 0xff;
 			}
 			return undefined;
-		}));
+		}), "next");
 		rt.iterEmpty();
 		rt.byteVecPush(out, rt.iterMap(rt.iterEmpty() as rt.Iter<rt.u8>, (b2: rt.u8): rt.u8 => {
 			return rt.u8Add(b2, 1);
