@@ -27,15 +27,15 @@ export const TABLE: rt.ByteSlice = /* @__PURE__ */ rt.byteSliceFrom(Uint8Array.o
  */
 export function statics(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _68!: rt.u8;
-	rt.iterExtendBytes(out, rt.iterSlice(rt.u64ToBeBytes(rt.atomicLoad(COUNT, 0)).reverse()));
-	rt.iterExtendBytes(out, rt.iterSlice(rt.i64ToBeBytes(rt.atomicLoad(WIDE, 0)).reverse()));
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicLoad(SIGNED, 0) & 0xff, rt.atomicLoad(FLAG, 0) ? 1 : 0, rt.atomicLoad(SIZE, 0) & 0xff)));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.u64ToBeBytes(rt.atomicLoad(COUNT, 0)).reverse()), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.i64ToBeBytes(rt.atomicLoad(WIDE, 0)).reverse()), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicLoad(SIGNED, 0) & 0xff, rt.atomicLoad(FLAG, 0) ? 1 : 0, rt.atomicLoad(SIZE, 0) & 0xff)), undefined, true);
 	rt.byteVecPush(out, next(false));
 	for (const op of rt.byteSliceView(data)) {
 		const n: rt.u8 = rt.u8Div(op, 6);
 		const _38: rt.u8 = rt.u8Rem(op, 6);
 		if (_38 === 0) {
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u64ToBeBytes(rt.atomicFetch(COUNT, rt.u64WrappingAdd, n as rt.u64, 3)).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u64ToBeBytes(rt.atomicFetch(COUNT, rt.u64WrappingAdd, n as rt.u64, 3)).reverse()), undefined, true);
 			continue;
 		}
 		if (_38 === 1) {
@@ -47,7 +47,7 @@ export function statics(data: rt.ByteSlice, out: rt.ByteVec): void {
 			continue;
 		}
 		if (_38 === 3) {
-			rt.iterExtendBytes(out, rt.iterSlice(rt.i64ToBeBytes(rt.atomicSwap(WIDE, rt.i64Neg(n as rt.i64), 2)).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.i64ToBeBytes(rt.atomicSwap(WIDE, rt.i64Neg(n as rt.i64), 2)).reverse()), undefined, true);
 			continue;
 		}
 		if (_38 === 4) {
@@ -72,7 +72,7 @@ export function statics(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (!(_84 < 4)) {
 			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _84);
 		}
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_83.data[_83.start + _84], table() === table() ? 1 : 0)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_83.data[_83.start + _84], table() === table() ? 1 : 0)), undefined, true);
 	}
 	rt.atomicStore(COUNT, { hi: 0xffffffff, lo: 0xfffffffd } as rt.u64, 0);
 	rt.atomicStore(SIGNED, -128, 0);
@@ -124,13 +124,13 @@ export const FORCED: rt.Atomic<rt.u8> = /* @__PURE__ */ new rt.Atomic(0);
 
 /** Each byte an operation on statics and constants read from memory; each puts what it read. */
 export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(COUNTER.name))));
-	rt.iterExtendBytes(out, rt.iterSlice(COUNTER.steps));
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(COUNTER.name))), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(COUNTER.steps), undefined, true);
 	const _10: Counter.Counter = COUNTER;
 	if (_10.state === undefined) {
 		rt.byteVecPush(out, 255);
 	} else {
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_10.state[0], _10.state[1] & 0xff)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_10.state[0], _10.state[1] & 0xff)), undefined, true);
 	}
 	const a: Raw.Raw = { locked: new rt.Atomic(false), count: new rt.Atomic(200) };
 	const b: Raw.Raw = { locked: new rt.Atomic(false), count: new rt.Atomic(200) };
@@ -142,17 +142,17 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const slice = _22[1];
 	const _31: rt.u8 = slice.data[rt.idx(slice, 0)];
 	const _35: rt.ByteVec = FIRST.force();
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_26, _27, _31, _35.data[rt.idx(_35, 1)])));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_26, _27, _31, _35.data[rt.idx(_35, 1)])), undefined, true);
 	const tally: rt.Cell<rt.u8> = new rt.Cell(250);
 	const _40: rt.u8 = rt.u8WrappingAdd(tally.v, 10);
 	rt.cellSet(tally, _40);
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(tally.v, new rt.Cell(250).v, new rt.Cell([1, 2] as [rt.u8, rt.u8]).v[1])));
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(new rt.Cell(new rt.Cell(3)).v.v, new rt.Cell(new rt.Cell(4)).v.v)));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(tally.v, new rt.Cell(250).v, new rt.Cell([1, 2] as [rt.u8, rt.u8]).v[1])), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(new rt.Cell(new rt.Cell(3)).v.v, new rt.Cell(new rt.Cell(4)).v.v)), undefined, true);
 	for (const op of rt.byteSliceView(data)) {
 		const n2: rt.u8 = rt.u8Div(op, 8);
 		const _68: rt.u8 = rt.u8Rem(op, 8);
 		if (_68 === 0) {
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicFetch(COUNTER.hits, rt.u32WrappingAdd, rt.u32Rem(n2 as rt.u32, COUNTER.limit), 3)).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicFetch(COUNTER.hits, rt.u32WrappingAdd, rt.u32Rem(n2 as rt.u32, COUNTER.limit), 3)).reverse()), undefined, true);
 			continue;
 		}
 		if (_68 === 1) {
@@ -160,7 +160,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			continue;
 		}
 		if (_68 === 2) {
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(a.count, rt.u8WrappingAdd, n2, 0), rt.atomicLoad(b.count, 0), rt.atomicLoad(_19.count, 0))));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(a.count, rt.u8WrappingAdd, n2, 0), rt.atomicLoad(b.count, 0), rt.atomicLoad(_19.count, 0))), undefined, true);
 			continue;
 		}
 		if (_68 === 3) {
@@ -191,7 +191,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _141: [rt.u8, rt.u32] = rt.onceGetOrInit(ONCE, (): [rt.u8, rt.u32] => {
 				return [3, 9] as [rt.u8, rt.u32];
 			});
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_141[0], _141[1] & 0xff, ONCE.v !== undefined ? 1 : 0)));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_141[0], _141[1] & 0xff, ONCE.v !== undefined ? 1 : 0)), undefined, true);
 			continue;
 		}
 		if (_68 === 6) {
@@ -202,13 +202,13 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u8Add(rt.atomicFetch(FORCED, rt.u8WrappingAdd, 1, 0), 10);
 			});
 			rt.byteVecPush(out, rt.atomicLoad(FORCED, 0));
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(y.force(), x.force(), y.force(), x.force())));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(y.force(), x.force(), y.force(), x.force())), undefined, true);
 			rt.byteVecPush(out, rt.atomicSwap(FORCED, 0, 0));
 			continue;
 		}
 		if (_68 === 7) {
 			if (rt.u8Rem(n2, 2) === 0) {
-				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED.force(), rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0), read())));
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED.force(), rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0), read())), undefined, true);
 				rt.atomicStore(LATER, 40, 0);
 				continue;
 			}
@@ -228,7 +228,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (!(i < 3)) {
 			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
 		}
-		rt.iterExtendBytes(out, rt.iterSlice(rt.u16ToBeBytes(slots[i]).reverse()));
+		rt.iterExtendBytes(out, rt.iterSlice(rt.u16ToBeBytes(slots[i]).reverse()), undefined, true);
 	}
 	rt.atomicStore(COUNTER.hits, 4294967295 - 1, 0);
 }
@@ -258,7 +258,7 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_13 === 1) {
 			const captured5 = rt.arcClone(owned);
 			rt.onceCall(once, rt.closure((state: rt.OnceState): void => {
-				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.onceIsPoisoned(state) ? 1 : 0, once.v === true ? 1 : 0, n)));
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.onceIsPoisoned(state) ? 1 : 0, once.v === true ? 1 : 0, n)), undefined, true);
 				captured5[Symbol.dispose]();
 			}, (): void => {
 				captured5[Symbol.dispose]();
@@ -291,7 +291,7 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const collector: Collector.Collector = Lock.getOrInit$Collector_onces_closure5(COLLECTOR.force(), (): Collector.Collector => {
 				return new Collector.Collector(new rt.Arc(16909060));
 			});
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(collector.global.value).reverse()));
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(collector.global.value).reverse()), undefined, true);
 			rt.byteVecPush(out, collector.global.strong & 0xff);
 		} else if (!(rt.u8Rem(n, 3) === 0)) {
 			if (!(rt.u8Rem(n, 3) === 1)) {

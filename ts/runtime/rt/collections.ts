@@ -17,7 +17,26 @@
 import { ByteSlice, type ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
-import { DONE, type Done, Iter, iterChain, iterEmpty, iterFilter, iterMap, iterOnce, iterSlice, type RangeInclusive, rangeInclusiveEndBound, rangeInclusiveStartBound, type Take } from "./iter.ts";
+import {
+	DONE,
+	type Done,
+	exactHint,
+	Iter,
+	iterChain,
+	iterEmpty,
+	iterFilter,
+	iterMap,
+	iterOnce,
+	iterSlice,
+	type RangeInclusive,
+	rangeInclusiveEndBound,
+	rangeInclusiveStartBound,
+	type SizeHint,
+	type Take,
+	vecCapacity,
+	vecGrow,
+	vecReserveExact,
+} from "./iter.ts";
 import { type Arc, drop as dispose, dropAll, dropRange } from "./task.ts";
 
 // Ordering
@@ -668,8 +687,8 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		return this.left;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -742,10 +761,42 @@ function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Ta
 }
 
 /**
- * `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`. Of
- * equal keys, the first stays and each later one drops, then the value it replaced.
+ * `extending` a `Vec` or `VecDeque` holding `len`, which with elements `size` bytes each
+ * reserves as `iterExtend` does: a `trusted` iterator up front, and any other by `next`.
  */
-export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void, take?: Take): HashMap<K, V> {
+function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) => void, take?: Take, size?: number, trusted = false): C {
+	if (size === undefined || trusted) {
+		if (size !== undefined) vecReserveExact(items, len, size);
+		return extending(c, items, add, take);
+	}
+	let cap = vecCapacity(len, size);
+	for (let item = items.next(); item !== DONE; item = items.next()) {
+		if (len === cap) cap = vecGrow(items, cap, size);
+		add(item);
+		len++;
+	}
+	if (take !== undefined) dispose(items);
+	return c;
+}
+
+/**
+ * hashbrown's reserve before it extends `m` by `items`: the lower bound, or half of it
+ * rounded up if `m` holds any, which panics past `max` entries, the most its table holds.
+ */
+function hashReserve<K, V>(m: HashMap<K, V>, items: Iter<unknown>, max: number | undefined): void {
+	if (max === undefined) return;
+	const lower = items.sizeHint()[0];
+	const n = hashLen(m);
+	if (n + (n === 0 ? lower : Math.ceil(lower / 2)) > max) panic("Hash table capacity overflow");
+}
+
+/**
+ * `extend` of a map with `[key, value]`s, and `collect` into one through `hashNew`, which
+ * reserves first as `hashReserve` does. Of equal keys, the first stays and each later one
+ * drops, then the value it replaced.
+ */
+export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void, take?: Take, max?: number): HashMap<K, V> {
+	hashReserve(m, items, max);
 	const add = (item: [K, V]) => {
 		const old = hashInsert(m, item[0], item[1], k);
 		if (old !== undefined) v?.(old);
@@ -754,7 +805,8 @@ export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key
 }
 
 /** `extend` of a set with keys, and `collect` into one, as `hashExtend`: a key already there drops. */
-export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, take?: Take): HashSet<K> {
+export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, take?: Take, max?: number): HashSet<K> {
+	hashReserve(m, keys, max);
 	return extending(m, keys, (key) => hashAdd(m, key, k), take);
 }
 
@@ -1369,9 +1421,9 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 		return this.n;
 	}
 
-	override lower(): number {
-		// A range's count is unknown, and std's hint of one is 0.
-		return Math.max(this.n, 0);
+	override sizeHint(): SizeHint {
+		// A range's count is unknown, and std's hint of one is `(0, None)`.
+		return this.n < 0 ? [0, undefined] : exactHint(this.n);
 	}
 
 	[Symbol.dispose](): void {
@@ -1516,7 +1568,8 @@ function edge<K, V>(m: BTreeMap<K, V>, key: K, past: boolean): [Leaf<K, V>, numb
  * `extend` of a map with `[key, value]`s, which keeps an equal key already there and drops
  * the one given, then the value it replaced, and takes `items` as `take` says. With
  * `last`, `collect` and `from` of entries that drop nothing into an empty one, which keep
- * the last of equal keys, as `btreeCollect` does.
+ * the last of equal keys, as `btreeCollect` does, and reserve as the `Vec` of `size`-byte
+ * entries std's collects into first does, as `iterExtend`.
  */
 export function btreeExtend<K, V>(
 	m: BTreeMap<K, V>,
@@ -1525,6 +1578,8 @@ export function btreeExtend<K, V>(
 	k?: (key: K) => void,
 	v?: (value: V) => void,
 	take?: Take,
+	size?: number,
+	trusted = false,
 ): BTreeMap<K, V> {
 	const add = (item: [K, V]) => {
 		if (!last) {
@@ -1540,11 +1595,11 @@ export function btreeExtend<K, V>(
 			l.v[i] = item[1];
 		}
 	};
-	return extending(m, items, add, take);
+	return vecExtending(m, 0, items, add, take, size, trusted);
 }
 
 /** `extend` of a set with keys, and with `last`, `collect` and `from`, as `btreeExtend`. */
-export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, take?: Take): BTreeSet<K> {
+export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, k?: (key: K) => void, take?: Take, size?: number, trusted = false): BTreeSet<K> {
 	const add = (key: K) => {
 		if (!last) {
 			btreeAdd(m, key, k);
@@ -1555,7 +1610,7 @@ export function btreeExtendKeys<K>(m: BTreeSet<K>, keys: Iter<K>, last = false, 
 		if (i < 0) insertAt(m, l, ~i, key, undefined);
 		else l.k[i] = key;
 	};
-	return extending(m, keys, add, take);
+	return vecExtending(m, 0, keys, add, take, size, trusted);
 }
 
 /**
@@ -1650,12 +1705,23 @@ abstract class Merge<K> extends Iter<K> {
 		this.heldA = order > 0;
 		return order < 0 ? [x, DONE] : [DONE, y];
 	}
+
+	/** How many keys each has left, the one held back included. */
+	protected lens(): [number, number] {
+		const held = this.held === DONE ? 0 : 1;
+		return [this.a.len() + (this.heldA ? held : 0), this.b.len() + (this.heldA ? 0 : held)];
+	}
 }
 
 class Union<K> extends Merge<K> {
 	next(): K | Done {
 		const [x, y] = this.nexts();
 		return x !== DONE ? x : y;
+	}
+
+	override sizeHint(): SizeHint {
+		const [a, b] = this.lens();
+		return [Math.max(a, b), a + b];
 	}
 }
 
@@ -1665,6 +1731,11 @@ class SymmetricDifference<K> extends Merge<K> {
 			const [x, y] = this.nexts();
 			if (x === DONE || y === DONE) return x !== DONE ? x : y;
 		}
+	}
+
+	override sizeHint(): SizeHint {
+		const [a, b] = this.lens();
+		return [0, a + b];
 	}
 }
 
@@ -1678,34 +1749,56 @@ export function btreeSymmetricDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Ite
 	return new SymmetricDifference(a, b);
 }
 
-/** A difference that merges: each key of `a` that `b`, peeked a key ahead, lacks. */
+/**
+ * Each key of `a` that the other set lacks: looked up in it, or with no set to look in,
+ * found by stepping through its keys by `b`, peeked a key ahead.
+ */
 class Difference<K> extends Iter<K> {
 	private readonly a: Iter<K>;
+	private readonly set: BTreeSet<K> | undefined;
 	private readonly b: Iter<K>;
 	private readonly c: (a: K, b: K) => Ordering;
-	/** `b`'s next key, or `undefined` until it is peeked. */
-	private peeked: K | Done | undefined = undefined;
+	/** `b`'s next key, once `peeked` says it was read. */
+	private peek: K | Done = DONE;
+	private peeked = false;
 
-	constructor(a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) {
+	constructor(a: Iter<K>, other: BTreeSet<K>, search: boolean) {
 		super();
 		this.a = a;
-		this.b = b;
-		this.c = c;
+		this.set = search ? other : undefined;
+		this.b = search ? iterEmpty() : btreeKeys(other);
+		this.c = other.c;
 	}
 
 	next(): K | Done {
 		let x = this.a.next();
 		if (x === DONE) return DONE;
+		if (this.set !== undefined) {
+			while (btreeContains(this.set, x)) {
+				x = this.a.next();
+				if (x === DONE) return DONE;
+			}
+			return x;
+		}
 		for (;;) {
-			if (this.peeked === undefined) this.peeked = this.b.next();
-			const order = this.peeked === DONE ? -1 : this.c(x, this.peeked);
+			if (!this.peeked) {
+				this.peek = this.b.next();
+				this.peeked = true;
+			}
+			const order = this.peek === DONE ? -1 : this.c(x, this.peek);
 			if (order < 0) return x;
 			if (order === 0) {
 				x = this.a.next();
 				if (x === DONE) return DONE;
 			}
-			this.peeked = undefined;
+			this.peeked = false;
 		}
+	}
+
+	override sizeHint(): SizeHint {
+		const n = this.a.len();
+		const other = this.set !== undefined ? this.set.n : this.b.len() + (this.peeked && this.peek !== DONE ? 1 : 0);
+		return [Math.max(n - other, 0), n];
 	}
 }
 
@@ -1720,8 +1813,7 @@ export function btreeDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
 	if (low > 0 || high < 0) return keys;
 	if (low === 0) keys.next();
 	else if (high === 0) keys.nextBack();
-	else if (a.n <= Math.floor(b.n / TIPPING)) return iterFilter(keys, (key) => !btreeContains(b, key));
-	else return new Difference(keys, btreeKeys(b), a.c);
+	else return new Difference(keys, b, a.n <= Math.floor(b.n / TIPPING));
 	return keys;
 }
 
@@ -1750,6 +1842,10 @@ class Intersection<K> extends Iter<K> {
 			else y = this.b.next();
 			if (x === DONE || y === DONE) return DONE;
 		}
+	}
+
+	override sizeHint(): SizeHint {
+		return [0, Math.min(this.a.len(), this.b.len())];
 	}
 }
 
@@ -2208,8 +2304,8 @@ class DequeIter<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -2260,8 +2356,8 @@ class DequePlaces<T> extends Iter<Place<T>> {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 }
 
@@ -2374,8 +2470,8 @@ class VecDrain<T> extends Iter<T> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -2427,8 +2523,8 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 		return this.back - this.front;
 	}
 
-	override lower(): number {
-		return this.len();
+	override sizeHint(): SizeHint {
+		return exactHint(this.len());
 	}
 
 	[Symbol.dispose](): void {
@@ -2439,9 +2535,12 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 	}
 }
 
-/** `extend`, and `collect` into a deque through `dequeNew`, which takes `items` as `take` says. */
-export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take): VecDeque<T> {
-	return extending(q, items, (item) => dequePushBack(q, item), take);
+/**
+ * `extend`, and `collect` into a deque through `dequeNew`, which takes `items` as `take`
+ * says and reserves as `iterExtend` does.
+ */
+export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take, size?: number, trusted = false): VecDeque<T> {
+	return vecExtending(q, q.n, items, (item) => dequePushBack(q, item), take, size, trusted);
 }
 
 /** `clone`, with each item through its `Clone`, or as itself without one. */
@@ -2519,10 +2618,13 @@ export function heapAppend<T>(h: BinaryHeap<T>, other: BinaryHeap<T>, le: Test<T
 	rebuildTail(h.d, start, le, ge, lt);
 }
 
-/** `extend`, taking `items` as `take` says, and then the heap rebuilt past what it held. */
-export function heapExtend<T>(h: BinaryHeap<T>, items: Iter<T>, le: Test<T>, ge: Test<T>, lt: Test<T>, take?: Take): BinaryHeap<T> {
+/**
+ * `extend`, taking `items` as `take` says and reserving as its `Vec`'s `iterExtend` does,
+ * and then the heap rebuilt past what it held.
+ */
+export function heapExtend<T>(h: BinaryHeap<T>, items: Iter<T>, le: Test<T>, ge: Test<T>, lt: Test<T>, take?: Take, size?: number, trusted = false): BinaryHeap<T> {
 	const start = h.d.length;
-	extending(h, items, (item) => h.d.push(item), take);
+	vecExtending(h, start, items, (item) => h.d.push(item), take, size, trusted);
 	rebuildTail(h.d, start, le, ge, lt);
 	return h;
 }

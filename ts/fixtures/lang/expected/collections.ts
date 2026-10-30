@@ -102,7 +102,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _80: rt.Iter<[rt.u8, rt.u16]> = rt.iterMap(rt.hashIter(map), (_231: [rt.u8, rt.u16]): [rt.u8, rt.u16] => {
 			return [_231[0], _231[1]] as [rt.u8, rt.u16];
 		});
-		const iter2: rt.Iter<[rt.u8, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, _80, true));
+		const iter2: rt.Iter<[rt.u8, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, _80, true, undefined, undefined, undefined, 4));
 		while (true) {
 			const _86: [rt.u8, rt.u16] | rt.Done = iter2.next();
 			if (_86 === rt.DONE) {
@@ -134,7 +134,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			}
 		}
 		const _136: rt.Iter<rt.u64> = rt.hashKeys(map2);
-		const iter4: rt.Iter<rt.u64> = rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _136, true));
+		const iter4: rt.Iter<rt.u64> = rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _136, true, undefined, undefined, 8));
 		while (true) {
 			const _142: rt.u64 | rt.Done = iter4.next();
 			if (_142 === rt.DONE) {
@@ -189,7 +189,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _238: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.hashIter(map3), (_212: [Nibble.Nibble, rt.u8]): [rt.u8, rt.u8] => {
 			return [_212[0]._0, _212[1]] as [rt.u8, rt.u8];
 		});
-		const iter6: rt.Iter<[rt.u8, rt.u8]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _238, true));
+		const iter6: rt.Iter<[rt.u8, rt.u8]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>, _238, true, undefined, undefined, undefined, 2));
 		while (true) {
 			const _243: [rt.u8, rt.u8] | rt.Done = iter6.next();
 			if (_243 === rt.DONE) {
@@ -213,7 +213,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, before.n & 0xff);
 		rt.byteVecPush(out, rt.hashIndex(pairs, key).n & 0xff);
 		const _278: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.hashIter(pairs);
-		const iter7: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, _278, true));
+		const iter7: rt.Iter<[Pair.Pair, Tally.Tally]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Pair.cmp$Ord) as rt.BTreeMap<Pair.Pair, Tally.Tally>, _278, true, undefined, undefined, undefined, 6));
 		while (true) {
 			const _282: [Pair.Pair, Tally.Tally] | rt.Done = iter7.next();
 			if (_282 === rt.DONE) {
@@ -271,7 +271,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			const b8: rt.u8 = _227;
 			return [rt.u8Rem(b8, 8), { n: b8 as rt.u16 }] as [rt.u8, Tally.Tally];
 		});
-		const bytes: rt.HashMap<rt.u8, Tally.Tally> = rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>, _361);
+		const bytes: rt.HashMap<rt.u8, Tally.Tally> = rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>, _361, undefined, undefined, undefined, 234881024);
 		const copy2: rt.HashMap<rt.u8, Tally.Tally> = rt.hashClone(bytes, undefined, copy$Tally);
 		const iter9: rt.Iter<Tally.Tally> = rt.hashValues(copy2);
 		while (true) {
@@ -300,7 +300,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		stamp(stamped);
 		rt.byteVecPush(out, rt.hashLen(stamped) & 0xff);
 		const extended: rt.HashMap<rt.u8, Tally.Tally> = rt.hashNew() as rt.HashMap<rt.u8, Tally.Tally>;
-		rt.hashExtend(extended, rt.iterMap(rt.hashIter(bytes), copy$u8_Tally));
+		rt.hashExtend(extended, rt.iterMap(rt.hashIter(bytes), copy$u8_Tally), undefined, undefined, undefined, 234881024);
 		const iter12: rt.Iter<Tally.Tally> = rt.hashValues(extended);
 		while (true) {
 			const _422: Tally.Tally | rt.Done = iter12.next();
@@ -339,7 +339,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _486: rt.Iter<[Rank.Rank, rt.u16]> = rt.iterMap(rt.hashIter(ranks), (_230: [Rank.Rank, Tally.Tally]): [Rank.Rank, rt.u16] => {
 			return [_230[0], _230[1].n] as [Rank.Rank, rt.u16];
 		});
-		const iter14: rt.Iter<[Rank.Rank, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, _486, true));
+		const iter14: rt.Iter<[Rank.Rank, rt.u16]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, rt.u16>, _486, true, undefined, undefined, undefined, 6));
 		while (true) {
 			const _492: [Rank.Rank, rt.u16] | rt.Done = iter14.next();
 			if (_492 === rt.DONE) {
@@ -416,7 +416,7 @@ export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		const _596: rt.Iter<rt.u8> = rt.iterMap(rt.hashKeys(clashes), (k8: Clash.Clash): rt.u8 => {
 			return k8._0;
 		});
-		rt.iterExtendBytes(out, rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _596, true)));
+		rt.iterExtendBytes(out, rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _596, true, undefined, undefined, 1)), undefined, true);
 		const copy3: rt.HashMap<Clash.Clash, Tally.Tally> = rt.hashClone(clashes, undefined, copy$Tally);
 		rt.byteVecPush(out, rt.hashLen(copy3) & 0xff);
 		rt.byteVecPush(out, rt.hashContains(copy3, { _0: 1 }) ? 1 : 0);
@@ -486,7 +486,7 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		rt.byteVecPush(out, unwrapOr$1j4op5y(rt.btreeFirstKey(sorted), 255) & 0xff);
 		rt.byteVecPush(out, unwrapOr$1j4op5y(rt.btreeFirstKey(sorted, true), 255) & 0xff);
-		rt.byteVecPush(out, rt.iterToArray(rt.btreeRangeKeys(sorted, new rt.Range(4, 12))).length & 0xff);
+		rt.byteVecPush(out, rt.iterToArray(rt.btreeRangeKeys(sorted, new rt.Range(4, 12)), undefined, 2).length & 0xff);
 		rt.hashRetain(hashed, (v3: rt.u16): boolean => {
 			return rt.u16Rem(v3, 3) !== 0;
 		});
@@ -496,7 +496,7 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.hashLen(hashed) & 0xff);
 		rt.iterExtendBytes(out, rt.iterMap(rt.btreeKeys(sorted), (v5: rt.u16): rt.u8 => {
 			return v5 & 0xff;
-		}));
+		}), undefined, true);
 	} else if (_4 === 1) {
 		const nibbles: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
 		const seen: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>;
@@ -556,7 +556,7 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _200: rt.Iter<rt.u64> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u64 => {
 			return wide(_2);
 		});
-		const iter8: rt.Iter<rt.u64> = rt.iterRev(rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _200, true)));
+		const iter8: rt.Iter<rt.u64> = rt.iterRev(rt.btreeKeys(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u64>, _200, true, undefined, undefined, 8, true)));
 		while (true) {
 			const _207: rt.u64 | rt.Done = iter8.next();
 			if (_207 === rt.DONE) {
@@ -642,8 +642,8 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			}
 			rt.byteVecPush(out, _101);
 		}
-		rt.iterExtendBytes(out, rt.btreeKeys(map));
-		rt.iterExtendBytes(out, rt.btreeValues(map));
+		rt.iterExtendBytes(out, rt.btreeKeys(map), undefined, true);
+		rt.iterExtendBytes(out, rt.btreeValues(map), undefined, true);
 		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.btreeKeys(map).nextBack()), 255, (k4: rt.u8): rt.u8 => {
 			return k4;
 		}));
@@ -677,7 +677,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			}));
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(within));
-		rt.iterExtendBytes(out, rt.btreeValues(map));
+		rt.iterExtendBytes(out, rt.btreeValues(map), undefined, true);
 	} else if (_4 === 1) {
 		const ranks: rt.BTreeMap<Rank.Rank, Tally.Tally> = rt.btreeNew(Rank.cmp$Ord) as rt.BTreeMap<Rank.Rank, Tally.Tally>;
 		const pairs: rt.BTreeMap<[rt.u8, rt.u8], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u8>;
@@ -751,7 +751,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			const b8: rt.u8 = _221;
 			return [{ _0: b8 }, { _0: b8 ^ 90 }] as [Fussy.Fussy, Fussy.Fussy];
 		});
-		const iter10: rt.Iter<[Fussy.Fussy, Fussy.Fussy]> = rt.btreeIter(rt.btreeClone(rt.btreeExtend(rt.btreeNew(Fussy.cmp$Ord) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, _308, true), Fussy.clone$Clone, Fussy.clone$Clone));
+		const iter10: rt.Iter<[Fussy.Fussy, Fussy.Fussy]> = rt.btreeIter(rt.btreeClone(rt.btreeExtend(rt.btreeNew(Fussy.cmp$Ord) as rt.BTreeMap<Fussy.Fussy, Fussy.Fussy>, _308, true, undefined, undefined, undefined, 2, true), Fussy.clone$Clone, Fussy.clone$Clone));
 		while (true) {
 			const _315: [Fussy.Fussy, Fussy.Fussy] | rt.Done = iter10.next();
 			if (_315 === rt.DONE) {
@@ -816,11 +816,11 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			const b5: rt.u8 = _2;
 			return [{ _0: b5 }, b5] as [Nibble.Nibble, rt.u8];
 		});
-		const collected: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, _430, true);
+		const collected: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeExtend(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>, _430, true, undefined, undefined, undefined, 2, true);
 		const _433: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): Nibble.Nibble => {
 			return { _0: _216 };
 		});
-		const keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _433, true);
+		const keys: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _433, true, undefined, undefined, 1, true);
 		const _437: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_219: rt.u8): Nibble.Nibble => {
 			return { _0: _219 ^ 48 };
 		});
@@ -888,14 +888,14 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 	touch(q);
 	touch(q);
 	rt.byteVecPush(out, q.n & 0xff);
-	rt.iterExtendBytes(out, rt.iterRev(rt.dequeIter(q)));
+	rt.iterExtendBytes(out, rt.iterRev(rt.dequeIter(q)), undefined, true);
 	if (!((q.n === 0))) {
 		rt.byteVecPush(out, rt.dequeIndex(q, rt.usizeDiv(q.n, 2)));
 	}
 	rt.dequeRetain(q, (b3: rt.u8): boolean => {
 		return rt.u8Rem(b3, 2) === 0;
 	});
-	rt.iterExtendBytes(out, rt.dequeIter(q));
+	rt.iterExtendBytes(out, rt.dequeIter(q), undefined, true);
 	const iter2: rt.Iter<[rt.u8, rt.u8]> = rt.dequeIter(pairs);
 	while (true) {
 		const _83: [rt.u8, rt.u8] | rt.Done = iter2.next();
@@ -909,7 +909,7 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _101: rt.Iter<Tally.Tally> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): Tally.Tally => {
 		return { n: _2 as rt.u16 };
 	});
-	const tallies: rt.VecDeque<Tally.Tally> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Tally.Tally>, _101);
+	const tallies: rt.VecDeque<Tally.Tally> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Tally.Tally>, _101, undefined, 2, true);
 	const copy: rt.VecDeque<Tally.Tally> = rt.dequeClone(tallies, copy$Tally);
 	const _105: Tally.Tally | undefined = rt.dequeEnd(copy);
 	if (_105 !== undefined) {
@@ -917,33 +917,33 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(tallies), (t: Tally.Tally): rt.u8 => {
 		return t.n & 0xff;
-	}));
+	}), undefined, true);
 	rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(copy), (t2: Tally.Tally): rt.u8 => {
 		return t2.n & 0xff;
-	}));
+	}), undefined, true);
 	const _119: rt.Iter<Tally.Tally> = rt.dequeIter(tallies);
-	rt.dequeExtend(copy, rt.iterMap(_119, copy$Tally));
+	rt.dequeExtend(copy, rt.iterMap(_119, copy$Tally), undefined, 2, true);
 	const _121: Tally.Tally | undefined = rt.dequeEnd(copy, true);
 	if (_121 !== undefined) {
 		_121.n = _121.n ^ 255;
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(tallies), (t3: Tally.Tally): rt.u8 => {
 		return t3.n & 0xff;
-	}));
+	}), undefined, true);
 	rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(copy), (t4: Tally.Tally): rt.u8 => {
 		return t4.n & 0xff;
-	}));
+	}), undefined, true);
 	const _135: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-	rt.dequeExtend(q, _135);
+	rt.dequeExtend(q, _135, undefined, 1, true);
 	rt.dequeInsert(q, rt.usizeDiv(q.n, 2), 66);
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.dequeRemove(q, 1), 233));
 	rt.dequeTruncate(q, 5);
 	rt.byteVecPush(out, rt.dequeContains(q, 66, rt.same) ? 1 : 0);
-	rt.iterExtendBytes(out, rt.iterRev(rt.dequeIter(q)));
+	rt.iterExtendBytes(out, rt.iterRev(rt.dequeIter(q)), undefined, true);
 	const a: rt.usize = rt.usizeRem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0) as rt.usize, 8);
 	const b2: rt.usize = rt.usizeRem(unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0) as rt.usize, 8);
 	const _171: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-	const q2: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _171);
+	const q2: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _171, undefined, 1, true);
 	const _174: rt.usize = rt.usizeRem(a, 4);
 	if (_174 === 0) {
 		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, new rt.Range(a, b2)));
@@ -956,7 +956,7 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { start: a }));
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(drained2));
-	rt.iterExtendBytes(out, rt.dequeIter(q2));
+	rt.iterExtendBytes(out, rt.dequeIter(q2), undefined, true);
 	rt.byteVecPush(out, rt.dequeIndex(q2, b2));
 }
 
@@ -988,25 +988,25 @@ export function vecs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.byteVecOf(b, n)));
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem(rt.u16Mul(a as rt.u16, 257), n, undefined)), (w: rt.u16): rt.u8 => {
 		return rt.u16Shr(w, 4) & 0xff;
-	}));
+	}), undefined, true);
 	const tuples: [rt.u8, rt.u8][] = rt.vecFromElem([a, b] as [rt.u8, rt.u8], n, copy$u8_u8);
 	if (n > 0) {
 		tuples[rt.idx(tuples, 0)][0] = 238;
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(tuples), (t: [rt.u8, rt.u8]): rt.u8 => {
 		return t[0] ^ t[1];
-	}));
+	}), undefined, true);
 	rt.byteVecPush(out, rt.vecFromElem(name, n, undefined).length & 0xff);
 	const cloned: Cloned.Cloned[] = rt.vecFromElem({ depth: 0, name }, n, Cloned.clone$Clone);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(cloned), (c: Cloned.Cloned): rt.u8 => {
 		return c.depth;
-	}));
+	}), undefined, true);
 	rt.byteVecPush(out, rt.iterAll(rt.iterSlice(cloned), (c2: Cloned.Cloned): boolean => {
 		return rt.stringLen(c2.name) === data.length;
 	}) ? 1 : 0);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.vecFromElem({ _0: b }, n, Bumped.clone$Clone)), (o: Bumped.Bumped): rt.u8 => {
 		return o._0;
-	}));
+	}), undefined, true);
 	const pair: [rt.u8, rt.u8] = [a, b];
 	const held: Bumped.Bumped = { _0: a };
 	const listed: [rt.u8, rt.u8][] = copy$u8_u8s([pair, pair]).map(copy$u8_u8);
@@ -1025,10 +1025,10 @@ export function vecs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a, b, listed[rt.idx(listed, 1)][0], a)));
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterChain(rt.iterSlice(repeated), rt.iterSlice(again)), (t2: [rt.u8, rt.u8]): rt.u8 => {
 		return t2[1];
-	}));
+	}), undefined, true);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterChain(rt.iterSlice(bumps), rt.iterSlice(kept)), (o2: Bumped.Bumped): rt.u8 => {
 		return o2._0;
-	}));
+	}), undefined, true);
 	const grown: rt.ByteVec = rt.byteVecFrom(rt.byteVecView(bytes));
 	const _167: rt.ByteSlice = rt.byteVecSlice(grown);
 	rt.idx(_167, 0);
@@ -1049,10 +1049,10 @@ export function vecs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(wrapped), (w2: Wrap.Wrap<rt.u8>): rt.u8 => {
 		return w2.value ^ w2.count;
-	}));
+	}), undefined, true);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(names), (s2: string): rt.u8 => {
 		return rt.stringLen(s2) & 0xff;
-	}));
+	}), undefined, true);
 }
 
 /** Stores `p` by value in `v`. */
@@ -1103,7 +1103,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at4 = rt.idx(v, 4);
 	v[at4][0] = v[at4][0] ^ 64;
 	const _36: [rt.u8, rt.u8] = copy$u8_u8(changed);
-	rt.iterExtend(v, rt.iterSlice([copy$u8_u8(pair), _36]));
+	rt.iterExtend(v, rt.iterSlice([copy$u8_u8(pair), _36]), undefined, 2, true);
 	const at5 = rt.idx(v, 5);
 	v[at5][1] = v[at5][1] ^ 128;
 	const at6 = rt.idx(v, 6);
@@ -1116,7 +1116,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	v[at8][1] = v[at8][1] ^ 16;
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(v), (p: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(p[0], p[1]);
-	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2), undefined, true);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(changed[0], changed[1], old[0], old[1])));
 	const tally: Tally.Tally = { n: a as rt.u16 };
 	const q: rt.VecDeque<Tally.Tally> = rt.dequeNew() as rt.VecDeque<Tally.Tally>;
@@ -1133,7 +1133,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.iterExtendBytes(out, rt.iterMap(rt.dequeIter(q), (t: Tally.Tally): rt.u8 => {
 		return t.n & 0xff;
-	}));
+	}), undefined, true);
 	rt.byteVecPush(out, tally.n & 0xff);
 	const hash: rt.HashMap<rt.u8, [rt.u8, rt.u8]> = rt.hashNew() as rt.HashMap<rt.u8, [rt.u8, rt.u8]>;
 	rt.hashInsert(hash, 0, copy$u8_u8(pair));
@@ -1148,7 +1148,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return mapOr$1nlkf9b(rt.hashGet(hash, k), rt.bytes(2).fill(255), (p2: [rt.u8, rt.u8]): Uint8Array => {
 			return Uint8Array.of(p2[0], p2[1]);
 		});
-	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2), undefined, true);
 	const tree: rt.BTreeMap<rt.u8, [rt.u8, rt.u8]> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, [rt.u8, rt.u8]>;
 	rt.btreeInsert(tree, 0, copy$u8_u8(pair));
 	rt.btreeInsert(tree, 1, copy$u8_u8(pair));
@@ -1158,7 +1158,7 @@ export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.btreeValues(tree), (p3: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(p3[0], p3[1]);
-	}, (value: Uint8Array) => rt.iterSlice(value), false, 2));
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2), undefined, true);
 	const boxed: [rt.u8, rt.u8] = copy$u8_u8(pair);
 	boxed[0] = boxed[0] ^ 1;
 	const holders: Holder.Holder[] = [{ pair: copy$u8_u8(pair) }];
@@ -1228,7 +1228,7 @@ export function getMut$OptionMap_unit_HashMap_u8_unit(self: rt.HashMap<rt.u8, un
 export function sorted$OptionMap_Option_String_HashMap_u8_Option_String(self: rt.HashMap<rt.u8, string | undefined>): [rt.u8, string | undefined][] {
 	const all: [rt.u8, string | undefined][] = rt.iterToArray(rt.iterMap(rt.hashIter(self), (_2: [rt.u8, string | undefined]): [rt.u8, string | undefined] => {
 		return [_2[0], clone$14nprly(_2[1])] as [rt.u8, string | undefined];
-	}));
+	}), undefined, 16);
 	rt.sliceSortByKey(all, (_22: [rt.u8, string | undefined]): rt.u8 => {
 		return _22[0];
 	}, rt.lt);
@@ -1238,7 +1238,7 @@ export function sorted$OptionMap_Option_String_HashMap_u8_Option_String(self: rt
 export function sorted$OptionMap_Option_u8_HashMap_u8_Option_u8(self: rt.HashMap<rt.u8, rt.u8 | undefined>): [rt.u8, rt.u8 | undefined][] {
 	const all: [rt.u8, rt.u8 | undefined][] = rt.iterToArray(rt.iterMap(rt.hashIter(self), (_2: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] => {
 		return [_2[0], _2[1]] as [rt.u8, rt.u8 | undefined];
-	}));
+	}), undefined, 3);
 	rt.sliceSortByKey(all, (_22: [rt.u8, rt.u8 | undefined]): rt.u8 => {
 		return _22[0];
 	}, rt.lt);
@@ -1250,7 +1250,7 @@ export function sorted$OptionMap_unit_HashMap_u8_unit(self: rt.HashMap<rt.u8, un
 		const _5: rt.u8 = _2[0];
 		_2[1];
 		return [_5, undefined] as [rt.u8, undefined];
-	}));
+	}), undefined, 1);
 	rt.sliceSortByKey(all, (_22: [rt.u8, undefined]): rt.u8 => {
 		return _22[0];
 	}, rt.lt);
@@ -1292,7 +1292,7 @@ export function getMut$OptionMap_unit_BTreeMap_u8_unit(self: rt.BTreeMap<rt.u8, 
 export function sorted$OptionMap_Option_u8_BTreeMap_u8_Option_u8(self: rt.BTreeMap<rt.u8, rt.u8 | undefined>): [rt.u8, rt.u8 | undefined][] {
 	return rt.iterToArray(rt.iterMap(rt.btreeIter(self), (_22: [rt.u8, rt.u8 | undefined]): [rt.u8, rt.u8 | undefined] => {
 		return [_22[0], _22[1]] as [rt.u8, rt.u8 | undefined];
-	}));
+	}), undefined, 3, true);
 }
 
 export function sorted$OptionMap_unit_BTreeMap_u8_unit(self: rt.BTreeMap<rt.u8, undefined>): [rt.u8, undefined][] {
@@ -1300,7 +1300,7 @@ export function sorted$OptionMap_unit_BTreeMap_u8_unit(self: rt.BTreeMap<rt.u8, 
 		const _5: rt.u8 = _22[0];
 		_22[1];
 		return [_5, undefined] as [rt.u8, undefined];
-	}));
+	}), undefined, 1, true);
 }
 
 /**
@@ -1565,7 +1565,7 @@ export function optionals(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_56, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug), rt.None), (f: rt.Formatter) => rt.fmtOption(_50, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBool(_53, f)];
 			rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " "])));
 		}
-		const all: [[rt.u8, boolean], rt.u8 | undefined][] = rt.iterToArray(rt.hashIter(map));
+		const all: [[rt.u8, boolean], rt.u8 | undefined][] = rt.iterToArray(rt.hashIter(map), undefined, 4);
 		rt.sliceSort(all, rt.cmpLt(rt.cmpTuple([rt.cmpTuple([rt.cmp, rt.cmp]), rt.cmpOption(rt.cmp)])));
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(all, f, (value: [[rt.u8, boolean], rt.u8 | undefined], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0][0], f), (f: rt.Formatter) => rt.fmtBool(value[0][1], f)], f), (f: rt.Formatter) => rt.fmtOption(value[1], f, rt.u8Debug)], f))];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args4[0]])));

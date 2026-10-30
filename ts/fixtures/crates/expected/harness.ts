@@ -17,18 +17,18 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		const p: Point.Point = { x: input.data[input.start] as rt.i32, y: input.data[input.start + 1] as rt.i32 };
 		const q: Point.Point = copy$Point(p);
 		Point.shift(q, 1, -1);
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(p.x & 0xff, p.y & 0xff, q.x & 0xff, q.y & 0xff)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(p.x & 0xff, p.y & 0xff, q.x & 0xff, q.y & 0xff)), undefined, true);
 	}
 	const _29: Item.Item | undefined = heaviest$Item(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(input)), (_2: rt.u8): Item.Item => {
 		return { _0: _2 };
-	})));
+	}), undefined, 1, true));
 	if (_29 !== undefined) {
 		rt.byteVecPush(out, _29._0);
 	}
 	const log: rt.Arc<rt.Mutex<rt.ByteVec>> = new rt.Arc(new rt.Mutex(new rt.ByteVec()));
 	const guards: Guard.Guard[] = rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(input)), 3), (_26: rt.u8): Guard.Guard => {
 		return Guard.new(_26, log);
-	}));
+	}), undefined, 8, true);
 	const held: Guard.Guard = Guard.new(255, log);
 	rt.dropAll(guards);
 	const _late: Guard.Guard = Guard.new(254, log);
@@ -36,7 +36,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	_late[Symbol.dispose]();
 	const _58: rt.Mutex<rt.ByteVec> = rt.mutexLock(log.value);
 	const _54: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_58.value)));
-	rt.iterExtendBytes(out, _54);
+	rt.iterExtendBytes(out, _54, undefined, true);
 	rt.mutexUnlock(_58);
 	if (input.length >= 3) {
 		const item: Item.Item = { _0: input.data[input.start] };
@@ -44,8 +44,8 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		const guard: Guard.Guard = Guard.new(input.data[input.start + 2], log);
 		const _77: Tally.Tally[] = [new Tally.Item(item), new Tally.u32$Place(rt.place(() => n, (value) => n = value)), new Tally.Guard(guard)];
 		const _87: Uint8Array = rt.u32ToBeBytes(tally(_77, input.data[input.start])).reverse();
-		rt.iterExtendBytes(out, rt.iterSlice(_87));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(item._0, n & 0xff)));
+		rt.iterExtendBytes(out, rt.iterSlice(_87), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(item._0, n & 0xff)), undefined, true);
 		const boxed: Tally.Tally[] = [new Tally.Guard(guard), new Tally.Item(item), new Tally.u32(n)];
 		rt.sliceSwap(boxed, 0, 2);
 		rt.vecTruncate(boxed, 2, rt.drop);
@@ -62,7 +62,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		rt.dropAll(boxed);
 		const _133: rt.Mutex<rt.ByteVec> = rt.mutexLock(log.value);
 		const _129: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteVecSlice(_133.value)));
-		rt.iterExtendBytes(out, _129);
+		rt.iterExtendBytes(out, _129, undefined, true);
 		rt.mutexUnlock(_133);
 	}
 	const iter2: Countdown.Countdown = Countdown.new(rt.min(input.length, 4) & 0xff);
@@ -76,7 +76,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const kept: rt.i16[] = [(input.length << 16) >> 16, 7];
 	const filled: rt.i16[] = copy$i16s(kept);
 	Slots.fill(Slots.withBase(kept[0]), filled);
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(kept[0] & 0xff, kept[1] & 0xff, filled[0] & 0xff, filled[1] & 0xff)));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(kept[0] & 0xff, kept[1] & 0xff, filled[0] & 0xff, filled[1] & 0xff)), undefined, true);
 	const _181: rt.u8 = first(input);
 	rt.byteVecPush(out, _181);
 	const _184: rt.u8 = last.last(input);

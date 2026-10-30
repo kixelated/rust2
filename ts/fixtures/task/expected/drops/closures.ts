@@ -511,7 +511,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 		return thenSome$1af3oea(n7 < 3, rt.u32Add(n7, Guard.id(captured9)));
 	}, (): void => {
 		captured9[Symbol.dispose]();
-	})), "next");
+	})), "next", 4);
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part5, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["map_while ", args12[0]]));
 	const _237: [Guard.Guard, Guard.Guard] = [guard(19), guard(20)];

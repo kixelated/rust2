@@ -1062,7 +1062,7 @@ export function edited(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		return rt.iterToArray(rt.iterMap(rt.iterSlice(v13), (k: Key.Key): string => {
 			const _43: rt.u32 = rt.u32Sub(k.id, id);
 			return rt.fmtToString((f: rt.Formatter) => rt.u32Display(_43, f));
-		})).join(",");
+		}), undefined, 12, true).join(",");
 	};
 	const _8: rt.u8 = rt.u8Rem(arg, 9);
 	if (_8 === 0) {

@@ -3,7 +3,7 @@
 //! found through their translated `Hash` and `Eq` or ordered by their `Ord`. A hash
 //! map's iteration order is unspecified, so only what does not depend on it is written.
 
-use std::cmp::Ordering;
+use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Bound;
@@ -1002,7 +1002,7 @@ pub fn optionals(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 pub fn set_ops(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let (mut left, mut right) = data.split_at(data.len() / 2);
 	let (evens, odds): (Vec<u8>, Vec<u8>);
-	match kind / 4 % 6 {
+	match kind / 5 % 6 {
 		0 => {}
 		1 => right = left,
 		2 => left = &[],
@@ -1023,7 +1023,7 @@ pub fn set_ops(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			return;
 		}
 	}
-	match kind % 4 {
+	match kind % 5 {
 		0 => set_ops_of(left, right, |b| b % 32, |v| *v, out),
 		1 => set_ops_of(left, right, |b| [b % 4, b / 4 % 4], |k| k[0] << 4 | k[1], out),
 		2 => set_ops_of(
@@ -1033,7 +1033,15 @@ pub fn set_ops(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			|v| v.unwrap_or(0xee),
 			out,
 		),
-		_ => set_ops_of(left, right, Nibble, |n| n.0, out),
+		3 => set_ops_of(left, right, Nibble, |n| n.0, out),
+		// Where `None` is the greatest key.
+		_ => set_ops_of(
+			left,
+			right,
+			|b| Reverse((b % 32 != 0).then_some(b % 32)),
+			|v| v.0.unwrap_or(0xee),
+			out,
+		),
 	}
 }
 
@@ -1051,6 +1059,10 @@ fn set_ops_of<T: Ord + Hash + Clone>(
 		put_all(x.intersection(y), put, out);
 		put_all(x.difference(y), put, out);
 		put_all(x.symmetric_difference(y), put, out);
+		put_hints(x.union(y), 1, out);
+		put_hints(x.intersection(y), 1, out);
+		put_hints(x.difference(y), 1, out);
+		put_hints(x.symmetric_difference(y), 1, out);
 		// Only the first, where the merge stops.
 		out.push(x.union(y).next().map_or(0xdd, put));
 		out.push(x.intersection(y).next().map_or(0xdd, put));
@@ -1069,6 +1081,11 @@ fn set_ops_of<T: Ord + Hash + Clone>(
 		put_sorted(x.intersection(y).collect(), put, out);
 		put_sorted(x.difference(y).collect(), put, out);
 		put_sorted(x.symmetric_difference(y).collect(), put, out);
+		// Hints of what is left past an item would hang on the runtime's order.
+		put_hints(x.union(y), 0, out);
+		put_hints(x.intersection(y), 0, out);
+		put_hints(x.difference(y), 0, out);
+		put_hints(x.symmetric_difference(y), 0, out);
 		// Only the first, which is the runtime's pick, so only where it belongs is written.
 		out.push(
 			x.union(y)
@@ -1101,6 +1118,17 @@ fn put_all<'a, T: 'a>(items: impl Iterator<Item = &'a T>, put: fn(&T) -> u8, out
 		out.push(put(item));
 	}
 	out[at] = (out.len() - at - 1) as u8;
+}
+
+/// The size hint of `items`, and again after each of `read` more.
+fn put_hints<'a, T: 'a>(mut items: impl Iterator<Item = &'a T>, read: usize, out: &mut Vec<u8>) {
+	for i in 0..=read {
+		if i > 0 {
+			items.next();
+		}
+		let (lower, upper) = items.size_hint();
+		out.extend([lower as u8, upper.map_or(0xff, |n| n as u8)]);
+	}
 }
 
 /// [`put_all`] of `items` in order.

@@ -1,5 +1,5 @@
-// `blob::Blob`, bound wrong: `slice` is missing, `len` returns a string, and `eq` takes
-// what no `Blob` is.
+// `blob::Blob`, bound wrong: `slice` and the key's `hash`, `cmp`, and `partial_cmp` are
+// missing, `len` returns a string, and `eq` takes what no `Blob` is.
 
 import * as rt from "../rt.ts";
 
