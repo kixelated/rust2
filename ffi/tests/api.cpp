@@ -344,6 +344,12 @@ int script() {
 	const std::uint8_t binary[] = {0xff, 0x00, 'a'};
 	print("hex ", api::hex(api::view(binary, sizeof binary)), "\n");
 	print("timed hex ", api::timed_hex(api::view(binary, sizeof binary)), "\n");
+	print("sample hex ", api::sample_hex(api::view(binary, sizeof binary)), "\n");
+	print("queued hex ", api::queued_hex(api::view(binary, sizeof binary)), "\n");
+	print("tick ", api::tick_name(api::label{api::buf("tick"), std::nullopt, std::nullopt}), "\n");
+	print("rooted ", api::rooted_name(api::label{api::buf("rooted"), std::nullopt, std::nullopt}), "\n");
+	print("stored ", api::stored_text("stored"), "\n");
+	print("layer ", api::layer_name(api::label{api::buf("layer"), std::nullopt, std::nullopt}), "\n");
 	api::event events[] = {api::event_moved{p}, api::event_named{api::buf("n")}, api::event_done{}};
 	for (const auto &event : events) {
 		print("", api::describe(event), "\n");
