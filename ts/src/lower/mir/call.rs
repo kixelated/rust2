@@ -555,6 +555,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
 			}
+			// The extended string, from the iterator read as std's `Extend` reads it.
+			("Extend", "extend") if targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::String)) => {
+				let (item, source) = (targ(1)?, targ(2)?);
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let items = self.operand(&args[1].node, span, out);
+				let iter = crate::lower::iter::iter_of(self.b.t, source)?;
+				let items = crate::lower::iter::into_iter(self.b, source, items, span)?;
+				let extended = crate::lower::iter::string_extend(self.b, place.0.clone(), items, item, iter, span)?;
+				self.set_borrowed(&place, extended, span, out);
+				done(Expr::undefined(), false)
+			}
 			// No capacity is kept, and reading one is refused, but reserving past `isize::MAX`
 			// panics as std's does.
 			("String", "reserve" | "reserve_exact") => {

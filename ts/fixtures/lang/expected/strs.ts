@@ -3,10 +3,11 @@
 import * as rt from "./rt.ts";
 import { then$0havnzo } from "./core/bool.ts";
 import { fromStr$1d7pnbk, fromStrRadix$1ae2pnm, fromStr$15isx69, fromStrRadix$1mr00o6, fromStr$04uijf8, fromStrRadix$1wqmb68, fromStr$0l2zu9x, fromStrRadix$0cd0jvv, fromStr$0h0ptos, fromStrRadix$10vntu7, fromStr$10svit2, fromStrRadix$0wc95fw, fromStr$19kbj04, fromStrRadix$1o9c7gd, fromStr$0br814e, fromStrRadix$188cokx, fromStr$1471qz1, fromStrRadix$0l5ymb0, fromStr$0k8sfhf, fromStrRadix$0fpnm5c, fromStr$0b2xa80, fromStrRadix$1095n8m, fromStr$17dd66m, fromStrRadix$1yrk04t } from "./core/num/nonzero.ts";
-import { unwrapOr$1iemzn8, unwrapOr$0r2bmpr, map$0gl6wke, mapOr$147z9gi, mapOr$16umieg } from "./core/option.ts";
+import { unwrapOr$1iemzn8, unwrapOr$0r2bmpr, unwrapOr$1rbuegs, map$0gl6wke, mapOr$147z9gi, mapOr$16umieg } from "./core/option.ts";
 import { parse$0ub96so, parse$1ogkfqt, parse$1n7pf37, parse$1xm5283, parse$0xeilg3, parse$0eefxsx, parse$0bwhuel, parse$0zy5dnc, parse$1o8vfr6, parse$0l0cs1u, parse$0zrdgp4, parse$0s8xu45, parse$0vh4cry } from "./core/str.ts";
 import { fromStr$05d44vn } from "./core/str/traits.ts";
 import { put } from "./fmt.ts";
+import * as Counted from "./strs.Counted.ts";
 import * as Named from "./strs.Named.ts";
 
 /** A char of the alphabet for each byte, by its low bits. */
@@ -1175,6 +1176,346 @@ export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 		}
 	}
+}
+
+/**
+ * `String` made from and extended by iterators of chars and of strings, each the kind
+ * picks, from text of chars of every UTF-8 width and its parts between `/`s.
+ */
+export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	const s: string = text(data);
+	const chars: rt.char[] = rt.iterToArray(rt.strChars(s));
+	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"));
+	const nexts: rt.Cell<rt.u8> = new rt.Cell(0);
+	const named: Named.Named = { name: text(rt.byteSliceRange(data, 0, rt.usizeDiv(data.length, 2))) };
+	const _21: rt.u8 = rt.u8Rem(kind, 4);
+	if (_21 === 0) {
+		put(out, rt.stringExtendChars("", rt.strChars(s)));
+		put(out, rt.stringExtendChars("", rt.iterFilter(rt.iterRev(rt.strChars(s)), (c: rt.char): boolean => {
+			return !rt.charIsAsciiDigit(c);
+		})));
+		put(out, rt.stringExtendChars("", rt.iterSlice(chars)));
+		put(out, rt.stringExtendChars("", rt.iterSkip(rt.iterSlice(chars), 1)));
+		rt.iterEmpty();
+		put(out, rt.stringExtendChars("", rt.iterEmpty()));
+		put(out, rt.stringExtendChars("", rt.iterOption(rt.charFromU32(kind as rt.u32))));
+		put(out, rt.stringExtendChars("", rt.iterFrom({ items: chars, nexts }, (it: Counted.Counted<rt.char>) => Counted.next$Iterator_char(it))));
+	} else if (_21 === 1) {
+		put(out, rt.stringExtend("", rt.iterSlice(parts)));
+		put(out, rt.stringExtend("", rt.iterRev(rt.strSplit(s, "/"))));
+		put(out, rt.stringFromStrings(rt.iterMap(rt.iterSlice(parts), (p3: string): string => {
+			return p3;
+		})));
+		put(out, rt.stringFromStrings(rt.iterFilter(rt.iterMap(rt.strSplit(s, "/"), (p4: string): string => {
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, p4)];
+			return rt.fmtFormat([args4[0], args4[0]]);
+		}), (p5: string): boolean => {
+			return !((p5.length === 0));
+		})));
+		rt.iterEmpty();
+		put(out, rt.stringFromStrings(rt.iterEmpty()));
+		put(out, rt.stringExtendChars("", rt.iterRev(rt.strChars(s))));
+		put(out, rt.stringExtend("", rt.iterSlice(parts)));
+		const owned: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (p6: string): string => {
+			return p6;
+		}));
+		put(out, rt.stringFromStrings(rt.iterMap(rt.iterSlice(owned), (p7: string): string => {
+			return p7;
+		})));
+		put(out, rt.stringFromStrings(rt.iterFrom({ items: owned, nexts }, (it: Counted.Counted<string>) => Counted.next$Iterator_String(it))));
+	} else if (_21 === 2) {
+		let t: string = "é";
+		const _153: rt.char[] = chars;
+		extendChars(rt.place(() => t, (value) => t = value), _153, kind);
+		const _157: rt.Iter<rt.char> = rt.iterRev(rt.strChars(s));
+		t = rt.stringExtendChars(t, _157);
+		named.name = rt.stringExtendChars(named.name, rt.iterSlice(chars));
+		rt.iterEmpty();
+		named.name = rt.stringExtendChars(named.name, rt.iterEmpty());
+		const counted3: Counted.Counted<rt.char> = { items: chars, nexts };
+		t = rt.stringExtendChars(t, rt.iterFrom(counted3, (it: Counted.Counted<rt.char>) => Counted.next$Iterator_char(it)));
+		put(out, t);
+	} else {
+		let t2: string = "";
+		const _179: rt.Iter<string> = rt.strSplit(s, "/");
+		t2 = rt.stringExtend(t2, _179);
+		const _184: rt.Iter<string> = rt.iterMap(rt.iterSlice(parts), (p: string): string => {
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, p)];
+			return rt.fmtFormat([args2[0], "é"]);
+		});
+		t2 = rt.stringExtend(t2, _184);
+		const _190: rt.Iter<string> = rt.iterRev(rt.iterSlice(parts));
+		named.name = rt.stringExtend(named.name, _190);
+		const _197: rt.Iter<string> = rt.iterMap(rt.iterSlice(parts), (p2: string): string => {
+			return p2;
+		});
+		named.name = rt.stringExtend(named.name, _197);
+		rt.iterEmpty();
+		named.name = rt.stringExtend(named.name, rt.iterEmpty());
+		const counted4: Counted.Counted<string> = { items: parts, nexts };
+		t2 = rt.stringExtend(t2, rt.iterFrom(counted4, (it: Counted.Counted<string>) => Counted.next$Iterator_str(it)));
+		put(out, t2);
+	}
+	put(out, named.name);
+	rt.byteVecPush(out, nexts.v);
+}
+
+export function extendChars(t: rt.Place<string>, chars: rt.char[], kind: rt.u8): void {
+	const _4: rt.u8 = rt.u8Rem(rt.u8Div(kind, 4), 3);
+	if (_4 === 0) {
+		const _8: rt.Iter<rt.char> = rt.iterSlice(chars);
+		t.v = rt.stringExtendChars(t.v, _8);
+	} else if (_4 === 1) {
+		const _9: rt.Iter<rt.char> = rt.iterFilter(rt.iterSlice(chars), (c: rt.char): boolean => {
+			return rt.charIsAsciiDigit(c);
+		});
+		t.v = rt.stringExtendChars(t.v, _9);
+	} else {
+		t.v = rt.stringExtendChars(t.v, rt.iterOption(128512));
+	}
+}
+
+/**
+ * `String::drain` of `s` by the range `form` picks, between offsets from `a` and `b`,
+ * read from either end by `steps`' bits, then dropped, forgotten, or read to its end.
+ */
+export function drainBy(s: rt.Place<string>, form: rt.u8, a: rt.u8, b: rt.u8, steps: rt.u8, out: rt.ByteVec): void {
+	let drain!: rt.Iter<rt.char>;
+	let _35!: rt.u8;
+	let c!: rt.char | undefined;
+	let _71: boolean = false;
+	const _9: [rt.usize, rt.usize] = [offset(s.v, a), offset(s.v, b)];
+	const i: rt.usize = _9[0];
+	const j: rt.usize = _9[1];
+	const _17: rt.u8 = rt.u8Rem(form, 8);
+	if (_17 === 0) {
+		drain = rt.stringDrain(s, new rt.Range(i, j));
+		_71 = true;
+	} else if (_17 === 1) {
+		drain = rt.stringDrain(s, { start: i });
+		_71 = true;
+	} else if (_17 === 2) {
+		drain = rt.stringDrain(s, { end: j });
+		_71 = true;
+	} else if (_17 === 3) {
+		drain = rt.stringDrain(s, undefined);
+		_71 = true;
+	} else if (_17 === 4) {
+		drain = rt.stringDrain(s, new rt.RangeInclusive(i, j, rt.usizeStep));
+		_71 = true;
+	} else if (_17 === 5) {
+		drain = rt.stringDrain(s, { end: j, inclusive: true });
+		_71 = true;
+	} else if (_17 === 6) {
+		drain = rt.stringDrain(s, [{ tag: "Excluded", _0: i } as rt.RangeBound<rt.usize>, { tag: "Included", _0: j } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>]);
+		_71 = true;
+	} else {
+		drain = rt.stringDrain(s, [{ tag: "Included", _0: i } as rt.RangeBound<rt.usize>, { tag: "Unbounded" } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>]);
+		_71 = true;
+	}
+	const _32: rt.u8 = rt.u8Rem(steps, 4);
+	let iterStart: rt.u8 = 0;
+	const iterEnd: rt.u8 = _32;
+	while ((_35 = iterStart++) < iterEnd) {
+		if ((rt.u8Shr(steps, rt.u8Add(2, _35)) & 1) === 0) {
+			c = rt.iterToOption(drain.next());
+		} else {
+			c = rt.iterToOption(drain.nextBack());
+		}
+		putChar(out, c);
+	}
+	const _49: rt.u8 = rt.u8Rem(rt.u8Div(form, 8), 4);
+	if (_49 !== 0) {
+		if (_49 === 1) {
+			_71 = false;
+		} else if (_49 === 2) {
+			_71 = false;
+			put(out, rt.stringExtendChars("", drain, true));
+		} else {
+			put(out, rt.stringDrainAsStr(drain));
+			_71 = false;
+			const iter2: rt.Iter<rt.char> = rt.iterRev(drain);
+			while (true) {
+				const _65: rt.char | rt.Done = iter2.next();
+				if (_65 === rt.DONE) {
+					break;
+				}
+				putChar(out, _65);
+			}
+			rt.drop(iter2);
+		}
+	}
+	if (_71) {
+		rt.drop(drain);
+	}
+	_71 = false;
+}
+
+/**
+ * `String::drain`s, four bytes each, on text of chars of every UTF-8 width: through a
+ * `&mut String`, on a local, and on a field, each printed after each drain. An offset off
+ * a char boundary or out of bounds panics as std's does.
+ */
+export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	const mid: number = rt.min(data.length, rt.u8Rem(kind, 8) as rt.usize);
+	if (mid > data.length) {
+		rt.panic("mid > len");
+	}
+	const head: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, mid);
+	let s: string = text(head);
+	const named: Named.Named = { name: text(head) };
+	const iter: rt.Iter<rt.ByteSlice> = rt.byteSliceChunks(new rt.ByteSlice(data.data, data.start + mid, data.length - mid), 4);
+	while (true) {
+		const _18: rt.ByteSlice | rt.Done = iter.next();
+		if (_18 === rt.DONE) {
+			break;
+		}
+		rt.idx(_18, 0);
+		const _26: Uint8Array = Uint8Array.of(_18.data[_18.start], unwrapOr$0r2bmpr(rt.byteSliceGet(_18, 1), 0), unwrapOr$0r2bmpr(rt.byteSliceGet(_18, 2), 16), unwrapOr$0r2bmpr(rt.byteSliceGet(_18, 3), 0));
+		const form: rt.u8 = _26[0];
+		const a: rt.u8 = _26[1];
+		const b: rt.u8 = _26[2];
+		const steps: rt.u8 = _26[3];
+		const _44: rt.u8 = rt.u8Rem(rt.u8Div(form, 32), 4);
+		if (_44 === 0) {
+			drainBy(rt.place(() => named.name, (value6) => named.name = value6), form, a, b, steps, out);
+		} else if (_44 === 1) {
+			const _49: rt.u8 = rt.u8Rem(form, 4);
+			if (_49 === 0) {
+				const _56: { end: rt.usize } = { end: offset(s, a) };
+				put(out, rt.stringExtendChars("", rt.stringDrain(rt.place(() => s, (value5) => s = value5), _56), true));
+			} else if (_49 === 1) {
+				const _64: { start: rt.usize } = { start: offset(s, a) };
+				rt.byteVecPush(out, rt.ownedCount(rt.stringDrain(rt.place(() => s, (value4) => s = value4), _64)) & 0xff);
+			} else if (_49 === 2) {
+				putChar(out, rt.ownedLast(rt.stringDrain(rt.place(() => s, (value3) => s = value3), undefined)));
+			} else {
+				const _73: rt.Range<rt.usize> = new rt.Range(offset(s, a), offset(s, b));
+				rt.drop(rt.stringDrain(rt.place(() => s, (value2) => s = value2), _73));
+			}
+		} else {
+			drainBy(rt.place(() => s, (value) => s = value), form, a, b, steps, out);
+		}
+		put(out, s);
+		put(out, named.name);
+	}
+}
+
+/**
+ * Chars from ranges as long as `data`'s first two bytes pick, through the adaptors `kind`
+ * picks, into a `String` holding `aé` and the text of the rest: std's reserves the size
+ * hint's lower bound first, which panics past `isize::MAX` before it reads a char, and
+ * else the chars panic with `consumed` past the eighth.
+ */
+export function hinted(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _70!: rt.usize;
+	const pick: (a0: rt.usize) => rt.u32 = (i: rt.usize): rt.u32 => {
+		const _4: rt.usize = rt.usizeRem(unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0) as rt.usize, [0, 5, 8, 9, 2147483645, 2147483648, 4294967295].length);
+		if (!(_4 < 7)) {
+			rt.panic("index out of bounds: the len is " + 7 + " but the index is " + _4);
+		}
+		return [0, 5, 8, 9, 2147483645, 2147483648, 4294967295][_4];
+	};
+	const _7: [rt.u32, rt.u32] = [pick(0), pick(1)];
+	const n: rt.u32 = _7[0];
+	const m: rt.u32 = _7[1];
+	const sub: rt.usize = rt.usizeDiv(unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0) as rt.usize, [0, 5, 8, 9, 2147483645, 2147483648, 4294967295].length);
+	let t: string = "aé";
+	const _25: rt.Place<string> = rt.place(() => t, (value) => t = value);
+	const _26: string = text(unwrapOr$1rbuegs(rt.byteSliceGetRange(data, 2), rt.byteSliceFrom(Uint8Array.of())));
+	_25.v = _25.v + _26;
+	const calls: rt.Cell<rt.usize> = new rt.Cell(0);
+	const f: (a0: rt.u32) => rt.char = (_2: rt.u32): rt.char => {
+		rt.cellSet(calls, rt.usizeAdd(calls.v, 1));
+		if (!(calls.v <= 8)) {
+			rt.panicFmt(["consumed"]);
+		} else {
+			const _127: rt.usize = calls.v;
+			if (!(_127 < 16)) {
+				rt.panic("index out of bounds: the len is " + 16 + " but the index is " + _127);
+			}
+			return [47, 92, 97, 48, 57, 127, 128, 233, 2047, 2048, 55295, 57344, 65535, 65536, 128512, 1114111][_127];
+		}
+	};
+	const _38: rt.u8 = rt.u8Rem(kind, 10);
+	if (_38 === 0) {
+		const _40: rt.Place<string> = rt.place(() => t, (value13) => t = value13);
+		const _41: rt.Iter<rt.char> = rt.iterMap(new rt.Range(0, n), f);
+		_40.v = rt.stringExtendChars(_40.v, _41);
+	} else if (_38 === 1) {
+		t = rt.stringExtendChars("", rt.iterMap(rt.iterChain(new rt.RangeInclusive(0, n, rt.u32Step), new rt.Range(0, n)), f));
+	} else if (_38 === 2) {
+		const _48: rt.Place<string> = rt.place(() => t, (value12) => t = value12);
+		const _49: rt.Iter<rt.char> = rt.iterSkip(rt.iterMap(new rt.Range(0, rt.u64Or(rt.u64Shl(n as rt.u64, 8), m as rt.u64), rt.u64Step), (i4: rt.u64): rt.char => {
+			return f(rt.u64Low(i4));
+		}), m as rt.usize);
+		_48.v = rt.stringExtendChars(_48.v, _49);
+	} else if (_38 === 3) {
+		const _61: rt.Place<string> = rt.place(() => t, (value11) => t = value11);
+		const _62: rt.Iter<rt.char> = rt.iterTake(rt.iterMap(new rt.Range(0, n), f), m as rt.usize);
+		_61.v = rt.stringExtendChars(_61.v, _62);
+	} else if (_38 === 4) {
+		const _66: rt.Place<string> = rt.place(() => t, (value10) => t = value10);
+		const _69: rt.Range<rt.u32> = new rt.Range(0, n);
+		if (!(n === 4294967295)) {
+			_70 = 1;
+		} else {
+			_70 = rt.usizeAdd(1, rt.usizeRem(m as rt.usize, 2));
+		}
+		const _67: rt.Iter<rt.char> = rt.iterMap(rt.iterStepBy(_69, _70), f);
+		_66.v = rt.stringExtendChars(_66.v, _67);
+	} else if (_38 === 5) {
+		if (rt.u32Rem(m, 2) === 0) {
+			const _78: rt.Place<string> = rt.place(() => t, (value9) => t = value9);
+			const _79: rt.Iter<rt.char> = rt.iterChain(rt.iterMap(new rt.Range(0, n), f), rt.iterMap(new rt.Range(0, m), f));
+			_78.v = rt.stringExtendChars(_78.v, _79);
+		} else {
+			const _84: rt.Place<string> = rt.place(() => t, (value8) => t = value8);
+			const _85: rt.Iter<rt.char> = rt.iterMap(rt.iterZip(new rt.Range(0, n), new rt.Range(0, m), true), (_211: [rt.u32, rt.u32]): rt.char => {
+				return f(_211[0]);
+			});
+			_84.v = rt.stringExtendChars(_84.v, _85);
+		}
+	} else if (_38 === 6) {
+		const _91: rt.Place<string> = rt.place(() => t, (value7) => t = value7);
+		const _92: rt.Iter<rt.char> = rt.iterFlatMap(new rt.Range(0, n), (i2: rt.u32): rt.char[] => {
+			return [f(i2), f(i2)];
+		}, (value: rt.char[]) => rt.iterSlice(value), false, 2);
+		_91.v = rt.stringExtendChars(_91.v, _92);
+	} else if (_38 === 7) {
+		const _96: rt.Place<string> = rt.place(() => t, (value6) => t = value6);
+		const _97: rt.Iter<rt.char> = rt.iterChain(rt.iterChain(rt.iterChain(rt.iterChain(rt.iterMap(new rt.Range(0, rt.u32SaturatingSub(n, 5)), f), rt.iterOnce(120)), rt.iterOption(121)), rt.strChars("é😀")), rt.iterSlice([122]));
+		_96.v = rt.stringExtendChars(_96.v, _97);
+	} else if (_38 === 8) {
+		const _112: rt.usize = rt.usizeRem(sub, 3);
+		if (_112 === 0) {
+			const _114: rt.Place<string> = rt.place(() => t, (value5) => t = value5);
+			const _115: rt.Iter<rt.char> = rt.iterMap(new rt.Range({ hi: 0x10000000, lo: 0 } as rt.u64, rt.u64Add({ hi: 0x10000000, lo: 0 } as rt.u64, n as rt.u64), rt.u64Step), (_210: rt.u64): rt.char => {
+				return f(0);
+			});
+			_114.v = rt.stringExtendChars(_114.v, _115);
+		} else if (_112 === 1) {
+			const _128: rt.Place<string> = rt.place(() => t, (value4) => t = value4);
+			const _129: rt.Iter<rt.char> = rt.iterMap(new rt.Range(rt.i128Neg(rt.i128Shl(1, 100)), rt.i128Add(rt.i128Neg(rt.i128Shl(1, 100)), n as rt.i128), rt.i128Step), (_27: rt.i128): rt.char => {
+				return f(0);
+			});
+			_128.v = rt.stringExtendChars(_128.v, _129);
+		} else {
+			const _146: rt.Place<string> = rt.place(() => t, (value3) => t = value3);
+			const _147: rt.Iter<rt.char> = rt.iterMap(new rt.RangeInclusive({ hi: 0x10000000, lo: 0 } as rt.u64, rt.u64Add({ hi: 0x10000000, lo: 0 } as rt.u64, n as rt.u64), rt.u64Step), (_24: rt.u64): rt.char => {
+				return f(0);
+			});
+			_146.v = rt.stringExtendChars(_146.v, _147);
+		}
+	} else {
+		const chars: rt.Peekable<rt.char> = rt.iterPeekable(rt.iterFuse(rt.iterRev(rt.iterMap(rt.iterEnumerate(rt.iterMap(new rt.Range(0, n), f)), (_23: [rt.usize, rt.char]): rt.char => {
+			return _23[1];
+		}))));
+		putChar(out, rt.peekablePeek(chars));
+		const _172: rt.Place<string> = rt.place(() => t, (value2) => t = value2);
+		_172.v = rt.stringExtendChars(_172.v, chars);
+	}
+	put(out, t);
 }
 
 //# sourceMappingURL=strs.ts.map
