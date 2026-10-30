@@ -53,6 +53,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				}
 				_ => self.unreadable(ty, span),
 			},
+			Some(Std::Once) if self.incomplete(val, ty) => crate::lower::task::once_unrun(),
+			Some(Std::Once) => self.unreadable(ty, span),
 			// Its function, which the first `force` runs.
 			Some(Std::LazyCell) => match self.variant_fields(val, ty) {
 				Some((variant, fields)) if variant == "Uninit" => self.lazy("LazyCell", fields[0], span),

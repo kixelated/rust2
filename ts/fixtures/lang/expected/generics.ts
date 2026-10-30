@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Either_u8_Points, copy$Gauge, copy$Wrap_Point, copy$Wrap_i16, copy$Wrap_u8 } from "./lib.ts";
-import { unwrapOr$Option_u8 } from "./core/option.ts";
+import { unwrapOr$0r2bmpr } from "./core/option.ts";
 import { put } from "./fmt.ts";
 import type * as Pair from "./fmt.Pair.ts";
 import * as Either from "./generics.Either.ts";
@@ -17,7 +17,7 @@ import type * as Track from "./shapes.Track.ts";
 /** Each method once per instance: `Wrap` of a struct, an enum, a number, and itself. */
 export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const point: Wrap.Wrap<Point.Point> = copy$Wrap_Point(Wrap.new$Point({ x: at(0) as rt.i32, y: -2 }));
 	Wrap.bump$Point(point);
@@ -66,7 +66,7 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const none: Wrap.Wrap<rt.u8 | undefined> = new Wrap.Wrap(undefined, 0);
 	const some: Wrap.Wrap<rt.u8 | undefined> = Wrap.new$Option_u8(rt.byteSliceGet(data, 11));
 	const err: Wrap.Wrap<rt.Result<rt.u8, Shape.Shape>> = new Wrap.Wrap(rt.Err({ tag: "Dot" } as Shape.Shape), 2);
-	const _193: rt.u8 = unwrapOr$Option_u8(Wrap.get$Option_u8(none), some.count);
+	const _193: rt.u8 = unwrapOr$0r2bmpr(Wrap.get$Option_u8(none), some.count);
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Vec_u16(list, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(none, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(some, f), (f: rt.Formatter) => Wrap.fmt$Debug_Result_u8_Shape(err, f), (f: rt.Formatter) => rt.u8Debug(_193, f)];
 	put(out, rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " ", args10[3], " ", args10[4]]));
 	const tagged: Tagged.Tagged<Either.Either<rt.u8, rt.u16>, rt.i16> = new Tagged.Tagged({ tag: "Right", value: 500 } as Either.Either<rt.u8, rt.u16>, Wrap.new$i16(rt.i16Sub(at(8) as rt.i16, 100)), [Wrap.new$i16(-1), Wrap.new$i16(at(9) as rt.i16)].map(copy$Wrap_i16));
@@ -74,7 +74,7 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => Tagged.fmt$Debug_Either_u8_u16_i16(tagged, f), (f: rt.Formatter) => rt.fmtOption(_237, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f))];
 	put(out, rt.fmtFormat([args12[0], " ", args12[1]]));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(tagged.inner.value)));
-	rt.byteVecPush(out, unwrapOr$Option_u8(Either.left$u8_u16(tagged.key), 0));
+	rt.byteVecPush(out, unwrapOr$0r2bmpr(Either.left$u8_u16(tagged.key), 0));
 }
 
 /**

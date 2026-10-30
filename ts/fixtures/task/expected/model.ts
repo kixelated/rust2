@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { copy$Tally, drop$ControlFlow_Guard_u32, drop$Result_u32_Guard } from "./lib.ts";
-import { unwrapOr$Option_u64, map$Option_u64_Result_u64_u64_streamed_closure0_closure0 } from "./core/option.ts";
-import { map$Poll_Option_u64_Option_Result_u64_u64_streamed_closure0, map$Poll_u64_Option_u64_Some, isReady$Poll_unit, isPending$Poll_Option_u64 } from "./core/task/poll.ts";
+import { unwrapOr$1tvry1i, map$0upmgd9 } from "./core/option.ts";
+import { map$0luclc8, map$1rs8nqy, isReady$1sc8not, isPending$0vr1nz6 } from "./core/task/poll.ts";
 import { wait$front_closure0_closure0_usize, wait$watch_closure0_closure0_Option_u64, waitFuture$watch_closure0_closure1_usize, closedFuture, recvFuture } from "./kio.ts";
 import * as Closed from "./kio.Closed.ts";
 import * as Consumer from "./kio.Consumer.ts";
@@ -230,7 +230,7 @@ export class watchFuture {
 						this.#saved$2 = false;
 						this.#pending = Pending.new$Watch(new Watch.Watch(this.#rx, 1));
 						this.#saved = true;
-						this.#total = unwrapOr$Option_u64(this.#first, 0);
+						this.#total = unwrapOr$1tvry1i(this.#first, 0);
 						bb0 = 22;
 						continue;
 					}
@@ -454,8 +454,8 @@ export class frontFuture {
  * back through `?`, which continues with its `Pending` and `Ready(None)`.
  */
 export function streamed(polled: rt.Poll<rt.u64 | undefined>): rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> {
-	const _3: rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> = rt.pollOptionBranch(map$Poll_Option_u64_Option_Result_u64_u64_streamed_closure0(polled, (value: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> | undefined => {
-		return map$Option_u64_Result_u64_u64_streamed_closure0_closure0(value, (value2: rt.u64): rt.Result<rt.u64, rt.u64> => {
+	const _3: rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> = rt.pollOptionBranch(map$0luclc8(polled, (value: rt.u64 | undefined): rt.Result<rt.u64, rt.u64> | undefined => {
+		return map$0upmgd9(value, (value2: rt.u64): rt.Result<rt.u64, rt.u64> => {
 			if (!(rt.u64Rem(value2, 4) === 3)) {
 				return rt.Ok(value2);
 			}
@@ -479,7 +479,7 @@ export function at(rx: Consumer.Consumer, index: rt.usize, waiter: Waiter.Waiter
 	const _5: rt.Result<rt.Poll<rt.u64> | rt.OuterPending, Closed.Closed> = held(rx, index, waiter);
 	if (_5.ok) {
 		if (_5.value !== rt.OuterPending) {
-			res = map$Poll_u64_Option_u64_Some(_5.value, (a0: rt.u64): rt.u64 | undefined => {
+			res = map$1rs8nqy(_5.value, (a0: rt.u64): rt.u64 | undefined => {
 				return a0;
 			});
 		} else {
@@ -488,8 +488,8 @@ export function at(rx: Consumer.Consumer, index: rt.usize, waiter: Waiter.Waiter
 	} else {
 		res = undefined as rt.Poll<rt.u64 | undefined>;
 	}
-	if (isPending$Poll_Option_u64(res)) {
-		if (isReady$Poll_unit(Consumer.pollClosed(rx, waiter))) {
+	if (isPending$0vr1nz6(res)) {
+		if (isReady$1sc8not(Consumer.pollClosed(rx, waiter))) {
 			return undefined;
 		}
 	}
@@ -1085,7 +1085,7 @@ export class blocksFuture$10 {
 
 /** `v`, or 0, plus the id of `guard`, which it drops. */
 export function consume(guard: Guard.Guard, v: rt.u64 | undefined): rt.u64 {
-	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, unwrapOr$Option_u64(v, 0));
+	return rt.u64Add(Guard.finish(guard, "consumed") as rt.u64, unwrapOr$1tvry1i(v, 0));
 }
 
 export class slotFuture {

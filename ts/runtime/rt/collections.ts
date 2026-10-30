@@ -14,11 +14,11 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { type None, type Place, panic } from "../rt.ts";
+import { ByteSlice, type ByteVec, type None, type Place, panic } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
 import { DONE, type Done, Iter, iterMap, iterSlice, type RangeInclusive, type Take } from "./iter.ts";
-import { type Arc, drop as dispose, dropAll } from "./task.ts";
+import { type Arc, drop as dispose, dropAll, dropRange } from "./task.ts";
 
 // Ordering
 
@@ -142,6 +142,23 @@ export function cmpSlice<T, O extends Ordering | undefined>(cmp: (a: T, b: T) =>
 		}
 		return (a.length < b.length ? -1 : a.length > b.length ? 1 : 0) as O;
 	};
+}
+
+/**
+ * `Ord::cmp` of byte arrays, slices, or vectors, or `PartialOrd::partial_cmp`: by their
+ * bytes in order, then by length. Each is a `[u8; N]`, a `&[u8]` or `&[u8; N]`, or a
+ * `Vec<u8>`, whichever a key or an operand holds.
+ */
+export function cmpBytes(a: Uint8Array | ByteSlice | ByteVec, b: Uint8Array | ByteSlice | ByteVec): Ordering {
+	const x = a instanceof Uint8Array ? a : a.data;
+	const y = b instanceof Uint8Array ? b : b.data;
+	const i = a instanceof ByteSlice ? a.start : 0;
+	const j = b instanceof ByteSlice ? b.start : 0;
+	const n = Math.min(a.length, b.length);
+	for (let k = 0; k < n; k++) {
+		if (x[i + k] !== y[j + k]) return x[i + k] < y[j + k] ? -1 : 1;
+	}
+	return a.length < b.length ? -1 : a.length > b.length ? 1 : 0;
 }
 
 /** `Ord::cmp` of `Arc`s, or `PartialOrd::partial_cmp` or one of its tests: their values'. */
@@ -1889,19 +1906,125 @@ class DequePlaces<T> extends Iter<Place<T>> {
 
 /** `drain`: the items within `r`, taken out at once, which drop by `drop` as `dequeIter`'s. */
 export function dequeDrain<T>(q: VecDeque<T>, r: Bounds<number>, drop?: (item: T) => void): Iter<T> {
-	// As `slice::range` checks it.
-	const [lo, hi, inclusive] = bounds(r);
-	if (hi !== undefined && (inclusive ? hi.key >= q.n : hi.key > q.n)) panic(`range end index ${hi.key} out of range for slice of length ${q.n}`);
-	const end = hi === undefined ? q.n : inclusive ? hi.key + 1 : hi.key;
-	const start = lo === undefined ? 0 : lo.key;
-	if (start > end) {
-		panic(start > q.n ? `range start index ${start} out of range for slice of length ${q.n}` : `slice index starts at ${start} but ends at ${end}`);
-	}
+	const [start, end] = sliceRange(r, q.n);
 	const taken: VecDeque<T> = { b: [], h: 0, n: 0 };
 	for (let i = start; i < end; i++) dequePushBack(taken, q.b[at(q, i)] as T);
 	for (let i = end; i < q.n; i++) q.b[at(q, i - (end - start))] = q.b[at(q, i)];
 	dequeTruncate(q, q.n - (end - start));
 	return new DequeIter(taken, 0, taken.n, drop);
+}
+
+/** `slice::range`: the start and end of `r` within `n` elements, panicking as std's does. */
+function sliceRange(r: Bounds<number>, n: number): [number, number] {
+	const [lo, hi, inclusive] = bounds(r);
+	if (hi !== undefined && (inclusive ? hi.key >= n : hi.key > n)) panic(`range end index ${hi.key} out of range for slice of length ${n}`);
+	const end = hi === undefined ? n : inclusive ? hi.key + 1 : hi.key;
+	const start = lo === undefined ? 0 : lo.key;
+	if (start > end) {
+		panic(start > n ? `range start index ${start} out of range for slice of length ${n}` : `slice index starts at ${start} but ends at ${end}`);
+	}
+	return [start, end];
+}
+
+// `Vec::drain`, which leaves the vector only what comes before the range until the drain
+// drops and moves the tail back, so a drain that never drops, as `mem::forget` leaves
+// it, leaks the rest, as std's does.
+
+/**
+ * `Vec::drain`: the elements within `r`. Those it still holds as it drops each drop by
+ * `drop`, front to back, before the tail moves back.
+ */
+export function vecDrain<T>(v: T[], r: Bounds<number>, drop?: (item: T) => void): Iter<T> {
+	const [start, end] = sliceRange(r, v.length);
+	return new VecDrain(v, v.splice(start), end - start, drop);
+}
+
+/** A `Vec`'s drain: of `rest`, what followed the range's start, the range, then the tail. */
+class VecDrain<T> extends Iter<T> implements Disposable {
+	private readonly v: T[];
+	private readonly rest: T[];
+	private front = 0;
+	private back: number;
+	/** Where the tail starts in `rest`. */
+	private readonly tail: number;
+	private readonly drop: ((item: T) => void) | undefined;
+
+	constructor(v: T[], rest: T[], tail: number, drop?: (item: T) => void) {
+		super();
+		this.v = v;
+		this.rest = rest;
+		this.back = tail;
+		this.tail = tail;
+		this.drop = drop;
+	}
+
+	next(): T | Done {
+		return this.front < this.back ? this.rest[this.front++] : DONE;
+	}
+
+	override nextBack(): T | Done {
+		return this.front < this.back ? this.rest[--this.back] : DONE;
+	}
+
+	override len(): number {
+		return this.back - this.front;
+	}
+
+	[Symbol.dispose](): void {
+		const from = this.front;
+		this.front = this.back;
+		if (this.drop !== undefined) dropRange(this.rest, this.drop, from, this.back);
+		for (let i = this.tail; i < this.rest.length; i++) this.v.push(this.rest[i]);
+		this.rest.length = this.tail;
+	}
+}
+
+/** `Vec::drain` of bytes. */
+export function byteVecDrain(v: ByteVec, r: Bounds<number>): Iter<number> {
+	const [start, end] = sliceRange(r, v.length);
+	const length = v.length;
+	v.length = start;
+	return new ByteVecDrain(v, start, end, length);
+}
+
+/** A `Vec<u8>`'s drain, which reads the range from the vector's storage in place. */
+class ByteVecDrain extends Iter<number> implements Disposable {
+	private readonly v: ByteVec;
+	private readonly start: number;
+	private front: number;
+	private back: number;
+	private readonly end: number;
+	/** The vector's length before the drain, or -1 once the tail moved back. */
+	private length: number;
+
+	constructor(v: ByteVec, start: number, end: number, length: number) {
+		super();
+		this.v = v;
+		this.start = start;
+		this.front = start;
+		this.back = end;
+		this.end = end;
+		this.length = length;
+	}
+
+	next(): number | Done {
+		return this.front < this.back ? this.v.data[this.front++] : DONE;
+	}
+
+	override nextBack(): number | Done {
+		return this.front < this.back ? this.v.data[--this.back] : DONE;
+	}
+
+	override len(): number {
+		return this.back - this.front;
+	}
+
+	[Symbol.dispose](): void {
+		if (this.length < 0) return;
+		this.v.data.copyWithin(this.start, this.end, this.length);
+		this.v.length = this.start + this.length - this.end;
+		this.length = -1;
+	}
 }
 
 /** `extend`, and `collect` into a deque through `dequeNew`, which takes `items` as `take` says. */

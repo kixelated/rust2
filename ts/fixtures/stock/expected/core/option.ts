@@ -2,7 +2,7 @@
 
 import * as rt from "../rt.ts";
 
-export function unwrapOr$Option_u8(self: rt.u8 | undefined, default_: rt.u8): rt.u8 {
+export function unwrapOr$0r2bmpr(self: rt.u8 | undefined, default_: rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

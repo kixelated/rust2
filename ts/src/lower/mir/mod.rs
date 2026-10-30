@@ -48,7 +48,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 		super::iter::check_impl(t, def_id);
 	}
 	let ret_ty = mir.return_ty();
-	let mut b = Body::new(t, instance.args);
+	let mut b = Body::new(t);
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
 	let params = fx.params();
 	let body = fx.lower();
@@ -976,7 +976,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let pointees = |func: &Operand<'tcx>, i: usize| match *func.ty(&self.mir.local_decls, tcx).kind() {
-			ty::FnDef(def_id, gargs) if self.b.t.mapped(def_id, self.b.subst(gargs.skip_binder())) => {
+			ty::FnDef(def_id, gargs) if self.b.t.mapped(def_id, gargs.skip_binder()) => {
 				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
 				let input = tcx.instantiate_bound_regions_with_erased(sig).inputs().get(i).copied();
 				input.is_some_and(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))

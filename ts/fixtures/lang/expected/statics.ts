@@ -5,6 +5,7 @@ import { LATER, read } from "./statics/elsewhere.ts";
 import type * as Counter from "./statics.Counter.ts";
 import type * as Node from "./statics.Node.ts";
 import type * as Raw from "./statics.Raw.ts";
+import * as Slot from "./statics.Slot.ts";
 
 export const COUNT: rt.Atomic<rt.u64> = /* @__PURE__ */ new rt.Atomic({ hi: 0xffffffff, lo: 0xfffffffd } as rt.u64);
 
@@ -223,6 +224,75 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.iterExtendBytes(out, rt.iterSlice(rt.u16ToBeBytes(slots[i]).reverse()));
 	}
 	rt.atomicStore(COUNTER.hits, 4294967295 - 1, 0);
+}
+
+export const COLLECTOR: Slot.Slot = /* @__PURE__ */ { once: new rt.OnceLock(undefined), value: new rt.Atomic(0) };
+
+export const STARTED: rt.Once = /* @__PURE__ */ new rt.OnceLock(undefined);
+
+/**
+ * Each byte an operation on a `Once`, its own or a static's; each puts what it saw. One
+ * whose function runs again from within it panics, as wasm32's does, if its byte is odd.
+ */
+export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const once: rt.Once = new rt.OnceLock(undefined);
+	const owned: rt.Arc<undefined> = new rt.Arc(undefined);
+	for (const op of rt.byteSliceView(data)) {
+		const n: rt.u8 = rt.u8Div(op, 6);
+		const _14: rt.u8 = rt.u8Rem(op, 6);
+		if (_14 === 0) {
+			rt.byteVecPush(out, once.v === true ? 1 : 0);
+			rt.onceCall(once, (): void => {
+				rt.byteVecPush(out, n);
+			});
+			rt.byteVecPush(out, once.v === true ? 1 : 0);
+		} else if (_14 === 1) {
+			const captured = rt.arcClone(owned);
+			rt.onceCall(once, rt.closure((state: rt.OnceState): void => {
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.onceIsPoisoned(state) ? 1 : 0, once.v === true ? 1 : 0, n)));
+				captured[Symbol.dispose]();
+			}, (): void => {
+				captured[Symbol.dispose]();
+			}), rt.drop);
+			rt.byteVecPush(out, owned.strong & 0xff);
+		} else if (_14 === 2) {
+			const fresh: rt.Once = new rt.OnceLock(undefined);
+			rt.onceCall(fresh, (): void => {
+				rt.byteVecPush(out, fresh.v === true ? 1 : 0);
+				if (rt.u8Rem(n, 2) === 1) {
+					rt.onceCall(fresh, (): void => {
+						rt.byteVecPush(out, 238);
+					});
+				}
+			});
+			rt.byteVecPush(out, fresh.v === true ? 1 : 0);
+		} else if (_14 === 3) {
+			if (!(rt.u8Rem(n, 2) === 1)) {
+				rt.onceCall(STARTED, (): void => {});
+				rt.byteVecPush(out, STARTED.v === true ? 1 : 0);
+			} else {
+				const fresh2: rt.Once = new rt.OnceLock(undefined);
+				rt.onceCall(fresh2, (_23: rt.OnceState): void => {
+					rt.onceCall(fresh2, (_24: rt.OnceState): void => {
+						rt.byteVecPush(out, 238);
+					});
+				});
+			}
+		} else if (_14 === 4) {
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(Slot.getOrInit$onces_closure5(COLLECTOR, (): rt.u32 => {
+				return 16909060;
+			})).reverse()));
+		} else {
+			const slot: Slot.Slot = Slot.new();
+			rt.byteVecPush(out, Slot.getOrInit$onces_closure6(slot, (): rt.u32 => {
+				return n as rt.u32;
+			}) & 0xff);
+			rt.byteVecPush(out, Slot.getOrInit$onces_closure7(slot, (): rt.u32 => {
+				return 238;
+			}) & 0xff);
+		}
+	}
+	owned[Symbol.dispose]();
 }
 
 //# sourceMappingURL=statics.ts.map

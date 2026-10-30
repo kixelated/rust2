@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Clip, copy$Pair } from "./lib.ts";
-import { unwrapOr$Option_char, unwrapOr$Option_u8 } from "./core/option.ts";
+import { unwrapOr$0k15iai, unwrapOr$0r2bmpr } from "./core/option.ts";
 import * as Bare from "./fmt.Bare.ts";
 import * as Braced from "./fmt.Braced.ts";
 import * as Clip from "./fmt.Clip.ts";
@@ -192,7 +192,7 @@ export function strings(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, s), (f: rt.Formatter) => rt.fmtStr(s, f)];
 		put(out, rt.fmtFormat([rt.fmtSpec({ precision: 2 }, args4[0]), "|", rt.fmtSpec({ width: 8, precision: 3 }, args4[0]), "|", rt.fmtSpec({ align: ">", width: 6, precision: 1 }, args4[0]), "|", rt.fmtSpec({ fill: "_", align: "^", width: 7, precision: 2 }, args4[0]), "|", rt.fmtSpec({ precision: 0 }, args4[0]), "|", rt.fmtSpec({ precision: 20 }, args4[0]), "|", rt.fmtSpec({ precision: 2 }, args4[1]), "|", rt.fmtSpec({ width: 10, precision: 2 }, args4[1]), "|", rt.fmtSpec({ plus: true }, args4[0])]));
 	}
-	const c: rt.char = unwrapOr$Option_char(rt.charFromU32(rt.u32Mul(unwrapOr$Option_u8(rt.byteSliceFirst(data), 0) as rt.u32, 257)), 63);
+	const c: rt.char = unwrapOr$0k15iai(rt.charFromU32(rt.u32Mul(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0) as rt.u32, 257)), 63);
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDisplay(c, f), (f: rt.Formatter) => rt.fmtCharDebug(c, f)];
 	put(out, rt.fmtFormat([args6[0], "|", rt.fmtSpec({ precision: 0 }, args6[0]), "|", rt.fmtSpec({ width: 3, precision: 1 }, args6[0]), "|", rt.fmtSpec({ precision: 0 }, args6[1]), "|", rt.fmtSpec({ align: ">", width: 4 }, args6[1])]));
 	const _70: rt.Result<string, rt.FromUtf8Error> = rt.stringFromUtf8(rt.byteSliceToByteVec(data));
@@ -237,7 +237,7 @@ export function nested(data: rt.ByteSlice): Nested.Nested {
 	let _61!: rt.Result<rt.u8, string>;
 	let _90!: Kind.Kind;
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const _5: rt.usize = rt.usizeRem(at(0) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
 	if (!(_5 < 14)) {
@@ -284,7 +284,7 @@ export function nested(data: rt.ByteSlice): Nested.Nested {
 /** Derived `Debug` of every shape, compact and pretty, with options passed to fields. */
 export function derived(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const value: Nested.Nested = nested(data);
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => Nested.fmt$Debug(value, f)];
@@ -352,7 +352,7 @@ export function logged(log: rt.ByteVec, data: rt.ByteSlice): string {
 export function written(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _116!: rt.u8 | undefined;
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const hex: Hex.Hex = { _0: rt.u32Mul(at(0) as rt.u32, 4097) };
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => Hex.fmt$Display(hex, f), (f: rt.Formatter) => Hex.fmt$Debug(hex, f)];
@@ -427,7 +427,7 @@ export function written(data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function counts(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const _6: [rt.usize, rt.usize] = [rt.u8Rem(at(0), 24) as rt.usize, rt.u8Rem(at(1), 12) as rt.usize];
 	const w: rt.usize = _6[0];
@@ -477,7 +477,7 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 	let r2!: rt.Result<rt.u8, Pair.Pair>;
 	let r4!: rt.Result<rt.u8, rt.FromUtf8Error>;
 	let r5!: rt.Result<rt.u8, rt.u8>;
-	const n: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(rest), 0);
+	const n: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(rest), 0);
 	const _7: rt.u8 = rt.u8Rem(kind, 20);
 	if (_7 === 0) {
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(n, f), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(rest), f, rt.u8Debug)];
@@ -576,7 +576,7 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
 		const buf2: Uint8Array = Uint8Array.of(1, 2, 3, 4);
 		const part2 = rt.u8Rem(n, 6) as rt.usize;
 		const part3 = rt.u8Rem(rt.u8Div(n, 6), 6) as rt.usize;
-		const dest: rt.usize = rt.usizeRem(unwrapOr$Option_u8(rt.byteSliceGet(rest, 1), 0) as rt.usize, 4);
+		const dest: rt.usize = rt.usizeRem(unwrapOr$0r2bmpr(rt.byteSliceGet(rest, 1), 0) as rt.usize, 4);
 		rt.byteSliceCopyWithin(rt.byteSliceFrom(buf2), part2, part3, dest);
 		const arg2 = rt.byteSliceFrom(buf2);
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(rt.byteSliceView(arg2), f, rt.u8Debug)];
@@ -604,7 +604,7 @@ export function panics(kind: rt.u8, rest: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const _6: [rt.i32, rt.i32] = [rt.i32Sub(at(0) as rt.i32, 128), rt.i32Sub(at(1) as rt.i32, 100)];
 	const a: rt.i32 = _6[0];

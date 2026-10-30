@@ -70,7 +70,7 @@ in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, own
 `rt/task.ts`, `f64`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods, `cmp::max` and `min`, and an integer's `str::parse` and
 `from_str_radix`, goes in a module under its crate's name, as
-`core/option.ts` holds `map$Option_u64_u64_rescale_closure0`. A dependency's modules go
+`core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
 functions that the package's types make, so a module at the package's root named for a
 crate translation reaches is refused, and so are two versions of one crate it reaches.
@@ -113,6 +113,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Cell<T>`, `RefCell<T>`, `RwLock<T>` | `rt.Cell`, the place holding its value in `v`; `rt.RefCell` for either of the others, its own guard, counting its borrows: borrowing it while that conflicts panics as `RefCell`'s does, and locking it so aborts as wasm32's `RwLock` does |
 | `thread_local!`, `LocalKey<T>` | an `rt.LocalKey`, a module's value, which makes its value on first use from the `const` or the expression and never drops it, as wasm32's do; `with` calls its function on that value, `try_with` never fails, the `Cell` and `RefCell` helpers lower from std, and a `RefCell` key's `set` and `with_borrow_mut` borrow it as `borrow_mut` does |
 | `OnceCell<T>`, `OnceLock<T>` | `rt.OnceCell` and `rt.OnceLock`, holding the `Option<T>` in `v`; a `OnceLock` initialized from within its own initialization panics, as wasm32's does |
+| `Once`, `OnceState` | `rt.Once`, an `rt.OnceLock` that holds `true` once `call_once` or `call_once_force` ran its function, and panics as wasm32's does if run again from within it; `rt.OnceState`, that `Once`, which a panic never poisons, as it aborts |
 | `LazyCell<T>`, `LazyLock<T>` in a `static` or `const` | `rt.LazyCell` and `rt.LazyLock`, which run their function on the first `force` or `Deref`, once; forced from within it, either panics as std's does |
 | `AtomicU32` and the others of `bool` and integers, `AtomicPtr<T>` | `rt.Atomic<T>`, the `rt.Place` of its value; an `atomic::Ordering` is its discriminant, and one an operation can't take panics as std's does. An `AtomicPtr` compares pointers only to what JS keeps as an object, as raw pointers do |
 | `async fn` | a function returning `rt.Future<T>`: a class of its own, its coroutine's state machine |
@@ -210,7 +211,9 @@ Functions and members are camelCase. Functions are monomorphized: each instance 
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
 its own, as in `roundtripLite$Group`, `Wrap.get$Wrap_Pair`, `Pair.fmt$Debug`, and
 `DecodeError.from$From_BoundsExceeded`. The suffix is there even when no other instance
-is, so reaching one renames nothing. A closure type goes by where it is defined,
+is, so reaching one renames nothing. An instance of a generic std function is suffixed
+instead by a hash of its text, with what it calls by name, as `map$1cf8u0y`: instances that print the
+same are one function, whichever of them translation reaches. A closure type goes by where it is defined,
 `methods_closure1` for `methods::{closure#1}`, and instances whose suffixes still match,
 such as of two types of one name, are numbered `$2` on in the order of their full type
 arguments. Types are translated once, generically, so a function of a generic type is one
@@ -250,8 +253,9 @@ A collection keeps Rust's key semantics. A hash map or set keeps a key that is a
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
 `Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
-`Option` orders `None` first, and an `Arc` compares, orders, and hashes as what it holds,
-so a map of `Arc<str>` finds a `&str`. A `&mut` to a value a map holds that JS copies,
+`Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
+so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
+bytes and then their length. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, and hashes a key
@@ -277,7 +281,9 @@ drop it where std's do. So do iterators: one that owns its items, as a `Vec`'s `
 map's `drain` does, drops those it still holds by `[Symbol.dispose]`, an adaptor drops
 what it skips or rejects, and a consumer that takes an iterator by value drops it:
 through each `rt.Iter`'s own `fold` where std's folds, which drops each adaptor's closure
-as its fold ends, before what it wraps, as std's does.
+as its fold ends, before what it wraps, as std's does. A `Vec`'s `drain` leaves the vector
+what precedes its range until it drops, then drops what it still holds and moves the tail
+back, so one never dropped, as `mem::forget` leaves it, leaks the rest, as std's does.
 
 A trait object of the crate's own trait, or a dependency's, behind `&`, `&mut`, `Box`, or `Arc`, is an object with
 a method for each function a call can dispatch to, its supertraits' included, named for
@@ -546,11 +552,12 @@ they need.
 - A `BinaryHeap` is std's heap in an array, with std's sifts ported to the runtime: std's
   move elements through raw pointers into its `Vec`, which no body of std's lowers
   through, and the sifts decide which `PartialOrd` tests run and which of equal elements
-  leaves first. The sorts, `max` and `min`, the heap, and `is_sorted` take an integer's
-  tests as the runtime's `rt.lt`, `rt.le`, `rt.gt`, and `rt.ge` rather than through its
-  `partial_cmp`, `rt.cmpLt(rt.cmp)`: on `just ts bench`'s `order/` workloads that took
-  Firefox 0.8-0.86x the time on sorts and `max`/`min` and Chrome 0.66x on the heap, and
-  Chrome the same on the rest.
+  leaves first. `Vec::drain` is ported for the same reason: std's reads its range out
+  and moves the tail back through raw pointers. The sorts, `max` and `min`, the heap,
+  and `is_sorted` take an integer's tests as the runtime's `rt.lt`, `rt.le`, `rt.gt`,
+  and `rt.ge` rather than through its `partial_cmp`, `rt.cmpLt(rt.cmp)`: on `just ts
+  bench`'s `order/` workloads that took Firefox 0.8-0.86x the time on sorts and
+  `max`/`min` and Chrome 0.66x on the heap, and Chrome the same on the rest.
 - Iterators are the runtime's lazy classes rather than generators or ES iterator
   helpers: std's adaptors would lower from std's own bodies, whose slice iterators are
   raw pointers, ES helpers lack most of them

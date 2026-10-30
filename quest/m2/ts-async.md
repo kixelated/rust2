@@ -23,16 +23,12 @@ std's future helpers translate: `Poll`'s methods, `Poll<Poll<T>>`, `pin!`, `poll
 moq-net still needs, by its census from MIR at the pinned revision:
 
 - Async closures, which only moq-net's tests write today.
-- kio's `Tasks`, whose `RawWaker` vtable and `Box<dyn FnMut>` tasks are
-  [bindings](/ts/README.md#bindings). The rest of kio's API translates from source
-  across crates; what it still refuses is std's.
+- kio's `Tasks`, which the model's census binds. Translated, it refuses a waker's
+  identity: `Polling` keeps `(Waker::data, Waker::vtable)` in a thread-local and compares
+  it as an `Option` of that pair (`rs/kio/src/task.rs`), 10 of kio's refusals. `rt.Waker`
+  has no identity a raw pointer can stand for, and a caller's own waker would have to give
+  one, so the runtime's waker shape is the maintainer's to decide.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
-- `kio::Waiter::poll_future::<()>` does not normalize in moq-net's census, since `()` is
-  no `Future`. It is reached from `util.rs`'s `future_task` closure, itself refused as a
-  `Box<dyn FnMut>`, and the same call translates in the fixture
-  ([#141](https://github.com/moq-dev/rust2/pull/141),
-  [#183](https://github.com/moq-dev/rust2/pull/183)). Find where polymorphic lowering
-  makes the `()`.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a
 capture like any other in MIR.

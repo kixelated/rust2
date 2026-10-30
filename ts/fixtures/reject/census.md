@@ -1,8 +1,8 @@
 # Census of `reject-fixture`
 
-- Refusals: 103
-- Function instances: 116
-- Generic functions no instance reached, lowered over their type parameters: 7
+- Refusals: 105
+- Function instances: 120
+- Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
 
@@ -20,6 +20,7 @@
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:518:23 |
 | 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:509:40 |
+| 2 | a range of `_`, whose bounds the runtime doesn't read, which is not supported yet | fixtures/reject/src/lib.rs:753:4 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:169:1 |
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
@@ -91,6 +92,7 @@ The type or module each refused type or path belongs to.
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:321:2 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:289:6 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:372:13 |
+| 2 | `(std::ops::Bound, std::ops::Bound)` | fixtures/reject/src/lib.rs:753:4 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:91:20 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:518:23 |
 | 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:518:23 |
@@ -156,6 +158,7 @@ The type or module each refused type or path belongs to.
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | `dyn std::iter::Iterator` | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | `dyn Scaled`, `Scaled` | fixtures/reject/src/lib.rs:518:23 |
+| 2 | a range of `_`, whose bounds the runtime doesn't read, which is not supported yet | `(std::ops::Bound, std::ops::Bound)` | fixtures/reject/src/lib.rs:753:4 |
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:126:2 |
 | 2 | replacing the value behind a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:483:17 |
@@ -339,6 +342,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:509:40: a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet
 - fixtures/reject/src/lib.rs:545:30: a coercion to `&Tail<dyn Reading>`, which is not supported yet
+
+</details>
+
+<details><summary>a range of `_`, whose bounds the runtime doesn't read, which is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:753:4: a range of `(std::ops::Bound<usize>, std::ops::Bound<usize>)`, whose bounds the runtime doesn't read, which is not supported yet
+- fixtures/reject/src/lib.rs:753:52: a range of `(std::ops::Bound<u8>, std::ops::Bound<u8>)`, whose bounds the runtime doesn't read, which is not supported yet
 
 </details>
 
