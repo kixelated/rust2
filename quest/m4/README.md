@@ -14,8 +14,8 @@ Declined on 2026-10-25: a drop-in build-cache wrapper with an early cutoff.
 The cutoff is unsound on stock rustc (a stale SVH gives E0460, and DefIndex
 shifts), mbx and cargo already cover caching and GC, and a sound cutoff holds on
 only 7% of moq-net edits
-([kixelated/rust2#62](https://github.com/kixelated/rust2/pull/62),
-[kixelated/rust2#70](https://github.com/kixelated/rust2/pull/70)).
+([moq-dev/rust2#62](https://github.com/moq-dev/rust2/pull/62),
+[moq-dev/rust2#70](https://github.com/moq-dev/rust2/pull/70)).
 [The fork](/quest/m4/fork.md) collects the reasons to change rustc and cargo instead.
 
 ## Required

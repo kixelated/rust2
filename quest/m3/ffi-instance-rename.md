@@ -9,7 +9,7 @@ path, which renames every instance.
 
 ## Plan
 
-Suggested by [#152](https://github.com/kixelated/rust2/pull/152) on 2026-10-27. No consumer
+Suggested by [#152](https://github.com/moq-dev/rust2/pull/152) on 2026-10-27. No consumer
 needs it yet: a clash between an instance and an unrelated item is fixed today by renaming
 the unrelated item or the generic one. Start once a consumer's clash can't be fixed that
 way.

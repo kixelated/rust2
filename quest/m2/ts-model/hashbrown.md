@@ -8,7 +8,7 @@ proven by differential tests against native Rust.
 
 ## Plan
 
-Found by [#201](https://github.com/kixelated/rust2/pull/201) on 2026-10-28: with hashlink's
+Found by [#201](https://github.com/moq-dev/rust2/pull/201) on 2026-10-28: with hashlink's
 raw pointers translated, hashbrown is the model's largest source of refusals left
 (251 lines of its census), its SIMD groups, raw allocation, and byte reinterpretation
 being what JS has no counterpart of.

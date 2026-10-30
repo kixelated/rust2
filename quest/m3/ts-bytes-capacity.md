@@ -9,7 +9,7 @@ against native Rust.
 
 ## Plan
 
-Found by [#222](https://github.com/kixelated/rust2/pull/222) on 2026-10-29: `bytes`
+Found by [#222](https://github.com/moq-dev/rust2/pull/222) on 2026-10-29: `bytes`
 reclaims a `BytesMut`'s storage in `reserve` once no other handle of it is alive, so its
 capacity depends on whether the `Bytes` it froze and the handles it split off dropped.
 `rt.ByteSlice`, which a `Bytes` is, is a value JS copies and counts no drops, so #222
