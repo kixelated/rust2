@@ -527,13 +527,89 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				);
 				done(next, true)
 			}
-			// A JS string can't change in place, so what the `&mut` borrows gets a longer one.
-			("String", "push") => {
+			// A JS string can't change in place, so what the `&mut` borrows gets a new one.
+			("String", "push" | "push_str") | ("AddAssign", "add_assign")
+				if owner == "String" || targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::String)) =>
+			{
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let c = self.operand(&args[1].node, span, out);
-				let pushed = place.0.clone().binary("+", library::char_text(c));
+				let text = self.operand(&args[1].node, span, out);
+				let text = match name.as_str() {
+					"push" => library::char_text(text),
+					_ => text,
+				};
+				let pushed = place.0.clone().binary("+", text);
 				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
+			}
+			// No capacity is kept, and reading one is refused, but reserving past `isize::MAX`
+			// panics as std's does.
+			("String", "reserve" | "reserve_exact") => {
+				let values = self.operands(false, &[true, true], args, tcx.types.unit, span, out);
+				done(Expr::rt("stringReserve", values), true)
+			}
+			("String", "shrink_to_fit" | "shrink_to") => done(Expr::undefined(), false),
+			("String", "retain") if targ(0).is_some_and(|f| self.b.t.drops(f)) => {
+				let f = targ(0)?;
+				done(
+					self.err(
+						span,
+						format!("passing `{f}`, which drops, to `String::{name}`, which is not supported yet"),
+					),
+					false,
+				)
+			}
+			// The edited string, from the runtime with what it takes after the string.
+			(
+				"String",
+				"clear" | "truncate" | "insert" | "insert_str" | "retain" | "replace_range" | "extend_from_within",
+			) => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let mut values = vec![place.0.clone()];
+				values.extend(self.operands(false, &[], &args[1..], result, span, out));
+				if name == "insert" {
+					let c = values.pop()?;
+					values.push(library::char_text(c));
+				}
+				if name == "retain" {
+					let f = std::mem::replace(&mut values[1], Expr::undefined());
+					values[1] = library::called_through(self.b.t, targ(0)?, Some(f)).2?;
+				}
+				// A range std reads the bounds of, as `bounds` makes any `RangeBounds` one.
+				if matches!(name.as_str(), "replace_range" | "extend_from_within") {
+					let call = library::Call {
+						def_id,
+						args: gargs,
+						span,
+					};
+					let range = std::mem::replace(&mut values[1], Expr::undefined());
+					values[1] = crate::lower::collections::bounds(self.b, &call, range);
+				}
+				let edited = match name.as_str() {
+					"clear" => Expr::Str(String::new()),
+					"truncate" => Expr::rt("stringTruncate", values),
+					"insert" | "insert_str" => Expr::rt("stringInsertStr", values),
+					"retain" => Expr::rt("stringRetain", values),
+					"replace_range" => Expr::rt("stringReplaceRange", values),
+					_ => Expr::rt("stringExtendFromWithin", values),
+				};
+				self.set_borrowed(&place, edited, span, out);
+				done(Expr::undefined(), false)
+			}
+			// The runtime gives the edited string and what the edit returns.
+			("String", "pop" | "remove" | "split_off") => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let mut values = vec![place.0.clone()];
+				values.extend(self.operands(false, &[], &args[1..], result, span, out));
+				let f = match name.as_str() {
+					"pop" => "stringPop",
+					"remove" => "stringRemove",
+					_ => "stringSplitOff",
+				};
+				let edit = self.path(Expr::rt(f, values), "edit", out);
+				self.set_borrowed(&place, edit.clone().index(Expr::lit("0")), span, out);
+				done(edit.index(Expr::lit("1")), false)
 			}
 			("Write", "write_str" | "write_char" | "write_fmt")
 				if tcx

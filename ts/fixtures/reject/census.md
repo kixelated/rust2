@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 109
-- Function instances: 126
+- Refusals: 110
+- Function instances: 127
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -9,8 +9,8 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 16 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
+| 5 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:380:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:385:2 |
-| 4 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:380:4 |
 | 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:11 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:260:14 |
 | 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:669:10 |
@@ -89,11 +89,11 @@ The type or module each refused type or path belongs to.
 | 4 | `Iterator` | fixtures/reject/src/lib.rs:41:11 |
 | 4 | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:271:52 |
+| 4 | `{closure}` | fixtures/reject/src/lib.rs:372:13 |
 | 3 | `Spent` | fixtures/reject/src/lib.rs:805:4 |
 | 3 | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:693:15 |
 | 3 | `std::sync::Arc` | fixtures/reject/src/lib.rs:321:2 |
 | 3 | `u8` | fixtures/reject/src/lib.rs:289:6 |
-| 3 | `{closure}` | fixtures/reject/src/lib.rs:372:13 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:91:20 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:518:23 |
 | 2 | `dyn Scaled` | fixtures/reject/src/lib.rs:518:23 |
@@ -127,6 +127,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Only` | fixtures/reject/src/lib.rs:734:11 |
 | 1 | `Sink` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | `Span2` | fixtures/reject/src/lib.rs:669:10 |
+| 1 | `String` | fixtures/reject/src/lib.rs:811:4 |
 | 1 | `T \| undefined` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `Tail` | fixtures/reject/src/lib.rs:545:30 |
 | 1 | `VecDeque` | fixtures/reject/src/lib.rs:805:29 |
@@ -228,6 +229,7 @@ The type or module each refused type or path belongs to.
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `BTreeMap::range` | fixtures/reject/src/lib.rs:805:56 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `Vec::drain` | fixtures/reject/src/lib.rs:805:4 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `Spent`, `VecDeque::drain` | fixtures/reject/src/lib.rs:805:29 |
+| 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `String::retain` | fixtures/reject/src/lib.rs:811:4 |
 | 1 | passing `_`, which drops, to `_`, which is not supported yet | `{closure}`, `str::contains` | fixtures/reject/src/lib.rs:380:4 |
 | 1 | replacing the value behind a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:131:2 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:643:1 |
@@ -270,21 +272,22 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>passing `_`, which drops, to `_`, which is not supported yet (5)</summary>
+
+- fixtures/reject/src/lib.rs:380:4: passing `{closure@fixtures/reject/src/lib.rs:380:13: 380:27}`, which drops, to `str::contains`, which is not supported yet
+- fixtures/reject/src/lib.rs:805:4: passing `Spent`, which drops, to `Vec::drain`, which is not supported yet
+- fixtures/reject/src/lib.rs:805:29: passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet
+- fixtures/reject/src/lib.rs:805:56: passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet
+- fixtures/reject/src/lib.rs:811:4: passing `{closure@fixtures/reject/src/lib.rs:811:11: 811:19}`, which drops, to `String::retain`, which is not supported yet
+
+</details>
+
 <details><summary>a variant of `_`, which is not supported: either is the same JS string (4)</summary>
 
 - fixtures/reject/src/lib.rs:385:2: a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string
 - fixtures/reject/src/lib.rs:386:30: a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string
 - fixtures/reject/src/lib.rs:387:27: a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string
 - fixtures/reject/src/lib.rs:392:2: a variant of `std::borrow::Cow<'_, str>`, which is not supported: either is the same JS string
-
-</details>
-
-<details><summary>passing `_`, which drops, to `_`, which is not supported yet (4)</summary>
-
-- fixtures/reject/src/lib.rs:380:4: passing `{closure@fixtures/reject/src/lib.rs:380:13: 380:27}`, which drops, to `str::contains`, which is not supported yet
-- fixtures/reject/src/lib.rs:805:4: passing `Spent`, which drops, to `Vec::drain`, which is not supported yet
-- fixtures/reject/src/lib.rs:805:29: passing `Spent`, which drops, to `VecDeque::drain`, which is not supported yet
-- fixtures/reject/src/lib.rs:805:56: passing `Spent`, which drops, to `BTreeMap::range`, which is not supported yet
 
 </details>
 

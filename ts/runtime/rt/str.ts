@@ -7,6 +7,7 @@
 // surrogate pair.
 
 import { fmtCharDebug, panic, panicFmt, stringLen } from "../rt.ts";
+import { type Bounds, boundsRange } from "./collections.ts";
 import type { char, u8, usize } from "./int.ts";
 import { DONE, type Done, Iter, iterSlice } from "./iter.ts";
 
@@ -362,4 +363,90 @@ export function strIsCharBoundary(s: string, i: number): boolean {
 /** `str::bytes`: its UTF-8 bytes. */
 export function strBytes(s: string): Iter<u8> {
 	return iterSlice(encoder.encode(s));
+}
+
+// `String`'s edits, each giving the edited string, which the caller writes where the
+// `&mut String` points, and what the edit returns beside it.
+
+/** `isize::MAX` on wasm32, past which std refuses a capacity. */
+const ISIZE_MAX = 0x7fffffff;
+
+/** `String::with_capacity`: the empty string, which keeps no capacity. */
+export function stringWithCapacity(capacity: usize): string {
+	if (capacity > ISIZE_MAX) panic("capacity overflow");
+	return "";
+}
+
+/** `String::reserve` and `reserve_exact`, which panic as std's do past `isize::MAX`. */
+export function stringReserve(s: string, additional: usize): void {
+	// A code unit is at most three bytes, so only a large `additional` needs the length.
+	if (additional > ISIZE_MAX - 3 * s.length && additional > ISIZE_MAX - utf8Len(s, 0, s.length)) {
+		panic("capacity overflow");
+	}
+}
+
+/** The code unit where byte `i` of `s` starts a char, or panic with `message`. */
+function boundary(s: string, i: number, message: string): number {
+	const at = unitAt(s, 0, 0, i);
+	if (at < 0) panic(message);
+	return at;
+}
+
+/** `String::truncate`: `s` to `len` bytes, or as it is if no longer. */
+export function stringTruncate(s: string, len: usize): string {
+	const at = unitAt(s, 0, 0, len);
+	if (at >= 0) return s.slice(0, at);
+	if (len > utf8Len(s, 0, s.length)) return s;
+	panic("assertion failed: self.is_char_boundary(new_len)");
+}
+
+/** `String::insert_str`, and `insert` of a char's text. */
+export function stringInsertStr(s: string, i: usize, text: string): string {
+	const at = boundary(s, i, "assertion failed: self.is_char_boundary(idx)");
+	return s.slice(0, at) + text + s.slice(at);
+}
+
+/** `String::retain`: the chars `f` keeps, calling it on each in order. */
+export function stringRetain(s: string, f: (c: char) => boolean): string {
+	let kept = "";
+	for (const ch of s) if (f(ch.codePointAt(0) as char)) kept += ch;
+	return kept;
+}
+
+/** `String::replace_range`. */
+export function stringReplaceRange(s: string, r: Bounds<number>, text: string): string {
+	const [start, end] = boundsRange(r, utf8Len(s, 0, s.length));
+	const from = boundary(s, start, "start of range should be a character boundary");
+	const to = boundary(s, end, "end of range should be a character boundary");
+	return s.slice(0, from) + text + s.slice(to);
+}
+
+/** `String::extend_from_within`. */
+export function stringExtendFromWithin(s: string, r: Bounds<number>): string {
+	const [start, end] = boundsRange(r, utf8Len(s, 0, s.length));
+	const from = boundary(s, start, "assertion failed: self.is_char_boundary(start)");
+	const to = boundary(s, end, "assertion failed: self.is_char_boundary(end)");
+	return s + s.slice(from, to);
+}
+
+/** `String::pop`: the rest, and the last char if any. */
+export function stringPop(s: string): [string, char | undefined] {
+	if (s.length === 0) return [s, undefined];
+	const at = before(s, s.length);
+	return [s.slice(0, at), s.codePointAt(at) as char];
+}
+
+/** `String::remove`: the rest, and the char at byte `i`. */
+export function stringRemove(s: string, i: usize): [string, char] {
+	const at = unitAt(s, 0, 0, i);
+	if (at < 0) sliceFailed(s, i, utf8Len(s, 0, s.length));
+	if (at === s.length) panic("cannot remove a char from the end of a string");
+	const c = s.codePointAt(at) as number;
+	return [s.slice(0, at) + s.slice(at + (c > 0xffff ? 2 : 1)), c as char];
+}
+
+/** `String::split_off`: what comes before byte `i`, and after it. */
+export function stringSplitOff(s: string, i: usize): [string, string] {
+	const at = boundary(s, i, "assertion failed: self.is_char_boundary(at)");
+	return [s.slice(0, at), s.slice(at)];
 }

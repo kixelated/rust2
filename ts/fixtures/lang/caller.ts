@@ -322,9 +322,16 @@ const unsafeCells = [
 ].map((bytes) => Uint8Array.of(op("pointers::cells"), 0, ...bytes));
 
 /**
+ * `strs::edits` of each edit on `aé\u{800}😀`, a char of each UTF-8 width, at every byte
+ * offset into it and up to two past its end, each made a raw offset by its byte's bits.
+ */
+const editsOp = op("strs::edits");
+const edits = Array.from({ length: 14 * 16 * 16 }, (_, i) => Uint8Array.of(editsOp, 4, 2, 7, 9, 14, i >> 8, (i >> 4) & 15, i & 15));
+
+/**
  * `nested::consumers`, whose first byte is also `nth`'s index: of no items, `None` before
  * `Some`, `nth` past the end, only `None`s, keys all tied, and `find` stopping early.
  */
 const consumers = [[], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 3, 0x90, 0x92, 5]].map((bytes) => Uint8Array.of(op("nested::nested"), 3, ...bytes));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...consumers];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...consumers];
