@@ -820,6 +820,131 @@ pub fn timed_text<'a, T: serde::Serialize + 'a>(value: impl Into<Timed<&'a T>>) 
 	serde_json::to_string(value.into().value).expect("a JSON document serializes")
 }
 
+/// A timed payload on a track, which what converts into one converts into.
+pub struct Sample(Timed<Bytes>);
+
+impl<T: Into<Timed<Bytes>>> From<T> for Sample {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// A sample's bytes in hex, which need not be UTF-8, two conversions from what C lends.
+pub fn sample_hex(sample: impl Into<Sample>) -> String {
+	hex(sample.into().0.value)
+}
+
+/// A sample queued past the conversion, so what converts into it is owned.
+pub struct Queued(Sample);
+
+impl<T: Into<Sample> + 'static> From<T> for Queued {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// A queued sample's bytes in hex, which need not be UTF-8, three conversions from owned bytes.
+pub fn queued_hex(queued: impl Into<Queued>) -> String {
+	hex(queued.into().0.0.value)
+}
+
+/// A name from a label, or from what converts into a `Tock`, which converts from what
+/// converts into a `Tick`: a cycle, which only the label leaves.
+pub struct Tick(String);
+
+impl From<Label> for Tick {
+	fn from(label: Label) -> Self {
+		Self(label.name)
+	}
+}
+
+impl<T: Into<Tock> + Copy> From<T> for Tick {
+	fn from(value: T) -> Self {
+		Self(value.into().0)
+	}
+}
+
+/// What converts into a `Tick` converts into a `Tock`.
+pub struct Tock(String);
+
+impl<T: Into<Tick> + Copy> From<T> for Tock {
+	fn from(value: T) -> Self {
+		Self(value.into().0)
+	}
+}
+
+/// The name a `Tick` takes.
+pub fn tick_name(tick: impl Into<Tick>) -> String {
+	tick.into().0
+}
+
+/// A label's name, scoped to a lifetime it borrows nothing for.
+pub struct Scoped<'a>(String, std::marker::PhantomData<&'a ()>);
+
+impl From<Label> for Scoped<'_> {
+	fn from(label: Label) -> Self {
+		Self(label.name, std::marker::PhantomData)
+	}
+}
+
+/// What converts into a `Scoped<'static>`, which an owned label does.
+pub struct Rooted(Scoped<'static>);
+
+impl<T: Into<Scoped<'static>>> From<T> for Rooted {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// The name a `Rooted` takes, through a target whose lifetime is `'static`.
+pub fn rooted_name(rooted: impl Into<Rooted>) -> String {
+	rooted.into().0.0
+}
+
+/// Text copied from a borrow, so `'static` whatever it borrowed.
+pub struct Copied<'a>(String, std::marker::PhantomData<&'a ()>);
+
+impl<'a> From<&'a str> for Copied<'static> {
+	fn from(text: &'a str) -> Self {
+		Self(text.to_string(), std::marker::PhantomData)
+	}
+}
+
+/// What converts into a `Copied<'static>`, which a borrow C lends does.
+pub struct Stored(Copied<'static>);
+
+impl<T: Into<Copied<'static>>> From<T> for Stored {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// The text a `Stored` takes, through a target whose lifetime its source does not borrow for.
+pub fn stored_text(stored: impl Into<Stored>) -> String {
+	stored.into().0.0
+}
+
+/// A label's name, layered over a `Vec` of its first type once more for each conversion,
+/// until its second type is no longer `u8`.
+pub struct Layer<T, U>(String, std::marker::PhantomData<(T, U)>);
+
+impl From<Label> for Layer<u8, u8> {
+	fn from(label: Label) -> Self {
+		Self(label.name, std::marker::PhantomData)
+	}
+}
+
+impl<T, S: Into<Layer<Vec<T>, T>> + Copy> From<S> for Layer<T, u8> {
+	fn from(value: S) -> Self {
+		Self(value.into().0, std::marker::PhantomData)
+	}
+}
+
+/// The name a `Layer<u8, u8>` takes, through a chain that grows twice and ends.
+pub fn layer_name(layer: impl Into<Layer<u8, u8>>) -> String {
+	layer.into().0
+}
+
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
 	format!("hello {}, a {shape:?}", name.into())
 }

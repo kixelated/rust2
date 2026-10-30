@@ -88,7 +88,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
-| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, or a `String`, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
+| `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, a `String`, or a reference, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
 | `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
 | `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
 | `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
@@ -344,9 +344,11 @@ of them:
   `put_` of an integer or `f64`, `put_slice`, `put_bytes`, and `put`, whose panics are
   `bytes`'. `put` of the crate's own `Buf` into a `Vec<u8>` reads it through its methods
   as `bytes` does, and into a `BytesMut` is refused, as `bytes` picks those methods by its
-  capacity.
-  The rest of `bytes`, such as the provided methods of the crate's own `Buf` and the impls
-  forwarding through a `&mut` or a `Box`, translates from its MIR, refused where that is.
+  capacity. The provided `copy_to_bytes` of the crate's own `Buf`, whose `BytesMut` has
+  the capacity it asks for, reads it chunk by chunk through its methods.
+  The rest of `bytes`, such as the other provided methods of the crate's own `Buf` and the
+  impls forwarding through a `&mut` or a `Box`, translates from its MIR, refused where
+  that is.
 - `rand::rng()` is an `rt.ThreadRng`, whose `random` of an integer or `bool` and
   `random_range` of an integer range map to `rt/rand.ts`. Each value comes from
   `crypto.getRandomValues`, uniform as `rand`'s are, though no seed reproduces them, as

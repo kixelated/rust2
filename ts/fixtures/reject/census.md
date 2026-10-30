@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 98
-- Function instances: 111
+- Refusals: 99
+- Function instances: 115
 - Generic functions no instance reached, lowered over their type parameters: 7
 
 ## By construct
@@ -23,6 +23,7 @@
 | 2 | constructing `_` from another crate | fixtures/reject/src/lib.rs:155:23 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:149:2 |
 | 2 | passing `_`, a closure that owns a value that drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:372:13 |
+| 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:428:2 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:68:2 |
@@ -101,8 +102,9 @@ The type or module each refused type or path belongs to.
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:102:2 |
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:483:17 |
 | 1 | `Batched` | fixtures/reject/src/lib.rs:363:16 |
-| 1 | `BinaryHeap` | fixtures/reject/src/lib.rs:706:7 |
+| 1 | `BinaryHeap` | fixtures/reject/src/lib.rs:730:7 |
 | 1 | `Bits` | fixtures/reject/src/lib.rs:643:1 |
+| 1 | `Blank` | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BytesMut` | fixtures/reject/src/lib.rs:437:6 |
 | 1 | `Counted` | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:169:1 |
@@ -129,7 +131,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter::Chain` | fixtures/reject/src/lib.rs:182:51 |
 | 1 | `std::iter::Rev` | fixtures/reject/src/lib.rs:176:14 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:423:2 |
-| 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:711:15 |
+| 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:735:15 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:136:11 |
 | 1 | `std::std::Layout` | fixtures/reject/src/lib.rs:626:15 |
 | 1 | `std::string::String` | fixtures/reject/src/lib.rs:74:10 |
@@ -152,6 +154,7 @@ The type or module each refused type or path belongs to.
 | 2 | an assignment through a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:126:2 |
 | 2 | replacing the value behind a reference to `_` | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 2 | unsupported call to `_` | `<std::vec::IntoIter as std::iter::Iterator>::sum` | fixtures/reject/src/lib.rs:483:17 |
+| 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | `Blank` | fixtures/reject/src/lib.rs:725:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | `Counted` | fixtures/reject/src/lib.rs:443:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | `std::sync::Arc` | fixtures/reject/src/lib.rs:428:2 |
 | 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:396:18 |
@@ -161,7 +164,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:289:6 |
 | 1 | `_` of `_`, which drops `_`, which is not supported yet | `into_keys`, `std::collections::HashMap`, `Noisy` | fixtures/reject/src/lib.rs:53:13 |
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:599:4 |
-| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:706:7 |
+| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:730:7 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashSet::get`, `Option` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find`, `Option` | fixtures/reject/src/lib.rs:41:42 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:250:38 |
@@ -214,7 +217,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:397:2 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:423:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:136:11 |
-| 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:711:15 |
+| 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:735:15 |
 | 1 | unsupported call to `_` | `<std::string::String as std::fmt::Write>::write_fmt` | fixtures/reject/src/lib.rs:74:10 |
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:354:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:599:17 |
@@ -245,7 +248,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:626:15: unsupported call to `std::alloc::Layout::new::<u8>`
 - fixtures/reject/src/lib.rs:628:11: unsupported call to `std::alloc::alloc`
 - fixtures/reject/src/lib.rs:631:3: unsupported call to `std::alloc::dealloc`
-- fixtures/reject/src/lib.rs:711:15: unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted`
+- fixtures/reject/src/lib.rs:735:15: unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted`
 
 </details>
 
@@ -262,7 +265,7 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:41:42: `Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:266:6: `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
-- fixtures/reject/src/lib.rs:706:7: `BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
+- fixtures/reject/src/lib.rs:730:7: `BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 
 </details>
 
@@ -351,6 +354,12 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:372:13: passing `{closure@fixtures/reject/src/lib.rs:372:28: 372:35}`, a closure that owns a value that drops, to `Entry::or_insert_with`, which is not supported yet
 - fixtures/reject/src/lib.rs:373:16: passing `{closure@fixtures/reject/src/lib.rs:373:25: 373:33}`, a closure that owns a value that drops, to `Iterator::for_each`, which is not supported yet
+
+</details>
+
+<details><summary>`Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported (1)</summary>
+
+- fixtures/reject/src/lib.rs:725:2: `Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported
 
 </details>
 

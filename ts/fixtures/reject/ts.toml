@@ -76,6 +76,7 @@ roots = [
     "element_pointer",
     "units_compared",
     "dangling_enum",
+    "blank_bytes",
     "heap_optional",
     "places_sorted",
 ]

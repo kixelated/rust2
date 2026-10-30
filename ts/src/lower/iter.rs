@@ -114,6 +114,7 @@ pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr 
 /// each, and the crate's own iterator what drops it.
 pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	let (ty, value) = peel_mut(ty, value);
 	let owned = !ty.is_ref();
 	if b.t.iter_item(ty).is_some() {
 		not_bound(b, ty, span);
@@ -230,6 +231,30 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 		.ok()
 }
 
+/// Whether `ty` is a `&mut` to a `&mut`, which is an `rt.Place` of it, or a box of one,
+/// which is what it holds.
+pub fn through_mut(ty: Ty<'_>) -> bool {
+	match ty.boxed_ty() {
+		Some(inner) => through_mut(inner),
+		None => matches!(*ty.kind(), ty::Ref(_, inner, ty::Mutability::Mut) if inner.is_ref()),
+	}
+}
+
+/// `value`, a `ty`, read through each box and `&mut` to a `&mut` that std's `Iterator` for
+/// `Box<I>` and `&mut I` forward through, down to the last `&mut` and its JS value.
+pub fn peel_mut<'tcx>(mut ty: Ty<'tcx>, mut value: Expr) -> (Ty<'tcx>, Expr) {
+	while through_mut(ty) {
+		ty = match ty.boxed_ty() {
+			Some(inner) => inner,
+			None => {
+				value = value.member("v");
+				ty.builtin_deref(true).expect("a reference")
+			}
+		};
+	}
+	(ty, value)
+}
+
 /// Refuse iterating `ty`, an iterator, if a binding stands in for it: it is no `rt.Iter`,
 /// which std's adaptors and `for` take every iterator but the crate's own for.
 fn not_bound<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) {
@@ -275,6 +300,8 @@ pub fn call<'tcx>(
 			}
 			return Some(Expr::rt("iterOption", args));
 		}
+		// A `&mut` to a `&mut` iterator is itself, an `rt.Place` that each use reads through.
+		("IntoIterator", "into_iter") if through_mut(targ(0)?) => return args.pop(),
 		("IntoIterator", "into_iter") => {
 			let value = args.pop()?;
 			return into_iter(b, targ(0)?, value, span);
@@ -337,7 +364,7 @@ pub fn call<'tcx>(
 	let item = b.t.iter_item(self_ty.peel_refs())?;
 	not_bound(b, self_ty, span);
 	let mut values = args.into_iter();
-	let recv = values.next()?;
+	let (self_ty, recv) = peel_mut(self_ty, values.next()?);
 	let rest: Vec<Expr> = values.collect();
 
 	// `next` by the protocol, as an `Option`.

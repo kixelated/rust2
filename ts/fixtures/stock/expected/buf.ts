@@ -3,7 +3,9 @@
 import * as rt from "./rt.ts";
 import * as Ops from "./buf.Ops.ts";
 import * as Pieces from "./buf.Pieces.ts";
-import { hasRemaining$Buf_Bytes, hasRemaining$Buf_BytesMut, remaining$Buf_Bytes, remaining$Buf_BytesMut } from "./bytes/buf/buf_impl.ts";
+import * as Provided from "./buf.Provided.ts";
+import { advance$Buf_Bytes, advance$Buf_u8s, copyToBytes$Buf_Bytes, copyToBytes$Buf_u8s, copyToSlice$Buf_Bytes, copyToSlice$Buf_u8s, getF64$Buf_Bytes, getF64$Buf_u8s, getI128$Buf_Bytes, getI128$Buf_u8s, getI16Le$Buf_Bytes, getI16Le$Buf_u8s, getI32$Buf_Bytes, getI32$Buf_u8s, getI64Le$Buf_Bytes, getI64Le$Buf_u8s, getI8$Buf_Bytes, getI8$Buf_u8s, getIntLe$Buf_Bytes, getIntLe$Buf_u8s, getU128Le$Buf_Bytes, getU128Le$Buf_u8s, getU16$Buf_Bytes, getU16$Buf_u8s, getU32Le$Buf_Bytes, getU32Le$Buf_u8s, getU64$Buf_Bytes, getU64$Buf_u8s, getU8$Buf_Bytes, getU8$Buf_u8s, getUint$Buf_Bytes, getUint$Buf_u8s, hasRemaining$Buf_Bytes, hasRemaining$Buf_Bytes$2, hasRemaining$Buf_BytesMut, hasRemaining$Buf_u8s, hasRemaining$Buf_u8s$2, remaining$Buf_Bytes, remaining$Buf_Bytes$2, remaining$Buf_BytesMut, remaining$Buf_u8s, remaining$Buf_u8s$2 } from "./bytes/buf/buf_impl.ts";
+import { hasRemainingMut$BufMut_BytesMut, hasRemainingMut$BufMut_Vec_u8, putI128Le$BufMut_BytesMut, putI128Le$BufMut_Vec_u8, putF64$BufMut_BytesMut, putF64$BufMut_Vec_u8, putI32$BufMut_BytesMut, putI32$BufMut_Vec_u8, putI8$BufMut_BytesMut, putI8$BufMut_Vec_u8, putSlice$BufMut_BytesMut, putSlice$BufMut_Vec_u8, putU16Le$BufMut_BytesMut, putU16Le$BufMut_Vec_u8, putU64$BufMut_BytesMut, putU64$BufMut_Vec_u8, putU8$BufMut_BytesMut, putU8$BufMut_Vec_u8, remainingMut$BufMut_BytesMut, remainingMut$BufMut_Vec_u8 } from "./bytes/buf/buf_mut.ts";
 import { then$bool_BytesMut_reserves_closure0 } from "./core/bool.ts";
 
 /**
@@ -132,7 +134,55 @@ export function getU8Checked$Checked_BytesMut(self: rt.BytesMut): rt.u8 {
 }
 
 /** A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes. */
-export function read$Bytes(buf: rt.Place<rt.ByteSlice>, n: rt.usize): rt.u128 {
+export function read$Bytes(buf: rt.Place<rt.Place<rt.ByteSlice>>, n: rt.usize): rt.u128 {
+	const _3: rt.usize = rt.usizeRem(n, 14);
+	if (_3 === 0) {
+		return getU8$Buf_Bytes(buf) as rt.u128;
+	}
+	if (_3 === 1) {
+		return rt.u128Cast(getI8$Buf_Bytes(buf));
+	}
+	if (_3 === 2) {
+		return getU16$Buf_Bytes(buf) as rt.u128;
+	}
+	if (_3 === 3) {
+		return rt.u128Cast(getI16Le$Buf_Bytes(buf));
+	}
+	if (_3 === 4) {
+		return getU32Le$Buf_Bytes(buf) as rt.u128;
+	}
+	if (_3 === 5) {
+		return rt.u128Cast(getI32$Buf_Bytes(buf));
+	}
+	if (_3 === 6) {
+		return rt.u128Cast(getU64$Buf_Bytes(buf));
+	}
+	if (_3 === 7) {
+		return rt.u128Cast(getI64Le$Buf_Bytes(buf));
+	}
+	if (_3 === 8) {
+		return getU128Le$Buf_Bytes(buf);
+	}
+	if (_3 === 9) {
+		return rt.u128Cast(getI128$Buf_Bytes(buf));
+	}
+	if (_3 === 10) {
+		return rt.u128Cast(getUint$Buf_Bytes(buf, rt.usizeRem(n, 10)));
+	}
+	if (_3 === 11) {
+		return rt.u128Cast(getIntLe$Buf_Bytes(buf, rt.usizeRem(n, 10)));
+	}
+	if (_3 === 12) {
+		return rt.u128Cast(rt.f64ToBits(getF64$Buf_Bytes(buf)));
+	}
+	const dst: Uint8Array = rt.bytes(3);
+	const part = rt.usizeRem(n, 4);
+	copyToSlice$Buf_Bytes(buf, rt.byteSliceRange(rt.byteSliceFrom(dst), 0, part));
+	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
+}
+
+/** A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes. */
+export function read$Bytes$2(buf: rt.Place<rt.ByteSlice>, n: rt.usize): rt.u128 {
 	const _3: rt.usize = rt.usizeRem(n, 14);
 	if (_3 === 0) {
 		return ((rt.bytesReadWord(buf, 1, false) as rt.u8)) as rt.u128;
@@ -227,6 +277,102 @@ export function read$BytesMut(buf: rt.BytesMut, n: rt.usize): rt.u128 {
 	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
 }
 
+/** A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes. */
+export function read$u8s(buf: rt.Place<rt.ByteSlice>, n: rt.usize): rt.u128 {
+	const _3: rt.usize = rt.usizeRem(n, 14);
+	if (_3 === 0) {
+		return ((rt.bytesReadWord(buf, 1, false) as rt.u8)) as rt.u128;
+	}
+	if (_3 === 1) {
+		return rt.u128Cast((rt.bytesReadWord(buf, 1, false) << 24) >> 24 as rt.i8);
+	}
+	if (_3 === 2) {
+		return ((rt.bytesReadWord(buf, 2, false) as rt.u16)) as rt.u128;
+	}
+	if (_3 === 3) {
+		return rt.u128Cast((rt.bytesReadWord(buf, 2, true) << 16) >> 16 as rt.i16);
+	}
+	if (_3 === 4) {
+		return ((rt.bytesReadWord(buf, 4, true) as rt.u32)) as rt.u128;
+	}
+	if (_3 === 5) {
+		return rt.u128Cast((rt.bytesReadWord(buf, 4, false) | 0) as rt.i32);
+	}
+	if (_3 === 6) {
+		return rt.u128Cast(rt.u64FromBeBytes(rt.bytesRead(buf, 8, false)));
+	}
+	if (_3 === 7) {
+		return rt.u128Cast(rt.i64FromBeBytes(rt.bytesRead(buf, 8, true)));
+	}
+	if (_3 === 8) {
+		return rt.u128FromBeBytes(rt.bytesRead(buf, 16, true));
+	}
+	if (_3 === 9) {
+		return rt.u128Cast(rt.i128FromBeBytes(rt.bytesRead(buf, 16, false)));
+	}
+	if (_3 === 10) {
+		return rt.u128Cast(rt.u64FromBeBytes(rt.bytesReadInt(buf, 8, rt.usizeRem(n, 10), false, false)));
+	}
+	if (_3 === 11) {
+		return rt.u128Cast(rt.i64FromBeBytes(rt.bytesReadInt(buf, 8, rt.usizeRem(n, 10), true, true)));
+	}
+	if (_3 === 12) {
+		return rt.u128Cast(rt.f64ToBits(rt.f64FromBeBytes(rt.bytesRead(buf, 8, false))));
+	}
+	const dst: Uint8Array = rt.bytes(3);
+	const part = rt.usizeRem(n, 4);
+	rt.bytesCopyToSlice(buf, rt.byteSliceRange(rt.byteSliceFrom(dst), 0, part));
+	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
+}
+
+/** A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes. */
+export function read$u8s$2(buf: rt.Place<rt.Place<rt.ByteSlice>>, n: rt.usize): rt.u128 {
+	const _3: rt.usize = rt.usizeRem(n, 14);
+	if (_3 === 0) {
+		return getU8$Buf_u8s(buf) as rt.u128;
+	}
+	if (_3 === 1) {
+		return rt.u128Cast(getI8$Buf_u8s(buf));
+	}
+	if (_3 === 2) {
+		return getU16$Buf_u8s(buf) as rt.u128;
+	}
+	if (_3 === 3) {
+		return rt.u128Cast(getI16Le$Buf_u8s(buf));
+	}
+	if (_3 === 4) {
+		return getU32Le$Buf_u8s(buf) as rt.u128;
+	}
+	if (_3 === 5) {
+		return rt.u128Cast(getI32$Buf_u8s(buf));
+	}
+	if (_3 === 6) {
+		return rt.u128Cast(getU64$Buf_u8s(buf));
+	}
+	if (_3 === 7) {
+		return rt.u128Cast(getI64Le$Buf_u8s(buf));
+	}
+	if (_3 === 8) {
+		return getU128Le$Buf_u8s(buf);
+	}
+	if (_3 === 9) {
+		return rt.u128Cast(getI128$Buf_u8s(buf));
+	}
+	if (_3 === 10) {
+		return rt.u128Cast(getUint$Buf_u8s(buf, rt.usizeRem(n, 10)));
+	}
+	if (_3 === 11) {
+		return rt.u128Cast(getIntLe$Buf_u8s(buf, rt.usizeRem(n, 10)));
+	}
+	if (_3 === 12) {
+		return rt.u128Cast(rt.f64ToBits(getF64$Buf_u8s(buf)));
+	}
+	const dst: Uint8Array = rt.bytes(3);
+	const part = rt.usizeRem(n, 4);
+	copyToSlice$Buf_u8s(buf, rt.byteSliceRange(rt.byteSliceFrom(dst), 0, part));
+	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
+}
+
 /**
  * `reserve` at the edges of `rt.BytesMut`'s limit for storage that was shared, 512 MiB
  * counting what it read past: a vector of its own grows as `Vec` does on either side of
@@ -259,8 +405,8 @@ export function reserves(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /**
- * The same reads off a `Bytes`, a `BytesMut`, and a buffer in pieces: each scalar, and
- * what remains.
+ * The same reads off a `Bytes`, a `BytesMut`, a `&[u8]`, buffers in pieces, and each
+ * through the impl forwarding through a `&mut`: each scalar, and what remains.
  */
 export function reads(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let rest!: rt.ByteVec;
@@ -271,19 +417,36 @@ export function reads(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		const input: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + 2 + mid, data.length - 2 - mid);
 		const cut: rt.usize = rt.usizeRem(data.data[data.start + 1] as rt.usize, rt.usizeAdd(input.length, 1));
-		const _22: rt.u8 = rt.u8Rem(data.data[data.start], 3);
+		const _22: rt.u8 = rt.u8Rem(data.data[data.start], 8);
 		if (_22 === 0) {
 			let _24: rt.ByteSlice = rt.bytesCopyFromSlice(input);
-			rest = readAll$Bytes(rt.place(() => _24, (value) => _24 = value), new rt.ByteSlice(data.data, data.start + 2, mid), read$Bytes, out);
+			rest = readAll$Bytes$2(rt.place(() => _24, (value7) => _24 = value7), new rt.ByteSlice(data.data, data.start + 2, mid), read$Bytes$2, out);
 		} else if (_22 === 1) {
 			rest = readAll$BytesMut(rt.bytesMutFrom(input), new rt.ByteSlice(data.data, data.start + 2, mid), read$BytesMut, out);
+		} else if (_22 === 2) {
+			rest = readAll$Pieces$2(Pieces.new(input, cut), new rt.ByteSlice(data.data, data.start + 2, mid), readPieces$Pieces$2, out);
+		} else if (_22 === 3) {
+			let _33: rt.ByteSlice = rt.byteSliceRange(input, 0);
+			rest = readAll$u8s(rt.place(() => _33, (value6) => _33 = value6), new rt.ByteSlice(data.data, data.start + 2, mid), read$u8s, out);
+		} else if (_22 === 4) {
+			const _37: Provided.Provided = { _0: Pieces.new(input, cut) };
+			rest = readAll$Provided(_37, new rt.ByteSlice(data.data, data.start + 2, mid), readPieces$Provided, out);
+		} else if (_22 === 5) {
+			let _42: rt.ByteSlice = rt.bytesCopyFromSlice(input);
+			let _41: rt.Place<rt.ByteSlice> = rt.place(() => _42, (value4) => _42 = value4);
+			rest = readAll$Bytes(rt.place(() => _41, (value5) => _41 = value5), new rt.ByteSlice(data.data, data.start + 2, mid), read$Bytes, out);
+		} else if (_22 === 6) {
+			let _46: rt.ByteSlice = rt.byteSliceRange(input, 0);
+			let _45: rt.Place<rt.ByteSlice> = rt.place(() => _46, (value2) => _46 = value2);
+			rest = readAll$u8s$2(rt.place(() => _45, (value3) => _45 = value3), new rt.ByteSlice(data.data, data.start + 2, mid), read$u8s$2, out);
 		} else {
-			rest = readAll$Pieces(Pieces.new(input, cut), new rt.ByteSlice(data.data, data.start + 2, mid), readPieces, out);
+			let _50: Pieces.Pieces = Pieces.new(input, cut);
+			rest = readAll$Pieces(rt.place(() => _50, (value) => _50 = value), new rt.ByteSlice(data.data, data.start + 2, mid), readPieces$Pieces, out);
 		}
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rest));
 		const vec: rt.ByteVec = new rt.ByteVec();
-		const _38: Pieces.Pieces = Pieces.new(input, cut);
-		rt.byteVecPutBuf(vec, _38, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf);
+		const _59: Pieces.Pieces = Pieces.new(input, cut);
+		rt.byteVecPutBuf(vec, _59, Pieces.hasRemaining$Buf, Pieces.remaining$Buf, Pieces.chunk$Buf, Pieces.advance$Buf);
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(vec));
 		const slice: rt.ByteSlice = input;
 		rt.byteVecPush(out, slice.length === input.length ? 1 : 0);
@@ -296,7 +459,21 @@ export function reads(data: rt.ByteSlice, out: rt.ByteVec): void {
  * The reads of `Buf`'s provided methods that translate for a buffer of the crate's own:
  * those whose MIR reads no bytes as another type.
  */
-export function readPieces(buf: Pieces.Pieces, n: rt.usize): rt.u128 {
+export function readPieces$Pieces(buf: rt.Place<Pieces.Pieces>, n: rt.usize): rt.u128 {
+	if (rt.usizeRem(n, 2) === 0) {
+		return Pieces.getU8$Buf$2(buf) as rt.u128;
+	}
+	const dst: Uint8Array = rt.bytes(3);
+	const part = rt.usizeRem(n, 4);
+	Pieces.copyToSlice$Buf$2(buf, rt.byteSliceRange(rt.byteSliceFrom(dst), 0, part));
+	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
+}
+
+/**
+ * The reads of `Buf`'s provided methods that translate for a buffer of the crate's own:
+ * those whose MIR reads no bytes as another type.
+ */
+export function readPieces$Pieces$2(buf: Pieces.Pieces, n: rt.usize): rt.u128 {
 	if (rt.usizeRem(n, 2) === 0) {
 		return Pieces.getU8$Buf(buf) as rt.u128;
 	}
@@ -306,17 +483,45 @@ export function readPieces(buf: Pieces.Pieces, n: rt.usize): rt.u128 {
 	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
 }
 
+/**
+ * The reads of `Buf`'s provided methods that translate for a buffer of the crate's own:
+ * those whose MIR reads no bytes as another type.
+ */
+export function readPieces$Provided(buf: Provided.Provided, n: rt.usize): rt.u128 {
+	if (rt.usizeRem(n, 2) === 0) {
+		return Provided.getU8$Buf(buf) as rt.u128;
+	}
+	const dst: Uint8Array = rt.bytes(3);
+	const part = rt.usizeRem(n, 4);
+	Provided.copyToSlice$Buf(buf, rt.byteSliceRange(rt.byteSliceFrom(dst), 0, part));
+	return ((dst[0] << 16) | (dst[1] << 8) | dst[2]) as rt.u128;
+}
+
 /** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
-export function readAll$Bytes(buf: rt.Place<rt.ByteSlice>, ops: rt.ByteSlice, read: (a0: rt.Place<rt.ByteSlice>, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+export function readAll$Bytes(buf: rt.Place<rt.Place<rt.ByteSlice>>, ops: rt.ByteSlice, read: (a0: rt.Place<rt.Place<rt.ByteSlice>>, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
 	for (const op of rt.byteSliceView(ops)) {
 		if (!(op === 255)) {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
 			rt.byteVecPush(out, hasRemaining$Buf_Bytes(buf) ? 1 : 0);
 		} else {
-			rt.bytesAdvance(buf, 1);
+			advance$Buf_Bytes(buf, 1);
 		}
 	}
 	const n: rt.usize = remaining$Buf_Bytes(buf);
+	return rt.byteSliceToByteVec(copyToBytes$Buf_Bytes(buf, n));
+}
+
+/** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
+export function readAll$Bytes$2(buf: rt.Place<rt.ByteSlice>, ops: rt.ByteSlice, read: (a0: rt.Place<rt.ByteSlice>, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+	for (const op of rt.byteSliceView(ops)) {
+		if (!(op === 255)) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
+			rt.byteVecPush(out, hasRemaining$Buf_Bytes$2(buf) ? 1 : 0);
+		} else {
+			rt.bytesAdvance(buf, 1);
+		}
+	}
+	const n: rt.usize = remaining$Buf_Bytes$2(buf);
 	return rt.byteSliceToByteVec(rt.bytesSplitTo(buf, n));
 }
 
@@ -335,25 +540,93 @@ export function readAll$BytesMut(buf: rt.BytesMut, ops: rt.ByteSlice, read: (a0:
 }
 
 /** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
-export function readAll$Pieces(buf: Pieces.Pieces, ops: rt.ByteSlice, read: (a0: Pieces.Pieces, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+export function readAll$Pieces(buf: rt.Place<Pieces.Pieces>, ops: rt.ByteSlice, read: (a0: rt.Place<Pieces.Pieces>, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
 	for (const op of rt.byteSliceView(ops)) {
 		if (!(op === 255)) {
 			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
 			rt.byteVecPush(out, Pieces.hasRemaining$Buf$2(buf) ? 1 : 0);
 		} else {
-			Pieces.advance$Buf(buf, 1);
+			Pieces.advance$Buf$2(buf, 1);
 		}
 	}
 	const n: rt.usize = Pieces.remaining$Buf$2(buf);
+	return rt.byteSliceToByteVec(Pieces.copyToBytes$Buf$2(buf, n));
+}
+
+/** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
+export function readAll$Pieces$2(buf: Pieces.Pieces, ops: rt.ByteSlice, read: (a0: Pieces.Pieces, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+	for (const op of rt.byteSliceView(ops)) {
+		if (!(op === 255)) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
+			rt.byteVecPush(out, Pieces.hasRemaining$Buf$3(buf) ? 1 : 0);
+		} else {
+			Pieces.advance$Buf(buf, 1);
+		}
+	}
+	const n: rt.usize = Pieces.remaining$Buf$3(buf);
 	return rt.byteSliceToByteVec(Pieces.copyToBytes$Buf(buf, n));
 }
 
-/** The same writes into a `Vec<u8>` and a `BytesMut`, which must match. */
+/** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
+export function readAll$Provided(buf: Provided.Provided, ops: rt.ByteSlice, read: (a0: Provided.Provided, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+	for (const op of rt.byteSliceView(ops)) {
+		if (!(op === 255)) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
+			rt.byteVecPush(out, Provided.hasRemaining$Buf$2(buf) ? 1 : 0);
+		} else {
+			Provided.advance$Buf(buf, 1);
+		}
+	}
+	const n: rt.usize = Provided.remaining$Buf$2(buf);
+	return rt.byteSliceToByteVec(rt.bufCopyToBytes(buf, n, Provided.remaining$Buf, Provided.chunk$Buf, Provided.advance$Buf));
+}
+
+/** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
+export function readAll$u8s(buf: rt.Place<rt.ByteSlice>, ops: rt.ByteSlice, read: (a0: rt.Place<rt.ByteSlice>, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+	for (const op of rt.byteSliceView(ops)) {
+		if (!(op === 255)) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
+			rt.byteVecPush(out, hasRemaining$Buf_u8s(buf) ? 1 : 0);
+		} else {
+			rt.byteSliceAdvance(buf, 1);
+		}
+	}
+	const n: rt.usize = remaining$Buf_u8s(buf);
+	return rt.byteSliceToByteVec(rt.byteSliceCopyToBytes(buf, n));
+}
+
+/** `read`s by each of `ops`, then the rest, as `copy_to_bytes` takes it. */
+export function readAll$u8s$2(buf: rt.Place<rt.Place<rt.ByteSlice>>, ops: rt.ByteSlice, read: (a0: rt.Place<rt.Place<rt.ByteSlice>>, a1: rt.usize) => rt.u128, out: rt.ByteVec): rt.ByteVec {
+	for (const op of rt.byteSliceView(ops)) {
+		if (!(op === 255)) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(read(buf, op as rt.usize))));
+			rt.byteVecPush(out, hasRemaining$Buf_u8s$2(buf) ? 1 : 0);
+		} else {
+			advance$Buf_u8s(buf, 1);
+		}
+	}
+	const n: rt.usize = remaining$Buf_u8s$2(buf);
+	return rt.byteSliceToByteVec(copyToBytes$Buf_u8s(buf, n));
+}
+
+/**
+ * The same writes into a `Vec<u8>` and a `BytesMut`, which must match, and through the
+ * impl forwarding through a `&mut`.
+ */
 export function writes(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const vec: rt.ByteVec = new rt.ByteVec();
 	const buf: rt.BytesMut = rt.bytesMutWithCapacity(0);
 	writeAll$Vec_u8(vec, data);
 	writeAll$BytesMut(buf, data);
+	const _11: [rt.ByteVec, rt.BytesMut] = [new rt.ByteVec(), rt.bytesMutWithCapacity(0)];
+	const throughVec: rt.ByteVec = _11[0];
+	const throughBuf: rt.BytesMut = _11[1];
+	let _16: rt.ByteVec = throughVec;
+	writeThrough$Vec_u8(rt.place(() => _16, (value) => _16 = value), data);
+	let _19: rt.BytesMut = throughBuf;
+	writeThrough$BytesMut(rt.place(() => _19, (value2) => _19 = value2), data);
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(throughVec));
+	rt.byteVecExtendFromSlice(out, rt.bytesMutView(throughBuf));
 	rt.byteVecPush(out, rt.byteSliceEq(rt.byteVecSlice(vec), rt.bytesMutView(buf)) ? 1 : 0);
 	rt.byteVecPush(out, ((0x7fffffff - vec.length as rt.usize)) === 0x7fffffff - buf.length as rt.usize ? 1 : 0);
 	rt.byteVecPush(out, buf.length < 0x7fffffff ? 1 : 0);
@@ -466,6 +739,94 @@ export function writeAll$Vec_u8(buf: rt.ByteVec, data: rt.ByteSlice): void {
 			rt.byteVecExtendFromSlice(buf, rt.byteSliceFrom(Uint8Array.of(112, 117, 116)));
 		} else {
 			rt.byteVecPutBytes(buf, rt.f64ToBeBytes(((n2 as rt.f64)) / 3.0), false);
+		}
+	}
+}
+
+/**
+ * A write by each pair of `data`'s bytes, of those that `&mut T` forwards, and of those
+ * whose provided body calls only those.
+ */
+export function writeThrough$BytesMut(buf: rt.Place<rt.BytesMut>, data: rt.ByteSlice): void {
+	let dataData: Uint8Array = data.data;
+	let dataStart: number = data.start;
+	let dataLen: number = data.length;
+	while (dataLen >= 2) {
+		const op: rt.u8 = dataData[dataStart];
+		const n: rt.u8 = dataData[dataStart + 1];
+		const restData: Uint8Array = dataData;
+		const restStart: number = dataStart + 2;
+		const restLen: number = dataLen - 2;
+		dataData = restData;
+		dataStart = restStart;
+		dataLen = restLen;
+		const op2: rt.u8 = op;
+		const n2: rt.u8 = n;
+		const v: rt.u64 = rt.u64Mul(n2 as rt.u64, { hi: 0x1010101, lo: 0x1010101 } as rt.u64);
+		const _18: rt.u8 = rt.u8Rem(op2, 9);
+		if (_18 === 0) {
+			putU8$BufMut_BytesMut(buf, n2);
+		} else if (_18 === 1) {
+			putI8$BufMut_BytesMut(buf, (n2 << 24) >> 24);
+		} else if (_18 === 2) {
+			putU16Le$BufMut_BytesMut(buf, rt.u64Low(v) & 0xffff);
+		} else if (_18 === 3) {
+			putI32$BufMut_BytesMut(buf, rt.u64Low(v) | 0);
+		} else if (_18 === 4) {
+			putU64$BufMut_BytesMut(buf, v);
+		} else if (_18 === 5) {
+			putSlice$BufMut_BytesMut(buf, rt.byteSliceFrom(Uint8Array.of(op2, n2)));
+		} else if (_18 === 6) {
+			putI128Le$BufMut_BytesMut(buf, rt.i128Shl(rt.i128Cast(v), 40));
+		} else if (_18 === 7) {
+			putF64$BufMut_BytesMut(buf, ((n2 as rt.f64)) / 3.0);
+		} else {
+			const _32: rt.u8 = rt.u8Add(hasRemainingMut$BufMut_BytesMut(buf) ? 1 : 0, rt.usizeRem(remainingMut$BufMut_BytesMut(buf), 7) & 0xff);
+			putU8$BufMut_BytesMut(buf, _32);
+		}
+	}
+}
+
+/**
+ * A write by each pair of `data`'s bytes, of those that `&mut T` forwards, and of those
+ * whose provided body calls only those.
+ */
+export function writeThrough$Vec_u8(buf: rt.Place<rt.ByteVec>, data: rt.ByteSlice): void {
+	let dataData: Uint8Array = data.data;
+	let dataStart: number = data.start;
+	let dataLen: number = data.length;
+	while (dataLen >= 2) {
+		const op: rt.u8 = dataData[dataStart];
+		const n: rt.u8 = dataData[dataStart + 1];
+		const restData: Uint8Array = dataData;
+		const restStart: number = dataStart + 2;
+		const restLen: number = dataLen - 2;
+		dataData = restData;
+		dataStart = restStart;
+		dataLen = restLen;
+		const op2: rt.u8 = op;
+		const n2: rt.u8 = n;
+		const v: rt.u64 = rt.u64Mul(n2 as rt.u64, { hi: 0x1010101, lo: 0x1010101 } as rt.u64);
+		const _18: rt.u8 = rt.u8Rem(op2, 9);
+		if (_18 === 0) {
+			putU8$BufMut_Vec_u8(buf, n2);
+		} else if (_18 === 1) {
+			putI8$BufMut_Vec_u8(buf, (n2 << 24) >> 24);
+		} else if (_18 === 2) {
+			putU16Le$BufMut_Vec_u8(buf, rt.u64Low(v) & 0xffff);
+		} else if (_18 === 3) {
+			putI32$BufMut_Vec_u8(buf, rt.u64Low(v) | 0);
+		} else if (_18 === 4) {
+			putU64$BufMut_Vec_u8(buf, v);
+		} else if (_18 === 5) {
+			putSlice$BufMut_Vec_u8(buf, rt.byteSliceFrom(Uint8Array.of(op2, n2)));
+		} else if (_18 === 6) {
+			putI128Le$BufMut_Vec_u8(buf, rt.i128Shl(rt.i128Cast(v), 40));
+		} else if (_18 === 7) {
+			putF64$BufMut_Vec_u8(buf, ((n2 as rt.f64)) / 3.0);
+		} else {
+			const _32: rt.u8 = rt.u8Add(hasRemainingMut$BufMut_Vec_u8(buf) ? 1 : 0, rt.usizeRem(remainingMut$BufMut_Vec_u8(buf), 7) & 0xff);
+			putU8$BufMut_Vec_u8(buf, _32);
 		}
 	}
 }
