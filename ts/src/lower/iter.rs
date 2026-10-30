@@ -493,11 +493,12 @@ pub fn call<'tcx>(
 				_ => {
 					let key = targ(2)?;
 					let le = super::collections::test_fn(b, key, "le", span);
-					(
-						Expr::rt("iterMap", vec![recv.clone(), rest.into_iter().next()?]),
-						le,
-						key,
-					)
+					// A reference to a function is the function, which the map would drop.
+					let (mut f, f_ty) = (rest.into_iter().next()?, targ(1)?);
+					if f_ty.is_ref() && b.t.drops(f_ty.peel_refs()) {
+						f = Expr::rt("lent", vec![f]);
+					}
+					(Expr::rt("iterMap", vec![recv.clone(), f]), le, key)
 				}
 			};
 			let mut droppers = vec![iter_drops(b, self_ty, span), b.t.dropper(each, span)];

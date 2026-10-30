@@ -163,13 +163,14 @@ export function sorted(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}), rt.cmpLe(rt.cmpReverse(rt.cmp))) ? 1 : 0);
 		rt.byteVecPush(out, rt.iterIsSortedBy(rt.iterSlice(rt.iterToArray(items()), rt.drop), Item.le$PartialOrd, true, rt.drop) ? 1 : 0);
 		flush(out);
-		const _81: [Item.Item, Item.Item, Item.Item] = [_77(), _77(), _77()];
-		const g: Item.Item = _81[0];
-		const h: Item.Item = _81[1];
-		const k: Item.Item = _81[2];
-		const _91: rt.Iter<Item.Item> = items();
+		const _82: [Item.Item, Item.Item, Item.Item, Item.Item] = [_77(), _77(), _77(), _77()];
+		const g: Item.Item = _82[0];
+		const h: Item.Item = _82[1];
+		const k: Item.Item = _82[2];
+		const l: Item.Item = _82[3];
+		const _94: rt.Iter<Item.Item> = items();
 		const captured = g;
-		rt.byteVecPush(out, rt.iterIsSortedBy(_91, rt.closure((a3: Item.Item, b5: Item.Item): boolean => {
+		rt.byteVecPush(out, rt.iterIsSortedBy(_94, rt.closure((a3: Item.Item, b5: Item.Item): boolean => {
 			if (!(captured.key <= a3.key)) {
 				return false;
 			}
@@ -177,27 +178,36 @@ export function sorted(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}, (): void => {
 			captured[Symbol.dispose]();
 		}), undefined, rt.drop, rt.drop) ? 1 : 0);
-		const _100: rt.Iter<Item.Item> = rt.iterSlice(rt.iterToArray(items()), rt.drop);
+		const _103: rt.Iter<Item.Item> = rt.iterSlice(rt.iterToArray(items()), rt.drop);
 		const captured2 = h;
-		rt.byteVecPush(out, rt.iterIsSortedBy(_100, rt.closure((a4: Item.Item, b6: Item.Item): boolean => {
+		rt.byteVecPush(out, rt.iterIsSortedBy(_103, rt.closure((a4: Item.Item, b6: Item.Item): boolean => {
 			return a4.key <= rt.u8Add(b6.key, captured2.key);
 		}, (): void => {
 			captured2[Symbol.dispose]();
 		}), true, rt.drop, rt.drop) ? 1 : 0);
-		const _105: rt.Iter<Item.Item> = items();
+		const _108: rt.Iter<Item.Item> = items();
 		const captured3 = k;
-		const _107: (a0: Item.Item) => rt.u8 = rt.closure((x4: Item.Item): rt.u8 => {
+		const _110: (a0: Item.Item) => rt.u8 = rt.closure((x4: Item.Item): rt.u8 => {
 			const _012: rt.u8 = rt.u8Add(x4.key, captured3.key);
 			x4[Symbol.dispose]();
 			return _012;
 		}, (): void => {
 			captured3[Symbol.dispose]();
 		});
-		rt.byteVecPush(out, rt.dropAfter(_107, () => rt.iterIsSortedBy(rt.iterMap(_105, _107), rt.le)) ? 1 : 0);
+		rt.byteVecPush(out, rt.dropAfter(_110, () => rt.iterIsSortedBy(rt.iterMap(_108, _110), rt.le)) ? 1 : 0);
+		const captured4 = l;
+		const key: (a0: Item.Item) => rt.u8 = rt.closure((x5: Item.Item): rt.u8 => {
+			const _013: rt.u8 = rt.u8Add(x5.key, captured4.key);
+			x5[Symbol.dispose]();
+			return _013;
+		}, (): void => {
+			captured4[Symbol.dispose]();
+		});
+		rt.byteVecPush(out, rt.iterIsSortedBy(rt.iterMap(rt.iterSlice(rt.iterToArray(items()), rt.drop), rt.lent(key)), rt.le, true) ? 1 : 0);
 		flush(out);
 		const strings: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(_12)), (b7: rt.u8): string => {
-			const _414: rt.u8 = rt.u8Rem(b7, 16);
-			return rt.fmtToString((f: rt.Formatter) => rt.u8Display(_414, f));
+			const _415: rt.u8 = rt.u8Rem(b7, 16);
+			return rt.fmtToString((f: rt.Formatter) => rt.u8Display(_415, f));
 		}));
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.sliceIsSorted(rt.byteSliceView(_12), rt.le) ? 1 : 0, rt.iterIsSortedBy(rt.iterSlice(rt.byteSliceView(_12)), (a5: rt.u8, b8: rt.u8): boolean => {
 			return rt.u8Div(a5, 4) <= rt.u8Div(b8, 4);
@@ -208,6 +218,7 @@ export function sorted(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}), rt.le) ? 1 : 0, rt.iterIsSortedBy(rt.iterMap(rt.iterSlice(rt.byteSliceView(_12)), (_29: rt.u8): rt.f64 => {
 			return (_29 as rt.f64) / 3.0;
 		}), rt.cmpLe(rt.f64PartialCmp)) ? 1 : 0)));
+		rt.drop(key);
 	}
 }
 
