@@ -8,7 +8,7 @@ CI.
 
 ## Plan
 
-Found by [#184](https://github.com/kixelated/rust2/pull/184) on 2026-10-28, which builds and
+Found by [#184](https://github.com/moq-dev/rust2/pull/184) on 2026-10-28, which builds and
 tests the Kotlin on the JVM only.
 
 - R8 and ProGuard rename or strip `Native`'s dispatchers, which the JNI glue finds by name.

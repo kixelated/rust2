@@ -19,7 +19,7 @@ moq-tokio, which `moq/moq.c` proves with moq-tokio's fallback runtime. It suits 
 with their own event loop or sockets.
 
 Decided with the maintainer on 2026-10-28, from
-[#215](https://github.com/kixelated/rust2/pull/215): at moq `30f25c04`, only moq-tokio's
+[#215](https://github.com/moq-dev/rust2/pull/215): at moq `30f25c04`, only moq-tokio's
 and moq-uring's drivers join moq-quic to moq-net's `poll::Session`, and each brings a
 runtime. The runtime-free driver that joins them is moq's change, not the exporter's.
 Datagrams move by pull: the binding passes in each one it receives, polls on each wake and

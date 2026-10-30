@@ -1,8 +1,8 @@
 [package]
 name = "uniffi_core"
 description = "A hard fork of UniFFI: a multi-language bindings generator for rust (runtime support code)"
-homepage = "https://github.com/kixelated/rust2/tree/main/uniffi"
-repository = "https://github.com/kixelated/rust2"
+homepage = "https://github.com/moq-dev/rust2/tree/main/uniffi"
+repository = "https://github.com/moq-dev/rust2"
 version = "0.1.0"
 publish = false
 license = "MPL-2.0"
