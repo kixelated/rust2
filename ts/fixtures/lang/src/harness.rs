@@ -155,6 +155,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("arrays::as_slices", |_, data, out| arrays::as_slices(data, out)),
 		("ints::widenings", ints::widenings),
 		("shapes::uninhabited", |_, data, out| shapes::uninhabited(data, out)),
+		("keys::lent_keys", keys::lent_keys),
+		("keys::lent_values", keys::lent_values),
 		("singles::singles", singles::singles),
 		("singles::formats", singles::formats),
 		("singles::parses", singles::parses),
