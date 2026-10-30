@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import * as DecodeError from "../coding/decode.DecodeError.ts";
 import * as Decoder from "../coding/decode.Decoder.ts";
-import { mapErr$Result_Group_DecodeError_DecodeError_complete, mapErr$Result_Probe_DecodeError_DecodeError_complete, andThen$Result_Group_DecodeError_Group_decode_with_closure0, andThen$Result_Probe_DecodeError_Probe_decode_with_closure0, unwrapOr$Result_usize_TryFromIntError } from "../core/result.ts";
+import { mapErr$0577706, mapErr$04g1m7s, andThen$0hcfsqc, andThen$1kvlask, unwrapOr$0jeml8j } from "../core/result.ts";
 import type * as Group from "../lite/group.Group.ts";
 import type * as Probe from "../lite/probe.Probe.ts";
 import type * as Control from "../stats.Control.ts";
@@ -19,7 +19,7 @@ export function decodeSize(r: Decoder.Decoder, max: rt.usize): rt.Result<rt.usiz
 				return _8 as rt.Result<rt.usize, DecodeError.DecodeError>;
 			}
 		}
-		return rt.Err({ tag: "MessageTooLarge", size: unwrapOr$Result_usize_TryFromIntError(rt.usizeTryFrom(size), 4294967295), max } as DecodeError.DecodeError);
+		return rt.Err({ tag: "MessageTooLarge", size: unwrapOr$0jeml8j(rt.usizeTryFrom(size), 4294967295), max } as DecodeError.DecodeError);
 	}
 	return _3;
 }
@@ -34,7 +34,7 @@ export function decodeWith$Group_decode_closure0(r: Decoder.Decoder, decode: (a0
 		const _9: rt.Result<Decoder.Decoder, DecodeError.DecodeError> = Decoder.sub(r, _3.value);
 		if (_9.ok) {
 			const body: Decoder.Decoder = _9.value;
-			const result: rt.Result<Group.Group, DecodeError.DecodeError> = andThen$Result_Group_DecodeError_Group_decode_with_closure0(mapErr$Result_Group_DecodeError_DecodeError_complete(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
+			const result: rt.Result<Group.Group, DecodeError.DecodeError> = andThen$0hcfsqc(mapErr$0577706(decode(body), DecodeError.complete), (msg: Group.Group): rt.Result<Group.Group, DecodeError.DecodeError> => {
 				if (!Decoder.isEmpty(body)) {
 					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
 				}
@@ -60,7 +60,7 @@ export function decodeWith$Probe_decode_closure0(r: Decoder.Decoder, decode: (a0
 		const _9: rt.Result<Decoder.Decoder, DecodeError.DecodeError> = Decoder.sub(r, _3.value);
 		if (_9.ok) {
 			const body: Decoder.Decoder = _9.value;
-			const result: rt.Result<Probe.Probe, DecodeError.DecodeError> = andThen$Result_Probe_DecodeError_Probe_decode_with_closure0(mapErr$Result_Probe_DecodeError_DecodeError_complete(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
+			const result: rt.Result<Probe.Probe, DecodeError.DecodeError> = andThen$1kvlask(mapErr$04g1m7s(decode(body), DecodeError.complete), (msg: Probe.Probe): rt.Result<Probe.Probe, DecodeError.DecodeError> => {
 				if (!Decoder.isEmpty(body)) {
 					return rt.Err({ tag: "Long" } as DecodeError.DecodeError);
 				}

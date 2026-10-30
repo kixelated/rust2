@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { copy$u8_u8 } from "./lib.ts";
-import { min$Item, min$Item$2, min$String, min$u8, minBy$Item_cmps_closure2, minByKey$Item_cmps_closure4_Reverse_u8, max$Item, max$Item$2, max$String, max$i8, max$u8, maxBy$Item_cmps_closure1, maxByKey$Item_cmps_closure3_Item } from "./core/cmp.ts";
-import { mapOr$Option_Item_u8_heaps_closure1, mapOr$Option_usize_u8_u8_heaps_closure0 } from "./core/option.ts";
+import { min$1lkq6fd, min$0a8gb2c, min$1ljcpv9, min$1mtc1eg, minBy$0f4msyz, minByKey$04nvnd5, max$1q2fs9h, max$1liqgh8, max$17dwnpn, max$0i3ups8, max$0g5g0ks, maxBy$04pyy5s, maxByKey$0pbe6kl } from "./core/cmp.ts";
+import { mapOr$14aggam, mapOr$06gg5x7 } from "./core/option.ts";
 import * as Item from "./orders.Item.ts";
 
 export const LOG: rt.LocalKey<rt.RefCell<rt.ByteVec>> = /* @__PURE__ */ new rt.LocalKey(LOG$init, false);
@@ -63,47 +63,47 @@ export function cmps(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _13: [rt.u8, rt.u8] = [_14, data.data[data.start + i]];
 		const a: rt.u8 = _14;
 		const b: rt.u8 = _13[1];
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(max$u8(a, b), min$u8(a, b), max$i8((a << 24) >> 24, (b << 24) >> 24) & 0xff)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(max$0g5g0ks(a, b), min$1mtc1eg(a, b), max$0i3ups8((a << 24) >> 24, (b << 24) >> 24) & 0xff)));
 		const _37: rt.u8 = rt.u8Div(b, 2);
 		const _32: [string, string] = [rt.fmtToString((f: rt.Formatter) => rt.u8Display(a, f)), rt.fmtToString((f: rt.Formatter) => rt.u8Display(_37, f))];
 		const s: string = _32[0];
 		const t: string = _32[1];
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.stringLen(max$String(s, t)) & 0xff, rt.stringLen(min$String(s, t)) & 0xff)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.stringLen(max$17dwnpn(s, t)) & 0xff, rt.stringLen(min$1ljcpv9(s, t)) & 0xff)));
 		const _55: [Item.Item, Item.Item] = [item(rt.usizeMul(2, i), a), item(rt.usizeAdd(rt.usizeMul(2, i), 1), b)];
 		const x: Item.Item = _55[0];
 		const y: Item.Item = _55[1];
-		rt.byteVecPush(out, max$Item(x, y).tag);
-		rt.byteVecPush(out, min$Item(x, y).tag);
-		const _76: Item.Item = max$Item$2(x, y);
+		rt.byteVecPush(out, max$1q2fs9h(x, y).tag);
+		rt.byteVecPush(out, min$1lkq6fd(x, y).tag);
+		const _76: Item.Item = max$1liqgh8(x, y);
 		rt.byteVecPush(out, _76.tag);
 		_76[Symbol.dispose]();
 		const pair: () => [Item.Item, Item.Item] = (): [Item.Item, Item.Item] => {
 			return [item(rt.usizeMul(2, i), a), item(rt.usizeAdd(rt.usizeMul(2, i), 1), b)] as [Item.Item, Item.Item];
 		};
 		const _83: [Item.Item, Item.Item] = pair();
-		const _87: Item.Item = min$Item$2(_83[0], _83[1]);
+		const _87: Item.Item = min$0a8gb2c(_83[0], _83[1]);
 		rt.byteVecPush(out, _87.tag);
 		_87[Symbol.dispose]();
 		const _90: [Item.Item, Item.Item] = pair();
-		const _94: Item.Item = maxBy$Item_cmps_closure1(_90[0], _90[1], (l: Item.Item, r: Item.Item): rt.Ordering => {
+		const _94: Item.Item = maxBy$04pyy5s(_90[0], _90[1], (l: Item.Item, r: Item.Item): rt.Ordering => {
 			return rt.orderingReverse(rt.cmp(l.key, r.key));
 		});
 		rt.byteVecPush(out, _94.tag);
 		_94[Symbol.dispose]();
 		const _97: [Item.Item, Item.Item] = pair();
-		const _101: Item.Item = minBy$Item_cmps_closure2(_97[0], _97[1], (l2: Item.Item, r2: Item.Item): rt.Ordering => {
+		const _101: Item.Item = minBy$0f4msyz(_97[0], _97[1], (l2: Item.Item, r2: Item.Item): rt.Ordering => {
 			return rt.cmp(rt.u8Div(l2.key, 2), rt.u8Div(r2.key, 2));
 		});
 		rt.byteVecPush(out, _101.tag);
 		_101[Symbol.dispose]();
 		const _104: [Item.Item, Item.Item] = pair();
-		const _108: Item.Item = maxByKey$Item_cmps_closure3_Item(_104[0], _104[1], (v: Item.Item): Item.Item => {
+		const _108: Item.Item = maxByKey$0pbe6kl(_104[0], _104[1], (v: Item.Item): Item.Item => {
 			return item(rt.usizeAdd(v.tag as rt.usize, 100), rt.u8Div(v.key, 2));
 		});
 		rt.byteVecPush(out, _108.tag);
 		_108[Symbol.dispose]();
 		const _111: [Item.Item, Item.Item] = pair();
-		const _115: Item.Item = minByKey$Item_cmps_closure4_Reverse_u8(_111[0], _111[1], (v2: Item.Item): rt.u8 => {
+		const _115: Item.Item = minByKey$04nvnd5(_111[0], _111[1], (v2: Item.Item): rt.u8 => {
 			return v2.key;
 		});
 		rt.byteVecPush(out, _115.tag);
@@ -238,7 +238,7 @@ export function heaps(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_8 !== rt.DONE) {
 			const i: rt.usize = _8[0];
 			const op: rt.u8 = _8[1];
-			const v: rt.u8 = mapOr$Option_usize_u8_u8_heaps_closure0(rt.iterToOption(ops.next()), 0, (_2: [rt.usize, rt.u8]): rt.u8 => {
+			const v: rt.u8 = mapOr$06gg5x7(rt.iterToOption(ops.next()), 0, (_2: [rt.usize, rt.u8]): rt.u8 => {
 				return _2[1];
 			});
 			b2: {
@@ -250,7 +250,7 @@ export function heaps(data: rt.ByteSlice, out: rt.ByteVec): void {
 					}
 				}
 				if (_17 === 3) {
-					rt.byteVecPush(out, mapOr$Option_Item_u8_heaps_closure1(rt.heapPop(heap, Item.le$PartialOrd), 255, (x5: Item.Item): rt.u8 => {
+					rt.byteVecPush(out, mapOr$14aggam(rt.heapPop(heap, Item.le$PartialOrd), 255, (x5: Item.Item): rt.u8 => {
 						const _06: rt.u8 = x5.tag;
 						x5[Symbol.dispose]();
 						return _06;
@@ -324,7 +324,7 @@ export function heaps(data: rt.ByteSlice, out: rt.ByteVec): void {
 					rt.iterExtendBytes(out, rt.iterMap(rt.heapIter(heap), (x: Item.Item): rt.u8 => {
 						return x.tag;
 					}));
-					rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(mapOr$Option_Item_u8_heaps_closure1(heap.d[0], 255, (x2: Item.Item): rt.u8 => {
+					rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(mapOr$14aggam(heap.d[0], 255, (x2: Item.Item): rt.u8 => {
 						return x2.tag;
 					}), heap.d.length & 0xff, heap.d.length === 0 ? 1 : 0)));
 				}
@@ -335,7 +335,7 @@ export function heaps(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	const drain: rt.Iter<Item.Item> = rt.heapDrain(heap, rt.drop);
-	rt.byteVecPush(out, mapOr$Option_Item_u8_heaps_closure1(rt.iterToOption(drain.next()), 255, (x6: Item.Item): rt.u8 => {
+	rt.byteVecPush(out, mapOr$14aggam(rt.iterToOption(drain.next()), 255, (x6: Item.Item): rt.u8 => {
 		const _07: rt.u8 = x6.tag;
 		x6[Symbol.dispose]();
 		return _07;
@@ -345,13 +345,13 @@ export function heaps(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const collected: rt.BinaryHeap<Item.Item> = rt.heapFrom(rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_29: [rt.usize, rt.u8]): Item.Item => {
 		return item(_29[0], _29[1]);
 	})), Item.le$PartialOrd, Item.ge$PartialOrd, Item.lt$PartialOrd);
-	rt.byteVecPush(out, mapOr$Option_Item_u8_heaps_closure1(rt.heapPop(collected, Item.le$PartialOrd), 255, (x7: Item.Item): rt.u8 => {
+	rt.byteVecPush(out, mapOr$14aggam(rt.heapPop(collected, Item.le$PartialOrd), 255, (x7: Item.Item): rt.u8 => {
 		const _09: rt.u8 = x7.tag;
 		x7[Symbol.dispose]();
 		return _09;
 	}));
 	const rest: rt.Iter<Item.Item> = rt.heapIter(collected, rt.drop);
-	rt.byteVecPush(out, mapOr$Option_Item_u8_heaps_closure1(rt.iterToOption(rest.next()), 255, (x8: Item.Item): rt.u8 => {
+	rt.byteVecPush(out, mapOr$14aggam(rt.iterToOption(rest.next()), 255, (x8: Item.Item): rt.u8 => {
 		const _010: rt.u8 = x8.tag;
 		x8[Symbol.dispose]();
 		return _010;

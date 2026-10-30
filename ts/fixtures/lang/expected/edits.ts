@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$chars } from "./lib.ts";
-import { unwrapOr$Option_Nameds, unwrapOr$Option_u16, unwrapOr$Option_u8, map$Option_Box_Named_u16_edits_closure31, map$Option_Named_Nameds_from_ref, mapOr$Option_Named_u16_edits_closure33, mapOr$Option_u16_u16_edits_closure21, filter$Option_Box_Named_edits_closure30, clone$Clone_Option_Box_Named } from "./core/option.ts";
+import { unwrapOr$039uout, unwrapOr$1j4op5y, unwrapOr$0r2bmpr, map$0xa0bn7, map$1u8sh4f, mapOr$14njs1h, mapOr$1llunel, filter$184yuq2, clone$0vcwlo5 } from "./core/option.ts";
 import * as Lean from "./edits.Lean.ts";
 import * as Named from "./edits.Named.ts";
 import * as Stamp from "./edits.Stamp.ts";
@@ -43,7 +43,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		return rt.u16Mul(_2 as rt.u16, 3);
 	}));
 	const at: (a0: rt.usize) => rt.u8 = (i3: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i3), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i3), 0);
 	};
 	const _8: rt.u8 = rt.u8Rem(kind, 8);
 	if (_8 === 0) {
@@ -159,7 +159,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}));
 		rt.sliceSort(options, rt.cmpLt(rt.cmpOption(rt.cmp)));
 		for (const _215 of options) {
-			putU16s(out, [mapOr$Option_u16_u16_edits_closure21(_215, 65535, (o: rt.u16): rt.u16 => {
+			putU16s(out, [mapOr$1llunel(_215, 65535, (o: rt.u16): rt.u16 => {
 				return o;
 			})]);
 		}
@@ -173,7 +173,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	} else if (_8 === 3) {
 		const v5: rt.u16[] = words.slice();
-		putU16s(out, [unwrapOr$Option_u16(rt.sliceLast(v5), 65535)]);
+		putU16s(out, [unwrapOr$1j4op5y(rt.sliceLast(v5), 65535)]);
 		const runs: [rt.u16, rt.u16 | undefined][] = rt.iterToArray(rt.iterMap(rt.iterSlice(words), (_211: rt.u16): [rt.u16, rt.u16 | undefined] => {
 			return [_211, undefined] as [rt.u16, rt.u16 | undefined];
 		}));
@@ -186,7 +186,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			_263[0] = rt.u16Add(_263[0], 1);
 		}
 		for (const _272 of runs) {
-			putU16s(out, [_272[0], unwrapOr$Option_u16(_272[1], 65535)]);
+			putU16s(out, [_272[0], unwrapOr$1j4op5y(_272[1], 65535)]);
 		}
 		v5.reverse();
 		putU16s(out, v5);
@@ -305,12 +305,12 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		copy2.name = copy2.name + "!";
 		put(out, boxed.name);
 		put(out, copy2.name);
-		const held: Named.Named | undefined = filter$Option_Box_Named_edits_closure30(boxed, (_27: Named.Named): boolean => {
+		const held: Named.Named | undefined = filter$184yuq2(boxed, (_27: Named.Named): boolean => {
 			return rt.u8Rem(at(3), 2) === 0;
 		});
-		rt.byteVecPush(out, map$Option_Box_Named_u16_edits_closure31(clone$Clone_Option_Box_Named(held), (b3: Named.Named): rt.u16 => {
+		rt.byteVecPush(out, map$0xa0bn7(clone$0vcwlo5(held), (b3: Named.Named): rt.u16 => {
 			return b3.id;
-		}) === map$Option_Box_Named_u16_edits_closure31(held, (b4: Named.Named): rt.u16 => {
+		}) === map$0xa0bn7(held, (b4: Named.Named): rt.u16 => {
 			return b4.id;
 		}) ? 1 : 0);
 		const some: Named.Named[] | undefined = kept.map(Named.clone$Clone);
@@ -323,10 +323,10 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _696: Named.Named | undefined = optional$Option_Named(undefined);
 		rt.byteVecPush(out, rt.eqOption(Named.eq$PartialEq)(_691, _696) ? 1 : 0);
 		const part3 = at(4) as rt.u16;
-		rt.byteVecPush(out, mapOr$Option_Named_u16_edits_closure33(optional$Named(_575(part3)), 65535, (n2: Named.Named): rt.u16 => {
+		rt.byteVecPush(out, mapOr$14njs1h(optional$Named(_575(part3)), 65535, (n2: Named.Named): rt.u16 => {
 			return n2.id;
 		}) & 0xff);
-		const part4 = unwrapOr$Option_Nameds(map$Option_Named_Nameds_from_ref(rt.sliceFirst(kept), (a09: Named.Named): Named.Named[] => {
+		const part4 = unwrapOr$039uout(map$1u8sh4f(rt.sliceFirst(kept), (a09: Named.Named): Named.Named[] => {
 			return [a09];
 		}), kept);
 		putU16s(out, _576(part4));
@@ -392,7 +392,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function bytes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$Option_u8(rt.byteSliceGet(data, i2), 0);
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i2), 0);
 	};
 	const words: rt.u16[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u16 => {
 		return rt.u16Mul(_2 as rt.u16, 3);
@@ -511,9 +511,9 @@ export function bytes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteSliceView(tail).sort();
 			rt.byteSliceView(tail).reverse();
 			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(v14));
-			rt.byteVecPush(out, unwrapOr$Option_u8(rt.byteSliceLast(rt.byteVecSlice(v14)), 253));
+			rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.byteSliceLast(rt.byteVecSlice(v14)), 253));
 			const part4 = rt.min(v14.length, 1);
-			rt.byteVecPush(out, unwrapOr$Option_u8(rt.byteSliceLast(rt.byteSliceRange(rt.byteVecSlice(v14), part4)), 253));
+			rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.byteSliceLast(rt.byteSliceRange(rt.byteVecSlice(v14), part4)), 253));
 			rt.byteSliceView(rt.byteVecSlice(v14)).reverse();
 			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(v14));
 			rt.byteVecPush(out, 254);

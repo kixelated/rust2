@@ -6,7 +6,7 @@ import * as Pieces from "./buf.Pieces.ts";
 import * as Provided from "./buf.Provided.ts";
 import { advance$Buf_Bytes, advance$Buf_u8s, copyToBytes$Buf_Bytes, copyToBytes$Buf_u8s, copyToSlice$Buf_Bytes, copyToSlice$Buf_u8s, getF64$Buf_Bytes, getF64$Buf_u8s, getI128$Buf_Bytes, getI128$Buf_u8s, getI16Le$Buf_Bytes, getI16Le$Buf_u8s, getI32$Buf_Bytes, getI32$Buf_u8s, getI64Le$Buf_Bytes, getI64Le$Buf_u8s, getI8$Buf_Bytes, getI8$Buf_u8s, getIntLe$Buf_Bytes, getIntLe$Buf_u8s, getU128Le$Buf_Bytes, getU128Le$Buf_u8s, getU16$Buf_Bytes, getU16$Buf_u8s, getU32Le$Buf_Bytes, getU32Le$Buf_u8s, getU64$Buf_Bytes, getU64$Buf_u8s, getU8$Buf_Bytes, getU8$Buf_u8s, getUint$Buf_Bytes, getUint$Buf_u8s, hasRemaining$Buf_Bytes, hasRemaining$Buf_Bytes$2, hasRemaining$Buf_BytesMut, hasRemaining$Buf_u8s, hasRemaining$Buf_u8s$2, remaining$Buf_Bytes, remaining$Buf_Bytes$2, remaining$Buf_BytesMut, remaining$Buf_u8s, remaining$Buf_u8s$2 } from "./bytes/buf/buf_impl.ts";
 import { hasRemainingMut$BufMut_BytesMut, hasRemainingMut$BufMut_Vec_u8, putI128Le$BufMut_BytesMut, putI128Le$BufMut_Vec_u8, putF64$BufMut_BytesMut, putF64$BufMut_Vec_u8, putI32$BufMut_BytesMut, putI32$BufMut_Vec_u8, putI8$BufMut_BytesMut, putI8$BufMut_Vec_u8, putSlice$BufMut_BytesMut, putSlice$BufMut_Vec_u8, putU16Le$BufMut_BytesMut, putU16Le$BufMut_Vec_u8, putU64$BufMut_BytesMut, putU64$BufMut_Vec_u8, putU8$BufMut_BytesMut, putU8$BufMut_Vec_u8, remainingMut$BufMut_BytesMut, remainingMut$BufMut_Vec_u8 } from "./bytes/buf/buf_mut.ts";
-import { then$bool_BytesMut_reserves_closure0 } from "./core/bool.ts";
+import { then$1y5f3ge } from "./core/bool.ts";
 
 /**
  * A `BytesMut` split, frozen, grown, and written, ending with every piece's bytes: a
@@ -390,7 +390,7 @@ export function reserves(data: rt.ByteSlice, out: rt.ByteVec): void {
 						const buf: rt.BytesMut = rt.bytesMutFrom(rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(101, 100, 103, 101, 115)), 0));
 						const read2: rt.usize = rt.usizeRem(read as rt.usize, 5);
 						rt.bytesMutAdvance(buf, read2);
-						const head: rt.BytesMut | undefined = then$bool_BytesMut_reserves_closure0(rt.u8Rem(kind, 2) === 1, (): rt.BytesMut => {
+						const head: rt.BytesMut | undefined = then$1y5f3ge(rt.u8Rem(kind, 2) === 1, (): rt.BytesMut => {
 							return rt.bytesMutSplitTo(buf, 0);
 						});
 						rt.bytesMutReserve(buf, rt.usizeSub(rt.usizeSub(rt.usizeAdd(536870912, rt.u8Rem(rt.u8Div(kind, 2), 2) as rt.usize), read2), buf.length));

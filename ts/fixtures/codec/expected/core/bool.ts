@@ -2,7 +2,7 @@
 
 import * as rt from "../rt.ts";
 
-export function thenSome$bool_u64(self: boolean, t: rt.u64): rt.u64 | undefined {
+export function thenSome$1ugl8af(self: boolean, t: rt.u64): rt.u64 | undefined {
 	if (!self) {
 		return undefined;
 	}

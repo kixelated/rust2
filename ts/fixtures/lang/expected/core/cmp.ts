@@ -3,23 +3,23 @@
 import * as rt from "../rt.ts";
 import * as Item from "../orders.Item.ts";
 
-export function min$Item(v1: Item.Item, v2: Item.Item): Item.Item {
+export function min$1lkq6fd(v1: Item.Item, v2: Item.Item): Item.Item {
 	return rt.ordMin(v1, v2, Item.lt$PartialOrd);
 }
 
-export function min$Item$2(v1: Item.Item, v2: Item.Item): Item.Item {
+export function min$0a8gb2c(v1: Item.Item, v2: Item.Item): Item.Item {
 	return rt.ordMin(v1, v2, Item.lt$PartialOrd, rt.drop);
 }
 
-export function min$String(v1: string, v2: string): string {
+export function min$1ljcpv9(v1: string, v2: string): string {
 	return rt.ordMin(v1, v2, rt.cmpLt(rt.cmpStr));
 }
 
-export function min$u8(v1: rt.u8, v2: rt.u8): rt.u8 {
+export function min$1mtc1eg(v1: rt.u8, v2: rt.u8): rt.u8 {
 	return rt.min(v1, v2);
 }
 
-export function minBy$Item_cmps_closure2(v1: Item.Item, v2: Item.Item, compare: (a0: Item.Item, a1: Item.Item) => rt.Ordering): Item.Item {
+export function minBy$0f4msyz(v1: Item.Item, v2: Item.Item, compare: (a0: Item.Item, a1: Item.Item) => rt.Ordering): Item.Item {
 	let _0!: Item.Item;
 	let _10: boolean = false;
 	let _9: boolean = false;
@@ -42,7 +42,7 @@ export function minBy$Item_cmps_closure2(v1: Item.Item, v2: Item.Item, compare: 
 	return _0;
 }
 
-export function minByKey$Item_cmps_closure4_Reverse_u8(v1: Item.Item, v2: Item.Item, f: (a0: Item.Item) => rt.u8): Item.Item {
+export function minByKey$04nvnd5(v1: Item.Item, v2: Item.Item, f: (a0: Item.Item) => rt.u8): Item.Item {
 	let _0!: Item.Item;
 	let _16: boolean = false;
 	let _15: boolean = false;
@@ -67,27 +67,27 @@ export function minByKey$Item_cmps_closure4_Reverse_u8(v1: Item.Item, v2: Item.I
 	return _0;
 }
 
-export function max$Item(v1: Item.Item, v2: Item.Item): Item.Item {
+export function max$1q2fs9h(v1: Item.Item, v2: Item.Item): Item.Item {
 	return rt.ordMax(v1, v2, Item.lt$PartialOrd);
 }
 
-export function max$Item$2(v1: Item.Item, v2: Item.Item): Item.Item {
+export function max$1liqgh8(v1: Item.Item, v2: Item.Item): Item.Item {
 	return rt.ordMax(v1, v2, Item.lt$PartialOrd, rt.drop);
 }
 
-export function max$String(v1: string, v2: string): string {
+export function max$17dwnpn(v1: string, v2: string): string {
 	return rt.ordMax(v1, v2, rt.cmpLt(rt.cmpStr));
 }
 
-export function max$i8(v1: rt.i8, v2: rt.i8): rt.i8 {
+export function max$0i3ups8(v1: rt.i8, v2: rt.i8): rt.i8 {
 	return rt.max(v1, v2);
 }
 
-export function max$u8(v1: rt.u8, v2: rt.u8): rt.u8 {
+export function max$0g5g0ks(v1: rt.u8, v2: rt.u8): rt.u8 {
 	return rt.max(v1, v2);
 }
 
-export function maxBy$Item_cmps_closure1(v1: Item.Item, v2: Item.Item, compare: (a0: Item.Item, a1: Item.Item) => rt.Ordering): Item.Item {
+export function maxBy$04pyy5s(v1: Item.Item, v2: Item.Item, compare: (a0: Item.Item, a1: Item.Item) => rt.Ordering): Item.Item {
 	let _0!: Item.Item;
 	let _10: boolean = false;
 	let _9: boolean = false;
@@ -110,7 +110,7 @@ export function maxBy$Item_cmps_closure1(v1: Item.Item, v2: Item.Item, compare: 
 	return _0;
 }
 
-export function maxByKey$Item_cmps_closure3_Item(v1: Item.Item, v2: Item.Item, f: (a0: Item.Item) => Item.Item): Item.Item {
+export function maxByKey$0pbe6kl(v1: Item.Item, v2: Item.Item, f: (a0: Item.Item) => Item.Item): Item.Item {
 	let _0!: Item.Item;
 	let _16: boolean = false;
 	let _15: boolean = false;

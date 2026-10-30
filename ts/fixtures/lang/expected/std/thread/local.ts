@@ -5,7 +5,7 @@ import { copy$Twin_Twin } from "../../lib.ts";
 import type * as Noisy from "../../locals.Noisy.ts";
 import type * as Twin from "../../locals.Twin.ts";
 
-export function set$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): void {
+export function set$0fx7125(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): void {
 	rt.localKeyInitializeWith(self, new rt.Cell(value), (value2: rt.Cell<rt.u32> | undefined, cell: rt.Cell<rt.u32>): void => {
 		if (value2 !== undefined) {
 			rt.cellSet(cell, value2.v);
@@ -13,32 +13,32 @@ export function set$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>, value:
 	});
 }
 
-export function get$LocalKey_Cell_Twin_Twin(self: rt.LocalKey<rt.Cell<[Twin.Twin, Twin.Twin]>>): [Twin.Twin, Twin.Twin] {
+export function get$1jdtkm4(self: rt.LocalKey<rt.Cell<[Twin.Twin, Twin.Twin]>>): [Twin.Twin, Twin.Twin] {
 	return ((a0: rt.Cell<[Twin.Twin, Twin.Twin]>): [Twin.Twin, Twin.Twin] => {
 		return copy$Twin_Twin(a0.v);
 	})(self.get());
 }
 
-export function get$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>): rt.u32 {
+export function get$1ei2eoj(self: rt.LocalKey<rt.Cell<rt.u32>>): rt.u32 {
 	return ((a0: rt.Cell<rt.u32>): rt.u32 => {
 		return a0.v;
 	})(self.get());
 }
 
-export function take$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>): rt.u32 {
+export function take$09yi5f2(self: rt.LocalKey<rt.Cell<rt.u32>>): rt.u32 {
 	return ((a0: rt.Cell<rt.u32>): rt.u32 => {
 		return rt.cellReplace(a0, 0);
 	})(self.get());
 }
 
-export function replace$LocalKey_Cell_u32(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): rt.u32 {
+export function replace$0kxb7te(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): rt.u32 {
 	const captured = value;
 	return ((cell: rt.Cell<rt.u32>): rt.u32 => {
 		return rt.cellReplace(cell, captured);
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_Option_Noisy_locals_closure3_u8(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, f: (a0: Noisy.Noisy | undefined) => rt.u8): rt.u8 {
+export function withBorrow$1qygtee(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, f: (a0: Noisy.Noisy | undefined) => rt.u8): rt.u8 {
 	const captured = f;
 	return ((cell: rt.RefCell<Noisy.Noisy | undefined>): rt.u8 => {
 		const _32: (a0: Noisy.Noisy | undefined) => rt.u8 = captured;
@@ -49,7 +49,7 @@ export function withBorrow$LocalKey_RefCell_Option_Noisy_locals_closure3_u8(self
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure0_Vec_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.ByteVec): rt.ByteVec {
+export function withBorrow$1k8k9m1(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.ByteVec): rt.ByteVec {
 	const captured = f;
 	return ((cell: rt.RefCell<rt.ByteVec>): rt.ByteVec => {
 		const _32: (a0: rt.ByteVec) => rt.ByteVec = captured;
@@ -60,7 +60,7 @@ export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure0_Vec_u8(self: 
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure16_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
+export function withBorrow$0r4ucls(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
 	const captured = f;
 	return ((cell: rt.RefCell<rt.ByteVec>): rt.u8 => {
 		const _32: (a0: rt.ByteVec) => rt.u8 = captured;
@@ -71,7 +71,7 @@ export function withBorrow$LocalKey_RefCell_Vec_u8_locals_closure16_u8(self: rt.
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_u32_locals_closure21_u8(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0: rt.u32) => rt.u8): rt.u8 {
+export function withBorrow$1t1sbub(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0: rt.u32) => rt.u8): rt.u8 {
 	const captured = f;
 	return ((cell: rt.RefCell<rt.u32>): rt.u8 => {
 		const _32: (a0: rt.u32) => rt.u8 = captured;
@@ -82,7 +82,7 @@ export function withBorrow$LocalKey_RefCell_u32_locals_closure21_u8(self: rt.Loc
 	})(self.get());
 }
 
-export function withBorrow$LocalKey_RefCell_u32_locals_closure22_u32(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0: rt.u32) => rt.u32): rt.u32 {
+export function withBorrow$15ql9sa(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0: rt.u32) => rt.u32): rt.u32 {
 	const captured = f;
 	return ((cell: rt.RefCell<rt.u32>): rt.u32 => {
 		const _32: (a0: rt.u32) => rt.u32 = captured;
@@ -93,19 +93,19 @@ export function withBorrow$LocalKey_RefCell_u32_locals_closure22_u32(self: rt.Lo
 	})(self.get());
 }
 
-export function take$LocalKey_RefCell_Option_Noisy(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>): Noisy.Noisy | undefined {
+export function take$1x34chv(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>): Noisy.Noisy | undefined {
 	return ((a0: rt.RefCell<Noisy.Noisy | undefined>): Noisy.Noisy | undefined => {
 		return rt.refCellReplace(a0, undefined);
 	})(self.get());
 }
 
-export function take$LocalKey_RefCell_Vec_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>): rt.ByteVec {
+export function take$122f15k(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>): rt.ByteVec {
 	return ((a0: rt.RefCell<rt.ByteVec>): rt.ByteVec => {
 		return rt.refCellReplace(a0, new rt.ByteVec());
 	})(self.get());
 }
 
-export function replace$LocalKey_RefCell_Option_Noisy(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, value: Noisy.Noisy | undefined): Noisy.Noisy | undefined {
+export function replace$0bb3zeq(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, value: Noisy.Noisy | undefined): Noisy.Noisy | undefined {
 	const captured = value;
 	return rt.closure((cell: rt.RefCell<Noisy.Noisy | undefined>): Noisy.Noisy | undefined => {
 		return rt.refCellReplace(cell, captured);
@@ -114,7 +114,7 @@ export function replace$LocalKey_RefCell_Option_Noisy(self: rt.LocalKey<rt.RefCe
 	})(self.get());
 }
 
-export function replace$LocalKey_RefCell_Vec_u8(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, value: rt.ByteVec): rt.ByteVec {
+export function replace$1xk72wn(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>, value: rt.ByteVec): rt.ByteVec {
 	const captured = value;
 	return ((cell: rt.RefCell<rt.ByteVec>): rt.ByteVec => {
 		return rt.refCellReplace(cell, captured);
