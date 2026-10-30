@@ -623,6 +623,15 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// The receiver passes as what it points at, as std's `&mut self` does.
 				let values = self.operands(false, &[true], args, result, span, out);
 				let place = self.b.call_def(def_id, gargs, values, span, out);
+				// A `&mut`, or a pin of one, lends the `rt.Place` it is, whose value is at `v`.
+				let lent = targ(0).map(|t| match t.kind() {
+					ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Pin) => args.type_at(0),
+					_ => t,
+				});
+				let place = match lent {
+					Some(lent) if self.b.t.place_pointee(lent).is_some() => place.member("v"),
+					_ => place,
+				};
 				if !place.is_path() {
 					if self.b.t.object_kind(*pointee).is_some() && !self.b.t.needs_place(*pointee) {
 						return done(place, true);

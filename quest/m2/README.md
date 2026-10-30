@@ -26,7 +26,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 
 ## Required
 
-- [Rebuild a target directory when its std changes](/quest/m2/ts-sysroot-fingerprint.md) - a new std sysroot rebuilds what depends on std, so no E0460 until a clean
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
