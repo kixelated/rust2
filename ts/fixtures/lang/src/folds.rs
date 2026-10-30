@@ -53,6 +53,9 @@ macro_rules! folds {
 		read!(|r| r.by_ref().map(|x| x).position(|x| is_k(&x)));
 		read!(|r| r.by_ref().map(|x| x).rfind(is_k));
 		read!(|r| r.by_ref().map(|x| x).fold(0usize, |n, _| n + 1));
+		// `nth` and `nth_back` advance it by `advance_by`, which folds.
+		read!(|r| r.by_ref().map(|x| x).nth(n));
+		read!(|r| r.by_ref().map(|x| x).nth_back(n));
 		read!(|r| r.by_ref().map(|x| x).rev().max());
 		read!(|r| r.by_ref().map(|x| x).collect::<Vec<_>>().len());
 		read!(|r| r.by_ref().inspect(|_| {}).count());
