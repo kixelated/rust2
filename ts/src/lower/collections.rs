@@ -1884,7 +1884,10 @@ pub fn impl_eq<'tcx>(
 		.collect();
 	let call = f.call(args);
 	let params = std::iter::zip(names, held)
-		.map(|(name, ty)| Param { name, ty: Some(b.t.ty(ty, span)) })
+		.map(|(name, ty)| Param {
+			name,
+			ty: Some(b.t.ty(ty, span)),
+		})
 		.collect();
 	let ret = StmtKind::Return(Some(if ne { call.not() } else { call })).at(None);
 	Expr::Arrow(params, crate::ts::Type::Builtin("boolean"), vec![ret])
