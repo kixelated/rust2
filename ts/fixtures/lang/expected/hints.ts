@@ -2614,30 +2614,30 @@ export function typed$u8_u8_u8_reserves_closure2(kind: rt.u8, data: rt.ByteSlice
 export function fill$Big_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closure2(coll: rt.u8, items: rt.Iter<Big.Big>, seed: Big.Big, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 1100).length;
+		len = rt.iterToArray(items, "next", 1100).length;
 	} else if (coll === 1) {
 		const v: Big.Big[] = [];
-		rt.iterExtend(v, items, undefined, 1100);
+		rt.iterExtend(v, items, "next", 1100);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
-		rt.iterExtend(v2, items, undefined, 1100);
+		rt.iterExtend(v2, items, "next", 1100);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, undefined, 1100).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, "next", 1100).n;
 	} else if (coll === 4) {
 		const _21: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
 		const q: rt.VecDeque<Big.Big> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, rt.iterSlice(_21), undefined, 1100, true);
-		rt.dequeExtend(q, items, undefined, 1100);
+		rt.dequeExtend(q, items, "next", 1100);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<Big.Big> = rt.heapFrom(rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd));
-		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), undefined, 1100);
+		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), "next", 1100);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, "next", 1100));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
@@ -2652,11 +2652,11 @@ export function fill$Big_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 		const _50: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t2: Big.Big): [Big.Big, rt.u32] => {
 			return [t2, 1] as [Big.Big, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, undefined, 1104));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, "next", 1104));
 	} else if (coll === 11) {
 		len = mapOr$1cxlmys(rt.iterCollectOption(rt.iterMap(items, (a0: Big.Big): Big.Big | undefined => {
 			return a0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100)), 255, (v4: Big.Big[]): rt.usize => {
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100)), 255, (v4: Big.Big[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -2670,7 +2670,7 @@ export function fill$Big_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100));
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -2684,30 +2684,30 @@ export function fill$Big_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<Big.Big>, seed: Big.Big, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 1100).length;
+		len = rt.iterToArray(items, "next", 1100).length;
 	} else if (coll === 1) {
 		const v: Big.Big[] = [];
-		rt.iterExtend(v, items, undefined, 1100);
+		rt.iterExtend(v, items, "next", 1100);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
-		rt.iterExtend(v2, items, undefined, 1100);
+		rt.iterExtend(v2, items, "next", 1100);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, undefined, 1100).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, "next", 1100).n;
 	} else if (coll === 4) {
 		const _21: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
 		const q: rt.VecDeque<Big.Big> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, rt.iterSlice(_21), undefined, 1100, true);
-		rt.dequeExtend(q, items, undefined, 1100);
+		rt.dequeExtend(q, items, "next", 1100);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<Big.Big> = rt.heapFrom(rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd));
-		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), undefined, 1100);
+		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), "next", 1100);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, "next", 1100));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
@@ -2722,11 +2722,11 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 		const _50: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t2: Big.Big): [Big.Big, rt.u32] => {
 			return [t2, 1] as [Big.Big, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, undefined, 1104));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, "next", 1104));
 	} else if (coll === 11) {
 		len = mapOr$1cxlmys(rt.iterCollectOption(rt.iterMap(items, (a0: Big.Big): Big.Big | undefined => {
 			return a0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100)), 255, (v4: Big.Big[]): rt.usize => {
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100)), 255, (v4: Big.Big[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -2740,7 +2740,7 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100));
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -2754,30 +2754,30 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2(coll: rt.u8, items: rt.Iter<Big.Big>, seed: Big.Big, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 1100).length;
+		len = rt.iterToArray(items, "next", 1100).length;
 	} else if (coll === 1) {
 		const v: Big.Big[] = [];
-		rt.iterExtend(v, items, undefined, 1100);
+		rt.iterExtend(v, items, "next", 1100);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
-		rt.iterExtend(v2, items, undefined, 1100);
+		rt.iterExtend(v2, items, "next", 1100);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, undefined, 1100).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, "next", 1100).n;
 	} else if (coll === 4) {
 		const _21: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
 		const q: rt.VecDeque<Big.Big> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, rt.iterSlice(_21), undefined, 1100, true);
-		rt.dequeExtend(q, items, undefined, 1100);
+		rt.dequeExtend(q, items, "next", 1100);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<Big.Big> = rt.heapFrom(rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd));
-		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), undefined, 1100);
+		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), "next", 1100);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, "next", 1100));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
@@ -2792,11 +2792,11 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$
 		const _50: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t2: Big.Big): [Big.Big, rt.u32] => {
 			return [t2, 1] as [Big.Big, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, undefined, 1104));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, "next", 1104));
 	} else if (coll === 11) {
 		len = mapOr$1cxlmys(rt.iterCollectOption(rt.iterMap(items, (a0: Big.Big): Big.Big | undefined => {
 			return a0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100)), 255, (v4: Big.Big[]): rt.usize => {
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100)), 255, (v4: Big.Big[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -2810,7 +2810,7 @@ export function fill$Big_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100));
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -2894,30 +2894,30 @@ export function fill$Big_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, item
 export function fill$Big_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<Big.Big>, seed: Big.Big, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 1100).length;
+		len = rt.iterToArray(items, "next", 1100).length;
 	} else if (coll === 1) {
 		const v: Big.Big[] = [];
-		rt.iterExtend(v, items, undefined, 1100);
+		rt.iterExtend(v, items, "next", 1100);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
-		rt.iterExtend(v2, items, undefined, 1100);
+		rt.iterExtend(v2, items, "next", 1100);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, undefined, 1100).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, items, "next", 1100).n;
 	} else if (coll === 4) {
 		const _21: Big.Big[] = rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone);
 		const q: rt.VecDeque<Big.Big> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Big.Big>, rt.iterSlice(_21), undefined, 1100, true);
-		rt.dequeExtend(q, items, undefined, 1100);
+		rt.dequeExtend(q, items, "next", 1100);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1100), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd)).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<Big.Big> = rt.heapFrom(rt.vecFromElem(Big.clone$Clone(seed), 2, Big.clone$Clone), rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd));
-		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), undefined, 1100);
+		rt.heapExtend(h, items, rt.cmpLe(Big.partialCmp$PartialOrd), rt.cmpGe(Big.partialCmp$PartialOrd), rt.cmpLt(Big.partialCmp$PartialOrd), "next", 1100);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, undefined, 1100));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(Big.cmp$Ord) as rt.BTreeSet<Big.Big>, items, true, undefined, "next", 1100));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Big.hash$Hash_DefaultHasher as (a0: Big.Big, a1: rt.Hasher) => undefined, Big.eq$PartialEq)) as rt.HashSet<Big.Big>, items, undefined, undefined, 917504));
 	} else if (coll === 9) {
@@ -2932,11 +2932,11 @@ export function fill$Big_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 		const _50: rt.Iter<[Big.Big, rt.u32]> = rt.iterMap(items, (t2: Big.Big): [Big.Big, rt.u32] => {
 			return [t2, 1] as [Big.Big, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, undefined, 1104));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(Big.cmp$Ord) as rt.BTreeMap<Big.Big, rt.u32>, _50, true, undefined, undefined, "next", 1104));
 	} else if (coll === 11) {
 		len = mapOr$1cxlmys(rt.iterCollectOption(rt.iterMap(items, (a0: Big.Big): Big.Big | undefined => {
 			return a0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100)), 255, (v4: Big.Big[]): rt.usize => {
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100)), 255, (v4: Big.Big[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -2950,7 +2950,7 @@ export function fill$Big_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, undefined, 1100));
+		}), (values: rt.Iter<Big.Big>) => rt.iterToArray(values, "next", 1100));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3314,30 +3314,30 @@ export function fill$Unit_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8
 export function fill$u32_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closure2(coll: rt.u8, items: rt.Iter<rt.u32>, seed: rt.u32, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 4).length;
+		len = rt.iterToArray(items, "next", 4).length;
 	} else if (coll === 1) {
 		const v: rt.u32[] = [];
-		rt.iterExtend(v, items, undefined, 4);
+		rt.iterExtend(v, items, "next", 4);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 4);
+		rt.iterExtend(v2, items, "next", 4);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, undefined, 4).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, "next", 4).n;
 	} else if (coll === 4) {
 		const _21: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<rt.u32> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, rt.iterSlice(_21), undefined, 4, true);
-		rt.dequeExtend(q, items, undefined, 4);
+		rt.dequeExtend(q, items, "next", 4);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 4), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 4), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u32> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 4);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 4);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, undefined, 4));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, "next", 4));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u32>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3352,11 +3352,11 @@ export function fill$u32_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 		const _50: rt.Iter<[rt.u32, rt.u32]> = rt.iterMap(items, (t2: rt.u32): [rt.u32, rt.u32] => {
 			return [t2, 1] as [rt.u32, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$1umcrqz(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u32): rt.u32 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4)), 255, (v4: rt.u32[]): rt.usize => {
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4)), 255, (v4: rt.u32[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3370,7 +3370,7 @@ export function fill$u32_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4));
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3384,30 +3384,30 @@ export function fill$u32_Filter_Map_RangeInclusive_u32_typed_closure1_typed_clos
 export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<rt.u32>, seed: rt.u32, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 4).length;
+		len = rt.iterToArray(items, "next", 4).length;
 	} else if (coll === 1) {
 		const v: rt.u32[] = [];
-		rt.iterExtend(v, items, undefined, 4);
+		rt.iterExtend(v, items, "next", 4);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 4);
+		rt.iterExtend(v2, items, "next", 4);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, undefined, 4).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, "next", 4).n;
 	} else if (coll === 4) {
 		const _21: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<rt.u32> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, rt.iterSlice(_21), undefined, 4, true);
-		rt.dequeExtend(q, items, undefined, 4);
+		rt.dequeExtend(q, items, "next", 4);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 4), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 4), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u32> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 4);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 4);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, undefined, 4));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, "next", 4));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u32>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3422,11 +3422,11 @@ export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 		const _50: rt.Iter<[rt.u32, rt.u32]> = rt.iterMap(items, (t2: rt.u32): [rt.u32, rt.u32] => {
 			return [t2, 1] as [rt.u32, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$1umcrqz(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u32): rt.u32 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4)), 255, (v4: rt.u32[]): rt.usize => {
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4)), 255, (v4: rt.u32[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3440,7 +3440,7 @@ export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4));
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3454,30 +3454,30 @@ export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(
 export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2(coll: rt.u8, items: rt.Iter<rt.u32>, seed: rt.u32, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 4).length;
+		len = rt.iterToArray(items, "next", 4).length;
 	} else if (coll === 1) {
 		const v: rt.u32[] = [];
-		rt.iterExtend(v, items, undefined, 4);
+		rt.iterExtend(v, items, "next", 4);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 4);
+		rt.iterExtend(v2, items, "next", 4);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, undefined, 4).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, "next", 4).n;
 	} else if (coll === 4) {
 		const _21: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<rt.u32> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, rt.iterSlice(_21), undefined, 4, true);
-		rt.dequeExtend(q, items, undefined, 4);
+		rt.dequeExtend(q, items, "next", 4);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 4), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 4), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u32> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 4);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 4);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, undefined, 4));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, "next", 4));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u32>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3492,11 +3492,11 @@ export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$
 		const _50: rt.Iter<[rt.u32, rt.u32]> = rt.iterMap(items, (t2: rt.u32): [rt.u32, rt.u32] => {
 			return [t2, 1] as [rt.u32, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$1umcrqz(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u32): rt.u32 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4)), 255, (v4: rt.u32[]): rt.usize => {
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4)), 255, (v4: rt.u32[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3510,7 +3510,7 @@ export function fill$u32_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4));
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3594,30 +3594,30 @@ export function fill$u32_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, item
 export function fill$u32_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<rt.u32>, seed: rt.u32, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 4).length;
+		len = rt.iterToArray(items, "next", 4).length;
 	} else if (coll === 1) {
 		const v: rt.u32[] = [];
-		rt.iterExtend(v, items, undefined, 4);
+		rt.iterExtend(v, items, "next", 4);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 4);
+		rt.iterExtend(v2, items, "next", 4);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, undefined, 4).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, items, "next", 4).n;
 	} else if (coll === 4) {
 		const _21: rt.u32[] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<rt.u32> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u32>, rt.iterSlice(_21), undefined, 4, true);
-		rt.dequeExtend(q, items, undefined, 4);
+		rt.dequeExtend(q, items, "next", 4);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 4), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 4), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u32> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 4);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 4);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, undefined, 4));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u32>, items, true, undefined, "next", 4));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u32>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3632,11 +3632,11 @@ export function fill$u32_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 		const _50: rt.Iter<[rt.u32, rt.u32]> = rt.iterMap(items, (t2: rt.u32): [rt.u32, rt.u32] => {
 			return [t2, 1] as [rt.u32, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$1umcrqz(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u32): rt.u32 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4)), 255, (v4: rt.u32[]): rt.usize => {
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4)), 255, (v4: rt.u32[]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3650,7 +3650,7 @@ export function fill$u32_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, undefined, 4));
+		}), (values: rt.Iter<rt.u32>) => rt.iterToArray(values, "next", 4));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3664,30 +3664,30 @@ export function fill$u32_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 export function fill$u64_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closure2(coll: rt.u8, items: rt.Iter<[rt.u64, rt.u8]>, seed: [rt.u64, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 16).length;
+		len = rt.iterToArray(items, "next", 16).length;
 	} else if (coll === 1) {
 		const v: [rt.u64, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 16);
+		rt.iterExtend(v, items, "next", 16);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 16);
+		rt.iterExtend(v2, items, "next", 16);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, undefined, 16).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, "next", 16).n;
 	} else if (coll === 4) {
 		const _21: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u64, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, rt.iterSlice(_21), undefined, 16, true);
-		rt.dequeExtend(q, items, undefined, 16);
+		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 16);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, undefined, 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3702,11 +3702,11 @@ export function fill$u64_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_c
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3720,7 +3720,7 @@ export function fill$u64_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_c
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16));
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3734,30 +3734,30 @@ export function fill$u64_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_c
 export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<[rt.u64, rt.u8]>, seed: [rt.u64, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 16).length;
+		len = rt.iterToArray(items, "next", 16).length;
 	} else if (coll === 1) {
 		const v: [rt.u64, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 16);
+		rt.iterExtend(v, items, "next", 16);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 16);
+		rt.iterExtend(v2, items, "next", 16);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, undefined, 16).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, "next", 16).n;
 	} else if (coll === 4) {
 		const _21: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u64, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, rt.iterSlice(_21), undefined, 16, true);
-		rt.dequeExtend(q, items, undefined, 16);
+		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 16);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, undefined, 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3772,11 +3772,11 @@ export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closur
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3790,7 +3790,7 @@ export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closur
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16));
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3804,30 +3804,30 @@ export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closur
 export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2(coll: rt.u8, items: rt.Iter<[rt.u64, rt.u8]>, seed: [rt.u64, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 16).length;
+		len = rt.iterToArray(items, "next", 16).length;
 	} else if (coll === 1) {
 		const v: [rt.u64, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 16);
+		rt.iterExtend(v, items, "next", 16);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 16);
+		rt.iterExtend(v2, items, "next", 16);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, undefined, 16).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, "next", 16).n;
 	} else if (coll === 4) {
 		const _21: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u64, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, rt.iterSlice(_21), undefined, 16, true);
-		rt.dequeExtend(q, items, undefined, 16);
+		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 16);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, undefined, 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3842,11 +3842,11 @@ export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closur
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -3860,7 +3860,7 @@ export function fill$u64_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closur
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16));
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -3944,30 +3944,30 @@ export function fill$u64_u8_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, i
 export function fill$u64_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<[rt.u64, rt.u8]>, seed: [rt.u64, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 16).length;
+		len = rt.iterToArray(items, "next", 16).length;
 	} else if (coll === 1) {
 		const v: [rt.u64, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 16);
+		rt.iterExtend(v, items, "next", 16);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 16);
+		rt.iterExtend(v2, items, "next", 16);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, undefined, 16).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, items, "next", 16).n;
 	} else if (coll === 4) {
 		const _21: [rt.u64, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u64, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u64, rt.u8]>, rt.iterSlice(_21), undefined, 16, true);
-		rt.dequeExtend(q, items, undefined, 16);
+		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 16);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, undefined, 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3982,11 +3982,11 @@ export function fill$u64_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16)), 255, (v4: [rt.u64, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4000,7 +4000,7 @@ export function fill$u64_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, undefined, 16));
+		}), (values: rt.Iter<[rt.u64, rt.u8]>) => rt.iterToArray(values, "next", 16));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4014,30 +4014,30 @@ export function fill$u64_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.
 export function fill$u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closure2(coll: rt.u8, items: rt.Iter<rt.u8>, seed: rt.u8, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToByteVec(items).length;
+		len = rt.iterToByteVec(items, "next").length;
 	} else if (coll === 1) {
 		const v: rt.ByteVec = new rt.ByteVec();
-		rt.iterExtendBytes(v, items);
+		rt.iterExtendBytes(v, items, "next");
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.ByteVec = rt.byteVecOf(seed, 2);
-		rt.iterExtendBytes(v2, items);
+		rt.iterExtendBytes(v2, items, "next");
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, undefined, 1).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, "next", 1).n;
 	} else if (coll === 4) {
 		const _21: rt.ByteVec = rt.byteVecOf(seed, 2);
 		const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(rt.byteVecView(_21)), undefined, 1, true);
-		rt.dequeExtend(q, items, undefined, 1);
+		rt.dequeExtend(q, items, "next", 1);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u8> = rt.heapFrom(Array.from(rt.byteVecView(rt.byteVecOf(seed, 2))), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 1);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 1);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, undefined, 1));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, "next", 1));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, items, undefined, undefined, 469762048));
 	} else if (coll === 9) {
@@ -4052,11 +4052,11 @@ export function fill$u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closu
 		const _50: rt.Iter<[rt.u8, rt.u32]> = rt.iterMap(items, (t2: rt.u8): [rt.u8, rt.u32] => {
 			return [t2, 1] as [rt.u8, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$08xwngs(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u8): rt.u8 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values)), 255, (v4: rt.ByteVec): rt.usize => {
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next")), 255, (v4: rt.ByteVec): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4070,7 +4070,7 @@ export function fill$u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closu
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values));
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next"));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4084,30 +4084,30 @@ export function fill$u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closu
 export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<rt.u8>, seed: rt.u8, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToByteVec(items).length;
+		len = rt.iterToByteVec(items, "next").length;
 	} else if (coll === 1) {
 		const v: rt.ByteVec = new rt.ByteVec();
-		rt.iterExtendBytes(v, items);
+		rt.iterExtendBytes(v, items, "next");
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.ByteVec = rt.byteVecOf(seed, 2);
-		rt.iterExtendBytes(v2, items);
+		rt.iterExtendBytes(v2, items, "next");
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, undefined, 1).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, "next", 1).n;
 	} else if (coll === 4) {
 		const _21: rt.ByteVec = rt.byteVecOf(seed, 2);
 		const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(rt.byteVecView(_21)), undefined, 1, true);
-		rt.dequeExtend(q, items, undefined, 1);
+		rt.dequeExtend(q, items, "next", 1);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u8> = rt.heapFrom(Array.from(rt.byteVecView(rt.byteVecOf(seed, 2))), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 1);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 1);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, undefined, 1));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, "next", 1));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, items, undefined, undefined, 469762048));
 	} else if (coll === 9) {
@@ -4122,11 +4122,11 @@ export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(c
 		const _50: rt.Iter<[rt.u8, rt.u32]> = rt.iterMap(items, (t2: rt.u8): [rt.u8, rt.u32] => {
 			return [t2, 1] as [rt.u8, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$08xwngs(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u8): rt.u8 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values)), 255, (v4: rt.ByteVec): rt.usize => {
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next")), 255, (v4: rt.ByteVec): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4140,7 +4140,7 @@ export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(c
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values));
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next"));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4154,30 +4154,30 @@ export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(c
 export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2(coll: rt.u8, items: rt.Iter<rt.u8>, seed: rt.u8, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToByteVec(items).length;
+		len = rt.iterToByteVec(items, "next").length;
 	} else if (coll === 1) {
 		const v: rt.ByteVec = new rt.ByteVec();
-		rt.iterExtendBytes(v, items);
+		rt.iterExtendBytes(v, items, "next");
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.ByteVec = rt.byteVecOf(seed, 2);
-		rt.iterExtendBytes(v2, items);
+		rt.iterExtendBytes(v2, items, "next");
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, undefined, 1).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, "next", 1).n;
 	} else if (coll === 4) {
 		const _21: rt.ByteVec = rt.byteVecOf(seed, 2);
 		const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(rt.byteVecView(_21)), undefined, 1, true);
-		rt.dequeExtend(q, items, undefined, 1);
+		rt.dequeExtend(q, items, "next", 1);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u8> = rt.heapFrom(Array.from(rt.byteVecView(rt.byteVecOf(seed, 2))), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 1);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 1);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, undefined, 1));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, "next", 1));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, items, undefined, undefined, 469762048));
 	} else if (coll === 9) {
@@ -4192,11 +4192,11 @@ export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2
 		const _50: rt.Iter<[rt.u8, rt.u32]> = rt.iterMap(items, (t2: rt.u8): [rt.u8, rt.u32] => {
 			return [t2, 1] as [rt.u8, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$08xwngs(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u8): rt.u8 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values)), 255, (v4: rt.ByteVec): rt.usize => {
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next")), 255, (v4: rt.ByteVec): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4210,7 +4210,7 @@ export function fill$u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values));
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next"));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4294,30 +4294,30 @@ export function fill$u8_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, items
 export function fill$u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<rt.u8>, seed: rt.u8, out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToByteVec(items).length;
+		len = rt.iterToByteVec(items, "next").length;
 	} else if (coll === 1) {
 		const v: rt.ByteVec = new rt.ByteVec();
-		rt.iterExtendBytes(v, items);
+		rt.iterExtendBytes(v, items, "next");
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: rt.ByteVec = rt.byteVecOf(seed, 2);
-		rt.iterExtendBytes(v2, items);
+		rt.iterExtendBytes(v2, items, "next");
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, undefined, 1).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, items, "next", 1).n;
 	} else if (coll === 4) {
 		const _21: rt.ByteVec = rt.byteVecOf(seed, 2);
 		const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(rt.byteVecView(_21)), undefined, 1, true);
-		rt.dequeExtend(q, items, undefined, 1);
+		rt.dequeExtend(q, items, "next", 1);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 1), rt.le, rt.ge, rt.lt).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 1), rt.le, rt.ge, rt.lt).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<rt.u8> = rt.heapFrom(Array.from(rt.byteVecView(rt.byteVecOf(seed, 2))), rt.le, rt.ge, rt.lt);
-		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, undefined, 1);
+		rt.heapExtend(h, items, rt.le, rt.ge, rt.lt, "next", 1);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, undefined, 1));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, items, true, undefined, "next", 1));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, items, undefined, undefined, 469762048));
 	} else if (coll === 9) {
@@ -4332,11 +4332,11 @@ export function fill$u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, 
 		const _50: rt.Iter<[rt.u8, rt.u32]> = rt.iterMap(items, (t2: rt.u8): [rt.u8, rt.u32] => {
 			return [t2, 1] as [rt.u8, rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$08xwngs(rt.iterCollectOption(rt.iterMap(items, (a0: rt.u8): rt.u8 | undefined => {
 			return a0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values)), 255, (v4: rt.ByteVec): rt.usize => {
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next")), 255, (v4: rt.ByteVec): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4350,7 +4350,7 @@ export function fill$u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, 
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values));
+		}), (values: rt.Iter<rt.u8>) => rt.iterToByteVec(values, "next"));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4364,30 +4364,30 @@ export function fill$u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, 
 export function fill$u8_u8_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed_closure2(coll: rt.u8, items: rt.Iter<[rt.u8, rt.u8, rt.u8]>, seed: [rt.u8, rt.u8, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 3).length;
+		len = rt.iterToArray(items, "next", 3).length;
 	} else if (coll === 1) {
 		const v: [rt.u8, rt.u8, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 3);
+		rt.iterExtend(v, items, "next", 3);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 3);
+		rt.iterExtend(v2, items, "next", 3);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, undefined, 3).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, "next", 3).n;
 	} else if (coll === 4) {
 		const _21: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u8, rt.u8, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, rt.iterSlice(_21), undefined, 3, true);
-		rt.dequeExtend(q, items, undefined, 3);
+		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), undefined, 3);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, undefined, 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -4402,11 +4402,11 @@ export function fill$u8_u8_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4420,7 +4420,7 @@ export function fill$u8_u8_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3));
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4434,30 +4434,30 @@ export function fill$u8_u8_u8_Filter_Map_RangeInclusive_u32_typed_closure1_typed
 export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<[rt.u8, rt.u8, rt.u8]>, seed: [rt.u8, rt.u8, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 3).length;
+		len = rt.iterToArray(items, "next", 3).length;
 	} else if (coll === 1) {
 		const v: [rt.u8, rt.u8, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 3);
+		rt.iterExtend(v, items, "next", 3);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 3);
+		rt.iterExtend(v2, items, "next", 3);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, undefined, 3).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, "next", 3).n;
 	} else if (coll === 4) {
 		const _21: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u8, rt.u8, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, rt.iterSlice(_21), undefined, 3, true);
-		rt.dequeExtend(q, items, undefined, 3);
+		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), undefined, 3);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, undefined, 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -4472,11 +4472,11 @@ export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_clos
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4490,7 +4490,7 @@ export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_clos
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3));
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4504,30 +4504,30 @@ export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_clos
 export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_closure1$2(coll: rt.u8, items: rt.Iter<[rt.u8, rt.u8, rt.u8]>, seed: [rt.u8, rt.u8, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 3).length;
+		len = rt.iterToArray(items, "next", 3).length;
 	} else if (coll === 1) {
 		const v: [rt.u8, rt.u8, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 3);
+		rt.iterExtend(v, items, "next", 3);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 3);
+		rt.iterExtend(v2, items, "next", 3);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, undefined, 3).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, "next", 3).n;
 	} else if (coll === 4) {
 		const _21: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u8, rt.u8, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, rt.iterSlice(_21), undefined, 3, true);
-		rt.dequeExtend(q, items, undefined, 3);
+		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), undefined, 3);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, undefined, 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -4542,11 +4542,11 @@ export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_clos
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4560,7 +4560,7 @@ export function fill$u8_u8_u8_Map_Flatten_IntoIter_RangeInclusive_u32_typed_clos
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3));
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {
@@ -4644,30 +4644,30 @@ export function fill$u8_u8_u8_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8,
 export function fill$u8_u8_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: rt.u8, items: rt.Iter<[rt.u8, rt.u8, rt.u8]>, seed: [rt.u8, rt.u8, rt.u8], out: rt.ByteVec): void {
 	let len!: rt.usize;
 	if (coll === 0) {
-		len = rt.iterToArray(items, undefined, 3).length;
+		len = rt.iterToArray(items, "next", 3).length;
 	} else if (coll === 1) {
 		const v: [rt.u8, rt.u8, rt.u8][] = [];
-		rt.iterExtend(v, items, undefined, 3);
+		rt.iterExtend(v, items, "next", 3);
 		len = v.length;
 	} else if (coll === 2) {
 		const v2: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
-		rt.iterExtend(v2, items, undefined, 3);
+		rt.iterExtend(v2, items, "next", 3);
 		len = v2.length;
 	} else if (coll === 3) {
-		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, undefined, 3).n;
+		len = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, items, "next", 3).n;
 	} else if (coll === 4) {
 		const _21: [rt.u8, rt.u8, rt.u8][] = rt.vecFromElem(seed, 2, undefined);
 		const q: rt.VecDeque<[rt.u8, rt.u8, rt.u8]> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8, rt.u8]>, rt.iterSlice(_21), undefined, 3, true);
-		rt.dequeExtend(q, items, undefined, 3);
+		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
 		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), undefined, 3);
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, undefined, 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -4682,11 +4682,11 @@ export function fill$u8_u8_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: r
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3)), 255, (v4: [rt.u8, rt.u8, rt.u8][]): rt.usize => {
 			return v4.length;
 		});
 	} else {
@@ -4700,7 +4700,7 @@ export function fill$u8_u8_u8_Skip_Map_RangeInclusive_u32_typed_closure1(coll: r
 				_0 = rt.Ok(t);
 			}
 			return _0;
-		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, undefined, 3));
+		}), (values: rt.Iter<[rt.u8, rt.u8, rt.u8]>) => rt.iterToArray(values, "next", 3));
 		if (_53.ok) {
 			len = _53.value.length;
 		} else {

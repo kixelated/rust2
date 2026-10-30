@@ -323,7 +323,7 @@ export function heaps(data: rt.ByteSlice, out: rt.ByteVec): void {
 				} else {
 					rt.iterExtendBytes(out, rt.iterMap(rt.heapIter(heap), (x: Item.Item): rt.u8 => {
 						return x.tag;
-					}));
+					}), "next");
 					rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(mapOr$14aggam(heap.d[0], 255, (x2: Item.Item): rt.u8 => {
 						return x2.tag;
 					}), heap.d.length & 0xff, heap.d.length === 0 ? 1 : 0)), undefined, true);
@@ -407,10 +407,10 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}, rt.cmpLe(rt.cmpStr), rt.cmpGe(rt.cmpStr), rt.cmpLt(rt.cmpStr));
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(copy.d), (s2: string): rt.Iter<rt.u8> => {
 		return rt.strBytes(s2);
-	}));
+	}), "next");
 	rt.iterExtendBytes(out, rt.iterMap(rt.heapIter(strings), (s3: string): rt.u8 => {
 		return rt.stringLen(s3) & 0xff;
-	}));
+	}), "next");
 	const pairs: rt.BinaryHeap<[rt.u8, rt.u8]> = rt.heapNew() as rt.BinaryHeap<[rt.u8, rt.u8]>;
 	const _73: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_24: rt.u8): [rt.u8, rt.u8] => {
 		const b5: rt.u8 = _24;

@@ -348,6 +348,20 @@ export function map$1httady(self: string[] | undefined, f: (a0: string[]) => str
 	return f(self);
 }
 
+export function map$1mp7tga(self: rt.i64[] | undefined, f: (a0: rt.i64[]) => rt.usize): rt.usize | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1c7fhtg(self: rt.ByteVec | undefined, f: (a0: rt.ByteVec) => rt.usize): rt.usize | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0lcwx9x(self: Way.Way | undefined, f: (a0: Way.Way) => boolean): boolean | undefined {
 	if (self === undefined) {
 		return undefined;

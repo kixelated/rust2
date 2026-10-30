@@ -376,7 +376,7 @@ export function iterate(chain: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 	} else if (chain === 2) {
 		putUsize(out, rt.iterToByteVec(rt.iterFilter(rt.iterSlice(rt.byteSliceView(data)), (_28: rt.u8): boolean => {
 			return (_28 & 1) === 1;
-		})).length);
+		}), "next").length);
 	} else if (chain === 3) {
 		putU64(out, rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u32 => {
 			return _2 as rt.u32;
