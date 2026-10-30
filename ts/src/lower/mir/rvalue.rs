@@ -68,7 +68,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.union_whole(*place, span).is_some() {
 					return Some(self.err(span, "a pointer to a union's field kept in more than one slot"));
 				}
-				if let Some(why) = self.out_of_step(*place) {
+				if let Some(why) = self.out_of_step(*place, false) {
 					return Some(self.err(span, why));
 				}
 				let pointee = place.ty(&self.mir.local_decls, tcx).ty;
