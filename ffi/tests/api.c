@@ -429,6 +429,12 @@ static int script(void) {
 	api_buf binary = {.ptr = (const uint8_t *)"\xff\0a", .len = 3};
 	print("hex ", api_hex(binary), "\n");
 	print("timed hex ", api_timed_hex(binary), "\n");
+	print("sample hex ", api_sample_hex(binary), "\n");
+	print("queued hex ", api_queued_hex(binary), "\n");
+	print("tick ", api_tick_name((api_label){.name = str("tick")}), "\n");
+	print("rooted ", api_rooted_name((api_label){.name = str("rooted")}), "\n");
+	print("stored ", api_stored_text(str("stored")), "\n");
+	print("layer ", api_layer_name((api_label){.name = str("layer")}), "\n");
 	api_event events[3] = {
 		{.tag = API_EVENT_MOVED, .moved = {._0 = p}},
 		{.tag = API_EVENT_NAMED, .named = {.name = str("n")}},

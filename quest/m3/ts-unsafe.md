@@ -43,7 +43,13 @@ none of its own `unsafe`.
   ([#222](https://github.com/moq-dev/rust2/pull/222)): the bytes keep their type, so
   this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
   range, and each integer's `from_le_bytes` and `from_ne_bytes`, and `chunks_vectored`
-  needs `std::io::IoSlice`: 184 of moq-net's 197 refusals in `bytes`, the rest being 12
-  of [`f32`](/quest/m3/ts-f32.md) and one of [`&mut &[u8]`](/quest/m3/ts-mut-ref.md).
+  needs `std::io::IoSlice`: 184 of moq-net's 196 refusals in `bytes`, the rest being 12
+  of [`f32`](/quest/m3/ts-f32.md).
+- `BinaryHeap` and `PeekMut` translate from std's MIR, whose `Hole` moves elements
+  through raw pointers into the `Vec`'s storage, replacing `rt.BinaryHeap` and
+  `rt.PeekMut`, the hand-written port of std's sifts that
+  [#252](https://github.com/moq-dev/rust2/pull/252) mapped them to and that must track
+  std's by hand. The lang fixture's `orders` differential case proves the translation
+  still matches std's comparisons, pop order, and drops.
 
 Public API: the translator's output.

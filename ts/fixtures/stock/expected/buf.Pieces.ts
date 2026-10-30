@@ -246,7 +246,7 @@ export function copyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): void {
  * This function panics if there is no more remaining data in `self`.
  */
 export function getU8$Buf(self: Pieces): rt.u8 {
-	if (!(remaining$Buf$2(self) < 1)) {
+	if (!(remaining$Buf$3(self) < 1)) {
 		const _7: rt.ByteSlice = chunk$Buf$2(self);
 		rt.idx(_7, 0);
 		const ret: rt.u8 = _7.data[_7.start];
@@ -289,7 +289,7 @@ export function getU8$Buf(self: Pieces): rt.u8 {
  * ```
  */
 export function tryCopyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): rt.Result<undefined, TryGetError.TryGetError> {
-	if (!(remaining$Buf$2(self) < dst.length)) {
+	if (!(remaining$Buf$3(self) < dst.length)) {
 		while (!(dst.length === 0)) {
 			const src: rt.ByteSlice = chunk$Buf$2(self);
 			const cnt: rt.usize = rt.min(src.length, dst.length);
@@ -299,7 +299,43 @@ export function tryCopyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): rt.Result<u
 		}
 		return rt.OK;
 	}
-	return rt.Err({ requested: dst.length, available: remaining$Buf$2(self) });
+	return rt.Err({ requested: dst.length, available: remaining$Buf$3(self) });
+}
+
+/**
+ * Advance the internal cursor of the Buf
+ *
+ * The next call to `chunk()` will return a slice starting `cnt` bytes
+ * further into the underlying buffer.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"hello world"[..];
+ *
+ * assert_eq!(buf.chunk(), &b"hello world"[..]);
+ *
+ * buf.advance(6);
+ *
+ * assert_eq!(buf.chunk(), &b"world"[..]);
+ * ```
+ *
+ * # Panics
+ *
+ * This function **may** panic if `cnt > self.remaining()`.
+ *
+ * # Implementer notes
+ *
+ * It is recommended for implementations of `advance` to panic if `cnt >
+ * self.remaining()`. If the implementation does not panic, the call must
+ * behave as if `cnt == self.remaining()`.
+ *
+ * A call with `cnt == 0` should never panic and be a no-op.
+ */
+export function advance$Buf$2(self: rt.Place<Pieces>, cnt: rt.usize): void {
+	advance$Buf(self.v, cnt);
 }
 
 /**
@@ -337,6 +373,80 @@ export function chunk$Buf$2(self: Pieces): rt.ByteSlice {
 }
 
 /**
+ * Consumes `len` bytes inside self and returns new instance of `Bytes`
+ * with this data.
+ *
+ * This function may be optimized by the underlying type to avoid actual
+ * copies. For example, `Bytes` implementation will do a shallow copy
+ * (ref-count increment).
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let bytes = (&b"hello world"[..]).copy_to_bytes(5);
+ * assert_eq!(&bytes[..], &b"hello"[..]);
+ * ```
+ *
+ * # Panics
+ *
+ * This function panics if `len > self.remaining()`.
+ */
+export function copyToBytes$Buf$2(self: rt.Place<Pieces>, len: rt.usize): rt.ByteSlice {
+	return copyToBytes$Buf(self.v, len);
+}
+
+/**
+ * Copies bytes from `self` into `dst`.
+ *
+ * The cursor is advanced by the number of bytes copied. `self` must have
+ * enough remaining bytes to fill `dst`.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"hello world"[..];
+ * let mut dst = [0; 5];
+ *
+ * buf.copy_to_slice(&mut dst);
+ * assert_eq!(&b"hello"[..], &dst);
+ * assert_eq!(6, buf.remaining());
+ * ```
+ *
+ * # Panics
+ *
+ * This function panics if `self.remaining() < dst.len()`.
+ */
+export function copyToSlice$Buf$2(self: rt.Place<Pieces>, dst: rt.ByteSlice): void {
+	copyToSlice$Buf(self.v, dst);
+}
+
+/**
+ * Gets an unsigned 8 bit integer from `self`.
+ *
+ * The current position is advanced by 1.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"\x08 hello"[..];
+ * assert_eq!(8, buf.get_u8());
+ * ```
+ *
+ * # Panics
+ *
+ * This function panics if there is no more remaining data in `self`.
+ */
+export function getU8$Buf$2(self: rt.Place<Pieces>): rt.u8 {
+	return getU8$Buf(self.v);
+}
+
+/**
  * Returns true if there are any more bytes to consume
  *
  * This is equivalent to `self.remaining() != 0`.
@@ -355,7 +465,30 @@ export function chunk$Buf$2(self: Pieces): rt.ByteSlice {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf$2(self: Pieces): boolean {
+export function hasRemaining$Buf$2(self: rt.Place<Pieces>): boolean {
+	return hasRemaining$Buf$3(self.v);
+}
+
+/**
+ * Returns true if there are any more bytes to consume
+ *
+ * This is equivalent to `self.remaining() != 0`.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"a"[..];
+ *
+ * assert!(buf.has_remaining());
+ *
+ * buf.get_u8();
+ *
+ * assert!(!buf.has_remaining());
+ * ```
+ */
+export function hasRemaining$Buf$3(self: Pieces): boolean {
 	return hasRemaining$Buf(self);
 }
 
@@ -386,7 +519,38 @@ export function hasRemaining$Buf$2(self: Pieces): boolean {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf$2(self: Pieces): rt.usize {
+export function remaining$Buf$2(self: rt.Place<Pieces>): rt.usize {
+	return remaining$Buf$3(self.v);
+}
+
+/**
+ * Returns the number of bytes between the current position and the end of
+ * the buffer.
+ *
+ * This value is greater than or equal to the length of the slice returned
+ * by `chunk()`.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"hello world"[..];
+ *
+ * assert_eq!(buf.remaining(), 11);
+ *
+ * buf.get_u8();
+ *
+ * assert_eq!(buf.remaining(), 10);
+ * ```
+ *
+ * # Implementer notes
+ *
+ * Implementations of `remaining` should ensure that the return value does
+ * not change unless a call is made to `advance` or any other function that
+ * is documented to change the `Buf`'s current position.
+ */
+export function remaining$Buf$3(self: Pieces): rt.usize {
 	return remaining$Buf(self);
 }
 

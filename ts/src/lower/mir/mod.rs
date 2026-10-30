@@ -112,9 +112,9 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 
 /// Why a body of std's can't lower as the crate's do, if it can't. The crate's analysis of
 /// what it writes into reads only its own bodies, so one must change nothing in place: no
-/// assignment through a projection or a reference, and no mutable borrow or pointer. And
-/// core's plain integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is
-/// checked.
+/// assignment through a projection or a reference, and no mutable borrow or pointer but of
+/// a function to call it, as `FnMut` is, whose writes are its own body's. And core's plain
+/// integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is checked.
 fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'static str> {
 	const WRITE: &str = "a change in place, which a body of std's is not supported to make";
 	const WRAP: &str = "arithmetic that wraps, which a body of std's is not supported to do";
@@ -123,6 +123,12 @@ fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'stat
 			match &stmt.kind {
 				StatementKind::Assign(assign) if !assign.0.projection.is_empty() => return Some(WRITE),
 				StatementKind::Assign(assign) => match &assign.1 {
+					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, place)
+						if place.projection.is_empty()
+							&& matches!(
+								body.local_decls[place.local].ty.kind(),
+								ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..)
+							) => {}
 					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, _) | Rvalue::RawPtr(mir::RawPtrKind::Mut, _) => {
 						return Some(WRITE);
 					}
@@ -3173,13 +3179,20 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				return false;
 			}
 			// The payload of a `Result` made here is what it was made of, which `tsc` reads
-			// where it can't narrow the `Result`.
-			if let (Expr::Call(f, args), ts::Key::Name(key)) = (step::peel(base), &*key)
-				&& let Expr::Rt(ctor) = step::peel(f)
-				&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
-				&& let [payload] = args.as_slice()
-			{
-				*e = payload.clone();
+			// where it can't narrow the `Result`, and so is what an `rt.Place` made here holds.
+			let folded = match (step::peel(base), &*key) {
+				(Expr::Call(f, args), ts::Key::Name(key))
+					if let Expr::Rt(ctor) = step::peel(f)
+						&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
+						&& let [payload] = args.as_slice() =>
+				{
+					Some(payload.clone())
+				}
+				(base, ts::Key::Name(key)) if key == "v" => base.place_read().cloned(),
+				_ => None,
+			};
+			if let Some(folded) = folded {
+				*e = folded;
 			}
 			true
 		}

@@ -10,8 +10,9 @@ import type * as Fetch from "./refs.Fetch.ts";
 import type * as Held from "./refs.Held.ts";
 import * as Listing from "./refs.Listing.ts";
 import type * as Nest from "./refs.Nest.ts";
-import type * as Pair from "./refs.Pair.ts";
+import * as Pair from "./refs.Pair.ts";
 import type * as Pair2 from "./refs.Pair2.ts";
+import * as Reader from "./refs.Reader.ts";
 
 export function bump(x: rt.Place<rt.u32>, by: rt.u8): void {
 	x.v = rt.u32Add(x.v, by as rt.u32);
@@ -697,7 +698,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const most: rt.Place<rt.u32> | undefined = rt.iterMaxByKey(rt.iterSliceMut(v), (x7: rt.Place<rt.u32>): rt.u32 => {
 		return x7.v;
-	}, rt.cmpLt(rt.cmp));
+	}, rt.lt);
 	if (most !== undefined) {
 		most.v = 0;
 	}
@@ -873,8 +874,8 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_363 === rt.DONE) {
 			break;
 		}
-		let o4: [rt.u8, rt.u8] | undefined = copy$Option_u8_u8(_363);
-		const iter22: rt.Iter<[rt.u8, rt.u8]> = rt.iterOption(rt.place(() => o4, (value6) => o4 = value6).v);
+		const o4: [rt.u8, rt.u8] | undefined = copy$Option_u8_u8(_363);
+		const iter22: rt.Iter<[rt.u8, rt.u8]> = rt.iterOption(o4);
 		while (true) {
 			const _371: [rt.u8, rt.u8] | rt.Done = iter22.next();
 			if (_371 === rt.DONE) {
@@ -882,7 +883,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			_371[0] = _371[0] ^ 90;
 		}
-		rt.byteVecPush(out, rt.iterCount(rt.iterOption(rt.place(() => o4, (value7) => o4 = value7).v)) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.iterOption(o4)) & 0xff);
 		rt.byteVecPush(out, mapOr$Option_u8_u8_u8_btree_maps_closure0(o4, 238, (p: [rt.u8, rt.u8]): rt.u8 => {
 			return p[0];
 		}));
@@ -895,7 +896,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 			break;
 		}
 		let o6: rt.Place<rt.u8> | undefined = _391;
-		rt.byteVecPush(out, rt.iterCount(rt.iterOption(rt.place(() => o6, (value9) => o6 = value9).v)) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.iterOption(rt.optionAsMut(rt.place(() => o6, (value9) => o6 = value9)))) & 0xff);
 	}
 	rt.byteVecPush(out, n);
 	let _406: rt.u8 | undefined = seenOf(data);
@@ -1100,6 +1101,280 @@ export function bumpSlot(c: rt.Place<rt.usize>, b: rt.u8): void {
 
 export function bumpByte(x: rt.Place<rt.u8>): void {
 	x.v = rt.u8WrappingAdd(x.v, 1);
+}
+
+/**
+ * The front of a slice taken through a `&mut` to it, which it moves past: out of bounds
+ * past the end, it panics.
+ */
+export function takeFront(s: rt.Place<rt.ByteSlice>, n: rt.usize): rt.ByteSlice {
+	const slice: rt.ByteSlice = s.v;
+	if (n > slice.length) {
+		rt.panic("mid > len");
+	}
+	const front: rt.ByteSlice = new rt.ByteSlice(slice.data, slice.start, n);
+	s.v = new rt.ByteSlice(slice.data, slice.start + n, slice.length - n);
+	return front;
+}
+
+export function tally$Tally_u32(self: rt.Place<rt.u32>, n: rt.u8): void {
+	self.v = rt.u32Add(self.v, n as rt.u32);
+}
+
+export function total$Tally_u32(self: rt.u32): rt.u32 {
+	return self;
+}
+
+export function tally$Tally_u32$2(self: rt.Place<rt.Place<rt.Place<rt.u32>>>, n: rt.u8): void {
+	tally$Tally_u32$3(self.v, n);
+}
+
+export function tally$Tally_u32$3(self: rt.Place<rt.Place<rt.u32>>, n: rt.u8): void {
+	tally$Tally_u32(self.v, n);
+}
+
+export function total$Tally_u32$2(self: rt.Place<rt.Place<rt.Place<rt.u32>>>): rt.u32 {
+	return total$Tally_u32$3(self.v);
+}
+
+export function total$Tally_u32$3(self: rt.Place<rt.Place<rt.u32>>): rt.u32 {
+	return total$Tally_u32$4(self.v);
+}
+
+export function total$Tally_u32$4(self: rt.Place<rt.u32>): rt.u32 {
+	return total$Tally_u32(self.v);
+}
+
+export function tallyAll$Pair(t: rt.Place<Pair.Pair>, data: rt.ByteSlice): rt.u32 {
+	for (const _5 of rt.byteSliceView(data)) {
+		Pair.tally$Tally$2(t, _5);
+	}
+	return Pair.total$Tally$2(t);
+}
+
+export function tallyAll$u32(t: rt.Place<rt.Place<rt.Place<rt.u32>>>, data: rt.ByteSlice): rt.u32 {
+	for (const _5 of rt.byteSliceView(data)) {
+		tally$Tally_u32$2(t, _5);
+	}
+	return total$Tally_u32$2(t);
+}
+
+export function tallyAll$u32$2(t: rt.Place<rt.Place<rt.u32>>, data: rt.ByteSlice): rt.u32 {
+	for (const _5 of rt.byteSliceView(data)) {
+		tally$Tally_u32$3(t, _5);
+	}
+	return total$Tally_u32$3(t);
+}
+
+/** The larger of two references, replacing the one a `&mut` points at. */
+export function keepLarger(r: rt.Place<Pair.Pair>, other: Pair.Pair): void {
+	if (other.n > r.v.n) {
+		r.v = other;
+	}
+}
+
+/** A `&mut` to a `&mut`, written through twice over, then pointed elsewhere. */
+export function retarget(r: rt.Place<rt.Place<rt.u32>>, other: rt.Place<rt.u32>, by: rt.u8): void {
+	r.v.v = rt.u32Add(r.v.v, by as rt.u32);
+	if (rt.u8Rem(by, 2) === 0) {
+		r.v = other;
+	}
+	r.v.v = rt.u32Add(r.v.v, 1);
+}
+
+/** The next two items, through std's `Iterator` for `&mut I` when `it` is one. */
+export function nextTwo$Box_Copied_Iter_u8(it: rt.Place<rt.Iter<rt.u8>>): rt.u8 {
+	return rt.u8WrappingAdd(unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 238), unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 221));
+}
+
+/** The next two items, through std's `Iterator` for `&mut I` when `it` is one. */
+export function nextTwo$Copied_Iter_u8(it: rt.Place<rt.Iter<rt.u8>>): rt.u8 {
+	return rt.u8WrappingAdd(unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 238), unwrapOr$Option_u8(rt.iterToOption(it.v.next()), 221));
+}
+
+/** The next two items, through std's `Iterator` for `&mut I` when `it` is one. */
+export function nextTwo$Copied_Iter_u8$2(it: rt.Iter<rt.u8>): rt.u8 {
+	return rt.u8WrappingAdd(unwrapOr$Option_u8(rt.iterToOption(it.next()), 238), unwrapOr$Option_u8(rt.iterToOption(it.next()), 221));
+}
+
+/** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
+export function callTwice$Box_to_refs_closure3(f: rt.Place<(a0: rt.u8) => rt.u8>): rt.u8 {
+	return rt.u8WrappingAdd(f.v(1), f.v(2));
+}
+
+/** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
+export function callTwice$Box_to_refs_closure3$2(f: (a0: rt.u8) => rt.u8): rt.u8 {
+	return rt.u8WrappingAdd(f(1), f(2));
+}
+
+/** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
+export function callTwice$to_refs_closure3(f: rt.Place<(a0: rt.u8) => rt.u8>): rt.u8 {
+	return rt.u8WrappingAdd(f.v(1), f.v(2));
+}
+
+/** Called twice, through std's `FnMut` for `&mut F` when `f` is one. */
+export function callTwice$to_refs_closure3$2(f: (a0: rt.u8) => rt.u8): rt.u8 {
+	return rt.u8WrappingAdd(f(1), f(2));
+}
+
+/** Called once, through std's `FnOnce` for `&mut F` when `f` is one. */
+export function callOnce$to_refs_closure3(f: rt.Place<rt.Place<(a0: rt.u8) => rt.u8>>): rt.u8 {
+	return f.v.v(3);
+}
+
+/** Called once, through std's `FnOnce` for `&mut F` when `f` is one. */
+export function callOnce$to_refs_closure3$2(f: rt.Place<(a0: rt.u8) => rt.u8>): rt.u8 {
+	return f.v(3);
+}
+
+/** Called once, through std's `FnOnce` for `&mut F` when `f` is one. */
+export function callOnce$to_refs_closure3$3(f: (a0: rt.u8) => rt.u8): rt.u8 {
+	return f(3);
+}
+
+/**
+ * A `&mut` to a reference: replaced, read, and written through, held, passed on, swapped,
+ * and through an impl that forwards a trait through `&mut T`.
+ */
+export function toRefs(data: rt.ByteSlice, out: rt.ByteVec): void {
+	if (data.length >= 1) {
+		const n: rt.usize = data.data[data.start] as rt.usize;
+		let bytes: rt.ByteSlice = rt.byteSliceRange(data, 1);
+		const _12: rt.usize = rt.usizeRem(n, rt.usizeAdd(rt.byteSliceRange(data, 1).length, 2));
+		rt.byteVecExtendFromSlice(out, takeFront(rt.place(() => bytes, (value) => bytes = value), _12));
+		rt.byteVecPush(out, bytes.length & 0xff);
+		const reader: Reader.Reader = { rest: rt.place(() => bytes, (value2) => bytes = value2) };
+		while (true) {
+			const slice: rt.ByteSlice = Reader.rest(reader).v;
+			if (slice.length !== 0) {
+				const b: rt.u8 = slice.data[slice.start];
+				Reader.rest(reader).v = new rt.ByteSlice(slice.data, slice.start + 1, slice.length - 1);
+				if (!(rt.u8Rem(b, 5) === 0)) {
+					rt.byteVecPush(out, b);
+				} else {
+					break;
+				}
+			} else {
+				break;
+			}
+		}
+		rt.byteVecPush(out, bytes.length & 0xff);
+		let tail2: rt.u32[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 1))), (_2: rt.u8): rt.u32 => {
+			return (((_2 as rt.u32)) << 8) >>> 0;
+		}));
+		while (tail2.length >= 1) {
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(tail2[0])));
+			tail2 = tail2.slice(1, tail2.length - 0);
+		}
+		let text: string = "";
+		for (const _59 of rt.byteSliceView(rt.byteSliceRange(data, 1))) {
+			text = text + String.fromCodePoint(rt.u8Add(97, rt.u8Rem(_59, 26)) as rt.char);
+		}
+		let s: string = text;
+		const part = rt.min(rt.usizeRem(n, 3), rt.stringLen(s));
+		s = rt.strSlice(s, part);
+		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
+		const part2 = rt.usizeDiv(rt.byteSliceRange(data, 1).length, 2);
+		const _85: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceRange(data, 1), part2);
+		let a: rt.ByteSlice = rt.byteSliceRange(data, 1);
+		let b3: rt.ByteSlice = _85;
+		const swapped = a;
+		a = b3;
+		b3 = swapped;
+		const old2 = b3;
+		b3 = rt.byteSliceFrom(Uint8Array.of());
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a.length & 0xff, b3.length & 0xff, old2.length & 0xff)));
+		const taken2 = a;
+		a = rt.byteSliceFrom(new Uint8Array(0));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a.length & 0xff, taken2.length & 0xff)));
+		let left: rt.ByteSlice = rt.byteSliceRange(data, 1);
+		const skip_: (a0: rt.usize) => rt.usize = (n2: rt.usize): rt.usize => {
+			const at: rt.usize = rt.min(n2, left.length);
+			left = rt.byteSliceRange(left, at);
+			return at;
+		};
+		rt.byteVecPush(out, skip_(rt.usizeRem(n, 3)) & 0xff);
+		rt.byteVecPush(out, skip_(1) & 0xff);
+		rt.byteVecPush(out, left.length & 0xff);
+		const pairs: Pair.Pair[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 1))), (_22: rt.u8): Pair.Pair => {
+			return { n: _22 };
+		}));
+		const first: Pair.Pair = { n: 0 };
+		let largest: Pair.Pair = first;
+		for (const _147 of pairs) {
+			keepLarger(rt.place(() => largest, (value3) => largest = value3), _147);
+		}
+		rt.byteVecPush(out, largest.n);
+		let x: rt.u32 = 0;
+		let y: rt.u32 = 100;
+		let r: rt.Place<rt.u32> = rt.place(() => x, (value4) => x = value4);
+		retarget(rt.place(() => r, (value5) => r = value5), rt.place(() => y, (value6) => y = value6), n & 0xff);
+		r.v = rt.u32Add(r.v, 1000);
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(x)));
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(y)));
+		let count: rt.u32 = 0;
+		const pair: Pair.Pair = { n: 1 };
+		let _182: rt.Place<rt.u32> = rt.place(() => count, (value7) => count = value7);
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(tallyAll$u32$2(rt.place(() => _182, (value8) => _182 = value8), rt.byteSliceRange(data, 1)))));
+		let _189: Pair.Pair = pair;
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(tallyAll$Pair(rt.place(() => _189, (value9) => _189 = value9), rt.byteSliceRange(data, 1)))));
+		let _197: rt.Place<rt.u32> = rt.place(() => count, (value10) => count = value10);
+		let _196: rt.Place<rt.Place<rt.u32>> = rt.place(() => _197, (value11) => _197 = value11);
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(tallyAll$u32(rt.place(() => _196, (value12) => _196 = value12), rt.byteSliceRange(data, 1)))));
+		rt.byteVecPush(out, pair.n);
+		const it: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 1)));
+		rt.byteVecPush(out, nextTwo$Copied_Iter_u8$2(it));
+		let _208: rt.Iter<rt.u8> = it;
+		rt.byteVecPush(out, nextTwo$Copied_Iter_u8(rt.place(() => _208, (value13) => _208 = value13)));
+		let _213: rt.Iter<rt.u8> = it;
+		rt.byteVecPush(out, nextTwo$Box_Copied_Iter_u8(rt.place(() => _213, (value14) => _213 = value14)));
+		let r2: rt.Iter<rt.u8> = it;
+		const iter3: rt.Place<rt.Iter<rt.u8>> = rt.place(() => r2, (value15) => r2 = value15);
+		while (true) {
+			const _218: rt.u8 | rt.Done = iter3.v.next();
+			if (_218 === rt.DONE) {
+				break;
+			}
+			const b4: rt.u8 = _218;
+			if (!(rt.u8Rem(b4, 3) === 0)) {
+				rt.byteVecPush(out, b4);
+			} else {
+				break;
+			}
+		}
+		let _229: rt.Iter<rt.u8> = it;
+		const iter4: rt.Place<rt.Iter<rt.u8>> = rt.place(() => _229, (value16) => _229 = value16);
+		while (true) {
+			const _231: rt.u8 | rt.Done = iter4.v.next();
+			if (_231 === rt.DONE) {
+				break;
+			}
+			const b5: rt.u8 = _231;
+			if (!(rt.u8Rem(b5, 4) === 0)) {
+				rt.byteVecPush(out, b5);
+			} else {
+				break;
+			}
+		}
+		rt.byteVecPush(out, rt.iterCount(it) & 0xff);
+		let calls: rt.u8 = 0;
+		const counted: (a0: rt.u8) => rt.u8 = (b7: rt.u8): rt.u8 => {
+			calls = rt.u8WrappingAdd(calls, b7);
+			return calls;
+		};
+		rt.byteVecPush(out, callTwice$to_refs_closure3$2(counted));
+		let _252: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callTwice$to_refs_closure3(rt.place(() => _252, (value17) => _252 = value17)));
+		rt.byteVecPush(out, callOnce$to_refs_closure3$3(counted));
+		let _259: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callOnce$to_refs_closure3$2(rt.place(() => _259, (value18) => _259 = value18)));
+		let _264: (a0: rt.u8) => rt.u8 = counted;
+		let _263: rt.Place<(a0: rt.u8) => rt.u8> = rt.place(() => _264, (value19) => _264 = value19);
+		rt.byteVecPush(out, callOnce$to_refs_closure3(rt.place(() => _263, (value20) => _263 = value20)));
+		rt.byteVecPush(out, callTwice$Box_to_refs_closure3$2(counted));
+		let _273: (a0: rt.u8) => rt.u8 = counted;
+		rt.byteVecPush(out, callTwice$Box_to_refs_closure3(rt.place(() => _273, (value21) => _273 = value21)));
+	}
 }
 
 //# sourceMappingURL=refs.ts.map

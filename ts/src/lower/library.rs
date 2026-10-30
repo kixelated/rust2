@@ -127,6 +127,9 @@ pub enum Std {
 	BTreeSet,
 	/// `rt.VecDeque`, a ring buffer.
 	VecDeque,
+	/// `rt.BinaryHeap`, std's max-heap in an array, and `rt.PeekMut`, its greatest element lent.
+	BinaryHeap,
+	PeekMut,
 	/// `rt.Entry`: a map's `Entry`, `OccupiedEntry`, or `VacantEntry`.
 	Entry,
 	/// `rt.Ordering`: its discriminant, -1, 0, or 1.
@@ -190,6 +193,7 @@ impl Std {
 			(rustc_span::Symbol::intern("BTreeMap"), Self::BTreeMap),
 			(rustc_span::Symbol::intern("BTreeSet"), Self::BTreeSet),
 			(rustc_span::Symbol::intern("VecDeque"), Self::VecDeque),
+			(rustc_span::Symbol::intern("BinaryHeap"), Self::BinaryHeap),
 			(rustc_span::Symbol::intern("Duration"), Self::Duration),
 		] {
 			if tcx.is_diagnostic_item(item, did) {
@@ -251,6 +255,7 @@ impl Std {
 			["cell", "lazy", "LazyCell"] => Some(Self::LazyCell),
 			["sync", "lazy_lock", "LazyLock"] => Some(Self::LazyLock),
 			["cmp", "Reverse"] => Some(Self::Reverse),
+			["collections", "binary_heap", "PeekMut"] => Some(Self::PeekMut),
 			["ops", "range", "Bound"] => Some(Self::Bound),
 			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
@@ -509,7 +514,7 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
 /// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
-/// their `Clone`.
+/// their `Clone`, or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms.
 /// Not one taking a `&mut` or a raw pointer, whose writes the crate's analysis of what it
 /// writes into would miss, nor an `unsafe` one, nor one mapped below as one expression or
 /// as the runtime's panic.
@@ -518,7 +523,17 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let ty::InstanceKind::Item(did) = instance.def else {
 		return false;
 	};
-	if !is_std(tcx, did) || tcx.def_kind(did) != DefKind::AssocFn {
+	if !is_std(tcx, did) {
+		return false;
+	}
+	if tcx.def_kind(did) == DefKind::Fn {
+		let path = std_path(tcx, did);
+		return matches!(
+			path.iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
+			["cmp", "max" | "min" | "max_by" | "min_by" | "max_by_key" | "min_by_key"]
+		);
+	}
+	if tcx.def_kind(did) != DefKind::AssocFn {
 		return false;
 	}
 	let Some(imp) = tcx.impl_of_assoc(did) else {
@@ -622,6 +637,8 @@ fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 		// `get_or_init::<T, F>` drops its function uncalled if the cell is set.
 		("OnceCell" | "OnceLock", "get_or_init") => &[1],
 		("Arc" | "Rc", "new_cyclic") => &[1],
+		// `is_sorted_by::<F>` drops its comparator before the last item, as `all` takes it.
+		("Iterator", "is_sorted_by") => &[1],
 		("LocalKey", "with" | "try_with" | "initialize_with" | "with_borrow_mut") => &[1],
 		_ => return None,
 	})
@@ -777,19 +794,20 @@ fn called_closures<'tcx>(
 		if lent {
 			continue;
 		}
+		let index = call.args[..param.index as usize]
+			.iter()
+			.filter(|a| a.as_type().is_some())
+			.count();
+		let discards = discarded.is_some_and(|d| d.contains(&index));
 		let kept = inputs.iter().enumerate().any(|(j, &t)| j != i && mentions(t));
-		if bound != ty::ClosureKind::FnOnce && !kept && i < args.len() {
+		if bound != ty::ClosureKind::FnOnce && !kept && !discards && i < args.len() {
 			match dropping_operand(b, call) {
 				None => closures.spent.push(args[i].clone()),
 				Some(_) => closures.leaked = closures.leaked.or(Some(ty)),
 			}
 			continue;
 		}
-		let index = call.args[..param.index as usize]
-			.iter()
-			.filter(|a| a.as_type().is_some())
-			.count();
-		if !discarded.is_some_and(|d| d.contains(&index)) {
+		if !discards {
 			closures.leaked = closures.leaked.or(Some(ty));
 			continue;
 		}
@@ -997,6 +1015,12 @@ fn mapping<'tcx>(
 				if Std::of(tcx, adt.did()) == Some(Std::Option) && args.type_at(0) == targ(gargs, 1));
 			if to == from || some || (string(tcx, to) && string(tcx, from.peel_refs())) {
 				return Some(value);
+			}
+			// A heap's `Vec` is its elements.
+			if let ty::Adt(adt, args) = from.kind()
+				&& Std::of(tcx, adt.did()) == Some(Std::BinaryHeap)
+			{
+				return Some(super::collections::heap_vec(value.member("d"), is_u8(args.type_at(0))));
 			}
 			// Each `From` between integers, `char`, and `f64`, or from `bool`, keeps the
 			// value, as `as` then does.
@@ -1320,6 +1344,35 @@ fn mapping<'tcx>(
 				}
 			}
 		}
+		// Whether each element and the next are in order, as `sort` would leave them: by
+		// `PartialOrd::le` in std's chunks, or as the slice's iterator's `is_sorted_by` and
+		// `is_sorted_by_key` test them, which std's are.
+		("slice", "is_sorted") => {
+			let elem = targ(gargs, 0);
+			let mut values = args;
+			values[0] = elements(values[0].clone(), Ty::new_slice(tcx, elem));
+			values.push(super::collections::test_fn(b, elem, "le", span));
+			Expr::rt("sliceIsSorted", values)
+		}
+		("slice", "is_sorted_by" | "is_sorted_by_key") => {
+			let elem = targ(gargs, 0);
+			let mut values = args.into_iter();
+			let slice = elements(values.next()?, Ty::new_slice(tcx, elem));
+			let items = super::iter::by_ref(Expr::rt("iterSlice", vec![slice]), elem);
+			let f = values.next()?;
+			let (items, compare, drop) = match name.as_str() {
+				"is_sorted_by" => (items, f, Expr::undefined()),
+				_ => {
+					let key = targ(gargs, 2);
+					let le = super::collections::test_fn(b, key, "le", span);
+					(Expr::rt("iterMap", vec![items, f]), le, b.t.dropper(key, span))
+				}
+			};
+			Expr::rt(
+				"iterIsSortedBy",
+				super::iter::tail(vec![items, compare], vec![Expr::undefined(), drop]),
+			)
+		}
 		// A boxed slice's elements, and `vec![a, b]`'s array once `mir::vec` took the box
 		// away. A `Copy` aggregate's operand may be shared with where it came from, which the
 		// vector must not change.
@@ -1458,6 +1511,17 @@ fn mapping<'tcx>(
 					Some(Std::Vec) => vec_view(v, vargs.type_at(0)),
 					Some(Std::String | Std::Box) => v,
 					Some(Std::Cow) if string(tcx, ty) => v,
+					// The greatest element of a heap, which `DerefMut` marks to sift once lent.
+					Some(Std::PeekMut) => {
+						let p = match v.is_path() {
+							true => v,
+							false => b.spill(v, "peek", out),
+						};
+						if name == "deref_mut" {
+							out.push(StmtKind::Expr(Expr::rt("peekMutDerefMut", vec![p.clone()])).at(None));
+						}
+						p.member("v")
+					}
 					_ => return None,
 				},
 				_ => return None,
