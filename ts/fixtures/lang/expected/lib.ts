@@ -3,6 +3,8 @@
 import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as Any from "./core/any.Any.ts";
+import type * as ArcReleasing from "./counts.ArcReleasing.ts";
+import type * as RcReleasing from "./counts.RcReleasing.ts";
 import type * as Window from "./durations.Window.ts";
 import type * as Clip from "./fmt.Clip.ts";
 import type * as Pair from "./fmt.Pair.ts";
@@ -324,6 +326,14 @@ export function drop$List_Arc_u8(_1: List.List<rt.Arc<rt.u8>>): void {
 
 export function drop$List_String(_1: List.List<string>): void {
 	List.drop$Drop_String(_1);
+}
+
+export function drop$RefCell_Vec_Arc_ArcReleasing(value: rt.RefCell<rt.Arc<ArcReleasing.ArcReleasing>[]>): void {
+	rt.dropAll(value.value);
+}
+
+export function drop$RefCell_Vec_Rc_RcReleasing(value: rt.RefCell<rt.Arc<RcReleasing.RcReleasing>[]>): void {
+	rt.dropAll(value.value);
 }
 
 export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {

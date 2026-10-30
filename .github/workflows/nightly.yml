@@ -38,6 +38,11 @@ jobs:
       - name: Build
         run: nix build .#ts
 
+      # The fixtures against std checked in their own target directories, as outside Nix,
+      # whose snapshots hold the flake's sysroot to the same output.
+      - name: Fixtures without the sysroot
+        run: nix develop --command env RUST2_TS_SYSROOT= just ts test --test fixtures
+
   uniffi-fixtures:
     name: UniFFI fixtures
     # x86_64: nixpkgs marks Swift 6.3 broken on aarch64-linux, where it fails to link with

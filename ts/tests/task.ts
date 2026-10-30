@@ -319,7 +319,8 @@ export function harness<V>(f: Fixture<V>): (input: Uint8Array) => Bytes {
 		const exec = new Executor(note, f.Pending);
 		const r: Run<V> = { f, log, note, exec, channels: [] };
 		for (let i = 0; i < input.length; i += 2) {
-			const [, step] = steps[input[i] % steps.length];
+			const [name, step] = steps[input[i] % steps.length];
+			note(`step ${name}`);
 			step(r, input[i + 1] ?? 0);
 		}
 		for (let t = 0; t < exec.tasks.length; t++) exec.drop(t);
