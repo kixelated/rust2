@@ -88,7 +88,9 @@ pub fn as_slices(data: &[u8], out: &mut Vec<u8>) {
 			}
 			4 => {
 				let all = pairs.as_mut_slice();
-				all[i % 2].as_mut_slice().copy_from_slice(&[u32::from(op), u32::from(op) << 20]);
+				all[i % 2]
+					.as_mut_slice()
+					.copy_from_slice(&[u32::from(op), u32::from(op) << 20]);
 				all.swap(0, 1);
 			}
 			5 => {
