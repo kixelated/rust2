@@ -368,6 +368,23 @@ export function strBytes(s: string): Iter<u8> {
 // `String`'s edits, each giving the edited string, which the caller writes where the
 // `&mut String` points, and what the edit returns beside it.
 
+/** `isize::MAX` on wasm32, past which std refuses a capacity. */
+const ISIZE_MAX = 0x7fffffff;
+
+/** `String::with_capacity`: the empty string, which keeps no capacity. */
+export function stringWithCapacity(capacity: usize): string {
+	if (capacity > ISIZE_MAX) panic("capacity overflow");
+	return "";
+}
+
+/** `String::reserve` and `reserve_exact`, which panic as std's do past `isize::MAX`. */
+export function stringReserve(s: string, additional: usize): void {
+	// A code unit is at most three bytes, so only a large `additional` needs the length.
+	if (additional > ISIZE_MAX - 3 * s.length && additional > ISIZE_MAX - utf8Len(s, 0, s.length)) {
+		panic("capacity overflow");
+	}
+}
+
 /** The code unit where byte `i` of `s` starts a char, or panic with `message`. */
 function boundary(s: string, i: number, message: string): number {
 	const at = unitAt(s, 0, 0, i);

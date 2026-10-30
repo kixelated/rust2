@@ -536,8 +536,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
 			}
-			// No capacity is kept, and reading one is refused.
-			("String", "reserve" | "reserve_exact" | "shrink_to_fit" | "shrink_to") => done(Expr::undefined(), false),
+			// No capacity is kept, and reading one is refused, but reserving past `isize::MAX`
+			// panics as std's does.
+			("String", "reserve" | "reserve_exact") => {
+				let values = self.operands(false, &[true, true], args, tcx.types.unit, span, out);
+				done(Expr::rt("stringReserve", values), true)
+			}
+			("String", "shrink_to_fit" | "shrink_to") => done(Expr::undefined(), false),
 			("String", "retain") if targ(0).is_some_and(|f| self.b.t.drops(f)) => {
 				let f = targ(0)?;
 				done(
@@ -559,10 +564,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				"clear" | "truncate" | "insert" | "insert_str" | "retain" | "replace_range" | "extend_from_within",
 			) => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
+				// What follows the string passes as the mappings' arguments do, a `&mut F` as
+				// the closure it points at.
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let pointees = vec![true; args.len() - 1];
 				let mut values = vec![place.0.clone()];
-				for arg in &args[1..] {
-					values.push(self.operand(&arg.node, span, out));
-				}
+				values.extend(self.operands(false, &pointees, &args[1..], result, span, out));
 				if name == "insert" {
 					let c = values.pop()?;
 					values.push(library::char_text(c));
@@ -581,10 +588,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			// The runtime gives the edited string and what the edit returns.
 			("String", "pop" | "remove" | "split_off") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
+				// What follows the string passes as the mappings' arguments do, a `&mut F` as
+				// the closure it points at.
+				let result = dest.ty(&self.mir.local_decls, tcx).ty;
+				let pointees = vec![true; args.len() - 1];
 				let mut values = vec![place.0.clone()];
-				for arg in &args[1..] {
-					values.push(self.operand(&arg.node, span, out));
-				}
+				values.extend(self.operands(false, &pointees, &args[1..], result, span, out));
 				let f = match name.as_str() {
 					"pop" => "stringPop",
 					"remove" => "stringRemove",

@@ -1597,8 +1597,8 @@ fn mapping<'tcx>(
 		("Utf8Error", "error_len") => args.pop()?.member("errorLen"),
 		("String" | "str", "len") => Expr::rt("stringLen", args),
 		("String", "as_str") => args.pop()?,
-		// No capacity is kept, and reading one is refused.
-		("String", "new" | "with_capacity") => Expr::Str(String::new()),
+		("String", "new") => Expr::Str(String::new()),
+		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
 		// `str::parse::<f64>`, by std's grammar rather than `Number`'s.
 		("str", "parse") | ("FromStr", "from_str") if super::float::is(targ(gargs, 0)) => {
 			Expr::rt_of("f64", "fromStr").call(args)

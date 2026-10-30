@@ -398,6 +398,15 @@ fn offset(s: &str, b: u8) -> usize {
 	s.len()
 }
 
+/// `String::retain` by a function behind a `&mut`.
+fn retain_by(s: &mut String, f: &mut fn(char) -> bool) {
+	s.retain(f);
+}
+
+fn odd(c: char) -> bool {
+	u32::from(c) % 2 == 1
+}
+
 /// One edit of `s` by `op`, taking offsets and text from `a` and `b`, through a `&mut`.
 fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
 	let piece = text(&[a, b, a ^ b][..usize::from(a % 4)]);
@@ -412,6 +421,10 @@ fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
 		5 => put_char(out, Some(s.remove(i))),
 		6 => s.insert(i, ALPHABET[usize::from(b % 16)]),
 		7 => s.insert_str(i, &piece),
+		8 if b % 2 == 1 => {
+			let mut f: fn(char) -> bool = odd;
+			retain_by(s, &mut f);
+		}
 		8 => {
 			let mut seen = Vec::new();
 			s.retain(|c| {
@@ -435,14 +448,23 @@ fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
 			2 => s.extend_from_within(..=j),
 			_ => s.extend_from_within(..),
 		},
-		12 => {
-			s.reserve(usize::from(a));
-			s.reserve_exact(usize::from(b));
-			s.shrink_to(usize::from(a));
-			s.shrink_to_fit();
-		}
+		// Past `isize::MAX`, a capacity overflows; native Rust would allocate one up to it.
+		12 => match a % 4 {
+			0 => s.reserve(usize::MAX - usize::from(b)),
+			1 => s.reserve_exact(isize::MAX as usize - s.len() + 1 + usize::from(b % 2)),
+			_ => {
+				s.reserve(usize::from(a));
+				s.reserve_exact(usize::from(b));
+				s.shrink_to(usize::from(a));
+				s.shrink_to_fit();
+			}
+		},
 		_ => {
-			let mut fresh = String::with_capacity(usize::from(a));
+			let capacity = match a % 4 {
+				0 => isize::MAX as usize + 1 + usize::from(b % 2),
+				_ => usize::from(a),
+			};
+			let mut fresh = String::with_capacity(capacity);
 			fresh.push_str(s);
 			*s = fresh;
 		}

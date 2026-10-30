@@ -490,8 +490,18 @@ export function offset(s: string, b: rt.u8): rt.usize {
 	return rt.usizeRem(b as rt.usize, rt.usizeAdd(rt.stringLen(s), 3));
 }
 
+/** `String::retain` by a function behind a `&mut`. */
+export function retainBy(s: rt.Place<string>, f: rt.Place<(a0: rt.char) => boolean>): void {
+	s.v = rt.stringRetain(s.v, f);
+}
+
+export function odd(c: rt.char): boolean {
+	return rt.u32Rem(c as rt.u32, 2) === 1;
+}
+
 /** One edit of `s` by `op`, taking offsets and text from `a` and `b`, through a `&mut`. */
 export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt.ByteVec): void {
+	let capacity!: rt.usize;
 	const part = rt.u8Rem(a, 4) as rt.usize;
 	const piece: string = text(rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(a, b, a ^ b)), 0, part));
 	const _17: [rt.usize, rt.usize] = [offset(s.v, a), offset(s.v, b)];
@@ -531,49 +541,70 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 	} else if (_24 === 7) {
 		s.v = rt.stringInsertStr(s.v, i, piece);
 	} else if (_24 === 8) {
-		const seen: rt.char[] = [];
-		s.v = rt.stringRetain(s.v, (c: rt.char): boolean => {
-			seen.push(c);
-			return rt.u32Rem(c as rt.u32, 3) !== rt.u8Rem(a, 3) as rt.u32;
-		});
-		putSeen(out, seen);
+		if (!(rt.u8Rem(b, 2) === 1)) {
+			const seen: rt.char[] = [];
+			s.v = rt.stringRetain(s.v, (c: rt.char): boolean => {
+				seen.push(c);
+				return rt.u32Rem(c as rt.u32, 3) !== rt.u8Rem(a, 3) as rt.u32;
+			});
+			putSeen(out, seen);
+		} else {
+			let f: (a0: rt.char) => boolean = odd;
+			retainBy(s, rt.place(() => f, (value) => f = value));
+		}
 	} else if (_24 === 9) {
 		const edit_ = rt.stringSplitOff(s.v, i);
 		s.v = edit_[0];
 		put(out, edit_[1]);
 	} else if (_24 === 10) {
-		const _61: rt.u8 = rt.u8Rem(b, 6);
-		if (_61 === 0) {
-			const _63: rt.Range<rt.usize> = new rt.Range(i, j);
-			s.v = rt.stringReplaceRange(s.v, _63, piece);
-		} else if (_61 === 1) {
-			const _66: { start: rt.usize } = { start: i };
-			s.v = rt.stringReplaceRange(s.v, _66, piece);
-		} else if (_61 === 2) {
-			const _69: { end: rt.usize } = { end: j };
+		const _67: rt.u8 = rt.u8Rem(b, 6);
+		if (_67 === 0) {
+			const _69: rt.Range<rt.usize> = new rt.Range(i, j);
 			s.v = rt.stringReplaceRange(s.v, _69, piece);
-		} else if (_61 === 3) {
+		} else if (_67 === 1) {
+			const _72: { start: rt.usize } = { start: i };
+			s.v = rt.stringReplaceRange(s.v, _72, piece);
+		} else if (_67 === 2) {
+			const _75: { end: rt.usize } = { end: j };
+			s.v = rt.stringReplaceRange(s.v, _75, piece);
+		} else if (_67 === 3) {
 			s.v = rt.stringReplaceRange(s.v, undefined, piece);
-		} else if (_61 === 4) {
-			const _74: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(i, j, rt.usizeStep);
-			s.v = rt.stringReplaceRange(s.v, _74, piece);
+		} else if (_67 === 4) {
+			const _80: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(i, j, rt.usizeStep);
+			s.v = rt.stringReplaceRange(s.v, _80, piece);
 		} else {
-			const _77: { end: rt.usize; inclusive: true } = { end: j, inclusive: true };
-			s.v = rt.stringReplaceRange(s.v, _77, piece);
+			const _83: { end: rt.usize; inclusive: true } = { end: j, inclusive: true };
+			s.v = rt.stringReplaceRange(s.v, _83, piece);
 		}
 	} else if (_24 === 11) {
-		const _80: rt.u8 = rt.u8Rem(b, 4);
-		if (_80 === 0) {
+		const _86: rt.u8 = rt.u8Rem(b, 4);
+		if (_86 === 0) {
 			s.v = rt.stringExtendFromWithin(s.v, new rt.Range(i, j));
-		} else if (_80 === 1) {
+		} else if (_86 === 1) {
 			s.v = rt.stringExtendFromWithin(s.v, { start: i });
-		} else if (_80 === 2) {
+		} else if (_86 === 2) {
 			s.v = rt.stringExtendFromWithin(s.v, { end: j, inclusive: true });
 		} else {
 			s.v = rt.stringExtendFromWithin(s.v, undefined);
 		}
-	} else if (_24 !== 12) {
-		let fresh: string = "";
+	} else if (_24 === 12) {
+		const _91: rt.u8 = rt.u8Rem(a, 4);
+		if (_91 === 0) {
+			rt.stringReserve(s.v, rt.usizeSub(4294967295, b as rt.usize));
+		} else if (_91 === 1) {
+			const _96: rt.usize = rt.usizeAdd(rt.usizeAdd(rt.usizeSub(2147483647, rt.stringLen(s.v)), 1), rt.u8Rem(b, 2) as rt.usize);
+			rt.stringReserve(s.v, _96);
+		} else {
+			rt.stringReserve(s.v, a as rt.usize);
+			rt.stringReserve(s.v, b as rt.usize);
+		}
+	} else {
+		if (rt.u8Rem(a, 4) === 0) {
+			capacity = rt.usizeAdd(rt.usizeAdd(2147483647, 1), rt.u8Rem(b, 2) as rt.usize);
+		} else {
+			capacity = a as rt.usize;
+		}
+		let fresh: string = rt.stringWithCapacity(capacity);
 		fresh = fresh + s.v;
 		s.v = fresh;
 	}
