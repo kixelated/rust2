@@ -1542,6 +1542,7 @@ fn mapping<'tcx>(
 			rt2(values, of, &f)
 		}
 		// Of a range, which `Vec<T, A>::drain::<R>` takes.
+		("Vec", "drain") if let Some(msg) = super::collections::unread_range(b, call) => b.err(span, msg),
 		("Vec", "drain") if is_u8(targ(gargs, 0)) => Expr::rt("byteVecDrain", args),
 		("Vec", "drain") => {
 			let dropper = b.t.dropper(targ(gargs, 0), span);

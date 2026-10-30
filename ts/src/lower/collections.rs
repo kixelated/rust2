@@ -687,6 +687,7 @@ fn btree<'tcx>(
 			};
 			Expr::rt(f, super::iter::tail(values, droppers))
 		}
+		(_, "range" | "range_mut") if let Some(msg) = unread_range(b, call) => b.err(span, msg),
 		(_, "range") if set => Expr::rt("btreeRangeKeys", values),
 		(_, "range_mut") if b.t.needs_place(arg(coll, 1)) => Expr::rt("btreeRangeMut", values),
 		(_, "range" | "range_mut") => Expr::rt("btreeRange", values),
@@ -846,6 +847,7 @@ fn deque<'tcx>(
 		}
 		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
 		(_, "iter" | "iter_mut") => Expr::rt("dequeIter", values),
+		(_, "drain") if let Some(msg) = unread_range(b, call) => b.err(span, msg),
 		(_, "drain") => {
 			let droppers = entry_droppers(b, coll, span);
 			Expr::rt("dequeDrain", super::iter::tail(values, droppers))
@@ -1204,6 +1206,18 @@ fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		_ => return false,
 	};
 	matches!(elem.kind(), ty::Uint(ty::UintTy::U8))
+}
+
+/// Why the runtime can't read the range `call` takes last as an `rt.Bounds`, if it can't:
+/// it reads std's range types, not a tuple of `Bound`s or the crate's own `RangeBounds`.
+pub fn unread_range<'tcx>(b: &Body<'_, '_, 'tcx>, call: &Call<'tcx>) -> Option<String> {
+	let range = *b.t.sig(call.def_id, call.args).inputs().last()?;
+	match b.t.std_of(range) {
+		Some(Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive | Std::RangeFull) => {
+			None
+		}
+		_ => Some(format!("a range of `{range}`, whose bounds the runtime doesn't read, which is not supported yet")),
+	}
 }
 
 /// What `ty` holds if it is an `Arc`.

@@ -123,6 +123,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("counts::cloned_rcs", |_, data, out| counts::cloned_rcs(data, out)),
 		("counts::copies", |_, data, out| counts::copies(data, out)),
 		("statics::cells", |_, data, out| statics::cells(data, out)),
+		("iters::returned", |_, data, out| iters::returned(data, out)),
 		("orders::bytes", |_, data, out| orders::bytes(data, out)),
 		("slices::parts", slices::parts),
 		("slices::drains", slices::drains),

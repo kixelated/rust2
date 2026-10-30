@@ -746,3 +746,9 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	let _ = SLOT.compare_exchange(p, std::ptr::null_mut(), Relaxed, Relaxed);
 	*NAMED
 }
+
+/// Ranges of `Bound`s, which the runtime reads as unbounded where it reads no `start` or `end`.
+pub fn bound_ranges(v: &mut Vec<u8>, map: &std::collections::BTreeMap<u8, u8>) -> usize {
+	use std::ops::Bound::{Excluded, Included};
+	v.drain((Excluded(0), Included(2))).count() + map.range((Excluded(0), Included(2))).count()
+}
