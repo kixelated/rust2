@@ -11,11 +11,11 @@ import * as Scaled from "./ints.Scaled.ts";
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u8) => void = (out2: rt.ByteVec, v3: rt.u8): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.u8) => undefined = (out2: rt.ByteVec, v3: rt.u8): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
 		rt.byteVecPush(out2, rt.u8FromBeBytes(rt.u8ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u8 | undefined) => void = (out3: rt.ByteVec, v4: rt.u8 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.u8 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.u8 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -160,11 +160,11 @@ export function u8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u16) => void = (out2: rt.ByteVec, v3: rt.u16): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.u16) => undefined = (out2: rt.ByteVec, v3: rt.u16): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
 		rt.byteVecPush(out2, rt.u16FromBeBytes(rt.u16ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u16 | undefined) => void = (out3: rt.ByteVec, v4: rt.u16 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.u16 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.u16 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -309,11 +309,11 @@ export function u16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u32) => void = (out2: rt.ByteVec, v3: rt.u32): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.u32) => undefined = (out2: rt.ByteVec, v3: rt.u32): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
 		rt.byteVecPush(out2, rt.u32FromBeBytes(rt.u32ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u32 | undefined) => void = (out3: rt.ByteVec, v4: rt.u32 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.u32 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.u32 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -458,11 +458,11 @@ export function u32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u64) => void = (out2: rt.ByteVec, v3: rt.u64): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.u64) => undefined = (out2: rt.ByteVec, v3: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(rt.u128Cast(v3))));
 		rt.byteVecPush(out2, rt.u64Eq(rt.u64FromBeBytes(rt.u64ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u64 | undefined) => void = (out3: rt.ByteVec, v4: rt.u64 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.u64 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.u64 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -607,11 +607,11 @@ export function u64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.u128) => void = (out2: rt.ByteVec, v3: rt.u128): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.u128) => undefined = (out2: rt.ByteVec, v3: rt.u128): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3)));
 		rt.byteVecPush(out2, rt.u128Eq(rt.u128FromBeBytes(rt.u128ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.u128 | undefined) => void = (out3: rt.ByteVec, v4: rt.u128 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.u128 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.u128 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -756,11 +756,11 @@ export function u128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.usize) => void = (out2: rt.ByteVec, v3: rt.usize): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.usize) => undefined = (out2: rt.ByteVec, v3: rt.usize): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v3 as rt.u128)));
 		rt.byteVecPush(out2, rt.usizeFromBeBytes(rt.usizeToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.usize | undefined) => void = (out3: rt.ByteVec, v4: rt.usize | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.usize | undefined) => undefined = (out3: rt.ByteVec, v4: rt.usize | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -905,11 +905,11 @@ export function usizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i8) => void = (out2: rt.ByteVec, v3: rt.i8): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.i8) => undefined = (out2: rt.ByteVec, v3: rt.i8): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
 		rt.byteVecPush(out2, rt.i8FromBeBytes(rt.i8ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i8 | undefined) => void = (out3: rt.ByteVec, v4: rt.i8 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.i8 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.i8 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -1054,11 +1054,11 @@ export function i8Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i16) => void = (out2: rt.ByteVec, v3: rt.i16): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.i16) => undefined = (out2: rt.ByteVec, v3: rt.i16): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
 		rt.byteVecPush(out2, rt.i16FromBeBytes(rt.i16ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i16 | undefined) => void = (out3: rt.ByteVec, v4: rt.i16 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.i16 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.i16 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -1203,11 +1203,11 @@ export function i16Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i32) => void = (out2: rt.ByteVec, v3: rt.i32): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.i32) => undefined = (out2: rt.ByteVec, v3: rt.i32): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
 		rt.byteVecPush(out2, rt.i32FromBeBytes(rt.i32ToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i32 | undefined) => void = (out3: rt.ByteVec, v4: rt.i32 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.i32 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.i32 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -1352,11 +1352,11 @@ export function i32Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i64) => void = (out2: rt.ByteVec, v3: rt.i64): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.i64) => undefined = (out2: rt.ByteVec, v3: rt.i64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(rt.i128Cast(v3))));
 		rt.byteVecPush(out2, rt.i64Eq(rt.i64FromBeBytes(rt.i64ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i64 | undefined) => void = (out3: rt.ByteVec, v4: rt.i64 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.i64 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.i64 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -1501,11 +1501,11 @@ export function i64Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.i128) => void = (out2: rt.ByteVec, v3: rt.i128): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.i128) => undefined = (out2: rt.ByteVec, v3: rt.i128): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3)));
 		rt.byteVecPush(out2, rt.i128Eq(rt.i128FromBeBytes(rt.i128ToBeBytes(v3)), v3) ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.i128 | undefined) => void = (out3: rt.ByteVec, v4: rt.i128 | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.i128 | undefined) => undefined = (out3: rt.ByteVec, v4: rt.i128 | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {
@@ -1650,11 +1650,11 @@ export function i128Op(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** Apply operation `op` to operands taken from `data`. */
 export function isizeOp(op: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _68: (a0: rt.ByteVec, a1: rt.isize) => void = (out2: rt.ByteVec, v3: rt.isize): void => {
+	const _68: (a0: rt.ByteVec, a1: rt.isize) => undefined = (out2: rt.ByteVec, v3: rt.isize): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v3 as rt.i128)));
 		rt.byteVecPush(out2, rt.isizeFromBeBytes(rt.isizeToBeBytes(v3)) === v3 ? 1 : 0);
 	};
-	const _69: (a0: rt.ByteVec, a1: rt.isize | undefined) => void = (out3: rt.ByteVec, v4: rt.isize | undefined): void => {
+	const _69: (a0: rt.ByteVec, a1: rt.isize | undefined) => undefined = (out3: rt.ByteVec, v4: rt.isize | undefined): undefined => {
 		if (v4 === undefined) {
 			rt.byteVecPush(out3, 0);
 		} else {

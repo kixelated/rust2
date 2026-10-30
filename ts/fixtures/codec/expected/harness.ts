@@ -20,8 +20,8 @@ import type * as Version from "./lite/version.Version.ts";
  * Each case, which the first byte picks modulo their count, so a case added at the end
  * moves no other.
  */
-export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> {
-	return [decodeScript, encodeScript, zigzag, sizes, roundtrip$Versions, roundtripLite$Group, roundtripLite$Probe, encodeMessages, errors];
+export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => undefined> {
+	return [decodeScript as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, encodeScript as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, zigzag as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, sizes as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtrip$Versions as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtripLite$Group as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtripLite$Probe as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, encodeMessages as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, errors as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined];
 }
 
 /** Run one case. */
@@ -29,7 +29,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
 		const op: rt.u8 = input.data[input.start];
-		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = cases();
+		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => undefined> = cases();
 		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}

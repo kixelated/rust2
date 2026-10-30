@@ -14,14 +14,14 @@ export function LOG$init(): rt.RefCell<rt.ByteVec> {
 
 export function log(entry: Uint8Array): void {
 	const _5: rt.ByteSlice = rt.byteSliceFrom(entry);
-	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): undefined => {
 		rt.iterExtendBytes(log_, rt.iterSlice(rt.byteSliceToArray(_5)));
 	});
 }
 
 /** Puts what was logged since the last flush. */
 export function flush(out: rt.ByteVec): void {
-	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log_: rt.ByteVec): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log_));
 		rt.byteVecClear(log_);
 	});

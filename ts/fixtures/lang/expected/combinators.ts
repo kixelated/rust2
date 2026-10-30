@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import { copy$Result_u32s_u16, copy$u32s } from "./lib.ts";
-import { isSomeAnd$09tpccf, isNoneOr$1s1o3ss, unwrapOr$0r2bmpr, unwrapOrElse$1badkpb, unwrapOrElse$13moxzl, unwrapOrDefault$165pyh5, unwrapOrDefault$0wx44sw, unwrapOrDefault$1q0ps0j, map$0oc32h1, map$0ejznqm, map$0jg2jop, map$0cs071d, inspect$0sxbahk, mapOr$099335t, mapOr$1surhce, mapOr$0mmpeqx, mapOrElse$1g6d36t, okOr$07zal2e, okOr$0m6xlfp, okOr$1vxk0yk, okOrElse$0awp3vn, okOrElse$1v98j0a, and$06om98g, andThen$17ch833, filter$1855tjj, filter$0v80fk8, or$1loyskh, orElse$05gzawv, orElse$15bv4ho, xor$0kctyix, zip$1deudzj, clone$14nprly } from "./core/option.ts";
-import { isOkAnd$0jj0nkw, isErrAnd$0b01a39, ok$1c77lmd, err$05f656d, asRef$1glrxiq, map$1qqg34g, map$132mdj8, mapOr$1mu5bvh, mapOrElse$0jxx67n, mapErr$12w1s5x, mapErr$1lsqfgi, inspect$07pitc0, inspectErr$0vdsz1l, unwrapOrDefault$1exw7nd, and$0l7ltae, andThen$0hd6ik8, or$1xcfx3w, orElse$13ay4um, unwrapOr$0a4h2e7, unwrapOrElse$1reohq9, unwrapOrElse$009ibtw, copied$0ma6p21, clone$04fntvl } from "./core/result.ts";
+import { isSomeAnd$09tpccf, isNoneOr$1s1o3ss, unwrapOr$0r2bmpr, unwrapOrElse$1badkpb, unwrapOrElse$13moxzl, unwrapOrDefault$165pyh5, unwrapOrDefault$0wx44sw, unwrapOrDefault$1q0ps0j, map$0oc32h1, map$0ejznqm, map$0jg2jop, map$0cs071d, inspect$0di0vx1, mapOr$099335t, mapOr$1surhce, mapOr$0mmpeqx, mapOrElse$1g6d36t, okOr$07zal2e, okOr$0m6xlfp, okOr$1vxk0yk, okOrElse$0awp3vn, okOrElse$1v98j0a, and$06om98g, andThen$17ch833, filter$1855tjj, filter$0v80fk8, or$1loyskh, orElse$05gzawv, orElse$15bv4ho, xor$0kctyix, zip$1deudzj, clone$14nprly } from "./core/option.ts";
+import { isOkAnd$0jj0nkw, isErrAnd$0b01a39, ok$1c77lmd, err$05f656d, asRef$1glrxiq, map$1qqg34g, map$132mdj8, mapOr$1mu5bvh, mapOrElse$0jxx67n, mapErr$12w1s5x, mapErr$1lsqfgi, inspect$16o3gle, inspectErr$06tv5sa, unwrapOrDefault$1exw7nd, and$0l7ltae, andThen$0hd6ik8, or$1xcfx3w, orElse$13ay4um, unwrapOr$0a4h2e7, unwrapOrElse$1reohq9, unwrapOrElse$009ibtw, copied$0ma6p21, clone$04fntvl } from "./core/result.ts";
 
 /** Run case `kind % 4` over `data`, whose bytes pick each `Some` or `None`, `Ok` or `Err`. */
 export function combinators(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
@@ -67,7 +67,7 @@ export function options(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 	rt.byteVecPush(out, mapOr$0mmpeqx(zip$1deudzj(a, b), 0, (_2: [rt.u8, rt.u8]): rt.u8 => {
 		return rt.u8WrappingAdd(_2[0], _2[1]);
 	}));
-	rt.byteVecPush(out, inspect$0sxbahk(a, (x9: rt.u8): void => {
+	rt.byteVecPush(out, inspect$0di0vx1(a, (x9: rt.u8): undefined => {
 		rt.byteVecPush(out, x9);
 	}) !== undefined ? 1 : 0);
 	push(map$132mdj8(okOrElse$1v98j0a(b, (): rt.u16 => {
@@ -122,9 +122,9 @@ export function results(a: rt.u8 | undefined, b: rt.u8 | undefined, limit: rt.u8
 	rt.byteVecPush(out, unwrapOrElse$1reohq9(or$1xcfx3w(r, s), (e6: rt.u16): rt.u8 => {
 		return e6 & 0xff;
 	}));
-	rt.byteVecPush(out, inspectErr$0vdsz1l(inspect$07pitc0(s, (v4: rt.u8): void => {
+	rt.byteVecPush(out, inspectErr$06tv5sa(inspect$16o3gle(s, (v4: rt.u8): undefined => {
 		rt.byteVecPush(out, v4);
-	}), (e7: rt.u16): void => {
+	}), (e7: rt.u16): undefined => {
 		rt.byteVecPush(out, e7 & 0xff);
 	}).ok ? 1 : 0);
 	rt.byteVecPush(out, unwrapOr$0a4h2e7(copied$0ma6p21(mapErr$1lsqfgi(asRef$1glrxiq(r), (e8: rt.u16): rt.u16 => {

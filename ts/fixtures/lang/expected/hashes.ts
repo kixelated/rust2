@@ -37,7 +37,7 @@ export function digest$Arc_u8s(value: rt.Arc<Uint8Array>, out: rt.ByteVec): void
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
 export function digest$Dirs(value: Dir.Dir[], out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	rt.hashSlice(Dir.hash$Hash_DefaultHasher)(value, h);
+	rt.hashSlice(Dir.hash$Hash_DefaultHasher as (a0: Dir.Dir, a1: rt.Hasher) => undefined)(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -121,7 +121,7 @@ export function digest$Shape(value: Shape.Shape, out: rt.ByteVec): void {
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
 export function digest$Small_Small(value: [Small.Small, Small.Small], out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	rt.hashTuple([Small.hash$Hash_DefaultHasher, Small.hash$Hash_DefaultHasher])(value, h);
+	rt.hashTuple([Small.hash$Hash_DefaultHasher as (a0: Small.Small, a1: rt.Hasher) => undefined, Small.hash$Hash_DefaultHasher as (a0: Small.Small, a1: rt.Hasher) => undefined])(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -483,14 +483,14 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, n, rt.hash64), rt.hashOne(s, n, rt.hash64)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(other.state, text, rt.hashStr), rt.hashOne(other.state, text, rt.hashStr)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr])), rt.hashOne(copy, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr]))) ? 1 : 0);
-		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, Nibble.hash$Hash_DefaultHasher), rt.hashOne(s, { _0: b ^ 240 }, Nibble.hash$Hash_DefaultHasher)) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined), rt.hashOne(s, { _0: b ^ 240 }, Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined)) ? 1 : 0);
 		const arc: rt.Arc<string> = new rt.Arc(text);
 		const _84: rt.Arc<string> = rt.arcClone(arc);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, _84, rt.hashArc(rt.hashStr), rt.drop), rt.hashOne(s, arc, rt.hashArc(rt.hashStr))) ? 1 : 0);
 		rt.byteVecPush(out, arc.strong & 0xff);
 		const drops: rt.Cell<rt.u8> = new rt.Cell(0);
 		const counted: Counted.Counted = new Counted.Counted(b, drops);
-		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, Counted.hash$Hash_DefaultHasher), rt.hashOne(s, new Counted.Counted(b, drops), Counted.hash$Hash_DefaultHasher, rt.drop)) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, Counted.hash$Hash_DefaultHasher as (a0: Counted.Counted, a1: rt.Hasher) => undefined), rt.hashOne(s, new Counted.Counted(b, drops), Counted.hash$Hash_DefaultHasher as (a0: Counted.Counted, a1: rt.Hasher) => undefined, rt.drop)) ? 1 : 0);
 		rt.byteVecPush(out, drops.v);
 		counted[Symbol.dispose]();
 		rt.byteVecPush(out, drops.v);

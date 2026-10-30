@@ -20,14 +20,14 @@ export class Noisy {
 }
 
 export function clone$Clone(self: Noisy): Noisy {
-	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecPush(log, self.tag | 128);
 	});
 	return new Noisy(rt.u8WrappingAdd(self.tag, 1));
 }
 
 export function drop$Drop(self: Noisy): void {
-	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecPush(log, self.tag);
 	});
 }

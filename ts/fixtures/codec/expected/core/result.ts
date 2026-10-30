@@ -34,7 +34,7 @@ export function mapErr$06mnjtr(self: rt.Result<rt.usize, rt.TryFromIntError>, op
 	return rt.Err(op(self.error));
 }
 
-export function inspectErr$0f2ndta(self: rt.Result<rt.ByteSlice, DecodeError.DecodeError>, f: (a0: DecodeError.DecodeError) => void): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
+export function inspectErr$156koiv(self: rt.Result<rt.ByteSlice, DecodeError.DecodeError>, f: (a0: DecodeError.DecodeError) => undefined): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
 	if (!self.ok) {
 		f(self.error);
 	}

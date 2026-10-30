@@ -310,7 +310,7 @@ export function map$0jcaaxx(self: [rt.u8 | undefined, rt.u8] | undefined, f: (a0
 	return f(self);
 }
 
-export function map$0ju5zoy(self: rt.Place<rt.u8 | undefined> | undefined, f: (a0: rt.Place<rt.u8 | undefined>) => void): undefined | rt.None {
+export function map$1diqi3e(self: rt.Place<rt.u8 | undefined> | undefined, f: (a0: rt.Place<rt.u8 | undefined>) => undefined): undefined | rt.None {
 	if (self === undefined) {
 		return rt.None;
 	}
@@ -423,6 +423,14 @@ export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt
 	return f(self);
 }
 
+export function map$0p22lts(self: rt.u8 | undefined, f: (a0: rt.u8) => undefined): undefined | rt.None {
+	if (self === undefined) {
+		return rt.None;
+	}
+	f(self);
+	return undefined;
+}
+
 export function map$0c2keyb(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -451,7 +459,7 @@ export function map$0gl6wke(self: [rt.usize, string] | undefined, f: (a0: [rt.us
 	return f(self);
 }
 
-export function inspect$0sxbahk(self: rt.u8 | undefined, f: (a0: rt.u8) => void): rt.u8 | undefined {
+export function inspect$0di0vx1(self: rt.u8 | undefined, f: (a0: rt.u8) => undefined): rt.u8 | undefined {
 	if (self !== undefined) {
 		f(self);
 	}
@@ -888,6 +896,13 @@ export function okOr$0m6xlfp(self: rt.u8 | undefined, err: rt.u16): rt.Result<rt
 export function okOr$1vxk0yk(self: rt.u8 | undefined, err: rt.u8): rt.Result<rt.u8, rt.u8> {
 	if (self === undefined) {
 		return rt.Err(err);
+	}
+	return rt.Ok(self);
+}
+
+export function okOr$0g9lvh7(self: rt.u8 | undefined, _: undefined): rt.Result<rt.u8, undefined> {
+	if (self === undefined) {
+		return rt.ERR;
 	}
 	return rt.Ok(self);
 }

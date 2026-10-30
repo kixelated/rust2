@@ -31,7 +31,7 @@ export function getOrInit$Collector_onces_closure5(self: Lock<Collector.Collecto
 	if (!((self.once.v === true))) {
 		const slot: Collector.Collector = self.value.v;
 		const captured = f;
-		rt.onceCall(self.once, (): void => {
+		rt.onceCall(self.once, (): undefined => {
 			rt.ptrWrite(slot, captured());
 		});
 	}
@@ -45,7 +45,7 @@ export function getOrInit$Rc_unit_onces_closure6(self: Lock<rt.Arc<undefined>>, 
 		const slot: rt.Place<rt.Arc<undefined>> = self.value;
 		_14 = false;
 		const captured = f;
-		rt.onceCall(self.once, rt.closure((): void => {
+		rt.onceCall(self.once, rt.closure((): undefined => {
 			slot.v = captured();
 		}, (): void => {
 			rt.drop(captured);
@@ -65,7 +65,7 @@ export function getOrInit$Rc_unit_onces_closure7(self: Lock<rt.Arc<undefined>>, 
 		const slot: rt.Place<rt.Arc<undefined>> = self.value;
 		_14 = false;
 		const captured = f;
-		rt.onceCall(self.once, rt.closure((): void => {
+		rt.onceCall(self.once, rt.closure((): undefined => {
 			slot.v = captured();
 		}, (): void => {
 			rt.drop(captured);
@@ -85,7 +85,7 @@ export function getOrInit$u8_Rc_unit_onces_closure8(self: Lock<[rt.u8, rt.Arc<un
 		const slot: [rt.u8, rt.Arc<undefined>] = self.value.v;
 		_14 = false;
 		const captured = f;
-		rt.onceCall(self.once, rt.closure((): void => {
+		rt.onceCall(self.once, rt.closure((): undefined => {
 			rt.ptrWrite(slot, captured());
 		}, (): void => {
 			rt.drop(captured);
@@ -106,7 +106,7 @@ export function getOrInit$u8_Rc_unit_onces_closure9(self: Lock<[rt.u8, rt.Arc<un
 		const slot: [rt.u8, rt.Arc<undefined>] = self.value.v;
 		_14 = false;
 		const captured = f;
-		rt.onceCall(self.once, rt.closure((): void => {
+		rt.onceCall(self.once, rt.closure((): undefined => {
 			rt.ptrWrite(slot, captured());
 		}, (): void => {
 			rt.drop(captured);

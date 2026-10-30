@@ -16,7 +16,7 @@ export function LOG$init(): rt.RefCell<rt.ByteVec> {
 
 /** Puts which items dropped since the last flush. */
 export function flush(out: rt.ByteVec): void {
-	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): void => {
+	rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteVecSlice(log));
 		rt.byteVecClear(log);
 	});
@@ -1829,7 +1829,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			flush(out);
 			let tag: rt.u8 = 96;
 			rt.sliceFillWith(rt.sliceRangeMut(items, a), (): Noisy.Noisy => {
-				rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): void => {
+				rt.localKeyWithBorrowMut(LOG, (log: rt.ByteVec): undefined => {
 					rt.byteVecPush(log, 254);
 				});
 				tag = rt.u8Add(tag, 1);

@@ -731,10 +731,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			captures.push(Capture { value, pointee: false });
 		}
 		let sig = tcx.instantiate_bound_regions_with_erased(args.as_closure().sig());
+		// A value, whose `()` result is `undefined` as its type says.
 		let ret = self
 			.b
 			.t
-			.ret_ty(sig.output(), mir.local_decls[mir::RETURN_PLACE].source_info.span);
+			.ty(sig.output(), mir.local_decls[mir::RETURN_PLACE].source_info.span);
 		let ty = Ty::new_closure(tcx, def_id, args);
 		let glue = match self.b.t.drops(ty) {
 			true => Some(self.b.t.closure_glue(ty, &captures, span)),

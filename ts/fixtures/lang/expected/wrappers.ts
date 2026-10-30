@@ -309,7 +309,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		}));
 		bounds$RangeInclusive_u64(out, placed);
 		const each: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(lo, hi, rt.u64Step);
-		rt.iterForEach(rt.iterBorrow(each), (x6: rt.u64): void => {
+		rt.iterForEach(rt.iterBorrow(each), (x6: rt.u64): undefined => {
 			rt.byteVecPush(out, rt.u64Low(x6) & 0xff);
 		});
 		bounds$RangeInclusive_u64(out, each);
