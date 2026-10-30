@@ -23,17 +23,17 @@ match are numbered `$2` on in key order, so an added instance that sorts earlier
 the others. In the fixtures the suffix loses: `&T` and `&mut T` against `T` (most cases),
 array lengths, two types or closures of one name in different modules (`copy$Pair` and
 `pointers::Pair`), fn-local items of one name (`captures`' `through$2`..`$12`), and the
-coroutine classes of one function (`blocksFuture$2`..). moq-net has none today. Import
-bindings in `print::Bindings` are taken in key order the same way.
+coroutine classes of one function (`blocksFuture$2`..). moq-net has none today.
 
-Open decision: how to tell apart names that only a path disambiguates, such as types,
-traits, and closures of one name, while keeping names a pure function of the instance.
-Hand-written callers call suffixed names (`Fault.fmt$Display`), which rules out a hash on
-every suffix. Options:
+Open decision, for the maintainer before work starts: how to tell apart names that only a
+path disambiguates, such as types, traits, and closures of one name, while keeping names a
+pure function of the instance. Hand-written callers call suffixed names
+(`Fault.fmt$Display`), which rules out a hash on every suffix. Options:
 
-- Qualify every type, trait, and closure in a suffix by its path: the crate's own by module
-  path, a dependency's under its crate, std's by its public path with a repeated module
-  dropped (`Option`, `fmt_Display`, `io_Error`). Pure, but every name over a type outside the
+- Recommended: qualify every type, trait, and closure in a suffix by its path: the crate's
+  own by module path, a dependency's under its crate, std's by its public path with a
+  repeated module dropped (`Option`, `fmt_Display`, `io_Error`). The only option that is
+  both a pure function of the instance and readable, but every name over a type outside the
   crate root changes, and closures in impls need the impl's type and trait.
 - Qualify only a name that another definition in the crate graph shares, as rustc trims
   paths. Fewest renames and stable under reach, but defining a type of a taken name renames
