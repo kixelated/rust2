@@ -1298,7 +1298,7 @@ pub fn bounds<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, range: Expr) 
 			let tr = clause.as_trait_clause()?.skip_binder().trait_ref;
 			(tr.def_id == bounds && tr.self_ty() == own).then(|| tr.args.type_at(1))
 		})
-		.expect("a range's `RangeBounds`");
+		.expect("a range's bound");
 	let target = b.t.subst(call.args, target);
 	let args = tcx.mk_args(&[ty.into(), target.into()]);
 	let start = b.fn_value(trait_fn(tcx, "RangeBounds", "start_bound"), args, span);
