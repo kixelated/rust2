@@ -181,7 +181,11 @@ std's Unicode tables, which the runtime carries, not the engine's. A caller prin
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
-`import * as DecodeError from "./coding/decode.DecodeError.ts"`.
+`import * as DecodeError from "./coding/decode.DecodeError.ts"`. `fmt::Write` translates for a
+`String`, a `Formatter`, and the crate's own writers, and through a `&mut` to any of them.
+A crate's own provided `write_char` and `write_fmt` call its `write_str` once, as std's
+do. A placeholder written to such a writer is refused: std splits what it writes into
+calls the runtime doesn't make.
 
 An iterator's `next()` returns its next item or `rt.DONE`, never `undefined`, so an
 iterator of `Option` keeps each `None` apart from its end. std's adaptors and consumers
@@ -604,8 +608,8 @@ copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
 without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
-a pointer's address (`{:p}`), writing to a
-`String` with `write!`, a `str` pattern other than a
+a pointer's address (`{:p}`), `write!` with a placeholder into
+the crate's own `fmt::Write`, a `str` pattern other than a
 `char`, a `&str`, a predicate, or chars, a mutable `str` slice, a copy of a closure that changes
 what it captured, `mem::swap`, `replace`, or `take` of a reference's whole pointee,
 assigning an `Arc`, a waker, a `MutexGuard`, a pinned reference, or a future through a
