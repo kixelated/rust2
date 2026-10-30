@@ -36,6 +36,14 @@ export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> 
 	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.u64>;
 }
 
+export function copy$Bound_u8(v: rt.RangeBound<rt.u8>): rt.RangeBound<rt.u8> {
+	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.u8>;
+}
+
+export function copy$Bound_usize(v: rt.RangeBound<rt.usize>): rt.RangeBound<rt.usize> {
+	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.usize>;
+}
+
 export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
 	return { _0: v._0 };
 }

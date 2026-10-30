@@ -20,15 +20,16 @@ generic std gap is planned here even when moq never calls it.
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
-- [fmt::Write](/quest/m3/ts-fmt-write.md) - `write!` into a `String`, through a `&mut`, and a crate's own `fmt::Write` impl translate
 - [Other FromStr types](/quest/m3/ts-from-str.md) - `str::parse` of `bool`, `char`, and `NonZero` translates
+- [Placeholders written to a crate's own fmt::Write](/quest/m3/ts-fmt-calls.md) - `write!` with placeholders into a crate's own writer translates, its `write_str` seeing each call std makes
 - [String's edits](/quest/m3/ts-string-edits.md) - `push_str`, `clear`, and `String`'s other edits in place translate
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
+- [A B-tree's drop order](/quest/m3/ts-btree-drop.md) - dropping a whole `BTreeMap` or `BTreeSet` drops its entries node by node, as std's does
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
 - [Byte arrays compared for equality and hashed](/quest/m3/ts-byte-keys.md) - `==` of byte arrays, and byte arrays, slices, and vectors as hash keys, translate
-- [Ranges of Bounds](/quest/m3/ts-bound-ranges.md) - drains and B-tree ranges of a `(Bound, Bound)` translate
-- [The rest of a slice's chunks](/quest/m3/ts-slice-chunks.md) - `chunks_exact`, `rchunks`, and the mutable chunks translate
+- [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate
+- [Mutable subslices of other values](/quest/m3/ts-mut-subslices.md) - `&mut v[a..b]` and `split_at_mut` of other than bytes translate, writing through
 - [Iterator consumers over items whose None is rt.None](/quest/m3/ts-option-items.md) - `nth`, `last`, and `find` of an iterator of `Option` keep `None` apart from `Some(None)`
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
