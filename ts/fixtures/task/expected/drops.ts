@@ -944,7 +944,7 @@ export function edited(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		v11.push(_315);
 		const part6 = mapOr$Option_Key_u32_drained_closure4(rt.iterMaxByKey(rt.iterSlice(v11, rt.drop), (k2: Key.Key): rt.u32 => {
 			return rt.u32Rem(rt.u32Sub(k2.id, id), 3);
-		}, rt.cmpLt(rt.cmp), true, rt.drop), 0, (k3: Key.Key): rt.u32 => {
+		}, rt.lt, true, rt.drop), 0, (k3: Key.Key): rt.u32 => {
 			const _05: rt.u32 = rt.u32Sub(k3.id, id);
 			k3[Symbol.dispose]();
 			return _05;

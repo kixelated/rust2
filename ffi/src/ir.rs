@@ -357,4 +357,16 @@ impl Type {
 			ty => ty,
 		}
 	}
+
+	/// What the buffer C passes for this type holds, in whatever form Rust takes it: a
+	/// string, bytes, or a path, or an `Option` of one, which C passes as a null buffer.
+	pub fn buffer(&self) -> Option<Type> {
+		match self.base() {
+			Type::Str | Type::String => Some(Type::String),
+			Type::Slice | Type::Vec | Type::Bytes => Some(Type::Bytes),
+			Type::Path | Type::PathBuf => Some(Type::PathBuf),
+			Type::Option(inner) => inner.buffer().map(|buffer| Type::Option(Box::new(buffer))),
+			_ => None,
+		}
+	}
 }

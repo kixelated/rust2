@@ -9,8 +9,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Wake, Waker};
 
 use api_lib::{
-	Channel, Counter, Event, LIMIT, Log, Logger, Message, Name, Node, Pair, Point, Registry, Shape, Size, Stack, Stamp,
-	Tally, Window,
+	Channel, Counter, Event, LIMIT, Label, Log, Logger, Message, Name, Node, Pair, Point, Registry, Shape, Size, Stack,
+	Stamp, Tally, Window,
 };
 use bytes::Bytes;
 
@@ -209,6 +209,27 @@ fn main() {
 	println!("len {}", api_lib::len(b"abc"));
 	println!("hex {}", api_lib::hex(Bytes::from_static(b"\xff\x00a")));
 	println!("timed hex {}", api_lib::timed_hex(Bytes::from_static(b"\xff\x00a")));
+	println!("sample hex {}", api_lib::sample_hex(&b"\xff\x00a"[..]));
+	println!("queued hex {}", api_lib::queued_hex(b"\xff\x00a".to_vec()));
+	let tick = Label {
+		name: "tick".to_string(),
+		at: None,
+		ttl: None,
+	};
+	println!("tick {}", api_lib::tick_name(tick));
+	let rooted = Label {
+		name: "rooted".to_string(),
+		at: None,
+		ttl: None,
+	};
+	println!("rooted {}", api_lib::rooted_name(rooted));
+	println!("stored {}", api_lib::stored_text("stored"));
+	let layer = Label {
+		name: "layer".to_string(),
+		at: None,
+		ttl: None,
+	};
+	println!("layer {}", api_lib::layer_name(layer));
 	for event in [Event::Moved(p), Event::Named { name: "n".to_string() }, Event::Done] {
 		println!("{}", api_lib::describe(&event));
 	}

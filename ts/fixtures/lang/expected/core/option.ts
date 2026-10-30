@@ -23,6 +23,7 @@ import type * as Hop from "../keys.Hop.ts";
 import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
 import type * as locals_Noisy from "../locals.Noisy.ts";
+import type * as Item from "../orders.Item.ts";
 import type * as Pair from "../pointers.Pair.ts";
 import { from$From_Dir_u8 } from "../shapes.ts";
 import type * as Dir from "../shapes.Dir.ts";
@@ -395,6 +396,13 @@ export function mapOr$Option_Hop_u64_options_closure2(self: Hop.Hop | undefined,
 	return f(self);
 }
 
+export function mapOr$Option_Item_u8_heaps_closure1(self: Item.Item | undefined, default_: rt.u8, f: (a0: Item.Item) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$Option_Meters_u64_copies_closure0(self: Meters.Meters | undefined, default_: rt.u64, f: (a0: Meters.Meters) => rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
@@ -689,7 +697,7 @@ export function mapOr$Option_usize_u8_consumers_closure8(self: rt.usize | undefi
 	return f(self);
 }
 
-export function mapOr$Option_usize_u8_u8_ranges_closure0(self: [rt.usize, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.usize, rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$Option_usize_u8_u8_heaps_closure0(self: [rt.usize, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.usize, rt.u8]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

@@ -392,6 +392,26 @@ export function sliceSort<T>(s: { [i: number]: T; length: number }, less: (a: T,
 }
 
 /**
+ * `is_sorted`, by `le`, the elements' `PartialOrd::le`: as std's, which below 33 elements
+ * stops at the first pair out of order, and past that tests every pair of each chunk of 33
+ * before it stops, the last element of one the first of the next.
+ */
+export function sliceIsSorted<T>(s: { [i: number]: T; length: number }, le: (a: T, b: T) => boolean): boolean {
+	const CHUNK = 33;
+	const n = s.length;
+	let i = 0;
+	if (n >= CHUNK) {
+		for (; i < n - CHUNK; i += CHUNK - 1) {
+			let sorted = true;
+			for (let j = i + 1; j < i + CHUNK; j++) sorted = le(s[j - 1], s[j]) && sorted;
+			if (!sorted) return false;
+		}
+	}
+	for (i++; i < n; i++) if (!le(s[i - 1], s[i])) return false;
+	return true;
+}
+
+/**
  * Keeps each of the first `n` elements of `a` that `keep` of its index returns true for,
  * in order, and drops each other one once `keep` rejects it: how many it kept.
  */

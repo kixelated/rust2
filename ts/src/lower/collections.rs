@@ -167,6 +167,8 @@ pub fn call<'tcx>(
 		Std::HashMap | Std::HashSet => hash(b, coll, call, owner, name, args, out),
 		Std::BTreeMap | Std::BTreeSet => btree(b, coll, call, owner, name, args),
 		Std::VecDeque => deque(b, coll, call, owner, name, args, out),
+		Std::BinaryHeap => heap(b, coll, call, owner, name, args, out),
+		Std::PeekMut if name == "pop" => Some(Expr::rt("peekMutPop", args)),
 		Std::Entry => entry(b, coll, name, args, span),
 		Std::Ordering => ordering(name, args),
 		Std::Hasher if matches!(name, "new" | "default") => Some(Expr::rt("hasher", vec![])),
@@ -216,6 +218,7 @@ fn discarded(std: Std, owner: &str, name: &str) -> Option<&'static [usize]> {
 		(_, "clear" | "retain" | "retain_mut") if map => &[0, 1],
 		(_, "clear" | "retain" | "retain_mut") if set => &[0],
 		(_, "clear" | "retain" | "retain_mut" | "truncate") if std == Std::VecDeque => &[0],
+		(_, "clear" | "retain") if std == Std::BinaryHeap => &[0],
 		_ => return None,
 	})
 }
@@ -276,7 +279,7 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 fn undefined_arg<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, coll: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	if !matches!(
 		std,
-		Std::HashMap | Std::BTreeMap | Std::Entry | Std::HashSet | Std::BTreeSet | Std::VecDeque
+		Std::HashMap | Std::BTreeMap | Std::Entry | Std::HashSet | Std::BTreeSet | Std::VecDeque | Std::BinaryHeap
 	) {
 		return None;
 	}
@@ -560,6 +563,10 @@ fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 pub fn test_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
+	// An integer's, which the runtime tests directly rather than through `partial_cmp`.
+	if matches!(ty.kind(), ty::Char | ty::Int(_) | ty::Uint(_)) {
+		return Expr::Rt(test.into());
+	}
 	if !own_test(b, ty, test) {
 		let by = match test {
 			"lt" => "cmpLt",
@@ -866,6 +873,119 @@ fn deque<'tcx>(
 		_ => return None,
 	};
 	Some(e)
+}
+
+/// `PartialOrd`'s tests of `item` that std's heap sifts make: `le` up, and `le`, `ge`, and
+/// `lt` down.
+fn heap_tests<'tcx>(b: &mut Body<'_, '_, 'tcx>, item: Ty<'tcx>, down: bool, span: Span) -> Vec<Expr> {
+	let tests: &[&str] = if down { &["le", "ge", "lt"] } else { &["le"] };
+	tests.iter().map(|test| test_fn(b, item, test, span)).collect()
+}
+
+/// A method of `BinaryHeap`, or of a trait it implements, each that sifts given the tests
+/// its sifts make.
+fn heap<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	coll: Ty<'tcx>,
+	call: &Call<'tcx>,
+	owner: &str,
+	name: &str,
+	args: Vec<Expr>,
+	out: &mut Vec<Stmt>,
+) -> Option<Expr> {
+	let span = call.span;
+	let item = arg(coll, 0);
+	let bytes = matches!(item.kind(), ty::Uint(ty::UintTy::U8));
+	let mut values = args;
+	let e = match (owner, name) {
+		(_, "new" | "with_capacity") | ("Default", "default") => {
+			discard(values, out);
+			empty(b, Expr::rt("heapNew", vec![]), coll, span)
+		}
+		(_, "len") => values.pop()?.member("d").member("length"),
+		(_, "is_empty") => values.pop()?.member("d").member("length").binary("===", Expr::lit("0")),
+		(_, "peek") => values.pop()?.member("d").index(Expr::lit("0")),
+		(_, "push" | "pop" | "peek_mut" | "append" | "retain" | "into_sorted_vec") => {
+			values.extend(heap_tests(b, item, !matches!(name, "push" | "pop"), span));
+			let f = match name {
+				"push" => "heapPush",
+				"pop" => "heapPop",
+				"peek_mut" => "heapPeekMut",
+				"append" => "heapAppend",
+				"retain" => "heapRetain",
+				_ => return Some(heap_vec(Expr::rt("heapIntoSortedVec", values), bytes)),
+			};
+			Expr::rt(f, values)
+		}
+		(_, "into_vec") => heap_vec(values.pop()?.member("d"), bytes),
+		(_, "as_slice") if bytes => Expr::rt(
+			"byteSliceFrom",
+			vec![
+				Expr::ident("Uint8Array")
+					.member("from")
+					.call(vec![values.pop()?.member("d")]),
+			],
+		),
+		(_, "as_slice") => values.pop()?.member("d"),
+		(_, "clear") => Expr::rt("heapClear", values),
+		(_, "drain") => {
+			let droppers = entry_droppers(b, coll, span);
+			Expr::rt("heapDrain", super::iter::tail(values, droppers))
+		}
+		(_, "iter") => {
+			let by_ref = Ty::new_imm_ref(b.t.tcx, b.t.tcx.lifetimes.re_erased, coll);
+			into_iter(b, by_ref, values.pop()?, span)?
+		}
+		(_, "reserve" | "reserve_exact" | "shrink_to_fit" | "shrink_to") => {
+			discard(values, out);
+			Expr::undefined()
+		}
+		("Clone", "clone") => {
+			let clone = clone_fn(b, item, span);
+			Expr::rt("heapClone", super::iter::tail(values, vec![clone]))
+		}
+		// `From<Vec<T>>` rebuilds the vector in place, and `From<[T; N]>` collects the array
+		// into one first.
+		("From", "from") if b.t.std_of(library::targ(call.args, 1)) == Some(Std::Vec) => {
+			let v = values.pop()?;
+			let d = match bytes {
+				true => Expr::ident("Array")
+					.member("from")
+					.call(vec![Expr::rt("byteVecView", vec![v])]),
+				false => v,
+			};
+			Expr::rt("heapFrom", [vec![d], heap_tests(b, item, true, span)].concat())
+		}
+		("Extend", "extend") | ("From", "from") => {
+			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
+			if owner == "From" {
+				let d = super::iter::to_array(b, source, iter, item, span);
+				return Some(Expr::rt(
+					"heapFrom",
+					[vec![d], heap_tests(b, item, true, span)].concat(),
+				));
+			}
+			// Into its vector, of a `TrustedLen` iterator by `for_each`.
+			let folds = super::iter::implements(b.t, iter, "TrustedLen");
+			let take = super::iter::iter_take(b, iter, folds, span);
+			let mut args = vec![values.pop()?, source];
+			args.extend(heap_tests(b, item, true, span));
+			Expr::rt("heapExtend", super::iter::tail(args, vec![take]))
+		}
+		_ => return None,
+	};
+	Some(e)
+}
+
+/// A `Vec` of a heap's elements `d`, an `rt.ByteVec` of bytes.
+pub fn heap_vec(d: Expr, bytes: bool) -> Expr {
+	match bytes {
+		true => Expr::rt(
+			"byteVecFrom",
+			vec![Expr::ident("Uint8Array").member("from").call(vec![d])],
+		),
+		false => d,
+	}
 }
 
 /// What `extend` or `from` adds to a collection: an `rt.Iter` of what `source` holds, and
@@ -1264,6 +1384,11 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		Std::HashMap if places(1) => "hashIterMut",
 		Std::BTreeMap if places(1) => "btreeIterMut",
 		Std::VecDeque if places(0) => "dequeIterMut",
+		// A heap's elements in order, as its `Vec`'s, which by reference are borrowed.
+		Std::BinaryHeap if ty.is_ref() => {
+			return Some(super::iter::by_ref(Expr::rt("heapIter", vec![value]), arg(coll, 0)));
+		}
+		Std::BinaryHeap => "heapIter",
 		Std::HashMap => "hashIter",
 		Std::HashSet => "hashKeys",
 		Std::BTreeMap => "btreeIter",
@@ -1293,6 +1418,12 @@ pub fn collect<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr, from:
 			hash_extend(b, ty, target, iter, from, span)
 		}
 		Std::BTreeMap | Std::BTreeSet => btree_collect(b, ty, iter, from, span),
+		// std's collects into a `Vec`, and rebuilds it in place.
+		Std::BinaryHeap => {
+			let item = arg(ty, 0);
+			let d = super::iter::to_array(b, iter, from, item, span);
+			Expr::rt("heapFrom", [vec![d], heap_tests(b, item, true, span)].concat())
+		}
 		// std's collects into a `Vec` first.
 		Std::VecDeque => {
 			let target = deque_new(b, ty, span);

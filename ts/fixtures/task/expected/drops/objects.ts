@@ -293,7 +293,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured5[Symbol.dispose]();
 	});
-	const part4 = rt.place(() => slot, (value) => slot = value).v();
+	const part4 = slot();
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
 	Log.note(log, rt.fmtFormat(["slot ", args8[0]]));
 	const captured6 = guard(6);
@@ -304,7 +304,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	});
 	rt.drop(slot);
 	slot = _88;
-	const part5 = rt.place(() => slot, (value2) => slot = value2).v();
+	const part5 = slot();
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part5, f)];
 	Log.note(log, rt.fmtFormat(["slot ", args10[0]]));
 	const _104: [Guard.Guard, Guard.Guard] = [guard(7), guard(8)];
@@ -339,7 +339,7 @@ export function fns(log: Log.Log, id: rt.u32): void {
 	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part7, f)];
 	Log.note(log, rt.fmtFormat(["shared ", args14[0]]));
 	other[Symbol.dispose]();
-	const part8 = rt.place(() => slot, (value3) => slot = value3).v();
+	const part8 = slot();
 	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part8, f)];
 	Log.note(log, rt.fmtFormat(["slot ", args16[0]]));
 	const captured10 = guard(10);
