@@ -194,7 +194,7 @@ export interface RandomState {
 const UNKEYED: RandomState = { k0h: 0, k0l: 0, k1h: 0, k1l: 0 };
 
 /** Where `finish` runs its last rounds, which leave the hasher as it was. */
-const LAST = new SipHasher(UNKEYED);
+const LAST = /* @__PURE__ */ new SipHasher(UNKEYED);
 
 /** `DefaultHasher::new`: SipHash-1-3 keyed by zeros. */
 export function hasher(): Hasher {

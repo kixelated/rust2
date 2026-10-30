@@ -1126,7 +1126,7 @@ fn random_state<'tcx>(
 		("clone", Some(state)) => state,
 		("build_hasher", Some(state)) => Expr::rt("buildHasher", vec![state]),
 		("hash_one", Some(state)) if let Some(value) = values.next() => {
-			let hasher = built_hasher(b, ty).expect("`RandomState` builds `DefaultHasher`");
+			let hasher = built_hasher(b, ty).expect("a RandomState builds a DefaultHasher");
 			let hash = hash_fn(b, library::targ(call.args, 1), hasher, span);
 			Expr::rt("hashOne", vec![state, value, hash])
 		}
