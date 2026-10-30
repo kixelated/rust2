@@ -3,7 +3,8 @@
 import * as rt from "./rt.ts";
 import { copy$Bumped, copy$Option_u8_Reverse_Option_u8, copy$Option_usize_u8, copy$u8_u8 } from "./lib.ts";
 import { thenSome$bool_u16, thenSome$bool_u8 } from "./core/bool.ts";
-import { unwrapOr$Option_NonZero_u64, unwrapOr$Option_i64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_elements_closure8, mapOr$Option_Tilt_u8_ranked_closure11_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_heaps_closure0, filter$Option_u8_combinators_closure0 } from "./core/option.ts";
+import { unwrapOr$Option_NonZero_u64, unwrapOr$Option_i64, unwrapOr$Option_u8, unwrapOr$Option_usize_u8, map$Option_u8_u8_elements_closure8, mapOr$Option_Tilt_u8_ranked_closure11_closure0, mapOr$Option_Vec_u16_u8_consumers_closure23, mapOr$Option_char_u32_from, mapOr$Option_u8_u8_btree_maps_closure5, mapOr$Option_u8_u8_u8_btree_maps_closure0, mapOr$Option_u8_usize_iters_closure1, mapOr$Option_u8s_u8_skips_closure44, mapOr$Option_usize_u8_consumers_closure8, mapOr$Option_usize_u8_u8_heaps_closure0, filter$Option_u8_combinators_closure0 } from "./core/option.ts";
+import { unwrapOr$Result_str_Utf8Error } from "./core/result.ts";
 import * as Bumped from "./iters.Bumped.ts";
 import * as Countdown from "./iters.Countdown.ts";
 import * as Doubled from "./iters.Doubled.ts";
@@ -1211,6 +1212,162 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}))), Wrapper.clone$Clone_Bumped), (w: Wrapper.Wrapper<Bumped.Bumped>): rt.u8 => {
 		return w._0._0;
 	}));
+}
+
+/**
+ * What std's `Option`-returning calls give, returned as is: an `Option`, whose `None`
+ * stays apart from an item's own.
+ */
+export function returned(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _3: (a0: rt.u8 | undefined, a1: rt.ByteVec) => void = (b: rt.u8 | undefined, out2: rt.ByteVec): void => {
+		rt.byteVecPush(out2, mapOr$Option_u8_u8_btree_maps_closure5(b, 170, (b2: rt.u8): rt.u8 => {
+			return b2;
+		}));
+	};
+	const _4: (a0: rt.u8 | undefined | rt.None, a1: rt.ByteVec) => void = (b3: rt.u8 | undefined | rt.None, out3: rt.ByteVec): void => {
+		if (b3 === rt.None) {
+			rt.byteVecPush(out3, 187);
+		} else if (b3 === undefined) {
+			rt.byteVecPush(out3, 204);
+		} else {
+			rt.byteVecPush(out3, b3);
+		}
+	};
+	const n: rt.usize = mapOr$Option_u8_usize_iters_closure1(rt.byteSliceFirst(data), 0, (_2: rt.u8): rt.usize => {
+		return rt.u8Rem(_2, 4) as rt.usize;
+	});
+	const part = first$Copied_Iter_u8(rt.iterSlice(rt.byteSliceView(data)));
+	_3(part, out);
+	const part2 = back$Copied_Iter_u8(rt.iterSlice(rt.byteSliceView(data)));
+	_3(part2, out);
+	const part3 = nth$Copied_Iter_u8(rt.iterSlice(rt.byteSliceView(data)), n);
+	_3(part3, out);
+	const part4 = last$Copied_Iter_u8(rt.iterSlice(rt.byteSliceView(data)));
+	_3(part4, out);
+	const part5 = first$Map_Iter_u8_returned_closure0(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b6: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b6, 3) === 0)) {
+			return b6;
+		}
+		return undefined;
+	}));
+	_4(part5, out);
+	const part6 = back$Map_Iter_u8_returned_closure0(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b7: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b7, 3) === 0)) {
+			return b7;
+		}
+		return undefined;
+	}));
+	_4(part6, out);
+	const part7 = first$Gaps({ data, at: n });
+	_4(part7, out);
+	const part8 = first$Countdown({ left: n & 0xff, step: 1 });
+	_3(part8, out);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(mapOr$Option_char_u32_from(first$Chars(rt.strChars(unwrapOr$Result_str_Utf8Error(rt.strFromUtf8(data), "é"))), 0, (a0: rt.char): rt.u32 => {
+		return a0 as rt.u32;
+	})).reverse()));
+	const part9 = byMut$Copied_Iter_u8(rt.iterSlice(rt.byteSliceView(data)));
+	_3(part9, out);
+	const gaps: Gaps.Gaps = { data, at: 0 };
+	const part10 = byMut$Gaps(gaps);
+	_4(part10, out);
+	const part11 = byMut$Gaps(gaps);
+	_4(part11, out);
+	const it: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
+	const part12 = borrowed(it);
+	_3(part12, out);
+	const part13 = borrowed(it);
+	_3(part13, out);
+	const part14 = secondOf(data);
+	_3(part14, out);
+	const part15 = fromOne(n & 0xff);
+	_3(part15, out);
+	const part16 = peeked$Copied_Iter_u8(rt.iterPeekable(rt.iterSlice(rt.byteSliceView(data))));
+	_3(part16, out);
+	const part17 = at$u8(data, n);
+	_3(part17, out);
+	const part18 = at$Option_u8(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (b8: rt.u8): rt.u8 | undefined => {
+		if (!(rt.u8Rem(b8, 3) === 0)) {
+			return b8;
+		}
+		return undefined;
+	})), n);
+	_4(part18, out);
+}
+
+export function first$Chars(it: rt.Iter<rt.char>): rt.char | undefined {
+	return rt.iterToOption(it.next());
+}
+
+export function first$Copied_Iter_u8(it: rt.Iter<rt.u8>): rt.u8 | undefined {
+	return rt.iterToOption(it.next());
+}
+
+export function first$Countdown(it: Countdown.Countdown): rt.u8 | undefined {
+	return rt.iterToOption(Countdown.next$Iterator(it));
+}
+
+export function first$Gaps(it: Gaps.Gaps): rt.u8 | undefined | rt.None {
+	return rt.iterToOption(Gaps.next$Iterator(it), rt.None);
+}
+
+export function first$Map_Iter_u8_returned_closure0(it: rt.Iter<rt.u8 | undefined>): rt.u8 | undefined | rt.None {
+	return rt.iterToOption(it.next(), rt.None);
+}
+
+export function back$Copied_Iter_u8(it: rt.Iter<rt.u8>): rt.u8 | undefined {
+	return rt.iterToOption(it.nextBack());
+}
+
+export function back$Map_Iter_u8_returned_closure0(it: rt.Iter<rt.u8 | undefined>): rt.u8 | undefined | rt.None {
+	return rt.iterToOption(it.nextBack(), rt.None);
+}
+
+export function nth$Copied_Iter_u8(it: rt.Iter<rt.u8>, n: rt.usize): rt.u8 | undefined {
+	return rt.iterNth(it, n);
+}
+
+export function last$Copied_Iter_u8(it: rt.Iter<rt.u8>): rt.u8 | undefined {
+	return rt.iterLast(it);
+}
+
+/** Through a `&mut` to the iterator. */
+export function byMut$Copied_Iter_u8(it: rt.Iter<rt.u8>): rt.u8 | undefined {
+	return rt.iterToOption(it.next());
+}
+
+/** Through a `&mut` to the iterator. */
+export function byMut$Gaps(it: Gaps.Gaps): rt.u8 | undefined | rt.None {
+	return rt.iterToOption(Gaps.next$Iterator(it), rt.None);
+}
+
+/** Through a borrow of a std iterator the function is not generic over. */
+export function borrowed(it: rt.Iter<rt.u8>): rt.u8 | undefined {
+	return rt.iterToOption(it.next());
+}
+
+/** Of a slice's iterator the function makes. */
+export function secondOf(data: rt.ByteSlice): rt.u8 | undefined {
+	const it: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
+	it.next();
+	return rt.iterToOption(it.next());
+}
+
+/** Of a small range the function makes. */
+export function fromOne(n: rt.u8): rt.u8 | undefined {
+	const range: rt.Range<rt.u8> = new rt.Range(1, n);
+	return range.start < range.end ? range.start++ : undefined;
+}
+
+export function peeked$Copied_Iter_u8(it: rt.Peekable<rt.u8>): rt.u8 | undefined {
+	return rt.peekablePeek(it);
+}
+
+export function at$Option_u8(items: Array<rt.u8 | undefined>, i: rt.usize): rt.u8 | undefined | rt.None {
+	return rt.sliceGet(items, i, rt.None);
+}
+
+export function at$u8(items: rt.ByteSlice, i: rt.usize): rt.u8 | undefined {
+	return rt.byteSliceGet(items, i);
 }
 
 //# sourceMappingURL=iters.ts.map
