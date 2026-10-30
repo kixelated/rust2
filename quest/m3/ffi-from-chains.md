@@ -11,7 +11,7 @@ parameter falls back to `String`, `Bytes`, or `Vec<u8>`, or is refused.
 
 ## Plan
 
-Suggested by [#197](https://github.com/kixelated/rust2/pull/197) on 2026-10-29. No consumer
+Suggested by [#197](https://github.com/moq-dev/rust2/pull/197) on 2026-10-29. No consumer
 needs it yet: moq's `impl Into<Timed<Bytes>>` is one level. Start once a consumer's
 parameter goes through two.
 

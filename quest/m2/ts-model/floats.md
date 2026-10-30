@@ -11,10 +11,10 @@ them.
 ## Plan
 
 Decided with the maintainer on 2026-10-27, from
-[#135](https://github.com/kixelated/rust2/pull/135): this quest owns float formatting; the
+[#135](https://github.com/moq-dev/rust2/pull/135): this quest owns float formatting; the
 other types' format specs already translate. The rest of `f64`, its arithmetic, casts,
 methods, and `Duration`'s `f64` methods, landed in
-[#165](https://github.com/kixelated/rust2/pull/165).
+[#165](https://github.com/moq-dev/rust2/pull/165).
 
 - `Display` and `Debug` without a precision print the shortest digits that read back as
   the value. JS's `Number.prototype.toString` picks the same digits, which leaves only the

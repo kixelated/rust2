@@ -9,7 +9,7 @@ default hasher does, proven by differential tests against native Rust.
 
 ## Plan
 
-Left by [#168](https://github.com/kixelated/rust2/pull/168) on 2026-10-28, which translated
+Left by [#168](https://github.com/moq-dev/rust2/pull/168) on 2026-10-28, which translated
 the rest of what the census refused in std. Decided with the maintainer on 2026-10-28:
 
 - **Capacity: std's exact growth, everywhere.** moq-net reads `capacity` to decide when to

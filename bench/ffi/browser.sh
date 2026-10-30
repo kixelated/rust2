@@ -15,7 +15,7 @@ mkdir -p "$dir"
 jq -n --arg pkgs "$ubrn/pkgs" --arg playwright "$PLAYWRIGHT_VERSION" '{
     name: "moq-ffi-bench",
     private: true,
-    repository: {type: "git", url: "https://github.com/kixelated/rust2"},
+    repository: {type: "git", url: "https://github.com/moq-dev/rust2"},
     dependencies: {
         "@ubjs/core": "file:\($pkgs)/ubjs-core.tgz",
         "@ubjs/wasm": "file:\($pkgs)/ubjs-wasm.tgz",
