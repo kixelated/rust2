@@ -147,53 +147,54 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _40: rt.u8 = rt.u8WrappingAdd(tally.v, 10);
 	rt.cellSet(tally, _40);
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(tally.v, new rt.Cell(250).v, new rt.Cell([1, 2] as [rt.u8, rt.u8]).v[1])));
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(new rt.Cell(new rt.Cell(3)).v.v, new rt.Cell(new rt.Cell(4)).v.v)));
 	for (const op of rt.byteSliceView(data)) {
 		const n2: rt.u8 = rt.u8Div(op, 8);
-		const _61: rt.u8 = rt.u8Rem(op, 8);
-		if (_61 === 0) {
+		const _68: rt.u8 = rt.u8Rem(op, 8);
+		if (_68 === 0) {
 			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicFetch(COUNTER.hits, rt.u32WrappingAdd, rt.u32Rem(n2 as rt.u32, COUNTER.limit), 3)).reverse()));
 			continue;
 		}
-		if (_61 === 1) {
+		if (_68 === 1) {
 			rt.byteVecPush(out, rt.atomicSwap(a.locked, rt.u8Rem(n2, 2) === 0, 2) ? 1 : 0);
 			continue;
 		}
-		if (_61 === 2) {
+		if (_68 === 2) {
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(a.count, rt.u8WrappingAdd, n2, 0), rt.atomicLoad(b.count, 0), rt.atomicLoad(_19.count, 0))));
 			continue;
 		}
-		if (_61 === 3) {
+		if (_68 === 3) {
 			rt.byteVecPush(out, rt.atomicLoad(b.locked, 0) ? 1 : 0);
 			continue;
 		}
-		if (_61 === 4) {
+		if (_68 === 4) {
 			const node: Node.Node = { value: n2 };
 			const old: Node.Node = rt.atomicSwap(SLOT, node, 3);
 			rt.byteVecPush(out, old === rt.NULL ? 1 : 0);
 			rt.byteVecPush(out, rt.atomicLoad(SLOT, 2).value);
-			const _109: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, old, rt.NULL, 3, 2);
-			if (_109.ok) {
+			const _116: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, old, rt.NULL, 3, 2);
+			if (_116.ok) {
 				rt.byteVecPush(out, 253);
 			} else {
-				rt.byteVecPush(out, _109.error === node ? 1 : 0);
+				rt.byteVecPush(out, _116.error === node ? 1 : 0);
 			}
-			const _118: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, node, rt.NULL, 3, 2);
-			if (_118.ok) {
-				rt.byteVecPush(out, _118.value.value);
+			const _125: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, node, rt.NULL, 3, 2);
+			if (_125.ok) {
+				rt.byteVecPush(out, _125.value.value);
 			} else {
 				rt.byteVecPush(out, 252);
 			}
 			rt.byteVecPush(out, rt.atomicLoad(SLOT, 0) === rt.NULL ? 1 : 0);
 			continue;
 		}
-		if (_61 === 5) {
-			const _134: [rt.u8, rt.u32] = rt.onceGetOrInit(ONCE, (): [rt.u8, rt.u32] => {
+		if (_68 === 5) {
+			const _141: [rt.u8, rt.u32] = rt.onceGetOrInit(ONCE, (): [rt.u8, rt.u32] => {
 				return [3, 9] as [rt.u8, rt.u32];
 			});
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_134[0], _134[1] & 0xff, ONCE.v !== undefined ? 1 : 0)));
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_141[0], _141[1] & 0xff, ONCE.v !== undefined ? 1 : 0)));
 			continue;
 		}
-		if (_61 === 6) {
+		if (_68 === 6) {
 			const x: rt.LazyCell<rt.u8> = new rt.LazyCell((): rt.u8 => {
 				return rt.u8Add(rt.atomicFetch(FORCED, rt.u8WrappingAdd, 1, 0), 10);
 			});
@@ -205,7 +206,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, rt.atomicSwap(FORCED, 0, 0));
 			continue;
 		}
-		if (_61 === 7) {
+		if (_68 === 7) {
 			if (rt.u8Rem(n2, 2) === 0) {
 				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED.force(), rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0), read())));
 				rt.atomicStore(LATER, 40, 0);
@@ -220,9 +221,9 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (!(i < 3)) {
 			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);
 		}
-		const _192: rt.u16 = rt.u16Mul(n2 as rt.u16, 300);
+		const _199: rt.u16 = rt.u16Mul(n2 as rt.u16, 300);
 		const uninit = rt.place(() => slots[i], (value) => slots[i] = value);
-		uninit.v = _192;
+		uninit.v = _199;
 		uninit;
 		if (!(i < 3)) {
 			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + i);

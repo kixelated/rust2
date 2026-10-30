@@ -173,6 +173,10 @@ const EMPTY: MaybeUninit<u16> = MaybeUninit::uninit();
 const TALLY: Cell<u8> = Cell::new(250);
 #[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
 const PAIR: UnsafeCell<(u8, u8)> = UnsafeCell::new((1, 2));
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const NESTED: UnsafeCell<Cell<u8>> = UnsafeCell::new(Cell::new(3));
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const CELLS: Cell<Cell<u8>> = Cell::new(Cell::new(4));
 
 /// Each byte an operation on statics and constants read from memory; each puts what it read.
 pub fn cells(data: &[u8], out: &mut Vec<u8>) {
@@ -192,6 +196,7 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	let tally = TALLY;
 	tally.set(tally.get().wrapping_add(10));
 	out.extend([tally.get(), TALLY.get(), PAIR.into_inner().1]);
+	out.extend([NESTED.into_inner().get(), CELLS.into_inner().into_inner()]);
 	for &op in data {
 		let n = op / 8;
 		match op % 8 {

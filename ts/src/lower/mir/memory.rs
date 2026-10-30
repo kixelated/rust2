@@ -24,9 +24,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			return None;
 		};
 		let e = match Std::of(tcx, adt.did()) {
-			// A `Cell`'s field is its `UnsafeCell`, which is the same `rt.Cell`.
 			Some(Std::Cell) => match self.fields(val, ty).as_deref() {
-				Some([(value, inner)]) if self.b.t.std_of(*inner) == Some(Std::Cell) => {
+				// A `Cell`'s field is its `UnsafeCell`, which is the same `rt.Cell`.
+				Some([(value, inner)]) if !tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::UnsafeCell) => {
 					self.const_value(*value, *inner, span)
 				}
 				Some([(value, inner)]) => {
