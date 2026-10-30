@@ -107,7 +107,18 @@ macro_rules! ops {
 						out.push(m as u8);
 					}
 				}
-				29 => out.extend_from_slice(&a.to_le_bytes()),
+				// Each byte order and back, the big-endian bytes read the other way, and every
+				// array again after a read, which must leave it as it was.
+				29 => {
+					let (le, ne, be) = (a.to_le_bytes(), a.to_ne_bytes(), a.to_be_bytes());
+					put(out, <$t>::from_le_bytes(le));
+					put(out, <$t>::from_ne_bytes(ne));
+					put(out, <$t>::from_le_bytes(be));
+					put(out, <$t>::from_ne_bytes(be));
+					out.extend_from_slice(&le);
+					out.extend_from_slice(&ne);
+					out.extend_from_slice(&be);
+				}
 				// Each width's edges, where a count is 0 or every bit, and through a `NonZero`.
 				30 => {
 					for v in [0, 1, <$t>::MAX, <$t>::MIN, a, a << shift % <$t>::BITS] {
