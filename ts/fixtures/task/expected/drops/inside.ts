@@ -144,7 +144,7 @@ export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		}
 		const part12 = rt.iterToArray(rt.iterMap(rt.dropAfter(new rt.Range(key(2), key(4)), (range2) => rt.btreeRange(map2, range2, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$Range_Key), (_2: [Key.Key, rt.u32]): rt.u32 => {
 			return _2[1];
-		}), undefined, 4);
+		}), "next", 4);
 		const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part12, f, rt.u32Debug)];
 		Log.note(log, rt.fmtFormat(["keys ", args26[0]]));
 		const found2: rt.usize = rt.iterCount(rt.dropAfter(new rt.RangeInclusive(key(3), key(9)), (range3) => rt.btreeRange(map2, range3, Key.eq$PartialEq, rt.cmpGt(Key.partialCmp$PartialOrd)), drop$RangeInclusive_Key));
