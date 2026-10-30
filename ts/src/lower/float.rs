@@ -227,7 +227,10 @@ pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, float: Float, name: &str, args: 
 		"from_ne_bytes" => rt("fromLeBytes", args),
 		"mul_add" => b.err(
 			span,
-			format!("`{}::mul_add`, which rounds once, where JS would round twice", float.name()),
+			format!(
+				"`{}::mul_add`, which rounds once, where JS would round twice",
+				float.name()
+			),
 		),
 		_ => return None,
 	})

@@ -176,7 +176,8 @@ does, as `div_euclid`, `powi`, and `atanh` do, and in doubles where std does, as
 `midpoint` does. A cast to `f64` is the same number, and `f64 as f32` is `Math.fround`;
 an integer rounds to a single once, never through the nearest double, which could round
 twice. A NaN keeps its sign and payload at the top of a double NaN's, so `from_bits` and
-`to_bits` keep a signaling one, which JS's conversion from a single would quiet.
+`to_bits` keep a signaling one, which JS's conversion from a single would quiet, and V8
+quiets one stored in an array as it does an `f64`'s.
 `Duration`'s `f32` methods are std's: `as_secs_f32` and `div_duration_f32` round each step
 to a single, and the rest go through `f64` as std's do.
 

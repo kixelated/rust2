@@ -96,10 +96,31 @@ pub fn singles(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	match kind % 10 {
 		0 => {
 			// Arithmetic, each result a single, and comparisons, NaN's included.
-			for x in [a + b, a - b, a * b, a / b, a % b, -a, a + 1.5, 0.1 * a, a * b + a, (a - b) / (a + b)] {
+			for x in [
+				a + b,
+				a - b,
+				a * b,
+				a / b,
+				a % b,
+				-a,
+				a + 1.5,
+				0.1 * a,
+				a * b + a,
+				(a - b) / (a + b),
+			] {
 				put_f32(out, x);
 			}
-			for bit in [a == b, a != b, a < b, a <= b, a > b, a >= b, a == 0.0, a.lt(&b), (&a).ge(&&b)] {
+			for bit in [
+				a == b,
+				a != b,
+				a < b,
+				a <= b,
+				a > b,
+				a >= b,
+				a == 0.0,
+				a.lt(&b),
+				(&a).ge(&&b),
+			] {
 				out.push(bit as u8);
 			}
 			let mut c = a;
@@ -114,7 +135,12 @@ pub fn singles(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			for x in [wa, wa * wb, wa / wb, wa + 1e-30] {
 				put_f64(out, x);
 			}
-			for x in [(wa * wb) as f32, (wa / wb) as f32, (wa + 1e-30) as f32, (wa + wb) as f32] {
+			for x in [
+				(wa * wb) as f32,
+				(wa / wb) as f32,
+				(wa + 1e-30) as f32,
+				(wa + wb) as f32,
+			] {
 				put_f32(out, x);
 			}
 		}
@@ -216,7 +242,12 @@ pub fn singles(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			for x in [a.max(b), a.min(b)] {
 				put_f32(out, if zeros { 0.0 } else { x });
 			}
-			for x in [a.midpoint(b), a.div_euclid(b), a.rem_euclid(b), a.powi((b.to_bits() as i32) % 300)] {
+			for x in [
+				a.midpoint(b),
+				a.div_euclid(b),
+				a.rem_euclid(b),
+				a.powi((b.to_bits() as i32) % 300),
+			] {
 				put_f32(out, x);
 			}
 			out.push(a.total_cmp(&b) as i8 as u8);
@@ -276,7 +307,10 @@ pub fn singles(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			// `Duration`'s `f32` methods, with their errors and panics.
 			let d = Duration::new(rest.first().map_or(0, |&s| u64::from(s)) << 20, 123_456_789);
 			put_f32(out, d.as_secs_f32());
-			put_f32(out, Duration::new(u64::from(b.to_bits()), a.to_bits() % 1_000_000_000).as_secs_f32());
+			put_f32(
+				out,
+				Duration::new(u64::from(b.to_bits()), a.to_bits() % 1_000_000_000).as_secs_f32(),
+			);
 			put_f32(out, d.div_duration_f32(Duration::from_millis(1500)));
 			put_f32(out, Duration::ZERO.div_duration_f32(Duration::ZERO));
 			put_secs(out, Duration::try_from_secs_f32(a));
