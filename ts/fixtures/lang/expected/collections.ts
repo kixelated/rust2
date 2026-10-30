@@ -1697,11 +1697,11 @@ export function setOpsOf$Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (
 	const _93: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): Nibble.Nibble => {
 		return make(_23);
 	});
-	const a2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _93, undefined, undefined, 469762048);
+	const a2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _93, undefined, undefined, 469762048);
 	const _98: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): Nibble.Nibble => {
 		return make(_24);
 	});
-	const b2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _98, undefined, undefined, 469762048);
+	const b2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _98, undefined, undefined, 469762048);
 	const iter3: rt.Iter<[rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>]> = rt.iterSlice([[a2, b2] as [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>], [b2, a2] as [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>]]);
 	while (true) {
 		const _111: [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>] | rt.Done = iter3.next();
@@ -1741,7 +1741,7 @@ export function setOpsOf$Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (
 			return rt.hashContains(_111[0], v4) !== rt.hashContains(_111[1], v4) ? 1 : 0;
 		}));
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
-		const iter4: rt.Iter<rt.HashSet<Nibble.Nibble>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashUnion(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashIntersection(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashDifference(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashSymmetricDifference(_111[0], _111[1]), undefined, undefined, 469762048)]);
+		const iter4: rt.Iter<rt.HashSet<Nibble.Nibble>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashUnion(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashIntersection(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashDifference(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashSymmetricDifference(_111[0], _111[1]), undefined, undefined, 469762048)]);
 		while (true) {
 			const _175: rt.HashSet<Nibble.Nibble> | rt.Done = iter4.next();
 			if (_175 === rt.DONE) {
