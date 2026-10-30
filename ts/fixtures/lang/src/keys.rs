@@ -673,6 +673,7 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(arrays.get(&key).map_or(0xdd, |v| *v as u8));
 			out.push(arcs.get(&key).map_or(0xdd, |v| *v as u8));
 			out.push(boxed.get(&key).map_or(0xdd, |v| *v as u8));
+			out.push(boxed.get(&Box::new(key)).map_or(0xdd, |v| *v as u8));
 			out.push(tree.get(&key).map_or(0xdd, |v| *v as u8));
 			out.push(borrowed.contains(&&key) as u8);
 			out.push(ordered.contains(s) as u8);

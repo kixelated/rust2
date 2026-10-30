@@ -156,11 +156,13 @@ pub fn call<'tcx>(
 		)));
 	}
 	let by = lookup_ty(b, std, call, owner, name);
-	// A `[u8; N]` key is a typed array, but the reference a lookup takes is an `rt.ByteSlice`,
-	// so a view of its bytes stands in. A range holds the keys themselves.
+	// A `[u8; N]` key is a typed array, but a reference to an array or a slice, as a lookup
+	// takes one, is an `rt.ByteSlice`, so a view of its bytes stands in. A range holds the
+	// keys themselves.
 	if let Some(by) = by
 		&& !matches!(name, "range" | "range_mut")
-		&& bytes(b, peel(b, by))
+		&& matches!(by.kind(), ty::Array(..) | ty::Slice(_))
+		&& bytes(b, by)
 	{
 		// The key as held, through boxes and `Arc`s: a reference to an array is a slice already.
 		let mut key = arg(coll, 0);
@@ -171,8 +173,10 @@ pub fn call<'tcx>(
 			*at = Expr::rt("byteSliceView", vec![std::mem::replace(at, Expr::undefined())]);
 		}
 	}
+	// Bytes of any form hash and compare alike, so each finds the others.
+	let alike = |key: Ty<'tcx>, by: Ty<'tcx>| same_key(b, key, by) || (bytes(b, peel(b, key)) && bytes(b, peel(b, by)));
 	if let Some(by) = by
-		&& !same_key(b, arg(coll, 0), by)
+		&& !alike(arg(coll, 0), by)
 	{
 		// An `Arc`'s `Hash`, `Eq`, and `Ord` are its value's, so the value it is looked up by
 		// stands in as an `Arc` of it, which the collection only compares.
@@ -293,14 +297,12 @@ fn lookup_ty<'tcx>(b: &Body<'_, '_, 'tcx>, std: Std, call: &Call<'tcx>, owner: &
 }
 
 /// Whether a key of type `by` is a JS value that hashes, compares, and orders as one of
-/// type `key` does: the same type through references and boxes, a string either way, or
-/// bytes of any form, which the runtime reads alike.
+/// type `key` does: the same type through references and boxes, or a string either way.
 fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let (key, by) = (peel(b, key), peel(b, by));
 	tcx.erase_and_anonymize_regions(key) == tcx.erase_and_anonymize_regions(by)
 		|| (library::string(tcx, key) && library::string(tcx, by))
-		|| (bytes(b, key) && bytes(b, by))
 }
 
 /// A key or item type of `coll` that can be `undefined` in JS, so that an `Option` of it,
