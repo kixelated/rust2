@@ -1,6 +1,6 @@
 //! Arrays `array::from_fn` makes, calling its function on each index in order: of bytes,
 //! wide integers, atomics each its own, strings, nested arrays, none at all, and a length
-//! a const parameter gives.
+//! a const parameter gives; and arrays as slices, written through.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -54,4 +54,73 @@ fn doubled(i: usize) -> u16 {
 /// An array as long as `N` says, of `N` instances.
 fn counted<const N: usize>(op: u8) -> [usize; N] {
 	std::array::from_fn(|i| i * N + usize::from(op))
+}
+
+/// Arrays as slices, of bytes and of other values, empty ones included; each byte an
+/// operation, its value the operand. Writes through `as_mut_slice` land in the array.
+pub fn as_slices(data: &[u8], out: &mut Vec<u8>) {
+	let mut bytes = [0u8; 4];
+	let mut wide = [0u16; 3];
+	let mut words = [String::new(), String::new()];
+	let mut grid = [[0u8; 2]; 3];
+	let mut pairs = [[0u32; 2]; 2];
+	let mut none: [u16; 0] = [];
+	let mut empty: [u8; 0] = [];
+	for &op in data {
+		let i = usize::from(op);
+		match op % 8 {
+			0 => {
+				let s = bytes.as_mut_slice();
+				s[i % 4] = op;
+				s.reverse();
+			}
+			1 => wide.as_mut_slice()[i % 3] = u16::from(op) << 7,
+			2 => words.as_mut_slice()[i % 2].push(char::from(b'a' + op % 26)),
+			// An element of one array as a slice, as the slice of the outer array lends it.
+			3 => {
+				let row = &mut grid.as_mut_slice()[i % 3];
+				row.as_mut_slice()[i % 2] = op;
+				let read = row.as_slice()[(i + 1) % 2];
+				grid[(i + 1) % 3][0] ^= read;
+			}
+			4 => {
+				let all = pairs.as_mut_slice();
+				let pair = all[i % 2].as_mut_slice();
+				pair[0] = u32::from(op);
+				pair[1] = u32::from(op) << 20;
+				all.swap(0, 1);
+			}
+			5 => {
+				none.as_mut_slice().reverse();
+				empty.as_mut_slice().copy_from_slice(&[]);
+				out.push(none.as_slice().len() as u8 + empty.as_slice().len() as u8);
+			}
+			6 => written(&mut bytes, &mut wide, op),
+			_ => {
+				let sum: u32 = wide.as_slice().iter().map(|&w| u32::from(w)).sum();
+				out.extend_from_slice(&sum.to_le_bytes());
+				out.extend_from_slice(bytes.as_slice());
+			}
+		}
+	}
+	let s = format!(
+		"{:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+		bytes.as_slice(),
+		wide.as_slice(),
+		words.as_slice(),
+		grid.as_slice(),
+		pairs.as_slice(),
+		none.as_slice(),
+		empty.as_slice()
+	);
+	out.extend_from_slice(s.as_bytes());
+}
+
+/// Arrays lent by `&mut`, written through their slices.
+fn written(bytes: &mut [u8; 4], wide: &mut [u16; 3], op: u8) {
+	let s = bytes.as_mut_slice();
+	s[3] = s[0].wrapping_add(op);
+	let w = wide.as_mut_slice();
+	w[0] = u16::from(op);
+	w.swap(1, 2);
 }
