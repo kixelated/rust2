@@ -1,9 +1,10 @@
 //! Runs a script of executor steps and returns the log: the native side of the
 //! differential test, which `tests/task.ts` mirrors step for step on the translation.
 //!
-//! Each step is two bytes, an op and its argument. Channels and tasks are picked by the
-//! argument, modulo how many there are; a step with nothing to pick does nothing. Once
-//! the script ends, every task drops in order, then every channel.
+//! Each step is two bytes, an op and its argument, and logs its name, so the two sides
+//! differ wherever their lists do. Channels and tasks are picked by the argument, modulo
+//! how many there are; a step with nothing to pick does nothing. Once the script ends,
+//! every task drops in order, then every channel.
 
 use crate::drops;
 use crate::exec::Executor;
@@ -19,7 +20,8 @@ pub fn run(input: &[u8]) -> Vec<u8> {
 	let steps = steps();
 	for step in input.chunks(2) {
 		let (op, arg) = (step[0], step.get(1).copied().unwrap_or(0));
-		let (_, run_step) = steps[usize::from(op) % steps.len()];
+		let (name, run_step) = steps[usize::from(op) % steps.len()];
+		log.note(format!("step {name}"));
 		run_step(&log, &mut exec, &mut channels, arg);
 	}
 	for t in 0..exec.len() {

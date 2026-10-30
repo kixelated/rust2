@@ -4,8 +4,9 @@
 //! A value Kotlin passes is a JNI scalar, a handle as a `long`, its bytes as a `byte[]`,
 //! or anything else encoded into a `byte[]`: little-endian, field by field, as the C
 //! struct holds it, with a buffer as its length (-1 for none) and its bytes, and an array
-//! as its length (-1 for none) and its elements. Bytes Rust returns cross as their owner,
-//! which a Kotlin `Bytes` lends as a direct `ByteBuffer` until it frees it.
+//! as its length (-1 for none) and its elements. Bytes Rust returns cross copied when short,
+//! and otherwise as their owner, which a Kotlin `Bytes` lends as a direct `ByteBuffer`
+//! until it frees it.
 
 use std::cell::Cell;
 use std::ffi::{CStr, c_void};
@@ -160,15 +161,48 @@ pub fn array(env: *mut JNIEnv, bytes: &[u8]) -> jbyteArray {
 	}
 }
 
-/// The owner of a buffer Rust returned, handed to Kotlin uncopied, or 0 for none: a view,
-/// which Rust lent only for a call, is copied into an owned buffer.
+/// The longest bytes Rust returns that cross copied, freed at once: a lent `ByteBuffer`
+/// costs `NewDirectByteBuffer`'s upcall and a cleaner registration, which copying up to
+/// about this many bytes undercuts.
+const COPIED: usize = 1024;
+
+/// A buffer Rust returned or lent, as Kotlin's `Native.owned` takes it: null for none, a
+/// `byte[]` copy of up to [`COPIED`] bytes, freeing the buffer, or else a `long[]` holding
+/// the owner it lends them through.
 ///
 /// # Safety
 /// `buf` is a buffer Rust returned or lent, freed by nothing else.
-pub unsafe fn hand(buf: rt::Buf) -> jlong {
+pub unsafe fn hand(env: *mut JNIEnv, buf: rt::Buf) -> jobject {
 	if buf.is_none() {
-		return 0;
+		return std::ptr::null_mut();
 	}
+	if buf.len <= COPIED {
+		// SAFETY: the caller's contract.
+		return unsafe {
+			let array = array(env, buf.bytes("jni"));
+			buf.free();
+			array
+		};
+	}
+	// SAFETY: the caller's contract.
+	let owner = unsafe { self::owner(buf) };
+	// SAFETY: `env` is this thread's.
+	unsafe {
+		let array = ((**env).v1_2.NewLongArray)(env, 1);
+		if array.is_null() {
+			fail(env, "jni", "a long[] is out of memory");
+		}
+		((**env).v1_2.SetLongArrayRegion)(env, array, 0, 1, &owner);
+		array
+	}
+}
+
+/// The owner of a buffer Rust returned, handed to Kotlin uncopied: a view, which Rust lent
+/// only for a call, is copied into an owned buffer.
+///
+/// # Safety
+/// `buf` is a buffer Rust returned or lent, not none, and freed by nothing else.
+unsafe fn owner(buf: rt::Buf) -> jlong {
 	let buf = match buf.owner.is_null() {
 		// SAFETY: the caller's contract.
 		true => rt::Buf::owned(bytes::Bytes::copy_from_slice(unsafe { buf.bytes("jni") })),
@@ -571,18 +605,35 @@ impl Wire for rt::Buf {
 	}
 }
 
-/// Bytes Rust returns, or an array of them, crossing as each buffer's owner rather than
-/// copied: see [`hand`].
+/// Bytes Rust returns, or an array of them, each crossing as [`hand`] hands it over.
 pub struct Owned<T>(pub T);
+
+/// What precedes a lent buffer's owner where an encoded one's length would.
+const LENT: i32 = -2;
 
 impl Wire for Owned<rt::Buf> {
 	fn read(_: &mut Reader<'_>) -> Self {
 		rt::fail("jni", "Kotlin passes bytes, never their owner")
 	}
 
+	// None as -1, bytes up to [`COPIED`] long as their length and a copy, and longer ones as
+	// [`LENT`] and their owner.
 	fn write(self, w: &mut Writer) {
-		// SAFETY: a buffer Rust returned or lent, handed over here.
-		w.put(unsafe { hand(self.0) });
+		let buf = self.0;
+		if buf.is_none() {
+			w.put(-1i32);
+		} else if buf.len <= COPIED {
+			w.put(buf.len as i32);
+			// SAFETY: a buffer Rust returned or lent, freed here once copied.
+			unsafe {
+				w.0.extend_from_slice(buf.bytes("jni"));
+				buf.free();
+			}
+		} else {
+			w.put(LENT);
+			// SAFETY: a buffer Rust returned or lent, handed over here.
+			w.put(unsafe { owner(buf) });
+		}
 	}
 }
 

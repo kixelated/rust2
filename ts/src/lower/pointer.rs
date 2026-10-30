@@ -196,11 +196,27 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 }
 
 /// Whether std's `def_id` is one a mapping takes the `rt.Place` a `&mut` is for, rather
-/// than what it points at: a `MaybeUninit`'s, which it points into, and a well-known
-/// crate's, such as a `Bytes` that `Buf::advance` moves past its front.
+/// than what it points at: a `MaybeUninit`'s, which it points into, an `Arc`'s that
+/// `make_mut` replaces, and a well-known crate's, such as a `Bytes` that `Buf::advance`
+/// moves past its front.
 pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
-	matches!(super::library::key(tcx, def_id), Some((owner, _)) if owner == "MaybeUninit")
-		|| super::stock::is_stock(tcx, def_id)
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if owner == "MaybeUninit" || matches!(owner.as_str(), "Arc" | "Rc") && name == "make_mut"
+	) || super::stock::is_stock(tcx, def_id)
+}
+
+/// Which of std's `def_id`'s parameters its mapping takes as what the `&mut` it declares
+/// points at, rather than the `rt.Place` that `&mut` may be: not a type parameter that
+/// one instantiates, as `Pin::new`'s pointer.
+pub fn pointees(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Vec<bool> {
+	let takes_place = takes_place(tcx, def_id);
+	let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+	tcx.instantiate_bound_regions_with_erased(sig)
+		.inputs()
+		.iter()
+		.map(|t| !takes_place && matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+		.collect()
 }
 
 /// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or

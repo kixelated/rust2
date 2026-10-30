@@ -124,8 +124,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let call = Expr::Sym(sym).call(values);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
-				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
-				let option = tcx.instantiate_bound_regions_with_erased(sig).output();
+				let option = self.t.sig(did, instance.args).output();
 				self.t.ty(option, span);
 				let ty::Adt(_, option_args) = option.kind() else {
 					unreachable!("`next` returns an `Option`")
@@ -138,10 +137,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let Some(referent) = library::referent(tcx, def_id, gargs, instance) {
 			// An operand that was a reference to an `rt.Place`, as `&&mut u32` is, passes
 			// what the Place points at.
-			let inputs = |gargs| {
-				let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
-				tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec()
-			};
+			let inputs = |gargs| self.t.sig(def_id, gargs).inputs().to_vec();
 			let args = std::iter::zip(args, std::iter::zip(inputs(gargs), inputs(referent)))
 				.map(|(arg, (was, now))| match was.kind() {
 					ty::Ref(_, inner, _) if was != now => self.t.pointee_value(*inner, arg),
@@ -238,9 +234,23 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let gargs = self.subst(gargs);
-		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
+		let sig = self.t.sig(def_id, gargs);
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
-		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
+		// std's mappings take a `&mut` they declare that is an `rt.Place` as what it points
+		// at, as a call's operands pass it.
+		let pointees = match self.t.mapped(def_id, gargs) {
+			true => super::pointer::pointees(tcx, def_id),
+			false => Vec::new(),
+		};
+		let values: Vec<Expr> = std::iter::zip(&names, sig.inputs())
+			.enumerate()
+			.map(
+				|(i, (name, &ty))| match pointees.get(i) == Some(&true) && self.t.place_pointee(ty).is_some() {
+					true => Expr::ident(name).member("v"),
+					false => Expr::ident(name),
+				},
+			)
+			.collect();
 		// A binding's export, or a function whose body translates, is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
