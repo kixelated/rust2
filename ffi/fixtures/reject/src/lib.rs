@@ -401,6 +401,29 @@ pub fn lender(value: impl Into<Lender<'static>>) -> u32 {
 	*value.into().0.0
 }
 
+/// Excluded, a `'static` borrow, from what converts into one.
+pub struct Pinned(pub &'static u32);
+
+impl<T: Into<&'static u32>> From<T> for Pinned {
+	fn from(value: T) -> Self {
+		Pinned(value.into())
+	}
+}
+
+/// Excluded, what converts into a `Pinned`.
+pub struct Pinner(pub Pinned);
+
+impl<T: Into<Pinned>> From<T> for Pinner {
+	fn from(value: T) -> Self {
+		Pinner(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the last level's target demands.
+pub fn pinner(value: impl Into<Pinner>) -> u32 {
+	*value.into().0.0
+}
+
 /// Excluded, what converts into one of a `Vec` of its type, and so into ever larger ones.
 pub struct Grows<T>(pub Vec<T>);
 

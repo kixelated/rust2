@@ -2133,10 +2133,10 @@ impl<'tcx> Collector<'tcx> {
 			for (x, lasting, imp, into) in self.hop(def_id, target, &statics) {
 				// A source that must outlive the call, or converts into a parameter that must, owns
 				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not taken.
+				let outlives = outlives || lasting;
 				if outlives && x.walk().any(|arg| arg.as_region().is_some()) {
 					continue;
 				}
-				let outlives = outlives || lasting;
 				if into && !self.maps(x, Pos::Param) {
 					let mut at = i;
 					while let Some((next, via)) = targets[at].2 {
