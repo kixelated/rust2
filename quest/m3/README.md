@@ -18,7 +18,6 @@ generic std gap is planned here even when moq never calls it.
 - [A raw pointer's staleness bound by its liveness](/quest/m3/ts-pointer-liveness.md) - a pointer dead before its variable is assigned again, as in an earlier loop iteration, translates
 - [Writes into fresh memory before any pointer to it](/quest/m3/ts-fresh-writes.md) - a whole write filling a fresh allocation or `MaybeUninit` before any pointer into it no longer refuses later pointers, as kio's `Segment::new` slots
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
-- [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
 - [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
 - [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them

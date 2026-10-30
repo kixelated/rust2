@@ -454,7 +454,7 @@ pub fn call<'tcx>(
 			Some(Expr::rt("durationSum", tail(vec![recv.clone()], vec![drops])))
 		}
 		// std's float sum starts from -0.0, so a sum of none, or of -0.0s, is -0.0.
-		"sum" | "product" if super::float::is(targ(1)?) => {
+		"sum" | "product" if let Some(float) = super::float::Float::of(targ(1)?) => {
 			let (op, unit) = match name {
 				"sum" => ("add", -0.0),
 				_ => ("mul", 1.0),
@@ -462,7 +462,7 @@ pub fn call<'tcx>(
 			let drops = iter_drops(b, self_ty, span);
 			method(
 				name,
-				tail(vec![Expr::rt_of("f64", op), super::float::lit(unit)], vec![drops]),
+				tail(vec![Expr::rt_of(float.name(), op), float.lit(unit)], vec![drops]),
 			)
 		}
 		"sum" | "product" => {
@@ -849,7 +849,10 @@ fn collect<'tcx>(
 		Std::Vec => Some(match args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => {
 				let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
-				Expr::rt("iterToByteVec", tail(vec![iter], vec![take, Expr::lit(trusted.to_string())]))
+				Expr::rt(
+					"iterToByteVec",
+					tail(vec![iter], vec![take, Expr::lit(trusted.to_string())]),
+				)
 			}
 			_ => to_array(b, iter, from, args.type_at(0), trusted, span),
 		}),
@@ -975,7 +978,10 @@ pub(super) fn to_array<'tcx>(
 	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
 	let take = iter_take(b, from, folds, span);
 	let size = size_of(b, elem, span);
-	Expr::rt("iterToArray", tail(vec![iter], vec![take, size, Expr::lit(trusted.to_string())]))
+	Expr::rt(
+		"iterToArray",
+		tail(vec![iter], vec![take, size, Expr::lit(trusted.to_string())]),
+	)
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place

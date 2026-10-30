@@ -45,8 +45,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				int.lit(value)
 			}
-			_ if super::float::is(ty) => match leaf(valtree) {
-				Some(scalar) => super::float::lit(f64::from_bits(scalar.to_u64())),
+			_ if let Some(float) = super::float::Float::of(ty) => match leaf(valtree) {
+				Some(scalar) => float.constant(scalar),
 				None => self.err(span, "a float constant without a value"),
 			},
 			ty::Char => match leaf(valtree) {

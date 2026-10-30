@@ -1609,7 +1609,7 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
 		// `None` for a NaN: only `PartialOrd`, since a float is no `Ord`.
-		ty::Float(_) if partial => Expr::Rt("f64PartialCmp".into()),
+		_ if partial && let Some(float) = super::float::Float::of(ty) => Expr::rt_of(float.name(), "partialCmp"),
 		ty::Str => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if library::string(tcx, ty) => Expr::Rt("cmpStr".into()),
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Ordering) => Expr::Rt("cmp".into()),

@@ -86,6 +86,13 @@ export function unwrapOr$0k15iai(self: rt.char | undefined, default_: rt.char): 
 	return self;
 }
 
+export function unwrapOr$19h8ynp(self: rt.f32 | undefined, default_: rt.f32): rt.f32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$1ayoj7n(self: rt.f64 | undefined, default_: rt.f64): rt.f64 {
 	if (self === undefined) {
 		return default_;

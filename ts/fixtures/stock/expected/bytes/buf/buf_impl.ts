@@ -179,6 +179,52 @@ export function copyToSlice$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, dst:
 }
 
 /**
+ * Gets an IEEE754 single-precision (4 bytes) floating point number from
+ * `self` in little-endian byte order.
+ *
+ * The current position is advanced by 4.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"\x9A\x99\x99\x3F hello"[..];
+ * assert_eq!(1.2f32, buf.get_f32_le());
+ * ```
+ *
+ * # Panics
+ *
+ * This function panics if there is not enough remaining data in `self`.
+ */
+export function getF32Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32 {
+	return rt.f32FromBeBytes(rt.bytesRead(self.v, 4, true));
+}
+
+/**
+ * Gets an IEEE754 single-precision (4 bytes) floating point number from
+ * `self` in little-endian byte order.
+ *
+ * The current position is advanced by 4.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"\x9A\x99\x99\x3F hello"[..];
+ * assert_eq!(1.2f32, buf.get_f32_le());
+ * ```
+ *
+ * # Panics
+ *
+ * This function panics if there is not enough remaining data in `self`.
+ */
+export function getF32Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32 {
+	return rt.f32FromBeBytes(rt.bytesRead(self.v, 4, true));
+}
+
+/**
  * Gets an IEEE754 double-precision (8 bytes) floating point number from
  * `self` in big-endian byte order.
  *
