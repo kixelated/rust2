@@ -1123,7 +1123,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Result
 					| library::Std::ControlFlow
 					| library::Std::Ordering
-					| library::Std::IntErrorKind,
+					| library::Std::ErrorKind,
 				) => true,
 				Some(_) => false,
 				None => adt.is_enum() && adt.variants().len() > 1,
@@ -1445,7 +1445,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
 				library::Std::ParseIntError => Type::Rt("ParseIntError", vec![]),
-				library::Std::IntErrorKind => Type::Rt("IntErrorKind", vec![]),
+				library::Std::ErrorKind => match self.tcx.item_name(adt.did()).as_str() {
+					"IntErrorKind" => Type::Rt("IntErrorKind", vec![]),
+					"CharErrorKind" => Type::Rt("CharErrorKind", vec![]),
+					"FloatErrorKind" => Type::Rt("FloatErrorKind", vec![]),
+					_ => Type::Rt("TryFromFloatSecsErrorKind", vec![]),
+				},
 				library::Std::ParseBoolError => Type::Rt("ParseBoolError", vec![]),
 				library::Std::ParseCharError => Type::Rt("ParseCharError", vec![]),
 				library::Std::ParseFloatError => Type::Rt("ParseFloatError", vec![]),

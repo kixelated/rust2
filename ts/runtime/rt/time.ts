@@ -197,7 +197,10 @@ export function durationAbsDiff(a: Duration, b: Duration): Duration {
 }
 
 /** `core::time::TryFromFloatSecsError`: why seconds made no `Duration`. */
-export type TryFromFloatSecsError = { readonly kind: "Negative" | "OverflowOrNan" };
+export type TryFromFloatSecsError = { readonly kind: TryFromFloatSecsErrorKind };
+
+/** `core::time::TryFromFloatSecsErrorKind`: why a `Duration` wasn't made, by variant name. */
+export type TryFromFloatSecsErrorKind = "Negative" | "OverflowOrNan";
 
 /** `Duration::as_secs_f64`. */
 export function durationAsSecsF64(d: Duration): f64 {

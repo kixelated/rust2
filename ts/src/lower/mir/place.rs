@@ -430,10 +430,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// discriminants. `tsc` narrows only what a switch tests.
 	fn as_variant(&mut self, base: Expr, ty: Ty<'tcx>, variant: VariantIdx, span: Span) -> Expr {
 		match ty.kind() {
-			ty::Adt(adt, _) if self.b.t.crates.translates(adt.did()) => match self.variant_ty(ty, variant, span) {
-				Some(variant) => Expr::As(Box::new(base), variant),
-				None => base,
-			},
+			ty::Adt(adt, _)
+				if self.b.t.crates.translates(adt.did()) || Std::of(self.tcx, adt.did()) == Some(Std::Result) =>
+			{
+				match self.variant_ty(ty, variant, span) {
+					Some(variant) => Expr::As(Box::new(base), variant),
+					None => base,
+				}
+			}
 			_ => base,
 		}
 	}
@@ -549,37 +553,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					];
 					Expr::As(Box::new(base), crate::ts::Type::Object(fields)).member("_0")
 				}
-				// A variant MIR reads without a test, since the other can't be, is cast to it.
-				Some(Std::Result) => {
-					let ok = variant.map_or(0, VariantIdx::index) == 0;
-					let ty::Adt(_, args) = ty.kind() else { unreachable!() };
-					let (this, other) = match ok {
-						true => (args.type_at(0), args.type_at(1)),
-						false => (args.type_at(1), args.type_at(0)),
-					};
-					let uninhabited = other.is_never()
-						|| matches!(other.kind(), ty::Adt(adt, _) if adt.is_enum() && adt.variants().is_empty());
-					let (flag, name) = match ok {
-						true => ("true", "value"),
-						false => ("false", "error"),
-					};
-					let base = match uninhabited {
-						true => {
-							let variant = crate::ts::Type::Object(vec![
-								("ok".into(), crate::ts::Type::Builtin(flag)),
-								(name.into(), self.b.t.ty(this, span)),
-							]);
-							Expr::As(Box::new(base), variant)
-						}
-						false => base,
-					};
-					base.member(name)
-				}
+				Some(Std::Result) => match variant.map_or(0, VariantIdx::index) {
+					0 => base.member("value"),
+					_ => base.member("error"),
+				},
 				Some(Std::Range | Std::RangeInclusive | Std::RangeTo | Std::RangeFrom | Std::RangeToInclusive) => {
 					base.member(adt.non_enum_variant().fields[field].name.as_str())
 				}
 				Some(Std::Context | Std::NonNull | Std::Entry) => base,
-				Some(Std::ParseIntError) => base.member("kind"),
+				// `TryFromIntError`'s `IntErrorKind`.
+				Some(Std::TryFromIntError) => base.member("kind"),
+				// The runtime's field of each of std's errors has its name.
+				Some(std) if std.error() => {
+					base.member(crate::lower::camel(adt.non_enum_variant().fields[field].name.as_str()))
+				}
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
 				_ if transparent(self.b.t, ty) || crate::lower::library::wrapped(tcx, ty).is_some() => base,
@@ -1101,7 +1088,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.clone()
 						.member("tag")
 						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
-					Some(Std::IntErrorKind) => scrut
+					Some(Std::ErrorKind) => scrut
 						.clone()
 						.binary("===", Expr::Str(adt.variant(index).name.to_string())),
 					_ => self.err(span, format!("a switch on `{ty}`")),

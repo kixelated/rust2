@@ -2358,7 +2358,7 @@ export function flows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (result.ok) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(result.value)));
 	} else {
-		rt.byteVecPush(out, (result as { ok: false; error: rt.u8 }).error);
+		rt.byteVecPush(out, result.error);
 	}
 	if (rt.u8Rem(a, 5) === 0) {
 		option = undefined as rt.u8 | undefined;

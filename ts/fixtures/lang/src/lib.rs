@@ -11,8 +11,8 @@
 //! `Option`s, values held back past a write of a variable they name, what `Hash` writes
 //! into `DefaultHasher` and `RandomState`, slices' `windows` and chunks, mutable ones
 //! written through, their parts by inclusive and checked ranges and by fixed size,
-//! `Vec::drain`, the order, equality, and hashes of bytes, and ranges of `Bound`s and of
-//! the crate's own `RangeBounds`.
+//! `Vec::drain`, the order, equality, and hashes of bytes, ranges of `Bound`s and of the
+//! crate's own `RangeBounds`, and the equality of `Result`s and std's errors.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -33,6 +33,7 @@ mod defaults;
 mod durations;
 mod dyns;
 mod edits;
+mod errors;
 mod floats;
 mod fmt;
 mod generics;

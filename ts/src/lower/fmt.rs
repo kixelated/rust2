@@ -326,7 +326,7 @@ pub fn std_impl<'tcx>(
 			(Std::TryFromIntError, Trait::Display) => rt("tryFromIntErrorDisplay", vec![value, f]),
 			(Std::ParseIntError, Trait::Debug) => rt("parseIntErrorDebug", vec![value, f]),
 			(Std::ParseIntError, Trait::Display) => rt("parseIntErrorDisplay", vec![value, f]),
-			(Std::IntErrorKind, Trait::Debug) => rt("writeStr", vec![f, value]),
+			(Std::ErrorKind, Trait::Debug) => rt("writeStr", vec![f, value]),
 			(Std::ParseBoolError, Trait::Debug) => rt("parseBoolErrorDebug", vec![value, f]),
 			(Std::ParseBoolError, Trait::Display) => rt("parseBoolErrorDisplay", vec![value, f]),
 			(Std::ParseCharError, Trait::Debug) => rt("parseCharErrorDebug", vec![value, f]),
