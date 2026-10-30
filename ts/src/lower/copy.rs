@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexSet};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
+use rustc_index::IndexVec;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, Location, Place, ProjectionElem, Rvalue};
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
@@ -359,6 +360,7 @@ impl<'tcx> Writes<'tcx> {
 				def_id,
 				writes: &mut writes,
 				own,
+				borrows: borrows(body),
 			}
 			.visit_body(body);
 		}
@@ -484,6 +486,58 @@ fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: T
 	!ocx.try_evaluate_obligations().has_errors()
 }
 
+/// The place each local of `body` borrows, where its one assignment is a borrow and
+/// nothing borrows the local itself, through which it could be pointed elsewhere.
+fn borrows<'tcx>(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, Option<Place<'tcx>>> {
+	let mut defs = IndexVec::from_elem(0u32, &body.local_decls);
+	let mut borrows = IndexVec::from_elem(None, &body.local_decls);
+	let mut lent = FxHashSet::default();
+	for data in body.basic_blocks.iter() {
+		for stmt in &data.statements {
+			let mir::StatementKind::Assign(assign) = &stmt.kind else {
+				continue;
+			};
+			if let Rvalue::Ref(_, _, place) | Rvalue::RawPtr(_, place) = assign.1
+				&& !place.is_indirect()
+			{
+				lent.insert(place.local);
+			}
+			if let Some(local) = assign.0.as_local() {
+				defs[local] += 1;
+				if let Rvalue::Ref(_, _, place) = assign.1 {
+					borrows[local] = Some(place);
+				}
+			}
+		}
+		if let mir::TerminatorKind::Call { destination, .. } = &data.terminator().kind
+			&& let Some(local) = destination.as_local()
+		{
+			defs[local] += 1;
+		}
+	}
+	for (local, borrow) in borrows.iter_enumerated_mut() {
+		if defs[local] != 1 || lent.contains(&local) {
+			*borrow = None;
+		}
+	}
+	borrows
+}
+
+/// `place`, read through each reference that `borrow` says borrows a place, as that place:
+/// `(*r).0` of `r = &mut pair` is `pair.0`.
+pub fn through_borrows<'tcx>(
+	tcx: TyCtxt<'tcx>,
+	mut place: Place<'tcx>,
+	borrow: impl Fn(mir::Local) -> Option<Place<'tcx>>,
+) -> Place<'tcx> {
+	while let [ProjectionElem::Deref, rest @ ..] = place.projection.as_slice()
+		&& let Some(borrowed) = borrow(place.local)
+	{
+		place = borrowed.project_deeper(rest, tcx);
+	}
+	place
+}
+
 /// The writes of one body.
 struct BodyWrites<'w, 'm, 'tcx> {
 	tcx: TyCtxt<'tcx>,
@@ -491,6 +545,8 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	def_id: DefId,
 	writes: &'w mut Writes<'tcx>,
 	own: &'w dyn Fn(DefId) -> bool,
+	/// The place each local borrows, where its one assignment is a borrow.
+	borrows: IndexVec<mir::Local, Option<Place<'tcx>>>,
 }
 
 impl<'tcx> BodyWrites<'_, '_, 'tcx> {
@@ -520,6 +576,32 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 				None => !adt.is_enum() && (self.own)(adt.did()),
 			},
 			_ => false,
+		}
+	}
+
+	/// A write of a whole `place` through `(*r)`, which writes the place `r` borrows if `r`
+	/// is an alias of it, as a store of that place.
+	fn store_through(&mut self, place: Place<'tcx>) {
+		if let [ProjectionElem::Deref] = place.projection.as_slice()
+			&& let Some(borrowed) = self.borrows[place.local]
+		{
+			self.stored(borrowed);
+		}
+	}
+
+	/// A whole `place` written: a whole part gives what holds it another object there, and a
+	/// whole value written through a pointer each of its parts, as it goes one object deep.
+	fn stored(&mut self, place: Place<'tcx>) {
+		let ty = place.ty(self.body, self.tcx).ty;
+		match place.iter_projections().last() {
+			Some((_, ProjectionElem::Deref)) => self.replace(ty),
+			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => {
+				let base = base.ty(self.body, self.tcx).ty;
+				if !base.is_union() {
+					self.replace(base);
+				}
+			}
+			_ => {}
 		}
 	}
 
@@ -564,6 +646,7 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 		if place.as_local().is_none() {
 			self.pointees(place.ty(self.body, self.tcx).ty, true);
 		}
+		self.store_through(*place);
 		// A `dyn Any` has no method that writes: a write through its downcast counts where it is.
 		let object = |t: Ty<'tcx>| t.is_trait() && !super::dynamic::is_any_object(self.tcx, t);
 		if let Rvalue::Cast(mir::CastKind::PointerCoercion(ty::adjustment::PointerCoercion::Unsize, _), op, to) = rvalue
@@ -575,6 +658,21 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 	}
 
 	fn visit_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
+		if let mir::TerminatorKind::Call {
+			func,
+			args,
+			destination,
+			..
+		} = &terminator.kind
+		{
+			self.store_through(*destination);
+			let rebound = func
+				.const_fn_def()
+				.map_or(0, |(def_id, _)| super::pointer::rebinds(self.tcx, def_id));
+			for arg in args[..rebound].iter().filter_map(|a| a.node.place()) {
+				self.store_through(self.tcx.mk_place_deref(arg));
+			}
+		}
 		match &terminator.kind {
 			mir::TerminatorKind::Call { destination, .. } if destination.as_local().is_none() => {
 				self.pointees(destination.ty(self.body, self.tcx).ty, true)
@@ -626,27 +724,14 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 		{
 			self.insert(place.ty(self.body, self.tcx).ty);
 		}
-		// A whole part written gives what holds it another object there, and a whole value
-		// written through a pointer each of its parts, as it goes one object deep.
-		if !matches!(
+		if matches!(
 			kind,
 			MutatingUseContext::Store
 				| MutatingUseContext::Call
 				| MutatingUseContext::AsmOutput
 				| MutatingUseContext::Yield
 		) {
-			return;
-		}
-		let ty = place.ty(self.body, self.tcx).ty;
-		match place.iter_projections().last() {
-			Some((_, ProjectionElem::Deref)) => self.replace(ty),
-			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => {
-				let base = base.ty(self.body, self.tcx).ty;
-				if !base.is_union() {
-					self.replace(base);
-				}
-			}
-			_ => {}
+			self.stored(*place);
 		}
 	}
 }

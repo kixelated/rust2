@@ -553,13 +553,13 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 				held.0.get_mut().n ^= 1;
 				out.push(held.with(|p| unsafe { (*p).n }));
 			}
-			// Each of a number and a string replaced whole, its old value taken out. A cell of
-			// an object can't be, as a pointer `get` gave would keep the old object.
+			// Each of a number and a string replaced whole through a `&mut` a helper takes,
+			// which writes into the `rt.Cell` there, its old value taken out. A cell of an
+			// object can't be, as a pointer `get` gave would keep the old object, nor a
+			// variable here, which the pointers `get` gave before would not see.
 			6 => {
-				let old = std::mem::replace(&mut num, UnsafeCell::new(u32::from(n)));
-				out.extend(old.into_inner().to_le_bytes());
-				let old = std::mem::replace(&mut text, UnsafeCell::new(n.to_string()));
-				out.extend(old.into_inner().as_bytes());
+				out.extend(renew_num(&mut num, u32::from(n)).to_le_bytes());
+				out.extend(renew_text(&mut text, n.to_string()).as_bytes());
 				*pair.get_mut() = Duo(n, !n);
 			}
 			// One made, written through `get`, and its value taken out and dropped.
@@ -583,4 +583,137 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(text.into_inner().as_bytes());
 	drop(held);
 	out.push(Rc::strong_count(&count) as u8);
+}
+
+fn renew_num(cell: &mut UnsafeCell<u32>, value: u32) -> u32 {
+	std::mem::replace(cell, UnsafeCell::new(value)).into_inner()
+}
+
+fn renew_text(cell: &mut UnsafeCell<String>, value: String) -> String {
+	std::mem::replace(cell, UnsafeCell::new(value)).into_inner()
+}
+
+/// Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
+/// `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
+/// parts are, ones a helper writes through a `&mut` into the object there, and one taken
+/// through two helpers and read while the variable is borrowed, which is assigned after;
+/// one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be;
+/// and one through a reference `mem::replace` pointed elsewhere first.
+/// Each is a function of its own, as a loop assigns its variables again.
+pub fn rebound(data: &[u8], out: &mut Vec<u8>) {
+	for &n in data {
+		match n % 7 {
+			0 => out.extend(replaced_before(n)),
+			6 => out.extend(retargeted(n)),
+			5 => out.extend(lent_as_value(n)),
+			1 => out.extend(parts_replaced(n)),
+			2 => out.extend(written_in_place(n)),
+			3 => out.extend(cell_written_in_place(n)),
+			_ => out.extend(borrowed_through(n)),
+		}
+	}
+}
+
+fn replaced_before(n: u8) -> [u8; 2] {
+	let mut pair = (n, !n);
+	let old = std::mem::replace(&mut pair, (n ^ 1, n));
+	let p = &raw mut pair;
+	unsafe { (*p).1 ^= old.0 };
+	[pair.0, pair.1]
+}
+
+struct Span {
+	range: (u8, u8),
+}
+
+fn lent_as_value(n: u8) -> [u8; 4] {
+	let mut span = Span { range: (n, !n) };
+	let mut other = (0, 0);
+	let mut r = &mut other;
+	let p = &raw mut span.range;
+	let old = std::mem::replace(&mut r, &mut span.range);
+	old.0 = n ^ 1;
+	r.0 ^= 3;
+	unsafe { [(*p).0, (*p).1, other.0, span.range.0] }
+}
+
+fn retargeted(n: u8) -> [u8; 2] {
+	let mut a = (n, !n);
+	let mut b = (n ^ 5, n);
+	let mut r = &mut a;
+	let _ = std::mem::replace(&mut r, &mut b);
+	let p = &raw mut *r;
+	a = (0, 0);
+	unsafe { [(*p).0 ^ a.0, (*p).1] }
+}
+
+fn parts_replaced(n: u8) -> [u8; 4] {
+	let mut pair = (n, !n);
+	let p = &raw mut pair;
+	let old = std::mem::replace(&mut pair.0, n.wrapping_add(1));
+	std::mem::swap(&mut pair.0, &mut pair.1);
+	let taken = std::mem::take(&mut pair.1);
+	unsafe { [(*p).0, (*p).1, old, taken] }
+}
+
+fn written_in_place(n: u8) -> [u8; 6] {
+	let mut a = Duo(n, 1);
+	let mut b = Duo(2, n);
+	let p = &raw mut a;
+	let old = renew(&mut a, Duo(n ^ 3, n ^ 4));
+	let between = unsafe { *p };
+	exchange(&mut a, &mut b);
+	let swapped = unsafe { *p };
+	assign(&mut a, Duo(old.1, b.0));
+	unsafe { [between.0, between.1, swapped.0, swapped.1, (*p).0, (*p).1] }
+}
+
+fn cell_written_in_place(n: u8) -> [u8; 4] {
+	let mut cell = UnsafeCell::new(u32::from(n) << 9);
+	let p = cell.get();
+	let old = renew_num(&mut cell, u32::from(n) + 7);
+	let between = unsafe { *p };
+	let taken = clear(&mut cell);
+	[
+		old as u8,
+		(old >> 9) as u8,
+		between as u8,
+		taken as u8 ^ unsafe { *p } as u8,
+	]
+}
+
+fn borrowed_through(n: u8) -> [u8; 3] {
+	let mut d = Duo(n, !n);
+	let first = flipped(&mut d);
+	d = Duo(d.1, d.0);
+	[first, d.0, d.1]
+}
+
+fn renew(at: &mut Duo, value: Duo) -> Duo {
+	std::mem::replace(at, value)
+}
+
+fn exchange(a: &mut Duo, b: &mut Duo) {
+	std::mem::swap(a, b)
+}
+
+fn assign(at: &mut Duo, value: Duo) {
+	*at = value;
+}
+
+fn clear(cell: &mut UnsafeCell<u32>) -> u32 {
+	std::mem::take(cell).into_inner()
+}
+
+/// The first of `d`, flipped through the pointer `pointer_of` gives.
+fn flipped(d: &mut Duo) -> u8 {
+	let p = pointer_of(d);
+	unsafe {
+		(*p).0 ^= 0x5a;
+		(*p).0
+	}
+}
+
+fn pointer_of(d: &mut Duo) -> *mut Duo {
+	&raw mut *d
 }

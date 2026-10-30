@@ -9,8 +9,11 @@
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
 //! a `&mut`, so a pointer to a part kept as an object is refused wherever the crate may
-//! give that part another object. A value read out is a copy of what the crate writes
-//! into in place, so a later write leaves it be.
+//! give that part another object. One to a variable's object is refused wherever the
+//! function may give the variable another after: by assigning it, by writing it whole
+//! through an alias of a borrow of it, or by `mem::replace`, `swap`, or `take` of one. A
+//! value read out is a copy of what the crate writes into in place, so a later write
+//! leaves it be.
 //!
 //! A `MaybeUninit<T>` is a `T`: `undefined` where JS copies a `T` and it holds none yet,
 //! or an object whose parts hold none yet where a pointer to it is the object. An
@@ -165,6 +168,41 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			}
 			_ => Expr::undefined(),
 		}
+	}
+}
+
+/// Whether std's `def_id` with `args` makes a raw pointer to what its first argument, a
+/// reference, points at: `UnsafeCell::get`, `MaybeUninit::as_ptr` and `as_mut_ptr`, and
+/// `NonNull::from`.
+pub fn from_reference<'tcx>(
+	tcx: ty::TyCtxt<'tcx>,
+	def_id: rustc_hir::def_id::DefId,
+	args: ty::GenericArgsRef<'tcx>,
+) -> bool {
+	let Some((owner, name)) = super::library::key(tcx, def_id) else {
+		return false;
+	};
+	match (owner.as_str(), name.as_str()) {
+		("UnsafeCell", "get") | ("MaybeUninit", "as_ptr" | "as_mut_ptr") => true,
+		("From", "from") => {
+			matches!(args.type_at(0).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::NonNull))
+				&& args.type_at(1).is_ref()
+		}
+		_ => false,
+	}
+}
+
+/// How many of std's `def_id`'s first arguments are `&mut`s whose lowering gives what
+/// they borrow another value, rather than writing into it, where one is an alias of a
+/// borrowed place: the place is assigned again. `mem::replace`'s value is no such one.
+pub fn rebinds(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> usize {
+	match super::library::key(tcx, def_id) {
+		Some((owner, name)) if owner == "mem" => match name.as_str() {
+			"replace" | "take" => 1,
+			"swap" => 2,
+			_ => 0,
+		},
+		_ => 0,
 	}
 }
 
