@@ -234,6 +234,43 @@ jobs:
       - name: Export
         run: just ffi moq-cpp
 
+  # The Kotlin on ART, shrunk by R8 as an app shrinks it. x86_64, as moq's Android build:
+  # this image ships the Android SDK and NDK, and its KVM runs an x86_64 emulator at speed.
+  ffi-android:
+    name: Export to Kotlin on Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The oldest API level moq's Android library supports, then the one it compiles
+      # against. The second reuses the first's builds.
+      - name: API 24
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 24
+          arch: x86_64
+          script: nix develop .#android --command just ffi android
+
+      - name: API 35
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          arch: x86_64
+          script: nix develop .#android --command just ffi android
+
   ffi-bench:
     name: Bench the C export against moq-c
     runs-on: ubuntu-24.04-arm
