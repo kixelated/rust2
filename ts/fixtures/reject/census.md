@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
 - Refusals: 106
-- Function instances: 124
+- Function instances: 125
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -11,7 +11,7 @@
 | 16 | unsupported call to `_` | fixtures/reject/src/lib.rs:21:4 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:385:2 |
 | 4 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:380:4 |
-| 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:42 |
+| 3 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:41:11 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:260:14 |
 | 3 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:102:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:110:2 |
@@ -85,7 +85,7 @@ The type or module each refused type or path belongs to.
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:385:2 |
 | 6 | `f32` | fixtures/reject/src/lib.rs:7:14 |
 | 6 | `u32` | fixtures/reject/src/lib.rs:236:13 |
-| 4 | `Iterator` | fixtures/reject/src/lib.rs:41:42 |
+| 4 | `Iterator` | fixtures/reject/src/lib.rs:41:11 |
 | 4 | `std::pin::Pin` | fixtures/reject/src/lib.rs:110:2 |
 | 4 | `std::vec::Vec` | fixtures/reject/src/lib.rs:271:52 |
 | 3 | `(u32, u32)` | fixtures/reject/src/lib.rs:669:10 |
@@ -176,7 +176,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:599:4 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `BinaryHeap::pop`, `Option` | fixtures/reject/src/lib.rs:730:7 |
 | 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `HashSet::get`, `Option` | fixtures/reject/src/lib.rs:266:6 |
-| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find`, `Option` | fixtures/reject/src/lib.rs:41:42 |
+| 1 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | `Iterator::find_map`, `Option` | fixtures/reject/src/lib.rs:41:11 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::count` | fixtures/reject/src/lib.rs:250:38 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::iter::Iterator::filter` | fixtures/reject/src/lib.rs:250:16 |
 | 1 | `_` through a held type's own, which is not supported yet | `<std::sync::Arc as PartialEq>::ne` | fixtures/reject/src/lib.rs:321:2 |
@@ -285,7 +285,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_` of `_`, whose `None` is `rt.None`, which is not supported yet (3)</summary>
 
-- fixtures/reject/src/lib.rs:41:42: `Iterator::find` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
+- fixtures/reject/src/lib.rs:41:11: `Iterator::find_map` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:266:6: `HashSet::get` of `Option<&std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 - fixtures/reject/src/lib.rs:730:7: `BinaryHeap::pop` of `Option<std::option::Option<u8>>`, whose `None` is `rt.None`, which is not supported yet
 

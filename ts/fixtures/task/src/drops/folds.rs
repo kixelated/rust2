@@ -7,12 +7,12 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::log::Log;
 use crate::model::Guard;
 
-/// Run scenario `arg % 31`. Items are guards 1 to 7; what closures own, 10 and up.
+/// Run scenario `arg % 32`. Items are guards 1 to 7; what closures own, 10 and up.
 pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
 	let (c, d) = (guard(10), guard(11));
-	match arg % 31 {
+	match arg % 32 {
 		0 => {
 			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).count();
 			let sum: u32 = guards(5, 8).into_iter().map(move |g| g.id() - id + d.id() - id).sum();
@@ -380,6 +380,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 				.fold(0, |n, g| n * 10 + g.id() - id);
 			log.note(format!("rev {n} {}", c.id()));
 		}
+		31 => options(log, id),
 		_ => {
 			let n: u32 = guards(1, 6)
 				.into_iter()
@@ -547,4 +548,24 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 			log.note(format!("flat {n} {}", e.id()));
 		}
 	}
+}
+
+/// `last` and `min` of `Option`s, by what drops: a `None` item apart from no items.
+fn options(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	let (c, d, e) = (guard(10), guard(11), guard(12));
+	let odd = guards(1, 4)
+		.into_iter()
+		.map(move |g| (g.id() % 2 == c.id() % 2).then_some(g.id()))
+		.last();
+	let none = guards(4, 4)
+		.into_iter()
+		.map(move |g| (g.id() != d.id()).then_some(g.id()))
+		.last();
+	let least = guards(4, 4)
+		.into_iter()
+		.map(move |g| (g.id() != e.id()).then_some(g.id()))
+		.min();
+	log.note(format!("options {odd:?} {none:?} {least:?}"));
 }

@@ -28,8 +28,9 @@ generic std gap is planned here even when moq never calls it.
 - [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
 - [A B-tree's drop order](/quest/m3/ts-btree-drop.md) - dropping a whole `BTreeMap` or `BTreeSet` drops its entries node by node, as std's does
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
+- [reduce, max_by, min_by, and Peekable's next_if_eq and peek_mut](/quest/m3/ts-iter-reducers.md) - the iterator consumers std returns an item from that have no mapping translate
+- [Closures that return an Option whose None is rt.None](/quest/m3/ts-option-closures.md) - `find_map`, `filter_map`, and `map_while` to `Option<Option<u8>>` keep `None` apart from `Some(None)`
 - [Byte arrays compared for equality and hashed](/quest/m3/ts-byte-keys.md) - `==` of byte arrays, and byte arrays, slices, and vectors as hash keys, translate
 - [A slice's edits in place](/quest/m3/ts-slice-edits.md) - `fill`, `rotate_left`, and `copy_from_slice` of other values translate
 - [Mutable subslices of other values](/quest/m3/ts-mut-subslices.md) - `&mut v[a..b]` and `split_at_mut` of other than bytes translate, writing through
-- [Iterator consumers over items whose None is rt.None](/quest/m3/ts-option-items.md) - `nth`, `last`, and `find` of an iterator of `Option` keep `None` apart from `Some(None)`
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
