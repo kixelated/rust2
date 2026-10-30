@@ -143,6 +143,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
 						}
 						(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
+						(Std::RangeFull, _) => Expr::undefined(),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}

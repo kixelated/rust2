@@ -4,6 +4,7 @@ import * as rt from "./rt.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as Any from "./core/any.Any.ts";
 import type * as Window from "./durations.Window.ts";
+import type * as Clip from "./fmt.Clip.ts";
 import type * as Pair from "./fmt.Pair.ts";
 import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
@@ -31,6 +32,10 @@ export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> 
 }
 
 export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
+	return { _0: v._0 };
+}
+
+export function copy$Clip(v: Clip.Clip): Clip.Clip {
 	return { _0: v._0 };
 }
 

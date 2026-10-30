@@ -7,6 +7,7 @@
 
 import type { Ordering } from "./rt/collections.ts";
 import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import type { Range, RangeInclusive } from "./rt/iter.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
@@ -1338,6 +1339,47 @@ export function fmtResult<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err
 /** `Debug` of a slice, array, or `Vec`. */
 export function fmtList<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
 	return debugListFinish(debugListEntries(fmtDebugList(f), items, debug));
+}
+
+/** `Debug` of a range: each bound present, written with the formatter's options, around `dots`, which none pads. */
+function fmtBounds(f: Formatter, start: Fmt | undefined, dots: string, end: Fmt | undefined): FmtResult {
+	if (start !== undefined) {
+		const r = start(f);
+		if (!r.ok) return r;
+	}
+	const r = f.out.writeStr(dots);
+	return r.ok && end !== undefined ? end(f) : r;
+}
+
+/** `Debug` of `start..end`. */
+export function fmtRange<T>(r: Range<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, (f) => debug(r.start, f), "..", (f) => debug(r.end, f));
+}
+
+/** `Debug` of `start..=end`, which notes once iteration has exhausted it. */
+export function fmtRangeInclusive<T>(r: RangeInclusive<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	const result = fmtBounds(f, (f) => debug(r.lo, f), "..=", (f) => debug(r.hi, f));
+	return result.ok && r.exhausted ? f.out.writeStr(" (exhausted)") : result;
+}
+
+/** `Debug` of `start..`. */
+export function fmtRangeFrom<T>(r: { start: T }, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, (f) => debug(r.start, f), "..", undefined);
+}
+
+/** `Debug` of `..end`. */
+export function fmtRangeTo<T>(r: { end: T }, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, undefined, "..", (f) => debug(r.end, f));
+}
+
+/** `Debug` of `..=end`. */
+export function fmtRangeToInclusive<T>(r: { end: T }, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, undefined, "..=", (f) => debug(r.end, f));
+}
+
+/** `Debug` of `..`. */
+export function fmtRangeFull(_: undefined, f: Formatter): FmtResult {
+	return f.out.writeStr("..");
 }
 
 /** `Debug` of a tuple, given each element's. */
