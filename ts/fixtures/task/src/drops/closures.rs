@@ -231,4 +231,15 @@ pub(super) fn iterated(log: &Log, id: u32) {
 	let q = guard(35);
 	queue.retain(move |g| g.id() + 2 != q.id());
 	log.note(format!("retained {} {}", map.len(), queue.len()));
+	// An array's `map` moves each element into its closure, which drops after the last call,
+	// and its result holds what the closure kept until it drops.
+	let x = guard(48);
+	let kept = [guard(49), guard(50), guard(51)].map(move |g| {
+		log.note(format!("array map {}", g.id()));
+		(g.id() != x.id() + 2).then_some(g)
+	});
+	log.note(format!(
+		"array mapped {:?}",
+		kept.each_ref().map(|g| g.as_ref().map(Guard::id))
+	));
 }

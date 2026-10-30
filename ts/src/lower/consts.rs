@@ -158,6 +158,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
+				let values = match self.zero_sized_std(ty, values, span) {
+					Ok(made) => return made,
+					Err(values) => values,
+				};
 				if !self.t.own(adt.did()) {
 					let foreign = self.t.foreign(adt.did());
 					return self.err(span, format!("a constant of type `{ty}` {foreign}"));

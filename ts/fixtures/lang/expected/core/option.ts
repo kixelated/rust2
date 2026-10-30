@@ -18,6 +18,7 @@ import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
 import type * as Big from "../hints.Big.ts";
+import type * as Unit from "../hints.Unit.ts";
 import type * as Quarter from "../iters.Quarter.ts";
 import type * as Tilt from "../iters.Tilt.ts";
 import { side, order } from "../keys.ts";
@@ -327,6 +328,14 @@ export function map$0jcaaxx(self: [rt.u8 | undefined, rt.u8] | undefined, f: (a0
 
 export function map$1diqi3e(self: rt.Place<rt.u8 | undefined> | undefined, f: (a0: rt.Place<rt.u8 | undefined>) => undefined): undefined | rt.None {
 	if (self === undefined) {
+		return rt.None;
+	}
+	f(self);
+	return undefined;
+}
+
+export function map$1j8xzu6(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => undefined): undefined | rt.None {
+	if (self === rt.None) {
 		return rt.None;
 	}
 	f(self);
@@ -713,6 +722,13 @@ export function mapOr$1unqgn7(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, de
 }
 
 export function mapOr$1cxlmys(self: Big.Big[] | undefined, default_: rt.usize, f: (a0: Big.Big[]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0r2th8w(self: Unit.Unit[] | undefined, default_: rt.usize, f: (a0: Unit.Unit[]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}

@@ -520,8 +520,8 @@ const hints = Array.from({ length: 24 * 8 * 8 * 8 * 2 }, (_, i) => {
 
 /** `hints::reserves` of each collection and element type, each shape, length, and limit on what it reads. */
 const reservesOp = op("hints::reserves");
-const reserves = Array.from({ length: 13 * 5 * 5 * 4 * 5 }, (_, i) =>
-	Uint8Array.of(reservesOp, i % 65, Math.floor(i / 65) % 5, Math.floor(i / 325) % 4, Math.floor(i / 1300)),
+const reserves = Array.from({ length: 13 * 6 * 5 * 4 * 5 }, (_, i) =>
+	Uint8Array.of(reservesOp, i % 78, Math.floor(i / 78) % 5, Math.floor(i / 390) % 4, Math.floor(i / 1560)),
 );
 
 /**
@@ -540,4 +540,8 @@ const setOps = [
 	].map((data) => Uint8Array.of(setOpsOp, 3, ...data)),
 ];
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...floatsMulAdds, ...singlesMulAdds];
+/** `zeros::zeros` of each case, on up to three bytes. */
+const zerosOp = op("zeros::zeros");
+const zeros = Array.from({ length: 7 * 4 }, (_, i) => Uint8Array.of(zerosOp, i % 7, ...Array.from({ length: Math.floor(i / 7) }, (_, b) => b)));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds];
