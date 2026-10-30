@@ -709,6 +709,12 @@ pub fn offset(by: impl Fn() -> u32, by_data: u32) -> u32 {
 	by() + by_data
 }
 
+/// What `by_` returns, plus `c_by_`: names C++ gives a closure's trampoline and a parameter
+/// renamed apart from a generated name, which must stay apart.
+pub fn shift(by_: impl Fn() -> u32, c_by_: u32) -> u32 {
+	by_() + c_by_
+}
+
 /// A position, which C reaches only as [`walk`] lends it.
 pub struct Cursor {
 	at: u64,

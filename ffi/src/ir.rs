@@ -55,6 +55,9 @@ pub type Path = Vec<String>;
 /// A struct whose fields are all `pub`: a value, copied across.
 pub struct Record {
 	pub path: Path,
+	/// Its path with its instance's arguments, which the config names it by, such as
+	/// `moq_mux::catalog::Producer<moq_mux::catalog::hang::Extra>`.
+	pub shown: Path,
 	/// The type arguments of the instance it is, empty unless the type is generic.
 	pub args: Vec<Type>,
 	pub span: Span,
@@ -77,6 +80,7 @@ pub struct Field {
 /// enumeration.
 pub struct Enum {
 	pub path: Path,
+	pub shown: Path,
 	pub args: Vec<Type>,
 	pub span: Span,
 	pub docs: String,
@@ -106,6 +110,7 @@ impl Enum {
 /// an `Arc`, whose receivers borrow it as Rust's do, checked at run time.
 pub struct Object {
 	pub path: Path,
+	pub shown: Path,
 	pub args: Vec<Type>,
 	pub span: Span,
 	pub docs: String,
@@ -143,6 +148,9 @@ pub struct Traits {
 pub struct Function {
 	/// Its path, ending in its own name: a method's goes through its type's.
 	pub path: Path,
+	/// Its path with the arguments of its type's instance and its own, which the config
+	/// names it by: `moq_mux::catalog::Producer<moq_mux::catalog::hang::Extra>::stats`.
+	pub shown: Path,
 	pub span: Span,
 	/// Its doc comment, as Markdown.
 	pub docs: String,

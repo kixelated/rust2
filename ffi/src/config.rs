@@ -22,7 +22,8 @@ pub struct Config {
 	pub exclude: Vec<String>,
 	/// C names, without the prefix, for paths from the crate root whose names the rule
 	/// makes clash: `"session::Stats" = "session_stats_snapshot"`. A type's methods are
-	/// named through its new name. A field is named by its path as `exclude` names it.
+	/// named through its new name. Paths match as `exclude`'s do, so an instance's renames
+	/// it alone, and a field is named by its path as `exclude` names it.
 	#[serde(default)]
 	pub rename: BTreeMap<String, String>,
 	/// Other packages exported into the same library, each a dependency of `package`, by
@@ -40,6 +41,18 @@ pub struct Items {
 	pub exclude: Vec<String>,
 	#[serde(default)]
 	pub rename: BTreeMap<String, String>,
+}
+
+/// The keys `exclude` and `rename` name the item at `shown` by, its path with its
+/// instances' arguments, longest first: each prefix of it as is, then without the
+/// arguments, which names the generic item's every instance. Each comes with its length.
+pub fn keys(shown: &[String]) -> impl Iterator<Item = (usize, String)> + '_ {
+	(1..=shown.len()).rev().flat_map(move |len| {
+		let exact = shown[..len].join("::");
+		let generic: Vec<&str> = shown[..len].iter().map(|s| s.split('<').next().unwrap_or(s)).collect();
+		let generic = Some(generic.join("::")).filter(|generic| *generic != exact);
+		std::iter::once(exact).chain(generic).map(move |key| (len, key))
+	})
 }
 
 impl Config {
