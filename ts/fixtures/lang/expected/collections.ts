@@ -12,7 +12,7 @@ import * as Pair from "./collections.Pair.ts";
 import * as Rank from "./collections.Rank.ts";
 import * as Tally from "./collections.Tally.ts";
 import { thenSome$0d5am30 } from "./core/bool.ts";
-import { unwrapOr$1j4op5y, unwrapOr$0r2bmpr, map$0oc32h1, mapOr$0q0ymkh, mapOr$1xztl8h, mapOr$1to2ul4, mapOr$1ht002r, mapOr$099335t, mapOr$1surhce, mapOr$0mmpeqx, mapOr$1nlkf9b, mapOr$1w1gbwl, clone$14nprly, flatten$1nwzx42 } from "./core/option.ts";
+import { unwrapOr$1j4op5y, unwrapOr$0r2bmpr, map$0oc32h1, mapOr$0q0ymkh, mapOr$1xztl8h, mapOr$1to2ul4, mapOr$1ht002r, mapOr$099335t, mapOr$1surhce, mapOr$0mmpeqx, mapOr$1nlkf9b, mapOr$1w1gbwl, mapOr$02k4ito, clone$14nprly, flatten$1nwzx42 } from "./core/option.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import * as Bumped from "./iters.Bumped.ts";
 
@@ -1589,7 +1589,7 @@ export function setOps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let left: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, mid);
 	let right: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + mid, data.length - mid);
 	b0: {
-		const _12: rt.u8 = rt.u8Rem(rt.u8Div(kind, 4), 6);
+		const _12: rt.u8 = rt.u8Rem(rt.u8Div(kind, 5), 6);
 		if (_12 !== 0) {
 			if (_12 === 1) {
 				right = left;
@@ -1605,45 +1605,51 @@ export function setOps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			} else if (_12 === 4) {
 				const _23: rt.ByteVec = rt.iterToByteVec(rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (b: rt.u8): rt.u8 => {
 					return b & (~1 & 0xff);
-				}));
+				}), undefined, true);
 				const _27: rt.ByteVec = rt.iterToByteVec(rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (b2: rt.u8): rt.u8 => {
 					return b2 | 1;
-				}));
+				}), undefined, true);
 				left = rt.byteVecSlice(_23);
 				right = rt.byteVecSlice(_27);
 			} else {
 				const _39: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-				const all: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _39, true);
+				const all: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _39, true, undefined, undefined, 1, true);
 				const none: rt.BTreeSet<rt.u8> = rt.btreeFromSorted(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.btreeDifference(all, all));
 				const k: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
 				rt.byteVecPush(out, rt.iterCount(rt.btreeRangeKeys(none, [{ tag: "Excluded", _0: k } as rt.RangeBound<rt.u8>, { tag: "Excluded", _0: k } as rt.RangeBound<rt.u8>] as [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>])) & 0xff);
 				break b0;
 			}
 		}
-		const _55: rt.u8 = rt.u8Rem(kind, 4);
+		const _55: rt.u8 = rt.u8Rem(kind, 5);
 		if (_55 === 0) {
-			setOpsOf$u8(left, right, (b5: rt.u8): rt.u8 => {
-				return rt.u8Rem(b5, 32);
-			}, (v2: rt.u8): rt.u8 => {
-				return v2;
+			setOpsOf$u8(left, right, (b6: rt.u8): rt.u8 => {
+				return rt.u8Rem(b6, 32);
+			}, (v3: rt.u8): rt.u8 => {
+				return v3;
 			}, out);
 		} else if (_55 === 1) {
-			setOpsOf$u8s(left, right, (b4: rt.u8): Uint8Array => {
-				return Uint8Array.of(rt.u8Rem(b4, 4), rt.u8Rem(rt.u8Div(b4, 4), 4));
+			setOpsOf$u8s(left, right, (b5: rt.u8): Uint8Array => {
+				return Uint8Array.of(rt.u8Rem(b5, 4), rt.u8Rem(rt.u8Div(b5, 4), 4));
 			}, (k2: rt.ByteSlice): rt.u8 => {
 				return ((k2.data[k2.start] << 4) & 0xff) | k2.data[k2.start + 1];
 			}, out);
 		} else if (_55 === 2) {
-			setOpsOf$Option_u8(left, right, (b3: rt.u8): rt.u8 | undefined => {
-				return thenSome$0d5am30(rt.u8Rem(b3, 32) !== 0, rt.u8Rem(b3, 32));
-			}, (v: rt.u8 | undefined): rt.u8 => {
-				return unwrapOr$0r2bmpr(v, 238);
+			setOpsOf$Option_u8(left, right, (b4: rt.u8): rt.u8 | undefined => {
+				return thenSome$0d5am30(rt.u8Rem(b4, 32) !== 0, rt.u8Rem(b4, 32));
+			}, (v2: rt.u8 | undefined): rt.u8 => {
+				return unwrapOr$0r2bmpr(v2, 238);
 			}, out);
-		} else {
+		} else if (_55 === 3) {
 			setOpsOf$Nibble(left, right, (a0: rt.u8): Nibble.Nibble => {
 				return { _0: a0 };
 			}, (n: Nibble.Nibble): rt.u8 => {
 				return n._0;
+			}, out);
+		} else {
+			setOpsOf$Reverse_Option_u8(left, right, (b3: rt.u8): rt.u8 | undefined => {
+				return thenSome$0d5am30(rt.u8Rem(b3, 32) !== 0, rt.u8Rem(b3, 32));
+			}, (v: rt.u8 | undefined): rt.u8 => {
+				return unwrapOr$0r2bmpr(v, 238);
 			}, out);
 		}
 	}
@@ -1653,11 +1659,11 @@ export function setOpsOf$Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (
 	const _7: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): Nibble.Nibble => {
 		return make(_2);
 	});
-	const a: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _7, true);
+	const a: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _7, true, undefined, undefined, 1, true);
 	const _12: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_22: rt.u8): Nibble.Nibble => {
 		return make(_22);
 	});
-	const b: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _12, true);
+	const b: rt.BTreeSet<Nibble.Nibble> = rt.btreeExtendKeys(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, _12, true, undefined, undefined, 1, true);
 	const iter: rt.Iter<[rt.BTreeSet<Nibble.Nibble>, rt.BTreeSet<Nibble.Nibble>]> = rt.iterSlice([[a, b] as [rt.BTreeSet<Nibble.Nibble>, rt.BTreeSet<Nibble.Nibble>], [b, a] as [rt.BTreeSet<Nibble.Nibble>, rt.BTreeSet<Nibble.Nibble>]]);
 	while (true) {
 		const _25: [rt.BTreeSet<Nibble.Nibble>, rt.BTreeSet<Nibble.Nibble>] | rt.Done = iter.next();
@@ -1668,72 +1674,80 @@ export function setOpsOf$Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (
 		putAll$Nibble_Intersection_Nibble(rt.btreeIntersection(_25[0], _25[1]), put, out);
 		putAll$Nibble_Difference_Nibble(rt.btreeDifference(_25[0], _25[1]), put, out);
 		putAll$Nibble_SymmetricDifference_Nibble(rt.btreeSymmetricDifference(_25[0], _25[1]), put, out);
+		putHints$Nibble_Union_Nibble(rt.btreeUnion(_25[0], _25[1]), 1, out);
+		putHints$Nibble_Intersection_Nibble(rt.btreeIntersection(_25[0], _25[1]), 1, out);
+		putHints$Nibble_Difference_Nibble(rt.btreeDifference(_25[0], _25[1]), 1, out);
+		putHints$Nibble_SymmetricDifference_Nibble(rt.btreeSymmetricDifference(_25[0], _25[1]), 1, out);
 		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.btreeUnion(_25[0], _25[1]).next()), 221, put));
 		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.btreeIntersection(_25[0], _25[1]).next()), 221, put));
 		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.btreeDifference(_25[0], _25[1]).next()), 221, put));
 		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.btreeSymmetricDifference(_25[0], _25[1]).next()), 221, put));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)), undefined, true);
 		const iter2: rt.Iter<rt.BTreeSet<Nibble.Nibble>> = rt.iterSlice([rt.btreeFromSorted(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, rt.btreeUnion(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, rt.btreeIntersection(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, rt.btreeDifference(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>, rt.btreeSymmetricDifference(_25[0], _25[1]))]);
 		while (true) {
-			const _73: rt.BTreeSet<Nibble.Nibble> | rt.Done = iter2.next();
-			if (_73 === rt.DONE) {
+			const _81: rt.BTreeSet<Nibble.Nibble> | rt.Done = iter2.next();
+			if (_81 === rt.DONE) {
 				break;
 			}
-			const built: rt.BTreeSet<Nibble.Nibble> = _73;
+			const built: rt.BTreeSet<Nibble.Nibble> = _81;
 			putAll$Nibble_Iter_Nibble(rt.btreeKeys(built), put, out);
 			putAll$Nibble_Rev_Iter_Nibble(rt.iterRev(rt.btreeKeys(built)), put, out);
 		}
 	}
-	const _85: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): Nibble.Nibble => {
+	const _93: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): Nibble.Nibble => {
 		return make(_23);
 	});
-	const a2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _85);
-	const _90: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): Nibble.Nibble => {
+	const a2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _93, undefined, undefined, 469762048);
+	const _98: rt.Iter<Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): Nibble.Nibble => {
 		return make(_24);
 	});
-	const b2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _90);
+	const b2: rt.HashSet<Nibble.Nibble> = rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, _98, undefined, undefined, 469762048);
 	const iter3: rt.Iter<[rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>]> = rt.iterSlice([[a2, b2] as [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>], [b2, a2] as [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>]]);
 	while (true) {
-		const _103: [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>] | rt.Done = iter3.next();
-		if (_103 === rt.DONE) {
+		const _111: [rt.HashSet<Nibble.Nibble>, rt.HashSet<Nibble.Nibble>] | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$Nibble(rt.iterToArray(rt.hashUnion(_103[0], _103[1])), put, out);
-		putSorted$Nibble(rt.iterToArray(rt.hashIntersection(_103[0], _103[1])), put, out);
-		putSorted$Nibble(rt.iterToArray(rt.hashDifference(_103[0], _103[1])), put, out);
-		putSorted$Nibble(rt.iterToArray(rt.hashSymmetricDifference(_103[0], _103[1])), put, out);
-		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashUnion(_103[0], _103[1]).next()), 221, (v: Nibble.Nibble): rt.u8 => {
+		putSorted$Nibble(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Nibble(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putHints$Nibble_Union_Nibble_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
+		putHints$Nibble_Intersection_Nibble_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
+		putHints$Nibble_Difference_Nibble_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
+		putHints$Nibble_SymmetricDifference_Nibble_RandomState(rt.hashSymmetricDifference(_111[0], _111[1]), 0, out);
+		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashUnion(_111[0], _111[1]).next()), 221, (v: Nibble.Nibble): rt.u8 => {
 			let _3!: boolean;
-			if (!rt.hashContains(_103[0], v)) {
-				_3 = rt.hashContains(_103[1], v);
+			if (!rt.hashContains(_111[0], v)) {
+				_3 = rt.hashContains(_111[1], v);
 			} else {
 				_3 = true;
 			}
 			return _3 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashIntersection(_103[0], _103[1]).next()), 221, (v2: Nibble.Nibble): rt.u8 => {
+		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashIntersection(_111[0], _111[1]).next()), 221, (v2: Nibble.Nibble): rt.u8 => {
 			let _32!: boolean;
-			if (!rt.hashContains(_103[0], v2)) {
+			if (!rt.hashContains(_111[0], v2)) {
 				_32 = false;
 			} else {
-				_32 = rt.hashContains(_103[1], v2);
+				_32 = rt.hashContains(_111[1], v2);
 			}
 			return _32 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashDifference(_103[0], _103[1]).next()), 221, (v3: Nibble.Nibble): rt.u8 => {
-			return !rt.hashContains(_103[1], v3) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashDifference(_111[0], _111[1]).next()), 221, (v3: Nibble.Nibble): rt.u8 => {
+			return !rt.hashContains(_111[1], v3) ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashSymmetricDifference(_103[0], _103[1]).next()), 221, (v4: Nibble.Nibble): rt.u8 => {
-			return rt.hashContains(_103[0], v4) !== rt.hashContains(_103[1], v4) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$0q0ymkh(rt.iterToOption(rt.hashSymmetricDifference(_111[0], _111[1]).next()), 221, (v4: Nibble.Nibble): rt.u8 => {
+			return rt.hashContains(_111[0], v4) !== rt.hashContains(_111[1], v4) ? 1 : 0;
 		}));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_103[0], _103[1]) ? 1 : 0, rt.hashIsSuperset(_103[0], _103[1]) ? 1 : 0, rt.hashIsDisjoint(_103[0], _103[1]) ? 1 : 0)));
-		const iter4: rt.Iter<rt.HashSet<Nibble.Nibble>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashUnion(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashIntersection(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashDifference(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashSymmetricDifference(_103[0], _103[1]))]);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
+		const iter4: rt.Iter<rt.HashSet<Nibble.Nibble>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashUnion(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashIntersection(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashDifference(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(Nibble.hash$Hash_DefaultHasher, Nibble.eq$PartialEq)) as rt.HashSet<Nibble.Nibble>, rt.hashSymmetricDifference(_111[0], _111[1]), undefined, undefined, 469762048)]);
 		while (true) {
-			const _159: rt.HashSet<Nibble.Nibble> | rt.Done = iter4.next();
-			if (_159 === rt.DONE) {
+			const _175: rt.HashSet<Nibble.Nibble> | rt.Done = iter4.next();
+			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$Nibble(rt.iterToArray(rt.hashKeys(_159)), put, out);
+			putSorted$Nibble(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
 		}
 	}
 }
@@ -1742,11 +1756,11 @@ export function setOpsOf$Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make
 	const _7: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): rt.u8 | undefined => {
 		return make(_2);
 	});
-	const a: rt.BTreeSet<rt.u8 | undefined> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, _7, true);
+	const a: rt.BTreeSet<rt.u8 | undefined> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, _7, true, undefined, undefined, 2, true);
 	const _12: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_22: rt.u8): rt.u8 | undefined => {
 		return make(_22);
 	});
-	const b: rt.BTreeSet<rt.u8 | undefined> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, _12, true);
+	const b: rt.BTreeSet<rt.u8 | undefined> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, _12, true, undefined, undefined, 2, true);
 	const iter: rt.Iter<[rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>]> = rt.iterSlice([[a, b] as [rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>], [b, a] as [rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>]]);
 	while (true) {
 		const _25: [rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>] | rt.Done = iter.next();
@@ -1757,72 +1771,177 @@ export function setOpsOf$Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make
 		putAll$Option_u8_Intersection_Option_u8(rt.btreeIntersection(_25[0], _25[1]), put, out);
 		putAll$Option_u8_Difference_Option_u8(rt.btreeDifference(_25[0], _25[1]), put, out);
 		putAll$Option_u8_SymmetricDifference_Option_u8(rt.btreeSymmetricDifference(_25[0], _25[1]), put, out);
+		putHints$Option_u8_Union_Option_u8(rt.btreeUnion(_25[0], _25[1]), 1, out);
+		putHints$Option_u8_Intersection_Option_u8(rt.btreeIntersection(_25[0], _25[1]), 1, out);
+		putHints$Option_u8_Difference_Option_u8(rt.btreeDifference(_25[0], _25[1]), 1, out);
+		putHints$Option_u8_SymmetricDifference_Option_u8(rt.btreeSymmetricDifference(_25[0], _25[1]), 1, out);
 		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeUnion(_25[0], _25[1]).next(), rt.None), 221, put));
 		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeIntersection(_25[0], _25[1]).next(), rt.None), 221, put));
 		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeDifference(_25[0], _25[1]).next(), rt.None), 221, put));
 		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeSymmetricDifference(_25[0], _25[1]).next(), rt.None), 221, put));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)), undefined, true);
 		const iter2: rt.Iter<rt.BTreeSet<rt.u8 | undefined>> = rt.iterSlice([rt.btreeFromSorted(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeUnion(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeIntersection(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeDifference(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmpOption(rt.cmp)) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeSymmetricDifference(_25[0], _25[1]))]);
 		while (true) {
-			const _73: rt.BTreeSet<rt.u8 | undefined> | rt.Done = iter2.next();
-			if (_73 === rt.DONE) {
+			const _81: rt.BTreeSet<rt.u8 | undefined> | rt.Done = iter2.next();
+			if (_81 === rt.DONE) {
 				break;
 			}
-			const built: rt.BTreeSet<rt.u8 | undefined> = _73;
+			const built: rt.BTreeSet<rt.u8 | undefined> = _81;
 			putAll$Option_u8_Iter_Option_u8(rt.btreeKeys(built), put, out);
 			putAll$Option_u8_Rev_Iter_Option_u8(rt.iterRev(rt.btreeKeys(built)), put, out);
 		}
 	}
-	const _85: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): rt.u8 | undefined => {
+	const _93: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): rt.u8 | undefined => {
 		return make(_23);
 	});
-	const a2: rt.HashSet<rt.u8 | undefined> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, _85);
-	const _90: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): rt.u8 | undefined => {
+	const a2: rt.HashSet<rt.u8 | undefined> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, _93, undefined, undefined, 469762048);
+	const _98: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): rt.u8 | undefined => {
 		return make(_24);
 	});
-	const b2: rt.HashSet<rt.u8 | undefined> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, _90);
+	const b2: rt.HashSet<rt.u8 | undefined> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, _98, undefined, undefined, 469762048);
 	const iter3: rt.Iter<[rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>]> = rt.iterSlice([[a2, b2] as [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>], [b2, a2] as [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>]]);
 	while (true) {
-		const _103: [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>] | rt.Done = iter3.next();
-		if (_103 === rt.DONE) {
+		const _111: [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>] | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$Option_u8(rt.iterToArray(rt.hashUnion(_103[0], _103[1])), put, out);
-		putSorted$Option_u8(rt.iterToArray(rt.hashIntersection(_103[0], _103[1])), put, out);
-		putSorted$Option_u8(rt.iterToArray(rt.hashDifference(_103[0], _103[1])), put, out);
-		putSorted$Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_103[0], _103[1])), put, out);
-		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashUnion(_103[0], _103[1]).next(), rt.None), 221, (v: rt.u8 | undefined): rt.u8 => {
+		putSorted$Option_u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putHints$Option_u8_Union_Option_u8_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
+		putHints$Option_u8_Intersection_Option_u8_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
+		putHints$Option_u8_Difference_Option_u8_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
+		putHints$Option_u8_SymmetricDifference_Option_u8_RandomState(rt.hashSymmetricDifference(_111[0], _111[1]), 0, out);
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashUnion(_111[0], _111[1]).next(), rt.None), 221, (v: rt.u8 | undefined): rt.u8 => {
 			let _3!: boolean;
-			if (!rt.hashContains(_103[0], v)) {
-				_3 = rt.hashContains(_103[1], v);
+			if (!rt.hashContains(_111[0], v)) {
+				_3 = rt.hashContains(_111[1], v);
 			} else {
 				_3 = true;
 			}
 			return _3 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashIntersection(_103[0], _103[1]).next(), rt.None), 221, (v2: rt.u8 | undefined): rt.u8 => {
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashIntersection(_111[0], _111[1]).next(), rt.None), 221, (v2: rt.u8 | undefined): rt.u8 => {
 			let _32!: boolean;
-			if (!rt.hashContains(_103[0], v2)) {
+			if (!rt.hashContains(_111[0], v2)) {
 				_32 = false;
 			} else {
-				_32 = rt.hashContains(_103[1], v2);
+				_32 = rt.hashContains(_111[1], v2);
 			}
 			return _32 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashDifference(_103[0], _103[1]).next(), rt.None), 221, (v3: rt.u8 | undefined): rt.u8 => {
-			return !rt.hashContains(_103[1], v3) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashDifference(_111[0], _111[1]).next(), rt.None), 221, (v3: rt.u8 | undefined): rt.u8 => {
+			return !rt.hashContains(_111[1], v3) ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashSymmetricDifference(_103[0], _103[1]).next(), rt.None), 221, (v4: rt.u8 | undefined): rt.u8 => {
-			return rt.hashContains(_103[0], v4) !== rt.hashContains(_103[1], v4) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashSymmetricDifference(_111[0], _111[1]).next(), rt.None), 221, (v4: rt.u8 | undefined): rt.u8 => {
+			return rt.hashContains(_111[0], v4) !== rt.hashContains(_111[1], v4) ? 1 : 0;
 		}));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_103[0], _103[1]) ? 1 : 0, rt.hashIsSuperset(_103[0], _103[1]) ? 1 : 0, rt.hashIsDisjoint(_103[0], _103[1]) ? 1 : 0)));
-		const iter4: rt.Iter<rt.HashSet<rt.u8 | undefined>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashUnion(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashIntersection(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashDifference(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashSymmetricDifference(_103[0], _103[1]))]);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
+		const iter4: rt.Iter<rt.HashSet<rt.u8 | undefined>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashUnion(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashIntersection(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashDifference(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashSymmetricDifference(_111[0], _111[1]), undefined, undefined, 469762048)]);
 		while (true) {
-			const _159: rt.HashSet<rt.u8 | undefined> | rt.Done = iter4.next();
-			if (_159 === rt.DONE) {
+			const _175: rt.HashSet<rt.u8 | undefined> | rt.Done = iter4.next();
+			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$Option_u8(rt.iterToArray(rt.hashKeys(_159)), put, out);
+			putSorted$Option_u8(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
+		}
+	}
+}
+
+export function setOpsOf$Reverse_Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: rt.u8) => rt.u8 | undefined, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const _7: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): rt.u8 | undefined => {
+		return make(_2);
+	});
+	const a: rt.BTreeSet<rt.u8 | undefined> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpReverse(rt.cmpOption(rt.cmp))) as rt.BTreeSet<rt.u8 | undefined>, _7, true, undefined, undefined, 2, true);
+	const _12: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_22: rt.u8): rt.u8 | undefined => {
+		return make(_22);
+	});
+	const b: rt.BTreeSet<rt.u8 | undefined> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpReverse(rt.cmpOption(rt.cmp))) as rt.BTreeSet<rt.u8 | undefined>, _12, true, undefined, undefined, 2, true);
+	const iter: rt.Iter<[rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>]> = rt.iterSlice([[a, b] as [rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>], [b, a] as [rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>]]);
+	while (true) {
+		const _25: [rt.BTreeSet<rt.u8 | undefined>, rt.BTreeSet<rt.u8 | undefined>] | rt.Done = iter.next();
+		if (_25 === rt.DONE) {
+			break;
+		}
+		putAll$Reverse_Option_u8_Union_Reverse_Option_u8(rt.btreeUnion(_25[0], _25[1]), put, out);
+		putAll$Reverse_Option_u8_Intersection_Reverse_Option_u8(rt.btreeIntersection(_25[0], _25[1]), put, out);
+		putAll$Reverse_Option_u8_Difference_Reverse_Option_u8(rt.btreeDifference(_25[0], _25[1]), put, out);
+		putAll$Reverse_Option_u8_SymmetricDifference_Reverse_Option_u8(rt.btreeSymmetricDifference(_25[0], _25[1]), put, out);
+		putHints$Reverse_Option_u8_Union_Reverse_Option_u8(rt.btreeUnion(_25[0], _25[1]), 1, out);
+		putHints$Reverse_Option_u8_Intersection_Reverse_Option_u8(rt.btreeIntersection(_25[0], _25[1]), 1, out);
+		putHints$Reverse_Option_u8_Difference_Reverse_Option_u8(rt.btreeDifference(_25[0], _25[1]), 1, out);
+		putHints$Reverse_Option_u8_SymmetricDifference_Reverse_Option_u8(rt.btreeSymmetricDifference(_25[0], _25[1]), 1, out);
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeUnion(_25[0], _25[1]).next(), rt.None), 221, put));
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeIntersection(_25[0], _25[1]).next(), rt.None), 221, put));
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeDifference(_25[0], _25[1]).next(), rt.None), 221, put));
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.btreeSymmetricDifference(_25[0], _25[1]).next(), rt.None), 221, put));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)), undefined, true);
+		const iter2: rt.Iter<rt.BTreeSet<rt.u8 | undefined>> = rt.iterSlice([rt.btreeFromSorted(rt.btreeNew(rt.cmpReverse(rt.cmpOption(rt.cmp))) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeUnion(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmpReverse(rt.cmpOption(rt.cmp))) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeIntersection(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmpReverse(rt.cmpOption(rt.cmp))) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeDifference(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmpReverse(rt.cmpOption(rt.cmp))) as rt.BTreeSet<rt.u8 | undefined>, rt.btreeSymmetricDifference(_25[0], _25[1]))]);
+		while (true) {
+			const _81: rt.BTreeSet<rt.u8 | undefined> | rt.Done = iter2.next();
+			if (_81 === rt.DONE) {
+				break;
+			}
+			const built: rt.BTreeSet<rt.u8 | undefined> = _81;
+			putAll$Reverse_Option_u8_Iter_Reverse_Option_u8(rt.btreeKeys(built), put, out);
+			putAll$Reverse_Option_u8_Rev_Iter_Reverse_Option_u8(rt.iterRev(rt.btreeKeys(built)), put, out);
+		}
+	}
+	const _93: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): rt.u8 | undefined => {
+		return make(_23);
+	});
+	const a2: rt.HashSet<rt.u8 | undefined> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, _93, undefined, undefined, 469762048);
+	const _98: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): rt.u8 | undefined => {
+		return make(_24);
+	});
+	const b2: rt.HashSet<rt.u8 | undefined> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, _98, undefined, undefined, 469762048);
+	const iter3: rt.Iter<[rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>]> = rt.iterSlice([[a2, b2] as [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>], [b2, a2] as [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>]]);
+	while (true) {
+		const _111: [rt.HashSet<rt.u8 | undefined>, rt.HashSet<rt.u8 | undefined>] | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
+			break;
+		}
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putHints$Reverse_Option_u8_Union_Reverse_Option_u8_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
+		putHints$Reverse_Option_u8_Intersection_Reverse_Option_u8_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
+		putHints$Reverse_Option_u8_Difference_Reverse_Option_u8_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
+		putHints$Reverse_Option_u8_SymmetricDifference_Reverse_Option_u8_RandomState(rt.hashSymmetricDifference(_111[0], _111[1]), 0, out);
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashUnion(_111[0], _111[1]).next(), rt.None), 221, (v: rt.u8 | undefined): rt.u8 => {
+			let _3!: boolean;
+			if (!rt.hashContains(_111[0], v)) {
+				_3 = rt.hashContains(_111[1], v);
+			} else {
+				_3 = true;
+			}
+			return _3 ? 1 : 0;
+		}));
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashIntersection(_111[0], _111[1]).next(), rt.None), 221, (v2: rt.u8 | undefined): rt.u8 => {
+			let _32!: boolean;
+			if (!rt.hashContains(_111[0], v2)) {
+				_32 = false;
+			} else {
+				_32 = rt.hashContains(_111[1], v2);
+			}
+			return _32 ? 1 : 0;
+		}));
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashDifference(_111[0], _111[1]).next(), rt.None), 221, (v3: rt.u8 | undefined): rt.u8 => {
+			return !rt.hashContains(_111[1], v3) ? 1 : 0;
+		}));
+		rt.byteVecPush(out, mapOr$1xztl8h(rt.iterToOption(rt.hashSymmetricDifference(_111[0], _111[1]).next(), rt.None), 221, (v4: rt.u8 | undefined): rt.u8 => {
+			return rt.hashContains(_111[0], v4) !== rt.hashContains(_111[1], v4) ? 1 : 0;
+		}));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
+		const iter4: rt.Iter<rt.HashSet<rt.u8 | undefined>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashUnion(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashIntersection(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashDifference(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashOption(rt.hash8), rt.same)) as rt.HashSet<rt.u8 | undefined>, rt.hashSymmetricDifference(_111[0], _111[1]), undefined, undefined, 469762048)]);
+		while (true) {
+			const _175: rt.HashSet<rt.u8 | undefined> | rt.Done = iter4.next();
+			if (_175 === rt.DONE) {
+				break;
+			}
+			putSorted$Reverse_Option_u8(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
 		}
 	}
 }
@@ -1831,11 +1950,11 @@ export function setOpsOf$u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: 
 	const _7: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): rt.u8 => {
 		return make(_2);
 	});
-	const a: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _7, true);
+	const a: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _7, true, undefined, undefined, 1, true);
 	const _12: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_22: rt.u8): rt.u8 => {
 		return make(_22);
 	});
-	const b: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _12, true);
+	const b: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _12, true, undefined, undefined, 1, true);
 	const iter: rt.Iter<[rt.BTreeSet<rt.u8>, rt.BTreeSet<rt.u8>]> = rt.iterSlice([[a, b] as [rt.BTreeSet<rt.u8>, rt.BTreeSet<rt.u8>], [b, a] as [rt.BTreeSet<rt.u8>, rt.BTreeSet<rt.u8>]]);
 	while (true) {
 		const _25: [rt.BTreeSet<rt.u8>, rt.BTreeSet<rt.u8>] | rt.Done = iter.next();
@@ -1846,72 +1965,80 @@ export function setOpsOf$u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: 
 		putAll$u8_Intersection_u8(rt.btreeIntersection(_25[0], _25[1]), put, out);
 		putAll$u8_Difference_u8(rt.btreeDifference(_25[0], _25[1]), put, out);
 		putAll$u8_SymmetricDifference_u8(rt.btreeSymmetricDifference(_25[0], _25[1]), put, out);
+		putHints$u8_Union_u8(rt.btreeUnion(_25[0], _25[1]), 1, out);
+		putHints$u8_Intersection_u8(rt.btreeIntersection(_25[0], _25[1]), 1, out);
+		putHints$u8_Difference_u8(rt.btreeDifference(_25[0], _25[1]), 1, out);
+		putHints$u8_SymmetricDifference_u8(rt.btreeSymmetricDifference(_25[0], _25[1]), 1, out);
 		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.btreeUnion(_25[0], _25[1]).next()), 221, put));
 		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.btreeIntersection(_25[0], _25[1]).next()), 221, put));
 		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.btreeDifference(_25[0], _25[1]).next()), 221, put));
 		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.btreeSymmetricDifference(_25[0], _25[1]).next()), 221, put));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)), undefined, true);
 		const iter2: rt.Iter<rt.BTreeSet<rt.u8>> = rt.iterSlice([rt.btreeFromSorted(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.btreeUnion(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.btreeIntersection(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.btreeDifference(_25[0], _25[1])), rt.btreeFromSorted(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.btreeSymmetricDifference(_25[0], _25[1]))]);
 		while (true) {
-			const _73: rt.BTreeSet<rt.u8> | rt.Done = iter2.next();
-			if (_73 === rt.DONE) {
+			const _81: rt.BTreeSet<rt.u8> | rt.Done = iter2.next();
+			if (_81 === rt.DONE) {
 				break;
 			}
-			const built: rt.BTreeSet<rt.u8> = _73;
+			const built: rt.BTreeSet<rt.u8> = _81;
 			putAll$u8_Iter_u8(rt.btreeKeys(built), put, out);
 			putAll$u8_Rev_Iter_u8(rt.iterRev(rt.btreeKeys(built)), put, out);
 		}
 	}
-	const _85: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): rt.u8 => {
+	const _93: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): rt.u8 => {
 		return make(_23);
 	});
-	const a2: rt.HashSet<rt.u8> = rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, _85);
-	const _90: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): rt.u8 => {
+	const a2: rt.HashSet<rt.u8> = rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, _93, undefined, undefined, 469762048);
+	const _98: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): rt.u8 => {
 		return make(_24);
 	});
-	const b2: rt.HashSet<rt.u8> = rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, _90);
+	const b2: rt.HashSet<rt.u8> = rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, _98, undefined, undefined, 469762048);
 	const iter3: rt.Iter<[rt.HashSet<rt.u8>, rt.HashSet<rt.u8>]> = rt.iterSlice([[a2, b2] as [rt.HashSet<rt.u8>, rt.HashSet<rt.u8>], [b2, a2] as [rt.HashSet<rt.u8>, rt.HashSet<rt.u8>]]);
 	while (true) {
-		const _103: [rt.HashSet<rt.u8>, rt.HashSet<rt.u8>] | rt.Done = iter3.next();
-		if (_103 === rt.DONE) {
+		const _111: [rt.HashSet<rt.u8>, rt.HashSet<rt.u8>] | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$u8(rt.iterToArray(rt.hashUnion(_103[0], _103[1])), put, out);
-		putSorted$u8(rt.iterToArray(rt.hashIntersection(_103[0], _103[1])), put, out);
-		putSorted$u8(rt.iterToArray(rt.hashDifference(_103[0], _103[1])), put, out);
-		putSorted$u8(rt.iterToArray(rt.hashSymmetricDifference(_103[0], _103[1])), put, out);
-		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashUnion(_103[0], _103[1]).next()), 221, (v: rt.u8): rt.u8 => {
+		putSorted$u8(rt.iterToArray(rt.hashUnion(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashIntersection(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putSorted$u8(rt.iterToArray(rt.hashSymmetricDifference(_111[0], _111[1]), undefined, 4), put, out);
+		putHints$u8_Union_u8_RandomState(rt.hashUnion(_111[0], _111[1]), 0, out);
+		putHints$u8_Intersection_u8_RandomState(rt.hashIntersection(_111[0], _111[1]), 0, out);
+		putHints$u8_Difference_u8_RandomState(rt.hashDifference(_111[0], _111[1]), 0, out);
+		putHints$u8_SymmetricDifference_u8_RandomState(rt.hashSymmetricDifference(_111[0], _111[1]), 0, out);
+		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashUnion(_111[0], _111[1]).next()), 221, (v: rt.u8): rt.u8 => {
 			let _3!: boolean;
-			if (!rt.hashContains(_103[0], v)) {
-				_3 = rt.hashContains(_103[1], v);
+			if (!rt.hashContains(_111[0], v)) {
+				_3 = rt.hashContains(_111[1], v);
 			} else {
 				_3 = true;
 			}
 			return _3 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashIntersection(_103[0], _103[1]).next()), 221, (v2: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashIntersection(_111[0], _111[1]).next()), 221, (v2: rt.u8): rt.u8 => {
 			let _32!: boolean;
-			if (!rt.hashContains(_103[0], v2)) {
+			if (!rt.hashContains(_111[0], v2)) {
 				_32 = false;
 			} else {
-				_32 = rt.hashContains(_103[1], v2);
+				_32 = rt.hashContains(_111[1], v2);
 			}
 			return _32 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashDifference(_103[0], _103[1]).next()), 221, (v3: rt.u8): rt.u8 => {
-			return !rt.hashContains(_103[1], v3) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashDifference(_111[0], _111[1]).next()), 221, (v3: rt.u8): rt.u8 => {
+			return !rt.hashContains(_111[1], v3) ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashSymmetricDifference(_103[0], _103[1]).next()), 221, (v4: rt.u8): rt.u8 => {
-			return rt.hashContains(_103[0], v4) !== rt.hashContains(_103[1], v4) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$1surhce(rt.iterToOption(rt.hashSymmetricDifference(_111[0], _111[1]).next()), 221, (v4: rt.u8): rt.u8 => {
+			return rt.hashContains(_111[0], v4) !== rt.hashContains(_111[1], v4) ? 1 : 0;
 		}));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_103[0], _103[1]) ? 1 : 0, rt.hashIsSuperset(_103[0], _103[1]) ? 1 : 0, rt.hashIsDisjoint(_103[0], _103[1]) ? 1 : 0)));
-		const iter4: rt.Iter<rt.HashSet<rt.u8>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashUnion(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashIntersection(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashDifference(_103[0], _103[1])), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashSymmetricDifference(_103[0], _103[1]))]);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
+		const iter4: rt.Iter<rt.HashSet<rt.u8>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashUnion(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashIntersection(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashDifference(_111[0], _111[1]), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.hashSymmetricDifference(_111[0], _111[1]), undefined, undefined, 469762048)]);
 		while (true) {
-			const _159: rt.HashSet<rt.u8> | rt.Done = iter4.next();
-			if (_159 === rt.DONE) {
+			const _175: rt.HashSet<rt.u8> | rt.Done = iter4.next();
+			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$u8(rt.iterToArray(rt.hashKeys(_159)), put, out);
+			putSorted$u8(rt.iterToArray(rt.hashKeys(_175), undefined, 4), put, out);
 		}
 	}
 }
@@ -1920,11 +2047,11 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 	const _7: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): Uint8Array => {
 		return make(_2);
 	});
-	const a: rt.BTreeSet<Uint8Array> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, _7, true);
+	const a: rt.BTreeSet<Uint8Array> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, _7, true, undefined, undefined, 2, true);
 	const _12: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_22: rt.u8): Uint8Array => {
 		return make(_22);
 	});
-	const b: rt.BTreeSet<Uint8Array> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, _12, true);
+	const b: rt.BTreeSet<Uint8Array> = rt.btreeExtendKeys(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, _12, true, undefined, undefined, 2, true);
 	const iter: rt.Iter<[rt.BTreeSet<Uint8Array>, rt.BTreeSet<Uint8Array>]> = rt.iterSlice([[a, b] as [rt.BTreeSet<Uint8Array>, rt.BTreeSet<Uint8Array>], [b, a] as [rt.BTreeSet<Uint8Array>, rt.BTreeSet<Uint8Array>]]);
 	while (true) {
 		const _25: [rt.BTreeSet<Uint8Array>, rt.BTreeSet<Uint8Array>] | rt.Done = iter.next();
@@ -1935,72 +2062,80 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 		putAll$u8s_Intersection_u8s(rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom), put, out);
 		putAll$u8s_Difference_u8s(rt.iterMap(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom), put, out);
 		putAll$u8s_SymmetricDifference_u8s(rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom), put, out);
+		putHints$u8s_Union_u8s(rt.iterMap(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		putHints$u8s_Intersection_u8s(rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		putHints$u8s_Difference_u8s(rt.iterMap(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		putHints$u8s_SymmetricDifference_u8s(rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
 		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
 		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
 		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
 		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)), undefined, true);
 		const iter2: rt.Iter<rt.BTreeSet<Uint8Array>> = rt.iterSlice([rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeUnion(_25[0], _25[1]), copy$u8s)), rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), copy$u8s)), rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeDifference(_25[0], _25[1]), copy$u8s)), rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), copy$u8s))]);
 		while (true) {
-			const _73: rt.BTreeSet<Uint8Array> | rt.Done = iter2.next();
-			if (_73 === rt.DONE) {
+			const _81: rt.BTreeSet<Uint8Array> | rt.Done = iter2.next();
+			if (_81 === rt.DONE) {
 				break;
 			}
-			const built: rt.BTreeSet<Uint8Array> = _73;
+			const built: rt.BTreeSet<Uint8Array> = _81;
 			putAll$u8s_Iter_u8s(rt.iterMap(rt.btreeKeys(built), rt.byteSliceFrom), put, out);
 			putAll$u8s_Rev_Iter_u8s(rt.iterRev(rt.iterMap(rt.btreeKeys(built), rt.byteSliceFrom)), put, out);
 		}
 	}
-	const _85: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): Uint8Array => {
+	const _93: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): Uint8Array => {
 		return make(_23);
 	});
-	const a2: rt.HashSet<Uint8Array> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, _85);
-	const _90: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): Uint8Array => {
+	const a2: rt.HashSet<Uint8Array> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, _93, undefined, undefined, 469762048);
+	const _98: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(right)), (_24: rt.u8): Uint8Array => {
 		return make(_24);
 	});
-	const b2: rt.HashSet<Uint8Array> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, _90);
+	const b2: rt.HashSet<Uint8Array> = rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, _98, undefined, undefined, 469762048);
 	const iter3: rt.Iter<[rt.HashSet<Uint8Array>, rt.HashSet<Uint8Array>]> = rt.iterSlice([[a2, b2] as [rt.HashSet<Uint8Array>, rt.HashSet<Uint8Array>], [b2, a2] as [rt.HashSet<Uint8Array>, rt.HashSet<Uint8Array>]]);
 	while (true) {
-		const _103: [rt.HashSet<Uint8Array>, rt.HashSet<Uint8Array>] | rt.Done = iter3.next();
-		if (_103 === rt.DONE) {
+		const _111: [rt.HashSet<Uint8Array>, rt.HashSet<Uint8Array>] | rt.Done = iter3.next();
+		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashUnion(_103[0], _103[1]), rt.byteSliceFrom)), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashIntersection(_103[0], _103[1]), rt.byteSliceFrom)), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashDifference(_103[0], _103[1]), rt.byteSliceFrom)), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashSymmetricDifference(_103[0], _103[1]), rt.byteSliceFrom)), put, out);
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashUnion(_103[0], _103[1]), rt.byteSliceFrom).next()), 221, (v: rt.ByteSlice): rt.u8 => {
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), undefined, 4), put, out);
+		putHints$u8s_Union_u8s_RandomState(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		putHints$u8s_Intersection_u8s_RandomState(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		putHints$u8s_Difference_u8s_RandomState(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		putHints$u8s_SymmetricDifference_u8s_RandomState(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v: rt.ByteSlice): rt.u8 => {
 			let _3!: boolean;
-			if (!rt.hashContains(_103[0], rt.byteSliceView(v))) {
-				_3 = rt.hashContains(_103[1], rt.byteSliceView(v));
+			if (!rt.hashContains(_111[0], rt.byteSliceView(v))) {
+				_3 = rt.hashContains(_111[1], rt.byteSliceView(v));
 			} else {
 				_3 = true;
 			}
 			return _3 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashIntersection(_103[0], _103[1]), rt.byteSliceFrom).next()), 221, (v2: rt.ByteSlice): rt.u8 => {
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v2: rt.ByteSlice): rt.u8 => {
 			let _32!: boolean;
-			if (!rt.hashContains(_103[0], rt.byteSliceView(v2))) {
+			if (!rt.hashContains(_111[0], rt.byteSliceView(v2))) {
 				_32 = false;
 			} else {
-				_32 = rt.hashContains(_103[1], rt.byteSliceView(v2));
+				_32 = rt.hashContains(_111[1], rt.byteSliceView(v2));
 			}
 			return _32 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashDifference(_103[0], _103[1]), rt.byteSliceFrom).next()), 221, (v3: rt.ByteSlice): rt.u8 => {
-			return !rt.hashContains(_103[1], rt.byteSliceView(v3)) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v3: rt.ByteSlice): rt.u8 => {
+			return !rt.hashContains(_111[1], rt.byteSliceView(v3)) ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashSymmetricDifference(_103[0], _103[1]), rt.byteSliceFrom).next()), 221, (v4: rt.ByteSlice): rt.u8 => {
-			return rt.hashContains(_103[0], rt.byteSliceView(v4)) !== rt.hashContains(_103[1], rt.byteSliceView(v4)) ? 1 : 0;
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v4: rt.ByteSlice): rt.u8 => {
+			return rt.hashContains(_111[0], rt.byteSliceView(v4)) !== rt.hashContains(_111[1], rt.byteSliceView(v4)) ? 1 : 0;
 		}));
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_103[0], _103[1]) ? 1 : 0, rt.hashIsSuperset(_103[0], _103[1]) ? 1 : 0, rt.hashIsDisjoint(_103[0], _103[1]) ? 1 : 0)));
-		const iter4: rt.Iter<rt.HashSet<Uint8Array>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashUnion(_103[0], _103[1]), copy$u8s)), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashIntersection(_103[0], _103[1]), copy$u8s)), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashDifference(_103[0], _103[1]), copy$u8s)), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashSymmetricDifference(_103[0], _103[1]), copy$u8s))]);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
+		const iter4: rt.Iter<rt.HashSet<Uint8Array>> = rt.iterSlice([rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashUnion(_111[0], _111[1]), copy$u8s), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashIntersection(_111[0], _111[1]), copy$u8s), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashDifference(_111[0], _111[1]), copy$u8s), undefined, undefined, 469762048), rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashBytes, rt.eqBytes)) as rt.HashSet<Uint8Array>, rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), copy$u8s), undefined, undefined, 469762048)]);
 		while (true) {
-			const _159: rt.HashSet<Uint8Array> | rt.Done = iter4.next();
-			if (_159 === rt.DONE) {
+			const _175: rt.HashSet<Uint8Array> | rt.Done = iter4.next();
+			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashKeys(_159), rt.byteSliceFrom)), put, out);
+			putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashKeys(_175), rt.byteSliceFrom), undefined, 4), put, out);
 		}
 	}
 }
@@ -2215,6 +2350,118 @@ export function putAll$Option_u8_SymmetricDifference_Option_u8(items: rt.Iter<rt
 
 /** How many `items` there are, then each. */
 export function putAll$Option_u8_Union_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_Difference_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_Intersection_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_IntoIter_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_Iter_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_Rev_Iter_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_SymmetricDifference_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const at: rt.usize = out.length;
+	rt.byteVecPush(out, 0);
+	const iter: rt.Iter<rt.u8 | undefined> = items;
+	while (true) {
+		const _9: rt.u8 | undefined | rt.Done = iter.next();
+		if (_9 === rt.DONE) {
+			break;
+		}
+		rt.byteVecPush(out, put(_9));
+	}
+	const _15: rt.usize = rt.usizeSub(rt.usizeSub(out.length, at), 1);
+	out.data[rt.idx(out, at)] = _15 & 0xff;
+}
+
+/** How many `items` there are, then each. */
+export function putAll$Reverse_Option_u8_Union_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
 	const at: rt.usize = out.length;
 	rt.byteVecPush(out, 0);
 	const iter: rt.Iter<rt.u8 | undefined> = items;
@@ -2453,6 +2700,726 @@ export function putAll$u8s_Union_u8s(items: rt.Iter<rt.ByteSlice>, put: (a0: rt.
 	out.data[rt.idx(out, at)] = _15 & 0xff;
 }
 
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_Difference_Nibble(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_Difference_Nibble_RandomState(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_Intersection_Nibble(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_Intersection_Nibble_RandomState(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_SymmetricDifference_Nibble(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_SymmetricDifference_Nibble_RandomState(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_Union_Nibble(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Nibble_Union_Nibble_RandomState(items: rt.Iter<Nibble.Nibble>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_Difference_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_Difference_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_Intersection_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_Intersection_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_SymmetricDifference_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_SymmetricDifference_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_Union_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Option_u8_Union_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_Difference_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_Difference_Reverse_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_Intersection_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_Intersection_Reverse_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_SymmetricDifference_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_SymmetricDifference_Reverse_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_Union_Reverse_Option_u8(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$Reverse_Option_u8_Union_Reverse_Option_u8_RandomState(items: rt.Iter<rt.u8 | undefined>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_Difference_u8(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_Difference_u8_RandomState(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_Intersection_u8(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_Intersection_u8_RandomState(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_SymmetricDifference_u8(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_SymmetricDifference_u8_RandomState(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_Union_u8(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8_Union_u8_RandomState(items: rt.Iter<rt.u8>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_Difference_u8s(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_Difference_u8s_RandomState(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_Intersection_u8s(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_Intersection_u8s_RandomState(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_SymmetricDifference_u8s(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_SymmetricDifference_u8s_RandomState(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_Union_u8s(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
+/** The size hint of `items`, and again after each of `read` more. */
+export function putHints$u8s_Union_u8s_RandomState(items: rt.Iter<rt.ByteSlice>, read: rt.usize, out: rt.ByteVec): void {
+	const iter: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, read, rt.usizeStep);
+	while (true) {
+		const _7: rt.usize | rt.Done = iter.next();
+		if (_7 === rt.DONE) {
+			break;
+		}
+		if (_7 > 0) {
+			items.next();
+		}
+		const _16: [rt.usize, rt.usize | undefined] = items.sizeHint();
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_16[0] & 0xff, mapOr$02k4ito(_16[1], 255, (n: rt.usize): rt.u8 => {
+			return n & 0xff;
+		}))), undefined, true);
+	}
+}
+
 /** [`put_all`] of `items` in order. */
 export function putSorted$Nibble(items: Nibble.Nibble[], put: (a0: Nibble.Nibble) => rt.u8, out: rt.ByteVec): void {
 	rt.sliceSort(items, rt.cmpLt(Nibble.partialCmp$PartialOrd));
@@ -2463,6 +3430,12 @@ export function putSorted$Nibble(items: Nibble.Nibble[], put: (a0: Nibble.Nibble
 export function putSorted$Option_u8(items: Array<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
 	rt.sliceSort(items, rt.cmpLt(rt.cmpOption(rt.cmp)));
 	putAll$Option_u8_IntoIter_Option_u8(rt.iterSlice(items), put, out);
+}
+
+/** [`put_all`] of `items` in order. */
+export function putSorted$Reverse_Option_u8(items: Array<rt.u8 | undefined>, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	rt.sliceSort(items, rt.cmpLt(rt.cmpReverse(rt.cmpOption(rt.cmp))));
+	putAll$Reverse_Option_u8_IntoIter_Reverse_Option_u8(rt.iterSlice(items), put, out);
 }
 
 /** [`put_all`] of `items` in order. */
