@@ -350,9 +350,10 @@ const consumers = [[], [6], [5], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 
 /**
  * `nested::closures`, whose bytes `pick` each `None` (0 mod 3), `Some(None)` (1), or
  * `Some(Some(_))` (2): of no bytes, only `None`s, only `Some(None)`s, `Some(None)` before
- * a `None` and after it, and a seed of each.
+ * a `None` and after it, a seed of each, and a `successors` whose size hint reserves past
+ * `isize::MAX`.
  */
-const closures = [[], [3], [0, 3], [1], [4, 7, 1], [1, 2, 0, 4, 5], [4, 0, 1, 3, 5], [2, 1, 4, 3, 8], [5, 4], [0, 1, 2]].map((bytes) => Uint8Array.of(op("nested::nested"), 5, ...bytes));
+const closures = [[], [3], [0, 3], [1], [4, 7, 1], [1, 2, 0, 4, 5], [4, 0, 1, 3, 5], [2, 1, 4, 3, 8], [5, 4], [0, 1, 2], [0xf0], [0xf1]].map((bytes) => Uint8Array.of(op("nested::nested"), 5, ...bytes));
 
 /**
  * `ranges` of each kind, and each kind of `Bound` at the end, over zero to four items, at

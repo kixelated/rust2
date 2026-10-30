@@ -339,9 +339,9 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _6: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
 	const _8: rt.Place<rt.u8> = rt.place(() => called, (value) => called = value);
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(code(rt.iterFindMap(_6, (_2: rt.u8): rt.u8 | undefined | rt.None => {
-		const b: rt.u8 = _2;
+		const b2: rt.u8 = _2;
 		_8.v = rt.u8Add(_8.v, 1);
-		return pick(b);
+		return pick(b2);
 	}, rt.None)), called)));
 	rt.byteVecPush(out, mapOr$18ph0j9(rt.iterFindMap(rt.iterSlice(rt.byteSliceView(data)), (_23: rt.u8): undefined | rt.None => {
 		return unit(_23 ^ 1);
@@ -351,9 +351,9 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 	called = 0;
 	const _22: rt.Place<rt.u8> = rt.place(() => called, (value2) => called = value2);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.iterToArray(rt.iterFilterMap(rt.iterSlice(rt.byteSliceView(data)), (_27: rt.u8): rt.u8 | undefined | rt.None => {
-		const b3: rt.u8 = _27;
+		const b4: rt.u8 = _27;
 		_22.v = rt.u8Add(_22.v, 1);
-		return pick(b3);
+		return pick(b4);
 	}, rt.None))), (_28: rt.u8 | undefined): rt.u8 => {
 		return code(_28);
 	}));
@@ -374,9 +374,9 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 	called = 0;
 	const _52: rt.Place<rt.u8> = rt.place(() => called, (value3) => called = value3);
 	const whiles: Array<rt.u8 | undefined> = rt.iterToArray(rt.iterMapWhile(rt.iterSlice(rt.byteSliceView(data)), (_214: rt.u8): rt.u8 | undefined | rt.None => {
-		const b7: rt.u8 = _214;
+		const b8: rt.u8 = _214;
 		_52.v = rt.u8Add(_52.v, 1);
-		return pick(b7);
+		return pick(b8);
 	}, rt.None));
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(whiles), (_215: rt.u8 | undefined): rt.u8 => {
 		return code(_215);
@@ -431,6 +431,32 @@ export function closures(data: rt.ByteSlice, out: rt.ByteVec): void {
 		steps = rt.u8Add(steps, 1);
 		return thenSome$1j8foe9(steps < 3, undefined);
 	}, undefined, rt.None)) & 0xff, steps)));
+	if (data.length === 1) {
+		if (240 <= data.data[data.start]) {
+			if (data.data[data.start] <= 255) {
+				const b: rt.u8 = data.data[data.start];
+				let s: string = "";
+				const rest3: rt.Iter<rt.char> = rt.iterMap(new rt.Range(0, 2147483647), (_224: rt.usize): rt.char => {
+					rt.panicFmt(["read"]);
+				});
+				if (rt.u8Rem(b, 2) === 0) {
+					const _137: rt.Iter<rt.char> = rt.iterChain(rt.iterMap(rt.iterSuccessors(undefined, (_227: undefined): undefined | rt.None => {
+						return rt.None;
+					}, undefined, rt.None), (_30: undefined): rt.char => {
+						return 97;
+					}), rest3);
+					s = rt.stringExtendChars(s, _137);
+				} else {
+					const _142: rt.Iter<rt.char> = rt.iterChain(rt.iterMap(rt.iterSuccessors(undefined as rt.u8 | undefined | rt.None, (_225: rt.u8 | undefined): rt.u8 | undefined | rt.None => {
+						return rt.None;
+					}, undefined, rt.None), (_226: rt.u8 | undefined): rt.char => {
+						return 97;
+					}), rest3);
+					s = rt.stringExtendChars(s, _142);
+				}
+			}
+		}
+	}
 }
 
 export function panics(data: rt.ByteSlice, out: rt.ByteVec): void {

@@ -297,6 +297,20 @@ fn closures(data: &[u8], out: &mut Vec<u8>) {
 		(steps < 3).then_some(())
 	});
 	out.extend([units.count() as u8, steps]);
+	// `extend` reserves the size hint's lower bound, which is 1 while a `Some(())` or
+	// `Some(None)` is pending: past `isize::MAX`, before it reads an item.
+	if let [b @ 0xf0..=0xff] = *data {
+		let mut s = String::new();
+		let rest = (0..isize::MAX as usize).map(|_| -> char { panic!("read") });
+		match b % 2 {
+			0 => s.extend(std::iter::successors(Some(()), |()| None).map(|()| 'a').chain(rest)),
+			_ => s.extend(
+				std::iter::successors(Some(None::<u8>), |_| None)
+					.map(|_| 'a')
+					.chain(rest),
+			),
+		}
+	}
 }
 
 fn panics(data: &[u8], out: &mut Vec<u8>) {

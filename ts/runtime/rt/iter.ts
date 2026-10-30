@@ -1300,7 +1300,7 @@ class SuccessorsIter<T> extends Iter<T> implements Disposable {
 	}
 
 	override lower(): number {
-		return this.item === undefined ? 0 : 1;
+		return this.item === this.none ? 0 : 1;
 	}
 
 	[Symbol.dispose](): void {
