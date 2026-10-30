@@ -310,4 +310,14 @@ const bounds = Array.from({ length: 6 * 9 * 36 }, (_, n) => {
 	return [Uint8Array.of(boundsOp, kind, ends % 3, Math.floor(ends / 3), a, b, 1, 3, 2, 5), Uint8Array.of(boundsOp, kind, ends % 3, Math.floor(ends / 3), a, b)];
 }).flat();
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds];
+/**
+ * `trees` of each kind at each size around one node's 11 keys and two levels' 143, from a
+ * few seeds each.
+ */
+const treesOp = op("trees::trees");
+const trees = Array.from({ length: 10 * 7 * 3 }, (_, n) => {
+	const [kind, size, seed] = [n % 10, [0, 10, 11, 12, 40, 130, 255][Math.floor(n / 10) % 7], Math.floor(n / 70)];
+	return Uint8Array.of(treesOp, kind, size, seed, seed * 7);
+});
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...trees];

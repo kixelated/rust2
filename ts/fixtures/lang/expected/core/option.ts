@@ -34,6 +34,7 @@ import type * as shapes_Shape from "../shapes.Shape.ts";
 import { digest, digestWords } from "../slices.ts";
 import type * as slices_Item from "../slices.Item.ts";
 import type * as Short from "../splits.Short.ts";
+import type * as trees_Item from "../trees.Item.ts";
 
 export function isSomeAnd$09tpccf(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
@@ -259,6 +260,13 @@ export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_I
 	return f(self);
 }
 
+export function map$1wi0hfw(self: trees_Item.Item | undefined, f: (a0: trees_Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1u8sh4f(self: Named.Named | undefined, _: (a0: Named.Named) => Named.Named[]): Named.Named[] | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -285,6 +293,13 @@ export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string)
 		return undefined;
 	}
 	return self;
+}
+
+export function map$0fj0un2(self: [rt.u16, trees_Item.Item] | undefined, f: (a0: [rt.u16, trees_Item.Item]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$0qyyft9(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {

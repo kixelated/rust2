@@ -31,6 +31,7 @@ import type * as Level from "./shapes.Level.ts";
 import type * as Mark from "./shapes.Mark.ts";
 import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
+import type * as Item from "./trees.Item.ts";
 
 export function copy$Bound_u64(v: rt.RangeBound<rt.u64>): rt.RangeBound<rt.u64> {
 	return v.tag === "Unbounded" ? v : { tag: v.tag, _0: v._0 } as rt.RangeBound<rt.u64>;
@@ -331,6 +332,10 @@ export function copy$usize_u8(v: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
 	return [v[0], v[1]];
 }
 
+export function drop$BTreeMap_u16_Item(value: rt.BTreeMap<rt.u16, Item.Item>): void {
+	rt.btreeDrop(value, undefined, rt.drop);
+}
+
 export function drop$List_Arc_u8(_1: List.List<rt.Arc<rt.u8>>): void {
 	List.drop$Drop_Arc_u8(_1);
 }
@@ -431,6 +436,10 @@ export function drop$Vec_Rc_Noisy_Vec_Rc_Noisy_Vec_RcShared_Vec_Noisy_Vec_Vec_Rc
 	rt.dropAll(_1[2]);
 	rt.dropAll(_1[3]);
 	rt.dropAll(_1[4], drop$Vec_Rc_Noisy);
+}
+
+export function drop$u16_Item(_1: [rt.u16, Item.Item]): void {
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {

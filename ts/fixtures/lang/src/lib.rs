@@ -10,8 +10,8 @@
 //! the counts of shared pointers, arrays `array::from_fn` makes, maps of `Option`s,
 //! values held back past a write of a variable they name, what `Hash` writes into
 //! `DefaultHasher` and `RandomState`, slices' `windows` and chunks, mutable ones written
-//! through, `Vec::drain`, the order of bytes, and ranges of `Bound`s and of the crate's
-//! own `RangeBounds`.
+//! through, `Vec::drain`, the order of bytes, ranges of `Bound`s and of the crate's
+//! own `RangeBounds`, and the order whole B-trees drop in.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -53,6 +53,7 @@ mod slices;
 mod splits;
 mod statics;
 mod strs;
+mod trees;
 mod utf8;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]
