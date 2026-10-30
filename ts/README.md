@@ -154,7 +154,7 @@ JS differs from std, the runtime has std's: `round` halves away from zero, `max`
 and sends NaN to 0. A 64- or 128-bit integer `as f64` rounds once, to the nearest. The
 functions std leaves to the platform's libm, such as `sin`, `exp`, `ln`, `powf`, and
 `hypot`, are `Math`'s, which the tests find within 2 ULPs of native Rust's in Node;
-`mul_add`, which rounds once, is refused. `Duration`'s `f64` methods run std's integer
+`mul_add`, which rounds once, is refused; `clamp` panics with std's message. `Duration`'s `f64` methods run std's integer
 algorithm, to the nearest nanosecond with its errors and panics. JS doesn't say which
 NaN an operation makes, so a NaN's payload and sign are the engine's: Node and Chrome
 keep them through `from_bits` and `to_bits`, but V8 quiets a signaling NaN stored in an
@@ -167,7 +167,11 @@ becomes a function writing its value, and `fmt::Arguments` an array of literal p
 and such functions: `rt.fmtWriteFmt(f, ["code=", (f) => rt.u16Display(code, f)])`. A `&dyn
 Debug` or `&dyn Display` is such a function too. Format specs take every option but `{:p}`:
 fill, alignment, `+`, `#`, `0`, `x?` and `X?`, a width and a precision, each also from an
-argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers. `Debug` of a string or `char` escapes by
+argument, and `x`, `X`, `o`, `b`, `e`, and `E` for integers, `e` and `E` for `f64`. An `f64`
+prints std's digits: the shortest that read back as it, the greater of two as close where
+JS's would take the even one, or its exact value rounded half to even to a precision,
+where `toFixed` rounds half up. `str::parse::<f64>` takes std's grammar, not `Number`'s,
+and rounds to the nearest double. `Debug` of a string or `char` escapes by
 std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
@@ -570,7 +574,7 @@ fields overlap in different types ([unsafe](/quest/m3/ts-unsafe.md)), and trait 
 behind `&`, `&mut`, `Box`, or `Arc` ([trait objects](/quest/m3/ts-dyn.md)), fail translation. Until they translate, an item that needs one, such as a `dyn Error`, binds to
 hand-written TS ([bindings](#bindings)).
 
-These fail translation: formatting and parsing an `f64`, and `f64::clamp`, whose panic formats them ([float formatting](/quest/m2/ts-model/floats.md)), `f32` ([`f32`](/quest/m3/ts-f32.md)), statics other than atomics and the bytes of an immutable one, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
+These fail translation: `f32` ([`f32`](/quest/m3/ts-f32.md)), statics other than atomics and the bytes of an immutable one, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, as
 `for_each` of items that drop does, or keeps it other than in an iterator adaptor, and
 values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`,

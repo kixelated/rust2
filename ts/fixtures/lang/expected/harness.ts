@@ -17,7 +17,7 @@ import { defaults } from "./defaults.ts";
 import { durations } from "./durations.ts";
 import { dyns, shared, anys, fns } from "./dyns.ts";
 import { edits, bytes } from "./edits.ts";
-import { floats } from "./floats.ts";
+import { floats, formats, parses } from "./floats.ts";
 import { ints, strings, derived, written, counts, rounding, panics, wrapped } from "./fmt.ts";
 import { methods } from "./generics.ts";
 import { holds } from "./holds.ts";
@@ -151,7 +151,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		clonedRcs(data52, out53);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["counts::copies", (_2153: rt.u8, data53: rt.ByteSlice, out54: rt.ByteVec): void => {
 		copies(data53, out54);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::formats", formats] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void], ["floats::parses", parses] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => void]]).map(copy$str_forabfnu8au8bmutstdvecVecu8);
 }
 
 /** Run one case. */

@@ -6,6 +6,7 @@
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
 import type { Ordering } from "./rt/collections.ts";
+import type { ParseFloatError } from "./rt/float.ts";
 import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
 import type { Range, RangeInclusive } from "./rt/iter.ts";
 import { dropAll, type Pending } from "./rt/task.ts";
@@ -1059,7 +1060,11 @@ export function fmtPad(f: Formatter, s: string): FmtResult {
 
 /** Write an integer's sign, `prefix` if alternate, and `digits`, padded to the width. */
 export function fmtPadIntegral(f: Formatter, nonnegative: boolean, prefix: string, digits: string): FmtResult {
-	const head = (nonnegative ? (f.spec.plus ? "+" : "") : "-") + (fmtAlternate(f) ? prefix : "");
+	return fmtPadFormatted(f, (nonnegative ? (f.spec.plus ? "+" : "") : "-") + (fmtAlternate(f) ? prefix : ""), digits);
+}
+
+/** `Formatter::pad_formatted_parts`: `head` and `digits`, ASCII, padded to the width, the `0` flag's zeros between them. */
+export function fmtPadFormatted(f: Formatter, head: string, digits: string): FmtResult {
 	const length = head.length + digits.length;
 	const width = f.spec.width ?? 0;
 	if (length >= width) return f.out.writeStr(head + digits);
@@ -1427,6 +1432,16 @@ export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 /** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
+}
+
+/** `Debug` of `ParseFloatError`. */
+export function fmtParseFloatErrorDebug(e: ParseFloatError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseFloatError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseFloatError`. */
+export function fmtParseFloatErrorDisplay(e: ParseFloatError, f: Formatter): FmtResult {
+	return fmtPad(f, e.kind === "Empty" ? "cannot parse float from empty string" : "invalid float literal");
 }
 
 /** `Debug` of `PoisonError`. */
