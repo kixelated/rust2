@@ -176,19 +176,10 @@ pub fn call<'tcx>(
 		("Clone", "clone") if self_std == Some(Std::Weak) => Expr::rt("weakClone", args),
 		// A waker is the executor's, whose `clone` is its own.
 		("Clone", "clone") if self_std == Some(Std::Waker) => first(args).member("clone").call(vec![]),
-		// A reference to one of these is the object it points at, which its own `Deref` gives:
-		// read out of a `&mut` that is an `rt.Place`, whose place `DerefMut` lends on.
-		("Deref", "deref") | ("DerefMut", "deref_mut") if let Some(ty) = self_ty.filter(|t| t.is_ref()) => {
-			match self_std {
-				Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut | Std::Pin)
-					if name == "deref" =>
-				{
-					b.t.pointee_value(ty, first(args))
-				}
-				Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut | Std::Pin) => first(args),
-				_ => return Err(args),
-			}
-		}
+		// A reference is the object it points at, which its own `Deref` gives: read out of a
+		// `&mut` that is an `rt.Place`, whose place `DerefMut` lends on.
+		("Deref", "deref") if let Some(ty) = self_ty.filter(|t| t.is_ref()) => b.t.pointee_value(ty, first(args)),
+		("DerefMut", "deref_mut") if self_ty.is_some_and(|t| t.is_ref()) => first(args),
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
 			// A pin is its pointer, which derefs as it does: an `Arc` to the value it holds, and

@@ -59,6 +59,40 @@ export function throughMutex$Mutex_u8$2(p: rt.Mutex<rt.u8>): rt.u8 {
 	return _0;
 }
 
+/** Writes a byte through a pointer's `DerefMut`. */
+export function writeThrough$Pin_u8(p: rt.Place<rt.u8>, by: rt.u8): void {
+	p.v = p.v ^ by;
+}
+
+/** Writes a byte through a pointer's `DerefMut`. */
+export function writeThrough$u8(p: rt.Place<rt.u8>, by: rt.u8): void {
+	p.v = p.v ^ by;
+}
+
+/** Replaces an `Arc` through a pointer's `DerefMut`. */
+export function replaceThrough$Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
+	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
+	const _4: rt.Place<rt.Arc<rt.u8>> = p;
+	_4.v[Symbol.dispose]();
+	_4.v = _3;
+}
+
+/** Replaces an `Arc` through a pointer's `DerefMut`. */
+export function replaceThrough$MutexGuard_Arc_u8(p: rt.Mutex<rt.Arc<rt.u8>>, by: rt.u8): void {
+	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
+	p.value[Symbol.dispose]();
+	p.value = _3;
+	rt.mutexUnlock(p);
+}
+
+/** Replaces an `Arc` through a pointer's `DerefMut`. */
+export function replaceThrough$Pin_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
+	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
+	const _4: rt.Place<rt.Arc<rt.u8>> = p;
+	_4.v[Symbol.dispose]();
+	_4.v = _3;
+}
+
 export function lockedBy(n: rt.u8): rt.Mutex<rt.u8> {
 	return new rt.Mutex(rt.u8WrappingAdd(n, 3));
 }
@@ -179,7 +213,7 @@ export function counts(out: rt.ByteVec, arcs: rt.Arc<rt.u8>[], items: rt.Arc<rt.
 }
 
 export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
-	let _566!: rt.Waker;
+	let _619!: rt.Waker;
 	const by: rt.u8 = unwrapOr$Option_u8(rt.byteSliceFirst(data), 5);
 	const one: rt.Arc<rt.u8> = new rt.Arc(by);
 	const two: rt.Arc<rt.u8> = new rt.Arc(rt.u8WrappingAdd(by, 1));
@@ -273,87 +307,109 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(throughArc$Arc_u8(rt.place(() => _199, (value5) => _199 = value5)), through$Pin_Arc_u8(rt.place(() => pinned, (value6) => pinned = value6)))));
 	_199[Symbol.dispose]();
 	rt.byteVecPush(out, throughMutex$Mutex_u8(lockedBy(by)));
+	let byte: rt.u8 = by;
+	const _210: rt.Place<rt.u8> = rt.place(() => byte, (value7) => byte = value7);
+	_210.v = _210.v ^ 90;
+	writeThrough$Pin_u8(rt.place(() => byte, (value8) => byte = value8), 33);
+	writeThrough$u8(rt.place(() => byte, (value9) => byte = value9), 12);
+	rt.byteVecPush(out, byte);
+	let replaced: rt.Arc<rt.u8> = new rt.Arc(by);
+	const _220: rt.Arc<rt.u8> = new rt.Arc(rt.u8WrappingAdd(by, 1));
+	const _222: rt.Place<rt.Arc<rt.u8>> = rt.place(() => replaced, (value10) => replaced = value10);
+	_222.v[Symbol.dispose]();
+	_222.v = _220;
+	rt.byteVecPush(out, replaced.value);
+	replaceThrough$Pin_Arc_u8(rt.place(() => replaced, (value11) => replaced = value11), rt.u8WrappingAdd(by, 2));
+	rt.byteVecPush(out, replaced.value);
+	const _240: rt.u8 = rt.u8WrappingAdd(by, 3);
+	replaceThrough$Arc_u8(rt.place(() => replaced, (value12) => replaced = value12), _240);
+	rt.byteVecPush(out, replaced.value);
+	const guarded: rt.Mutex<rt.Arc<rt.u8>> = new rt.Mutex(new rt.Arc(by));
+	replaceThrough$MutexGuard_Arc_u8(rt.mutexLock(guarded), rt.u8WrappingAdd(by, 4));
+	const _257: rt.Mutex<rt.Arc<rt.u8>> = rt.mutexLock(guarded);
+	rt.byteVecPush(out, _257.value.value);
+	rt.mutexUnlock(_257);
 	let owned: rt.Arc<rt.u8> = rt.arcClone(held);
-	const lent2: rt.Place<rt.Arc<rt.u8>> = rt.place(() => owned, (value7) => owned = value7);
+	const lent2: rt.Place<rt.Arc<rt.u8>> = rt.place(() => owned, (value13) => owned = value13);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(lent2.v.strong & 0xff, lent2.v.value)));
 	const locked: rt.Mutex<rt.Arc<rt.u8>[]> = new rt.Mutex(v);
-	const _228: rt.Mutex<rt.Arc<rt.u8>[]> = rt.mutexLock(locked);
-	const taken3 = _228.value;
-	_228.value = [];
+	const _281: rt.Mutex<rt.Arc<rt.u8>[]> = rt.mutexLock(locked);
+	const taken3 = _281.value;
+	_281.value = [];
 	const taken: rt.Arc<rt.u8>[] = taken3;
-	rt.mutexUnlock(_228);
+	rt.mutexUnlock(_281);
 	counts(out, [one, two], taken);
-	const _239: rt.Arc<rt.u8>[] = [rt.arcClone(two)];
-	const _245: rt.Mutex<rt.Arc<rt.u8>[]> = rt.mutexLock(locked);
-	rt.dropAll(_245.value);
-	_245.value = _239;
-	rt.mutexUnlock(_245);
+	const _292: rt.Arc<rt.u8>[] = [rt.arcClone(two)];
+	const _298: rt.Mutex<rt.Arc<rt.u8>[]> = rt.mutexLock(locked);
+	rt.dropAll(_298.value);
+	_298.value = _292;
+	rt.mutexUnlock(_298);
 	rt.dropAll(taken);
-	const _250: rt.Arc<rt.u8>[] = [one, two];
-	const _258: rt.Mutex<rt.Arc<rt.u8>[]> = rt.mutexLock(locked);
-	counts(out, _250, _258.value);
-	rt.mutexUnlock(_258);
+	const _303: rt.Arc<rt.u8>[] = [one, two];
+	const _311: rt.Mutex<rt.Arc<rt.u8>[]> = rt.mutexLock(locked);
+	counts(out, _303, _311.value);
+	rt.mutexUnlock(_311);
 	const cell: rt.RefCell<rt.Arc<rt.u8>[]> = new rt.RefCell([rt.arcClone(one)]);
-	const _269: rt.RefCell<rt.Arc<rt.u8>[]> = rt.refCellBorrowMut(cell);
-	const taken4 = _269.value;
-	_269.value = [];
+	const _322: rt.RefCell<rt.Arc<rt.u8>[]> = rt.refCellBorrowMut(cell);
+	const taken4 = _322.value;
+	_322.value = [];
 	const taken2: rt.Arc<rt.u8>[] = taken4;
-	rt.refMutRelease(_269);
-	const _271: rt.Arc<rt.u8>[] = [rt.arcClone(two), rt.arcClone(two)];
-	const _279: rt.RefCell<rt.Arc<rt.u8>[]> = rt.refCellBorrowMut(cell);
-	rt.dropAll(_279.value);
-	_279.value = _271;
-	rt.refMutRelease(_279);
+	rt.refMutRelease(_322);
+	const _324: rt.Arc<rt.u8>[] = [rt.arcClone(two), rt.arcClone(two)];
+	const _332: rt.RefCell<rt.Arc<rt.u8>[]> = rt.refCellBorrowMut(cell);
+	rt.dropAll(_332.value);
+	_332.value = _324;
+	rt.refMutRelease(_332);
 	counts(out, [one, two], taken2);
-	const _290: rt.Arc<rt.u8>[] = [one, two];
-	const _298: rt.RefCell<rt.Arc<rt.u8>[]> = rt.refCellBorrow(cell);
-	counts(out, _290, _298.value);
-	rt.refRelease(_298);
+	const _343: rt.Arc<rt.u8>[] = [one, two];
+	const _351: rt.RefCell<rt.Arc<rt.u8>[]> = rt.refCellBorrow(cell);
+	counts(out, _343, _351.value);
+	rt.refRelease(_351);
 	const sets: rt.HashMap<rt.u8, rt.BTreeSet<rt.u8>> = rt.hashNew() as rt.HashMap<rt.u8, rt.BTreeSet<rt.u8>>;
-	const _304: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-	const _303: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _304, true);
-	rt.hashInsert(sets, by, _303);
-	const _306: rt.BTreeSet<rt.u8> | undefined = rt.hashGet(sets, by);
-	if (_306 !== undefined) {
-		const _313: Uint8Array = Uint8Array.of(rt.u8WrappingAdd(by, 1));
-		rt.byteVecPush(out, rt.btreeLen(rt.replaceIn(_306, rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_313), true))) & 0xff);
+	const _357: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
+	const _356: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _357, true);
+	rt.hashInsert(sets, by, _356);
+	const _359: rt.BTreeSet<rt.u8> | undefined = rt.hashGet(sets, by);
+	if (_359 !== undefined) {
+		const _366: Uint8Array = Uint8Array.of(rt.u8WrappingAdd(by, 1));
+		rt.byteVecPush(out, rt.btreeLen(rt.replaceIn(_359, rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_366), true))) & 0xff);
 	}
-	const _320: Uint8Array = Uint8Array.of(by);
-	const _319: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_320), true);
-	const _324: rt.u8 = rt.u8WrappingAdd(by, 1);
-	Object.assign(rt.entryOrInsertWith(rt.entry(sets, _324), (): rt.BTreeSet<rt.u8> => {
+	const _373: Uint8Array = Uint8Array.of(by);
+	const _372: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_373), true);
+	const _377: rt.u8 = rt.u8WrappingAdd(by, 1);
+	Object.assign(rt.entryOrInsertWith(rt.entry(sets, _377), (): rt.BTreeSet<rt.u8> => {
 		return rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>;
-	}), _319);
+	}), _372);
 	const keys: [rt.u8, rt.u8][] = rt.iterToArray(rt.iterMap(rt.hashIter(sets), (_22: [rt.u8, rt.BTreeSet<rt.u8>]): [rt.u8, rt.u8] => {
 		return [_22[0], rt.btreeLen(_22[1]) & 0xff] as [rt.u8, rt.u8];
 	}));
 	rt.sliceSort(keys, rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-	for (const _335 of keys) {
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_335[0], _335[1])));
+	for (const _388 of keys) {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_388[0], _388[1])));
 	}
-	const _345: rt.Arc<rt.u8>[] = [rt.arcClone(one)];
-	const w: Window.Window = new Window.Window(by, _345);
+	const _398: rt.Arc<rt.u8>[] = [rt.arcClone(one)];
+	const w: Window.Window = new Window.Window(by, _398);
 	const other: rt.Arc<rt.u8>[] = [rt.arcClone(two), rt.arcClone(two)];
 	const bytes: rt.ByteVec = new rt.ByteVec();
 	for (const b4 of rt.byteSliceView(data)) {
-		const _363: rt.u8 = rt.u8Rem(b4, 5);
-		if (_363 === 0) {
+		const _416: rt.u8 = rt.u8Rem(b4, 5);
+		if (_416 === 0) {
 			apply(w, b4);
 			continue;
 		}
-		if (_363 === 1) {
+		if (_416 === 1) {
 			rt.byteVecPush(out, park(w, b4));
 			continue;
 		}
-		if (_363 === 2) {
+		if (_416 === 2) {
 			swapAll(w.held, other);
 			continue;
 		}
-		if (_363 === 3) {
+		if (_416 === 3) {
 			refill(other, bytes, one, b4);
 			continue;
 		}
-		if (_363 === 4) {
+		if (_416 === 4) {
 			if (rt.u8Rem(b4, 2) === 0) {
 				const mine: rt.Arc<rt.u8>[] = swapIn(other, two);
 				counts(out, [one, two], mine);
@@ -364,8 +420,8 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.dropAll(takeAll(w.held));
 	}
 	const pinnedAll: rt.Arc<rt.u8>[] = [rt.arcClone(two)];
-	for (const _396 of rt.byteSliceView(data)) {
-		rt.byteVecPush(out, repinAll(pinnedAll, one, _396) & 0xff);
+	for (const _449 of rt.byteSliceView(data)) {
+		rt.byteVecPush(out, repinAll(pinnedAll, one, _449) & 0xff);
 	}
 	counts(out, [one, two], pinnedAll);
 	rt.dropAll(pinnedAll);
@@ -377,11 +433,11 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(bytes));
 	counts(out, [one, two], w.held);
 	counts(out, [one, two], other);
-	const _456: Uint8Array = Uint8Array.of(by);
-	const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(_456));
+	const _509: Uint8Array = Uint8Array.of(by);
+	const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(_509));
 	const map: rt.HashMap<rt.u8, rt.u8> = rt.hashNew() as rt.HashMap<rt.u8, rt.u8>;
-	for (const _460 of rt.byteSliceView(data)) {
-		rt.byteVecPush(out, requeue(q, map, _460) & 0xff);
+	for (const _513 of rt.byteSliceView(data)) {
+		rt.byteVecPush(out, requeue(q, map, _513) & 0xff);
 	}
 	rt.iterExtendBytes(out, rt.dequeIter(q));
 	rt.iterExtendBytes(out, rt.hashValues(map));
@@ -395,9 +451,9 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, two.weak & 0xff);
 	const a: Window.Window = Window.withStart(Window.default$Default(), by);
 	const b7: Window.Window = new Window.Window(rt.u8WrappingAdd(by, 2), [rt.arcClone(one)]);
-	const _496: rt.u16 = by as rt.u16;
+	const _549: rt.u16 = by as rt.u16;
 	const array: rt.u16[] = Array.from({ length: 2 }, (): rt.u16 => {
-		return _496;
+		return _549;
 	});
 	for (const x of rt.byteSliceView(data)) {
 		if (rt.u8Rem(x, 2) === 0) {
@@ -412,13 +468,13 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const counting: rt.Waker = new rt.ArcWaker(rt.arcClone(wakes), Wakes.wake$Wake, (arc: rt.Arc<Wakes.Wakes>) => arc[Symbol.dispose]());
 	const noop: rt.Waker = rt.NOOP_WAKER.clone();
 	let w2: rt.Waker = noop.clone();
-	for (const _560 of rt.byteSliceView(data)) {
-		if (!(rt.u8Rem(_560, 2) === 0)) {
-			_566 = noop;
+	for (const _613 of rt.byteSliceView(data)) {
+		if (!(rt.u8Rem(_613, 2) === 0)) {
+			_619 = noop;
 		} else {
-			_566 = counting;
+			_619 = counting;
 		}
-		const old3: rt.Waker = rewake(rt.place(() => w2, (value8) => w2 = value8), _566);
+		const old3: rt.Waker = rewake(rt.place(() => w2, (value14) => w2 = value14), _619);
 		old3.wakeByRef();
 		w2.wakeByRef();
 		old3[Symbol.dispose]();
@@ -438,6 +494,8 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.dropAll(cell.value);
 	rt.dropAll(locked.value);
 	owned[Symbol.dispose]();
+	guarded[Symbol.dispose]();
+	replaced[Symbol.dispose]();
 	boxed[Symbol.dispose]();
 	held[Symbol.dispose]();
 	pinned[Symbol.dispose]();
