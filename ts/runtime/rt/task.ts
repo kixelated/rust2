@@ -26,11 +26,28 @@ export function dropRange<T>(values: ArrayLike<T>, f: (value: T) => void, from: 
 // Closures. One that owns a value that drops is an arrow function with
 // `[Symbol.dispose]`, which drops what it owns. Calling one that `FnOnce` calls consumes
 // it, as its body drops what it owns; one that `Fn` or `FnMut` call drops after a call
-// through `FnOnce`, as rustc's shim does.
+// through `FnOnce`, as rustc's shim does. One whose clone can't be itself is made by a
+// function of its captures, which makes the clone again of theirs.
 
 /** A closure `f`, which owns what `dispose` drops. */
 export function closure<F extends (...args: never[]) => unknown>(f: F, dispose: () => void): F & Disposable {
 	return Object.assign(f, { [Symbol.dispose]: dispose });
+}
+
+/** What makes a closure's clone, of one that a clone can't share. */
+const CLONE: unique symbol = /* @__PURE__ */ Symbol("clone");
+
+/**
+ * A closure `f` whose `Clone` is `clone`: one that writes what it captured, or captured
+ * what clones other than as itself, made again of its captures' clones.
+ */
+export function cloning<F extends (...args: never[]) => unknown>(f: F, clone: () => F): F {
+	return Object.assign(f, { [CLONE]: clone });
+}
+
+/** `Clone::clone` of a closure that `cloning` made. */
+export function closureClone<F>(f: F): F {
+	return (f as F & { [CLONE]: () => F })[CLONE]();
 }
 
 /** `FnOnce::call_once` of a closure that `Fn` or `FnMut` call: `f(...args)`, then `f` drops. */
