@@ -79,8 +79,11 @@ export function cmpNothing(_a: undefined, _b: undefined): Ordering {
 
 /**
  * `Ord::cmp` of tuples, or `PartialOrd::partial_cmp`, from each field's: the first that
- * is not `Equal`, as `None` is not.
+ * is not `Equal`, as `None` is not. A tuple type the call is asserted to compare types
+ * each field's function, which a generic one such as a slice's of `rt.cmp` needs.
  */
+export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: { readonly [I in keyof T]: (a: T[I], b: T[I]) => O }): (a: T, b: T) => O;
+export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: readonly ((a: never, b: never) => O)[]): (a: T, b: T) => O;
 export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: readonly ((a: never, b: never) => O)[]): (a: T, b: T) => O {
 	return (a, b) => {
 		for (let i = 0; i < fields.length; i++) {
@@ -394,8 +397,11 @@ export interface HashMap<K, V> {
 /** `HashSet<K>`. */
 export type HashSet<K> = HashMap<K, undefined>;
 
-/** `HashMap::new` and `HashSet::new`, with how to find a key that is an object. */
-export function hashNew<K, V>(h?: Hashing<K>): HashMap<K, V> {
+/**
+ * `HashMap::new` and `HashSet::new`, with how to find a key that is an object. The type
+ * `K` is asserted, not inferred from `h`: a slice's hashing takes any `ArrayLike`.
+ */
+export function hashNew<K, V>(h?: Hashing<NoInfer<K>>): HashMap<K, V> {
 	return { p: new Map(), o: undefined, n: 0, h };
 }
 
@@ -997,8 +1003,11 @@ function leaf<K, V>(k: K[] = [], v: V[] = []): Leaf<K, V> {
 	return { k, v, prev: undefined, next: undefined };
 }
 
-/** `BTreeMap::new` and `BTreeSet::new`, ordered by `cmp`. */
-export function btreeNew<K, V>(cmp: (a: K, b: K) => Ordering): BTreeMap<K, V> {
+/**
+ * `BTreeMap::new` and `BTreeSet::new`, ordered by `cmp`. The type `K` is asserted, not
+ * inferred from `cmp`: a slice's order takes any `ArrayLike`.
+ */
+export function btreeNew<K, V>(cmp: (a: NoInfer<K>, b: NoInfer<K>) => Ordering): BTreeMap<K, V> {
 	return { t: leaf(), h: 0, n: 0, c: cmp, r: false };
 }
 

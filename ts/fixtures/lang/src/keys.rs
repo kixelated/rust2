@@ -3,11 +3,13 @@
 //! the references to values a map holds that JS copies, changed in place; and the `!=`,
 //! `<`, `<=`, `>`, and `>=` a type's `PartialEq` and `PartialOrd` inherit or override.
 //! Then bytes of each form, equal to one another and found by one another.
+//! Then arrays of each element type as keys, found by the slices they borrow as.
 
 use std::borrow::Borrow;
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Bound;
 use std::sync::Arc;
 
 /// A 64-bit hop, past 2^53 for some, where it is no longer a JS number.
@@ -949,5 +951,152 @@ pub fn lent_values(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 	for v in heap.into_sorted_vec() {
 		out.extend(v);
+	}
+}
+
+/// Collections keyed by arrays of each element type, none at all, and many: found by an
+/// equal array made apart and by the slice each borrows as, ordered as std orders arrays,
+/// by their elements in turn, and ranged, walked, and edited through entries. A hash
+/// collection's order is the runtime's, so what it yields is sorted first.
+pub fn arrays(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match kind % 9 {
+		0 => keyed(data, |b| [u16::from(b % 4) << 8, u16::from(b % 3)], out),
+		1 => keyed(data, |b| [u64::MAX - u64::from(b % 4), 1 << (b % 3 * 30)], out),
+		2 => keyed(data, |b| [i32::from(b as i8 % 3), -i32::from(b % 2)], out),
+		3 => keyed(data, |b| ['\u{e000}', char::from(b % 4 + b'a')], out),
+		4 => keyed(data, |b| [b % 2 == 0, b % 3 == 0], out),
+		5 => keyed(data, |b| [small(b), small(b / 4)], out),
+		6 => keyed(data, |b| [Hop(u64::from(b % 3) << 53), Hop(u64::from(b % 2))], out),
+		7 => keyed(data, |_| [0u32; 0], out),
+		_ => keyed(data, |b| [u32::from(b % 4); 275], out),
+	}
+}
+
+/// `arrays` of keys `make` makes of each byte.
+fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -> [T; N], out: &mut Vec<u8>) {
+	let mut map: HashMap<[T; N], u8> = HashMap::new();
+	let mut tree: BTreeMap<[T; N], u8> = BTreeMap::new();
+	let mut set: HashSet<[T; N]> = HashSet::new();
+	let mut ordered: BTreeSet<[T; N]> = BTreeSet::new();
+	let mut values: HashMap<u8, [T; N]> = HashMap::new();
+	for (i, &b) in data.iter().enumerate() {
+		let i = i as u8;
+		out.push(map.insert(make(b), i).unwrap_or(0xcc));
+		out.push(tree.insert(make(b), i).unwrap_or(0xcc));
+		out.extend([set.insert(make(b)) as u8, ordered.insert(make(b)) as u8]);
+		out.push(values.insert(b % 4, make(b)).map_or(0xcc, |old| (old == make(b)) as u8));
+		*map.entry(make(b / 2)).or_insert(i) ^= 0x40;
+		match tree.entry(make(b / 2)) {
+			btree_map::Entry::Occupied(mut o) => *o.get_mut() ^= 0x40,
+			btree_map::Entry::Vacant(v) => {
+				out.push((*v.key() == make(b / 2)) as u8);
+				v.insert(i);
+			}
+		}
+	}
+	// Each found by an equal array made apart, and by the slice it borrows as.
+	for b in 0..8 {
+		let key = make(b);
+		out.extend([
+			map.get(&key).copied().unwrap_or(0xdd),
+			map.get(&key[..]).copied().unwrap_or(0xdd),
+			tree.get(&key[..]).copied().unwrap_or(0xdd),
+			set.contains(&key[..]) as u8,
+			ordered.contains(&key[..]) as u8,
+			map.get_key_value(&key[..]).map_or(0xdd, |(k, _)| (*k == key) as u8),
+			tree.get_key_value(&key).map_or(0xdd, |(k, _)| (k[..] == key[..]) as u8),
+			set.get(&key[..]).map_or(0xdd, |k| (k == &key) as u8),
+			values.get(&b).map_or(0xdd, |v| (*v == key) as u8),
+		]);
+		// Ranges by an array and by a slice, which order by the elements in turn.
+		out.push(tree.range(..key.clone()).count() as u8);
+		out.push(
+			tree.range::<[T], _>((Bound::Excluded(&key[..]), Bound::Unbounded))
+				.count() as u8,
+		);
+		out.push(ordered.range::<[T; N], _>(&key..).map(|k| (k >= &key) as u8).sum());
+		out.push(
+			ordered
+				.range::<[T], _>((Bound::Unbounded, Bound::Included(&key[..])))
+				.count() as u8,
+		);
+	}
+	// The order std gives arrays, read by the values each holds, and keys compared.
+	out.extend(tree.values().copied());
+	let keys: Vec<&[T; N]> = ordered.iter().collect();
+	for w in keys.windows(2) {
+		out.push((w[0] < w[1]) as u8 | ((w[0].cmp(w[1]) == w[0][..].cmp(&w[1][..])) as u8) << 1);
+	}
+	out.push(
+		tree.first_key_value()
+			.map_or(0xdd, |(k, v)| (Some(k) == keys.first().copied()) as u8 ^ v),
+	);
+	out.push(ordered.last().map_or(0xdd, |k| (Some(&k) == keys.last()) as u8));
+	// Each removed by the slice it borrows as, then what is left.
+	let probe = make(data.first().copied().unwrap_or(0));
+	out.push(map.remove(&probe[..]).unwrap_or(0xee));
+	out.push(map.remove_entry(&probe).map_or(0xee, |(k, v)| (k == probe) as u8 ^ v));
+	out.push(tree.remove(&probe[..]).unwrap_or(0xee));
+	out.extend([set.remove(&probe[..]) as u8, ordered.remove(&probe[..]) as u8]);
+	out.push(ordered.pop_first().map_or(0xdd, |k| (k < probe) as u8));
+	tree.retain(|k, v| k[..] >= probe[..] || *v % 2 == 0);
+	out.extend(tree.values().copied());
+	let mut held: Vec<u8> = map.values().copied().collect();
+	held.sort();
+	out.extend(held);
+	out.extend([map.len(), tree.len(), set.len(), ordered.len()].map(|n| n as u8));
+	// Collected, written through by a slice, split by one, and the keys lent sorted.
+	let made: BTreeSet<[T; N]> = data.iter().map(|&b| make(b / 3)).collect();
+	let mut counts: HashMap<[T; N], u8> = HashMap::from([(make(0), 1), (make(1), 2)]);
+	for &b in data {
+		out.push(counts.contains_key(&make(b)[..]) as u8);
+		match counts.get_mut(&make(b)[..]) {
+			Some(c) => *c = c.wrapping_mul(3),
+			None => *counts.entry(make(b)).or_default() += 1,
+		}
+	}
+	let mut lent: Vec<(&[T; N], &u8)> = counts.iter().collect();
+	lent.sort();
+	out.extend(lent.iter().map(|&(k, v)| (made.contains(k) as u8) << 7 | v));
+	out.push(made.intersection(&ordered).count() as u8);
+	out.push(made.is_subset(&ordered) as u8);
+	let mut upper = made.clone();
+	let lower = upper.split_off(&probe[..]);
+	out.extend([upper.len() as u8, lower.len() as u8]);
+	out.push(lower.iter().all(|k| k[..] >= probe[..]) as u8);
+	// Keys that hold an array, and vectors found by the slice each borrows as.
+	let mut pairs: BTreeMap<(u8, [T; N]), u8> = BTreeMap::new();
+	let mut options: HashSet<Option<[T; N]>> = HashSet::new();
+	let mut vecs: HashMap<Vec<T>, u8> = HashMap::new();
+	let mut lists: BTreeSet<Vec<T>> = BTreeSet::new();
+	for (i, &b) in data.iter().enumerate() {
+		let pair = (b % 2, make(b));
+		out.push(((&pair < &(1, make(2))) as u8) << 1 | (pair <= (0, make(3))) as u8);
+		out.push(pairs.insert(pair, i as u8).unwrap_or(0xcc));
+		out.push(options.insert((b % 3 != 0).then(|| make(b))) as u8);
+		out.push(vecs.insert(make(b).to_vec(), i as u8).unwrap_or(0xcc));
+		out.push(lists.insert(make(b / 2).to_vec()) as u8);
+	}
+	out.extend(pairs.values().copied());
+	for b in 0..8 {
+		let key = make(b);
+		out.extend([
+			options.contains(&Some(key.clone())) as u8,
+			vecs.get(&key[..]).copied().unwrap_or(0xdd),
+			lists.contains(&key[..]) as u8,
+			lists
+				.range::<[T], _>((Bound::Included(&key[..]), Bound::Unbounded))
+				.count() as u8,
+		]);
+	}
+	out.push(options.contains(&None) as u8);
+	// Keys that are references to elements, found by what each points at.
+	let firsts: Vec<T> = data.iter().filter_map(|&b| make(b).first().cloned()).collect();
+	let refs: BTreeMap<&T, u8> = firsts.iter().enumerate().map(|(i, k)| (k, i as u8)).collect();
+	let hashed: HashSet<&T> = firsts.iter().collect();
+	for b in 0..8 {
+		if let Some(first) = make(b).first() {
+			out.extend([refs.get(first).copied().unwrap_or(0xdd), hashed.contains(first) as u8]);
+		}
 	}
 }

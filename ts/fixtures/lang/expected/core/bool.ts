@@ -2,6 +2,7 @@
 
 import * as rt from "../rt.ts";
 import * as Made from "../defaults.Made.ts";
+import type * as Hop from "../keys.Hop.ts";
 import type * as Way from "../keys.Way.ts";
 import type * as Void from "../shapes.Void.ts";
 
@@ -124,6 +125,13 @@ export function then$1j955kq(self: boolean, _: () => Made.Made): Made.Made | und
 	return Made.default$Default();
 }
 
+export function then$1c9ust9(self: boolean, f: () => Hop.Hop[]): Hop.Hop[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
 export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, Made.Made]): [rt.u64 | undefined, Made.Made] | undefined {
 	if (!self) {
 		return undefined;
@@ -134,6 +142,13 @@ export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, Made.M
 export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 | undefined | rt.None {
 	if (!self) {
 		return rt.None;
+	}
+	return f();
+}
+
+export function then$0b2eeh4(self: boolean, f: () => Array<rt.u8 | undefined>): Array<rt.u8 | undefined> | undefined {
+	if (!self) {
+		return undefined;
 	}
 	return f();
 }
@@ -166,7 +181,49 @@ export function then$0ozmvid(self: boolean, f: () => rt.ByteVec): rt.ByteVec | u
 	return f();
 }
 
+export function then$1ghn4qd(self: boolean, f: () => boolean[]): boolean[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$1dhbcvy(self: boolean, f: () => rt.char[]): rt.char[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$1nf265w(self: boolean, f: () => rt.i32[]): rt.i32[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
 export function then$0havnzo(self: boolean, f: () => string): string | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$0l07w38(self: boolean, f: () => rt.u16[]): rt.u16[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$0l8o6jo(self: boolean, f: () => rt.u32[]): rt.u32[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$0uovwq9(self: boolean, f: () => rt.u64[]): rt.u64[] | undefined {
 	if (!self) {
 		return undefined;
 	}

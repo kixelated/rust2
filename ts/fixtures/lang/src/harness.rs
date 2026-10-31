@@ -175,6 +175,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("collections::unlike_eqs", collections::unlike_eqs),
 		("zeros::impls", zeros::impls),
 		("zeros::keys", zeros::keys),
+		("keys::arrays", keys::arrays),
 		("iters::zips", iters::zips),
 		("iters::zips_back", iters::zips_back),
 	]

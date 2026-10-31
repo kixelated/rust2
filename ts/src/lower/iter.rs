@@ -951,10 +951,11 @@ fn collect<'tcx>(
 	match std {
 		Std::Vec => Some(match args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => {
-				let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
+				let (folds, by_index) = collect_folds(b, from, args.type_at(0), span);
+				let take = iter_take(b, from, folds, span);
 				Expr::rt(
 					"iterToByteVec",
-					tail(vec![iter], vec![take, Expr::lit(trusted.to_string())]),
+					tail(vec![iter], vec![take, Expr::lit((trusted || by_index).to_string())]),
 				)
 			}
 			_ => to_array(b, iter, from, args.type_at(0), trusted, span),
@@ -1064,10 +1065,8 @@ fn drops_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> boo
 }
 
 /// `rt.iterToArray` of `iter`, an iterator of type `from`, collected into a `Vec<elem>` as
-/// std's does: by `next` where it collects in place of the `Vec` its items come from, by
-/// `try_fold`, which drops the closures the iterator holds only with it, where its own
-/// `fold` drops them first. It reserves as std's does for a `TrustedLen` iterator if
-/// `trusted`.
+/// `collect_folds` says std's reads it. It reserves as std's does for a `TrustedLen`
+/// iterator if `trusted`.
 pub(super) fn to_array<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	iter: Expr,
@@ -1076,13 +1075,40 @@ pub(super) fn to_array<'tcx>(
 	trusted: bool,
 	span: Span,
 ) -> Expr {
-	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
+	let (folds, by_index) = collect_folds(b, from, elem, span);
 	let take = iter_take(b, from, folds, span);
 	let size = size_of(b, elem, span);
 	Expr::rt(
 		"iterToArray",
-		tail(vec![iter], vec![take, size, Expr::lit(trusted.to_string())]),
+		tail(vec![iter], vec![take, size, Expr::lit((trusted || by_index).to_string())]),
 	)
+}
+
+/// Whether std's `collect` of an iterator of type `from` into a `Vec<elem>` folds it, and
+/// whether by index, reading no item past its length. In place of the `Vec` its items come
+/// from, it reads a `TrustedRandomAccessNoCoerce` one by index, whose length the runtime
+/// reserves as a `TrustedLen` one's, and any other by `try_fold`, which drops the closures
+/// it holds only with it, as `next` does. Elsewhere, it folds a `TrustedLen` one, by its own
+/// `fold`, which drops them first, and reads any other by `next`. A zip read by index that
+/// holds values that drop is refused: they drop with it, in an order its `fold` doesn't
+/// keep, where `next` would read a side once past the other.
+fn collect_folds<'tcx>(b: &mut Body<'_, '_, 'tcx>, from: Ty<'tcx>, elem: Ty<'tcx>, span: Span) -> (bool, bool) {
+	if !in_place(b.t, from, elem) {
+		return (implements(b.t, from, "TrustedLen"), false);
+	}
+	let by_index = implements(b.t, from, "TrustedRandomAccessNoCoerce");
+	let zips = from.walk().filter_map(|arg| arg.as_type()).any(|t| {
+		matches!(t.kind(), ty::Adt(adt, _) if library::std_path(b.t.tcx, adt.did()).last().map(String::as_str) == Some("Zip"))
+	});
+	if by_index && zips && drops_iter(b, from, span) {
+		b.t.err(
+			span,
+			format!(
+				"a `collect` in place of `{from}`, a zip std reads by index, holding values that drop, which is not supported yet"
+			),
+		);
+	}
+	(by_index, by_index)
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place
