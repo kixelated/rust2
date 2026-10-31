@@ -249,7 +249,9 @@ owns its items holds, an adaptor's closure, or the crate's own iterator, it clon
 what the translation gives it, as `it.clone({ v: Item.clone$Clone })`. A closure clones as Rust
 clones its captures: one that writes none of them, each of which only copies or clones
 as itself, is its own clone, and another whose clone translation reaches is made by a
-function of its captures, which makes the clone again of theirs, in order.
+function of its captures, which makes the clone again of theirs, in order. `cycle` takes
+the same clones, as `rt.iterCycle(it, { v: Item.clone$Clone })`, by which it clones its
+iterator as it is made and again each time a clone ends.
 
 A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
 `char`, a `&str`, a predicate, or an array or slice of chars, as in `rt.strSplit(s, "/")`, takes the text or the
@@ -678,7 +680,7 @@ that can be `undefined`, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
-without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
+without a mapping in `src/lower/iter.rs` (such as `unzip` and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
 a pointer's address (`{:p}`), `write!` with a placeholder into
 the crate's own `fmt::Write`, a `str` pattern other than a

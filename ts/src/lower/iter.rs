@@ -452,13 +452,23 @@ pub fn call<'tcx>(
 			let fused = fused(b, self_ty, None);
 			method(name, tail(rest, vec![fused]))
 		}
+		// What clones its iterator, as it is made and each time a clone of it ends.
+		"cycle" => {
+			let clones = clones(b, self_ty, span)?;
+			method(name, tail(rest, vec![clones]))
+		}
 		// `rt.owned<Name>`, which drops what `self_ty` holds and its items by `dropper` as
-		// std's own does, where either drops: else `rt.iter<Name>`, so a bundle that never
-		// drops doesn't carry it.
+		// std's own does, where either drops, or counts a `Cycle` as std's `Take::count`
+		// does, by its `advance_by`, which stops at a clone that yields nothing where
+		// `try_fold` reads on: else `rt.iter<Name>`, so a bundle that never drops doesn't
+		// carry it.
 		"count" | "last" => {
 			let dropper = b.t.dropper(item, span);
 			let none: Vec<Expr> = none.into_iter().filter(|_| name == "last").collect();
-			match drops_iter(b, self_ty, span) || !undefined(&dropper) {
+			let cycles = name == "count"
+				&& (self_ty.walk().filter_map(|arg| arg.as_type()))
+					.any(|t| std_iter_path(tcx, t).is_some_and(|p| p == ["iter", "adapters", "cycle", "Cycle"]));
+			match drops_iter(b, self_ty, span) || !undefined(&dropper) || cycles {
 				true => Some(Expr::rt_of("owned", name).call(tail(vec![recv.clone()], [vec![dropper], none].concat()))),
 				false => method(name, none),
 			}
@@ -922,8 +932,9 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 	let path = library::std_path(tcx, adt.did());
 	let path: Vec<&str> = path.iter().map(String::as_str).collect();
 	Some(match path.as_slice() {
-		// Those that borrow what they read, as their clones do too.
-		[
+		// Those that borrow what they read, as their clones do too, or hold nothing.
+		["iter", "sources", "empty", "Empty"]
+		| [
 			"slice",
 			"iter",
 			"Iter" | "Windows" | "Chunks" | "ChunksExact" | "RChunks" | "RChunksExact",
@@ -968,7 +979,7 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 			"iter",
 			"adapters",
 			_,
-			"Enumerate" | "Skip" | "Take" | "StepBy" | "Fuse" | "Rev" | "Copied" | "Cloned",
+			"Enumerate" | "Skip" | "Take" | "StepBy" | "Fuse" | "Rev" | "Copied" | "Cloned" | "Cycle",
 		] => parts(vec![("i", clones(b, arg(0)?, span)?)]),
 		["iter", "adapters", _, "Chain" | "Zip"] => {
 			parts(vec![("i", clones(b, arg(0)?, span)?), ("o", clones(b, arg(1)?, span)?)])

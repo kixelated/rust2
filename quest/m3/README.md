@@ -32,6 +32,5 @@ generic std gap is planned here even when moq never calls it.
 - [Cow of a slice, and Wrapping](/quest/m3/ts-cow-slices.md) - `Cow<[T]>` and `Wrapping<T>` translate, `PartialEq` included
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
-- [Cycling std's iterators](/quest/m3/ts-iter-cycle.md) - `Iterator::cycle` translates, cloning its iterator each time it ends
 - [Debug of Bound](/quest/m3/ts-bound-debug.md) - `{:?}` of a `Bound`, as a range's `start_bound` gives, translates
 - [Orderings by a crate's impl on references](/quest/m3/ts-ord-ref-impls.md) - a tuple, `Option`, or slice of `&T` orders by the crate's `PartialOrd` for `&T`
