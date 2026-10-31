@@ -11,6 +11,10 @@ export interface Odd {
 	_0: rt.u16;
 }
 
+export function partialCmp$PartialOrd(self: Odd, other: Odd): rt.Ordering | undefined {
+	return rt.cmp(rt.u16Rem(self._0, 3), rt.u16Rem(other._0, 3));
+}
+
 export function eq$PartialEq_Right(self: Odd, other: Right.Right): boolean {
 	return rt.u16Rem(self._0, 2) === rt.u16Rem(other._0, 2);
 }

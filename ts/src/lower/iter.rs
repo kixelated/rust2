@@ -452,13 +452,23 @@ pub fn call<'tcx>(
 			let fused = fused(b, self_ty, None);
 			method(name, tail(rest, vec![fused]))
 		}
+		// What clones its iterator, as it is made and each time a clone of it ends.
+		"cycle" => {
+			let clones = clones(b, self_ty, span)?;
+			method(name, tail(rest, vec![clones]))
+		}
 		// `rt.owned<Name>`, which drops what `self_ty` holds and its items by `dropper` as
-		// std's own does, where either drops: else `rt.iter<Name>`, so a bundle that never
-		// drops doesn't carry it.
+		// std's own does, where either drops, or counts a `Cycle` as std's `Take::count`
+		// does, by its `advance_by`, which stops at a clone that yields nothing where
+		// `try_fold` reads on: else `rt.iter<Name>`, so a bundle that never drops doesn't
+		// carry it.
 		"count" | "last" => {
 			let dropper = b.t.dropper(item, span);
 			let none: Vec<Expr> = none.into_iter().filter(|_| name == "last").collect();
-			match drops_iter(b, self_ty, span) || !undefined(&dropper) {
+			let cycles = name == "count"
+				&& (self_ty.walk().filter_map(|arg| arg.as_type()))
+					.any(|t| std_iter_path(tcx, t).is_some_and(|p| p == ["iter", "adapters", "cycle", "Cycle"]));
+			match drops_iter(b, self_ty, span) || !undefined(&dropper) || cycles {
 				true => Some(Expr::rt_of("owned", name).call(tail(vec![recv.clone()], [vec![dropper], none].concat()))),
 				false => method(name, none),
 			}
@@ -606,6 +616,9 @@ pub fn call<'tcx>(
 			Some(Expr::rt("iterIsSortedBy", tail(vec![items, compare], droppers)))
 		}
 		"rposition" => method(&camel, rest),
+		"eq" | "ne" | "lt" | "le" | "gt" | "ge" | "cmp" | "partial_cmp" | "eq_by" | "cmp_by" | "partial_cmp_by" => {
+			compare(b, call, name, self_ty, item, recv, rest)
+		}
 		"chain" => {
 			let other = into_iter(b, targ(1)?, rest.into_iter().next()?, span)?;
 			method(name, vec![other])
@@ -677,6 +690,64 @@ pub fn call<'tcx>(
 		}
 		_ => None,
 	}
+}
+
+/// std's comparison `name` of `recv`, an iterator of type `self_ty` and items of type
+/// `item`, against the `IntoIterator` first in `rest`, by the closure after it in a `_by`
+/// form. Each is `iter_compare`'s: `ne` is `!eq`, and `lt`, `le`, `gt`, and `ge` test
+/// `partial_cmp`. The rest compare each pair by the items' `PartialEq`, `Ord`, or
+/// `PartialOrd`, in a closure that drops the pair.
+fn compare<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	name: &str,
+	self_ty: Ty<'tcx>,
+	item: Ty<'tcx>,
+	recv: Expr,
+	rest: Vec<Expr>,
+) -> Option<Expr> {
+	let span = call.span;
+	let other_ty = call.args.types().nth(1)?;
+	let other_iter = iter_of(b.t, other_ty)?;
+	let other_item = b.t.iter_item(other_iter)?;
+	let mut rest = rest.into_iter();
+	let other = into_iter(b, other_ty, rest.next()?, span)?;
+	let test = name.trim_end_matches("_by");
+	let drops = [b.t.dropper(item, span), b.t.dropper(other_item, span)];
+	let (f, owns) = match rest.next() {
+		Some(f) => (f, b.t.drops(call.args.types().nth(2)?)),
+		None => {
+			let f = match test {
+				"eq" | "ne" => super::collections::pair_eq(b, item, other_item, false, span),
+				"cmp" => super::collections::cmp_fn(b, item, false, span),
+				_ => super::collections::pair_partial_cmp(b, item, other_item, span),
+			};
+			let f = match drops.iter().all(undefined) {
+				true => f,
+				false => Expr::rt("consuming", [vec![f], drops.to_vec()].concat()),
+			};
+			(f, false)
+		}
+	};
+	let [drop_x, drop_y] = drops;
+	let compared = vec![
+		iter_drops(b, self_ty, span),
+		iter_drops(b, other_iter, span),
+		if owns { Expr::lit("true") } else { Expr::undefined() },
+		drop_x,
+		drop_y,
+	];
+	Some(match test {
+		// std's `eq` of two `TrustedLen` iterators reads neither unless their size hints agree.
+		"eq" | "ne" => {
+			let trusted = implements(b.t, self_ty, "TrustedLen") && implements(b.t, other_iter, "TrustedLen");
+			let trusted = if trusted { Expr::lit("true") } else { Expr::undefined() };
+			let eq = Expr::rt("iterEq", tail(vec![recv, other, f], [vec![trusted], compared].concat()));
+			if name == "ne" { eq.not() } else { eq }
+		}
+		"cmp" | "partial_cmp" => Expr::rt("iterCmp", tail(vec![recv, other, f], compared)),
+		_ => Expr::rt_of("iter", test).call(tail(vec![recv, other, f], compared)),
+	})
 }
 
 /// `args`, then `tail` without the `undefined`s and `false`s it ends with, which a runtime
@@ -757,9 +828,12 @@ fn nth_zips(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
 }
 
 /// Whether std's `owner::name` takes a closure by value that it drops as its fold ends,
-/// before the iterator, which its mapping drops there too.
+/// before the iterators, which its mapping drops there too.
 pub(super) fn releases(owner: &str, name: &str) -> bool {
-	matches!((owner, name), ("Iterator", "for_each" | "fold"))
+	matches!(
+		(owner, name),
+		("Iterator", "for_each" | "fold" | "eq_by" | "cmp_by" | "partial_cmp_by")
+	)
 }
 
 /// The function or `Iterator` method named for `ty`, one of std's iterators of zero-sized
@@ -858,8 +932,9 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 	let path = library::std_path(tcx, adt.did());
 	let path: Vec<&str> = path.iter().map(String::as_str).collect();
 	Some(match path.as_slice() {
-		// Those that borrow what they read, as their clones do too.
-		[
+		// Those that borrow what they read, as their clones do too, or hold nothing.
+		["iter", "sources", "empty", "Empty"]
+		| [
 			"slice",
 			"iter",
 			"Iter" | "Windows" | "Chunks" | "ChunksExact" | "RChunks" | "RChunksExact",
@@ -904,7 +979,7 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 			"iter",
 			"adapters",
 			_,
-			"Enumerate" | "Skip" | "Take" | "StepBy" | "Fuse" | "Rev" | "Copied" | "Cloned",
+			"Enumerate" | "Skip" | "Take" | "StepBy" | "Fuse" | "Rev" | "Copied" | "Cloned" | "Cycle",
 		] => parts(vec![("i", clones(b, arg(0)?, span)?)]),
 		["iter", "adapters", _, "Chain" | "Zip"] => {
 			parts(vec![("i", clones(b, arg(0)?, span)?), ("o", clones(b, arg(1)?, span)?)])

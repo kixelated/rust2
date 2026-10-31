@@ -227,7 +227,10 @@ are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
 short-circuiting as std's are, and call their closures, and read what they wrap, in
 the same order and as often, a skip by `nth` included. `max`, `min`, and their `_by_key`
 forms test each next item's key for `<` the best's, as std's do, `max_by` and `min_by`
-compare the best and then the next, and a B-tree's iterators read their ends.
+compare the best and then the next, and a B-tree's iterators read their ends. `eq`,
+`cmp`, `partial_cmp`, the tests on it, and their `_by` forms read the first side by
+`try_fold` and the other by `next`, as std's `iter_compare` does, and `eq` of two
+`TrustedLen` iterators whose size hints' upper bounds differ reads neither.
 An iterator over a slice, array, or `Vec`, or a small range, that only its `next` and
 moves read steps in place, as two variables: the array and an index into it, or the
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins
@@ -246,7 +249,9 @@ owns its items holds, an adaptor's closure, or the crate's own iterator, it clon
 what the translation gives it, as `it.clone({ v: Item.clone$Clone })`. A closure clones as Rust
 clones its captures: one that writes none of them, each of which only copies or clones
 as itself, is its own clone, and another whose clone translation reaches is made by a
-function of its captures, which makes the clone again of theirs, in order.
+function of its captures, which makes the clone again of theirs, in order. `cycle` takes
+the same clones, as `rt.iterCycle(it, { v: Item.clone$Clone })`, by which it clones its
+iterator as it is made and again each time a clone ends.
 
 A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
 `char`, a `&str`, a predicate, or an array or slice of chars, as in `rt.strSplit(s, "/")`, takes the text or the
@@ -675,7 +680,7 @@ that can be `undefined`, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
-without a mapping in `src/lower/iter.rs` (such as `cycle`, `unzip`, and `partition`), an
+without a mapping in `src/lower/iter.rs` (such as `unzip` and `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
 a pointer's address (`{:p}`), `write!` with a placeholder into
 the crate's own `fmt::Write`, a `str` pattern other than a

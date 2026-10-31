@@ -21,6 +21,8 @@
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
 
+#![feature(iter_order_by)]
+
 mod arrays;
 mod atomics;
 mod borrows;
@@ -34,6 +36,7 @@ mod collections;
 mod combinators;
 mod counts;
 mod cows;
+mod cycles;
 mod defaults;
 mod durations;
 mod dyns;

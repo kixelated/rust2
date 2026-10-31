@@ -24,6 +24,7 @@
 
 import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
+import { type Hasher, hash8 } from "./hash.ts";
 import { charStep, intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
 
@@ -628,6 +629,14 @@ export function iterStepBy<T>(it: Iter<T>, step: number, drop?: Drop<T>): Iter<T
 }
 
 /**
+ * `Iterator::cycle`: `it`, and then clones of it as it was, by `h`, as std's `Clone` of
+ * it clones each part. It holds the first clone as it is made.
+ */
+export function iterCycle<T>(it: Iter<T>, h?: Clones): Iter<T> {
+	return new CycleIter(it.clone(h), it, h);
+}
+
+/**
  * `Iterator::copied` of items JS copies by `copy`, which std's skips through: its `nth`
  * and `advance_by` are its iterator's.
  */
@@ -980,6 +989,114 @@ export function iterIsSortedBy<T>(
 	if (last !== DONE) drop?.(last);
 	if (drops) dispose(it);
 	return sorted;
+}
+
+/**
+ * What std's comparisons of iterators drop, after the iterators and the comparator: whether
+ * the first iterator drops, whether the second does, which drops before it, and whether
+ * the comparator owns values that drop, as a `_by` form's may. Then what drops an item of
+ * each that std drops itself: one of the first read past the second's end, and one of the
+ * second read past the first's.
+ */
+type Compared<T, U> = [drops?: boolean, dropsOther?: boolean, owns?: boolean, dropX?: Drop<T>, dropY?: Drop<U>];
+
+/**
+ * std's `iter_compare`: each item of `a` as `try_fold` reads it, against the next of `b`,
+ * by `f`, which takes both, until it finds them other than `Equal`. If `b` ends first, the
+ * item of `a` read past it drops by `dropX`, and `a` is `Greater`. `release` drops what
+ * `f` owns once `a`'s fold ends, as std drops the closure there; then, if `a` ended, `b`
+ * reads once more: `Less` if it has another, which drops by `dropY`, and else `Equal`.
+ */
+function iterCompare<T, U, O extends Ordering | undefined>(
+	a: Iter<T>,
+	b: Iter<U>,
+	f: (x: T, y: U) => O,
+	release?: () => void,
+	dropX?: Drop<T>,
+	dropY?: Drop<U>,
+): O {
+	const folded = a.folded();
+	for (let x = folded.next(); x !== DONE; x = folded.next()) {
+		const y = b.next();
+		if (y === DONE) {
+			dropX?.(x);
+			release?.();
+			return 1 as O;
+		}
+		const order = f(x, y);
+		if (order !== 0) {
+			release?.();
+			return order;
+		}
+	}
+	release?.();
+	const y = b.next();
+	if (y === DONE) return 0 as O;
+	dropY?.(y);
+	return -1 as O;
+}
+
+/** `f` as std's own closure of a comparison, which drops what it is given, the second first, once it compares them. */
+export function consuming<T, U, R>(f: (x: T, y: U) => R, dropX?: Drop<T>, dropY?: Drop<U>): (x: T, y: U) => R {
+	return (x, y) => {
+		const result = f(x, y);
+		dropY?.(y);
+		dropX?.(x);
+		return result;
+	};
+}
+
+/**
+ * `Iterator::cmp`, `partial_cmp`, and their `_by` forms: `iter_compare` of `a` and `b`
+ * by `cmp`, and then `b` and `a` dropped as `Compared` says.
+ */
+export function iterCmp<T, U, O extends Ordering | undefined>(
+	a: Iter<T>,
+	b: Iter<U>,
+	cmp: (x: T, y: U) => O,
+	...[drops = false, dropsOther = false, owns = false, dropX, dropY]: Compared<T, U>
+): O {
+	const order = iterCompare(a, b, cmp, owns ? () => dispose(cmp) : undefined, dropX, dropY);
+	if (dropsOther) dispose(b);
+	if (drops) dispose(a);
+	return order;
+}
+
+/**
+ * `Iterator::eq` and `eq_by`: `iter_compare` of `a` and `b` until `eq` fails. If `trusted`,
+ * as std's of two `TrustedLen` iterators, unequal at once, reading neither, unless their
+ * size hints' upper bounds are the same or both unknown.
+ */
+export function iterEq<T, U>(a: Iter<T>, b: Iter<U>, eq: (x: T, y: U) => boolean, trusted = false, ...[drops = false, dropsOther = false, owns = false, dropX, dropY]: Compared<T, U>): boolean {
+	const release = owns ? () => dispose(eq) : undefined;
+	let equal = false;
+	if (trusted && a.sizeHint()[1] !== b.sizeHint()[1]) release?.();
+	else equal = iterCompare(a, b, (x: T, y: U) => (eq(x, y) ? 0 : 1), release, dropX, dropY) === 0;
+	if (dropsOther) dispose(b);
+	if (drops) dispose(a);
+	return equal;
+}
+
+/** `Iterator::lt`: whether `iterCmp` by `partial_cmp` is `Less`. */
+export function iterLt<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	return iterCmp(a, b, cmp, ...rest) === -1;
+}
+
+/** `Iterator::le`: whether `iterCmp` by `partial_cmp` is `Less` or `Equal`. */
+export function iterLe<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	const order = iterCmp(a, b, cmp, ...rest);
+	return order !== undefined && order <= 0;
+}
+
+/** `Iterator::gt`: whether `iterCmp` by `partial_cmp` is `Greater`. */
+export function iterGt<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	return iterCmp(a, b, cmp, ...rest) === 1;
+}
+
+/** `Iterator::ge`: whether `iterCmp` by `partial_cmp` is `Greater` or `Equal`. */
+export function iterGe<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	const order = iterCmp(a, b, cmp, ...rest);
+	return order !== undefined && order >= 0;
 }
 
 /** `collect` into a `Vec`, as `iterExtend` of an empty one. */
@@ -2695,6 +2812,92 @@ class StepByIter<T> extends Adaptor<T, T> {
 	}
 }
 
+/**
+ * std's `Cycle`: `iter`, read, and `orig`, the iterator as it was, which it clones by `h`
+ * in place of `iter` each time that ends. It drops `orig` and then `iter`, as std's fields
+ * order them.
+ */
+class CycleIter<T> extends Iter<T> implements Disposable {
+	readonly orig: Iter<T>;
+	iter: Iter<T>;
+	private readonly h: Clones | undefined;
+
+	constructor(orig: Iter<T>, iter: Iter<T>, h: Clones | undefined) {
+		super();
+		this.orig = orig;
+		this.iter = iter;
+		this.h = h;
+	}
+
+	/** A clone of `orig` in place of `iter`, which drops once the clone is made. */
+	private restart(): void {
+		const ended = this.iter;
+		this.iter = this.orig.clone(this.h);
+		dispose(ended);
+	}
+
+	next(): T | Done {
+		const item = this.iter.next();
+		if (item !== DONE) return item;
+		this.restart();
+		return this.iter.next();
+	}
+
+	/** std's: by `orig`'s, either empty or endless. */
+	override sizeHint(): SizeHint {
+		const [lower, upper] = this.orig.sizeHint();
+		if (lower > 0) return [USIZE_MAX, undefined];
+		return upper === 0 ? [0, 0] : [0, undefined];
+	}
+
+	/** std's: `orig` by `h.i`, then `iter`. */
+	override clone(h?: Clones): Iter<T> {
+		return new CycleIter(this.orig.clone(h?.i), this.iter.clone(h?.i), this.h);
+	}
+
+	/** std's: `iter` advanced, then clones, until one advances no further than it had left. */
+	override advanceBy(n: number, drop?: Drop<T>): number {
+		n = this.iter.advanceBy(n, drop);
+		while (n > 0) {
+			this.restart();
+			const left = this.iter.advanceBy(n, drop);
+			if (left === n) return n;
+			n = left;
+		}
+		return 0;
+	}
+
+	/**
+	 * std's `try_fold`: the rest of `iter` folded, then a clone, which ends it if that was
+	 * empty, and then clones without end. `fold` is std's default, by `next`.
+	 */
+	override folded(fold = false): Iter<T> {
+		if (fold) return this;
+		let reading = this.iter.folded();
+		// Which clone it reads: 0 for none yet, 1 for the first, and 2 for one after.
+		let clones = 0;
+		let empty = true;
+		return new FromNext(this, (cycle) => {
+			for (;;) {
+				const item = reading.next();
+				if (item !== DONE) {
+					if (clones === 1) empty = false;
+					return item;
+				}
+				if (clones === 1 && empty) return DONE;
+				clones = Math.min(clones + 1, 2);
+				cycle.restart();
+				reading = cycle.iter.folded();
+			}
+		});
+	}
+
+	[Symbol.dispose](): void {
+		dispose(this.orig);
+		dispose(this.iter);
+	}
+}
+
 class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 	override sizeHint(): SizeHint {
 		return this.inner.sizeHint();
@@ -3320,10 +3523,16 @@ class OptionShunt<U> extends Adaptor<U | undefined | None, U> {
 	}
 }
 
-/** `a < b` of two integers of one type, or two booleans. */
+/** `a < b` of two integers, `char`s, or floats of one type, or two booleans. */
 function lt<T>(a: T, b: T): boolean {
 	if (typeof a === "object" || typeof b === "object") return wideLt(a as number | Limbs, b as number | Limbs);
 	return (a as number) < (b as number);
+}
+
+/** `a <= b` of two of what `lt` compares: never of a NaN. */
+function le<T>(a: T, b: T): boolean {
+	if (typeof a === "object" || typeof b === "object") return !wideLt(b as number | Limbs, a as number | Limbs);
+	return (a as number) <= (b as number);
 }
 
 /**
@@ -3421,9 +3630,9 @@ export function rangeIsEmpty<T>(r: Range<T>): boolean {
 	return !lt(r.start, r.end);
 }
 
-/** `Range::contains`. */
+/** `Range::contains`: `start <= item < end`, so nothing past a NaN. */
 export function rangeContains<T>(r: Range<T>, item: T): boolean {
-	return !lt(item, r.start) && lt(item, r.end);
+	return le(r.start, item) && lt(item, r.end);
 }
 
 /**
@@ -3461,6 +3670,22 @@ export class RangeFrom<T> extends Iter<T> {
 	override clone(): RangeFrom<T> {
 		return new RangeFrom(this.start, this.int);
 	}
+}
+
+/** `RangeFrom::contains`. */
+export function rangeFromContains<T>(r: RangeFrom<T>, item: T): boolean {
+	return le(r.start, item);
+}
+
+/** `RangeTo::contains` and `RangeToInclusive::contains`. */
+export function rangeToContains<T>(r: { readonly end: T; readonly inclusive?: true }, item: T): boolean {
+	return r.inclusive ? le(item, r.end) : lt(item, r.end);
+}
+
+/** `RangeBounds::contains` of a pair of `Bound`s. */
+export function boundsContains<T>([start, end]: readonly [RangeBound<T>, RangeBound<T>], item: T): boolean {
+	const above = start.tag === "Unbounded" || (start.tag === "Included" ? le(start._0, item) : lt(start._0, item));
+	return above && (end.tag === "Unbounded" || (end.tag === "Included" ? le(item, end._0) : lt(item, end._0)));
 }
 
 /** std's `Step::forward` in a debug build: `n + by`, panicking past `int`'s last value. */
@@ -3587,15 +3812,56 @@ export function rangeInclusiveEnd<T>(r: RangeInclusive<T>): T {
 	return r.hi;
 }
 
-/** `RangeInclusive::is_empty`. */
+/** `RangeInclusive::into_inner`: its bounds as they are, even exhausted. */
+export function rangeInclusiveIntoInner<T>(r: RangeInclusive<T>): [T, T] {
+	return [r.lo, r.hi];
+}
+
+/** `RangeInclusive::is_empty`: exhausted, or not `start <= end`, as of a NaN. */
 export function rangeInclusiveIsEmpty<T>(r: RangeInclusive<T>): boolean {
-	return r.exhausted || lt(r.hi, r.lo);
+	return r.exhausted || !le(r.lo, r.hi);
 }
 
 /** `RangeInclusive::contains`. */
 export function rangeInclusiveContains<T>(r: RangeInclusive<T>, item: T): boolean {
 	// Exhausted, it may have wrapped past its end, and contains nothing, as std's bounds say.
-	return !r.exhausted && !lt(item, r.lo) && !lt(r.hi, item);
+	return !r.exhausted && le(r.lo, item) && le(item, r.hi);
+}
+
+/** What `==` and `Hash` read of any of std's ranges that holds a bound, whatever steps it. */
+type Bounded<T> =
+	| { readonly lo: T; readonly hi: T; readonly exhausted: boolean }
+	| { readonly start: T; readonly end: T }
+	| { readonly start: T }
+	| { readonly end: T };
+
+/**
+ * `PartialEq::eq` of std's ranges of one kind, from their bounds' `eq`: each bound's, then
+ * whether an inclusive one is exhausted, as std's derived one compares its fields.
+ */
+export function rangeEq<T>(eq: (a: T, b: T) => boolean): (a: Bounded<T>, b: Bounded<T>) => boolean {
+	return (a, b) => {
+		if ("exhausted" in a) {
+			const c = b as typeof a;
+			return eq(a.lo, c.lo) && eq(a.hi, c.hi) && a.exhausted === c.exhausted;
+		}
+		const c = b as { readonly start: T; readonly end: T };
+		return (!("start" in a) || eq(a.start, c.start)) && (!("end" in a) || eq(a.end, c.end));
+	};
+}
+
+/** `Hash::hash` of std's ranges, from their bounds': each bound's, then whether an inclusive one is exhausted. */
+export function rangeHash<T>(hash: (value: T, s: Hasher) => void): (value: Bounded<T>, s: Hasher) => void {
+	return (r, s) => {
+		if ("exhausted" in r) {
+			hash(r.lo, s);
+			hash(r.hi, s);
+			hash8(r.exhausted, s);
+			return;
+		}
+		if ("start" in r) hash(r.start, s);
+		if ("end" in r) hash(r.end, s);
+	};
 }
 
 /** `RangeInclusive::start_bound`: its start, included. */

@@ -1384,3 +1384,291 @@ fn overflowed(a: u8, data: &[u8], out: &mut Vec<u8>) {
 		_ => out.extend(Vec::from_iter(top..)),
 	}
 }
+
+/// The methods of each of std's range types over bounds `a` and `b` of the table `kind`
+/// picks, at `data`'s first two bytes, against each of its values: integers of each
+/// width at their ends and past 2^53 and 2^64, `char`s at either side of the surrogates,
+/// floats with NaN and the zeros, and unsigned `NonZero`s.
+pub fn range_methods(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::num::NonZero;
+	let at = [0, 1].map(|i| usize::from(data.get(i).copied().unwrap_or(0)));
+	let past53 = (1 << 53) + 1;
+	let past64 = (1u128 << 64) + 1;
+	match kind % 19 {
+		0 => stepped(&[0u8, 1, 2, 254, 255], at, out),
+		1 => stepped(&[0u16, 1, 0x7fff, u16::MAX - 1, u16::MAX], at, out),
+		2 => stepped(&[0u32, 1, 0x8000_0000, u32::MAX - 1, u32::MAX], at, out),
+		3 => stepped(
+			&[0u64, 1, past53 - 2, past53 - 1, past53, u64::MAX - 1, u64::MAX],
+			at,
+			out,
+		),
+		4 => stepped(
+			&[0, 1, past64 - 2, past64 - 1, past64, u128::MAX - 1, u128::MAX],
+			at,
+			out,
+		),
+		5 => stepped(&[0usize, 1, 0x8000_0000, usize::MAX - 1, usize::MAX], at, out),
+		6 => stepped(&[i8::MIN, i8::MIN + 1, -1, 0, i8::MAX], at, out),
+		7 => stepped(&[i16::MIN, -1, 0, 1, i16::MAX - 1, i16::MAX], at, out),
+		8 => stepped(&[i32::MIN, i32::MIN + 1, -1, 0, i32::MAX], at, out),
+		9 => {
+			let past53 = past53 as i64;
+			stepped(&[i64::MIN, -past53, -1, 0, past53, i64::MAX - 1, i64::MAX], at, out)
+		}
+		10 => {
+			let past64 = past64 as i128;
+			stepped(&[i128::MIN, i128::MIN + 1, -past64, -1, 0, past64, i128::MAX], at, out)
+		}
+		11 => stepped(&[isize::MIN, -1, 0, 1, isize::MAX - 1, isize::MAX], at, out),
+		12 => stepped(
+			&['\0', 'a', '\u{d7fe}', '\u{d7ff}', '\u{e000}', '\u{e001}', char::MAX],
+			at,
+			out,
+		),
+		13 => drop(bounded(
+			&[f64::NAN, f64::NEG_INFINITY, -1.5, -0.0, 0.0, 2.5, f64::INFINITY],
+			at,
+			out,
+		)),
+		14 => drop(bounded(
+			&[f32::NAN, f32::NEG_INFINITY, -1.5, -0.0, 0.0, 2.5, f32::INFINITY],
+			at,
+			out,
+		)),
+		15 => stepped(&[1, 2, 254, 255].map(|n| NonZero::<u8>::new(n).unwrap()), at, out),
+		16 => stepped(&[1, past53, u64::MAX].map(|n| NonZero::new(n).unwrap()), at, out),
+		17 => stepped(&[1, past64, u128::MAX].map(|n| NonZero::new(n).unwrap()), at, out),
+		_ => stepped(&[1, 2, usize::MAX].map(|n| NonZero::new(n).unwrap()), at, out),
+	}
+}
+
+/// Each range type's comparisons of `a` and `b`, from `table`, against each of its
+/// values, and their `Debug`.
+fn bounded<T: Copy + PartialOrd + fmt::Debug>(table: &[T], at: [usize; 2], out: &mut Vec<u8>) -> (T, T) {
+	use std::ops::{Bound, RangeBounds};
+	let [a, b] = at.map(|i| table[i % table.len()]);
+	out.extend([(a..b).is_empty(), (a..=b).is_empty()].map(u8::from));
+	for x in table {
+		let held = [
+			(a..b).contains(x),
+			(a..=b).contains(x),
+			(a..).contains(x),
+			(..b).contains(x),
+			(..=b).contains(x),
+			bounds_contain(a..b, x),
+			bounds_contain(a..=b, x),
+			bounds_contain(a.., x),
+			bounds_contain(..b, x),
+			bounds_contain(..=b, x),
+			bounds_contain(.., x),
+			(Bound::Excluded(a), Bound::Included(b)).contains(x),
+			(Bound::Unbounded, Bound::Excluded(b)).contains(x),
+			(a..b) == (*x..b),
+			(a..=b) == (a..=*x),
+			(a..) != (*x..),
+			(..b) == (..*x),
+			(..=b) != (..=*x),
+		];
+		out.extend(held.map(u8::from));
+	}
+	let (start, end) = (a..=b).into_inner();
+	let inclusive = a..=b;
+	let shown = format!(
+		"{:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+		a..b,
+		inclusive,
+		a..,
+		..b,
+		..=b,
+		(start, end),
+		(inclusive.start(), inclusive.end()),
+		(.., (.., 1..2)),
+	);
+	out.extend(shown.bytes());
+	let (from, to, through) = (a.., ..b, ..=b);
+	let bounds = [
+		inclusive.start_bound(),
+		inclusive.end_bound(),
+		from.start_bound(),
+		from.end_bound(),
+		to.end_bound(),
+		through.end_bound(),
+	];
+	out.extend(bounds.map(|bound| bound_of(table, bound)));
+	(a, b)
+}
+
+/// Which kind of bound `bound` is, and where its value is in `table`.
+fn bound_of<T: PartialEq>(table: &[T], bound: std::ops::Bound<&T>) -> u8 {
+	use std::ops::Bound;
+	let at = |x: &T| table.iter().position(|y| y == x).map_or(0x3f, |i| i as u8);
+	match bound {
+		Bound::Included(x) => 0x40 | at(x),
+		Bound::Excluded(x) => 0x80 | at(x),
+		Bound::Unbounded => 0,
+	}
+}
+
+/// `RangeBounds::contains`, through the trait.
+fn bounds_contain<T: PartialOrd>(r: impl std::ops::RangeBounds<T>, x: &T) -> bool {
+	r.contains(x)
+}
+
+/// `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+/// from either end, by `next` past its last item, which wraps it at its type's end, and
+/// folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+fn stepped<T>(table: &[T], at: [usize; 2], out: &mut Vec<u8>)
+where
+	T: Copy + Eq + PartialOrd + fmt::Debug + std::hash::Hash,
+	std::ops::RangeInclusive<T>: DoubleEndedIterator<Item = T>,
+{
+	use std::hash::{DefaultHasher, Hash, Hasher};
+	use std::ops::RangeBounds;
+	let (a, b) = bounded(table, at, out);
+	let hash = |value: &dyn Fn(&mut DefaultHasher)| {
+		let mut h = DefaultHasher::new();
+		value(&mut h);
+		h.finish().to_le_bytes()
+	};
+	out.extend(hash(&|h| {
+		(a..b).hash(h);
+		(a..=b).hash(h);
+		(a..).hash(h);
+		(..b).hash(h);
+		(..=b).hash(h);
+		(..).hash(h);
+	}));
+	for how in 0..9 {
+		let mut r = a..=b;
+		let n = at[0] % 4;
+		let read = match how {
+			0 => None,
+			1 => r.next(),
+			2 => r.next_back(),
+			3 => r.by_ref().take(300).last(),
+			4 => r.by_ref().rev().take(300).last(),
+			5 => (0..300).map_while(|_| r.next()).last(),
+			6 => (0..300).map_while(|_| r.next_back()).last(),
+			7 => r.nth(n),
+			_ => r.nth_back(n),
+		};
+		let (start, end) = (*r.start(), *r.end());
+		let keyed = std::collections::HashSet::from([a..=b, start..=end, start..=end]);
+		out.extend(format!("{read:?} {r:?} {}", keyed.len()).bytes());
+		out.extend([bound_of(table, r.start_bound()), bound_of(table, r.end_bound())]);
+		out.extend([r.is_empty(), r == (a..=b), r == (start..=end), r != (start..=end)].map(u8::from));
+		out.extend(table.iter().map(|x| u8::from(r.contains(x))));
+		out.extend(hash(&|h| r.hash(h)));
+		let (start, end) = r.into_inner();
+		out.extend(format!("{start:?} {end:?}").bytes());
+	}
+}
+
+/// std's comparisons of iterators, logging each item they read and each call of a `_by`
+/// form's closure, which counts them in what it captures: against the data cut short, run
+/// long, or changed at its end, by `kind >> 4`. Of two `TrustedLen` sides, whose `eq` reads
+/// neither unless their lengths agree; of sides that are not, the first by `&mut` and read
+/// on after; of floats with NaN for 0xff, against a `Vec` by value; and of `start..`, which
+/// never ends, and panics past its type's last value.
+pub fn compares(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let log = std::cell::RefCell::new(Vec::new());
+	let mut other = data.to_vec();
+	match (kind >> 4) % 4 {
+		0 => {}
+		1 => drop(other.pop()),
+		2 => other.push(kind),
+		_ => {
+			if let Some(last) = other.last_mut() {
+				*last = last.wrapping_add(1);
+			}
+		}
+	}
+	macro_rules! seen {
+		($tag:expr) => {
+			|&x: &u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	macro_rules! stepped {
+		($tag:expr) => {
+			|x: u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	macro_rules! float {
+		($tag:expr) => {
+			|&x: &u8| {
+				log.borrow_mut().push(x ^ $tag);
+				if x == 0xff { f32::NAN } else { f32::from(x) }
+			}
+		};
+	}
+	let order = |o: Option<std::cmp::Ordering>| o.map_or(9, |o| o as u8);
+	// By `PartialEq` and `PartialOrd`, and the `_by` forms of each.
+	macro_rules! partial {
+		($a:expr, $b:expr) => {{
+			let mut calls = 0u8;
+			let r = match kind % 16 {
+				0 => $a.eq($b) as u8,
+				1 => $a.ne($b) as u8,
+				2 => $a.lt($b) as u8,
+				3 => $a.le($b) as u8,
+				4 => $a.gt($b) as u8,
+				5 => $a.ge($b) as u8,
+				6 => order($a.partial_cmp($b)),
+				7 => $a.eq_by($b, |x, y| {
+					calls += 1;
+					x == y
+				}) as u8,
+				_ => order($a.partial_cmp_by($b, |x, y| {
+					calls += 1;
+					x.partial_cmp(&y)
+				})),
+			};
+			out.extend([r, calls]);
+		}};
+	}
+	// And by `Ord`, and a comparison that overflows, which panics, past 255.
+	macro_rules! total {
+		($a:expr, $b:expr) => {{
+			let mut calls = 0u8;
+			match kind % 16 {
+				9 => out.push($a.cmp($b) as u8),
+				10 => out.push($a.cmp_by($b, |x, y| {
+					calls += 1;
+					x.cmp(&y)
+				}) as u8),
+				11 => out.push($a.cmp_by($b, |x: u8, y: u8| (x + y).cmp(&(y + x))) as u8),
+				_ => partial!($a, $b),
+			}
+			out.push(calls);
+		}};
+	}
+	match kind >> 6 {
+		0 => total!(data.iter().map(seen!(1)), other.iter().map(seen!(2))),
+		1 => {
+			let mut a = data.iter().map(seen!(3)).filter(|_| true);
+			total!(a.by_ref(), other.iter().map(seen!(4)).skip_while(|_| false));
+			out.push(a.count() as u8);
+		}
+		2 => {
+			let b: Vec<f32> = other.iter().map(float!(6)).collect();
+			partial!(data.iter().map(float!(5)), b);
+		}
+		_ => {
+			let lo = data.first().copied().unwrap_or(0);
+			match (kind >> 4) % 4 {
+				0 => total!(data.iter().map(seen!(7)), (lo..).map(stepped!(8))),
+				1 => total!((lo..).map(stepped!(9)), data.iter().map(seen!(10))),
+				2 => total!((lo..).map(stepped!(11)), (lo..).map(stepped!(12))),
+				_ => total!((lo..).take(data.len()).map(stepped!(13)), (lo..).map(stepped!(14))),
+			}
+		}
+	}
+	out.extend_from_slice(&log.borrow());
+}
