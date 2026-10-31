@@ -33,6 +33,8 @@ import type * as Way from "../keys.Way.ts";
 import type * as locals_Noisy from "../locals.Noisy.ts";
 import type * as orders_Item from "../orders.Item.ts";
 import type * as pointers_Pair from "../pointers.Pair.ts";
+import { sum, sumWords, sumPairs, sumTexts, sumTwos } from "../separated.ts";
+import type * as separated_Pair from "../separated.Pair.ts";
 import { from$convert_From_shapes_Dir_u8 } from "../shapes.ts";
 import type * as shapes_Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
@@ -510,11 +512,46 @@ export function map$1u8sh4f(self: edits_Named.Named | undefined, _: (a0: edits_N
 	return [self];
 }
 
+export function map$1r7pvtd(self: string[] | undefined, _: (a0: string[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return sumTexts(self);
+}
+
+export function map$14orwce(self: Uint8Array[] | undefined, _: (a0: Uint8Array[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return sumTwos(self);
+}
+
+export function map$02o7iu2(self: separated_Pair.Pair[] | undefined, _: (a0: separated_Pair.Pair[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return sumPairs(self);
+}
+
+export function map$0vryjg8(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return sumWords(self);
+}
+
 export function map$0qyyft9(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return digestWords(self);
+}
+
+export function map$1uuzv15(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return sum(self);
 }
 
 export function map$1xk4yz1(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
@@ -1048,6 +1085,41 @@ export function mapOr$1surhce(self: rt.u8 | undefined, default_: rt.u8, f: (a0: 
 		return default_;
 	}
 	return f(self);
+}
+
+export function mapOr$0j8cgo8(self: string[] | undefined, default_: rt.u8, _: (a0: string[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return sumTexts(self);
+}
+
+export function mapOr$0wkl4zm(self: Uint8Array[] | undefined, default_: rt.u8, _: (a0: Uint8Array[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return sumTwos(self);
+}
+
+export function mapOr$15c63lv(self: separated_Pair.Pair[] | undefined, default_: rt.u8, _: (a0: separated_Pair.Pair[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return sumPairs(self);
+}
+
+export function mapOr$1qu2moz(self: rt.u16[] | undefined, default_: rt.u8, _: (a0: rt.u16[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return sumWords(self);
+}
+
+export function mapOr$18m1ie6(self: rt.ByteSlice | undefined, default_: rt.u8, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return sum(self);
 }
 
 export function mapOr$189goit(self: slices_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: slices_Noisy.Noisy) => rt.u8): rt.u8 {
