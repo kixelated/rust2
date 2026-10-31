@@ -213,7 +213,8 @@ std's Unicode tables, which the runtime carries, not the engine's. `Debug` of st
 collections writes their items in the order each iterates, a hash map's or set's included,
 and of their iterators and `Chars` the items each has left, in std's wrapper; a deque's
 `Iter` and `IterMut`, which write its buffer's two halves, and its `Drain`, which writes its
-counts, are refused. A caller prints a
+counts, are refused. `Debug` of `Bound`, `Ordering`, `Reverse`, and `ControlFlow` is
+their derived one, whichever way each is held. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
@@ -633,7 +634,11 @@ they need.
   and Chrome; 64 keys a node measured best of 16 to 128. A hash map's JS primitive keys
   are a JS `Map`'s, the engine's own hash table; its other keys go into a second `Map`
   by their translated hash, chained by `Eq`. `VecDeque` is a ring buffer over an array
-  whose length is a power of two.
+  whose length is a power of two. Dropping a whole map or set drops its entries in the
+  runtime's order, keys' for a B-tree, not std's node by node: std leaves that order
+  undocumented, and matching it would mean porting std's 11-key node layout, measured 1.5x
+  slower ([#272](https://github.com/moq-dev/rust2/pull/272)). Maintainer's decision on
+  2026-10-30; a map's `IntoIter` still drops in std's order.
 - A slice's `sort` and `sort_unstable` are one stable merge sort of the runtime's own,
   calling only the comparator, as std permits of an unstable sort: JS's `sort` moves
   `undefined`, a `None`, to the end without comparing it, and each engine orders its
