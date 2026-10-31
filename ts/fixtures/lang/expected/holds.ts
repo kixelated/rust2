@@ -13,24 +13,25 @@ export function whole(p: [string, Row.Row, rt.u8]): rt.u8 {
 	return (rt.stringLen(p[0]) & 0xff) ^ p[1].cells[1] ^ p[2];
 }
 
-export function holds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function holds(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
 	const b: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0);
 	const _10: rt.u8 = rt.u8Rem(kind, 7);
 	if (_10 === 0) {
-		places(a, b, data, out);
+		places(a, b, data.data, data.start, data.length, out);
 	} else if (_10 === 1) {
-		indexed(data, out);
+		indexed(data.data, data.start, data.length, out);
 	} else if (_10 === 2) {
-		reborrows(a, b, data, out);
+		reborrows(a, b, data.data, data.start, data.length, out);
 	} else if (_10 === 3) {
-		copies(a, data, out);
+		copies(a, data.data, data.start, data.length, out);
 	} else if (_10 === 4) {
-		closures(a, b, data, out);
+		closures(a, b, data.data, data.start, data.length, out);
 	} else if (_10 === 5) {
-		parts(a, b, data, out);
+		parts(a, b, data.data, data.start, data.length, out);
 	} else {
-		ranges(data, out);
+		ranges(data.data, data.start, data.length, out);
 	}
 }
 
@@ -38,7 +39,7 @@ export function holds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * A `&mut` through nested indexes lent as an `rt.Place`, each index assigned again while
  * it lives, and one through a reference assigned another.
  */
-export function places(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function places(a: rt.u8, b: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const item = copy$array_u8(rt.bytes(4));
 	const grid: Uint8Array[] = Array.from({ length: 4 }, (): Uint8Array => {
 		return copy$array_u8(item);
@@ -47,7 +48,7 @@ export function places(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec):
 	const _16: [rt.usize, rt.usize] = [rt.u8Rem(a, 4) as rt.usize, rt.u8Rem(b, 4) as rt.usize];
 	let i: rt.usize = _16[0];
 	let j: rt.usize = _16[1];
-	for (const k of rt.byteSliceView(data)) {
+	for (const k of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const _30: rt.usize = i;
 		if (!(_30 < 4)) {
 			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _30);
@@ -104,18 +105,20 @@ export function places(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec):
  * Shared and mutable borrows of an element, the index assigned again before the read,
  * and kept across iterations.
  */
-export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function indexed(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let i: rt.usize = 0;
 	const kept: rt.u8[] = [];
-	while (i < data.length) {
+	while (i < dataLen) {
 		const _9: rt.usize = i;
-		rt.idx(data, _9);
+		if (_9 >= dataLen) {
+			rt.panic("index out of bounds: the len is " + dataLen + " but the index is " + _9);
+		}
 		i = rt.usizeAdd(i, 1);
-		rt.byteVecPush(out, data.data[data.start + _9]);
-		kept.push(data.data[data.start + _9]);
+		rt.byteVecPush(out, dataData[dataStart + _9]);
+		kept.push(dataData[dataStart + _9]);
 	}
 	rt.iterExtendBytes(out, rt.iterSlice(kept), undefined, true);
-	const v: rt.ByteVec = rt.byteSliceToByteVec(data);
+	const v: rt.ByteVec = rt.byteSliceToByteVec(new rt.ByteSlice(dataData, dataStart, dataLen));
 	let i2: rt.usize = 0;
 	while (i2 < v.length) {
 		const at = rt.idx(v, i2);
@@ -130,7 +133,7 @@ export function indexed(data: rt.ByteSlice, out: rt.ByteVec): void {
  * A reborrow through a reference that is then assigned another, shared and mutable, in a
  * loop.
  */
-export function reborrows(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function reborrows(a: rt.u8, b: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let x: rt.u8 = a;
 	let y: rt.u8 = b;
 	let r: rt.Place<rt.u8> = rt.place(() => x, (value) => x = value);
@@ -141,7 +144,7 @@ export function reborrows(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVe
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(x, y)), undefined, true);
 	let r2: rt.u8 = a;
 	const kept: rt.u8[] = [];
-	for (const _25 of rt.byteSliceView(data)) {
+	for (const _25 of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const s2: rt.u8 = r2;
 		r2 = _25;
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(s2, r2)), undefined, true);
@@ -154,16 +157,16 @@ export function reborrows(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVe
  * A copy of a reference whose source is assigned another, and of an `Option` a range's
  * `next` assigns again.
  */
-export function copies(a: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function copies(a: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let r: rt.u8 = a;
 	const kept: rt.u8[] = [];
-	for (const _9 of rt.byteSliceView(data)) {
+	for (const _9 of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const s: rt.u8 = r;
 		r = _9;
 		kept.push(s);
 	}
 	rt.iterExtendBytes(out, rt.iterSlice(kept), undefined, true);
-	const range: rt.Range<rt.usize> = new rt.Range(0, data.length);
+	const range: rt.Range<rt.usize> = new rt.Range(0, dataLen);
 	let cur: rt.usize | undefined = range.start < range.end ? range.start++ : undefined;
 	const some: boolean = cur !== undefined;
 	const copied: rt.usize | undefined = cur;
@@ -190,9 +193,10 @@ export function copies(a: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Closures made in a loop that capture a reference to what that iteration reads, called
  * after it: an element, a payload, a field, and a value a loop breaks with.
  */
-export function closures(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function closures(a: rt.u8, b: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _31!: rt.usize;
 	let _47!: rt.usize;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const arr: Uint8Array = Uint8Array.of(a, b, 3, 4, 5, 6, 7, 8);
 	const rows: Row.Row[] = [{ cells: rt.bytes(4).fill(a) }, { cells: rt.bytes(4).fill(b) }, { cells: rt.bytes(4).fill(7) }];
 	const v: rt.ByteVec = rt.byteSliceToByteVec(data);
@@ -273,7 +277,7 @@ export function closures(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec
  * A tuple of references and a number, read by its fields and whole after the variables
  * it was made of are assigned again, and one made in a loop from a variable it assigns.
  */
-export function parts(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function parts(a: rt.u8, b: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const rows: Row.Row[] = [{ cells: rt.bytes(4).fill(a) }, { cells: rt.bytes(4).fill(b) }];
 	let s: string = "ab";
 	let x: Row.Row = rows[0];
@@ -289,7 +293,7 @@ export function parts(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): 
 	rt.byteVecExtendFromSlice(out, rt.stringAsBytes(s));
 	rt.byteVecPush(out, x.cells[0] ^ n);
 	let total: rt.u8 = 0;
-	for (const _47 of rt.byteSliceView(data)) {
+	for (const _47 of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const p: [rt.u8, rt.u8] = [n, _47];
 		n = rt.u8WrappingMul(n, 3);
 		total = rt.u8WrappingAdd(rt.u8WrappingAdd(total, p[0]), _47);
@@ -298,16 +302,16 @@ export function parts(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): 
 }
 
 /** A range's start read, then the range stepped, once and in a loop. */
-export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function ranges(_dataData: Uint8Array, _dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _16!: rt.usize;
-	const range: rt.Range<rt.usize> = new rt.Range(0, data.length);
+	const range: rt.Range<rt.usize> = new rt.Range(0, dataLen);
 	const before: rt.usize = range.start;
 	const first: rt.usize | undefined = range.start < range.end ? range.start++ : undefined;
 	rt.byteVecPush(out, before & 0xff);
 	rt.byteVecPush(out, option_mapOr$02k4ito(first, 255, (f: rt.usize): rt.u8 => {
 		return f & 0xff;
 	}));
-	const range2: rt.Range<rt.usize> = new rt.Range(0, data.length);
+	const range2: rt.Range<rt.usize> = new rt.Range(0, dataLen);
 	while (true) {
 		const before2: rt.usize = range2.start;
 		const _16Some: boolean = range2.start < range2.end;

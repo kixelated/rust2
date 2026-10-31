@@ -60,11 +60,12 @@ export function rankByte(r: Rank.Rank): rt.u8 {
 }
 
 /** A `HashMap` by each kind of key, through a script of inserts, lookups, and removals. */
-export function hashMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function hashMaps(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _174!: rt.usize;
 	let _299!: rt.usize;
 	let _377!: rt.u8;
 	let _429!: rt.u8;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _443: (a0: collections_Nibble.Nibble) => rt.u64 = (n: collections_Nibble.Nibble): rt.u64 => {
 		const h2: rt.Hasher = rt.hasher();
 		collections_Nibble.hash$Hash_hash_DefaultHasher(n, h2);
@@ -463,7 +464,8 @@ export function claim(map: rt.HashMap<rt.u8, collections_Tally.Tally>, k: rt.u8,
 }
 
 /** `HashSet` and `BTreeSet`, each with the same script. */
-export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function sets(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _159: (a0: collections_Nibble.Nibble | undefined) => rt.u8 = (n2: collections_Nibble.Nibble | undefined): rt.u8 => {
 		return option_mapOr$0q0ymkh(n2, 238, (n3: collections_Nibble.Nibble): rt.u8 => {
 			return n3._0;
@@ -635,11 +637,12 @@ export function sets(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `BTreeMap`: ordered by the key's `Ord`, through inserts, removals, and ranges. */
-export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function btreeMaps(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let within!: rt.ByteVec;
 	let _185!: rt.usize;
 	let _365!: rt.usize;
 	let _422!: rt.u8;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _4: rt.u8 = rt.u8Rem(kind, 4);
 	if (_4 === 0) {
 		const map: rt.BTreeMap<rt.u8, rt.u8> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u8>;
@@ -927,8 +930,9 @@ export function touch(q: rt.VecDeque<rt.u8>): rt.VecDeque<rt.u8> {
 }
 
 /** `VecDeque`: a ring buffer, pushed and popped at both ends past its capacity. */
-export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function deques(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let drained2!: rt.ByteVec;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const q: rt.VecDeque<rt.u8> = rt.dequeNew() as rt.VecDeque<rt.u8>;
 	const pairs: rt.VecDeque<[rt.u8, rt.u8]> = rt.dequeNew() as rt.VecDeque<[rt.u8, rt.u8]>;
 	for (const b of rt.byteSliceView(data)) {
@@ -1046,8 +1050,9 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `vec![a, b]` and `vec![x; n]`, of bytes, numbers, `Copy` tuples, and types that clone. */
-export function vecs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function vecs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let name!: string;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
 	const b: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0);
 	const n: rt.usize = rt.usizeRem(option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 2), 0) as rt.usize, 5);
@@ -1165,7 +1170,8 @@ export function hold(pair: [rt.u8, rt.u8]): Holder.Holder {
  * A `Copy` aggregate a std call stores by value is the container's own copy: changing
  * one stored element leaves the value it came from and the other elements as they were.
  */
-export function stores(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function stores(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const a: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
 	const b: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0);
 	const pair: [rt.u8, rt.u8] = same([a, b] as [rt.u8, rt.u8]);
@@ -1392,9 +1398,9 @@ export function sorted$collections_OptionMap_unit_collections_BTreeMap_u8_unit(s
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$Option_String_collections_HashMap_u8_Option_String(map: rt.HashMap<rt.u8, string | undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => string | undefined, out: rt.ByteVec): void {
+export function optional$Option_String_collections_HashMap_u8_Option_String(map: rt.HashMap<rt.u8, string | undefined>, dataData: Uint8Array, dataStart: number, dataLen: number, value: (a0: rt.u8) => string | undefined, out: rt.ByteVec): void {
 	let read!: string;
-	for (const b of rt.byteSliceView(data)) {
+	for (const b of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
 		const _14: rt.u8 = rt.u8Rem(rt.u8Div(b, 8), 4);
 		if (_14 === 0) {
@@ -1433,9 +1439,9 @@ export function optional$Option_String_collections_HashMap_u8_Option_String(map:
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$Option_u8_collections_BTreeMap_u8_Option_u8(map: rt.BTreeMap<rt.u8, rt.u8 | undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => rt.u8 | undefined, out: rt.ByteVec): void {
+export function optional$Option_u8_collections_BTreeMap_u8_Option_u8(map: rt.BTreeMap<rt.u8, rt.u8 | undefined>, dataData: Uint8Array, dataStart: number, dataLen: number, value: (a0: rt.u8) => rt.u8 | undefined, out: rt.ByteVec): void {
 	let read!: string;
-	for (const b of rt.byteSliceView(data)) {
+	for (const b of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
 		const _14: rt.u8 = rt.u8Rem(rt.u8Div(b, 8), 4);
 		if (_14 === 0) {
@@ -1474,9 +1480,9 @@ export function optional$Option_u8_collections_BTreeMap_u8_Option_u8(map: rt.BTr
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$Option_u8_collections_HashMap_u8_Option_u8(map: rt.HashMap<rt.u8, rt.u8 | undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => rt.u8 | undefined, out: rt.ByteVec): void {
+export function optional$Option_u8_collections_HashMap_u8_Option_u8(map: rt.HashMap<rt.u8, rt.u8 | undefined>, dataData: Uint8Array, dataStart: number, dataLen: number, value: (a0: rt.u8) => rt.u8 | undefined, out: rt.ByteVec): void {
 	let read!: string;
-	for (const b of rt.byteSliceView(data)) {
+	for (const b of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
 		const _14: rt.u8 = rt.u8Rem(rt.u8Div(b, 8), 4);
 		if (_14 === 0) {
@@ -1515,9 +1521,9 @@ export function optional$Option_u8_collections_HashMap_u8_Option_u8(map: rt.Hash
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$unit_collections_BTreeMap_u8_unit(map: rt.BTreeMap<rt.u8, undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => undefined, out: rt.ByteVec): void {
+export function optional$unit_collections_BTreeMap_u8_unit(map: rt.BTreeMap<rt.u8, undefined>, dataData: Uint8Array, dataStart: number, dataLen: number, value: (a0: rt.u8) => undefined, out: rt.ByteVec): void {
 	let read!: string;
-	for (const b of rt.byteSliceView(data)) {
+	for (const b of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
 		const _14: rt.u8 = rt.u8Rem(rt.u8Div(b, 8), 4);
 		if (_14 === 0) {
@@ -1556,9 +1562,9 @@ export function optional$unit_collections_BTreeMap_u8_unit(map: rt.BTreeMap<rt.u
  * Run `data` on `map`, each byte a key in its low nibble and an operation above it, and
  * `value` making what `insert` and `get_mut` put.
  */
-export function optional$unit_collections_HashMap_u8_unit(map: rt.HashMap<rt.u8, undefined>, data: rt.ByteSlice, value: (a0: rt.u8) => undefined, out: rt.ByteVec): void {
+export function optional$unit_collections_HashMap_u8_unit(map: rt.HashMap<rt.u8, undefined>, dataData: Uint8Array, dataStart: number, dataLen: number, value: (a0: rt.u8) => undefined, out: rt.ByteVec): void {
 	let read!: string;
-	for (const b of rt.byteSliceView(data)) {
+	for (const b of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const k: rt.u8 = rt.u8Rem(b, 8);
 		const _14: rt.u8 = rt.u8Rem(rt.u8Div(b, 8), 4);
 		if (_14 === 0) {
@@ -1612,26 +1618,26 @@ export function made$collections_HashMap_u8_Option_String(): rt.HashMap<rt.u8, s
  * Maps whose values are `Option`s or `()`, whose `get`, `insert`, and `remove` return an
  * `Option` of one: by key, by hash of a key that is an object, and in order.
  */
-export function optionals(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function optionals(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let read!: rt.u8 | undefined | rt.None;
 	const _4: rt.u8 = rt.u8Rem(kind, 6);
 	if (_4 === 0) {
-		optional$Option_u8_collections_HashMap_u8_Option_u8(rt.hashNew() as rt.HashMap<rt.u8, rt.u8 | undefined>, data, some, out);
+		optional$Option_u8_collections_HashMap_u8_Option_u8(rt.hashNew() as rt.HashMap<rt.u8, rt.u8 | undefined>, dataData, dataStart, dataLen, some, out);
 	} else if (_4 === 1) {
-		optional$Option_u8_collections_BTreeMap_u8_Option_u8(made$collections_BTreeMap_u8_Option_u8(), data, some, out);
+		optional$Option_u8_collections_BTreeMap_u8_Option_u8(made$collections_BTreeMap_u8_Option_u8(), dataData, dataStart, dataLen, some, out);
 	} else if (_4 === 2) {
-		optional$unit_collections_HashMap_u8_unit(rt.hashNew() as rt.HashMap<rt.u8, undefined>, data, (_22: rt.u8): undefined => {}, out);
+		optional$unit_collections_HashMap_u8_unit(rt.hashNew() as rt.HashMap<rt.u8, undefined>, dataData, dataStart, dataLen, (_22: rt.u8): undefined => {}, out);
 	} else if (_4 === 3) {
-		optional$unit_collections_BTreeMap_u8_unit(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, undefined>, data, (_2: rt.u8): undefined => {}, out);
+		optional$unit_collections_BTreeMap_u8_unit(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, undefined>, dataData, dataStart, dataLen, (_2: rt.u8): undefined => {}, out);
 	} else if (_4 === 4) {
-		optional$Option_String_collections_HashMap_u8_Option_String(made$collections_HashMap_u8_Option_String(), data, (b2: rt.u8): string | undefined => {
+		optional$Option_String_collections_HashMap_u8_Option_String(made$collections_HashMap_u8_Option_String(), dataData, dataStart, dataLen, (b2: rt.u8): string | undefined => {
 			return option_map$0oc32h1(some(b2), (b3: rt.u8): string => {
 				return rt.fmtToString((f: rt.Formatter) => rt.u8Display(b3, f));
 			});
 		}, out);
 	} else {
 		const map: rt.HashMap<[rt.u8, boolean], rt.u8 | undefined> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, boolean], rt.u8 | undefined>;
-		for (const b of rt.byteSliceView(data)) {
+		for (const b of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 			const k: [rt.u8, boolean] = [rt.u8Rem(b, 4), (b & 16) !== 0];
 			const _29: rt.u8 = rt.u8Rem(rt.u8Div(b, 32), 4);
 			if (_29 === 0) {
@@ -1666,7 +1672,8 @@ export function optionals(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
  * in the runtime's, so what each yields is sorted first. The `Nibble` an op yields shows
  * which set's key of two equal ones std's picks.
  */
-export function setOps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function setOps(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const mid: number = rt.usizeDiv(data.length, 2);
 	if (mid > data.length) {
 		rt.panic("mid > len");
@@ -1707,31 +1714,41 @@ export function setOps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		const _55: rt.u8 = rt.u8Rem(kind, 5);
 		if (_55 === 0) {
-			setOpsOf$u8(left, right, (b6: rt.u8): rt.u8 => {
+			const _57: rt.ByteSlice = left;
+			const _58: rt.ByteSlice = right;
+			setOpsOf$u8(_57.data, _57.start, _57.length, _58.data, _58.start, _58.length, (b6: rt.u8): rt.u8 => {
 				return rt.u8Rem(b6, 32);
 			}, (v3: rt.u8): rt.u8 => {
 				return v3;
 			}, out);
 		} else if (_55 === 1) {
-			setOpsOf$array2_u8(left, right, (b5: rt.u8): Uint8Array => {
+			const _61: rt.ByteSlice = left;
+			const _62: rt.ByteSlice = right;
+			setOpsOf$array2_u8(_61.data, _61.start, _61.length, _62.data, _62.start, _62.length, (b5: rt.u8): Uint8Array => {
 				return Uint8Array.of(rt.u8Rem(b5, 4), rt.u8Rem(rt.u8Div(b5, 4), 4));
 			}, (k2: rt.ByteSlice): rt.u8 => {
 				return ((k2.data[k2.start] << 4) & 0xff) | k2.data[k2.start + 1];
 			}, out);
 		} else if (_55 === 2) {
-			setOpsOf$Option_u8(left, right, (b4: rt.u8): rt.u8 | undefined => {
+			const _65: rt.ByteSlice = left;
+			const _66: rt.ByteSlice = right;
+			setOpsOf$Option_u8(_65.data, _65.start, _65.length, _66.data, _66.start, _66.length, (b4: rt.u8): rt.u8 | undefined => {
 				return thenSome$0d5am30(rt.u8Rem(b4, 32) !== 0, rt.u8Rem(b4, 32));
 			}, (v2: rt.u8 | undefined): rt.u8 => {
 				return option_unwrapOr$0r2bmpr(v2, 238);
 			}, out);
 		} else if (_55 === 3) {
-			setOpsOf$collections_Nibble(left, right, (a0: rt.u8): collections_Nibble.Nibble => {
+			const _69: rt.ByteSlice = left;
+			const _70: rt.ByteSlice = right;
+			setOpsOf$collections_Nibble(_69.data, _69.start, _69.length, _70.data, _70.start, _70.length, (a0: rt.u8): collections_Nibble.Nibble => {
 				return { _0: a0 };
 			}, (n: collections_Nibble.Nibble): rt.u8 => {
 				return n._0;
 			}, out);
 		} else {
-			setOpsOf$cmp_Reverse_Option_u8(left, right, (b3: rt.u8): rt.u8 | undefined => {
+			const _73: rt.ByteSlice = left;
+			const _74: rt.ByteSlice = right;
+			setOpsOf$cmp_Reverse_Option_u8(_73.data, _73.start, _73.length, _74.data, _74.start, _74.length, (b3: rt.u8): rt.u8 | undefined => {
 				return thenSome$0d5am30(rt.u8Rem(b3, 32) !== 0, rt.u8Rem(b3, 32));
 			}, (v: rt.u8 | undefined): rt.u8 => {
 				return option_unwrapOr$0r2bmpr(v, 238);
@@ -1740,7 +1757,9 @@ export function setOps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
-export function setOpsOf$Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: rt.u8) => rt.u8 | undefined, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+export function setOpsOf$Option_u8(leftData: Uint8Array, leftStart: number, leftLen: number, rightData: Uint8Array, rightStart: number, rightLen: number, make: (a0: rt.u8) => rt.u8 | undefined, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const left: rt.ByteSlice = new rt.ByteSlice(leftData, leftStart, leftLen);
+	const right: rt.ByteSlice = new rt.ByteSlice(rightData, rightStart, rightLen);
 	const _7: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): rt.u8 | undefined => {
 		return make(_2);
 	});
@@ -1837,7 +1856,9 @@ export function setOpsOf$Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make
 	}
 }
 
-export function setOpsOf$array2_u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: rt.u8) => Uint8Array, put: (a0: rt.ByteSlice) => rt.u8, out: rt.ByteVec): void {
+export function setOpsOf$array2_u8(leftData: Uint8Array, leftStart: number, leftLen: number, rightData: Uint8Array, rightStart: number, rightLen: number, make: (a0: rt.u8) => Uint8Array, put: (a0: rt.ByteSlice) => rt.u8, out: rt.ByteVec): void {
+	const left: rt.ByteSlice = new rt.ByteSlice(leftData, leftStart, leftLen);
+	const right: rt.ByteSlice = new rt.ByteSlice(rightData, rightStart, rightLen);
 	const _7: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): Uint8Array => {
 		return make(_2);
 	});
@@ -1934,7 +1955,9 @@ export function setOpsOf$array2_u8(left: rt.ByteSlice, right: rt.ByteSlice, make
 	}
 }
 
-export function setOpsOf$cmp_Reverse_Option_u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: rt.u8) => rt.u8 | undefined, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+export function setOpsOf$cmp_Reverse_Option_u8(leftData: Uint8Array, leftStart: number, leftLen: number, rightData: Uint8Array, rightStart: number, rightLen: number, make: (a0: rt.u8) => rt.u8 | undefined, put: (a0: rt.u8 | undefined) => rt.u8, out: rt.ByteVec): void {
+	const left: rt.ByteSlice = new rt.ByteSlice(leftData, leftStart, leftLen);
+	const right: rt.ByteSlice = new rt.ByteSlice(rightData, rightStart, rightLen);
 	const _7: rt.Iter<rt.u8 | undefined> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): rt.u8 | undefined => {
 		return make(_2);
 	});
@@ -2031,7 +2054,9 @@ export function setOpsOf$cmp_Reverse_Option_u8(left: rt.ByteSlice, right: rt.Byt
 	}
 }
 
-export function setOpsOf$collections_Nibble(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: rt.u8) => collections_Nibble.Nibble, put: (a0: collections_Nibble.Nibble) => rt.u8, out: rt.ByteVec): void {
+export function setOpsOf$collections_Nibble(leftData: Uint8Array, leftStart: number, leftLen: number, rightData: Uint8Array, rightStart: number, rightLen: number, make: (a0: rt.u8) => collections_Nibble.Nibble, put: (a0: collections_Nibble.Nibble) => rt.u8, out: rt.ByteVec): void {
+	const left: rt.ByteSlice = new rt.ByteSlice(leftData, leftStart, leftLen);
+	const right: rt.ByteSlice = new rt.ByteSlice(rightData, rightStart, rightLen);
 	const _7: rt.Iter<collections_Nibble.Nibble> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): collections_Nibble.Nibble => {
 		return make(_2);
 	});
@@ -2128,7 +2153,9 @@ export function setOpsOf$collections_Nibble(left: rt.ByteSlice, right: rt.ByteSl
 	}
 }
 
-export function setOpsOf$u8(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0: rt.u8) => rt.u8, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function setOpsOf$u8(leftData: Uint8Array, leftStart: number, leftLen: number, rightData: Uint8Array, rightStart: number, rightLen: number, make: (a0: rt.u8) => rt.u8, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+	const left: rt.ByteSlice = new rt.ByteSlice(leftData, leftStart, leftLen);
+	const right: rt.ByteSlice = new rt.ByteSlice(rightData, rightStart, rightLen);
 	const _7: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_2: rt.u8): rt.u8 => {
 		return make(_2);
 	});
@@ -3539,19 +3566,19 @@ export function eq$cmp_PartialEq_collections_Right_u8(self: rt.u8, other: Right.
 	return rt.u16Rem(self as rt.u16, 4) === rt.u16Rem(other._0, 4);
 }
 
-export function eq$cmp_PartialEq_collections_Right_array2_u8(self: rt.ByteSlice, other: Right.Right): boolean {
-	return rt.u16Rem(rt.u16Add(self.data[self.start] as rt.u16, self.data[self.start + 1] as rt.u16), 4) === rt.u16Rem(other._0, 4);
+export function eq$cmp_PartialEq_collections_Right_array2_u8(selfData: Uint8Array, selfStart: number, _selfLen: number, other: Right.Right): boolean {
+	return rt.u16Rem(rt.u16Add(selfData[selfStart] as rt.u16, selfData[selfStart + 1] as rt.u16), 4) === rt.u16Rem(other._0, 4);
 }
 
-export function partialCmp$cmp_PartialOrd_collections_Right_array2_u8(self: rt.ByteSlice, other: Right.Right): rt.Ordering | undefined {
-	return rt.cmp(rt.u16Rem(rt.u16Add(self.data[self.start] as rt.u16, self.data[self.start + 1] as rt.u16), 4), rt.u16Rem(other._0, 4));
+export function partialCmp$cmp_PartialOrd_collections_Right_array2_u8(selfData: Uint8Array, selfStart: number, _selfLen: number, other: Right.Right): rt.Ordering | undefined {
+	return rt.cmp(rt.u16Rem(rt.u16Add(selfData[selfStart] as rt.u16, selfData[selfStart + 1] as rt.u16), 4), rt.u16Rem(other._0, 4));
 }
 
 /**
  * A `Right` against each of `data`, with the same remainders by 3 and 4 but at the
  * positions `kind` picks, where only `ne`'s or only `eq`'s is, and one fewer for bit 6.
  */
-export function rights(kind: rt.u8, data: rt.ByteSlice): Right.Right[] {
+export function rights(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number): Right.Right[] {
 	const _5: [rt.usize, rt.usize] = [(kind & 7) as rt.usize, ((kind >> 3) & 7) as rt.usize];
 	const byNe: rt.usize = _5[0];
 	const byEq: rt.usize = _5[1];
@@ -3564,7 +3591,7 @@ export function rights(kind: rt.u8, data: rt.ByteSlice): Right.Right[] {
 		}
 		return 3;
 	};
-	const rights: Right.Right[] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): Right.Right => {
+	const rights: Right.Right[] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen)))), (_2: [rt.usize, rt.u8]): Right.Right => {
 		return { _0: rt.u16Add(_2[1] as rt.u16, step(_2[0])) };
 	}), undefined, 2, true);
 	if ((kind & 64) !== 0) {
@@ -3586,14 +3613,15 @@ export function putEq(eq: boolean, log: rt.Cell<rt.u16>, out: rt.ByteVec): void 
  * `ne` disagree on at the positions `kind` picks, and a deque wrapped around its buffer.
  * Then `next_if_eq` of such sequences, matching and missing.
  */
-export function unlikeEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function unlikeEqs(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const log: rt.Cell<rt.u16> = new rt.Cell(0);
 	const lefts: () => Left.Left[] = (): Left.Left[] => {
 		return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_23: rt.u8): Left.Left => {
 			return { _0: _23 as rt.u16, _1: log };
 		}), undefined, 8, true);
 	};
-	const rights_: Right.Right[] = rights(kind, data);
+	const rights_: Right.Right[] = rights(kind, data.data, data.start, data.length);
 	const byEq: rt.usize = ((kind >> 3) & 7) as rt.usize;
 	const at: (a0: rt.usize) => rt.u16 = (i: rt.usize): rt.u16 => {
 		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0) as rt.u16;
@@ -3675,7 +3703,9 @@ export function unlikeEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 	const _148: Uint8Array[] = rt.sliceRange(pairs, 0);
 	const _150: Right.Right[] = rt.sliceRange(rights_, 0, rt.min(pairs.length, rights_.length));
 	putEq(rt.eqSeq((a23: Uint8Array, b20: Right.Right): boolean => {
-		return eq$cmp_PartialEq_collections_Right_array2_u8(rt.byteSliceFrom(a23), b20);
+		return ((a018: rt.ByteSlice, a118: Right.Right): boolean => {
+			return eq$cmp_PartialEq_collections_Right_array2_u8(a018.data, a018.start, a018.length, a118);
+		})(rt.byteSliceFrom(a23), b20);
 	})(_148, _150), log, out);
 	const _162: Left.Left[][] = [lefts(), lefts()];
 	const _169: Right.Right[][] = [rights_, rt.sliceRange(rights_, 0)];
@@ -3916,7 +3946,8 @@ export function each$collections_Quirky_cell_RefCell_collections_Quirky_collecti
  * lengths, empty, nested, and with items `eq` and `ne` disagree on at the positions
  * `kind` picks.
  */
-export function ownNes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function ownNes(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _34: (a0: collections_Picky.Picky[], a1: rt.usize) => rt.u16 = (v: collections_Picky.Picky[], i: rt.usize): rt.u16 => {
 		return option_mapOr$0bnr5nu(rt.sliceGet(v, i), 0, (p: collections_Picky.Picky): rt.u16 => {
 			return p._0;
@@ -4213,9 +4244,10 @@ export function putCmp(order: rt.Ordering, log: rt.Cell<rt.u16>, out: rt.ByteVec
  * B-tree keys, and a `RefCell` against itself. Then, as `kind` picks, a `RefCell` compared
  * while mutably borrowed, which panics, or held by an `Arc` that finds itself equal first.
  */
-export function cellEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function cellEqs(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _688!: [Quirky.Quirky, Quirky.Quirky];
 	let _mutable!: rt.RefCell<Quirky.Quirky>;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const log: rt.Cell<rt.u16> = new rt.Cell(0);
 	const at: (a0: rt.usize) => rt.u16 = (i: rt.usize): rt.u16 => {
 		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0) as rt.u16;
@@ -4567,7 +4599,8 @@ export function cellEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
  * what they point at, against a reference by the impl against it, and of byte arrays,
  * both by value and through references.
  */
-export function unlikeCompares(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function unlikeCompares(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _9: (a0: rt.Ordering | undefined, a1: rt.Cell<rt.u16>, a2: rt.ByteVec) => undefined = (o: rt.Ordering | undefined, log2: rt.Cell<rt.u16>, out2: rt.ByteVec): undefined => {
 		rt.byteVecPush(out2, option_mapOr$1e4a1e0(o, 9, (o2: rt.Ordering): rt.u8 => {
 			return o2 & 0xff;
@@ -4581,7 +4614,7 @@ export function unlikeCompares(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec)
 		}), undefined, 8, true);
 	};
 	const rights_: () => Right.Right[] = (): Right.Right[] => {
-		return rights(kind, data);
+		return rights(kind, data.data, data.start, data.length);
 	};
 	const _12: [Left.Left[], Right.Right[]] = [lefts(), rights_()];
 	const mine: Left.Left[] = _12[0];
@@ -4606,9 +4639,13 @@ export function unlikeCompares(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec)
 		return Uint8Array.of(_35, c.data[c.start + 1]);
 	}), undefined, 2, true);
 	putEq(rt.iterEq(rt.iterCopied(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.byteSliceToArray), rt.iterSlice(rights_()), (a: Uint8Array, b3: Right.Right): boolean => {
-		return eq$cmp_PartialEq_collections_Right_array2_u8(rt.byteSliceFrom(a), b3);
+		return ((a09: rt.ByteSlice, a19: Right.Right): boolean => {
+			return eq$cmp_PartialEq_collections_Right_array2_u8(a09.data, a09.start, a09.length, a19);
+		})(rt.byteSliceFrom(a), b3);
 	}, true), log, out);
-	putEq(rt.iterEq(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.iterSlice(theirs), eq$cmp_PartialEq_collections_Right_array2_u8, true), log, out);
+	putEq(rt.iterEq(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.iterSlice(theirs), (a010: rt.ByteSlice, a110: Right.Right): boolean => {
+		return eq$cmp_PartialEq_collections_Right_array2_u8(a010.data, a010.start, a010.length, a110);
+	}, true), log, out);
 	const part3 = rt.iterCmp(rt.iterSlice(mine), rt.iterSlice(theirs), Left.partialCmp$cmp_PartialOrd_collections_Right);
 	_9(part3, log, out);
 	const part5 = rt.iterCmp(rt.iterSlice(lefts()), rt.iterSlice(rights_()), Left.partialCmp$cmp_PartialOrd_collections_Right);
@@ -4616,10 +4653,14 @@ export function unlikeCompares(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec)
 	putEq(rt.iterLt(rt.iterSlice(lefts()), rt.iterSlice(rights_()), Left.partialCmp$cmp_PartialOrd_collections_Right), log, out);
 	putEq(rt.iterGe(rt.iterSlice(mine), rt.iterSlice(theirs), Left.partialCmp$cmp_PartialOrd_collections_Right), log, out);
 	const part7 = rt.iterCmp(rt.iterCopied(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.byteSliceToArray), rt.iterSlice(rights_()), (a2: Uint8Array, b4: Right.Right): rt.Ordering | undefined => {
-		return partialCmp$cmp_PartialOrd_collections_Right_array2_u8(rt.byteSliceFrom(a2), b4);
+		return ((a015: rt.ByteSlice, a115: Right.Right): rt.Ordering | undefined => {
+			return partialCmp$cmp_PartialOrd_collections_Right_array2_u8(a015.data, a015.start, a015.length, a115);
+		})(rt.byteSliceFrom(a2), b4);
 	});
 	_9(part7, log, out);
-	const part9 = rt.iterCmp(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.iterSlice(theirs), partialCmp$cmp_PartialOrd_collections_Right_array2_u8);
+	const part9 = rt.iterCmp(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.iterSlice(theirs), (a016: rt.ByteSlice, a116: Right.Right): rt.Ordering | undefined => {
+		return partialCmp$cmp_PartialOrd_collections_Right_array2_u8(a016.data, a016.start, a016.length, a116);
+	});
 	_9(part9, log, out);
 }
 
@@ -4636,10 +4677,10 @@ export function partialCmp$cmp_PartialOrd_boxed_Box_collections_Boxed(self: Boxe
  * impls: `&ByRef`'s, `ByVal`'s through `&ByVal`, `Mixed`'s and `&Mixed`'s, and each
  * through `&&T`. Then `Box<Boxed>`'s.
  */
-export function refOrders(_kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function refOrders(_kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let data2!: rt.ByteSlice;
-	if (!((data.length === 0))) {
-		data2 = data;
+	if (!((dataLen === 0))) {
+		data2 = new rt.ByteSlice(dataData, dataStart, dataLen);
 	} else {
 		data2 = rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(0)), 0);
 	}

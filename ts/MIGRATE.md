@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A function the config's roots don't name takes each `&[u8]` or `&[u8; N]` parameter as
+  its `data`, `start`, and `length`: `read(buf, form)` is
+  `read(buf.data, buf.start, buf.length, form)`. One that returns a `Result` of byte slices
+  and scalars returns its error or `undefined`, and leaves the `Ok`'s parts in a
+  module-level slot, such as `readOut`. A root still takes an `rt.ByteSlice` and returns
+  the `Result`.
 - `rt.cmpTuple` takes the tuple type it compares and what it returns, `rt.Ordering` for
   `Ord::cmp` or `rt.Ordering | undefined` for `PartialOrd::partial_cmp`, as type
   arguments, as in `rt.cmpTuple<[rt.u8, Key], rt.Ordering>([rt.cmp, Key.cmp$cmp_Ord])`.

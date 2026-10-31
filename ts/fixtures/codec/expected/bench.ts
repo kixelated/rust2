@@ -22,31 +22,31 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 		if (input.length - 1 !== 0) {
 			const selector: rt.u8 = input.data[input.start + 1];
 			if (op === 0) {
-				encoded(encodeVarints(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), form(selector), out), out);
+				encoded(encodeVarints(input.data, input.start + 2, input.length - 2, form(selector), out), out);
 			} else if (op === 1) {
-				decoded(decodeVarints(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), form(selector), out), out);
+				decoded(decodeVarints(input.data, input.start + 2, input.length - 2, form(selector), out), out);
 			} else if (op === 2) {
-				encoded(encodeFrames(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
+				encoded(encodeFrames(input.data, input.start + 2, input.length - 2, liteVersion(selector), out), out);
 			} else if (op === 3) {
-				decoded(decodeFrames(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
+				decoded(decodeFrames(input.data, input.start + 2, input.length - 2, liteVersion(selector), out), out);
 			} else if (op === 4) {
-				encoded(encodeGroup(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
+				encoded(encodeGroup(input.data, input.start + 2, input.length - 2, liteVersion(selector), out), out);
 			} else if (op === 6) {
-				iterate(selector, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+				iterate(selector, input.data, input.start + 2, input.length - 2, out);
 			} else if (op === 7) {
-				decoded(decodeSplit(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
+				decoded(decodeSplit(input.data, input.start + 2, input.length - 2, liteVersion(selector), out), out);
 			} else if (op === 8) {
-				ordered(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+				ordered(input.data, input.start + 2, input.length - 2, out);
 			} else if (op === 9) {
-				rescale(selector, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+				rescale(selector, input.data, input.start + 2, input.length - 2, out);
 			} else if (op === 10) {
-				stamp(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+				stamp(input.data, input.start + 2, input.length - 2, out);
 			} else if (op === 11) {
-				interleave(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+				interleave(input.data, input.start + 2, input.length - 2, out);
 			} else if (op === 12) {
-				order(selector, new rt.ByteSlice(input.data, input.start + 2, input.length - 2), out);
+				order(selector, input.data, input.start + 2, input.length - 2, out);
 			} else {
-				decoded(decodeGroup(new rt.ByteSlice(input.data, input.start + 2, input.length - 2), liteVersion(selector), out), out);
+				decoded(decodeGroup(input.data, input.start + 2, input.length - 2, liteVersion(selector), out), out);
 			}
 			return out;
 		}
@@ -68,10 +68,10 @@ export function decoded(result: rt.Result<undefined, DecodeError.DecodeError>, o
 }
 
 /** The same value, `count` times. */
-export function encodeVarints(data: rt.ByteSlice, form: Form.Form, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
+export function encodeVarints(dataData: Uint8Array, dataStart: number, dataLen: number, form: Form.Form, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const count: rt.u64 = _6[0];
-	const value: rt.u64 = takeU64(_6[1])[0];
+	const value: rt.u64 = takeU64(_6[1].data, _6[1].start, _6[1].length)[0];
 	const w: Encoder.Encoder = Encoder.new(out, form);
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = rt.u64Low(count);
@@ -85,8 +85,8 @@ export function encodeVarints(data: rt.ByteSlice, form: Form.Form, out: rt.ByteV
 }
 
 /** Every varint on the wire: how many, and the last. */
-export function decodeVarints(wire: rt.ByteSlice, form: Form.Form, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const r: Decoder.Decoder = Decoder.new(wire, form);
+export function decodeVarints(wireData: Uint8Array, wireStart: number, wireLen: number, form: Form.Form, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+	const r: Decoder.Decoder = Decoder.new(wireData, wireStart, wireLen, form);
 	let count: rt.usize = 0;
 	let last: rt.u64 = 0;
 	while (!Decoder.isEmpty(r)) {
@@ -108,20 +108,20 @@ export function decodeVarints(wire: rt.ByteSlice, form: Form.Form, out: rt.ByteV
  * zigzag timestamp delta, then the size. The first frame has no delta and its own size,
  * and every `key_every`th frame after it is `key_size`, as moq's benchmark samples are.
  */
-export function encodeFrames(data: rt.ByteSlice, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
+export function encodeFrames(dataData: Uint8Array, dataStart: number, dataLen: number, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
 	let _32!: rt.usize;
 	let _38!: [rt.i64, rt.u64];
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const count: rt.u64 = _6[0];
-	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1]);
+	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1].data, _6[1].start, _6[1].length);
 	const delta: rt.u64 = _9[0];
-	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1]);
+	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1].data, _9[1].start, _9[1].length);
 	const first: rt.u64 = _12[0];
-	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1]);
+	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1].data, _12[1].start, _12[1].length);
 	const size: rt.u64 = _15[0];
-	const _18: [rt.u64, rt.ByteSlice] = takeU64(_15[1]);
+	const _18: [rt.u64, rt.ByteSlice] = takeU64(_15[1].data, _15[1].start, _15[1].length);
 	const keyEvery: rt.u64 = _18[0];
-	const keySize: rt.u64 = takeU64(_18[1])[0];
+	const keySize: rt.u64 = takeU64(_18[1].data, _18[1].start, _18[1].length)[0];
 	const _24: rt.i64 = rt.i64Cast(delta);
 	const _23: [rt.i64, rt.usize] = [_24, rt.u64Low(keyEvery)];
 	const delta2: rt.i64 = _24;
@@ -161,8 +161,8 @@ export function encodeFrames(data: rt.ByteSlice, version: lite_version_Version.V
 }
 
 /** Every FRAME header on the wire: how many, their total size, and the last delta. */
-export function decodeFrames(wire: rt.ByteSlice, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const r: Decoder.Decoder = Decoder.new(wire, Form.from$convert_From_lite_version_Version(version));
+export function decodeFrames(wireData: Uint8Array, wireStart: number, wireLen: number, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+	const r: Decoder.Decoder = Decoder.new(wireData, wireStart, wireLen, Form.from$convert_From_lite_version_Version(version));
 	let count: rt.usize = 0;
 	let total: rt.u64 = 0;
 	let last: rt.i64 = 0;
@@ -194,8 +194,8 @@ export function decodeFrames(wire: rt.ByteSlice, version: lite_version_Version.V
  * decoded again from its start on the next. How many, their total size, the last delta,
  * and how many decodes came up short.
  */
-export function decodeSplit(data: rt.ByteSlice, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
+export function decodeSplit(dataData: Uint8Array, dataStart: number, dataLen: number, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const read2: rt.usize = rt.max(rt.u64Low(_6[0]), 1);
 	let start: rt.usize = 0;
 	let end: rt.usize = 0;
@@ -209,7 +209,8 @@ export function decodeSplit(data: rt.ByteSlice, version: lite_version_Version.Ve
 			if (!(start < end)) {
 				continue l2;
 			}
-			const r: Decoder.Decoder = Decoder.new(rt.byteSliceRange(_6[1], start, end), Form.from$convert_From_lite_version_Version(version));
+			const _27: rt.ByteSlice = rt.byteSliceRange(_6[1], start, end);
+			const r: Decoder.Decoder = Decoder.new(_27.data, _27.start, _27.length, Form.from$convert_From_lite_version_Version(version));
 			const _32: rt.Result<[rt.i64, rt.u64], DecodeError.DecodeError> = frameHeader(r);
 			if (_32.ok) {
 				const delta: rt.i64 = _32.value[0];
@@ -252,9 +253,9 @@ export function frameHeader(r: Decoder.Decoder): rt.Result<[rt.i64, rt.u64], Dec
 }
 
 /** One size-prefixed GROUP header, starting at the first frame. */
-export function encodeGroup(data: rt.ByteSlice, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
-	const group: Group.Group = { subscribe: _6[0], sequence: takeU64(_6[1])[0], frameStart: 0 };
+export function encodeGroup(dataData: Uint8Array, dataStart: number, dataLen: number, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, EncodeError.EncodeError> {
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
+	const group: Group.Group = { subscribe: _6[0], sequence: takeU64(_6[1].data, _6[1].start, _6[1].length)[0], frameStart: 0 };
 	return Group.encode$coding_encode_Encode_lite_version_Version(group, Encoder.new(out, Form.from$convert_From_lite_version_Version(version)), version);
 }
 
@@ -263,14 +264,14 @@ export function encodeGroup(data: rt.ByteSlice, version: lite_version_Version.Ve
  * up, summed over a quarter of the key space, and removed again. The sum of the values
  * found.
  */
-export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function ordered(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _15!: rt.u32;
 	let _28!: rt.u32;
 	let _66!: rt.u32;
 	const _10: (a0: rt.u32) => rt.u32 = (i4: rt.u32): rt.u32 => {
 		return rt.u32Rem(rt.u32Mul(i4, 40503), 1 << 16);
 	};
-	const count2: rt.u32 = rt.u64Low(rt.u64Min(takeU64(data)[0], 65536));
+	const count2: rt.u32 = rt.u64Low(rt.u64Min(takeU64(dataData, dataStart, dataLen)[0], 65536));
 	const map: rt.BTreeMap<rt.u32, rt.u32> = rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u32, rt.u32>;
 	let iterStart: rt.u32 = 0;
 	const iterEnd: rt.u32 = count2;
@@ -309,8 +310,8 @@ export function ordered(data: rt.ByteSlice, out: rt.ByteVec): void {
  * pushed onto a `BinaryHeap` and popped off, as `selector` picks, each by `u32`'s own
  * `Ord`: the first, middle, and last of the order, or the greatest and least.
  */
-export function order(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let v: rt.u32[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u64Low(rt.u64Clamp(takeU64(data)[0], 1, 65536))), (i: rt.u32): rt.u32 => {
+export function order(selector: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	let v: rt.u32[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u64Low(rt.u64Clamp(takeU64(dataData, dataStart, dataLen)[0], 1, 65536))), (i: rt.u32): rt.u32 => {
 		return rt.u32Rem(rt.u32Mul(i, 40503), 1 << 16);
 	}), undefined, 4, true);
 	if (selector === 0) {
@@ -362,7 +363,8 @@ export function order(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
  * One iterator chain over every byte, picked by `chain`, with closures that cost little
  * next to the iterator protocol they run through.
  */
-export function iterate(chain: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function iterate(chain: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	if (chain === 0) {
 		putUsize(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_213: rt.u8): rt.u8 => {
 			return _213 >> 1;
@@ -411,18 +413,18 @@ export function iterate(chain: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
  * `Timestamp::convert` in `u128`, or the same in `u64` (selector 1), which overflows
  * sooner. How many converted, how many overflowed, and the last converted.
  */
-export function rescale(selector: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function rescale(selector: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _26!: rt.usize;
 	let scaled!: rt.u64 | undefined;
-	const _6: [rt.u64, rt.ByteSlice] = takeU64(data);
+	const _6: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const count: rt.u64 = _6[0];
-	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1]);
+	const _9: [rt.u64, rt.ByteSlice] = takeU64(_6[1].data, _6[1].start, _6[1].length);
 	const start: rt.u64 = _9[0];
-	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1]);
+	const _12: [rt.u64, rt.ByteSlice] = takeU64(_9[1].data, _9[1].start, _9[1].length);
 	const step: rt.u64 = _12[0];
-	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1]);
+	const _15: [rt.u64, rt.ByteSlice] = takeU64(_12[1].data, _12[1].start, _12[1].length);
 	const from: rt.u64 = _15[0];
-	const to: rt.u64 = takeU64(_15[1])[0];
+	const to: rt.u64 = takeU64(_15[1].data, _15[1].start, _15[1].length)[0];
 	let converted: rt.u64 = 0;
 	let overflowed: rt.u64 = 0;
 	let last: rt.u64 = 0;
@@ -475,14 +477,14 @@ export function bounded(value: rt.u128): rt.u64 | undefined {
  * A track's frames stamped one duration apart by [`Timestamp::checked_add`], as a
  * publisher stamps them. How many were stamped, how many overflowed, and the last.
  */
-export function stamp(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _5: [rt.u64, rt.ByteSlice] = takeU64(data);
+export function stamp(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const _5: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const count: rt.u64 = _5[0];
-	const _8: [rt.u64, rt.ByteSlice] = takeU64(_5[1]);
+	const _8: [rt.u64, rt.ByteSlice] = takeU64(_5[1].data, _5[1].start, _5[1].length);
 	const start: rt.u64 = _8[0];
-	const _11: [rt.u64, rt.ByteSlice] = takeU64(_8[1]);
+	const _11: [rt.u64, rt.ByteSlice] = takeU64(_8[1].data, _8[1].start, _8[1].length);
 	const step: rt.u64 = _11[0];
-	const scale: rt.u64 = takeU64(_11[1])[0];
+	const scale: rt.u64 = takeU64(_11[1].data, _11[1].start, _11[1].length)[0];
 	let time: Timestamp.Timestamp = { value: start, scale };
 	let stamped: rt.u64 = 0;
 	let overflowed: rt.u64 = 0;
@@ -511,13 +513,13 @@ export function stamp(data: rt.ByteSlice, out: rt.ByteVec): void {
  * comparison per frame taken. How many came from each track, and how many times the
  * interleave switched tracks.
  */
-export function interleave(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _5: [rt.u64, rt.ByteSlice] = takeU64(data);
+export function interleave(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const _5: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const count: rt.u64 = _5[0];
-	const _9: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(_5[1]);
+	const _9: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(_5[1].data, _5[1].start, _5[1].length);
 	const a: Timestamp.Timestamp = copy$bench_Timestamp(_9[0]);
 	const aStep: rt.u64 = _9[1];
-	const _12: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(_9[2]);
+	const _12: [Timestamp.Timestamp, rt.u64, rt.ByteSlice] = track(_9[2].data, _9[2].start, _9[2].length);
 	const b: Timestamp.Timestamp = copy$bench_Timestamp(_12[0]);
 	const bStep: rt.u64 = _12[1];
 	let fromA: rt.u64 = 0;
@@ -545,17 +547,17 @@ export function interleave(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** A track's first timestamp and its frame duration: start, step, and scale. */
-export function track(data: rt.ByteSlice): [Timestamp.Timestamp, rt.u64, rt.ByteSlice] {
-	const _4: [rt.u64, rt.ByteSlice] = takeU64(data);
+export function track(dataData: Uint8Array, dataStart: number, dataLen: number): [Timestamp.Timestamp, rt.u64, rt.ByteSlice] {
+	const _4: [rt.u64, rt.ByteSlice] = takeU64(dataData, dataStart, dataLen);
 	const value: rt.u64 = _4[0];
-	const _7: [rt.u64, rt.ByteSlice] = takeU64(_4[1]);
+	const _7: [rt.u64, rt.ByteSlice] = takeU64(_4[1].data, _4[1].start, _4[1].length);
 	const step: rt.u64 = _7[0];
-	const _10: [rt.u64, rt.ByteSlice] = takeU64(_7[1]);
+	const _10: [rt.u64, rt.ByteSlice] = takeU64(_7[1].data, _7[1].start, _7[1].length);
 	return [{ value, scale: _10[0] }, step, _10[1]] as [Timestamp.Timestamp, rt.u64, rt.ByteSlice];
 }
 
-export function decodeGroup(wire: rt.ByteSlice, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
-	const _6: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$coding_decode_Decode_lite_version_Version(wire, version);
+export function decodeGroup(wireData: Uint8Array, wireStart: number, wireLen: number, version: lite_version_Version.Version, out: rt.ByteVec): rt.Result<undefined, DecodeError.DecodeError> {
+	const _6: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$coding_decode_Decode_lite_version_Version(wireData, wireStart, wireLen, version);
 	if (_6.ok) {
 		const val: [Group.Group, rt.usize] = _6.value;
 		const group: Group.Group = val[0];

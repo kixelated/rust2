@@ -225,7 +225,8 @@ export function hashed$wraps_Tick_usize(v: Tick.Tick<rt.usize>): rt.u64 {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u8s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.u8) => undefined = (out2: rt.ByteVec, v: rt.u8): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u8ToBeBytes(v)));
 	};
@@ -408,7 +409,8 @@ export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u16s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.u16) => undefined = (out2: rt.ByteVec, v: rt.u16): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u16ToBeBytes(v)));
 	};
@@ -591,7 +593,8 @@ export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u32s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.u32) => undefined = (out2: rt.ByteVec, v: rt.u32): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u32ToBeBytes(v)));
 	};
@@ -774,7 +777,8 @@ export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u64s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.u64) => undefined = (out2: rt.ByteVec, v: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u64ToBeBytes(v)));
 	};
@@ -957,7 +961,8 @@ export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u128s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.u128) => undefined = (out2: rt.ByteVec, v: rt.u128): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v)));
 	};
@@ -1140,7 +1145,8 @@ export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function usizes(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.usize) => undefined = (out2: rt.ByteVec, v: rt.usize): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.usizeToBeBytes(v)));
 	};
@@ -1323,7 +1329,8 @@ export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i8s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.i8) => undefined = (out2: rt.ByteVec, v: rt.i8): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i8ToBeBytes(v)));
 	};
@@ -1508,7 +1515,8 @@ export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i16s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.i16) => undefined = (out2: rt.ByteVec, v: rt.i16): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i16ToBeBytes(v)));
 	};
@@ -1693,7 +1701,8 @@ export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i32s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.i32) => undefined = (out2: rt.ByteVec, v: rt.i32): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i32ToBeBytes(v)));
 	};
@@ -1878,7 +1887,8 @@ export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i64s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.i64) => undefined = (out2: rt.ByteVec, v: rt.i64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i64ToBeBytes(v)));
 	};
@@ -2063,7 +2073,8 @@ export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i128s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.i128) => undefined = (out2: rt.ByteVec, v: rt.i128): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v)));
 	};
@@ -2248,7 +2259,8 @@ export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * Apply operation `kind` to `Wrapping`s taken from `data`: three operands, then a
  * shift amount, which may pass the width many times over.
  */
-export function isizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function isizes(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _30: (a0: rt.ByteVec, a1: rt.isize) => undefined = (out2: rt.ByteVec, v: rt.isize): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.isizeToBeBytes(v)));
 	};

@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { unwrapOr$1tvry1i as option_unwrapOr$1tvry1i, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, mapOr$02k4ito as option_mapOr$02k4ito } from "./core/option.ts";
 import { put as fmt_put } from "./fmt.ts";
-import * as Scale from "./wrappers.Scale.ts";
+import * as wrappers_Scale from "./wrappers.Scale.ts";
 import * as wrappers_Tally from "./wrappers.Tally.ts";
 
 export function putU64(out: rt.ByteVec, v: rt.u64): void {
@@ -244,9 +244,10 @@ export function boundOf(kind: rt.u8, a: rt.u64): rt.RangeBound<rt.u64> {
 	return { tag: "Unbounded" } as rt.RangeBound<rt.u64>;
 }
 
-export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let scale!: Scale.Scale;
+export function wrappers(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	let scale!: wrappers_Scale.Scale;
 	let name!: string;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _5: (a0: rt.u8) => rt.u64 = (b3: rt.u8): rt.u64 => {
 		const _3: rt.u8 = rt.u8Rem(b3, 4);
 		if (_3 === 0) {
@@ -507,8 +508,8 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 			name = "one";
 		}
 		fmt_put(out, name);
-		rt.byteVecPush(out, Scale.eq$cmp_PartialEq(scale, { _0: 1000 }) ? 1 : 0);
-		rt.byteVecPush(out, Scale.partialCmp$cmp_PartialOrd(scale, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }) === -1 ? 1 : 0);
+		rt.byteVecPush(out, wrappers_Scale.eq$cmp_PartialEq(scale, { _0: 1000 }) ? 1 : 0);
+		rt.byteVecPush(out, wrappers_Scale.partialCmp$cmp_PartialOrd(scale, { _0: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64 }) === -1 ? 1 : 0);
 		putU64(out, scale._0);
 	}
 }

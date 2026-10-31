@@ -33,29 +33,29 @@ export function entries(map: rt.HashMap<rt.u8, rt.u8>, out: rt.ByteVec): void {
 }
 
 /** Collected, unzipped, or extended as `kind` picks, from at most 24 bytes of `data`. */
-export function tuples(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const data2: rt.ByteSlice = rt.byteSliceRange(data, 0, rt.min(data.length, 24));
+export function tuples(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data2: rt.ByteSlice = rt.byteSliceRange(new rt.ByteSlice(dataData, dataStart, dataLen), 0, rt.min(dataLen, 24));
 	const _8: rt.u8 = rt.u8Rem(kind, 10);
 	if (_8 === 0) {
-		ones(data2, out);
+		ones(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 1) {
-		pairs(data2, out);
+		pairs(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 2) {
-		triples(data2, out);
+		triples(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 3) {
-		twelves(data2, out);
+		twelves(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 4) {
-		extended(data2, out);
+		extended(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 5) {
-		borrowed(data2, out);
+		borrowed(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 6) {
-		dropped(data2, out);
+		dropped(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 7) {
-		panicked(data2, out);
+		panicked(data2.data, data2.start, data2.length, out);
 	} else if (_8 === 8) {
-		reserved(data2, out);
+		reserved(data2.data, data2.start, data2.length, out);
 	} else {
-		shunted(data2, out);
+		shunted(data2.data, data2.start, data2.length, out);
 	}
 }
 
@@ -63,7 +63,8 @@ export function tuples(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  * 1-tuples, each by its collection's own `extend`: a heap's rebuilds once, where a longer
  * tuple's pushes each item.
  */
-export function ones(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function ones(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(rt.tupleExtendOne([[]] as [rt.u16[]], rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): [rt.u16] => {
 		return [(((_2 as rt.u16)) << 4) & 0xffff] as [rt.u16];
 	}), (c, items) => rt.iterExtend(c, items, undefined, 2, true))[0]), (n: rt.u16): Uint8Array => {
@@ -127,7 +128,8 @@ export function ones(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Pairs, by `collect` and `unzip`, of `()` too. */
-export function pairs(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function pairs(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _6: rt.Iter<[rt.u8, rt.char]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): [rt.u8, rt.char] => {
 		const b: rt.u8 = _2;
 		return [b ^ 90, b as rt.char] as [rt.u8, rt.char];
@@ -177,7 +179,8 @@ export function pairs(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Triples, of mixed collections, and tuples of collections within one. */
-export function triples(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function triples(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const _7: rt.Iter<[rt.u8, rt.u16, rt.char]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): [rt.u8, rt.u16, rt.char] => {
 		const b: rt.u8 = _2;
 		return [b, (((b as rt.u16)) << 8) & 0xffff, rt.u8Add(97, rt.u8Rem(b, 26)) as rt.char] as [rt.u8, rt.u16, rt.char];
@@ -229,8 +232,8 @@ export function triples(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** The longest tuple std's impls take, of every collection the runtime extends. */
-export function twelves(data: rt.ByteSlice, out: rt.ByteVec): void {
-	const _16: rt.Iter<[rt.u8, rt.u16, rt.char, string, rt.u8, rt.u8, [rt.u8, rt.u8], rt.u8, [rt.u8, rt.u16], rt.u8, undefined, [rt.u8, [rt.char]]]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): [rt.u8, rt.u16, rt.char, string, rt.u8, rt.u8, [rt.u8, rt.u8], rt.u8, [rt.u8, rt.u16], rt.u8, undefined, [rt.u8, [rt.char]]] => {
+export function twelves(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const _16: rt.Iter<[rt.u8, rt.u16, rt.char, string, rt.u8, rt.u8, [rt.u8, rt.u8], rt.u8, [rt.u8, rt.u16], rt.u8, undefined, [rt.u8, [rt.char]]]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))), (_2: rt.u8): [rt.u8, rt.u16, rt.char, string, rt.u8, rt.u8, [rt.u8, rt.u8], rt.u8, [rt.u8, rt.u16], rt.u8, undefined, [rt.u8, [rt.char]]] => {
 		const b: rt.u8 = _2;
 		const _8: rt.usize = rt.u8Rem(b, 3) as rt.usize;
 		if (!(_8 < 3)) {
@@ -285,7 +288,8 @@ export function twelves(data: rt.ByteSlice, out: rt.ByteVec): void {
  * `extend` onto collections that hold some already: a heap sifts each item up past them,
  * and a map or set keeps an equal key already there.
  */
-export function extended(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function extended(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const t: [rt.ByteVec, string, rt.BTreeMap<rt.u8, rt.u16>, rt.VecDeque<rt.u16>, rt.HashSet<rt.u8>] = [rt.byteVecFrom(Uint8Array.of(9, 8)), "pre", rt.btreeExtend(rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, rt.iterSlice([[3, 30] as [rt.u8, rt.u16]]), true, undefined, undefined, undefined, 4, true), rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u16>, rt.iterSlice([1]), undefined, 2, true), rt.hashExtendKeys(rt.hashNew() as rt.HashSet<rt.u8>, rt.iterSlice(Uint8Array.of(5)), undefined, undefined, 469762048)];
 	const _16: rt.Iter<[rt.u8, rt.char, [rt.u8, rt.u16], rt.u16, rt.u8]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): [rt.u8, rt.char, [rt.u8, rt.u16], rt.u16, rt.u8] => {
 		const b: rt.u8 = _2;
@@ -317,7 +321,8 @@ export function extended(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `Extend<&T>` and `Extend<(&K, &V)>`, which store copies of what the items borrow. */
-export function borrowed(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function borrowed(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const points: Spot.Spot[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): Spot.Spot => {
 		const b: rt.u8 = _2;
 		return { x: b, y: (((b as rt.u16)) << 2) & 0xffff };
@@ -362,7 +367,8 @@ export function borrowed(data: rt.ByteSlice, out: rt.ByteVec): void {
  * to one it holds, as each item's fields extend in order, and what an iterator still
  * holds drops once the tuple extended by it is done.
  */
-export function dropped(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function dropped(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const log: rt.Arc<rt.RefCell<rt.ByteVec>> = new rt.Arc(new rt.RefCell(new rt.ByteVec()));
 	const logged: (a0: rt.u8, a1: rt.u8) => tuples_Logged.Logged = (id: rt.u8, key: rt.u8): tuples_Logged.Logged => {
 		return new tuples_Logged.Logged(id, key, rt.arcClone(log));
@@ -435,7 +441,8 @@ export function dropped(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** A panic midway, from what makes the items. */
-export function panicked(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function panicked(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const at: rt.usize = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 8) as rt.usize;
 	const _13: rt.Iter<[rt.u8, rt.char, rt.u16]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): [rt.u8, rt.char, rt.u16] => {
 		const i: rt.usize = _2[0];
@@ -463,9 +470,9 @@ export function panicked(data: rt.ByteSlice, out: rt.ByteVec): void {
  * A size hint past what a collection may hold, which the first to reserve for it panics
  * at, in field order, before any item is made.
  */
-export function reserved(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function reserved(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const items: rt.Range<rt.u32> = new rt.Range(0, 4294967295);
-	const _4: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 6);
+	const _4: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(new rt.ByteSlice(dataData, dataStart, dataLen)), 0), 6);
 	if (_4 === 0) {
 		rt.byteVecPush(out, rt.tupleExtend([undefined, []] as [undefined, rt.u32[]], rt.iterMap(items, (i5: rt.u32): [undefined, rt.u32] => {
 			return [undefined, i5] as [undefined, rt.u32];
@@ -507,7 +514,8 @@ export function reserved(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** `collect` of `Result`s and `Option`s of pairs, into one of a tuple, which std's docs show. */
-export function shunted(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function shunted(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const parsed: rt.Result<[rt.ByteVec, string], rt.u8> = rt.iterCollectResult(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.Result<[rt.u8, rt.char], rt.u8> => {
 		const b: rt.u8 = _2;
 		if (!(b === 0)) {

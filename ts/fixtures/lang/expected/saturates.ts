@@ -222,10 +222,11 @@ export function hashed$usize(v: rt.usize): rt.u64 {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u8s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.u8) => undefined = (out2: rt.ByteVec, v: rt.u8): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u8ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.u8 = (at: rt.usize): rt.u8 => {
 		const buf: Uint8Array = Uint8Array.of(0);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -234,7 +235,7 @@ export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u8FromBeBytes(buf);
 	};
@@ -420,10 +421,11 @@ export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u16s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.u16) => undefined = (out2: rt.ByteVec, v: rt.u16): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u16ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.u16 = (at: rt.usize): rt.u16 => {
 		const buf: Uint8Array = rt.bytes(2);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -432,7 +434,7 @@ export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u16FromBeBytes(buf);
 	};
@@ -618,10 +620,11 @@ export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u32s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.u32) => undefined = (out2: rt.ByteVec, v: rt.u32): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u32ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.u32 = (at: rt.usize): rt.u32 => {
 		const buf: Uint8Array = rt.bytes(4);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -630,7 +633,7 @@ export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u32FromBeBytes(buf);
 	};
@@ -816,10 +819,11 @@ export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u64s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.u64) => undefined = (out2: rt.ByteVec, v: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u64ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.u64 = (at: rt.usize): rt.u64 => {
 		const buf: Uint8Array = rt.bytes(8);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -828,7 +832,7 @@ export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u64FromBeBytes(buf);
 	};
@@ -1014,10 +1018,11 @@ export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u128s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.u128) => undefined = (out2: rt.ByteVec, v: rt.u128): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.u128ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.u128 = (at: rt.usize): rt.u128 => {
 		const buf: Uint8Array = rt.bytes(16);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -1026,7 +1031,7 @@ export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u128FromBeBytes(buf);
 	};
@@ -1212,10 +1217,11 @@ export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function usizes(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.usize) => undefined = (out2: rt.ByteVec, v: rt.usize): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.usizeToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.usize = (at: rt.usize): rt.usize => {
 		const buf: Uint8Array = rt.bytes(4);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -1224,7 +1230,7 @@ export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.usizeFromBeBytes(buf);
 	};
@@ -1410,10 +1416,11 @@ export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i8s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.i8) => undefined = (out2: rt.ByteVec, v: rt.i8): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i8ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.i8 = (at: rt.usize): rt.i8 => {
 		const buf: Uint8Array = Uint8Array.of(0);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -1422,7 +1429,7 @@ export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i8FromBeBytes(buf);
 	};
@@ -1604,10 +1611,11 @@ export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i16s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.i16) => undefined = (out2: rt.ByteVec, v: rt.i16): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i16ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.i16 = (at: rt.usize): rt.i16 => {
 		const buf: Uint8Array = rt.bytes(2);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -1616,7 +1624,7 @@ export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i16FromBeBytes(buf);
 	};
@@ -1798,10 +1806,11 @@ export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i32s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.i32) => undefined = (out2: rt.ByteVec, v: rt.i32): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i32ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.i32 = (at: rt.usize): rt.i32 => {
 		const buf: Uint8Array = rt.bytes(4);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -1810,7 +1819,7 @@ export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i32FromBeBytes(buf);
 	};
@@ -1992,10 +2001,11 @@ export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i64s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.i64) => undefined = (out2: rt.ByteVec, v: rt.i64): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i64ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.i64 = (at: rt.usize): rt.i64 => {
 		const buf: Uint8Array = rt.bytes(8);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -2004,7 +2014,7 @@ export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i64FromBeBytes(buf);
 	};
@@ -2186,10 +2196,11 @@ export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i128s(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.i128) => undefined = (out2: rt.ByteVec, v: rt.i128): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.i128ToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.i128 = (at: rt.usize): rt.i128 => {
 		const buf: Uint8Array = rt.bytes(16);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -2198,7 +2209,7 @@ export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i128FromBeBytes(buf);
 	};
@@ -2380,10 +2391,11 @@ export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Apply operation `kind` to `Saturating`s taken from `data`: three operands. */
-export function isizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function isizes(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _20: (a0: rt.ByteVec, a1: rt.isize) => undefined = (out2: rt.ByteVec, v: rt.isize): undefined => {
 		rt.byteVecExtendFromSlice(out2, rt.byteSliceFrom(rt.isizeToBeBytes(v)));
 	};
+	const captured = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const take: (a0: rt.usize) => rt.isize = (at: rt.usize): rt.isize => {
 		const buf: Uint8Array = rt.bytes(4);
 		const iter3: rt.Iter<[rt.usize, rt.Place<rt.u8>]> = rt.iterEnumerate(rt.iterSliceMut(rt.byteSliceView(rt.byteSliceFrom(buf))));
@@ -2392,7 +2404,7 @@ export function isizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(captured, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.isizeFromBeBytes(buf);
 	};

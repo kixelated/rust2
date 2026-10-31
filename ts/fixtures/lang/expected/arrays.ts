@@ -5,9 +5,9 @@ import { copy$array_array2_u8, copy$array_u32, copy$array_u8 } from "./lib.ts";
 import { map$1j8xzu6 as option_map$1j8xzu6, map$0rbsrz6 as option_map$0rbsrz6 } from "./core/option.ts";
 
 /** Each byte an operation, its value the operand; each puts what it read. */
-export function fromFns(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function fromFns(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let s!: string;
-	for (const op of rt.byteSliceView(data)) {
+	for (const op of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const _10: rt.u8 = rt.u8Rem(op, 5);
 		if (_10 === 0) {
 			const seen: rt.usize[] = [];
@@ -102,9 +102,9 @@ export function counted$5(op: rt.u8): rt.usize[] {
  * the closure captured by reference and by move, of `Option`s whose `None` is `rt.None`,
  * and of arrays, each element the closure's own to change.
  */
-export function maps(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function maps(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let s!: string;
-	for (const op of rt.byteSliceView(data)) {
+	for (const op of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const _10: rt.u8 = rt.u8Rem(op, 5);
 		if (_10 === 0) {
 			const seen: rt.ByteVec = new rt.ByteVec();
@@ -212,7 +212,7 @@ export function shifted$3(op: rt.u8): rt.u64[] {
  * the operand: bytes, wide integers, and strings, each lent as its place, arrays of bytes
  * as their views, and other arrays as themselves. Writes through each land in the array.
  */
-export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function lent(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const bytes: Uint8Array = rt.bytes(3);
 	const wide: rt.u16[] = Array.from({ length: 2 }, (): rt.u16 => {
 		return 0;
@@ -228,7 +228,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const pairs: rt.u32[][] = Array.from({ length: 2 }, (): rt.u32[] => {
 		return copy$array_u32(item2);
 	});
-	for (const op of rt.byteSliceView(data)) {
+	for (const op of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const i: rt.usize = op as rt.usize;
 		const _21: rt.u8 = rt.u8Rem(op, 6);
 		if (_21 === 0) {
@@ -328,7 +328,7 @@ export function lent(data: rt.ByteSlice, out: rt.ByteVec): void {
  * Arrays as slices, of bytes and of other values, empty ones included; each byte an
  * operation, its value the operand. Writes through `as_mut_slice` land in the array.
  */
-export function asSlices(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function asSlices(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const bytes: Uint8Array = rt.bytes(4);
 	const wide: rt.u16[] = Array.from({ length: 3 }, (): rt.u16 => {
 		return 0;
@@ -344,7 +344,7 @@ export function asSlices(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const pairs: rt.u32[][] = Array.from({ length: 2 }, (): rt.u32[] => {
 		return copy$array_u32(item2);
 	});
-	for (const op of rt.byteSliceView(data)) {
+	for (const op of rt.byteSliceView(new rt.ByteSlice(dataData, dataStart, dataLen))) {
 		const i: rt.usize = op as rt.usize;
 		const _22: rt.u8 = rt.u8Rem(op, 8);
 		if (_22 === 0) {

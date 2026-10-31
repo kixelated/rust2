@@ -10,7 +10,8 @@ export function through$u8s(n: rt.Place<rt.u8>, b: rt.u8): rt.u8 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u8s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = Uint8Array.of(0);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -111,7 +112,8 @@ export function through$u16s(n: rt.Place<rt.u16>, b: rt.u16): rt.u16 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u16s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(2);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -212,7 +214,8 @@ export function through$u32s(n: rt.Place<rt.u32>, b: rt.u32): rt.u32 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u32s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(4);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -313,7 +316,8 @@ export function through$u64s(n: rt.Place<rt.u64>, b: rt.u64): rt.u64 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function u64s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u64s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(8);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -414,7 +418,8 @@ export function through$u128s(n: rt.Place<rt.u128>, b: rt.u128): rt.u128 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function u128s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function u128s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(16);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -515,7 +520,8 @@ export function through$usizes(n: rt.Place<rt.usize>, b: rt.usize): rt.usize {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function usizes(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(4);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -609,7 +615,8 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i8s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = Uint8Array.of(0);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -710,7 +717,8 @@ export function through$i8s(n: rt.Place<rt.i8>, b: rt.i8): rt.i8 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i16s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(2);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -811,7 +819,8 @@ export function through$i16s(n: rt.Place<rt.i16>, b: rt.i16): rt.i16 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i32s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(4);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -912,7 +921,8 @@ export function through$i32s(n: rt.Place<rt.i32>, b: rt.i32): rt.i32 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function i64s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i64s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(8);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1013,7 +1023,8 @@ export function through$i64s(n: rt.Place<rt.i64>, b: rt.i64): rt.i64 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function i128s(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function i128s(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(16);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1114,7 +1125,8 @@ export function through$i128s(n: rt.Place<rt.i128>, b: rt.i128): rt.i128 {
 }
 
 /** Each way a closure writes a captured integer, from two operands taken from `data`. */
-export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function isizes(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const buf: Uint8Array = rt.bytes(4);
 	const n: rt.usize = rt.min(data.length, rt.byteSliceFrom(buf).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf), 0, n), rt.byteSliceRange(data, 0, n));
@@ -1215,32 +1227,32 @@ export function through$isizes(n: rt.Place<rt.isize>, b: rt.isize): rt.isize {
 }
 
 /** Run [`writes`] over the integer type `kind` picks. */
-export function captures(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function captures(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	const _4: rt.u8 = rt.u8Rem(kind, 12);
 	if (_4 === 0) {
-		u8s(data, out);
+		u8s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 1) {
-		u16s(data, out);
+		u16s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 2) {
-		u32s(data, out);
+		u32s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 3) {
-		u64s(data, out);
+		u64s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 4) {
-		u128s(data, out);
+		u128s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 5) {
-		usizes(data, out);
+		usizes(dataData, dataStart, dataLen, out);
 	} else if (_4 === 6) {
-		i8s(data, out);
+		i8s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 7) {
-		i16s(data, out);
+		i16s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 8) {
-		i32s(data, out);
+		i32s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 9) {
-		i64s(data, out);
+		i64s(dataData, dataStart, dataLen, out);
 	} else if (_4 === 10) {
-		i128s(data, out);
+		i128s(dataData, dataStart, dataLen, out);
 	} else {
-		isizes(data, out);
+		isizes(dataData, dataStart, dataLen, out);
 	}
 }
 

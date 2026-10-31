@@ -6599,10 +6599,11 @@ export function turns$vec_IntoIter_u8_clones_iters_closure18_clones_iters_closur
  * Each of std's iterators and adaptors, partly read and cloned, read in turns with its
  * clone.
  */
-export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+export function iters(kind: rt.u8, dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let _263!: [rt.ByteSlice, rt.ByteSlice];
 	let _269!: rt.usize;
 	let it!: rt.Peekable<rt.u8>;
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const plan: Plan.Plan = { data, at: kind as rt.usize };
 	const n: rt.usize = option_mapOr$1surhce(rt.byteSliceFirst(data), 1, (_2: rt.u8): rt.u8 => {
 		return rt.u8Add(rt.u8Rem(_2, 4), 1);
@@ -7175,9 +7176,9 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			return x13;
 		}, out);
 	} else if (_9 === 13) {
-		owned(data, plan, out);
+		owned(data.data, data.start, data.length, plan, out);
 	} else if (_9 === 14) {
-		closures(data, plan, out);
+		closures(data.data, data.start, data.length, plan, out);
 	} else {
 		const _582: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
 		const make = (captured: rt.u8): (a0: rt.u8) => rt.u8 => {
@@ -7387,7 +7388,8 @@ export function unordered$iter_Map_collections_hash_map_Iter_u8_u8_clones_iters_
  * Iterators that own what they yield, each item cloned by its own `Clone` as the iterator
  * is, and dropped as each iterator drops.
  */
-export function owned(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): void {
+export function owned(dataData: Uint8Array, dataStart: number, dataLen: number, plan: Plan.Plan, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const log: rt.Arc<rt.RefCell<rt.ByteVec>> = new rt.Arc(new rt.RefCell(new rt.ByteVec()));
 	const logged: (a0: rt.u8) => clones_Logged.Logged = (id: rt.u8): clones_Logged.Logged => {
 		return new clones_Logged.Logged(id, rt.arcClone(log));
@@ -7493,7 +7495,8 @@ export function owned(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): voi
  * Adaptors of closures that capture values that drop, which their clones clone and drop
  * with them, and closures cloned on their own.
  */
-export function closures(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): void {
+export function closures(dataData: Uint8Array, dataStart: number, dataLen: number, plan: Plan.Plan, out: rt.ByteVec): void {
+	const data: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart, dataLen);
 	const log: rt.Arc<rt.RefCell<rt.ByteVec>> = new rt.Arc(new rt.RefCell(new rt.ByteVec()));
 	const logged: (a0: rt.u8) => clones_Logged.Logged = (id: rt.u8): clones_Logged.Logged => {
 		return new clones_Logged.Logged(id, rt.arcClone(log));
