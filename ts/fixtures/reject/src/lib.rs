@@ -217,7 +217,7 @@ pub fn skipped_zip(v: &[u8]) -> usize {
 /// A zip collected in place, which std reads by index and drops with what its closure owns.
 pub fn zip_in_place(v: Vec<u8>) -> Vec<u8> {
 	let n = Noisy(1);
-	let owned = v.into_iter().map(move |x| x ^ n.0);
+	let owned = v.into_iter().map(move |x| x ^ (&n).0);
 	owned.zip(0..2u8).map(|(x, y)| x ^ y).collect()
 }
 

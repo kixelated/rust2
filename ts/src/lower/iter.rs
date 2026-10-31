@@ -1080,7 +1080,10 @@ pub(super) fn to_array<'tcx>(
 	let size = size_of(b, elem, span);
 	Expr::rt(
 		"iterToArray",
-		tail(vec![iter], vec![take, size, Expr::lit((trusted || by_index).to_string())]),
+		tail(
+			vec![iter],
+			vec![take, size, Expr::lit((trusted || by_index).to_string())],
+		),
 	)
 }
 
