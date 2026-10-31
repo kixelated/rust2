@@ -207,7 +207,9 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 					{
 						held.escapes.push(at);
 					}
-					TerminatorKind::TailCall { .. } | TerminatorKind::InlineAsm { .. } | TerminatorKind::Yield { .. }
+					TerminatorKind::TailCall { .. }
+					| TerminatorKind::InlineAsm { .. }
+					| TerminatorKind::Yield { .. }
 						if reads(&held.all, |v| v.visit_terminator(term, at)) =>
 					{
 						held.escapes.push(at);
@@ -239,7 +241,13 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 	/// What a call of `func` given `args`, of which those at `given` hold pointers, returns:
 	/// whether a pointer to a part of what one points at; `None` if it may keep one
 	/// anywhere else.
-	fn call(&self, func: &Operand<'tcx>, args: &[Spanned<Operand<'tcx>>], given: &[usize], held: &Held) -> Option<bool> {
+	fn call(
+		&self,
+		func: &Operand<'tcx>,
+		args: &[Spanned<Operand<'tcx>>],
+		given: &[usize],
+		held: &Held,
+	) -> Option<bool> {
 		if reads_operand(func, &held.all) {
 			return None;
 		}
@@ -250,9 +258,8 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 			if pointer::stores(self.t.tcx, def_id) && given.iter().any(|&i| i > 0) {
 				return None;
 			}
-			let same = derives == Derives::Same
-				&& given == [0]
-				&& args[0].node.place().is_some_and(|p| held.points(p.local));
+			let same =
+				derives == Derives::Same && given == [0] && args[0].node.place().is_some_and(|p| held.points(p.local));
 			return Some(!same);
 		}
 		if let Some(did) = self.read_fn(def_id, gargs.skip_binder()) {
@@ -292,7 +299,10 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 		// Until found, as for a function that calls itself, it may.
 		self.memo.borrow_mut().kept.insert(key.clone(), true);
 		let callee = self.callee(did);
-		let kept = key.1.iter().any(|&param| !callee.holders(param, false).escapes.is_empty());
+		let kept = key
+			.1
+			.iter()
+			.any(|&param| !callee.holders(param, false).escapes.is_empty());
 		self.memo.borrow_mut().kept.insert(key, kept);
 		kept
 	}
@@ -320,7 +330,12 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 	/// The trace of the crate's function `did`'s body.
 	fn callee(&self, did: DefId) -> Trace<'x, 'a, 'tcx> {
 		let tcx = self.t.tcx;
-		Trace::new(self.t, tcx.optimized_mir(did), TypingEnv::post_analysis(tcx, did), self.memo)
+		Trace::new(
+			self.t,
+			tcx.optimized_mir(did),
+			TypingEnv::post_analysis(tcx, did),
+			self.memo,
+		)
 	}
 
 	/// Whether a call of std's `def_id` with `args`, of which the holders are `given`, keeps
@@ -338,10 +353,7 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 			.map(|a| a.node.ty(&self.mir.local_decls, self.t.tcx))
 			.collect();
 		!self.translated(def_id, gargs)
-			&& !gargs
-				.types()
-				.chain(tys.iter().copied())
-				.any(|t| self.runs_own_code(t))
+			&& !gargs.types().chain(tys.iter().copied()).any(|t| self.runs_own_code(t))
 			&& !tys.iter().any(|&t| given.iter().any(|&h| self.t.stores(t, h)))
 	}
 
@@ -522,13 +534,14 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 	fn defs(&self) -> std::cell::Ref<'_, Option<IndexVec<Local, Defs<'x, 'tcx>>>> {
 		if self.defs.borrow().is_none() {
 			let mir = self.mir;
-			let mut defs: IndexVec<Local, Defs<'x, 'tcx>> = IndexVec::from_fn_n(|_| Defs::default(), mir.local_decls.len());
-			let assigned = |to: &Place<'tcx>, def: Def<'x, 'tcx>, defs: &mut IndexVec<Local, Defs<'x, 'tcx>>| {
-				match to.as_local() {
-					Some(local) => defs[local].whole.push(def),
-					None if !to.is_indirect() => defs[to.local].other = true,
-					None => {}
-				}
+			let mut defs: IndexVec<Local, Defs<'x, 'tcx>> =
+				IndexVec::from_fn_n(|_| Defs::default(), mir.local_decls.len());
+			let assigned = |to: &Place<'tcx>, def: Def<'x, 'tcx>, defs: &mut IndexVec<Local, Defs<'x, 'tcx>>| match to
+				.as_local()
+			{
+				Some(local) => defs[local].whole.push(def),
+				None if !to.is_indirect() => defs[to.local].other = true,
+				None => {}
 			};
 			for data in mir.basic_blocks.iter() {
 				for stmt in &data.statements {
@@ -556,9 +569,9 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 						destination,
 						..
 					} => assigned(destination, Def::Call(func, args), &mut defs),
-					TerminatorKind::InlineAsm { .. } | TerminatorKind::Yield { .. } | TerminatorKind::TailCall { .. } => {
-						defs.iter_mut().for_each(|d| d.other = true)
-					}
+					TerminatorKind::InlineAsm { .. }
+					| TerminatorKind::Yield { .. }
+					| TerminatorKind::TailCall { .. } => defs.iter_mut().for_each(|d| d.other = true),
 					_ => {}
 				}
 			}
@@ -573,7 +586,9 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 /// as an `Option`'s payload, or a reference or pointer made of one or through it.
 fn whole(rvalue: &Rvalue<'_>, held: &Held) -> bool {
 	match rvalue {
-		Rvalue::Use(op, _) | Rvalue::Cast(_, op, _) => op.place().is_some_and(|p| !p.is_indirect() && held.points(p.local)),
+		Rvalue::Use(op, _) | Rvalue::Cast(_, op, _) => {
+			op.place().is_some_and(|p| !p.is_indirect() && held.points(p.local))
+		}
 		Rvalue::CopyForDeref(place) => !place.is_indirect() && held.points(place.local),
 		Rvalue::Ref(_, _, place) | Rvalue::RawPtr(_, place) => match place.projection.as_slice() {
 			[] => !held.parts.contains(place.local),
@@ -603,7 +618,7 @@ fn reads_operand(op: &Operand<'_>, holders: &DenseBitSet<Local>) -> bool {
 }
 
 /// Whether what `visit` visits reads one of `holders`.
-fn reads<'tcx>(holders: &DenseBitSet<Local>, visit: impl FnOnce(&mut Reads<'_>)) -> bool {
+fn reads(holders: &DenseBitSet<Local>, visit: impl FnOnce(&mut Reads<'_>)) -> bool {
 	let mut reads = Reads { holders, found: false };
 	visit(&mut reads);
 	reads.found

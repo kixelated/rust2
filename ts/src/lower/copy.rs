@@ -675,7 +675,9 @@ impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 	/// nothing points into yet, as [`Trace::fresh`] judges it.
 	fn fresh(&mut self, place: Place<'tcx>, at: Location, made: Option<Local>) -> bool {
 		let filled = match place.projection.split_first() {
-			Some((ProjectionElem::Deref, rest)) if !rest.contains(&ProjectionElem::Deref) => Filled::Through(place.local),
+			Some((ProjectionElem::Deref, rest)) if !rest.contains(&ProjectionElem::Deref) => {
+				Filled::Through(place.local)
+			}
 			_ if !place.is_indirect() => Filled::Local(place.local),
 			_ => return false,
 		};

@@ -940,7 +940,9 @@ pub fn segments(data: &[u8], out: &mut Vec<u8>) {
 					log.push(Segment::new());
 				}
 				let segment = &mut log[len / 4];
-				segment.slot(segment.filled).with_mut(|p| unsafe { (*p).write((byte, !byte)) });
+				segment
+					.slot(segment.filled)
+					.with_mut(|p| unsafe { (*p).write((byte, !byte)) });
 				segment.filled += 1;
 				len += 1;
 			}
