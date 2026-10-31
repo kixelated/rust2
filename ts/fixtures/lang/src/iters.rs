@@ -1211,17 +1211,39 @@ pub fn range_froms(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let how = kind >> 6;
 	match kind % 16 {
 		0 => from_top(u8::MAX - near, data, how, out, |x, out| out.push(x)),
-		1 => from_top(u16::MAX - u16::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		2 => from_top(u32::MAX - u32::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		3 => from_top(u64::MAX - u64::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		4 => from_top(u128::MAX - u128::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		5 => from_top(usize::MAX - usize::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		6 => from_top(i8::MAX - near as i8, data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		7 => from_top(i16::MAX - i16::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		8 => from_top(i32::MAX - i32::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		9 => from_top(i64::MAX - i64::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		10 => from_top(i128::MAX - i128::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
-		11 => from_top(isize::MAX - near as isize, data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		1 => from_top(u16::MAX - u16::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		2 => from_top(u32::MAX - u32::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		3 => from_top(u64::MAX - u64::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		4 => from_top(u128::MAX - u128::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		5 => from_top(usize::MAX - usize::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		6 => from_top(i8::MAX - near as i8, data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		7 => from_top(i16::MAX - i16::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		8 => from_top(i32::MAX - i32::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		9 => from_top(i64::MAX - i64::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		10 => from_top(i128::MAX - i128::from(near), data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
+		11 => from_top(isize::MAX - near as isize, data, how, out, |x, out| {
+			out.extend(x.to_le_bytes())
+		}),
 		// Past 2^53, where a number becomes limbs, and past 2^64 for `u128`.
 		12 => {
 			let past = (1u64 << 53) - 2 + u64::from(near);
@@ -1326,8 +1348,18 @@ fn adapted(a: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 		out.push(i);
 	}
-	out.push((lo..).position(|i| usize::from(i) >= n + usize::from(lo)).map_or(0xee, |i| i as u8));
-	out.extend((lo..).skip(2).map(|i| i ^ 1).filter(|i| i % 3 != 0).take_while(|&i| i < lo + 20));
+	out.push(
+		(lo..)
+			.position(|i| usize::from(i) >= n + usize::from(lo))
+			.map_or(0xee, |i| i as u8),
+	);
+	out.extend(
+		(lo..)
+			.skip(2)
+			.map(|i| i ^ 1)
+			.filter(|i| i % 3 != 0)
+			.take_while(|&i| i < lo + 20),
+	);
 }
 
 /// Consumers that step `start..` past its type's last value, which panics in std's
