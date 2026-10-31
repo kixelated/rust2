@@ -615,14 +615,14 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const w: rt.usize = rt.u8Rem(at(2), 10) as rt.usize;
 	const _33: rt.Range<rt.i32> = new rt.Range(a, b);
 	const _35: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
-	const _37: { start: rt.i32 } = { start: a };
+	const _37: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
 	const _39: { end: rt.i32 } = { end: b };
 	const _41: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_33, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(_35, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_37, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeTo(_39, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_41, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeFull(undefined, f)];
 	put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5]]));
 	const _60: rt.Range<rt.i32> = new rt.Range(a, b);
 	const _62: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
-	const _64: { start: rt.i32 } = { start: a };
+	const _64: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
 	const _66: { end: rt.i32 } = { end: b };
 	const _68: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
 	const _70: rt.Range<rt.i32> = new rt.Range(a, b);
@@ -645,7 +645,7 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _127: rt.Range<Clip.Clip> = new rt.Range(lo, hi);
 	const _129: rt.RangeInclusive<Clip.Clip> = new rt.RangeInclusive(lo, hi);
 	const _131: { end: Clip.Clip } = { end: hi };
-	const _133: { start: Clip.Clip } = { start: lo };
+	const _133: rt.RangeFrom<Clip.Clip> = new rt.RangeFrom(lo);
 	const _135: { end: Clip.Clip; inclusive: true } = { end: lo, inclusive: true };
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_127, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtRangeInclusive(_129, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtRangeTo(_131, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtRangeFrom(_133, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), rt.fmtCount(w), (f: rt.Formatter) => rt.fmtRangeToInclusive(_135, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f))];
 	put(out, rt.fmtFormat([args6[0], "|", rt.fmtSpec({ width: 8, precision: 2 }, args6[1]), "|", rt.fmtSpec({ alternate: true }, args6[2]), "|", rt.fmtSpec({ fill: "_", align: ">", width: rt.fmtCountOf(args6[4]), precision: 1 }, args6[3]), "|", rt.fmtSpec({ alternate: true, width: 4 }, args6[5])]));

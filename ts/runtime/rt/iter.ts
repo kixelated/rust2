@@ -24,7 +24,7 @@
 
 import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
-import { intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
+import { charStep, intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
 
 /** What `next` returns once an iterator is exhausted, which no item is. */
@@ -3154,24 +3154,32 @@ function lt<T>(a: T, b: T): boolean {
 /**
  * `n + by` in the integer type `int` steps, or `undefined` past its range, which a range
  * stepping past its end only needs to stay past. A narrow integer's sum is an exact
- * number whatever its type.
+ * number whatever its type; a `char`'s skips the surrogates.
  */
 function step<T>(n: T, by: number, int: Step<T> | undefined): T | undefined {
-	if (typeof n === "number" && Number.isSafeInteger(n + by)) return (n + by) as T;
+	if (typeof n === "number" && int !== (charStep as unknown) && Number.isSafeInteger(n + by)) return (n + by) as T;
 	if (int === undefined) throw new Error("rust2-ts: stepping a wide range without its type");
 	const [sum, over] = int(n, by);
 	return over ? undefined : sum;
 }
 
-/** std's `Step::steps_between` of `a` and `b`, at most `b`: `(usize::MAX, None)` past `usize::MAX`. */
-function stepsBetween<T>(a: T, b: T): SizeHint {
+/**
+ * std's `Step::steps_between` of `a` and `b`, at most `b`, in the type `int` steps:
+ * `(usize::MAX, None)` past `usize::MAX`, and less the surrogates `char`s skip.
+ */
+function stepsBetween<T>(a: T, b: T, int: Step<T> | undefined): SizeHint {
+	if (int === (charStep as unknown)) {
+		const n = (b as number) - (a as number);
+		return exactHint((a as number) < 0xd800 && (b as number) >= 0xe000 ? n - 0x800 : n);
+	}
 	const n = typeof a === "number" && typeof b === "number" ? b - a : intToBig(b as number | Limbs) - intToBig(a as number | Limbs);
 	return n <= USIZE_MAX ? exactHint(Number(n)) : [USIZE_MAX, undefined];
 }
 
 /**
  * `ops::Range`: `start..end`, which iterates its integers by moving `start`. A 64- or
- * 128-bit range takes its type's `Step`, `rt.u64Step`, to step past 2^53.
+ * 128-bit range takes its type's `Step`, `rt.u64Step`, to step past 2^53, and a range
+ * of `char`s `rt.charStep`, to step past the surrogates.
  */
 export class Range<T> extends Iter<T> {
 	start: T;
@@ -3225,7 +3233,7 @@ export class Range<T> extends Iter<T> {
 	}
 
 	override sizeHint(): SizeHint {
-		return lt(this.start, this.end) ? stepsBetween(this.start, this.end) : [0, 0];
+		return lt(this.start, this.end) ? stepsBetween(this.start, this.end, this.int) : [0, 0];
 	}
 }
 
@@ -3242,6 +3250,47 @@ export function rangeContains<T>(r: Range<T>, item: T): boolean {
 /** `Range::clone`. */
 export function rangeClone<T>(r: Range<T>): Range<T> {
 	return new Range(r.start, r.end, r.int);
+}
+
+/**
+ * `ops::RangeFrom`: `start..`, which iterates by moving `start` and never ends. It takes
+ * its type's `Step`, `rt.u8Step` or `rt.charStep`, past whose last value it panics, as
+ * std's does in a debug build.
+ */
+export class RangeFrom<T> extends Iter<T> {
+	start: T;
+	readonly int: Step<T> | undefined;
+
+	constructor(start: T, int?: Step<T>) {
+		super();
+		this.start = start;
+		this.int = int;
+	}
+
+	/** std's: the next `start` is found before the item is given, so the last value panics. */
+	next(): T | Done {
+		const start = this.start;
+		this.start = forward(start, 1, this.int);
+		return start;
+	}
+
+	override nth(n: number): T | Done {
+		const item = forward(this.start, n, this.int);
+		this.start = forward(item, 1, this.int);
+		return item;
+	}
+
+	override sizeHint(): SizeHint {
+		return [USIZE_MAX, undefined];
+	}
+}
+
+/** std's `Step::forward` in a debug build: `n + by`, panicking past `int`'s last value. */
+function forward<T>(n: T, by: number, int: Step<T> | undefined): T {
+	if (int === undefined) throw new Error("rust2-ts: stepping a range of no integer type");
+	const [sum, over] = int(n, by);
+	if (over) panic(int === (charStep as unknown) ? "overflow in `Step::forward`" : "attempt to add with overflow");
+	return sum;
 }
 
 /** `ops::RangeInclusive`: `start..=end`, which remembers once it has yielded `end`. */
@@ -3284,7 +3333,7 @@ export class RangeInclusive<T> extends Iter<T> {
 
 	override sizeHint(): SizeHint {
 		if (rangeInclusiveIsEmpty(this)) return [0, 0];
-		const [lower, upper] = stepsBetween(this.lo, this.hi);
+		const [lower, upper] = stepsBetween(this.lo, this.hi, this.int);
 		return [satAdd(lower, 1), addUpper(upper, 1)];
 	}
 

@@ -2018,13 +2018,13 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			walk$Bytes(rt.strBytes(s), steps, out);
 		} else {
 			let t: string = s;
-			const _379: { start: rt.usize } = { start: rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(bytes, 0, rt.usizeDiv(bytes.length, 2)))), (_231: rt.u8): rt.usize => {
+			const _379: rt.RangeFrom<rt.usize> = new rt.RangeFrom(rt.iterSum(rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(bytes, 0, rt.usizeDiv(bytes.length, 2)))), (_231: rt.u8): rt.usize => {
 				const _512: rt.usize = rt.u8Rem(_231, 4) as rt.usize;
 				if (!(_512 < 4)) {
 					rt.panic("index out of bounds: the len is " + 4 + " but the index is " + _512);
 				}
 				return [1, 2, 4, 3][_512];
-			}), rt.usizeAdd, 0) };
+			}), rt.usizeAdd, 0), rt.usizeStep);
 			walk$Drain(rt.stringDrain(rt.place(() => t, (value) => t = value), _379), steps, out);
 		}
 	} else if (_37 === 17) {
@@ -2073,7 +2073,7 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_422 === 0) {
 			walk$Iter_u8_u8(rt.btreeIter(map2), steps, out);
 		} else if (_422 === 1) {
-			const _428: { start: rt.u8 } = { start: at(3) };
+			const _428: rt.RangeFrom<rt.u8> = new rt.RangeFrom(at(3), rt.u8Step);
 			walk$Range_u8_u8(rt.btreeRange(map2, _428), steps, out);
 		} else if (_422 === 2) {
 			walk$Iter_u8$3(rt.btreeKeys(set2), steps, out);
@@ -2090,7 +2090,7 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_446 === 0) {
 			walk$Iter_u8$4(rt.dequeIter(deque), steps, out);
 		} else if (_446 === 1) {
-			walk$Drain_u8(rt.dequeDrain(deque, { start: half2 }), steps, out);
+			walk$Drain_u8(rt.dequeDrain(deque, new rt.RangeFrom(half2, rt.usizeStep)), steps, out);
 		} else if (_446 === 2) {
 			walk$Drain_u8$2(rt.byteVecDrain(v, { end: half2 }), steps, out);
 		} else {

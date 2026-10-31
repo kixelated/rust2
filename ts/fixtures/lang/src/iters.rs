@@ -1201,3 +1201,147 @@ pub fn zips_back(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 	out.extend_from_slice(&log.borrow());
 }
+
+/// `start..` of each integer width and `char`, as the iterator an adaptor or consumer
+/// takes and as its own, stepping up to its type's last value, past which std's debug
+/// build panics, and ranges of `char` across the surrogates, which they skip.
+pub fn range_froms(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let a = data.first().copied().unwrap_or(0);
+	let near = a % 4;
+	let how = kind >> 6;
+	match kind % 16 {
+		0 => from_top(u8::MAX - near, data, how, out, |x, out| out.push(x)),
+		1 => from_top(u16::MAX - u16::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		2 => from_top(u32::MAX - u32::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		3 => from_top(u64::MAX - u64::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		4 => from_top(u128::MAX - u128::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		5 => from_top(usize::MAX - usize::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		6 => from_top(i8::MAX - near as i8, data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		7 => from_top(i16::MAX - i16::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		8 => from_top(i32::MAX - i32::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		9 => from_top(i64::MAX - i64::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		10 => from_top(i128::MAX - i128::from(near), data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		11 => from_top(isize::MAX - near as isize, data, how, out, |x, out| out.extend(x.to_le_bytes())),
+		// Past 2^53, where a number becomes limbs, and past 2^64 for `u128`.
+		12 => {
+			let past = (1u64 << 53) - 2 + u64::from(near);
+			from_top(past, data, how, out, |x, out| out.extend(x.to_le_bytes()));
+			let wide = (1u128 << 64) - 2 + u128::from(near);
+			from_top(wide, data, how ^ 2, out, |x, out| out.extend(x.to_le_bytes()));
+			out.extend((-(1i64 << 53) - 2..).nth(usize::from(a)).unwrap_or(0).to_le_bytes());
+		}
+		13 => chars(a, data, how, out),
+		14 => adapted(a, data, out),
+		_ => overflowed(a, data, out),
+	}
+}
+
+/// `start..` zipped with `data`, each item written by `put`: the range second or, if `how`
+/// has bit 1, first, and read by `next` or, with bit 0, folded. First and read by `next`,
+/// it steps once more than the data has, so it panics one item sooner; folded, std's zip
+/// of two `TrustedLen` iterators reads only as many pairs as the data has.
+fn from_top<T: Copy>(start: T, data: &[u8], how: u8, out: &mut Vec<u8>, put: impl Fn(T, &mut Vec<u8>))
+where
+	std::ops::RangeFrom<T>: Iterator<Item = T>,
+{
+	match how % 4 {
+		0 => {
+			for (&b, x) in data.iter().zip(start..) {
+				out.push(b);
+				put(x, out);
+			}
+		}
+		1 => data.iter().zip(start..).for_each(|(&b, x)| {
+			out.push(b);
+			put(x, out);
+		}),
+		2 => {
+			for (x, &b) in (start..).zip(data) {
+				put(x, out);
+				out.push(b);
+			}
+		}
+		_ => (start..).zip(data).for_each(|(x, &b)| {
+			put(x, out);
+			out.push(b);
+		}),
+	}
+}
+
+/// `char` ranges of each kind across the surrogates, which std's `Step` skips, and up to
+/// `char::MAX`, past which `start..` panics.
+fn chars(a: u8, data: &[u8], how: u8, out: &mut Vec<u8>) {
+	let near = u32::from(a % 4);
+	let put = |c: char, out: &mut Vec<u8>| out.extend((c as u32).to_le_bytes());
+	let gap = char::from_u32(0xd7fd + near).unwrap();
+	from_top(gap, data, how, out, put);
+	let top = char::from_u32(char::MAX as u32 - near).unwrap();
+	from_top(top, data, how, out, put);
+	let n = data.len();
+	let end = char::from_u32(0xe000 + near).unwrap();
+	for c in (gap..end).rev().step_by(2) {
+		put(c, out);
+	}
+	put((gap..end).nth(n % 8).unwrap_or('-'), out);
+	put((gap..=end).nth_back(n % 8).unwrap_or('-'), out);
+	put((gap..).nth(n % 8).unwrap_or('-'), out);
+	let (lo, hi) = (gap..=end).size_hint();
+	out.extend([lo as u8, hi.map_or(0xee, |h| h as u8), (gap..end).count() as u8]);
+	out.extend((gap..=end).map(|c| c as u32 as u8));
+	out.push(('\u{d7ff}'..'\u{e000}').count() as u8);
+}
+
+/// `start..` as what each adaptor and consumer taking an `IntoIterator` takes, and as its
+/// own receiver.
+fn adapted(a: u8, data: &[u8], out: &mut Vec<u8>) {
+	let lo = a % 64;
+	let b = data.get(1).copied().unwrap_or(0);
+	let it = || data.iter().copied();
+	let n = data.len();
+	out.extend(it().chain(lo..).take(n + 3));
+	let mut v: Vec<u8> = Vec::new();
+	v.extend((lo..).take(3));
+	out.extend(v);
+	out.extend(vec![lo.., b / 2..].into_iter().flatten().take(5));
+	out.extend(it().flat_map(|x| x / 4..).take(n * 2));
+	out.extend(it().map(|x| x / 32..x / 16).flatten());
+	out.extend(it().map(|x| x / 64..=x / 32).flatten());
+	let keyed: std::collections::BTreeMap<u8, usize> = it().zip(0..).collect();
+	out.extend(keyed.into_iter().map(|(k, v)| k ^ v as u8));
+	out.extend(Vec::from_iter((lo..).step_by(3).take(4)));
+	out.extend(String::from_iter(('a'..).take(n % 6)).bytes());
+	let (low, high) = it().zip(lo..).size_hint();
+	out.extend([low as u8, high.map_or(0xee, |h| h as u8)]);
+	let (low, high) = (lo..).size_hint();
+	out.extend([low as u8, high.map_or(0xee, |h| h as u8)]);
+	// Its own iterator, read by reference and then by its `start`.
+	let mut r = lo..;
+	out.push(r.next().unwrap_or(0xee));
+	out.push(r.nth(usize::from(b % 8)).unwrap_or(0xee));
+	out.push(r.by_ref().take(2).count() as u8);
+	out.push(r.start);
+	for i in lo.. {
+		if i > lo + 5 {
+			break;
+		}
+		out.push(i);
+	}
+	out.push((lo..).position(|i| usize::from(i) >= n + usize::from(lo)).map_or(0xee, |i| i as u8));
+	out.extend((lo..).skip(2).map(|i| i ^ 1).filter(|i| i % 3 != 0).take_while(|&i| i < lo + 20));
+}
+
+/// Consumers that step `start..` past its type's last value, which panics in std's
+/// debug build, as the fixture is built.
+fn overflowed(a: u8, data: &[u8], out: &mut Vec<u8>) {
+	let top = a.max(250);
+	match data.len() % 8 {
+		0 => out.extend(top..),
+		1 => out.push((top..).take(10).count() as u8),
+		2 => out.push((a..).nth(300).unwrap_or(0xee)),
+		3 => out.push((a..).nth(usize::from(255 - a)).unwrap_or(0xee)),
+		4 => out.extend((a..).step_by(100).take(5)),
+		5 => out.push((i8::MAX - (a % 4) as i8..).take(5).count() as u8),
+		6 => out.push((char::MAX..).next().map_or(0xee, |c| c as u8)),
+		_ => out.extend(Vec::from_iter(top..)),
+	}
+}

@@ -179,6 +179,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::zips", iters::zips),
 		("iters::zips_back", iters::zips_back),
 		("collections::own_nes", collections::own_nes),
+		("iters::range_froms", iters::range_froms),
 	]
 }
 
