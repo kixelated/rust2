@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import type * as Header from "./chunks.Header.ts";
-import { mapOr$1jgrjsu, okOr$0jslmu4 } from "./core/option.ts";
+import { mapOr$1jgrjsu as option_mapOr$1jgrjsu, okOr$0jslmu4 as option_okOr$0jslmu4 } from "./core/option.ts";
 
 export function header(data: rt.ByteSlice): Header.Header | undefined {
 	if (data.length >= 2) {
@@ -12,7 +12,7 @@ export function header(data: rt.ByteSlice): Header.Header | undefined {
 }
 
 export function take4(data: rt.ByteSlice): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8> {
-	return okOr$0jslmu4((data.length >= 4 ? [new rt.ByteSlice(data.data, data.start, 4), new rt.ByteSlice(data.data, data.start + 4, data.length - 4)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, data.length & 0xff);
+	return option_okOr$0jslmu4((data.length >= 4 ? [new rt.ByteSlice(data.data, data.start, 4), new rt.ByteSlice(data.data, data.start + 4, data.length - 4)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, data.length & 0xff);
 }
 
 export function word(chunk: rt.ByteSlice): rt.u32 {
@@ -98,7 +98,7 @@ export function chunks(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_4 === 2) {
 		if (data.length >= 2) {
 			const a: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, 2);
-			const b: rt.ByteSlice = mapOr$1jgrjsu((data.length - 2 >= 2 ? [new rt.ByteSlice(data.data, data.start + 2, 2), new rt.ByteSlice(data.data, data.start + 4, data.length - 4)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, a, (_22: [rt.ByteSlice, rt.ByteSlice]): rt.ByteSlice => {
+			const b: rt.ByteSlice = option_mapOr$1jgrjsu((data.length - 2 >= 2 ? [new rt.ByteSlice(data.data, data.start + 2, 2), new rt.ByteSlice(data.data, data.start + 4, data.length - 4)] as [rt.ByteSlice, rt.ByteSlice] : undefined) as [rt.ByteSlice, rt.ByteSlice] | undefined, a, (_22: [rt.ByteSlice, rt.ByteSlice]): rt.ByteSlice => {
 				return _22[0];
 			});
 			const part2 = new rt.ByteSlice(data.data, data.start + 2, data.length - 2);

@@ -6,7 +6,7 @@ import * as Decoder from "../coding/decode.Decoder.ts";
 import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
 import type * as Form from "../coding/varint.Form.ts";
-import type * as version_Version from "../lite/version.Version.ts";
+import type * as lite_version_Version from "../lite/version.Version.ts";
 
 /** A version number negotiated during the setup. */
 export interface Version {
@@ -32,7 +32,7 @@ export function encode$Encode_Form(self: Version, w: Encoder.Encoder, _3: Form.F
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
-export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _3: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encode$Encode_Version(self: Version, w: Encoder.Encoder, _3: lite_version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0);
 	if (_4.ok) {
 		return rt.OK;

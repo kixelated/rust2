@@ -2,54 +2,54 @@
 
 import * as rt from "./rt.ts";
 import { copy$ByCall, copy$ByClosure, copy$ByObject, copy$Duo, copy$Halves, copy$MaybeUninit_u32s, copy$MaybeUninit_u8_u8, copy$Option_Pair, copy$Outer, copy$Pair, copy$u32_u32, copy$u32s_u8, copy$units, drop$List_Arc_u8, drop$List_String } from "./lib.ts";
-import { mapOr$08xz81a, mapOr$1wxcg5q, filter$0tnmmii } from "./core/option.ts";
+import { mapOr$08xz81a as option_mapOr$08xz81a, mapOr$1wxcg5q as option_mapOr$1wxcg5q, filter$0tnmmii } from "./core/option.ts";
 import * as Bin from "./pointers.Bin.ts";
 import type * as ByCall from "./pointers.ByCall.ts";
 import * as ByClosure from "./pointers.ByClosure.ts";
 import type * as ByObject from "./pointers.ByObject.ts";
 import type * as Duo from "./pointers.Duo.ts";
-import type * as Gauge from "./pointers.Gauge.ts";
-import type * as Halves from "./pointers.Halves.ts";
-import * as Held from "./pointers.Held.ts";
+import type * as pointers_Gauge from "./pointers.Gauge.ts";
+import type * as pointers_Halves from "./pointers.Halves.ts";
+import * as pointers_Held from "./pointers.Held.ts";
 import type * as Inner from "./pointers.Inner.ts";
 import type * as Links from "./pointers.Links.ts";
 import * as List from "./pointers.List.ts";
 import type * as Log from "./pointers.Log.ts";
-import type * as Node from "./pointers.Node.ts";
+import type * as pointers_Node from "./pointers.Node.ts";
 import type * as Outer from "./pointers.Outer.ts";
-import type * as Pair from "./pointers.Pair.ts";
+import type * as pointers_Pair from "./pointers.Pair.ts";
 import * as Reset from "./pointers.Reset.ts";
 import type * as Span from "./pointers.Span.ts";
 import * as Wrapped from "./pointers.Wrapped.ts";
 
 /** Put `node` in the list just before `at`. */
-export function attachBefore$Arc_u8(node: Node.Node<rt.Arc<rt.u8>>, at: Node.Node<rt.Arc<rt.u8>>): void {
+export function attachBefore$Arc_u8(node: pointers_Node.Node<rt.Arc<rt.u8>>, at: pointers_Node.Node<rt.Arc<rt.u8>>): void {
 	const _3: Links.Links<rt.Arc<rt.u8>> = { next: at, prev: at.link.at4 };
-	const _8: Node.Node<rt.Arc<rt.u8>> = node;
+	const _8: pointers_Node.Node<rt.Arc<rt.u8>> = node;
 	_8.link.at0 = _3.next;
 	_8.link.at4 = _3.prev;
 	at.link.at4 = node;
-	(node.link.at4.link.at0 as Node.Node<rt.Arc<rt.u8>>) = node;
+	(node.link.at4.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>) = node;
 }
 
 /** Put `node` in the list just before `at`. */
-export function attachBefore$String(node: Node.Node<string>, at: Node.Node<string>): void {
+export function attachBefore$String(node: pointers_Node.Node<string>, at: pointers_Node.Node<string>): void {
 	const _3: Links.Links<string> = { next: at, prev: at.link.at4 };
-	const _8: Node.Node<string> = node;
+	const _8: pointers_Node.Node<string> = node;
 	_8.link.at0 = _3.next;
 	_8.link.at4 = _3.prev;
 	at.link.at4 = node;
-	(node.link.at4.link.at0 as Node.Node<string>) = node;
+	(node.link.at4.link.at0 as pointers_Node.Node<string>) = node;
 }
 
-export function detach$Arc_u8(node: Node.Node<rt.Arc<rt.u8>>): void {
-	(node.link.at4.link.at0 as Node.Node<rt.Arc<rt.u8>>) = node.link.at0 as Node.Node<rt.Arc<rt.u8>>;
-	((node.link.at0 as Node.Node<rt.Arc<rt.u8>>)).link.at4 = node.link.at4;
+export function detach$Arc_u8(node: pointers_Node.Node<rt.Arc<rt.u8>>): void {
+	(node.link.at4.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>) = node.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>;
+	((node.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>)).link.at4 = node.link.at4;
 }
 
-export function detach$String(node: Node.Node<string>): void {
-	(node.link.at4.link.at0 as Node.Node<string>) = node.link.at0 as Node.Node<string>;
-	((node.link.at0 as Node.Node<string>)).link.at4 = node.link.at4;
+export function detach$String(node: pointers_Node.Node<string>): void {
+	(node.link.at4.link.at0 as pointers_Node.Node<string>) = node.link.at0 as pointers_Node.Node<string>;
+	((node.link.at0 as pointers_Node.Node<string>)).link.at4 = node.link.at4;
 }
 
 /**
@@ -133,7 +133,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _22: rt.Arc<rt.u8> = rt.arcClone(held);
 			List.pushBack$Arc_u8(list, key2, _22);
 		} else if (_19 === 1) {
-			rt.byteVecPush(out, mapOr$1wxcg5q(List.remove$Arc_u8(list, key2), 255, (_2: [rt.u8, rt.Arc<rt.u8>]): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$1wxcg5q(List.remove$Arc_u8(list, key2), 255, (_2: [rt.u8, rt.Arc<rt.u8>]): rt.u8 => {
 				const v: rt.Arc<rt.u8> = _2[1];
 				const _0: rt.u8 = v.value;
 				v[Symbol.dispose]();
@@ -158,11 +158,11 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _42!: rt.u8;
 	let x: rt.u32 = 0;
 	let y: rt.u32 = 1;
-	const pair: Pair.Pair = { a: 2, b: 3 };
+	const pair: pointers_Pair.Pair = { a: 2, b: 3 };
 	const px: rt.Place<rt.u32> = rt.place(() => x, (value) => x = value);
 	const py: rt.Place<rt.u32> = rt.place(() => y, (value2) => y = value2);
 	const pa: rt.Place<rt.u32> = rt.place(() => pair.a, (value3) => pair.a = value3);
-	const pp: Pair.Pair = pair;
+	const pp: pointers_Pair.Pair = pair;
 	let held: rt.Place<rt.u32> = rt.NULL;
 	for (const byte of rt.byteSliceView(data)) {
 		const v: rt.u32 = byte as rt.u32;
@@ -185,7 +185,7 @@ export function places(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_19 === 4) {
 			pp.b = v;
 		} else if (_19 === 5) {
-			const old: Pair.Pair = copy$Pair(pp);
+			const old: pointers_Pair.Pair = copy$Pair(pp);
 			rt.ptrWrite(pp, { a: old.b, b: old.a });
 		} else if (_19 === 6) {
 			if (!((byte & 1) === 0)) {
@@ -300,21 +300,21 @@ export function copies(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return _16;
 		}));
 		uninit;
-		const h: Halves.Halves = ({ at0: [v, rt.u32Add(v, 1)] } as unknown) as Halves.Halves;
-		const g: Halves.Halves = copy$Halves(h);
+		const h: pointers_Halves.Halves = ({ at0: [v, rt.u32Add(v, 1)] } as unknown) as pointers_Halves.Halves;
+		const g: pointers_Halves.Halves = copy$Halves(h);
 		g.at0[0] = rt.u32Add(v, 2);
-		let held: Pair.Pair | undefined = { a: v, b: 0 };
-		const p: rt.Place<Pair.Pair | undefined> = rt.place(() => held, (value) => held = value);
-		const old: Pair.Pair | undefined = copy$Option_Pair(p.v);
+		let held: pointers_Pair.Pair | undefined = { a: v, b: 0 };
+		const p: rt.Place<pointers_Pair.Pair | undefined> = rt.place(() => held, (value) => held = value);
+		const old: pointers_Pair.Pair | undefined = copy$Option_Pair(p.v);
 		if (p.v !== undefined) {
 			p.v.a = rt.u32Add(v, 3);
 		}
 		const _35: [rt.u8, rt.u8] = snapshot(v);
 		const before: rt.u8 = _35[0];
 		const after: rt.u8 = _35[1];
-		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(y[0] & 0xff, x[0] & 0xff, h.at0[0] & 0xff, g.at0[0] & 0xff, mapOr$08xz81a(old, 0, (o: Pair.Pair): rt.u8 => {
+		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(y[0] & 0xff, x[0] & 0xff, h.at0[0] & 0xff, g.at0[0] & 0xff, option_mapOr$08xz81a(old, 0, (o: pointers_Pair.Pair): rt.u8 => {
 			return o.a & 0xff;
-		}), mapOr$08xz81a(held, 0, (o2: Pair.Pair): rt.u8 => {
+		}), option_mapOr$08xz81a(held, 0, (o2: pointers_Pair.Pair): rt.u8 => {
 			return o2.a & 0xff;
 		}), before, after)));
 	}
@@ -374,7 +374,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let num: rt.Cell<rt.u32> = new rt.Cell(4294967295 - 1);
 	const pair: rt.Cell<Duo.Duo> = new rt.Cell({ _0: 0, _1: 255 });
 	let text: rt.Cell<string> = new rt.Cell("");
-	const held: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(0, rt.arcClone(count)));
+	const held: Wrapped.Wrapped<pointers_Held.Held> = Wrapped.new$Held(new pointers_Held.Held(0, rt.arcClone(count)));
 	for (const op of rt.byteSliceView(data)) {
 		const n: rt.u8 = rt.u8Div(op, 8);
 		const _23: rt.u8 = rt.u8Rem(op, 8);
@@ -406,11 +406,11 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))), undefined, true);
 		} else if (_23 === 4) {
 			const _99: rt.Arc<undefined> = rt.arcClone(count);
-			const fresh: Held.Held = new Held.Held(n, _99);
+			const fresh: pointers_Held.Held = new pointers_Held.Held(n, _99);
 			if (rt.u8Rem(n, 2) === 0) {
 				const captured2 = fresh;
-				Wrapped.withMut$Held_unit_cells_closure0(held, rt.closure((p6: Held.Held): undefined => {
-					const _311: Held.Held = captured2;
+				Wrapped.withMut$Held_unit_cells_closure0(held, rt.closure((p6: pointers_Held.Held): undefined => {
+					const _311: pointers_Held.Held = captured2;
 					p6[Symbol.dispose]();
 					rt.ptrWrite(p6, _311);
 				}, (): void => {
@@ -418,22 +418,22 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				}));
 			} else {
 				const captured = fresh;
-				Wrapped.withMut$Held_unit_cells_closure1(held, rt.closure((p5: Held.Held): undefined => {
+				Wrapped.withMut$Held_unit_cells_closure1(held, rt.closure((p5: pointers_Held.Held): undefined => {
 					rt.ptrWrite(p5, captured);
 				}, (): void => {
 					captured[Symbol.dispose]();
 				}));
 			}
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(Wrapped.with$Held_u8_cells_closure2(held, (p7: Held.Held): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(Wrapped.with$Held_u8_cells_closure2(held, (p7: pointers_Held.Held): rt.u8 => {
 				return p7.n;
 			}), count.strong & 0xff)), undefined, true);
 		} else if (_23 === 5) {
-			Wrapped.withMut$Held_unit_cells_closure3(held, (p3: Held.Held): undefined => {
+			Wrapped.withMut$Held_unit_cells_closure3(held, (p3: pointers_Held.Held): undefined => {
 				p3.n = rt.u8WrappingAdd(p3.n, n);
 			});
-			const _119: Held.Held = held._0.v;
+			const _119: pointers_Held.Held = held._0.v;
 			_119.n = _119.n ^ 1;
-			rt.byteVecPush(out, Wrapped.with$Held_u8_cells_closure4(held, (p4: Held.Held): rt.u8 => {
+			rt.byteVecPush(out, Wrapped.with$Held_u8_cells_closure4(held, (p4: pointers_Held.Held): rt.u8 => {
 				return p4.n;
 			}));
 		} else if (_23 === 6) {
@@ -449,12 +449,12 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			Object.assign(pair.v, _140);
 		} else {
 			const _146: rt.Arc<undefined> = rt.arcClone(count);
-			const made_: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _146));
-			Wrapped.withMut$Held_unit_cells_closure5(made_, (p2: Held.Held): undefined => {
+			const made: Wrapped.Wrapped<pointers_Held.Held> = Wrapped.new$Held(new pointers_Held.Held(n, _146));
+			Wrapped.withMut$Held_unit_cells_closure5(made, (p2: pointers_Held.Held): undefined => {
 				p2.n = p2.n ^ 85;
 			});
 			rt.byteVecPush(out, count.strong & 0xff);
-			const made2: Held.Held = made_._0.v;
+			const made2: pointers_Held.Held = made._0.v;
 			rt.byteVecPush(out, made2.n);
 			made2[Symbol.dispose]();
 			rt.byteVecPush(out, count.strong & 0xff);
@@ -716,7 +716,7 @@ export function byClosure(n: rt.u8): Uint8Array {
 }
 
 /** Each part of a `Gauge` written into, never given another object. */
-export function nudge(g: Gauge.Gauge, n: rt.u8): void {
+export function nudge(g: pointers_Gauge.Gauge, n: rt.u8): void {
 	g.range[0] = g.range[0] ^ n;
 	const _3: [rt.u8, rt.u8] = g.slot;
 	_3[1] = _3[1] ^ n;
@@ -735,7 +735,7 @@ export function made(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 export function madeParts(n: rt.u8): Uint8Array {
-	const g: Gauge.Gauge = { range: [n, ~n & 0xff] as [rt.u8, rt.u8], slot: copy$MaybeUninit_u8_u8([~n & 0xff, n] as [rt.u8, rt.u8]) };
+	const g: pointers_Gauge.Gauge = { range: [n, ~n & 0xff] as [rt.u8, rt.u8], slot: copy$MaybeUninit_u8_u8([~n & 0xff, n] as [rt.u8, rt.u8]) };
 	const p: [rt.u8, rt.u8] = g.range;
 	const q: [rt.u8, rt.u8] = g.slot;
 	nudge(g, n ^ 90);

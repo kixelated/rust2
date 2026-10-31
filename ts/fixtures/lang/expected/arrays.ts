@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$u32s, copy$u8s, copy$u8ss } from "./lib.ts";
-import { map$1j8xzu6, map$0rbsrz6 } from "./core/option.ts";
+import { map$1j8xzu6 as option_map$1j8xzu6, map$0rbsrz6 as option_map$0rbsrz6 } from "./core/option.ts";
 
 /** Each byte an operation, its value the operand; each puts what it read. */
 export function fromFns(data: rt.ByteSlice, out: rt.ByteVec): void {
@@ -157,7 +157,7 @@ export function maps(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_10 === 3) {
 			const options: Array<rt.u8 | undefined> = [op, undefined, rt.u8WrappingAdd(op, 60)];
 			const nested: Array<rt.u8 | undefined | rt.None> = rt.arrayMap(options, (o: rt.u8 | undefined): rt.u8 | undefined | rt.None => {
-				return map$0rbsrz6(o, (b: rt.u8): rt.u8 | undefined => {
+				return option_map$0rbsrz6(o, (b: rt.u8): rt.u8 | undefined => {
 					return rt.u8CheckedAdd(b, 200);
 				});
 			});
@@ -168,7 +168,7 @@ export function maps(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return o2;
 			});
 			const units: Array<undefined | rt.None> = rt.arrayMap(nested, (o3: rt.u8 | undefined | rt.None): undefined | rt.None => {
-				return map$1j8xzu6(o3, (_2: rt.u8 | undefined): undefined => {});
+				return option_map$1j8xzu6(o3, (_2: rt.u8 | undefined): undefined => {});
 			});
 			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(options, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug)), (f: rt.Formatter) => rt.fmtList(nested, f, (value: rt.u8 | undefined | rt.None, f: rt.Formatter) => rt.fmtOption(value, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug), rt.None)), (f: rt.Formatter) => rt.fmtList(flat, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug)), (f: rt.Formatter) => rt.fmtList(units, f, (value: undefined | rt.None, f: rt.Formatter) => rt.fmtOption(value, f, rt.fmtUnit, rt.None))];
 			s = rt.fmtFormat([args12[0], " ", args12[1], " ", args12[2], " ", args12[3]]);

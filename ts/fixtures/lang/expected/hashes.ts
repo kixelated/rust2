@@ -3,14 +3,14 @@
 import * as rt from "./rt.ts";
 import { copy$u8s } from "./lib.ts";
 import { thenSome$0n2gkz4 } from "./core/bool.ts";
-import { unwrapOr$0k15iai, unwrapOr$0r2bmpr } from "./core/option.ts";
-import { unwrapOr$01jdcm7 } from "./core/result.ts";
-import * as Counted from "./hashes.Counted.ts";
-import * as Dir from "./hashes.Dir.ts";
-import * as Nibble from "./hashes.Nibble.ts";
+import { unwrapOr$0k15iai as option_unwrapOr$0k15iai, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr } from "./core/option.ts";
+import { unwrapOr$01jdcm7 as result_unwrapOr$01jdcm7 } from "./core/result.ts";
+import * as hashes_Counted from "./hashes.Counted.ts";
+import * as hashes_Dir from "./hashes.Dir.ts";
+import * as hashes_Nibble from "./hashes.Nibble.ts";
 import * as Packet from "./hashes.Packet.ts";
 import * as Priorities from "./hashes.Priorities.ts";
-import * as Shape from "./hashes.Shape.ts";
+import * as hashes_Shape from "./hashes.Shape.ts";
 import * as Small from "./hashes.Small.ts";
 
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
@@ -35,9 +35,9 @@ export function digest$Arc_u8s(value: rt.Arc<Uint8Array>, out: rt.ByteVec): void
 }
 
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
-export function digest$Dirs(value: Dir.Dir[], out: rt.ByteVec): void {
+export function digest$Dirs(value: hashes_Dir.Dir[], out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	rt.hashSlice(Dir.hash$Hash_DefaultHasher as (a0: Dir.Dir, a1: rt.Hasher) => undefined)(value, h);
+	rt.hashSlice(hashes_Dir.hash$Hash_DefaultHasher as (a0: hashes_Dir.Dir, a1: rt.Hasher) => undefined)(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -49,9 +49,9 @@ export function digest$Duration(value: rt.Duration, out: rt.ByteVec): void {
 }
 
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
-export function digest$Nibble(value: Nibble.Nibble, out: rt.ByteVec): void {
+export function digest$Nibble(value: hashes_Nibble.Nibble, out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	Nibble.hash$Hash_DefaultHasher(value, h);
+	hashes_Nibble.hash$Hash_DefaultHasher(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -112,9 +112,9 @@ export function digest$Reverse_u16(value: rt.u16, out: rt.ByteVec): void {
 }
 
 /** `DefaultHasher::new`'s hash of `value`, little-endian. */
-export function digest$Shape(value: Shape.Shape, out: rt.ByteVec): void {
+export function digest$Shape(value: hashes_Shape.Shape, out: rt.ByteVec): void {
 	const h: rt.Hasher = rt.hasher();
-	Shape.hash$Hash_DefaultHasher(value, h);
+	hashes_Shape.hash$Hash_DefaultHasher(value, h);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(rt.hashFinish(h)).reverse()));
 }
 
@@ -339,13 +339,13 @@ export function wide(data: rt.ByteSlice, at: rt.usize, n: rt.usize): rt.u128 {
 		if (!((_10 = iterStart++) < iterEnd)) {
 			return v;
 		}
-		v = rt.u128Or(rt.u128Shl(v, 8), unwrapOr$0r2bmpr(rt.byteSliceGet(data, _10), 0) as rt.u128);
+		v = rt.u128Or(rt.u128Shl(v, 8), option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, _10), 0) as rt.u128);
 	}
 }
 
 /** The hash of a value of each type `kind` picks, made of `data`. */
 export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	let shape!: Shape.Shape;
+	let shape!: hashes_Shape.Shape;
 	const w: (a0: rt.usize, a1: rt.usize) => rt.u128 = (at: rt.usize, n3: rt.usize): rt.u128 => {
 		return wide(data, at, n3);
 	};
@@ -370,9 +370,9 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		digest$usize(rt.u128Low(a), out);
 		digest$isize(rt.u128Low(a) | 0, out);
 		digest$bool(rt.u128And(a, 1) === 1, out);
-		digest$char(unwrapOr$0k15iai(rt.charFromU32((rt.u128Low(a) & 2097151) >>> 0), 1114111), out);
+		digest$char(option_unwrapOr$0k15iai(rt.charFromU32((rt.u128Low(a) & 2097151) >>> 0), 1114111), out);
 	} else if (_5 === 1) {
-		const text: string = unwrapOr$01jdcm7(rt.strFromUtf8(data), "é ✓ 😀");
+		const text: string = result_unwrapOr$01jdcm7(rt.strFromUtf8(data), "é ✓ 😀");
 		digest$str(text, out);
 		digest$String(text, out);
 		digest$str("", out);
@@ -398,19 +398,19 @@ export function values(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		digest$Option_NonZero_u32(rt.nonZero((n | 1) >>> 0), out);
 	} else if (_5 === 3) {
 		const n2: rt.u64 = rt.u64Cast(w(0, 8));
-		digest$Packet({ id: n2, flags: unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), name: unwrapOr$01jdcm7(rt.strFromUtf8(data), "?"), tags: rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u16 => {
+		digest$Packet({ id: n2, flags: option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), name: result_unwrapOr$01jdcm7(rt.strFromUtf8(data), "?"), tags: rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.u16 => {
 			return _2 as rt.u16;
 		}), undefined, 2, true), next: thenSome$0n2gkz4(rt.u64Rem(n2, 3) !== 0, rt.u64Low(n2) | 0) }, out);
 		const _188: rt.u64 = rt.u64Rem(n2, 3);
 		if (_188 === 0) {
-			shape = { tag: "Dot" } as Shape.Shape;
+			shape = { tag: "Dot" } as hashes_Shape.Shape;
 		} else if (_188 === 1) {
-			shape = { tag: "Line", _0: rt.u64Low(n2) } as Shape.Shape;
+			shape = { tag: "Line", _0: rt.u64Low(n2) } as hashes_Shape.Shape;
 		} else {
-			shape = { tag: "Rect", w: (rt.u64Low(n2) << 16) >> 16, h: (rt.u64Low(rt.u64Shr(n2, 16)) << 16) >> 16 } as Shape.Shape;
+			shape = { tag: "Rect", w: (rt.u64Low(n2) << 16) >> 16, h: (rt.u64Low(rt.u64Shr(n2, 16)) << 16) >> 16 } as hashes_Shape.Shape;
 		}
 		digest$Shape(shape, out);
-		digest$Dirs(["Up" as Dir.Dir, "Down" as Dir.Dir], out);
+		digest$Dirs(["Up" as hashes_Dir.Dir, "Down" as hashes_Dir.Dir], out);
 		digest$Small_Small(["Low" as Small.Small, "High" as Small.Small], out);
 		digest$Nibble({ _0: rt.u64Low(n2) & 0xff }, out);
 	} else {
@@ -475,7 +475,7 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const i: rt.usize = _11[0];
 		const b: rt.u8 = _11[1];
 		const n: rt.u64 = rt.u64Cast(wide(data, i, 8));
-		const text: string = unwrapOr$01jdcm7(rt.strFromUtf8(rt.byteSliceRange(data, i)), "✓");
+		const text: string = result_unwrapOr$01jdcm7(rt.strFromUtf8(rt.byteSliceRange(data, i)), "✓");
 		const built: rt.Hasher = rt.buildHasher(s);
 		rt.hash64(n, built);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, n, rt.hash64), rt.hashFinish(built)) ? 1 : 0);
@@ -483,14 +483,14 @@ export function random(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, n, rt.hash64), rt.hashOne(s, n, rt.hash64)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(other.state, text, rt.hashStr), rt.hashOne(other.state, text, rt.hashStr)) ? 1 : 0);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr])), rt.hashOne(copy, [b, text] as [rt.u8, string], rt.hashTuple([rt.hash8, rt.hashStr]))) ? 1 : 0);
-		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined), rt.hashOne(s, { _0: b ^ 240 }, Nibble.hash$Hash_DefaultHasher as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined)) ? 1 : 0);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, { _0: b }, hashes_Nibble.hash$Hash_DefaultHasher as (a0: hashes_Nibble.Nibble, a1: rt.Hasher) => undefined), rt.hashOne(s, { _0: b ^ 240 }, hashes_Nibble.hash$Hash_DefaultHasher as (a0: hashes_Nibble.Nibble, a1: rt.Hasher) => undefined)) ? 1 : 0);
 		const arc: rt.Arc<string> = new rt.Arc(text);
 		const _84: rt.Arc<string> = rt.arcClone(arc);
 		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, _84, rt.hashArc(rt.hashStr), rt.drop), rt.hashOne(s, arc, rt.hashArc(rt.hashStr))) ? 1 : 0);
 		rt.byteVecPush(out, arc.strong & 0xff);
 		const drops: rt.Cell<rt.u8> = new rt.Cell(0);
-		const counted: Counted.Counted = new Counted.Counted(b, drops);
-		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, Counted.hash$Hash_DefaultHasher as (a0: Counted.Counted, a1: rt.Hasher) => undefined), rt.hashOne(s, new Counted.Counted(b, drops), Counted.hash$Hash_DefaultHasher as (a0: Counted.Counted, a1: rt.Hasher) => undefined, rt.drop)) ? 1 : 0);
+		const counted: hashes_Counted.Counted = new hashes_Counted.Counted(b, drops);
+		rt.byteVecPush(out, rt.u64Eq(rt.hashOne(s, counted, hashes_Counted.hash$Hash_DefaultHasher as (a0: hashes_Counted.Counted, a1: rt.Hasher) => undefined), rt.hashOne(s, new hashes_Counted.Counted(b, drops), hashes_Counted.hash$Hash_DefaultHasher as (a0: hashes_Counted.Counted, a1: rt.Hasher) => undefined, rt.drop)) ? 1 : 0);
 		rt.byteVecPush(out, drops.v);
 		counted[Symbol.dispose]();
 		rt.byteVecPush(out, drops.v);
