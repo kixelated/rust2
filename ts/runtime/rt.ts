@@ -765,6 +765,20 @@ export function vecExtendFromSlice<T>(v: T[], s: ArrayLike<T>, clone?: (item: T)
 	for (let i = 0; i < s.length; i++) v.push(clone === undefined ? s[i] : clone(s[i]));
 }
 
+/**
+ * `join` of slices by the slice `sep`, or `concat` without one: each item's elements, read
+ * from it by `slice` unless it is the slice, with `sep`'s between them, each cloned in
+ * order by `clone` if given.
+ */
+export function slicesJoin<V, T>(items: readonly V[], sep?: ArrayLike<T>, slice?: (item: V) => ArrayLike<T>, clone?: (item: T) => T): T[] {
+	const v: T[] = [];
+	for (let i = 0; i < items.length; i++) {
+		if (i > 0 && sep !== undefined) vecExtendFromSlice(v, sep, clone);
+		vecExtendFromSlice(v, slice === undefined ? (items[i] as unknown as ArrayLike<T>) : slice(items[i]), clone);
+	}
+	return v;
+}
+
 /** `Clone` of a tuple, by `clone` of each field in order, `undefined` for one whose value is itself. */
 export function tupleClone<T extends readonly unknown[]>(t: T, clones: readonly (((value: never) => unknown) | undefined)[]): T {
 	const out: unknown[] = [];
@@ -1088,6 +1102,23 @@ export function byteVecExtendFromSlice(v: ByteVec, s: ByteSlice): void {
 	reserve(v, s.length);
 	copyBytes(v.data, v.length, s.data, s.start, s.length);
 	v.length += s.length;
+}
+
+/**
+ * `join` of byte slices by the bytes `sep`, or `concat` without them: each item's bytes,
+ * read from it by `slice` unless it is the slice, with `sep` between them, into a
+ * `Vec<u8>` of the capacity std's has, their exact length.
+ */
+export function byteSlicesJoin<V>(items: readonly V[], sep?: ByteSlice, slice?: (item: V) => ByteSlice): ByteVec {
+	const parts = slice === undefined ? (items as unknown as readonly ByteSlice[]) : items.map(slice);
+	let size = sep === undefined || parts.length === 0 ? 0 : sep.length * (parts.length - 1);
+	for (const part of parts) size += part.length;
+	const v = new ByteVec(size);
+	for (let i = 0; i < parts.length; i++) {
+		if (i > 0 && sep !== undefined) byteVecExtendFromSlice(v, sep);
+		byteVecExtendFromSlice(v, parts[i]);
+	}
+	return v;
 }
 
 /** `Vec::truncate`. */

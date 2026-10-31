@@ -743,8 +743,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
-  that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw
-  pointers: a linked list of boxed nodes as `hashlink` keeps one, through a union and a
+  that log what each is called with, `concat` and `join` of arrays, slices, `Vec`s, and
+  `Cow`s, of bytes and of items whose `Clone` logs, std's `Bound`, `Reverse`, and
+  `NonZero`, and raw pointers: a linked list of boxed nodes as `hashlink` keeps one, through a union and a
   `MaybeUninit` entry, pointers to locals, fields, and whole structs, and those
   `UnsafeCell::get` gives, as crossbeam-epoch's own `OnceLock` keeps its collector. Its
   differential test runs through `caller.ts`, a

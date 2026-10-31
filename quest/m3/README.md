@@ -32,5 +32,6 @@ generic std gap is planned here even when moq never calls it.
 - [Orderings of Result and VecDeque](/quest/m3/ts-order-result-deque.md) - `PartialOrd` and `Ord` of a `Result` and a `VecDeque` translate
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [A tuple's cmp typed as total](/quest/m3/ts-cmp-tuple-total.md) - `rt.cmpTuple` of total fields types its result as `Ordering`
-- [concat and join of slices of arrays](/quest/m3/ts-slice-concat.md) - `concat` and `join` of a slice of arrays or slices translate
+- [Slices split by a predicate](/quest/m3/ts-slice-split.md) - `[T]::split` and its forms by a predicate translate
+- [Boxed slices](/quest/m3/ts-boxed-slices.md) - `Box<[T]>` translates, made, read, and turned back into a `Vec`
 - [collect into tuples of collections](/quest/m3/ts-collect-tuples.md) - `collect` into a tuple of collections translates

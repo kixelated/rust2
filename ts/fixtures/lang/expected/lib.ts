@@ -15,6 +15,7 @@ import type * as Window from "./durations.Window.ts";
 import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
+import type * as joins_Logged from "./joins.Logged.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
@@ -428,6 +429,10 @@ export function drop$Lock_u8_Rc_unit(_1: Lock.Lock<[rt.u8, rt.Arc<undefined>]>):
 	Lock.drop$Drop_u8_Rc_unit(_1);
 }
 
+export function drop$Loggeds(value: joins_Logged.Logged[]): void {
+	rt.dropAll(value);
+}
+
 export function drop$RefCell_Vec_Arc_ArcReleasing(value: rt.RefCell<rt.Arc<ArcReleasing.ArcReleasing>[]>): void {
 	rt.dropAll(value.value);
 }
@@ -514,6 +519,10 @@ export function drop$Vec_Logged(value: Logged.Logged[]): void {
 	rt.dropAll(value);
 }
 
+export function drop$Vec_Logged$2(value: joins_Logged.Logged[]): void {
+	rt.dropAll(value);
+}
+
 export function drop$Vec_Rc_Noisy(value: rt.Arc<Noisy.Noisy>[]): void {
 	rt.dropAll(value);
 }
@@ -524,6 +533,13 @@ export function drop$Vec_Rc_Noisy_Vec_Rc_Noisy_Vec_RcShared_Vec_Noisy_Vec_Vec_Rc
 	rt.dropAll(_1[2]);
 	rt.dropAll(_1[3]);
 	rt.dropAll(_1[4], drop$Vec_Rc_Noisy);
+}
+
+export function drop$Vec_Vec_Logged_Loggedss_Logged_Vec_Logged(_1: [joins_Logged.Logged[][], joins_Logged.Logged[][], joins_Logged.Logged, joins_Logged.Logged[]]): void {
+	rt.dropAll(_1[0], drop$Vec_Logged$2);
+	rt.dropAll(_1[1], drop$Loggeds);
+	_1[2][Symbol.dispose]();
+	rt.dropAll(_1[3]);
 }
 
 export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
