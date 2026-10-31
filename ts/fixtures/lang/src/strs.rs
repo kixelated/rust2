@@ -1,8 +1,10 @@
 //! `str` and `String` over `char`: iterated from both ends, searched by a `char`, a
-//! predicate, or a `&str`, trimmed, split, sliced by byte offsets, and built a char at a
-//! time. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
+//! predicate, or a `&str`, trimmed, split, sliced by byte offsets, built a char at a
+//! time, edited in place, and parsed into a `bool`, a `char`, or a `NonZero`. Text is made of chars of every UTF-8 width and those next to UTF-16's surrogates,
 //! so byte offsets and code units part. Predicates log each char they are called with, so
 //! where a search stops is output too.
+
+use std::ops::Bound;
 
 use crate::fmt::put;
 
@@ -378,4 +380,518 @@ fn escape(parts: &[String]) -> String {
 		}
 	}
 	path
+}
+
+/// A byte offset into `s` from `b`: mostly where a char starts or the end, and otherwise
+/// any offset up to two past the end, inside a char or out of bounds.
+fn offset(s: &str, b: u8) -> usize {
+	if b & 0x70 == 0 {
+		return usize::from(b) % (s.len() + 3);
+	}
+	let mut skip = usize::from(b) % (s.chars().count() + 1);
+	for i in 0..s.len() {
+		if s.is_char_boundary(i) {
+			if skip == 0 {
+				return i;
+			}
+			skip -= 1;
+		}
+	}
+	s.len()
+}
+
+/// `String::retain` by a function behind a `&mut`, behind two, and boxed behind one.
+fn retain_by(s: &mut String, f: &mut fn(char) -> bool, how: u8) {
+	match how % 3 {
+		0 => s.retain(f),
+		1 => s.retain(&mut &mut *f),
+		_ => s.retain(Box::new(f)),
+	}
+}
+
+fn odd(c: char) -> bool {
+	u32::from(c) % 2 == 1
+}
+
+/// One edit of `s` by `op`, taking offsets and text from `a` and `b`, through a `&mut`.
+fn edit(s: &mut String, op: u8, a: u8, b: u8, out: &mut Vec<u8>) {
+	let piece = text(&[a, b, a ^ b][..usize::from(a % 4)]);
+	let (i, j) = (offset(s, a), offset(s, b));
+	match op % 14 {
+		0 => s.push_str(&piece),
+		1 => *s += &piece,
+		2 if a % 4 == 0 => s.clear(),
+		2 => s.push(ALPHABET[usize::from(b % 16)]),
+		3 => s.truncate(i),
+		4 => put_char(out, s.pop()),
+		5 => put_char(out, Some(s.remove(i))),
+		6 => s.insert(i, ALPHABET[usize::from(b % 16)]),
+		7 => s.insert_str(i, &piece),
+		8 if b % 2 == 1 => {
+			let mut f: fn(char) -> bool = odd;
+			retain_by(s, &mut f, a);
+		}
+		8 => {
+			let mut seen = Vec::new();
+			s.retain(|c| {
+				seen.push(c);
+				u32::from(c) % 3 != u32::from(a % 3)
+			});
+			put_seen(out, &seen);
+		}
+		9 => put(out, &s.split_off(i)),
+		10 => match b % 7 {
+			0 => s.replace_range(i..j, &piece),
+			1 => s.replace_range(i.., &piece),
+			2 => s.replace_range(..j, &piece),
+			3 => s.replace_range(.., &piece),
+			4 => s.replace_range(i..=j, &piece),
+			5 => s.replace_range(..=j, &piece),
+			_ => s.replace_range((Bound::Excluded(i), Bound::Included(j)), &piece),
+		},
+		11 => match b % 5 {
+			0 => s.extend_from_within(i..j),
+			1 => s.extend_from_within(i..),
+			2 => s.extend_from_within(..=j),
+			3 => s.extend_from_within((Bound::Included(i), Bound::Excluded(j))),
+			_ => s.extend_from_within(..),
+		},
+		// Past `isize::MAX`, a capacity overflows; native Rust would allocate one up to it.
+		12 => match a % 4 {
+			0 => s.reserve(usize::MAX - usize::from(b)),
+			1 => s.reserve_exact(isize::MAX as usize - s.len() + 1 + usize::from(b % 2)),
+			_ => {
+				s.reserve(usize::from(a));
+				s.reserve_exact(usize::from(b));
+				s.shrink_to(usize::from(a));
+				s.shrink_to_fit();
+			}
+		},
+		_ => {
+			let capacity = match a % 4 {
+				0 => isize::MAX as usize + 1 + usize::from(b % 2),
+				_ => usize::from(a),
+			};
+			let mut fresh = String::with_capacity(capacity);
+			fresh.push_str(s);
+			*s = fresh;
+		}
+	}
+}
+
+/// `String`'s edits in place, three bytes each, on text of chars of every UTF-8 width:
+/// through a `&mut String`, on a local, and on a field, each printed after each edit.
+/// An offset off a char boundary or out of bounds panics as std's does.
+pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (head, ops) = data.split_at(data.len().min(usize::from(kind % 8)));
+	let mut s = text(head);
+	let mut named = Named { name: text(head) };
+	for op in ops.chunks(3) {
+		let [op, a, b] = [op[0], *op.get(1).unwrap_or(&0), *op.get(2).unwrap_or(&0x10)];
+		match op / 64 {
+			0 => edit(&mut named.name, op, a, b, out),
+			// On the local itself, with no `&mut` between.
+			1 => match op % 6 {
+				0 => s.push_str("é/"),
+				1 => s.truncate(offset(&s, a)),
+				2 => put_char(out, s.pop()),
+				3 => s.insert_str(offset(&s, a), "😀"),
+				4 => put(out, &s.split_off(offset(&s, a))),
+				_ => s.clear(),
+			},
+			_ => edit(&mut s, op, a, b, out),
+		}
+		put(out, &s);
+		put(out, &named.name);
+	}
+}
+
+/// Where `bool`, `char`, and `NonZero` parse or fail: case, whitespace, each UTF-8 width,
+/// a sign, zero, and every integer type's bounds and one past them.
+const PARSE_EDGES: &[&str] = &[
+	"true",
+	"false",
+	"True",
+	"FALSE",
+	"",
+	" true",
+	"true ",
+	"t",
+	"truefalse",
+	"a",
+	"\u{e9}",
+	"\u{800}",
+	"\u{1f600}",
+	"\u{10ffff}",
+	"ab",
+	"a\u{1f600}",
+	"\u{1f600}a",
+	"\u{e9}\u{e9}",
+	"0",
+	"+0",
+	"-0",
+	"000",
+	"1",
+	"+1",
+	"-1",
+	"+",
+	"-",
+	"--1",
+	"+-1",
+	"1_0",
+	"0x1",
+	"127",
+	"128",
+	"-128",
+	"-129",
+	"255",
+	"256",
+	"32767",
+	"32768",
+	"-32768",
+	"-32769",
+	"65535",
+	"65536",
+	"2147483647",
+	"2147483648",
+	"-2147483648",
+	"-2147483649",
+	"4294967295",
+	"4294967296",
+	"9223372036854775807",
+	"9223372036854775808",
+	"-9223372036854775808",
+	"-9223372036854775809",
+	"18446744073709551615",
+	"18446744073709551616",
+	"170141183460469231731687303715884105727",
+	"170141183460469231731687303715884105728",
+	"-170141183460469231731687303715884105728",
+	"-170141183460469231731687303715884105729",
+	"340282366920938463463374607431768211455",
+	"340282366920938463463374607431768211456",
+];
+
+/// One parse of `s` as `$t` each way std offers: its value, or its error by `Display`
+/// and `Debug`, padded, truncated, and pretty.
+macro_rules! parse_as {
+	($t:ty, $s:expr, $out:expr) => {{
+		let (s, out): (&str, &mut Vec<u8>) = ($s, $out);
+		for parsed in [s.parse::<$t>(), <$t as std::str::FromStr>::from_str(s)] {
+			match parsed {
+				Ok(v) => put(out, &format!("{v:?}")),
+				Err(e) => put(out, &format!("{e}|{e:?}|{e:>50}|{e:<3.5}|{e:>20?}|{e:#?}")),
+			}
+		}
+		s.parse::<$t>()
+	}};
+}
+
+/// `NonZero`'s parse, then its error's `IntErrorKind`, and `from_str_radix` in `radix`.
+macro_rules! parse_nonzero {
+	($t:ty, $s:expr, $radix:expr, $out:expr) => {{
+		let (s, radix, out): (&str, u32, &mut Vec<u8>) = ($s, $radix, $out);
+		if let Err(e) = parse_as!(std::num::NonZero<$t>, s, out) {
+			put(out, &format!("{:?}", e.kind()));
+		}
+		match std::num::NonZero::<$t>::from_str_radix(s, radix) {
+			Ok(v) => put(out, &format!("{v}")),
+			Err(e) => put(out, &format!("{e}|{e:?}")),
+		}
+	}};
+}
+
+/// `str::parse` of the type `kind` picks, `bool`, `char`, or a `NonZero` of each integer,
+/// of every edge, of text of chars of every UTF-8 width, or of bytes mapped into an
+/// alphabet of signs, digits, and the letters of `true` and `false`.
+pub fn parses(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	const ALPHABET: &[u8] = b"0123456789+-truefalsTF ";
+	let radix = 2 + u32::from(data.first().copied().unwrap_or(0)) % 35;
+	let one = match kind / 14 % 3 {
+		0 => None,
+		1 => Some(text(data)),
+		_ => {
+			let mut s = String::new();
+			for &b in data {
+				s.push(char::from(ALPHABET[usize::from(b) % ALPHABET.len()]));
+			}
+			Some(s)
+		}
+	};
+	let all: Vec<&str> = match &one {
+		Some(s) => vec![s],
+		None => PARSE_EDGES.to_vec(),
+	};
+	for s in all {
+		match kind % 14 {
+			0 => {
+				let _ = parse_as!(bool, s, out);
+			}
+			1 => {
+				let _ = parse_as!(char, s, out);
+			}
+			2 => parse_nonzero!(u8, s, radix, out),
+			3 => parse_nonzero!(u16, s, radix, out),
+			4 => parse_nonzero!(u32, s, radix, out),
+			5 => parse_nonzero!(u64, s, radix, out),
+			6 => parse_nonzero!(u128, s, radix, out),
+			7 => parse_nonzero!(usize, s, radix, out),
+			8 => parse_nonzero!(i8, s, radix, out),
+			9 => parse_nonzero!(i16, s, radix, out),
+			10 => parse_nonzero!(i32, s, radix, out),
+			11 => parse_nonzero!(i64, s, radix, out),
+			12 => parse_nonzero!(i128, s, radix, out),
+			_ => parse_nonzero!(isize, s, radix, out),
+		}
+	}
+}
+
+/// A crate's own iterator over `items`, which counts each `next` it is asked.
+struct Counted<'a, T> {
+	items: &'a [T],
+	nexts: &'a std::cell::Cell<u8>,
+}
+
+impl<T: Clone> Iterator for Counted<'_, T> {
+	type Item = T;
+
+	fn next(&mut self) -> Option<T> {
+		self.nexts.set(self.nexts.get() + 1);
+		let (first, rest) = self.items.split_first()?;
+		self.items = rest;
+		Some(first.clone())
+	}
+}
+
+/// `String` made from and extended by iterators of chars and of strings, each the kind
+/// picks, from text of chars of every UTF-8 width and its parts between `/`s.
+pub fn iters(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let s = text(data);
+	let chars: Vec<char> = s.chars().collect();
+	let parts: Vec<&str> = s.split('/').collect();
+	let nexts = std::cell::Cell::new(0);
+	let mut named = Named {
+		name: text(&data[..data.len() / 2]),
+	};
+	match kind % 4 {
+		0 => {
+			put(out, &s.chars().collect::<String>());
+			put(
+				out,
+				&s.chars().rev().filter(|c| !c.is_ascii_digit()).collect::<String>(),
+			);
+			put(out, &chars.iter().collect::<String>());
+			put(out, &String::from_iter(chars.iter().copied().skip(1)));
+			put(out, &std::iter::empty::<char>().collect::<String>());
+			put(out, &char::from_u32(u32::from(kind)).into_iter().collect::<String>());
+			let counted = Counted {
+				items: &chars,
+				nexts: &nexts,
+			};
+			put(out, &counted.collect::<String>());
+		}
+		1 => {
+			put(out, &parts.iter().copied().collect::<String>());
+			put(out, &s.split('/').rev().collect::<String>());
+			put(out, &parts.iter().map(|p| p.to_string()).collect::<String>());
+			put(
+				out,
+				&s.split('/')
+					.map(|p| format!("{p}{p}"))
+					.filter(|p| !p.is_empty())
+					.collect::<String>(),
+			);
+			put(out, &std::iter::empty::<String>().collect::<String>());
+			let cow: std::borrow::Cow<str> = s.chars().rev().collect();
+			put(out, &cow);
+			let boxed: Box<str> = parts.iter().copied().collect();
+			put(out, &boxed);
+			let owned: Vec<String> = parts.iter().map(|p| p.to_string()).collect();
+			put(
+				out,
+				&owned
+					.iter()
+					.map(|p| std::borrow::Cow::Borrowed(p.as_str()))
+					.collect::<String>(),
+			);
+			let counted = Counted {
+				items: &owned,
+				nexts: &nexts,
+			};
+			put(out, &counted.collect::<String>());
+		}
+		2 => {
+			// Through a `&mut`, on a local, and on a field.
+			let mut t = String::from("é");
+			extend_chars(&mut t, &chars, kind);
+			t.extend(s.chars().rev());
+			named.name.extend(&chars);
+			named.name.extend(std::iter::empty::<char>());
+			let counted = Counted {
+				items: &chars,
+				nexts: &nexts,
+			};
+			t.extend(counted);
+			put(out, &t);
+		}
+		_ => {
+			let mut t = String::new();
+			t.extend(s.split('/'));
+			t.extend(parts.iter().map(|p| format!("{p}é")));
+			named.name.extend(parts.iter().rev().copied());
+			named
+				.name
+				.extend(parts.iter().map(|p| std::borrow::Cow::Owned(p.to_string())));
+			named.name.extend(std::iter::empty::<&str>());
+			let counted = Counted {
+				items: &parts,
+				nexts: &nexts,
+			};
+			t.extend(counted);
+			put(out, &t);
+		}
+	}
+	put(out, &named.name);
+	out.push(nexts.get());
+}
+
+fn extend_chars(t: &mut String, chars: &[char], kind: u8) {
+	match kind / 4 % 3 {
+		0 => t.extend(chars.iter()),
+		1 => t.extend(chars.iter().copied().filter(|c| c.is_ascii_digit())),
+		_ => t.extend(Some('😀')),
+	}
+}
+
+/// `String::drain` of `s` by the range `form` picks, between offsets from `a` and `b`,
+/// read from either end by `steps`' bits, then dropped, forgotten, or read to its end.
+fn drain_by(s: &mut String, form: u8, a: u8, b: u8, steps: u8, out: &mut Vec<u8>) {
+	let (i, j) = (offset(s, a), offset(s, b));
+	let mut drain = match form % 8 {
+		0 => s.drain(i..j),
+		1 => s.drain(i..),
+		2 => s.drain(..j),
+		3 => s.drain(..),
+		4 => s.drain(i..=j),
+		5 => s.drain(..=j),
+		6 => s.drain((Bound::Excluded(i), Bound::Included(j))),
+		_ => s.drain((Bound::Included(i), Bound::Unbounded)),
+	};
+	// Up to three chars, each from the front or the back by a bit of `steps`.
+	for k in 0..steps % 4 {
+		let c = match steps >> (2 + k) & 1 {
+			0 => drain.next(),
+			_ => drain.next_back(),
+		};
+		put_char(out, c);
+	}
+	match form / 8 % 4 {
+		0 => {}
+		// Forgotten, a drain leaves the string as it was.
+		1 => std::mem::forget(drain),
+		2 => put(out, &drain.collect::<String>()),
+		_ => {
+			put(out, drain.as_str());
+			for c in drain.rev() {
+				put_char(out, Some(c));
+			}
+		}
+	}
+}
+
+/// `String::drain`s, four bytes each, on text of chars of every UTF-8 width: through a
+/// `&mut String`, on a local, and on a field, each printed after each drain. An offset off
+/// a char boundary or out of bounds panics as std's does.
+pub fn drains(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let (head, ops) = data.split_at(data.len().min(usize::from(kind % 8)));
+	let mut s = text(head);
+	let mut named = Named { name: text(head) };
+	for op in ops.chunks(4) {
+		let [form, a, b, steps] = [
+			op[0],
+			*op.get(1).unwrap_or(&0),
+			*op.get(2).unwrap_or(&0x10),
+			*op.get(3).unwrap_or(&0),
+		];
+		match form / 32 % 4 {
+			0 => drain_by(&mut named.name, form, a, b, steps, out),
+			// On the local itself, with no `&mut` between.
+			1 => match form % 4 {
+				0 => put(out, &s.drain(..offset(&s, a)).collect::<String>()),
+				1 => out.push(s.drain(offset(&s, a)..).count() as u8),
+				2 => put_char(out, s.drain(..).last()),
+				_ => {
+					s.drain(offset(&s, a)..offset(&s, b));
+				}
+			},
+			_ => drain_by(&mut s, form, a, b, steps, out),
+		}
+		put(out, &s);
+		put(out, &named.name);
+	}
+}
+
+/// Range lengths whose size hint, through `hinted`'s adaptors, is either a few chars or
+/// past where `isize::MAX` bytes of text start: std's `String` would reserve any between,
+/// up to 2 GiB.
+const HINTED: [u32; 7] = [0, 5, 8, 9, 0x7fff_fffd, 0x8000_0000, u32::MAX];
+
+/// Chars from ranges as long as `data`'s first two bytes pick, through the adaptors `kind`
+/// picks, into a `String` holding `aé` and the text of the rest: std's reserves the size
+/// hint's lower bound first, which panics past `isize::MAX` before it reads a char, and
+/// else the chars panic with `consumed` past the eighth.
+pub fn hinted(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let pick = |i: usize| HINTED[usize::from(data.get(i).copied().unwrap_or(0)) % HINTED.len()];
+	let (n, m) = (pick(0), pick(1));
+	let sub = usize::from(data.get(1).copied().unwrap_or(0)) / HINTED.len();
+	let mut t = String::from("aé");
+	t.push_str(&text(data.get(2..).unwrap_or(&[])));
+	let calls = std::cell::Cell::new(0usize);
+	let f = |_: u32| {
+		calls.set(calls.get() + 1);
+		assert!(calls.get() <= 8, "consumed");
+		ALPHABET[calls.get()]
+	};
+	match kind % 10 {
+		0 => t.extend((0..n).map(f)),
+		1 => t = (0..=n).chain(0..n).map(f).collect(),
+		2 => t.extend(
+			(0..u64::from(n) << 8 | u64::from(m))
+				.map(|i| f(i as u32))
+				.skip(m as usize),
+		),
+		3 => t.extend((0..n).map(f).take(m as usize)),
+		// Only twice the longest is past `isize::MAX` stepped by two.
+		4 => t.extend(
+			(0..n)
+				.step_by(if n == u32::MAX { 1 + m as usize % 2 } else { 1 })
+				.map(f),
+		),
+		5 => match m % 2 {
+			0 => t.extend((0..n).map(f).chain((0..m).map(f))),
+			_ => t.extend((0..n).zip(0..m).map(|(i, _)| f(i))),
+		},
+		6 => t.extend((0..n).flat_map(|i| [f(i), f(i)])),
+		// Sources whose hint is a few chars, which make it `n` only if each counts its own.
+		7 => t.extend(
+			(0..n.saturating_sub(5))
+				.map(f)
+				.chain(std::iter::once('x'))
+				.chain(Some('y'))
+				.chain("é😀".chars())
+				.chain(['z'].iter().copied()),
+		),
+		// Integers past 2^53.
+		8 => match sub % 3 {
+			0 => t.extend((1u64 << 60..(1u64 << 60) + u64::from(n)).map(|_| f(0))),
+			1 => t.extend((-(1i128 << 100)..-(1i128 << 100) + i128::from(n)).map(|_| f(0))),
+			_ => t.extend((1u64 << 60..=(1u64 << 60) + u64::from(n)).map(|_| f(0))),
+		},
+		_ => {
+			let mut chars = (0..n).map(f).enumerate().map(|(_, c)| c).rev().fuse().peekable();
+			put_char(out, chars.peek().copied());
+			t.extend(chars);
+		}
+	}
+	put(out, &t);
 }

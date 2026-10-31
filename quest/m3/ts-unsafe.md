@@ -34,17 +34,14 @@ none of its own `unsafe`.
 - `&raw const *r` where `r` is a `&T` to a value JS copies or a library object, such as
   foldhash's seed and arrayvec's `as_ptr`: the reference is the value, not where it is
   kept, so it needs the place the reference came from.
-- A pointer to a part kept as an object is refused where the crate may put another
-  object there, judged by type over the whole program: a generic function writing a whole
-  `T` counts for every `T` its bounds allow. Judge by the instances translation reaches
-  if a consumer's pointer is refused only by that.
+- `UnsafeCell::raw_get`, `from_mut`, and `replace`, refused with their span: none is in
+  moq's census at the pin.
 - A slice's pointer cast to an array's of its length, `*(s as *const [u8] as *const
   [u8; N])`, which `bytes`' `Buf::get_u16` and wider read a crate's own buffer through
   ([#222](https://github.com/moq-dev/rust2/pull/222)): the bytes keep their type, so
   this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
-  range, and each integer's `from_le_bytes` and `from_ne_bytes`, and `chunks_vectored`
-  needs `std::io::IoSlice`: 184 of moq-net's 196 refusals in `bytes`, the rest being 12
-  of [`f32`](/quest/m3/ts-f32.md).
+  range, and `chunks_vectored` needs `std::io::IoSlice`: the rest of moq-net's refusals
+  in `bytes`.
 - `BinaryHeap` and `PeekMut` translate from std's MIR, whose `Hole` moves elements
   through raw pointers into the `Vec`'s storage, replacing `rt.BinaryHeap` and
   `rt.PeekMut`, the hand-written port of std's sifts that

@@ -7,12 +7,12 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::log::Log;
 use crate::model::Guard;
 
-/// Run scenario `arg % 31`. Items are guards 1 to 7; what closures own, 10 and up.
+/// Run scenario `arg % 42`. Items are guards 1 to 7; what closures own, 10 and up.
 pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
 	let (c, d) = (guard(10), guard(11));
-	match arg % 31 {
+	match arg % 42 {
 		0 => {
 			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).count();
 			let sum: u32 = guards(5, 8).into_iter().map(move |g| g.id() - id + d.id() - id).sum();
@@ -380,6 +380,10 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 				.fold(0, |n, g| n * 10 + g.id() - id);
 			log.note(format!("rev {n} {}", c.id()));
 		}
+		31 => options(log, id),
+		32 => reducers(log, id),
+		33 => closures(log, id),
+		34..42 => zips(log, id, arg - 34),
 		_ => {
 			let n: u32 = guards(1, 6)
 				.into_iter()
@@ -545,6 +549,237 @@ pub(super) fn rfolded(log: &Log, id: u32, arg: u8) {
 			log.note(format!("ends {:?}", flat.next_back().map(|g| g.id())));
 			let n = flat.map(move |g| g.id() + d.id()).count();
 			log.note(format!("flat {n} {}", e.id()));
+		}
+	}
+}
+
+/// `last` and `min` of `Option`s, by what drops: a `None` item apart from no items.
+fn options(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	let (c, d, e) = (guard(10), guard(11), guard(12));
+	let odd = guards(1, 4)
+		.into_iter()
+		.map(move |g| (g.id() % 2 == c.id() % 2).then_some(g.id()))
+		.last();
+	let none = guards(4, 4)
+		.into_iter()
+		.map(move |g| (g.id() != d.id()).then_some(g.id()))
+		.last();
+	let least = guards(4, 4)
+		.into_iter()
+		.map(move |g| (g.id() != e.id()).then_some(g.id()))
+		.min();
+	log.note(format!("options {odd:?} {none:?} {least:?}"));
+}
+
+/// `max_by`, `min_by`, and `reduce` of items that drop, by what drops when: each loser as
+/// it loses, and the iterator with the closure it holds once it ends, at once if empty.
+fn reducers(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	let (c, d) = (guard(10), guard(11));
+	let most = guards(1, 6)
+		.into_iter()
+		.map(move |g| {
+			log.note(format!("map {} {}", g.id(), c.id()));
+			g
+		})
+		.max_by(|a, b| (a.id() % 2).cmp(&(b.id() % 2)));
+	let least = guards(1, 6).into_iter().min_by(|a, b| (a.id() % 3).cmp(&(b.id() % 3)));
+	let kept = guards(1, 4).into_iter().reduce(|a, b| {
+		log.note(format!("reduce {} {}", a.id(), b.id()));
+		if b.id() % 2 == 0 { b } else { a }
+	});
+	let none = guards(4, 4)
+		.into_iter()
+		.map(move |g| g.id() + d.id())
+		.reduce(|a, b| a + b);
+	let ids = |g: Option<Guard>| g.map(|g| g.id());
+	log.note(format!(
+		"reducers {:?} {:?} {:?} {none:?}",
+		ids(most),
+		ids(least),
+		ids(kept)
+	));
+	// A comparator that owns a guard, dropped as `min_by` returns.
+	let (held, e) = (guards(1, 3), guard(12));
+	let first = held
+		.iter()
+		.min_by(move |a, b| (a.id() + e.id()).cmp(&(b.id() + e.id())));
+	log.note(format!("first {:?}", first.map(Guard::id)));
+}
+
+/// Closures that own a guard and return an `Option<Option<Guard>>`, whose `Some(None)` is
+/// an item: each drops what it rejects as it returns, and with its adaptor, after the
+/// source it reads.
+fn closures(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	let (c, d, e, f, h) = (guard(10), guard(11), guard(12), guard(13), guard(14));
+	// `None` for 0 mod 3, `Some(None)` for 1, and else `Some(Some(g))`.
+	let pick = |g: Guard| match (g.id() - id) % 3 {
+		0 => None,
+		1 => Some(None),
+		_ => Some(Some(g)),
+	};
+	let ids = |o: Option<Guard>| o.map(|g| g.id());
+	let kept: Vec<Option<u32>> = guards(1, 7)
+		.into_iter()
+		.filter_map(move |g| {
+			log.note(format!("filter_map {} {}", g.id(), c.id()));
+			pick(g)
+		})
+		.map(ids)
+		.collect();
+	log.note(format!("kept {kept:?}"));
+	// Through `fold`, which a source that drops takes.
+	let folded = guards(1, 7)
+		.into_iter()
+		.filter_map(pick)
+		.fold(0, |n, o| n * 10 + o.map_or(9, |g| g.id() - id));
+	log.note(format!("folded {folded}"));
+	let mut whiles = guards(4, 8).into_iter().map_while(move |g| {
+		log.note(format!("map_while {} {}", g.id(), d.id()));
+		pick(g)
+	});
+	let first = whiles.next().map(ids);
+	let second = whiles.next().map(ids);
+	drop(whiles);
+	log.note(format!("whiles {first:?} {second:?}"));
+	let found = guards(3, 7).into_iter().find_map(move |g| {
+		log.note(format!("find_map {} {}", g.id(), e.id()));
+		pick(g)
+	});
+	log.note(format!("found {:?}", found.map(ids)));
+	let mut held = guards(1, 6);
+	let mut made = std::iter::from_fn(move || {
+		let g = held.pop()?;
+		log.note(format!("from_fn {} {}", g.id(), f.id()));
+		Some((g.id() % 2 == 0).then_some(g))
+	});
+	let first = made.next().map(ids);
+	let second = made.next().map(ids);
+	drop(made);
+	log.note(format!("made {first:?} {second:?}"));
+	// From a `Some(None)` seed, holding the guard it yields next as it drops.
+	let mut walked = std::iter::successors(Some(None), move |prev: &Option<Guard>| {
+		let next = prev.as_ref().map_or(5, |g| g.id() - id + 1);
+		log.note(format!("successors {next} {}", h.id()));
+		(next < 8).then(|| Some(Guard::new(id + next, log.clone())))
+	});
+	let first = walked.next().map(ids);
+	let second = walked.next().map(ids);
+	drop(walked);
+	log.note(format!("walked {first:?} {second:?}"));
+	let n = std::iter::successors(Some(None), |prev: &Option<Guard>| {
+		let next = prev.as_ref().map_or(5, |g| g.id() - id + 1);
+		(next < 8).then(|| Some(Guard::new(id + next, log.clone())))
+	})
+	.count();
+	log.note(format!("walked {n}"));
+}
+
+/// Scenario `arg` of a zip of items that drop, each side made by a closure where std reads
+/// it by index: by index, `next` makes no item past the shorter side and `next_back` makes
+/// and drops the longer side's extra first; a zip of two `TrustedLen` iterators, or two only
+/// `TrustedRandomAccessNoCoerce`, folds no pair past its size hint, and drops the rest with
+/// itself, where `try_fold` and `next` read the first side once more and drop that item.
+fn zips(log: &Log, id: u32, arg: u8) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	// A guard made by a side's closure, which says so, where std reads by index.
+	let made = |n: u32| {
+		log.note(format!("make {n}"));
+		guard(n)
+	};
+	let ids = |p: Option<(Guard, Guard)>| p.map(|(a, b)| (a.id() - id, b.id() - id));
+	match arg {
+		0 => {
+			let n = (1..4).map(made).zip((4..6).map(made)).count();
+			let nth = ids((1..4).map(made).zip((4..7).map(made)).nth(1));
+			let past = ids((1..3).map(made).zip((3..6).map(made)).nth(3));
+			log.note(format!("index {n} {nth:?} {past:?}"));
+		}
+		1 => {
+			let mut longer = (1..5).map(made).zip((5..7).map(made));
+			let back = ids(longer.next_back());
+			let front = ids(longer.next());
+			let mut shorter = (1..3).map(made).zip((3..7).map(made));
+			let next = ids(shorter.next());
+			let rest = shorter.rev().map(|(a, b)| a.id() + b.id() - 2 * id).collect::<Vec<_>>();
+			log.note(format!("back {back:?} {front:?} {next:?} {rest:?}"));
+		}
+		2 => {
+			let n = guards(1, 4).into_iter().zip(guards(4, 6)).count();
+			let any = guards(1, 4).into_iter().zip(guards(4, 6)).any(|_| false);
+			let last = ids(guards(1, 3).into_iter().zip(guards(3, 6)).last());
+			guards(1, 4)
+				.into_iter()
+				.zip(guards(4, 6))
+				.for_each(|(a, b)| log.note(format!("each {} {}", a.id() - id, b.id() - id)));
+			log.note(format!("len {n} {any} {last:?}"));
+		}
+		3 => {
+			let zip = || {
+				vec![1, 2, 3]
+					.into_iter()
+					.map(made)
+					.zip(vec![4, 5].into_iter().map(made))
+			};
+			let n = zip().count();
+			let at = zip().position(|_| false);
+			let sum: u32 = zip().map(|(a, b)| a.id() + b.id() - 2 * id).sum();
+			let skipped = vec![1, 2, 3, 4]
+				.into_iter()
+				.skip(1)
+				.map(made)
+				.zip((5..7).map(made))
+				.count();
+			// Collected in place by index, then dropped whole: `c`'s closure, then `d`'s.
+			let (c, d) = (guard(10), guard(11));
+			let kept: Vec<u32> = vec![1, 2, 3]
+				.into_iter()
+				.map(move |x| x + c.id() - id)
+				.map(move |x| x + d.id() - id)
+				.collect();
+			log.note(format!("no coerce {n} {at:?} {sum} {skipped} {kept:?}"));
+		}
+		4 => {
+			let v = guards(1, 4).into_iter().zip((4..6).map(guard)).collect::<Vec<_>>();
+			log.note(format!("collect {}", v.len()));
+			drop(v);
+			let found = ids(guards(1, 3)
+				.into_iter()
+				.zip((3..6).map(guard))
+				.find(|(a, _)| a.id() == id + 9));
+			log.note(format!("find {found:?}"));
+		}
+		5 => {
+			let nested = || guards(1, 4).into_iter().zip(guards(4, 6)).zip((6..9).map(guard));
+			let n = nested().count();
+			let found = nested().find(|((a, _), _)| a.id() == id + 9).is_some();
+			log.note(format!("nested {n} {found}"));
+		}
+		6 => {
+			// Neither side `TrustedLen`: `fold` reads by `next`, past the shorter side.
+			let n = guards(1, 4)
+				.into_iter()
+				.filter(|g| g.id() != id)
+				.zip(guards(4, 6))
+				.count();
+			let m = guards(1, 3)
+				.into_iter()
+				.zip(guards(3, 6).into_iter().filter(|g| g.id() != id))
+				.count();
+			log.note(format!("neither {n} {m}"));
+		}
+		_ => {
+			let v = [1, 2, 3];
+			let n = v.iter().map(|&n| made(n)).zip(0..2).count();
+			let back = v.iter().map(|&n| made(n)).zip(0..2).rev().count();
+			let empty = v.iter().map(|&n| made(n)).zip(0..0).count() + (0..0).zip(v.iter().map(|&n| made(n))).count();
+			log.note(format!("trimmed {n} {back} {empty}"));
 		}
 	}
 }

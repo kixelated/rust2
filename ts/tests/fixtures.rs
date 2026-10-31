@@ -451,8 +451,16 @@ fn bind() {
 	snapshot("bind", &out);
 	typecheck(&out);
 	differential("bind-fixture", &[], &out, "harness.ts", 1_000);
+	// Each through a symlink, as a linked target directory reaches its output, though `tsc`
+	// names each file from the real directory.
+	let real = scratch().join("bind").join("real");
+	let linked = scratch().join("bind").join("linked");
+	std::fs::create_dir_all(&real).unwrap();
+	if !linked.exists() {
+		std::os::unix::fs::symlink(&real, &linked).unwrap();
+	}
 	for config in ["wrong", "refused"] {
-		let out = scratch().join("bind").join(config);
+		let out = linked.join(config);
 		let toml = fixture("bind").join(format!("{config}.toml"));
 		let output = driver("bind", &toml, &["--out".as_ref(), out.as_ref()], "build");
 		assert!(

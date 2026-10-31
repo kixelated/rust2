@@ -9,7 +9,7 @@ import { Err, type FmtResult, type Formatter, fmtDebugStructFields, fmtPad, Ok, 
 import { cmp, type Ordering } from "./collections.ts";
 import { type Hasher, hash32, hash64 } from "./hash.ts";
 import { f64ToBits } from "./float.ts";
-import { type f64, type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Of, u64Rem, u64ToF64, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
+import { type f32, type f64, type u32, type u64, type u128, u64CheckedAdd, u64CheckedMul, u64CheckedSub, u64Div, u64Eq, u64Of, u64Rem, u64ToF32, u64ToF64, u64TryFrom, u128Add, u128Cast, u128Div, u128Mul, u128Rem } from "./int.ts";
 import { type Iter, iterFold } from "./iter.ts";
 
 /** `core::time::Duration`: whole seconds, and the nanoseconds past them, below 10^9. */
@@ -197,7 +197,10 @@ export function durationAbsDiff(a: Duration, b: Duration): Duration {
 }
 
 /** `core::time::TryFromFloatSecsError`: why seconds made no `Duration`. */
-export type TryFromFloatSecsError = { readonly kind: "Negative" | "OverflowOrNan" };
+export type TryFromFloatSecsError = { readonly kind: TryFromFloatSecsErrorKind };
+
+/** `core::time::TryFromFloatSecsErrorKind`: why a `Duration` wasn't made, by variant name. */
+export type TryFromFloatSecsErrorKind = "Negative" | "OverflowOrNan";
 
 /** `Duration::as_secs_f64`. */
 export function durationAsSecsF64(d: Duration): f64 {
@@ -264,6 +267,32 @@ export const durationMulF64 = (d: Duration, rhs: f64): Duration => durationFromS
 
 /** `Duration::div_f64`: through seconds as an `f64`, as std computes it. */
 export const durationDivF64 = (d: Duration, rhs: f64): Duration => durationFromSecsF64(durationAsSecsF64(d) / rhs);
+
+/** `Duration::as_secs_f32`, each step rounded to a single as std's. */
+export function durationAsSecsF32(d: Duration): f32 {
+	return Math.fround(u64ToF32(d.secs) + Math.fround(Math.fround(d.nanos) / NANOS_PER_SEC));
+}
+
+/** `Duration::div_duration_f32`: their nanoseconds, each made in singles as std's, divided. */
+export function durationDivDurationF32(a: Duration, b: Duration): f32 {
+	const nanos = (d: Duration) => Math.fround(Math.fround(u64ToF32(d.secs) * NANOS_PER_SEC) + Math.fround(d.nanos));
+	return Math.fround(nanos(a) / nanos(b));
+}
+
+/**
+ * `Duration::try_from_secs_f32`, which rounds the exact value to the nearest nanosecond,
+ * half to even, and errs where `try_from_secs_f64` of the same value does.
+ */
+export const durationTryFromSecsF32: (secs: f32) => Result<Duration, TryFromFloatSecsError> = durationTryFromSecsF64 as never;
+
+/** `Duration::from_secs_f32`, with `from_secs_f64`'s panic. */
+export const durationFromSecsF32: (secs: f32) => Duration = durationFromSecsF64 as never;
+
+/** `Duration::mul_f32`, which std computes as `mul_f64`. */
+export const durationMulF32: (d: Duration, rhs: f32) => Duration = durationMulF64 as never;
+
+/** `Duration::div_f32`, which std computes as `div_f64`. */
+export const durationDivF32: (d: Duration, rhs: f32) => Duration = durationDivF64 as never;
 
 function tryFromFloatSecsErrorText(e: TryFromFloatSecsError): string {
 	const why = e.kind === "Negative" ? "value is negative" : "value is either too big or NaN";

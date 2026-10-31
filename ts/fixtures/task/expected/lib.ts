@@ -34,6 +34,15 @@ export function drop$Guard_Guard(_1: [Guard.Guard, Guard.Guard]): void {
 	_1[1][Symbol.dispose]();
 }
 
+export function drop$Guard_Guard_Guard(_1: [[Guard.Guard, Guard.Guard], Guard.Guard]): void {
+	drop$Guard_Guard(_1[0]);
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$Guard_i32(_1: [Guard.Guard, rt.i32]): void {
+	_1[0][Symbol.dispose]();
+}
+
 export function drop$Guard_u32(_1: [Guard.Guard, rt.u32]): void {
 	_1[0][Symbol.dispose]();
 }
@@ -83,6 +92,12 @@ export function drop$Option_Guard_Guard(_1: [Guard.Guard, Guard.Guard] | undefin
 	}
 }
 
+export function drop$Option_Guard_Guard_Guard(_1: [[Guard.Guard, Guard.Guard], Guard.Guard] | undefined): void {
+	if (_1 !== undefined) {
+		drop$Guard_Guard_Guard(_1);
+	}
+}
+
 export function drop$Option_Held(_1: Held.Held | undefined): void {
 	if (_1 !== undefined) {
 		drop$Held(_1);
@@ -110,6 +125,18 @@ export function drop$Option_Result_Guard_u8(_1: rt.Result<Guard.Guard, rt.u8> | 
 export function drop$Pair_Held(_1: Pair.Pair<Held.Held>): void {
 	drop$Held(_1.first);
 	_1.second[Symbol.dispose]();
+}
+
+export function drop$RangeInclusive_Key(value: rt.RangeInclusive<Key.Key>): void {
+	rt.dropAll([value.lo, value.hi]);
+}
+
+export function drop$Range_Guard(value: rt.Range<Guard.Guard>): void {
+	rt.dropAll([value.start, value.end]);
+}
+
+export function drop$Range_Key(value: rt.Range<Key.Key>): void {
+	rt.dropAll([value.start, value.end]);
 }
 
 export function drop$Result_Arc_Guard_Guard_Arc_dyn_Any(_1: rt.Result<rt.Arc<[Guard.Guard, Guard.Guard]>, rt.Arc<Any.Any>>): void {
@@ -217,6 +244,10 @@ export function drop$Wrap_Vec_Wrap_Held(_1: Wrap.Wrap<Wrap.Wrap<Held.Held>[]>): 
 export function drop$Wrap_u32(_1: Wrap.Wrap<rt.u32>): void {
 	Wrap.drop$Drop_u32(_1);
 	_1.log[Symbol.dispose]();
+}
+
+export function drop$i32_Guard(_1: [rt.i32, Guard.Guard]): void {
+	_1[1][Symbol.dispose]();
 }
 
 export function drop$u32_Guard(_1: [rt.u32, Guard.Guard]): void {

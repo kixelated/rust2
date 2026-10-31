@@ -5,8 +5,8 @@ import { copy$Twin_Twin } from "../../lib.ts";
 import type * as Noisy from "../../locals.Noisy.ts";
 import type * as Twin from "../../locals.Twin.ts";
 
-export function set$0fx7125(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): void {
-	rt.localKeyInitializeWith(self, new rt.Cell(value), (value2: rt.Cell<rt.u32> | undefined, cell: rt.Cell<rt.u32>): void => {
+export function set$0st49po(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): void {
+	rt.localKeyInitializeWith(self, new rt.Cell(value), (value2: rt.Cell<rt.u32> | undefined, cell: rt.Cell<rt.u32>): undefined => {
 		if (value2 !== undefined) {
 			rt.cellSet(cell, value2.v);
 		}

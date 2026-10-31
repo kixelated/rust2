@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexSet};
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
+use rustc_index::IndexVec;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
 use rustc_middle::mir::{self, Location, Place, ProjectionElem, Rvalue};
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
@@ -37,7 +38,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Their payload, or no object at all; a write into an `rt.Result`'s payload
 				// replaces the result.
-				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow | Std::Reverse) => {
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow | Std::Reverse | Std::Wrapping) => {
 					(false, args.types().collect())
 				}
 				Some(Std::Bound) => (true, args.types().collect()),
@@ -50,13 +51,18 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			},
 			_ => return false,
 		};
-		object && self.writes.into.contains(self.tcx, ty) || parts.into_iter().any(|t| self.changes(t))
+		object
+			&& self
+				.writes
+				.contains(&self.writes.into, self.tcx, ty, self.polymorphic())
+			|| parts.into_iter().any(|t| self.changes(t))
 	}
 
 	/// Whether the crate may give a part of a `ty` kept as a JS object another object: by
 	/// a write of the part, or of the whole value one object deep.
 	pub fn replaced(&self, ty: Ty<'tcx>) -> bool {
-		self.writes.replaced.contains(self.tcx, ty)
+		self.writes
+			.contains(&self.writes.replaced, self.tcx, ty, self.polymorphic())
 	}
 
 	/// `value`, a `ty` read out of where it is kept, as a value of its own, as Rust's read
@@ -176,7 +182,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Option) => ret(self.copy_unless(self.none(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Poll) => ret(self.copy_unless(self.pending(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
-				Some(Std::Reverse) => ret(self.snapshot(v(), args.type_at(0), span)),
+				Some(Std::Reverse | Std::Wrapping) => ret(self.snapshot(v(), args.type_at(0), span)),
 				Some(Std::Bound) => {
 					let ts_ty = self.ty(ty, span);
 					let held = self.snapshot(v().member("_0"), args.type_at(0), span);
@@ -303,40 +309,55 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// at; or by anything code it doesn't read can do with a mutable reference or pointer to
 /// one, which counts as a write: one a parameter of a std function the crate names takes,
 /// or one kept anywhere but in a local, whose uses tell. Bodies are read as written, over
-/// their own type parameters, so a write into a type parameter stands for every type its
-/// bounds let it be.
+/// their own type parameters, so a write into a type parameter stands for the type each
+/// instance of the body that translation reaches gives it, or in a census lowering a
+/// function over its own type parameters, for every type its bounds let it be.
 #[derive(Default)]
 pub struct Writes<'tcx> {
-	pub into: Types<'tcx>,
+	into: Types<'tcx>,
 	/// The types a part of which, kept as a JS object, the code may give another object:
 	/// by a write of the part, as `p.x = Inner {..}`; by a write of the whole value, which
 	/// goes one object deep, as `*r = v` does; or by a call of a std function, as a
 	/// mutable reference to the type may do with any part of it.
-	pub replaced: Types<'tcx>,
+	replaced: Types<'tcx>,
+	/// The bodies read.
+	read: FxHashSet<DefId>,
+	/// The arguments of each body's instances that translation reached, without type
+	/// parameters.
+	reached: FxHashMap<DefId, Vec<ty::GenericArgsRef<'tcx>>>,
 }
 
 /// Types, each without type parameters or over those of the body naming it.
 #[derive(Default)]
-pub struct Types<'tcx> {
+struct Types<'tcx> {
 	/// Each type without type parameters, an array as a slice of its element, since the
 	/// two share storage in JS.
 	concrete: FxHashSet<Ty<'tcx>>,
 	/// Each type over the type parameters of the body writing it, and that body.
 	generic: FxIndexSet<(DefId, Ty<'tcx>)>,
-	/// What [`Types::contains`] found of each type it was asked about.
-	found: RefCell<FxHashMap<Ty<'tcx>, bool>>,
+	/// What [`Writes::contains`] found of each type it was asked about, and whether it was
+	/// asked over type parameters.
+	found: RefCell<FxHashMap<(Ty<'tcx>, bool), bool>>,
 }
 
 impl<'tcx> Writes<'tcx> {
-	/// The writes of every function, closure, and coroutine body of `bodies` that `own`
-	/// says translates, and of the closures and coroutines they hold: a binding stands in
-	/// for any other, which counts as code it doesn't read.
-	pub fn of_bodies(tcx: TyCtxt<'tcx>, bodies: impl IntoIterator<Item = DefId>, own: &dyn Fn(DefId) -> bool) -> Self {
+	/// The writes of every function, closure, and coroutine body of `bodies` and of
+	/// `reached`, the instances translation reached, that `own` says translates, and of the
+	/// closures and coroutines they hold: a binding stands in for any other, which counts
+	/// as code it doesn't read.
+	pub fn of_bodies(
+		tcx: TyCtxt<'tcx>,
+		bodies: impl IntoIterator<Item = DefId>,
+		reached: &FxHashSet<ty::Instance<'tcx>>,
+		own: &dyn Fn(DefId) -> bool,
+	) -> Self {
 		let mut writes = Writes::default();
-		let mut queue: Vec<DefId> = bodies.into_iter().collect();
-		let mut seen = FxHashSet::default();
+		for instance in reached.iter().filter(|instance| !instance.args.has_param()) {
+			writes.reached.entry(instance.def_id()).or_default().push(instance.args);
+		}
+		let mut queue: Vec<DefId> = bodies.into_iter().chain(reached.iter().map(|i| i.def_id())).collect();
 		while let Some(def_id) = queue.pop() {
-			if !seen.insert(def_id) || !own(def_id) {
+			if !writes.read.insert(def_id) || !own(def_id) {
 				continue;
 			}
 			let body = match tcx.def_kind(def_id) {
@@ -359,10 +380,63 @@ impl<'tcx> Writes<'tcx> {
 				def_id,
 				writes: &mut writes,
 				own,
+				borrows: borrows(body),
 			}
 			.visit_body(body);
 		}
 		writes
+	}
+
+	/// Whether translation must run again to judge the writes `instance` reaches: its body
+	/// is unread, or writes a type over its type parameters and these arguments are new.
+	pub fn unread(&self, instance: ty::Instance<'tcx>) -> bool {
+		let def_id = instance.def_id();
+		if !self.read.contains(&def_id) {
+			return true;
+		}
+		let writes = |types: &Types<'tcx>| types.generic.iter().any(|&(body, _)| body == def_id);
+		!instance.args.has_param()
+			&& (writes(&self.into) || writes(&self.replaced))
+			&& !self
+				.reached
+				.get(&def_id)
+				.is_some_and(|args| args.contains(&instance.args))
+	}
+
+	/// Whether `ty` is one of `types`. Over type parameters, as a census lowers some
+	/// functions, it may be, and a write into a type parameter counts for every type its
+	/// bounds allow; otherwise for the type each reached instance gives it.
+	fn contains(&self, types: &Types<'tcx>, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, polymorphic: bool) -> bool {
+		let ty = tcx.erase_and_anonymize_regions(ty);
+		let stored = storage(tcx, ty);
+		if ty.has_param() || types.concrete.contains(&stored) {
+			return true;
+		}
+		if let Some(&found) = types.found.borrow().get(&(ty, polymorphic)) {
+			return found;
+		}
+		let found = types.generic.iter().any(|&(def_id, written)| match polymorphic {
+			// A parameter can be the array itself, as in `*dst = value` with `dst: &mut T`, and
+			// its slice pattern can be any array of that element.
+			true => {
+				instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored)
+			}
+			false => self.reached.get(&def_id).is_some_and(|reached| {
+				reached.iter().any(|&args| {
+					let written = EarlyBinder::bind(tcx, written);
+					// One that doesn't normalize counts.
+					tcx.try_instantiate_and_normalize_erasing_regions(
+						args,
+						ty::TypingEnv::fully_monomorphized(),
+						written,
+					)
+					.ok()
+					.is_none_or(|written| storage(tcx, written) == stored)
+				})
+			}),
+		});
+		types.found.borrow_mut().insert((ty, polymorphic), found);
+		found
 	}
 }
 
@@ -373,26 +447,6 @@ impl<'tcx> Types<'tcx> {
 			true => _ = self.generic.insert((def_id, ty)),
 			false => _ = self.concrete.insert(ty),
 		}
-	}
-
-	/// Whether `ty` is one of them. Over type parameters, as a census lowers some
-	/// functions, it may be.
-	pub fn contains(&self, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
-		let ty = tcx.erase_and_anonymize_regions(ty);
-		let stored = storage(tcx, ty);
-		if ty.has_param() || self.concrete.contains(&stored) {
-			return true;
-		}
-		if let Some(&found) = self.found.borrow().get(&ty) {
-			return found;
-		}
-		// A parameter can be the array itself, as in `*dst = value` with `dst: &mut T`, and
-		// its slice pattern can be any array of that element.
-		let found = self.generic.iter().any(|&(def_id, written)| {
-			instantiates(tcx, def_id, written, ty) || stored != ty && instantiates(tcx, def_id, written, stored)
-		});
-		self.found.borrow_mut().insert(ty, found);
-		found
 	}
 }
 
@@ -484,6 +538,58 @@ fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: T
 	!ocx.try_evaluate_obligations().has_errors()
 }
 
+/// The place each local of `body` borrows, where its one assignment is a borrow and
+/// nothing borrows the local itself, through which it could be pointed elsewhere.
+fn borrows<'tcx>(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, Option<Place<'tcx>>> {
+	let mut defs = IndexVec::from_elem(0u32, &body.local_decls);
+	let mut borrows = IndexVec::from_elem(None, &body.local_decls);
+	let mut lent = FxHashSet::default();
+	for data in body.basic_blocks.iter() {
+		for stmt in &data.statements {
+			let mir::StatementKind::Assign(assign) = &stmt.kind else {
+				continue;
+			};
+			if let Rvalue::Ref(_, _, place) | Rvalue::RawPtr(_, place) = assign.1
+				&& !place.is_indirect()
+			{
+				lent.insert(place.local);
+			}
+			if let Some(local) = assign.0.as_local() {
+				defs[local] += 1;
+				if let Rvalue::Ref(_, _, place) = assign.1 {
+					borrows[local] = Some(place);
+				}
+			}
+		}
+		if let mir::TerminatorKind::Call { destination, .. } = &data.terminator().kind
+			&& let Some(local) = destination.as_local()
+		{
+			defs[local] += 1;
+		}
+	}
+	for (local, borrow) in borrows.iter_enumerated_mut() {
+		if defs[local] != 1 || lent.contains(&local) {
+			*borrow = None;
+		}
+	}
+	borrows
+}
+
+/// `place`, read through each reference that `borrow` says borrows a place, as that place:
+/// `(*r).0` of `r = &mut pair` is `pair.0`.
+pub fn through_borrows<'tcx>(
+	tcx: TyCtxt<'tcx>,
+	mut place: Place<'tcx>,
+	borrow: impl Fn(mir::Local) -> Option<Place<'tcx>>,
+) -> Place<'tcx> {
+	while let [ProjectionElem::Deref, rest @ ..] = place.projection.as_slice()
+		&& let Some(borrowed) = borrow(place.local)
+	{
+		place = borrowed.project_deeper(rest, tcx);
+	}
+	place
+}
+
 /// The writes of one body.
 struct BodyWrites<'w, 'm, 'tcx> {
 	tcx: TyCtxt<'tcx>,
@@ -491,6 +597,8 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	def_id: DefId,
 	writes: &'w mut Writes<'tcx>,
 	own: &'w dyn Fn(DefId) -> bool,
+	/// The place each local borrows, where its one assignment is a borrow.
+	borrows: IndexVec<mir::Local, Option<Place<'tcx>>>,
 }
 
 impl<'tcx> BodyWrites<'_, '_, 'tcx> {
@@ -507,17 +615,45 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 	}
 
 	/// Whether a `ty` may be kept as a JS object that a pointer to it is: a tuple, an
-	/// array, a struct or union of a crate that translates, or a `MaybeUninit` of one.
+	/// array, a struct or union of a crate that translates, or a `MaybeUninit` of one; or
+	/// an `UnsafeCell`'s `rt.Cell`, which the pointer `get` gives is or holds.
 	fn inline(&self, ty: Ty<'tcx>) -> bool {
 		match ty.kind() {
 			ty::Tuple(tys) => !tys.is_empty(),
 			ty::Array(..) | ty::Param(_) | ty::Alias(..) => true,
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				Some(Std::MaybeUninit) => self.inline(args.type_at(0)),
+				Some(Std::Cell) => self.tcx.is_lang_item(adt.did(), rustc_attr_ir::LangItem::UnsafeCell),
 				Some(_) => false,
 				None => !adt.is_enum() && (self.own)(adt.did()),
 			},
 			_ => false,
+		}
+	}
+
+	/// A write of a whole `place` through `(*r)`, which writes the place `r` borrows if `r`
+	/// is an alias of it, as a store of that place.
+	fn store_through(&mut self, place: Place<'tcx>) {
+		if let [ProjectionElem::Deref] = place.projection.as_slice()
+			&& let Some(borrowed) = self.borrows[place.local]
+		{
+			self.stored(borrowed);
+		}
+	}
+
+	/// A whole `place` written: a whole part gives what holds it another object there, and a
+	/// whole value written through a pointer each of its parts, as it goes one object deep.
+	fn stored(&mut self, place: Place<'tcx>) {
+		let ty = place.ty(self.body, self.tcx).ty;
+		match place.iter_projections().last() {
+			Some((_, ProjectionElem::Deref)) => self.replace(ty),
+			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => {
+				let base = base.ty(self.body, self.tcx).ty;
+				if !base.is_union() {
+					self.replace(base);
+				}
+			}
+			_ => {}
 		}
 	}
 
@@ -562,6 +698,7 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 		if place.as_local().is_none() {
 			self.pointees(place.ty(self.body, self.tcx).ty, true);
 		}
+		self.store_through(*place);
 		// A `dyn Any` has no method that writes: a write through its downcast counts where it is.
 		let object = |t: Ty<'tcx>| t.is_trait() && !super::dynamic::is_any_object(self.tcx, t);
 		if let Rvalue::Cast(mir::CastKind::PointerCoercion(ty::adjustment::PointerCoercion::Unsize, _), op, to) = rvalue
@@ -573,6 +710,21 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 	}
 
 	fn visit_terminator(&mut self, terminator: &mir::Terminator<'tcx>, location: Location) {
+		if let mir::TerminatorKind::Call {
+			func,
+			args,
+			destination,
+			..
+		} = &terminator.kind
+		{
+			self.store_through(*destination);
+			let rebound = func
+				.const_fn_def()
+				.map_or(0, |(def_id, _)| super::pointer::rebinds(self.tcx, def_id));
+			for arg in args[..rebound].iter().filter_map(|a| a.node.place()) {
+				self.store_through(self.tcx.mk_place_deref(arg));
+			}
+		}
 		match &terminator.kind {
 			mir::TerminatorKind::Call { destination, .. } if destination.as_local().is_none() => {
 				self.pointees(destination.ty(self.body, self.tcx).ty, true)
@@ -598,7 +750,7 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 				.instantiate(self.tcx, args.skip_binder())
 				.skip_norm_wip();
 			// Those that point a pointer elsewhere or read through it replace nothing.
-			let replace = !super::pointer::keeps(self.tcx, def_id);
+			let replace = !super::pointer::keeps(self.tcx, def_id, args.skip_binder());
 			for &input in sig.skip_binder().inputs() {
 				self.pointees(input, replace);
 			}
@@ -624,27 +776,14 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 		{
 			self.insert(place.ty(self.body, self.tcx).ty);
 		}
-		// A whole part written gives what holds it another object there, and a whole value
-		// written through a pointer each of its parts, as it goes one object deep.
-		if !matches!(
+		if matches!(
 			kind,
 			MutatingUseContext::Store
 				| MutatingUseContext::Call
 				| MutatingUseContext::AsmOutput
 				| MutatingUseContext::Yield
 		) {
-			return;
-		}
-		let ty = place.ty(self.body, self.tcx).ty;
-		match place.iter_projections().last() {
-			Some((_, ProjectionElem::Deref)) => self.replace(ty),
-			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => {
-				let base = base.ty(self.body, self.tcx).ty;
-				if !base.is_union() {
-					self.replace(base);
-				}
-			}
-			_ => {}
+			self.stored(*place);
 		}
 	}
 }

@@ -1971,6 +1971,72 @@ fn early(n: u8) -> u8 {
 	match return n.wrapping_add(1) {}
 }
 
+/// A struct whose fields' other variants can't exist.
+struct Parts {
+	left: Result<u8, Infallible>,
+	right: Option<Result<u16, Void>>,
+}
+
+/// An enum whose other variant holds a value that can't exist.
+enum Partial {
+	Real(u8),
+	#[allow(dead_code)]
+	Never(Void),
+}
+
+/// A `Result` that can't fail, which counts its calls so their order shows.
+fn counted(calls: &mut u8, b: u8) -> Result<u8, Infallible> {
+	*calls = calls.wrapping_add(1);
+	Ok(b.wrapping_mul(*calls))
+}
+
+/// Patterns on parts of a place whose other variants can't exist, which test nothing
+/// there, while what they read still runs in order.
+pub fn uninhabited(data: &[u8], out: &mut Vec<u8>) {
+	let a = data.first().copied().unwrap_or(0);
+	let b = data.get(1).copied().unwrap_or(0);
+	let mut calls = 0;
+	let (Ok(x), Ok(y)) = (counted(&mut calls, a), counted(&mut calls, b));
+	out.extend_from_slice(&[x, y, calls]);
+	let [Ok(x), Ok(y)] = [counted(&mut calls, b), counted(&mut calls, a)];
+	out.extend_from_slice(&[x, y, calls]);
+	// A call's result read only to find its one variant.
+	let Ok(_) = counted(&mut calls, a);
+	out.push(calls);
+	let (Ok(_),) = (counted(&mut calls, a),);
+	out.push(calls);
+	let (Ok(_), (Ok(_),)) = (counted(&mut calls, a), (counted(&mut calls, b),));
+	out.push(calls);
+	let pair = (counted(&mut calls, a), Partial::Real(b));
+	let (Ok(x), Partial::Real(y)) = pair;
+	out.extend_from_slice(&[x, y]);
+
+	let held = Parts {
+		left: Ok(a),
+		right: (b % 2 == 0).then_some(Ok(u16::from(b) << 4)),
+	};
+	let Parts { left: Ok(l), right } = held;
+	match right {
+		Some(Ok(r)) => out.extend_from_slice(&r.to_be_bytes()),
+		None => out.push(l),
+	}
+	match (Partial::Real(a), held.left) {
+		(Partial::Real(p), Ok(q)) => out.push(p ^ q),
+	}
+
+	// The other part can fail.
+	if let (Ok(x), Some(&y)) = (counted(&mut calls, a), data.get(2)) {
+		out.extend_from_slice(&[x, y]);
+	} else {
+		out.push(calls);
+	}
+	let (Ok(x), Some(&y)) = (counted(&mut calls, b), data.get(3)) else {
+		out.push(calls);
+		return;
+	};
+	out.extend_from_slice(&[x, y, calls]);
+}
+
 /// Closures capturing by reference and by move, and functions as values.
 pub fn closures(data: &[u8], out: &mut Vec<u8>) {
 	let mut sum = 0u32;

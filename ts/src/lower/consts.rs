@@ -45,8 +45,8 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				};
 				int.lit(value)
 			}
-			_ if super::float::is(ty) => match leaf(valtree) {
-				Some(scalar) => super::float::lit(f64::from_bits(scalar.to_u64())),
+			_ if let Some(float) = super::float::Float::of(ty) => match leaf(valtree) {
+				Some(scalar) => float.constant(scalar),
 				None => self.err(span, "a float constant without a value"),
 			},
 			ty::Char => match leaf(valtree) {
@@ -128,13 +128,16 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::Option, 0) => self.t.none(args.type_at(0)),
 						(Std::Option, _) => values.pop().unwrap(),
 						(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
+						(Std::Cow, _) if let Some(elem) = super::library::cow_slice(tcx, ty) => {
+							super::library::cow_made(elem, variant, values.pop().unwrap())
+						}
 						(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 						// `start..=end`, not yet stepped past its end.
 						(Std::RangeInclusive, _)
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
 						{
 							values.pop();
-							values.extend(crate::lower::num::Int::of(args.type_at(0)).map(|int| int.func("step")));
+							values.extend(super::library::range_step(tcx, args.type_at(0), true));
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
@@ -146,11 +149,29 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::RangeTo | Std::RangeToInclusive, _) => {
 							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
 						}
-						(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
+						(Std::RangeFrom, _) => {
+							values.extend(super::library::range_step(tcx, args.type_at(0), true));
+							Expr::New(Box::new(Expr::Rt("RangeFrom".into())), values)
+						}
+						(Std::Range, _) => {
+							values.extend(super::library::range_step(tcx, args.type_at(0), false));
+							Expr::New(Box::new(Expr::Rt("Range".into())), values)
+						}
 						(Std::RangeFull, _) => Expr::undefined(),
+						(Std::ParseIntError, _) => {
+							Expr::Object(vec![(Key::Name("kind".into()), values.pop().unwrap())])
+						}
+						(Std::ErrorKind, _) => Expr::As(
+							Box::new(Expr::Str(adt.variant(variant).name.to_string())),
+							self.t.ty(ty, span),
+						),
 						_ => self.err(span, format!("a constant of type `{ty}`")),
 					};
 				}
+				let values = match self.zero_sized_std(ty, values, span) {
+					Ok(made) => return made,
+					Err(values) => values,
+				};
 				if !self.t.own(adt.did()) {
 					let foreign = self.t.foreign(adt.did());
 					return self.err(span, format!("a constant of type `{ty}` {foreign}"));

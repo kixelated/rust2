@@ -9,11 +9,16 @@
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
 //! a `&mut`, so a pointer to a part kept as an object is refused wherever the crate may
-//! give that part another object. A value read out is a copy of what the crate writes
-//! into in place, so a later write leaves it be.
+//! give that part another object. One to a variable's object is refused wherever the
+//! function may give the variable another after: by assigning it, by writing it whole
+//! through an alias of a borrow of it, or by `mem::replace`, `swap`, or `take` of one. A
+//! value read out is a copy of what the crate writes into in place, so a later write
+//! leaves it be.
 //!
 //! A `MaybeUninit<T>` is a `T`: `undefined` where JS copies a `T` and it holds none yet,
-//! or an object whose parts hold none yet where a pointer to it is the object.
+//! or an object whose parts hold none yet where a pointer to it is the object. An
+//! `UnsafeCell<T>` is an `rt.Cell`, which is the place a pointer to `T` is, or else holds
+//! the object it is.
 
 use rustc_middle::ty::{self, Ty, TypeVisitableExt};
 use rustc_span::Span;
@@ -146,7 +151,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							.iter()
 							.map(|f| self.field_ty(f.did, args))
 							.collect();
-						let values = tys.into_iter().map(|t| self.shell(t, span)).collect();
+						// A class's constructor types each of its parameters.
+						let plain = self.plain(info.sym);
+						let values = tys
+							.into_iter()
+							.map(|t| match plain {
+								true => self.shell(t, span),
+								false => self.uninit(t, span),
+							})
+							.collect();
 						self.construct(info.sym, &ctor, &fields, values)
 					}
 					AdtRepr::Slots(_) => Expr::Object(Vec::new()),
@@ -158,6 +171,44 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 }
 
+/// Whether std's `def_id` with `args` makes a raw pointer to what its first argument, a
+/// reference, points at: `UnsafeCell::get`, `MaybeUninit::as_ptr` and `as_mut_ptr`, and
+/// `NonNull::from` and `into`.
+pub fn from_reference<'tcx>(
+	tcx: ty::TyCtxt<'tcx>,
+	def_id: rustc_hir::def_id::DefId,
+	args: ty::GenericArgsRef<'tcx>,
+) -> bool {
+	let Some((owner, name)) = super::library::key(tcx, def_id) else {
+		return false;
+	};
+	match (owner.as_str(), name.as_str()) {
+		("UnsafeCell", "get") | ("MaybeUninit", "as_ptr" | "as_mut_ptr") => true,
+		("From", "from") | ("Into", "into") => {
+			let (to, from) = match owner.as_str() {
+				"From" => (args.type_at(0), args.type_at(1)),
+				_ => (args.type_at(1), args.type_at(0)),
+			};
+			matches!(to.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::NonNull)) && from.is_ref()
+		}
+		_ => false,
+	}
+}
+
+/// How many of std's `def_id`'s first arguments are `&mut`s whose lowering gives what
+/// they borrow another value, rather than writing into it, where one is an alias of a
+/// borrowed place: the place is assigned again. `mem::replace`'s value is no such one.
+pub fn rebinds(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> usize {
+	match super::library::key(tcx, def_id) {
+		Some((owner, name)) if owner == "mem" => match name.as_str() {
+			"replace" | "take" => 1,
+			"swap" => 2,
+			_ => 0,
+		},
+		_ => 0,
+	}
+}
+
 /// Whether std's `def_id` is one this module maps that lends a place: it makes the
 /// `rt.Place` of the `&mut` it returns.
 pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
@@ -166,16 +217,18 @@ pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 		Some((owner, name)) if matches!(
 			(owner.as_str(), name.as_str()),
 			("MaybeUninit", "as_mut_ptr" | "write" | "assume_init_mut" | "assume_init_drop")
+				| ("UnsafeCell", "get_mut")
 				| ("NonNull" | "ptr", "as_mut")
 				| ("Box", "leak")
 		)
 	)
 }
 
-/// Whether std's `def_id` is one this module maps that only points a pointer elsewhere,
-/// reads through it, or drops what it points at, so it gives no part another object.
-pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
-	matches!(
+/// Whether std's `def_id` with `args` is one this module maps that only makes a pointer
+/// or points one elsewhere, reads through it, or drops what it points at, so it gives no
+/// part another object.
+pub fn keeps<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
+	let keeps = matches!(
 		super::library::key(tcx, def_id),
 		Some((owner, name)) if matches!(
 			(owner.as_str(), name.as_str()),
@@ -191,18 +244,22 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 				"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "as_ref" | "as_mut" | "cast" | "cast_const"
 					| "cast_mut" | "eq" | "read" | "read_unaligned" | "read_volatile" | "drop_in_place"
 			) | ("Box", "into_raw" | "leak" | "from_raw")
+				| ("UnsafeCell", "new" | "get" | "get_mut" | "into_inner")
 		)
-	)
+	);
+	keeps || from_reference(tcx, def_id, args)
 }
 
 /// Whether std's `def_id` is one a mapping takes the `rt.Place` a `&mut` is for, rather
 /// than what it points at: a `MaybeUninit`'s, which it points into, an `Arc`'s that
-/// `make_mut` replaces, and a well-known crate's, such as a `Bytes` that `Buf::advance`
-/// moves past its front.
+/// `make_mut` replaces, a `String`'s that a drain edits as it drops, and a well-known
+/// crate's, such as a `Bytes` that `Buf::advance` moves past its front.
 pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	matches!(
 		super::library::key(tcx, def_id),
-		Some((owner, name)) if owner == "MaybeUninit" || matches!(owner.as_str(), "Arc" | "Rc") && name == "make_mut"
+		Some((owner, name)) if owner == "MaybeUninit"
+			|| matches!(owner.as_str(), "Arc" | "Rc") && name == "make_mut"
+			|| (owner.as_str(), name.as_str()) == ("String", "drain")
 	) || super::stock::is_stock(tcx, def_id)
 }
 
@@ -219,9 +276,9 @@ pub fn pointees(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Vec<bo
 		.collect()
 }
 
-/// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or
-/// take a raw pointer: its mapping, `None` if it has none, or its arguments back if it is
-/// no such call.
+/// A call of std's raw pointer, `NonNull`, `MaybeUninit`, `UnsafeCell`, or `Box` functions
+/// that make or take a raw pointer: its mapping, `None` if it has none, or its arguments
+/// back if it is no such call.
 pub fn call<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
@@ -395,6 +452,12 @@ pub fn call<'tcx>(
 			};
 			b.t.drop_value(value, pointee(), span).unwrap_or_else(Expr::undefined)
 		}
+		// An `rt.Cell`, which is the place a pointer to a value JS copies is, and holds the
+		// object a pointer to any other is.
+		("UnsafeCell", "new") => Expr::New(Box::new(Expr::Rt("Cell".into())), vec![arg()]),
+		("UnsafeCell", "get") if kind(b, pointee()) == Some(Pointee::Place) => arg(),
+		("UnsafeCell", "get_mut") if b.t.needs_place(pointee()) => arg(),
+		("UnsafeCell", "get" | "get_mut" | "into_inner") => arg().member("v"),
 		("mem", "forget") => Expr::undefined(),
 		_ => return Err(args.collect()),
 	};

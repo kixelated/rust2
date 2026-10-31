@@ -6,15 +6,22 @@
 //! writes through a `&mut` to an object, the standard library calls it maps, `Option`'s
 //! and `Result`'s combinators from core's MIR, `Option`s of values that can already be
 //! `undefined`, atomics, `static` ones included, trait objects, one-time cells, mutexes,
-//! `Cell`s, `RefCell`s, read-write locks, and thread-locals, the defaults of std types,
-//! the counts of shared pointers, arrays `array::from_fn` makes, maps of `Option`s,
-//! values held back past a write of a variable they name, what `Hash` writes into
-//! `DefaultHasher` and `RandomState`, slices' `windows` and chunks, mutable ones written
-//! through, `Vec::drain`, the order of bytes, and ranges of `Bound`s and of the crate's
-//! own `RangeBounds`.
+//! `Cell`s, `UnsafeCell`s, `RefCell`s, read-write locks, and thread-locals, the defaults
+//! of std types, the counts of shared pointers, arrays `array::from_fn` and `map` make,
+//! their elements each lent, arrays as slices, maps of `Option`s, values held back past a
+//! write of a variable they name, what
+//! `Hash` writes into `DefaultHasher` and `RandomState`, slices' `windows` and chunks,
+//! mutable ones written through, their parts by inclusive and checked ranges and by fixed
+//! size, `Vec::drain`, the order, equality, and hashes of bytes, ranges of `Bound`s and of
+//! the crate's own `RangeBounds`, the equality of `Result`s and std's errors, inclusive
+//! ranges read through each adaptor, iterators' size hints, the capacity overflows
+//! collections reserving by them panic with, and zero-sized values, which MIR never
+//! assigns, with std's impls of them.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
+
+#![feature(iter_order_by)]
 
 mod arrays;
 mod atomics;
@@ -24,19 +31,24 @@ mod captures;
 mod cells;
 mod chars;
 mod chunks;
+mod clones;
 mod collections;
 mod combinators;
 mod counts;
 mod cows;
+mod cycles;
 mod defaults;
 mod durations;
 mod dyns;
 mod edits;
+mod errors;
 mod floats;
 mod fmt;
+mod folds;
 mod generics;
 pub mod harness;
 mod hashes;
+mod hints;
 mod holds;
 mod ints;
 mod iters;
@@ -49,6 +61,7 @@ mod orders;
 mod pointers;
 mod refs;
 mod shapes;
+mod singles;
 mod slices;
 mod splits;
 mod statics;
@@ -58,5 +71,7 @@ mod utf8;
 #[path = "../../wasm.rs"]
 mod wasm;
 mod wrappers;
+mod wraps;
+mod zeros;
 #[cfg(target_arch = "wasm32")]
 use harness::entry;

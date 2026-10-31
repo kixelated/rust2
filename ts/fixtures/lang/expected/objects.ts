@@ -150,10 +150,10 @@ export function replaceCaptured(a: rt.u16[], to: rt.u16): rt.u16[] {
 export function repinAll(v: rt.Arc<rt.u8>[], with_: rt.Arc<rt.u8>, n: rt.u8): rt.usize {
 	const old: rt.Arc<rt.u8>[] = rt.replaceIn(v, rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(n, 3)), (_2: rt.u8): rt.Arc<rt.u8> => {
 		return rt.arcClone(with_);
-	})));
+	}), undefined, 4, true));
 	const _12: rt.Arc<rt.u8>[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(n, 4)), (_22: rt.u8): rt.Arc<rt.u8> => {
 		return rt.arcClone(with_);
-	}));
+	}), undefined, 4, true);
 	rt.dropAll(v);
 	rt.vecAssign(v, _12);
 	const _0: rt.usize = old.length;
@@ -180,7 +180,7 @@ export function swapAll(a: rt.Arc<rt.u8>[], b: rt.Arc<rt.u8>[]): void {
 export function refill(v: rt.Arc<rt.u8>[], bytes: rt.ByteVec, with_: rt.Arc<rt.u8>, n: rt.u8): void {
 	const _5: rt.Arc<rt.u8>[] = rt.iterToArray(rt.iterMap(new rt.Range(0, rt.u8Rem(n, 4)), (_2: rt.u8): rt.Arc<rt.u8> => {
 		return rt.arcClone(with_);
-	}));
+	}), undefined, 4, true);
 	rt.dropAll(v);
 	rt.vecAssign(v, _5);
 	Object.assign(bytes, rt.byteVecOf(n, rt.u8Rem(n, 3) as rt.usize));
@@ -188,8 +188,8 @@ export function refill(v: rt.Arc<rt.u8>[], bytes: rt.ByteVec, with_: rt.Arc<rt.u
 
 export function requeue(q: rt.VecDeque<rt.u8>, map: rt.HashMap<rt.u8, rt.u8>, n: rt.u8): rt.usize {
 	const _6: rt.Range<rt.u8> = new rt.Range(0, rt.u8Rem(n, 5));
-	const old: rt.VecDeque<rt.u8> = rt.replaceIn(q, rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _6));
-	Object.assign(map, rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u8, rt.u8>, rt.iterSlice([[n, n] as [rt.u8, rt.u8]])));
+	const old: rt.VecDeque<rt.u8> = rt.replaceIn(q, rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, _6, undefined, 1, true));
+	Object.assign(map, rt.hashExtend(rt.hashNew() as rt.HashMap<rt.u8, rt.u8>, rt.iterSlice([[n, n] as [rt.u8, rt.u8]]), undefined, undefined, undefined, 469762048));
 	return old.n;
 }
 
@@ -215,7 +215,7 @@ export function counts(out: rt.ByteVec, arcs: rt.Arc<rt.u8>[], items: rt.Arc<rt.
 	rt.byteVecPush(out, items.length & 0xff);
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(items), (a: rt.Arc<rt.u8>): rt.u8 => {
 		return a.value;
-	}));
+	}), undefined, true);
 }
 
 export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
@@ -225,7 +225,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const two: rt.Arc<rt.u8> = new rt.Arc(rt.u8WrappingAdd(by, 1));
 	const v: rt.Arc<rt.u8>[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): rt.Arc<rt.u8> => {
 		return rt.arcClone(one);
-	}));
+	}), undefined, 4, true);
 	const iter: rt.Iter<[rt.usize, rt.u8]> = rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data)));
 	while (true) {
 		const _18: [rt.usize, rt.u8] | rt.Done = iter.next();
@@ -262,7 +262,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 		a2[Symbol.dispose]();
 		return _02;
 	}));
-	const iter2: rt.Iter<[rt.Place<rt.Arc<rt.u8>>, rt.u8]> = rt.iterZip(rt.iterSliceMut(v), rt.iterSlice(rt.byteSliceView(data)), true);
+	const iter2: rt.Iter<[rt.Place<rt.Arc<rt.u8>>, rt.u8]> = rt.iterZip(rt.iterSliceMut(v), rt.iterSlice(rt.byteSliceView(data)), "index");
 	while (true) {
 		const _71: [rt.Place<rt.Arc<rt.u8>>, rt.u8] | rt.Done = iter2.next();
 		if (_71 === rt.DONE) {
@@ -281,7 +281,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 		_81.v = _86;
 	}
 	let kept: rt.Arc<rt.u8> = rt.arcClone(one);
-	((to: rt.Arc<rt.u8>): void => {
+	((to: rt.Arc<rt.u8>): undefined => {
 		const _32: rt.Arc<rt.u8> = rt.arcClone(to);
 		kept[Symbol.dispose]();
 		kept = _32;
@@ -377,22 +377,22 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.refRelease(_357);
 	const sets: rt.HashMap<rt.u8, rt.BTreeSet<rt.u8>> = rt.hashNew() as rt.HashMap<rt.u8, rt.BTreeSet<rt.u8>>;
 	const _363: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-	const _362: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _363, true);
+	const _362: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _363, true, undefined, undefined, 1, true);
 	rt.hashInsert(sets, by, _362);
 	const _365: rt.BTreeSet<rt.u8> | undefined = rt.hashGet(sets, by);
 	if (_365 !== undefined) {
 		const _372: Uint8Array = Uint8Array.of(rt.u8WrappingAdd(by, 1));
-		rt.byteVecPush(out, rt.btreeLen(rt.replaceIn(_365, rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_372), true))) & 0xff);
+		rt.byteVecPush(out, rt.btreeLen(rt.replaceIn(_365, rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_372), true, undefined, undefined, 1, true))) & 0xff);
 	}
 	const _379: Uint8Array = Uint8Array.of(by);
-	const _378: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_379), true);
+	const _378: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, rt.iterSlice(_379), true, undefined, undefined, 1, true);
 	const _383: rt.u8 = rt.u8WrappingAdd(by, 1);
 	Object.assign(rt.entryOrInsertWith(rt.entry(sets, _383), (): rt.BTreeSet<rt.u8> => {
 		return rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>;
 	}), _378);
 	const keys: [rt.u8, rt.u8][] = rt.iterToArray(rt.iterMap(rt.hashIter(sets), (_22: [rt.u8, rt.BTreeSet<rt.u8>]): [rt.u8, rt.u8] => {
 		return [_22[0], rt.btreeLen(_22[1]) & 0xff] as [rt.u8, rt.u8];
-	}));
+	}), "next", 2);
 	rt.sliceSort(keys, rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
 	for (const _394 of keys) {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(_394[0], _394[1])));
@@ -444,13 +444,13 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	counts(out, [one, two], w.held);
 	counts(out, [one, two], other);
 	const _515: Uint8Array = Uint8Array.of(by);
-	const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(_515));
+	const q: rt.VecDeque<rt.u8> = rt.dequeExtend(rt.dequeNew() as rt.VecDeque<rt.u8>, rt.iterSlice(_515), undefined, 1, true);
 	const map: rt.HashMap<rt.u8, rt.u8> = rt.hashNew() as rt.HashMap<rt.u8, rt.u8>;
 	for (const _519 of rt.byteSliceView(data)) {
 		rt.byteVecPush(out, requeue(q, map, _519) & 0xff);
 	}
-	rt.iterExtendBytes(out, rt.dequeIter(q));
-	rt.iterExtendBytes(out, rt.hashValues(map));
+	rt.iterExtendBytes(out, rt.dequeIter(q), undefined, true);
+	rt.iterExtendBytes(out, rt.hashValues(map), "next");
 	const weak: rt.Weak<rt.u8> = new rt.Weak();
 	relink(weak, two);
 	rt.byteVecPush(out, mapOr$1q3ff8g(rt.weakUpgrade(weak), 238, (a3: rt.Arc<rt.u8>): rt.u8 => {
@@ -475,7 +475,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a.start, a.held.length & 0xff, b7.start, b7.held.length & 0xff)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(array[0] & 0xff, array[1] & 0xff)));
 	const wakes: rt.Arc<Wakes.Wakes> = new rt.Arc({ _0: new rt.Atomic(0) });
-	const counting: rt.Waker = new rt.ArcWaker(rt.arcClone(wakes), Wakes.wake$Wake, (arc: rt.Arc<Wakes.Wakes>) => arc[Symbol.dispose]());
+	const counting: rt.Waker = new rt.ArcWaker(rt.arcClone(wakes), Wakes.wake$Wake as (a0: rt.Arc<Wakes.Wakes>) => undefined, (arc: rt.Arc<Wakes.Wakes>) => arc[Symbol.dispose]());
 	const noop: rt.Waker = rt.NOOP_WAKER.clone();
 	let w2: rt.Waker = noop.clone();
 	for (const _619 of rt.byteSliceView(data)) {

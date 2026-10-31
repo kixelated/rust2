@@ -137,16 +137,104 @@ const parsed = [
 	`1${"0".repeat(800)}e-800`, `${"9".repeat(800)}e-1100`, "1e65535", `1e-65536`, `0.${"0".repeat(70000)}1e70000`,
 ].map((text) => Uint8Array.of(op("floats::parses"), 0, ...new TextEncoder().encode(text)));
 
-/** How many ULPs from native Rust's each `f64` of `floats`' kind 7 may be, which Rust leaves to libm. */
+/** A single's bits, big-endian, as `singles` takes them. */
+function single(x: number | bigint): number[] {
+	const bytes = new Uint8Array(4);
+	const view = new DataView(bytes.buffer);
+	if (typeof x === "bigint") view.setUint32(0, Number(x));
+	else view.setFloat32(0, x);
+	return [...bytes];
+}
+
+/**
+ * `singles`' operands: each side of a half, of 2^23 and 2^24, where each integer type
+ * saturates, where a single's range and its normals end, the bounds of `Debug`'s
+ * exponent, infinities, and NaNs, one negative, one with a payload, and one signaling.
+ */
+const singlesValues: (number | bigint)[] = [
+	0, -0, 0.5, -0.5, 1.5, 2.5, -2.5, 0.49999997, 1, -1, 3, 0.1, 1 / 3, 2 ** 23 - 0.5, 2 ** 23, 2 ** 24, 2 ** 24 + 2, 255.5, -128.5,
+	2147483520, 2 ** 31, -(2 ** 31), 4294967040, 2 ** 32, 2 ** 63, -(2 ** 63), 2 ** 64, 2 ** 127, 1e-9, 0.99999994, 1.0000001, 1e-4, 1e16,
+	1e-40, 2 ** -149, 2 ** -126, 3.4028234663852886e38, -3.4028234663852886e38, Infinity, -Infinity, NaN, 0xffc00000n, 0x7fc00123n, 0x7f800001n,
+];
+const singlesOp = op("singles::singles");
+const singlesCases = [
+	...Array.from({ length: 10 }, (_, kind) => singlesValues.flatMap((a) => singlesValues.map((b) => Uint8Array.of(singlesOp, kind, ...single(a), ...single(b), 1)))).flat(),
+	// `from_secs_f32`, `mul_f32`, and `div_f32` panicking, and `Duration::MAX.mul_f32`.
+	...[18, 28, 38].flatMap((kind) => singlesValues.map((a) => Uint8Array.of(singlesOp, kind, ...single(a), ...single(a), 3))),
+	// Integers whose `f32` rounds once where through an `f64` it would round twice: past
+	// 2^53, a bit just past halfway between two singles.
+	...wides.concat([(1n << 60n) + (1n << 36n) + 1n, (1n << 64n) - (1n << 39n) - 1n, (1n << 127n) + (1n << 103n) + 1n, (1n << 24n) + 1n]).map((v) => {
+		const bytes = new Uint8Array(16);
+		new DataView(bytes.buffer).setBigUint64(0, BigInt.asUintN(64, v >> 64n));
+		new DataView(bytes.buffer).setBigUint64(8, BigInt.asUintN(64, v));
+		return Uint8Array.of(singlesOp, 2, ...bytes);
+	}),
+];
+
+/** `singles::formats`' singles: ties at each precision, carries through nines, and the shortest digits at each end. */
+const singlesFormatted: (number | bigint)[] = [
+	...singlesValues,
+	0.125, 0.375, 3.5, 9.5, 99.5, 0.95, 9.995, 1.25, 1.35, 2.675, 9.999999e-5, 1e15, 9999999e9, 1e-7, 123456.79, 16777215, 7.006492e-46, 1.17549421e-38, 8388609,
+];
+const singlesFormatsOp = op("singles::formats");
+const singlesParsesOp = op("singles::parses");
+const singlesFormats = [
+	...singlesFormatted.flatMap((a) => Array.from({ length: 12 }, (_, p) => Uint8Array.of(singlesFormatsOp, 0, ...single(a), p))),
+	...singlesFormatted.flatMap((a) => [1, 3, 4].map((kind) => Uint8Array.of(singlesFormatsOp, kind, ...single(a), 0))),
+	...singlesFormatted.flatMap((a) => [[1, 2], [2, 1], [NaN, 1], [1, NaN], [-0, 0], [0, -0]].map(([b, c]) => Uint8Array.of(singlesFormatsOp, 2, ...single(a), ...single(b), ...single(c)))),
+	...singlesValues.map((a) => Uint8Array.of(singlesParsesOp, 2, ...single(a))),
+];
+
+/**
+ * `singles::parses`' texts: std's grammar, past each end of a single's range, and
+ * decimals within a hair of halfway between two singles, which rounding through the
+ * nearest double would round twice.
+ */
+const singlesParsed = [
+	"", "+", "-", ".", "e5", "1e", "1.e5", ".5", "+1", "1_000", " 1", "1e40", "-1e40", "1e-50", "-0", "inf", "-infinity", "NaN", "nan1",
+	"3.4028235e38", "3.4028236e38", "3.40282357e38", "3.4028235677973366e38", "3.4028235677973367e38", "1.4e-45", "7e-46",
+	"7.006492321624085354618647916449580656401e-46", "7.006492321624085354618647916449580656402e-46", "1.1754942e-38", "1.17549435e-38",
+	"16777217", "16777217.000000000001", "16777218.99999999999", "16777219", "1.00000005960464477539062499", "1.000000059604644775390625",
+	"1.00000005960464477539062501", "1.0000000596046448", "0.1", "1e10", "1234567e-10", "12345678e-10", "9007199254740993",
+	`1${"0".repeat(60)}e-60`, `0.${"0".repeat(60)}1e61`, "1e65535", "1e-65536",
+].map((text) => Uint8Array.of(singlesParsesOp, 0, ...new TextEncoder().encode(text)));
+
+/**
+ * `mul_adds`' operands at each width: signed zeros, a product that underflows to either
+ * zero, infinities and NaN, a product past the type's range whose sum is in it, subnormal
+ * sums and ties, products whose error alone survives, which rounding twice loses, and a
+ * product of half `c`'s last place, which only its error moves off a tie; then
+ * seeds for its sweeps.
+ */
+const mulAdds = (max: number, tiny: number, eps: number, op: number, bytes: (x: number) => number[]) => [
+	...[
+		[0, 1, -0], [-0, 1, -0], [0, -1, 0], [-0, -0, -0], [-0, 0, -0], [1, -1, 1], [-1, 1, 1],
+		[tiny, -(2 ** -30), 0], [tiny, 2 ** -30, -0], [-tiny, 2 ** -30, -0], [tiny, 0.5, 0], [tiny, 0.5, -0], [-tiny, 0.5, 0],
+		[tiny, 1.5, 0], [tiny, 0.5, tiny], [tiny, -0.5, tiny], [tiny, 2 ** 52, tiny],
+		[Infinity, 0, 1], [0, -Infinity, 1], [Infinity, 1, -Infinity], [Infinity, -1, -Infinity], [1, 1, Infinity], [max, 2, -Infinity], [max, -2, Infinity],
+		[NaN, 1, 1], [1, NaN, 1], [1, 1, NaN], [Infinity, 1, NaN],
+		[max, 2, -max], [max, -2, max], [max, 1 + eps, -max], [max, 1 + eps, 0], [max * 0.5, 2, max * eps * 0.25],
+		[1 + 2 ** -27, 1 - 2 ** -27, -1], [1 + eps, 1 + eps, -1], [1 + eps, 1 - eps, -1], [0.1, 10, -1], [3, 1 / 3, -1], [1 + eps, 1 + eps, -(1 + 2 * eps)],
+		[1 + 2 ** -12, 1 + 2 ** -12, tiny], [1 + 2 ** -12, 1 + 2 ** -12, -tiny], [1 + eps, 1 + eps / 2, 0], [eps / 2 + eps * eps / 2, 1 - eps / 2, 1], [eps / 2 + eps * eps / 2, 1 - eps / 2, -1],
+	].map((xs) => Uint8Array.of(op, 0, ...xs.flatMap(bytes))),
+	...Array.from({ length: 400 }, (_, i) => Uint8Array.of(op, 1, ...double(BigInt(i + 1) * 0x9e3779b97f4a7c15n & 0xffff_ffff_ffff_ffffn))),
+];
+const floatsMulAdds = mulAdds(Number.MAX_VALUE, 5e-324, 2 ** -52, op("floats::mul_adds"), double);
+const singlesMulAdds = mulAdds(3.4028234663852886e38, 2 ** -149, 2 ** -23, op("singles::mul_adds"), single);
+
+/** How many ULPs from native Rust's each float of `floats`' and `singles`' kind 7 may be, which Rust leaves to libm. */
 const ULPS = 2n;
 
 export function within(input: Uint8Array, native: Uint8Array, translated: Uint8Array): boolean {
-	if (input[0] % count !== floatsOp || input[1] % 10 !== 7 || native.length !== translated.length) return false;
+	const width = input[0] % count === floatsOp ? 8 : input[0] % count === singlesOp ? 4 : 0;
+	if (width === 0 || input[1] % 10 !== 7 || native.length !== translated.length) return false;
 	const [a, b] = [native, translated].map((v) => new DataView(v.buffer, v.byteOffset, v.length));
-	// Bits as a line through zero, so the distance between two is how many doubles apart they are.
-	const line = (v: bigint) => (v < 0n ? -(v & 0x7fffffffffffffffn) : v);
-	for (let i = 0; i < native.length; i += 8) {
-		const d = line(a.getBigInt64(i)) - line(b.getBigInt64(i));
+	const read = (v: DataView, i: number) => (width === 8 ? v.getBigInt64(i) : BigInt(v.getInt32(i)));
+	// Bits as a line through zero, so the distance between two is how many floats apart they are.
+	const magnitude = (1n << BigInt(width * 8 - 1)) - 1n;
+	const line = (v: bigint) => (v < 0n ? -(v & magnitude) : v);
+	for (let i = 0; i < native.length; i += width) {
+		const d = line(read(a, i)) - line(read(b, i));
 		if (d > ULPS || d < -ULPS) return false;
 	}
 	return true;
@@ -294,10 +382,10 @@ const locks = [[0, 1, 5, 6, 2, 7, 3, 8, 3, 0, 1], [4, 0, 4, 1], [2, 9, 2, 10, 4,
 
 /**
  * `statics::onces` scripts: a `Once` forced, called, and forced again, which drops the
- * function it never runs, each static's, and each `call_once` and `call_once_force` run
- * again from within itself.
+ * function it never runs, each static's, each `call_once` and `call_once_force` run again
+ * from within itself, and crossbeam-epoch's `OnceLock` of each kind.
  */
-const onces = [[1, 0, 1, 7], [0, 6, 1, 2, 3, 4, 5, 11], [2, 14, 8], [9], [3, 15]].map((bytes) => Uint8Array.of(op("statics::onces"), 0, ...bytes));
+const onces = [[1, 0, 1, 7], [0, 6, 1, 2, 3, 4, 5, 11], [2, 14, 8], [9], [3, 15], [4, 17, 23, 29, 4]].map((bytes) => Uint8Array.of(op("statics::onces"), 0, ...bytes));
 
 /**
  * `bounds` with each kind of bound at each end, over every pair of values around and past
@@ -310,4 +398,224 @@ const bounds = Array.from({ length: 6 * 9 * 36 }, (_, n) => {
 	return [Uint8Array.of(boundsOp, kind, ends % 3, Math.floor(ends / 3), a, b, 1, 3, 2, 5), Uint8Array.of(boundsOp, kind, ends % 3, Math.floor(ends / 3), a, b)];
 }).flat();
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds];
+/**
+ * `pointers::cells` scripts: each operation on every cell, a number wrapping past its top, a
+ * struct assigned through `get` and written over, and cells replaced or made and taken out.
+ */
+const unsafeCells = [
+	[0, 248, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15],
+	[4, 12, 4, 5, 253, 7, 255, 0],
+	[3, 251, 6, 3, 2, 2, 254],
+	[],
+].map((bytes) => Uint8Array.of(op("pointers::cells"), 0, ...bytes));
+
+/**
+ * `strs::edits` of each edit on `aé\u{800}😀`, a char of each UTF-8 width, at every byte
+ * offset into it and up to two past its end, each made a raw offset by its byte's bits.
+ */
+const editsOp = op("strs::edits");
+const edits = Array.from({ length: 14 * 16 * 16 }, (_, i) => Uint8Array.of(editsOp, 4, 2, 7, 9, 14, i >> 8, (i >> 4) & 15, i & 15));
+
+/**
+ * `subslices` of each kind over zero to four items, at every pair of bounds up to one past
+ * the end, so parts are empty, at the end, backwards, and out of bounds.
+ */
+const subslicesOp = op("slices::subslices");
+const subslices = [0, 1, 2, 3, 4].flatMap((n) =>
+	Array.from({ length: 8 * (n + 2) ** 2 }, (_, i) => {
+		const [kind, a, b] = [i % 8, Math.floor(i / 8) % (n + 2), Math.floor(i / 8 / (n + 2))];
+		return Uint8Array.of(subslicesOp, kind, a, b, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
+	}),
+);
+
+/**
+ * `nested::consumers`, whose first byte is also `nth`'s index: of no items, one `Some` or
+ * `None`, `None` before `Some`, `nth` past the end, only `None`s, keys all tied, and
+ * `find` stopping early.
+ */
+const consumers = [[], [6], [5], [1, 2], [7, 2], [1, 3, 5], [2, 6, 10, 14], [4, 3, 0x90, 0x92, 5]].map((bytes) => Uint8Array.of(op("nested::nested"), 3, ...bytes));
+
+/**
+ * `nested::closures`, whose bytes `pick` each `None` (0 mod 3), `Some(None)` (1), or
+ * `Some(Some(_))` (2): of no bytes, only `None`s, only `Some(None)`s, `Some(None)` before
+ * a `None` and after it, a seed of each, and a `successors` whose size hint reserves past
+ * `isize::MAX`.
+ */
+const closures = [[], [3], [0, 3], [1], [4, 7, 1], [1, 2, 0, 4, 5], [4, 0, 1, 3, 5], [2, 1, 4, 3, 8], [5, 4], [0, 1, 2], [0xf0], [0xf1]].map((bytes) => Uint8Array.of(op("nested::nested"), 5, ...bytes));
+
+/**
+ * `nested::elements`, whose first byte is also the index and whose odd bytes are each a
+ * `None` element: of no elements, one of each, only `None`s, and an index in range and
+ * past the end of each mix.
+ */
+const elements = [[], [1], [2], [1, 3], [3, 1, 5], [0, 1, 2], [2, 6, 1, 8], [5, 4, 3, 0x10, 7, 0x40], [7, 0x22, 9, 0x22, 1, 0x80, 3, 6]].map((bytes) => Uint8Array.of(op("nested::nested"), 6, ...bytes));
+
+/**
+ * `ranges` of each kind, and each kind of `Bound` at the end, over zero to four items, at
+ * every pair of bounds up to one past the end and at `usize::MAX`.
+ */
+const rangesOp = op("slices::ranges");
+const ranges = [0, 1, 2, 3, 4].flatMap((n) => {
+	const ends = [...Array(n + 2).keys(), 0xff];
+	return Array.from({ length: 24 * ends.length ** 2 }, (_, i) => {
+		const [kind, a, b] = [i % 24, ends[Math.floor(i / 24) % ends.length], ends[Math.floor(i / 24 / ends.length)]];
+		return Uint8Array.of(rangesOp, kind, a, b, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
+	});
+});
+
+/**
+ * `iters::reducers` of no items, one, one repeated, which `next_if_eq` takes, and keys
+ * that all tie.
+ */
+const reducers = [[], [9], [9, 9], [8, 4, 12, 0x40, 0x80]].map((bytes) => Uint8Array.of(op("iters::reducers"), 0, ...bytes));
+
+/**
+ * `iters::peeked_others` of no items, one, a run that matches the first throughout, and
+ * items that each match one comparison and miss the next.
+ */
+const peekedOthers = [[], [3], [4, 4, 4, 4], [0, 1, 2, 3, 4, 5, 6], [1, 0, 0, 2, 5, 9]].map((bytes) =>
+	Uint8Array.of(op("iters::peeked_others"), 0, ...bytes),
+);
+
+/**
+ * `edits` of each kind over zero to four items, at every three bounds up to one past the
+ * end, so parts are empty, at the end, backwards, and out of bounds.
+ */
+const editsSlicesOp = op("slices::edits");
+const sliceEdits = [0, 1, 2, 3, 4].flatMap((n) =>
+	Array.from({ length: 8 * (n + 2) ** 3 }, (_, i) => {
+		const [kind, a, b, c] = [i % 8, Math.floor(i / 8) % (n + 2), Math.floor(i / 8 / (n + 2)) % (n + 2), Math.floor(i / 8 / (n + 2) ** 2)];
+		return Uint8Array.of(editsSlicesOp, kind, a, b, c, ...[0x31, 0xc2, 0x07, 0xfe].slice(0, n));
+	}),
+);
+
+/**
+ * `strs::drains` of each range and way to end the drain on `aé\u{800}😀`, at every byte
+ * offset into it and up to two past its end, reading none, two from either end, or three
+ * from the back.
+ */
+const drainsOp = op("strs::drains");
+const drains = Array.from({ length: 32 * 13 * 13 }, (_, i) => {
+	const [form, a, b] = [i % 32, Math.floor(i / 32) % 13, Math.floor(i / 416)];
+	return Uint8Array.of(drainsOp, 4, 2, 7, 9, 14, form, a, b, [0, 0x0a, 0x1f][(form + a + b) % 3]);
+});
+
+/** `strs::iters` of each kind, on no text, text of each UTF-8 width, and parts between `/`s, empty ones too. */
+const iters = Array.from({ length: 12 }, (_, kind) => [[], [2, 7, 9, 14], [0, 2, 0, 0, 7, 9], [14, 0]].map((data) => Uint8Array.of(op("strs::iters"), kind, ...data))).flat();
+
+/** `strs::hinted` of each adaptor and each pair of range lengths, each way, on `aé` alone. */
+const hintedOp = op("strs::hinted");
+const hinted = Array.from({ length: 10 * 7 * 21 }, (_, i) => Uint8Array.of(hintedOp, i % 10, Math.floor(i / 10) % 7, Math.floor(i / 70)));
+
+/**
+ * `hints::hints` of each iterator, each pair of lengths, and each of its arms, read three
+ * times each way, with as many bytes as the first length's index.
+ */
+const hintsOp = op("hints::hints");
+const hints = Array.from({ length: 24 * 8 * 8 * 8 * 2 }, (_, i) => {
+	const [kind, n, m, arm, back] = [i % 24, Math.floor(i / 24) % 8, Math.floor(i / 192) % 8, Math.floor(i / 1536) % 8, Math.floor(i / 12288)];
+	const steps = (arm << 5) | ((back ? 0b101 : 0b010) << 2) | 3;
+	return Uint8Array.of(hintsOp, kind, n, m, steps, ...Array.from({ length: n }, (_, b) => b * 37));
+});
+
+/** `hints::reserves` of each collection and element type, each shape, length, and limit on what it reads. */
+const reservesOp = op("hints::reserves");
+const reserves = Array.from({ length: 13 * 6 * 5 * 4 * 5 }, (_, i) =>
+	Uint8Array.of(reservesOp, i % 78, Math.floor(i / 78) % 5, Math.floor(i / 390) % 4, Math.floor(i / 1560)),
+);
+
+/**
+ * `collections::set_ops` of one key against 30, which std's B-tree looks up in the larger
+ * rather than merging, of each key type: a key below the rest, at either end, between, and
+ * above. Then `Nibble`s equal to another set's but for their high bits, of hash sets as
+ * large as each other and one larger, where std's picks which set's to yield by size.
+ */
+const setOpsOp = op("collections::set_ops");
+const setOps = [
+	...[15, 16, 17, 18, 19].flatMap((kind) => [0x20, 0x21, 0x25, 0x3e, 0x3f].map((single) => Uint8Array.of(setOpsOp, kind, single, ...Array.from({ length: 30 }, (_, i) => 0x41 + i)))),
+	...[
+		[0x01, 0x02, 0x13, 0x21, 0x32, 0x44],
+		[0x01, 0x02, 0x13, 0x21, 0x32, 0x44, 0x55],
+		[0x01, 0x02, 0x13, 0x55, 0x21, 0x32, 0x44],
+	].map((data) => Uint8Array.of(setOpsOp, 3, ...data)),
+];
+
+/** `zeros::zeros` of each case, on up to three bytes. */
+const zerosOp = op("zeros::zeros");
+const zeros = Array.from({ length: 7 * 4 }, (_, i) => Uint8Array.of(zerosOp, i % 7, ...Array.from({ length: Math.floor(i / 7) }, (_, b) => b)));
+
+/**
+ * `collections::unlike_eqs` of every pair of positions where `eq` and `ne` disagree and each
+ * length the right side may lose, over no items, one, two, a wrapped deque's four, and nine,
+ * whose positions are all within it.
+ */
+const unlikeEqsOp = op("collections::unlike_eqs");
+const unlikeEqs = [[], [5], [1, 2], [0, 7, 2, 9], [3, 3, 3, 3, 3, 3, 3, 3, 3]].flatMap((bytes) =>
+	Array.from({ length: 128 }, (_, kind) => Uint8Array.of(unlikeEqsOp, kind, ...bytes)),
+);
+
+/** `collections::own_nes` of the same positions, lengths, and items as `unlike_eqs`. */
+const ownNesOp = op("collections::own_nes");
+const ownNes = unlikeEqs.map((input) => Uint8Array.of(ownNesOp, ...input.subarray(1)));
+
+/** `collections::unlike_compares` of the same positions, lengths, and items as `unlike_eqs`. */
+const unlikeComparesOp = op("collections::unlike_compares");
+const unlikeCompares = unlikeEqs.map((input) => Uint8Array.of(unlikeComparesOp, ...input.subarray(1)));
+
+/**
+ * `iters::range_froms` of each case, each way its zips read the range, from each distance
+ * below its type's last value and from 250, on up to nine bytes: each length its zips
+ * panic at.
+ */
+const rangeFromsOp = op("iters::range_froms");
+const rangeFroms = Array.from({ length: 16 * 4 * 4 * 10 }, (_, i) => {
+	const kind = (i % 16) | ((Math.floor(i / 16) % 4) << 6);
+	const a = [0, 1, 3, 250][Math.floor(i / 64) % 4];
+	const data = Array.from({ length: Math.floor(i / 256) }, (_, j) => (j === 0 ? a : (j * 37) & 0xff));
+	return Uint8Array.of(rangeFromsOp, kind, ...data);
+});
+
+/** `iters::range_methods` of each type's table, at each pair of its first eight values. */
+const rangeMethodsOp = op("iters::range_methods");
+const rangeMethods = Array.from({ length: 19 * 64 }, (_, i) => Uint8Array.of(rangeMethodsOp, i % 19, Math.floor(i / 19) % 8, Math.floor(i / 152)));
+
+/**
+ * `iters::compares` of each comparison, shape, and pair, over no items, one, a run up to
+ * 255, which `start..` panics past and a sum overflows at, NaNs, and repeats.
+ */
+const comparesOp = op("iters::compares");
+const compares = [[], [5], [1, 2, 3], [250, 251, 252, 253, 254, 255], [0xff, 3, 0xff], [0, 1, 2, 3, 4, 5], [7, 7, 7, 7, 7, 7, 7, 7, 7]].flatMap((data) =>
+	Array.from({ length: 256 }, (_, kind) => Uint8Array.of(comparesOp, kind, ...data)),
+);
+
+/**
+ * `wraps::*` of every kind at every width, over operands at the edges of its range: 0, 1,
+ * either end, the sign bit's neighbors, which make `MIN / -1`, and at 128 bits values past
+ * 2^64. Shift amounts are at, past, and many times past the width, which std masks.
+ */
+function wraps(): Uint8Array[] {
+	const widths: [string, number][] = [["u8s", 8], ["u16s", 16], ["u32s", 32], ["u64s", 64], ["u128s", 128], ["usizes", 32], ["i8s", 8], ["i16s", 16], ["i32s", 32], ["i64s", 64], ["i128s", 128], ["isizes", 32]];
+	const cases: Uint8Array[] = [];
+	for (const [name, bits] of widths) {
+		const o = op(`wraps::${name}`);
+		const width = BigInt(bits);
+		const mask = (1n << width) - 1n;
+		const sign = 1n << (width - 1n);
+		const edges = [0n, 1n, 3n, mask, mask - 1n, sign, sign - 1n, sign + 1n];
+		if (bits === 128) edges.push(1n << 64n, (1n << 64n) + 3n, 0x9e3779b97f4a7c150123456789abcdefn);
+		const be = (v: bigint) => Array.from({ length: bits / 8 }, (_, i) => Number((v >> BigInt(bits - 8 - 8 * i)) & 0xffn));
+		// The amount's low byte and its high byte, which reads as `high << 24`.
+		const shifts = [[0, 0], [1, 0], [bits - 1, 0], [bits, 0], [bits + 1, 0], [2 * bits + 3, 0], [5, 1]];
+		let i = 0;
+		for (const a of edges) {
+			for (const b of edges) {
+				const c = edges[(i * 5 + 3) % edges.length];
+				const [low, high] = shifts[i++ % shifts.length];
+				for (let kind = 0; kind < 24; kind++) cases.push(Uint8Array.of(o, kind, ...be(a), ...be(b), ...be(c), low, high));
+			}
+		}
+	}
+	return cases;
+}
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods, ...wraps()];

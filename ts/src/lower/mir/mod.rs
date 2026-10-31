@@ -15,6 +15,7 @@ mod cfg;
 pub mod coroutine;
 mod decided;
 pub mod glue;
+mod holders;
 mod inline;
 mod memory;
 mod place;
@@ -31,7 +32,7 @@ use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
-pub use self::place::slice_member;
+pub use self::place::{slice_member, writes_captures};
 use super::Translator;
 use super::body::Body;
 
@@ -73,6 +74,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, span: Span) -> Option<mir::Body<'tcx>> {
 	let tcx = t.tcx;
 	let def_id = instance.def_id();
+	t.lowered.insert(instance);
 	// A `const`'s, as a function of no arguments that makes its value.
 	let body = match tcx.def_kind(def_id) {
 		DefKind::Const => tcx.mir_for_ctfe(def_id).clone(),
@@ -304,9 +306,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
 	joined: FxHashSet<Local>,
-	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
-	/// its arms.
-	switched: FxHashSet<String>,
+	/// The paths a switch lowered so far tests the variant of, with the enum it tests,
+	/// which `tsc` narrows in its arms. An `Option`'s `Some` is the path itself, so it
+	/// may be tested as both.
+	switched: FxHashSet<(String, Ty<'tcx>)>,
 	/// Locals whose variant some switch tests, or that std takes, directly or through a
 	/// reference to them.
 	tested: IndexVec<Local, bool>,
@@ -594,11 +597,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(name) => super::camel(name.as_str()),
 					None => format!("_{}", local.as_u32()),
 				};
-				let base = match self.uses[local] == 0 && local.as_usize() <= mir.arg_count {
-					// A parameter nothing reads, which `noUnusedParameters` wants marked.
-					true if !base.starts_with('_') => format!("_{base}"),
-					_ => base,
-				};
 				let name = self.b.fresh(&base);
 				if self.borrowed[local] {
 					self.shared.insert(name.clone());
@@ -826,31 +824,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
-	/// unassigned since it holds nothing: JS needs it made.
+	/// A zero-sized value that nothing assigns, the result included, which MIR leaves
+	/// unassigned since it holds nothing: JS needs it made, as a constant of it is. A
+	/// closure's is declared once instead, in [`Self::lower`].
 	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
-		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
+		if self.defs[local] != 0 || self.is_arg(local) || self.uses[local] == 0 || ty.is_closure() {
 			return None;
 		}
-		if let ty::Array(elem, len) = ty.kind()
-			&& len.try_to_target_usize(self.tcx) == Some(0)
-		{
-			return Some(match elem.kind() {
-				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
-				_ => Expr::As(
-					Box::new(Expr::Array(Vec::new())),
-					self.b.t.ty(ty, self.local_span(local)),
-				),
-			});
-		}
-		let ty::Adt(adt, _) = ty.kind() else {
-			return None;
-		};
-		if !adt.is_struct() || !self.b.t.own(adt.did()) || adt.all_fields().next().is_some() {
+		let env = self.b.t.typing_env_pub();
+		let layout = self.tcx.layout_of(env.as_query_input(ty)).ok()?;
+		if !layout.is_zst() || layout.is_uninhabited() {
 			return None;
 		}
-		let info = self.b.t.adt(*adt, self.local_span(local));
-		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
+		let span = self.local_span(local);
+		Some(self.const_value(mir::ConstValue::ZeroSized, ty, span))
 	}
 
 	/// Whether `local` is a box's pointer, as a box's dereference reads it.
@@ -1371,6 +1358,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		assigned && switched
+	}
+
+	/// Whether the switch on the discriminant `local` tests it, rather than going the one
+	/// way its type leaves.
+	fn discr_tested(&self, local: Local) -> bool {
+		self.mir.basic_blocks.iter().any(|data| {
+			matches!(
+				&data.terminator().kind,
+				TerminatorKind::SwitchInt { discr: Operand::Move(p) | Operand::Copy(p), targets }
+					if p.as_local() == Some(local) && !self.switch_targets(targets).0.is_empty()
+			)
+		})
 	}
 
 	/// The parameters: `_1` through the argument count, but a closure's environment or a
@@ -2233,8 +2232,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			match self.slots[local] {
 				Slot::Alias(_) => {
 					let target = match rvalue {
-						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span) {
-							Some(e) => e,
+						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span, out) {
+							// One view, however many times it is read.
+							Some(e) => self.path(e, "view", out),
 							None => match self.reborrowed(*kind, *p, span, out) {
 								Some(e) => e,
 								// Read whole, the place is held as it is now for its `rt.Place`.
@@ -2275,7 +2275,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					let ty = p.ty(&self.mir.local_decls, self.tcx).ty;
 					let target = self.place_expr(*p, span, out);
-					let target = self.path(target, "scrutinee", out);
+					// A switch whose other variants can't exist tests nothing, so the read
+					// runs only for its effects.
+					let target = match self.discr_tested(local) {
+						true => self.path(target, "scrutinee", out),
+						false => {
+							let target = self.fold_exprs(Vec::new(), vec![target], false, out).remove(0);
+							if self.part_reads(&target).0 {
+								self.emit(vec![StmtKind::Expr(target).at(None)], false, out);
+							}
+							Expr::undefined()
+						}
+					};
 					self.slots[local] = Slot::Discr(Some((target, ty)));
 					return;
 				}
@@ -2553,7 +2564,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
 			Some(Slot::Discr(Some((scrut, ty)))) => {
 				if !arms.is_empty() && whole.is_none() {
-					self.switched.extend(scrut.path_key());
+					self.switched.extend(scrut.path_key().map(|key| (key, ty)));
 				}
 				let tests: Vec<Expr> = arms
 					.iter()
@@ -3181,8 +3192,13 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				return false;
 			}
 			// The payload of a `Result` made here is what it was made of, which `tsc` reads
-			// where it can't narrow the `Result`, and so is what an `rt.Place` made here holds.
-			let folded = match (step::peel(base), &*key) {
+			// where it can't narrow the `Result`, cast to its variant or not, and so is what an
+			// `rt.Place` made here holds.
+			let made = match step::peel(base) {
+				Expr::As(made, _) => step::peel(made),
+				base => base,
+			};
+			let folded = match (made, &*key) {
 				(Expr::Call(f, args), ts::Key::Name(key))
 					if let Expr::Rt(ctor) = step::peel(f)
 						&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
@@ -3190,7 +3206,7 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				{
 					Some(payload.clone())
 				}
-				(base, ts::Key::Name(key)) if key == "v" => base.place_read().cloned(),
+				(_, ts::Key::Name(key)) if key == "v" => step::peel(base).place_read().cloned(),
 				_ => None,
 			};
 			if let Some(folded) = folded {
@@ -3300,16 +3316,16 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 	}
 }
 
-/// The names `stmts` assign, anywhere in them.
+/// The names `stmts` assign, anywhere in them, as themselves or cast to a variant's type.
 fn assigned(stmts: &[Stmt]) -> FxHashSet<String> {
 	let mut names = FxHashSet::default();
 	for stmt in stmts {
 		visit_stmt(stmt, &mut |e| {
 			visit_expr(e, &mut |e| {
 				if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-					&& let Expr::Ident(name) = &**target
+					&& let Some(name) = assigned_name(target)
 				{
-					names.insert(name.clone());
+					names.insert(name.to_string());
 				}
 			})
 		});
@@ -3476,12 +3492,24 @@ fn writes_of(e: &Expr, name: &str) -> usize {
 	let mut n = 0;
 	visit_expr(e, &mut |e| {
 		if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-			&& matches!(&**target, Expr::Ident(i) if i == name)
+			&& assigned_name(target) == Some(name)
 		{
 			n += 1;
 		}
 	});
 	n
+}
+
+/// The name an assignment to `target` writes whole: itself, or cast to the type of a
+/// variant it holds, as a `Cow`'s payload is.
+fn assigned_name(mut target: &Expr) -> Option<&str> {
+	while let Expr::As(inner, _) = target {
+		target = inner;
+	}
+	match target {
+		Expr::Ident(name) => Some(name),
+		_ => None,
+	}
 }
 
 /// Call `f` on each expression the statement holds directly, and in its blocks.
@@ -3554,7 +3582,9 @@ fn parts_of(value: &Expr) -> Option<Vec<Expr>> {
 			Some(items.clone())
 		}
 		Expr::Object(props) => Some(props.iter().map(|(_, v)| v.clone()).collect()),
-		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range") => Some(items.clone()),
+		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range" || name == "RangeFrom") => {
+			Some(items.clone())
+		}
 		_ => None,
 	}
 }

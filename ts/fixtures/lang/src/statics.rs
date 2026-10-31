@@ -2,19 +2,19 @@
 //! in a function, as kio's `waiter` keeps its ids, starting from a value of the type's
 //! extremes. Statics of any type, read from the memory rustc evaluated: a struct holding
 //! an atomic, an `AtomicPtr` as parking_lot keeps its table in, std's `OnceLock`,
-//! `LazyLock`, and `Once`, one in a struct as crossbeam-epoch keeps its collector, and one
+//! `LazyLock`, and `Once`, crossbeam-epoch's own `OnceLock` over an `UnsafeCell`, and one
 //! pointing at a static of a module that reads it back; and `const`s holding cells, each
 //! use of which is a value of its own, as lock_api's `RawMutex::INIT` is. Each case leaves
 //! every static as it found it, or reads only what it holds whatever ran before, so a fresh
 //! instance and a reused one agree.
 
-use std::cell::LazyCell;
+use std::cell::{Cell, LazyCell, UnsafeCell};
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::atomic::Ordering::{AcqRel, Acquire, Relaxed, SeqCst};
 use std::sync::atomic::{AtomicBool, AtomicI8, AtomicI64, AtomicPtr, AtomicU8, AtomicU32, AtomicU64, AtomicUsize};
-use std::sync::{LazyLock, Once, OnceLock};
+use std::sync::{Arc, LazyLock, Once, OnceLock};
 
 static COUNT: AtomicU64 = AtomicU64::new(u64::MAX - 2);
 static SIGNED: AtomicI8 = AtomicI8::new(-128);
@@ -168,6 +168,16 @@ const LAZY: LazyCell<u8> = LazyCell::new(|| FORCED.fetch_add(1, Relaxed) + 10);
 /// Uninitialized, as moq-net's `UNINIT` frame is.
 const EMPTY: MaybeUninit<u16> = MaybeUninit::uninit();
 
+/// Each use a cell of its own.
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const TALLY: Cell<u8> = Cell::new(250);
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const PAIR: UnsafeCell<(u8, u8)> = UnsafeCell::new((1, 2));
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const NESTED: UnsafeCell<Cell<u8>> = UnsafeCell::new(Cell::new(3));
+#[allow(clippy::declare_interior_mutable_const, reason = "each use is a cell of its own")]
+const CELLS: Cell<Cell<u8>> = Cell::new(Cell::new(4));
+
 /// Each byte an operation on statics and constants read from memory; each puts what it read.
 pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(COUNTER.name.as_bytes());
@@ -183,6 +193,10 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	// Every lazy static, forced from either path, has run its function once.
 	let (made, from) = &*SECOND;
 	out.extend([*made, FIRST[0], from[0], FIRST[1]]);
+	let tally = TALLY;
+	tally.set(tally.get().wrapping_add(10));
+	out.extend([tally.get(), TALLY.get(), PAIR.into_inner().1]);
+	out.extend([NESTED.into_inner().get(), CELLS.into_inner().into_inner()]);
 	for &op in data {
 		let n = op / 8;
 		match op % 8 {
@@ -248,31 +262,51 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 	COUNTER.hits.store(u32::MAX - 1, Relaxed);
 }
 
-/// A value a `Once` guards, as crossbeam-epoch keeps its collector: written in
-/// `call_once`'s function, and read once `is_completed` says it ran.
-struct Slot {
+/// crossbeam-epoch's own `OnceLock`, which keeps its collector: a value a `Once` guards,
+/// written through `UnsafeCell::get` in `call_once`'s function, read once `is_completed`
+/// says it ran, and dropped in place if it did.
+struct Lock<T> {
 	once: Once,
-	value: AtomicU32,
+	value: UnsafeCell<MaybeUninit<T>>,
 }
 
-impl Slot {
+unsafe impl<T: Sync + Send> Sync for Lock<T> {}
+
+impl<T> Lock<T> {
 	const fn new() -> Self {
 		Self {
 			once: Once::new(),
-			value: AtomicU32::new(0),
+			value: UnsafeCell::new(MaybeUninit::uninit()),
 		}
 	}
 
-	fn get_or_init(&self, f: impl FnOnce() -> u32) -> u32 {
+	fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
 		if !self.once.is_completed() {
-			self.once.call_once(|| self.value.store(f(), Relaxed));
+			let slot = self.value.get();
+			self.once.call_once(|| {
+				let value = f();
+				unsafe { slot.write(MaybeUninit::new(value)) }
+			});
 		}
-		self.value.load(Relaxed)
+		unsafe { &*self.value.get().cast::<T>() }
 	}
 }
 
+impl<T> Drop for Lock<T> {
+	fn drop(&mut self) {
+		if self.once.is_completed() {
+			unsafe { (*self.value.get()).assume_init_drop() };
+		}
+	}
+}
+
+/// What crossbeam-epoch's collector holds: a struct JS keeps as an object.
+struct Collector {
+	global: Arc<u32>,
+}
+
 /// Filled by the first call that gets here, with the value every call gives.
-static COLLECTOR: Slot = Slot::new();
+static COLLECTOR: Lock<Collector> = Lock::new();
 
 /// Run by the first call that gets here.
 static STARTED: Once = Once::new();
@@ -317,12 +351,39 @@ pub fn onces(data: &[u8], out: &mut Vec<u8>) {
 				STARTED.call_once(|| {});
 				out.push(u8::from(STARTED.is_completed()));
 			}
-			4 => out.extend(COLLECTOR.get_or_init(|| 0x0102_0304).to_le_bytes()),
+			4 => {
+				let collector = COLLECTOR.get_or_init(|| Collector {
+					global: Arc::new(0x0102_0304),
+				});
+				out.extend(collector.global.to_le_bytes());
+				out.push(Arc::strong_count(&collector.global) as u8);
+			}
+			// The first function given runs, and the second never does; dropping the lock
+			// drops the value only if it holds one. A pointer to an `Rc` is a place, and to a
+			// tuple the object.
+			_ if n % 3 == 0 => {
+				let slot = Lock::new();
+				let held = Rc::clone(&owned);
+				out.push(Rc::strong_count(slot.get_or_init(|| held)) as u8);
+				let unused = Rc::clone(&owned);
+				out.push(Rc::strong_count(slot.get_or_init(|| unused)) as u8);
+				drop(slot);
+				out.push(Rc::strong_count(&owned) as u8);
+			}
+			_ if n % 3 == 1 => {
+				let slot = Lock::new();
+				let held = Rc::clone(&owned);
+				out.push(slot.get_or_init(|| (n, held)).0);
+				let unused = Rc::clone(&owned);
+				out.push(slot.get_or_init(|| (0xee, unused)).0);
+				out.push(Rc::strong_count(&owned) as u8);
+				drop(slot);
+				out.push(Rc::strong_count(&owned) as u8);
+			}
 			_ => {
-				// The first function given runs, and the second never does.
-				let slot = Slot::new();
-				out.push(slot.get_or_init(|| u32::from(n)) as u8);
-				out.push(slot.get_or_init(|| 0xee) as u8);
+				let slot: Lock<Rc<()>> = Lock::new();
+				drop(slot);
+				out.push(Rc::strong_count(&owned) as u8);
 			}
 		}
 	}

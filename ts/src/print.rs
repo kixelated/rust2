@@ -711,9 +711,9 @@ impl Printer<'_> {
 		match &stmt.kind {
 			StmtKind::Expr(e) => {
 				// A statement can't start with `{`, which would open a block.
-				let prec = match e {
-					Expr::Object(_) => 20,
-					_ => 0,
+				let prec = match starts_with_object(e) {
+					true => 20,
+					false => 0,
 				};
 				self.expr(e, prec);
 				self.write(";\n");
@@ -1249,5 +1249,22 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 			collect_expr_locals(c, out);
 		}
 		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+	}
+}
+
+/// Whether `e` prints starting with an object literal, as `{ start: g }.start` does.
+fn starts_with_object(e: &Expr) -> bool {
+	match e {
+		Expr::Object(_) => true,
+		Expr::Member(e, _)
+		| Expr::Index(e, _)
+		| Expr::Call(e, _)
+		| Expr::Postfix(e, _)
+		| Expr::Binary(e, _, _)
+		| Expr::Cond(e, _, _)
+		| Expr::Assign(e, _)
+		| Expr::As(e, _)
+		| Expr::Located(_, e) => starts_with_object(e),
+		_ => false,
 	}
 }

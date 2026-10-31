@@ -93,6 +93,24 @@ pub fn edits(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			let mut names: Vec<String> = data.iter().map(|&b| text(&[b])).collect();
 			names.retain(|s| s.len() > 1);
 			out.push(names.len() as u8);
+			// `pop_if` lends the last element to its test, which keeps what it changed.
+			let mut v = words.clone();
+			while let Some(x) = v.pop_if(|x| {
+				*x ^= 1;
+				*x % 4 != 0
+			}) {
+				put_u16s(out, &[x]);
+			}
+			put_u16s(out, &v);
+			while let Some(s) = names.pop_if(|s| {
+				s.push('.');
+				s.len() % 3 != 0
+			}) {
+				put(out, &s);
+			}
+			for s in &names {
+				put(out, s);
+			}
 			// Panics on the element the last byte names, keeping what it decided.
 			let stop = at(data.len().saturating_sub(1)) as u16 * 3;
 			if kind & 0x80 != 0 {
@@ -375,6 +393,13 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 					*b = b.wrapping_add(1);
 					*b % 4 != 0
 				});
+				out.extend_from_slice(&v);
+				while let Some(b) = v.pop_if(|b| {
+					*b ^= 0x80;
+					*b % 3 != 0
+				}) {
+					out.push(b);
+				}
 				out.extend_from_slice(&v);
 				out.push(0xfe);
 			}

@@ -26,8 +26,10 @@ moq-net still needs, by its census from MIR at the pinned revision:
 - kio's `Tasks`, which the model's census binds. Translated, it refuses a waker's
   identity: `Polling` keeps `(Waker::data, Waker::vtable)` in a thread-local and compares
   it as an `Option` of that pair (`rs/kio/src/task.rs`), 10 of kio's refusals. `rt.Waker`
-  has no identity a raw pointer can stand for, and a caller's own waker would have to give
-  one, so the runtime's waker shape is the maintainer's to decide.
+  has no identity a raw pointer can stand for. Decided by the maintainer on 2026-10-30:
+  each `rt.Waker` carries an identity, which `Waker::data` and `Waker::vtable` read and
+  `will_wake` compares, as std compares the data pointer and vtable, rather than JS object
+  identity, which a clone made another way would not share; a caller's own waker gives one.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a

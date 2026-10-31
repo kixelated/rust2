@@ -5,7 +5,7 @@
 // A hash collection hashes a key that is a JS object with a faster hasher of its own,
 // whose values nothing sees, as std keys a map's hasher at random.
 
-import type { None } from "../rt.ts";
+import { ByteSlice, type ByteVec, type None } from "../rt.ts";
 import { type I64Limbs, type I128Limbs, type U64Limbs, type U128Limbs, type u64, u64FromHalves } from "./int.ts";
 import type { Arc } from "./task.ts";
 
@@ -299,6 +299,9 @@ export function hashStr(str: string, s: Hasher): void {
 	s.str(str);
 }
 
+/** `Hash::hash` of what holds nothing, as `()` and `PhantomData`: nothing written. */
+export function hashNothing(_value: undefined, _s: Hasher): void {}
+
 /** `Hash::hash` of tuples, from each field's. */
 export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value: never, s: Hasher) => void)[]): (value: T, s: Hasher) => void {
 	return (value, s) => {
@@ -312,6 +315,17 @@ export function hashSlice<T>(hash: (value: T, s: Hasher) => void): (value: Array
 		s.word(value.length, 4);
 		for (let i = 0; i < value.length; i++) hash(value[i], s);
 	};
+}
+
+/**
+ * `Hash::hash` of a byte array, slice, or vector, which is alike in each form: its length
+ * as a `usize`, then its bytes.
+ */
+export function hashBytes(value: Uint8Array | ByteSlice | ByteVec, s: Hasher): void {
+	const data = value instanceof Uint8Array ? value : value.data;
+	const start = value instanceof ByteSlice ? value.start : 0;
+	s.word(value.length, 4);
+	for (let i = 0; i < value.length; i++) s.word(data[start + i], 1);
 }
 
 /** `Hash::hash` of an `Option`: its discriminant as an `isize`, then its value's. */

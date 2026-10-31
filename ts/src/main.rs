@@ -10,6 +10,7 @@
 extern crate rustc_abi;
 extern crate rustc_ast;
 extern crate rustc_attr_ir;
+extern crate rustc_const_eval;
 extern crate rustc_data_structures;
 extern crate rustc_driver;
 extern crate rustc_hashes;
@@ -19,6 +20,7 @@ extern crate rustc_infer;
 extern crate rustc_interface;
 extern crate rustc_metadata;
 extern crate rustc_middle;
+extern crate rustc_mir_dataflow;
 extern crate rustc_span;
 extern crate rustc_target;
 extern crate rustc_trait_selection;

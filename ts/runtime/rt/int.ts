@@ -46,6 +46,8 @@ export type i32 = Num<"i32">;
 export type isize = Num<"isize">;
 /** Rust's `f64`: a number, which is the same IEEE 754 double. */
 export type f64 = Num<"f64">;
+/** Rust's `f32`: a number that is exactly an IEEE 754 single, as `Math.fround` makes one. */
+export type f32 = Num<"f32">;
 /** Rust's `char`: a Unicode scalar value, which is at most 0x10ffff and no surrogate. */
 export type char = Num<"char">;
 /**
@@ -67,8 +69,52 @@ export type i128 = Num<"i128"> | I128Limbs;
  */
 export type Step<T> = (n: T, by: number) => [T, boolean];
 
+/**
+ * `NonZero<T>`'s `Step` of an unsigned `T`'s, `int`: within 1 and `max`, past which it
+ * stops at that end where `T`'s wraps.
+ */
+export function nonZeroStep<T>(int: Step<T>, max: T): Step<T> {
+	return (n, by) => {
+		const [v, over] = int(n, by);
+		if (over || v === 0) return [by > 0 ? max : (1 as T), true];
+		return [v, false];
+	};
+}
+
 /** `core::num::TryFromIntError`: which way the value was out of range. */
 export type TryFromIntError = { readonly kind: "PosOverflow" | "NegOverflow" };
+
+/** `core::num::IntErrorKind`: why an integer didn't parse, by variant name. */
+export type IntErrorKind = "Empty" | "InvalidDigit" | "PosOverflow" | "NegOverflow" | "Zero" | "NotAPowerOfTwo";
+
+/** `core::num::ParseIntError`: why an integer didn't parse. */
+export type ParseIntError = { readonly kind: IntErrorKind };
+
+/**
+ * `char`'s `Step`: `n` moved by `by` past the surrogates, which no `char` is, and whether
+ * that left the chars, past which it stays at the last or first, as std's does.
+ */
+export const charStep: Step<char> = (n, by) => {
+	let v = n + by;
+	if (by > 0 && n < 0xd800 && v >= 0xd800) v += 0x800;
+	else if (by < 0 && n >= 0xe000 && v < 0xe000) v -= 0x800;
+	if (v > 0x10ffff) return [0x10ffff as char, true];
+	if (v < 0) return [0 as char, true];
+	return [v as char, false];
+};
+
+/** `core::char::CharErrorKind`: why a `char` didn't parse, by variant name. */
+export type CharErrorKind = "EmptyString" | "TooManyChars";
+
+/** `core::char::ParseCharError`: why a `char` didn't parse. */
+export type ParseCharError = { readonly kind: CharErrorKind };
+
+/** `char`'s `FromStr`: the string's only char, or why it holds none or more. */
+export function charFromStr(s: string): Result<char, ParseCharError> {
+	if (s === "") return Err({ kind: "EmptyString" });
+	const c = s.codePointAt(0) as char;
+	return s.length === (c > 0xffff ? 2 : 1) ? Ok(c) : Err({ kind: "TooManyChars" });
+}
 
 const TWO32 = 4294967296;
 const MAX_SAFE = 0x1fffffffffffff;
@@ -496,6 +542,10 @@ export const i8WrappingSub = (a: i8, b: i8): i8 => ((a - b) << 24) >> 24;
 export const i8SaturatingMul = (a: i8, b: i8): i8 => saturate(a * b, -0x80, 0x7f);
 /** `i8`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i8WrappingMul = (a: i8, b: i8): i8 => (Math.imul(a, b) << 24) >> 24;
+/** `i8`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i8WrappingDiv = (a: i8, b: i8): i8 => (b === -1 ? i8WrappingSub(0, a) : i8Div(a, b));
+/** `i8`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i8WrappingRem = (a: i8, b: i8): i8 => (b === -1 ? 0 : i8Rem(a, b));
 /** `i8`'s `leading_ones`: the count of leading one bits. */
 export const i8LeadingOnes = (a: i8): number => Math.clz32(~(a << 24));
 /** `i8`'s `leading_zeros`: the count of leading zero bits. */
@@ -559,6 +609,10 @@ export const i16WrappingSub = (a: i16, b: i16): i16 => ((a - b) << 16) >> 16;
 export const i16SaturatingMul = (a: i16, b: i16): i16 => saturate(a * b, -0x8000, 0x7fff);
 /** `i16`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i16WrappingMul = (a: i16, b: i16): i16 => (Math.imul(a, b) << 16) >> 16;
+/** `i16`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i16WrappingDiv = (a: i16, b: i16): i16 => (b === -1 ? i16WrappingSub(0, a) : i16Div(a, b));
+/** `i16`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i16WrappingRem = (a: i16, b: i16): i16 => (b === -1 ? 0 : i16Rem(a, b));
 /** `i16`'s `leading_ones`: the count of leading one bits. */
 export const i16LeadingOnes = (a: i16): number => Math.clz32(~(a << 16));
 /** `i16`'s `leading_zeros`: the count of leading zero bits. */
@@ -622,6 +676,10 @@ export const i32WrappingSub = (a: i32, b: i32): i32 => (a - b) | 0;
 export const i32SaturatingMul = (a: i32, b: i32): i32 => saturate(a * b, -0x80000000, 0x7fffffff);
 /** `i32`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i32WrappingMul = (a: i32, b: i32): i32 => Math.imul(a, b);
+/** `i32`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i32WrappingDiv = (a: i32, b: i32): i32 => (b === -1 ? i32WrappingSub(0, a) : i32Div(a, b));
+/** `i32`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i32WrappingRem = (a: i32, b: i32): i32 => (b === -1 ? 0 : i32Rem(a, b));
 /** `i32`'s `leading_ones`: the count of leading one bits. */
 export const i32LeadingOnes = (a: i32): number => Math.clz32(~a);
 /** `i32`'s `leading_zeros`: the count of leading zero bits. */
@@ -760,6 +818,10 @@ export const isizeWrappingSub: (a: isize, b: isize) => isize = i32WrappingSub as
 export const isizeSaturatingMul: (a: isize, b: isize) => isize = i32SaturatingMul as never;
 /** `isize`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const isizeWrappingMul: (a: isize, b: isize) => isize = i32WrappingMul as never;
+/** `isize`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const isizeWrappingDiv: (a: isize, b: isize) => isize = i32WrappingDiv as never;
+/** `isize`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const isizeWrappingRem: (a: isize, b: isize) => isize = i32WrappingRem as never;
 /** `isize`'s `leading_ones`: the count of leading one bits. */
 export const isizeLeadingOnes: (a: isize) => number = i32LeadingOnes as never;
 /** `isize`'s `leading_zeros`: the count of leading zero bits. */
@@ -1547,6 +1609,10 @@ export const i64WrappingSub = (a: i64, b: i64): i64 => (typeof a === "number" &&
 export const i64SaturatingMul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 64, true)) as i64;
 /** `i64`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i64WrappingMul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 64, true)) as i64;
+/** `i64`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i64WrappingDiv = (a: i64, b: i64): i64 => (b === -1 ? i64WrappingSub(0, a) : i64Div(a, b));
+/** `i64`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i64WrappingRem = (a: i64, b: i64): i64 => (b === -1 ? 0 : i64Rem(a, b));
 /** `i64`'s `leading_ones`: the count of leading one bits. */
 export const i64LeadingOnes = (a: i64): number => leadingOnes64(a, true);
 /** `i64`'s `leading_zeros`: the count of leading zero bits. */
@@ -1761,6 +1827,10 @@ export const i128WrappingSub = (a: i128, b: i128): i128 => (typeof a === "number
 export const i128SaturatingMul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 128, true)) as i128;
 /** `i128`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i128WrappingMul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 128, true)) as i128;
+/** `i128`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i128WrappingDiv = (a: i128, b: i128): i128 => (b === -1 ? i128WrappingSub(0, a) : i128Div(a, b));
+/** `i128`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i128WrappingRem = (a: i128, b: i128): i128 => (b === -1 ? 0 : i128Rem(a, b));
 /** `i128`'s `leading_ones`: the count of leading one bits. */
 export const i128LeadingOnes = (a: i128): number => leadingOnes128(a, true);
 /** `i128`'s `leading_zeros`: the count of leading zero bits. */
@@ -1816,9 +1886,10 @@ export const i128Clamp = (a: i128, min: i128, max: i128): i128 => clampWide(a, m
 /** `i128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i128Step: Step<i128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i128, boolean];
 
-// Casts between integers and `f64`. An integer of at most 32 bits is already its `f64`;
-// a wider one rounds to the nearest, ties to even, once. An `f64` to an integer
-// truncates toward zero, saturates at the type's bounds, and sends NaN to 0.
+// Casts between integers and floats. An integer of at most 32 bits is already its `f64`;
+// a wider one rounds to the nearest, ties to even, once, and so does one to an `f32`. A
+// float to an integer truncates toward zero, saturates at the type's bounds, and sends
+// NaN to 0; an `f32` does so as the `f64` it is exactly.
 
 /** `x as T` into a type of at most 32 bits, whose bounds are int32s or uint32s. */
 function narrowFromF64(x: number, min: number, max: number): number {
@@ -1875,3 +1946,25 @@ export const i64ToF64 = (a: i64): f64 => (typeof a === "number" ? (a as number) 
 export const u128ToF64 = (a: u128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));
 /** `a as f64`: a bigint converts to the nearest double. */
 export const i128ToF64 = (a: i128): f64 => (typeof a === "number" ? (a as number) : Number(exact(a)));
+
+/**
+ * `v as f32` past 2^53: its top 53 bits, the last set if any bit below them is, which
+ * `Math.fround` then rounds once as if from the exact value, where the nearest double
+ * would round twice.
+ */
+function wideToF32(v: bigint): f32 {
+	const m = v < 0n ? -v : v;
+	const drop = BigInt(Math.max(0, m.toString(2).length - 53));
+	const odd = (m >> drop) | (m & ((1n << drop) - 1n) ? 1n : 0n);
+	const x = Math.fround(Number(odd << drop));
+	return v < 0n ? -x : x;
+}
+
+/** `a as f32`: a safe integer is exact as a double, so rounds once. */
+export const u64ToF32 = (a: u64): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));
+/** `a as f32`. */
+export const i64ToF32 = (a: i64): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));
+/** `a as f32`. */
+export const u128ToF32 = (a: u128): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));
+/** `a as f32`. */
+export const i128ToF32 = (a: i128): f32 => (typeof a === "number" ? Math.fround(a) : wideToF32(exact(a)));

@@ -11,7 +11,7 @@ export function eq$PartialEq(self: Horizon, other: Horizon): boolean {
 }
 
 export function hash$Hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
-	rt.hashOption(Hop.hash$Hash_DefaultHasher)(self.exclude, state);
+	rt.hashOption(Hop.hash$Hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined)(self.exclude, state);
 	rt.hash8(self.local, state);
 }
 

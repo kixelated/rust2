@@ -2,9 +2,9 @@
 //! output is written.
 
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
-#![feature(cow_is_borrowed)]
+#![feature(cow_is_borrowed, f16)]
 
-pub fn float(a: f32) -> f32 {
+pub fn float(a: f16) -> f16 {
 	a * 2.0
 }
 
@@ -17,8 +17,8 @@ pub fn nested(x: Option<Option<Option<u8>>>) -> bool {
 	x.is_some()
 }
 
-pub fn rotated(v: &mut [u8]) {
-	v.rotate_left(1);
+pub fn refilled(v: &mut [Reused], r: Reused) {
+	v.fill(r);
 }
 
 /// A generic type's `Option<T>` is `T | undefined`, which can't hold `rt.None`, the `None`
@@ -31,29 +31,17 @@ pub fn generic_unit(value: Option<()>) -> bool {
 	Maybe { value }.value.is_some()
 }
 
-/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
-pub fn collected(v: &[u8]) -> Option<Vec<()>> {
-	v.iter().map(|&b| (b > 1).then_some(())).collect()
-}
-
-/// The runtime's `find` takes `None` to be `undefined`, which `Some(None)` is.
-pub fn iterators(v: &[u8]) -> bool {
-	v.iter().map(|&b| (b > 1).then_some(b)).find(Option::is_none).is_some()
+/// `scan` of items that can be `undefined`: its closure's `None` and `Some(None)` would both be.
+pub fn scanned(v: &[u8]) -> usize {
+	v.iter()
+		.scan(Vec::<u8>::new(), |_, &b| Some((b > 1).then_some(b)))
+		.count()
 }
 
 pub struct Noisy(pub u8);
 
 impl Drop for Noisy {
 	fn drop(&mut self) {}
-}
-
-/// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
-pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
-	let mut sum = 0;
-	for k in m.into_keys() {
-		sum += k;
-	}
-	sum
 }
 
 /// An async closure is a coroutine closure, not an async body.
@@ -82,9 +70,9 @@ pub fn statics() -> u8 {
 
 pub struct Meters(pub u64);
 
-pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f32 {
+pub fn generic<T: Copy + Into<u64>>(t: &mut T) -> f16 {
 	// A census lowers this over `T`: what hinges on `T` waits for an instance, the float does not.
-	(*t).into() as f32
+	(*t).into() as f16
 }
 
 /// `Ready(Some(Ready(Pending)))` would be `rt.OuterPending`, as the outer `Pending` is.
@@ -131,11 +119,6 @@ pub fn swap_guards<'a>(a: &mut std::sync::MutexGuard<'a, u8>, b: &mut std::sync:
 	std::mem::swap(a, b);
 }
 
-/// An adaptor without a mapping.
-pub fn cycled(v: &[u8]) -> usize {
-	v.iter().cycle().take(3).count()
-}
-
 /// An iterator whose `fold` std's adaptors would call in place of its `next`.
 pub struct Folds;
 
@@ -174,12 +157,6 @@ impl DoubleEndedIterator for Backs {
 
 pub fn backs() -> usize {
 	Backs.rev().count()
-}
-
-/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
-/// through `next`, which calls the first side's closure once more.
-pub fn zipped(a: &[u8], b: &[u8]) -> usize {
-	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
 }
 
 /// JS compares objects by identity, not by `PartialOrd`.
@@ -226,17 +203,17 @@ pub fn fused() -> usize {
 	Fused.fuse().count()
 }
 
-/// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
-pub fn zip_dropped(v: &[u8]) -> usize {
-	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
+/// A `skip` of a zip std reads by index, which a zip by index drops a pair at a time.
+pub fn skipped_zip(v: &[u8]) -> usize {
+	let pairs = v.iter().map(|&n| Noisy(n)).zip(v.iter().map(|&n| Noisy(!n)));
+	pairs.skip(1).zip(0..2).count()
 }
 
-/// `rest` borrows the tail of `items` mutably, but a JS array has no views.
-pub fn rest_mut(items: &mut [u32; 3]) -> u32 {
-	if let [_, rest @ ..] = items {
-		rest[0] = 9;
-	}
-	items[1]
+/// A zip collected in place, which std reads by index and drops with what its closure owns.
+pub fn zip_in_place(v: Vec<u8>) -> Vec<u8> {
+	let n = Noisy(1);
+	let owned = v.into_iter().map(move |x| x ^ (&n).0);
+	owned.zip(0..2u8).map(|(x, y)| x ^ y).collect()
 }
 
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
@@ -261,14 +238,14 @@ pub fn copied_closure(n: u8) -> u8 {
 	g().wrapping_add(h())
 }
 
-/// A set's `get` of an item that can be `undefined`: its `None` and `Some(&None)` would both be.
-pub fn optional(set: &std::collections::HashSet<Option<u8>>) -> bool {
-	set.get(&None).is_some()
+/// `scan` of `()`s: its closure's `None` and `Some(())` would both be `undefined`.
+pub fn scanned_unit(v: &[u8]) -> usize {
+	v.iter().scan(Vec::<u8>::new(), |_, _| Some(())).count()
 }
 
 /// A key the runtime has no `Hash` and `Eq` of.
-pub fn byte_keys() -> usize {
-	let map: std::collections::HashMap<Vec<u8>, u8> = std::collections::HashMap::new();
+pub fn set_keys() -> usize {
+	let map: std::collections::HashMap<std::collections::BTreeSet<u8>, u8> = std::collections::HashMap::new();
 	map.len()
 }
 
@@ -304,23 +281,6 @@ pub fn raw_keys() -> usize {
 	map.len()
 }
 
-pub struct Picky(pub u8);
-
-impl PartialEq for Picky {
-	fn eq(&self, other: &Self) -> bool {
-		self.0 == other.0
-	}
-
-	fn ne(&self, other: &Self) -> bool {
-		self.0 > other.0
-	}
-}
-
-/// An `Arc`'s `!=` calls `Picky`'s own `ne`, which `!eq` would not.
-pub fn picky(a: &std::sync::Arc<Picky>, b: &std::sync::Arc<Picky>) -> bool {
-	a != b
-}
-
 /// `max` drops the operand it doesn't return, which the runtime's leaves undropped.
 pub fn widest(a: std::sync::Arc<str>, b: std::sync::Arc<str>) -> std::sync::Arc<str> {
 	a.max(b)
@@ -334,9 +294,9 @@ pub fn passed(map: &mut std::collections::HashMap<u8, u8>) -> u8 {
 	})
 }
 
-/// JS's `copyWithin` would share each tuple, which Rust copies.
-pub fn shifted(v: &mut [(u8, u8)]) {
-	v.copy_within(0..1, 1);
+/// `clone_from_slice` calls `Reused`'s own `clone_from` for each element.
+pub fn recloned(v: &mut [Reused], w: &[Reused]) {
+	v.clone_from_slice(w);
 }
 
 /// An `Arc`'s bytes would need a `ByteSlice` made inside it.
@@ -365,12 +325,11 @@ pub fn batched(v: Vec<Batched>) -> usize {
 	set.len()
 }
 
-/// Closures that own a value that drops, which `or_insert_with` would call but never drop
-/// if the key is there, and which `for_each` drops before the items it doesn't reach.
-pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
-	let (a, b) = (Noisy(1), Noisy(2));
+/// A closure that owns a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there.
+pub fn called_closure(m: &mut std::collections::HashMap<u8, Noisy>) {
+	let b = Noisy(2);
 	m.entry(1).or_insert_with(move || b);
-	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
 /// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
@@ -392,9 +351,9 @@ pub fn cow_borrowed(c: &std::borrow::Cow<'_, str>) -> bool {
 	std::borrow::Cow::is_borrowed(c)
 }
 
-/// Only a `Cow<str>` has a JS value yet.
-pub fn cow_bytes(c: std::borrow::Cow<'_, [u8]>) -> usize {
-	c.len()
+/// A slice's tells its variants apart, but asking is unstable.
+pub fn cow_bytes(c: &std::borrow::Cow<'_, [u8]>) -> bool {
+	std::borrow::Cow::is_borrowed(c)
 }
 
 /// Made where its type goes unchecked, as a local's, it is refused where it is made.
@@ -483,13 +442,8 @@ pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
 	(a.into_iter().sum(), b.into_iter().sum())
 }
 
-/// One rounding, which JS has no cheap form of.
-pub fn fma(a: f64) -> f64 {
-	a.mul_add(2.0, 1.0)
-}
-
-/// Integer parsing is not translated yet.
-pub fn int_parsed(s: &str) -> Result<u32, std::num::ParseIntError> {
+/// Parsing an address is not translated yet.
+pub fn addr_parsed(s: &str) -> Result<std::net::Ipv4Addr, std::net::AddrParseError> {
 	s.parse()
 }
 
@@ -679,11 +633,108 @@ pub fn variable_reassigned(n: u32) -> u32 {
 	unsafe { (*p).0 + pair.1 }
 }
 
+/// A pointer to a variable's object, which `mem::replace` of the whole variable replaces.
+pub fn variable_replaced(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let old = std::mem::replace(&mut pair, (0, 0));
+	unsafe { (*p).0 + old.1 }
+}
+
+/// A pointer to a variable's object, which `mem::swap` replaces.
+pub fn variable_swapped(n: u32) -> u32 {
+	let mut a = (n, n);
+	let mut b = (0, 0);
+	let p = &raw mut a;
+	std::mem::swap(&mut a, &mut b);
+	unsafe { (*p).0 + b.1 }
+}
+
+/// A pointer to a variable's object, which a whole write through a `&mut` to it replaces.
+pub fn assigned_through(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let r = &mut pair;
+	*r = (0, 0);
+	unsafe { (*p).0 }
+}
+
+/// A pointer `NonNull::from` makes of a `&mut` to a variable, which an assignment replaces.
+pub fn nonnull_reassigned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = std::ptr::NonNull::from(&mut pair);
+	pair = (0, 0);
+	unsafe { p.as_ref().0 + pair.1 }
+}
+
+/// A pointer cast from a `&mut` to a variable, which an assignment replaces.
+pub fn cast_reassigned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &mut pair as *mut (u32, u32);
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+pub struct Window {
+	pub range: (u32, u32),
+}
+
+/// A pointer to a part kept as an object, which `mem::replace` of the part elsewhere replaces.
+pub fn range_of(w: &mut Window) -> *mut (u32, u32) {
+	&raw mut w.range
+}
+
+pub fn range_replaced(w: &mut Window) -> (u32, u32) {
+	std::mem::replace(&mut w.range, (0, 0))
+}
+
 /// A pointer to an element kept as an object.
 pub fn element_pointer(n: u32) -> u32 {
 	let mut pairs = [(n, n); 2];
 	let p = &raw mut pairs[1];
 	unsafe { (*p).0 }
+}
+
+/// The pointer `UnsafeCell::get` gives to the object its `rt.Cell` holds, which a whole
+/// write of the cell elsewhere replaces with another object.
+pub fn cell_replaced(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new((n, n));
+	let p = cell.get();
+	let old = std::mem::replace(&mut cell, std::cell::UnsafeCell::new((0, 0)));
+	unsafe { (*p).0 + old.into_inner().1 }
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` itself, which an
+/// assignment of the whole variable replaces.
+pub fn cell_reassigned(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new(n);
+	let p = cell.get();
+	cell = std::cell::UnsafeCell::new(0);
+	unsafe { *p + cell.into_inner() }
+}
+
+pub struct Hits {
+	pub count: std::cell::UnsafeCell<u32>,
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` itself, which
+/// `mem::take` of the whole variable replaces.
+pub fn cell_taken(n: u32) -> u32 {
+	let mut cell = std::cell::UnsafeCell::new(n);
+	let p = cell.get();
+	let old = std::mem::take(&mut cell);
+	unsafe { *p + old.into_inner() }
+}
+
+/// The pointer `UnsafeCell::get` gives to a number, the `rt.Cell` in a struct, which a
+/// write of the whole field replaces.
+pub fn cell_field_replaced(n: u32) -> u32 {
+	let mut hits = Hits {
+		count: std::cell::UnsafeCell::new(n),
+	};
+	let p = hits.count.get();
+	hits.count = std::cell::UnsafeCell::new(0);
+	unsafe { *p + *hits.count.get_mut() }
 }
 
 /// Two pointers to values of no bytes, which Rust may put anywhere.
@@ -725,11 +776,6 @@ pub fn blank_bytes(len: usize) -> usize {
 	bytes::Buf::copy_to_bytes(&mut Blank::Empty, len).len()
 }
 
-/// A heap's `pop` of an item that can be `undefined`: its `None` and `Some(None)` would both be.
-pub fn heap_optional(heap: &mut std::collections::BinaryHeap<Option<u8>>) -> bool {
-	heap.pop().is_some()
-}
-
 /// The places `iter_mut` lends, which the runtime would compare as the objects they are.
 pub fn places_sorted(v: &mut [u8]) -> bool {
 	v.iter_mut().is_sorted()
@@ -747,29 +793,10 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	*NAMED
 }
 
-/// A range that drops, which std drops once it has read the range's bounds.
-pub struct Spent;
-
-impl Drop for Spent {
-	fn drop(&mut self) {}
-}
-
-impl std::ops::RangeBounds<usize> for Spent {
-	fn start_bound(&self) -> std::ops::Bound<&usize> {
-		std::ops::Bound::Unbounded
-	}
-
-	fn end_bound(&self) -> std::ops::Bound<&usize> {
-		std::ops::Bound::Unbounded
-	}
-}
-
-pub fn spent_range(
-	v: &mut Vec<u8>,
-	q: &mut std::collections::VecDeque<u8>,
-	map: &std::collections::BTreeMap<usize, u8>,
-) -> usize {
-	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
+/// A closure that owns a value that drops, which `String::retain` would call but never drop.
+pub fn string_retained(s: &mut String) {
+	let n = Noisy(1);
+	s.retain(move |c| c as u8 != (&n).0);
 }
 
 /// A census lowers this over `F` and `O`, and `awaited`'s body with it, whose closure names
@@ -797,4 +824,253 @@ impl std::fmt::Write for Sink {
 		self.0 = self.0.wrapping_add(s.len() as u8);
 		Ok(())
 	}
+}
+
+/// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
+pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
+	map.into_keys().next().map_or(0, |k| k[0])
+}
+
+pub struct Plain {
+	pub at: (u32, u32),
+}
+
+fn put<T>(slot: &mut T, value: T) {
+	*slot = value;
+}
+
+/// A pointer to a part kept as an object, which a generic body reached at its struct
+/// replaces with another object.
+pub fn put_replaced(n: u32) -> u32 {
+	let mut plain = Plain { at: (n, n) };
+	let p = &raw mut plain.at;
+	put(&mut plain, Plain { at: (0, 0) });
+	unsafe { (*p).0 }
+}
+
+#[derive(Default)]
+pub struct Track {
+	pub at: (u32, u32),
+}
+
+pub struct Bin<T>(std::cell::UnsafeCell<T>);
+
+pub trait Reset {
+	fn reset(&self);
+}
+
+impl<T: Default> Reset for Bin<T> {
+	fn reset(&self) {
+		unsafe { *self.0.get() = T::default() };
+	}
+}
+
+/// A pointer to a part kept as an object, which a generic body reached only through a trait
+/// object replaces with another object.
+pub fn object_replaced(n: u32) -> u32 {
+	let bin = Bin(std::cell::UnsafeCell::new(Track { at: (n, n) }));
+	let p = unsafe { &raw mut (*bin.0.get()).at };
+	let object: &dyn Reset = &bin;
+	object.reset();
+	unsafe { (*p).0 }
+}
+
+#[derive(Default)]
+pub struct Lane {
+	pub at: (u32, u32),
+}
+
+fn resetter<T: Default>(slot: *mut T) -> impl FnOnce() {
+	move || unsafe { *slot = T::default() }
+}
+
+/// A pointer to a part kept as an object, which a generic closure reached at its struct
+/// replaces with another object.
+pub fn closure_replaced(n: u32) -> u32 {
+	let mut lane = Lane { at: (n, n) };
+	let whole = &raw mut lane;
+	let p = unsafe { &raw mut (*whole).at };
+	resetter(whole)();
+	unsafe { (*p).0 }
+}
+
+/// A `clone_from` of its own, which `fill` calls for each slot but the last.
+pub struct Reused(Vec<u8>);
+
+impl Clone for Reused {
+	fn clone(&self) -> Self {
+		Reused(self.0.clone())
+	}
+
+	fn clone_from(&mut self, source: &Self) {
+		self.0.clone_from(&source.0);
+	}
+}
+
+pub struct Gap {
+	pub range: (u32, u32),
+	pub slot: std::mem::MaybeUninit<(u32, u32)>,
+}
+
+fn reset_gap(gap: &mut Gap) {
+	gap.range = (0, 0);
+	gap.slot = std::mem::MaybeUninit::new((0, 0));
+}
+
+/// The pointers `NonNull::from` makes of a `&mut` and of a `&` to a part kept as an object,
+/// and `into` of a `&mut`, which a write of the whole part elsewhere replaces with another
+/// object.
+pub fn made_part_replaced(n: u32) -> u32 {
+	let mut gap = Gap {
+		range: (n, n),
+		slot: std::mem::MaybeUninit::new((n, n)),
+	};
+	let p = std::ptr::NonNull::from(&mut gap.range);
+	let q = std::ptr::NonNull::from(&gap.range);
+	let r: std::ptr::NonNull<(u32, u32)> = (&mut gap.range).into();
+	reset_gap(&mut gap);
+	unsafe { p.as_ref().0 + q.as_ref().1 + r.as_ref().0 }
+}
+
+/// The pointers `MaybeUninit::as_ptr` and `as_mut_ptr` make to a part kept as an object,
+/// which a write of the whole part elsewhere replaces with another object.
+pub fn uninit_part_replaced(n: u32) -> u32 {
+	let mut gap = Gap {
+		range: (n, n),
+		slot: std::mem::MaybeUninit::new((n, n)),
+	};
+	let p = gap.slot.as_ptr();
+	let q = gap.slot.as_mut_ptr();
+	reset_gap(&mut gap);
+	unsafe { (*p).0 + (*q).1 }
+}
+
+/// A set of `[u8; 2]` extended by references to arrays, which it would keep as slices.
+pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
+	set.extend(pairs);
+}
+
+/// A key ordered by its own `Ord`.
+#[derive(Clone, Copy)]
+pub struct Ranked(pub u8);
+
+impl PartialEq for Ranked {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+impl Eq for Ranked {}
+
+impl PartialOrd for Ranked {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Ranked {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		(self.0 % 4).cmp(&(other.0 % 4))
+	}
+}
+
+/// Entries that drop, sorted by what a cell holds, whose own `Ord` the runtime's sort
+/// calls where std's does not.
+pub fn ranked_cells(entries: Vec<(std::cell::Cell<Ranked>, Noisy)>) -> usize {
+	entries.into_iter().collect::<std::collections::BTreeMap<_, _>>().len()
+}
+
+impl PartialEq<Key> for u8 {
+	fn eq(&self, other: &Key) -> bool {
+		*self == other.0
+	}
+}
+
+impl PartialEq<u8> for Key {
+	fn eq(&self, other: &u8) -> bool {
+		self.0 == *other
+	}
+}
+
+impl PartialOrd<Key> for u8 {
+	fn partial_cmp(&self, other: &Key) -> Option<std::cmp::Ordering> {
+		self.partial_cmp(&other.0)
+	}
+}
+
+impl PartialOrd<u8> for Key {
+	fn partial_cmp(&self, other: &u8) -> Option<std::cmp::Ordering> {
+		self.0.partial_cmp(other)
+	}
+}
+
+/// Integer bounds against the crate's item, which compares by its own `PartialOrd`.
+pub fn keyed_across(n: u8) -> bool {
+	(..10u8).contains(&Key(n)) || std::ops::RangeBounds::contains(&(1u8..), &Key(n))
+}
+
+/// Bounds behind `&mut`s, which JS may keep as places rather than the integers.
+pub fn place_bounds(a: &mut u8, b: &mut u8) -> bool {
+	(a..b).is_empty()
+}
+
+/// A struct holding a pointer.
+pub struct Aimed {
+	pub at: *mut (u32, u32),
+}
+
+/// A pointer to a variable's object, copied into a struct read after an assignment of
+/// the whole variable replaces the object.
+pub fn pointer_in_struct(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let aimed = Aimed { at: &raw mut pair };
+	pair = (0, 0);
+	unsafe { (*aimed.at).0 + pair.1 }
+}
+
+fn handed_back<T>(p: *mut T) -> *mut T {
+	p
+}
+
+/// A pointer to a variable's object, which a call returns, read after an assignment of
+/// the whole variable replaces the object.
+pub fn pointer_returned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = handed_back(&raw mut pair);
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+/// A pointer to a variable's object, kept in a `Vec` and read after an assignment of the
+/// whole variable replaces the object.
+pub fn pointer_pushed(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let mut kept = Vec::new();
+	kept.push(&raw mut pair);
+	pair = (0, 0);
+	unsafe { (*kept[0]).0 + pair.1 }
+}
+
+/// A pointer to a variable's object, which a closure captures and reads after an
+/// assignment of the whole variable replaces the object.
+pub fn pointer_captured(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let read = move || unsafe { (*p).0 };
+	pair = (0, 0);
+	read() + pair.1
+}
+
+/// A pointer an earlier iteration made to a variable's object, read after the next
+/// iteration's assignment of the whole variable replaces the object.
+pub fn pointer_kept_across(data: &[u32]) -> u32 {
+	let mut pair = (0, 0);
+	let mut last = &raw mut pair;
+	let mut sum = 0;
+	for &n in data {
+		pair = (n, n);
+		sum += unsafe { (*last).0 };
+		last = &raw mut pair;
+	}
+	sum
 }

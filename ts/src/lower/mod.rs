@@ -57,6 +57,7 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	if t.failed {
 		return None;
 	}
+	t.program.mark_unread();
 	t.program.merge();
 	if let Err(msg) = t.program.name() {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
@@ -213,8 +214,15 @@ pub struct Translator<'a, 'tcx> {
 	pub deferred: rustc_data_structures::fx::FxHashSet<SymId>,
 	/// The types the crate writes into in place, which alone are copied.
 	writes: copy::Writes<'tcx>,
-	/// The bodies of other crates whose writes count: those the run before reached.
-	read: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// The instances whose writes count: those the runs before reached.
+	read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+	/// The instances whose bodies lowered from MIR, a closure's included.
+	lowered: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+	/// The closures whose clones can't share them that the runs before reached, each made
+	/// by a function of its captures, which makes its clone too.
+	cloned: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// Those this run reached.
+	cloning: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// The trait of each trait object, by its principal trait.
 	objects: rustc_data_structures::fx::FxHashMap<DefId, dynamic::Object>,
 	/// The class wrapping each type as each trait object.
@@ -335,10 +343,13 @@ impl Erased {
 }
 
 impl<'a, 'tcx> Translator<'a, 'tcx> {
-	/// A translator that has run `reach`, with what it copies settled. Whether code writes
-	/// into a type in place decides that, and of another crate's code, only what
-	/// translation reaches runs, which it knows once it has reached it. So it runs again
-	/// while it reaches a body whose writes it didn't read.
+	/// A translator that has run `reach`, with what it copies and refuses settled. Whether
+	/// code writes into a type in place decides that, and of another crate's code, only what
+	/// translation reaches runs, and of a generic body, only the instances it reaches, which
+	/// it knows once it has reached them. So it runs again while it reaches a body whose
+	/// writes it didn't read, or an instance of one writing a type parameter that it didn't
+	/// judge by. A closure's clone may come before or after the closure is made, which
+	/// makes it as its clones need, so it runs again too when it reaches a new one.
 	fn settle<R>(
 		tcx: TyCtxt<'tcx>,
 		config: &'a Config,
@@ -346,30 +357,45 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		mut reach: impl FnMut(&mut Self) -> R,
 	) -> Option<(Self, R)> {
 		let mut read = rustc_data_structures::fx::FxHashSet::default();
+		let mut cloned = rustc_data_structures::fx::FxHashSet::default();
 		loop {
-			let mut t = Self::new(tcx, config, census, read)?;
+			let mut t = Self::new(tcx, config, census, read, cloned)?;
 			t.bind();
 			let out = reach(&mut t);
-			let reached: Vec<DefId> = t
+			let reached: Vec<Instance<'tcx>> = t
 				.instances
 				.keys()
-				.map(|instance| instance.def_id())
-				.filter(|&def_id| !def_id.is_local() && t.crates.translates(def_id) && !t.read.contains(&def_id))
+				.chain(&t.lowered)
+				.copied()
+				.filter(|&instance| t.crates.translates(instance.def_id()) && t.writes.unread(instance))
 				.collect();
-			// The config's errors are reported as they are found, so only once.
-			if reached.is_empty() || tcx.dcx().has_errors().is_some() {
+			if reached.is_empty() && t.cloning.is_subset(&t.cloned) {
 				return Some((t, out));
 			}
 			read = std::mem::take(&mut t.read);
 			read.extend(reached);
+			cloned = std::mem::take(&mut t.cloned);
+			cloned.extend(t.cloning.drain());
 		}
+	}
+
+	/// Note a clone of the closure `def_id` that can't share it.
+	pub fn clone_closure(&mut self, def_id: DefId) {
+		self.cloning.insert(def_id);
+	}
+
+	/// Whether a clone of the closure `def_id` that can't share it was reached, so it is
+	/// made by a function of its captures.
+	pub fn clones_closure(&self, def_id: DefId) -> bool {
+		self.cloned.contains(&def_id)
 	}
 
 	fn new(
 		tcx: TyCtxt<'tcx>,
 		config: &'a Config,
 		census: bool,
-		read: rustc_data_structures::fx::FxHashSet<DefId>,
+		read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+		cloned: rustc_data_structures::fx::FxHashSet<DefId>,
 	) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
@@ -405,6 +431,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// Once the bindings are known.
 			writes: Default::default(),
 			read,
+			lowered: Default::default(),
+			cloned,
+			cloning: Default::default(),
 			held: false,
 			sites: Default::default(),
 			site: None,
@@ -436,13 +465,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Translate every queued function instance, and those they reach.
 	///
 	/// A census leaves an instance over type parameters to its own function's turn, since
-	/// its bounds are that function's, not the caller's. Translation never reaches one.
+	/// its bounds are that function's, not the caller's. Translation never reaches one. Each
+	/// other lowers as translation lowers it, even one a function lowered over its type
+	/// parameters reached.
 	fn drain(&mut self) {
+		let env = std::mem::replace(&mut self.env, TypingEnv::fully_monomorphized());
 		while let Some((instance, sym)) = self.queue.pop_front() {
 			if !self.census || !instance.args.has_param() {
 				self.function(instance, sym);
 			}
 		}
+		self.env = env;
 	}
 
 	/// Refuse a reached crate whose files another crate's would be: another crate's modules
@@ -1098,7 +1131,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 			}
 		};
-		self.program.items.push(item);
+		self.program.items.push(unnamed_params(item));
 		self.drop_glue(adt, &info, span);
 		info
 	}
@@ -1113,7 +1146,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Poll
 					| library::Std::Result
 					| library::Std::ControlFlow
-					| library::Std::Ordering,
+					| library::Std::Ordering
+					| library::Std::ErrorKind,
 				) => true,
 				Some(_) => false,
 				None => adt.is_enum() && adt.variants().len() > 1,
@@ -1165,6 +1199,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Pending
 					| library::Std::Range
 					| library::Std::RangeInclusive
+					| library::Std::RangeFrom
 					| library::Std::Peekable
 					| library::Std::HashMap
 					| library::Std::HashSet
@@ -1253,7 +1288,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match ty.kind() {
 			ty::Bool => Type::Builtin("boolean"),
 			ty::Int(_) | ty::Uint(_) => num::Int::of(ty).unwrap().ty(),
-			_ if float::is(ty) => float::ty(),
+			_ if let Some(float) = float::Float::of(ty) => float.ty(),
 			ty::Char => Type::Rt("char", Vec::new()),
 			ty::Str => Type::Builtin("string"),
 			ty::Never => Type::Builtin("never"),
@@ -1381,16 +1416,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// A function value's type, whose `()` result is `undefined`: TypeScript infers a
+	/// `Vec<()>`'s items from it, and `void` is no `undefined`.
 	fn fn_ty(&mut self, inputs: &[Ty<'tcx>], output: Ty<'tcx>, span: Span) -> Type {
 		let params = inputs.iter().map(|t| self.ty(*t, span)).collect();
-		let ret = match output.is_unit() {
-			true => Type::Builtin("void"),
-			false => self.ty(output, span),
-		};
-		Type::Func(params, Box::new(ret))
+		Type::Func(params, Box::new(self.ty(output, span)))
 	}
 
-	/// The return type of a function returning `ty`.
+	/// The return type of a declared function returning `ty`, whose `()` is `void`.
 	pub fn ret_ty(&mut self, ty: Ty<'tcx>, span: Span) -> Type {
 		match ty.is_unit() {
 			true => Type::Builtin("void"),
@@ -1422,18 +1455,35 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 				library::Std::String => Type::Builtin("string"),
 				library::Std::Cow if library::string(tcx, Ty::new_adt(tcx, adt, args)) => Type::Builtin("string"),
+				library::Std::Cow if let Some(elem) = library::cow_slice(tcx, Ty::new_adt(tcx, adt, args)) => {
+					match elem.kind() {
+						ty::Uint(ty::UintTy::U8) => Type::Rt("ByteCow", vec![]),
+						_ => Type::Rt("Cow", vec![self.ty(elem, span)]),
+					}
+				}
 				library::Std::Cow => {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box | library::Std::Reverse | library::Std::NonZero | library::Std::PoisonError => {
-					self.ty(args.type_at(0), span)
-				}
+				library::Std::Box
+				| library::Std::Reverse
+				| library::Std::NonZero
+				| library::Std::Wrapping
+				| library::Std::PoisonError => self.ty(args.type_at(0), span),
 				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::TryLockError => Type::Rt("TryLockError", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
 				library::Std::Utf8Error => Type::Rt("Utf8Error", vec![]),
 				library::Std::TryFromIntError => Type::Rt("TryFromIntError", vec![]),
+				library::Std::ParseIntError => Type::Rt("ParseIntError", vec![]),
+				library::Std::ErrorKind => match self.tcx.item_name(adt.did()).as_str() {
+					"IntErrorKind" => Type::Rt("IntErrorKind", vec![]),
+					"CharErrorKind" => Type::Rt("CharErrorKind", vec![]),
+					"FloatErrorKind" => Type::Rt("FloatErrorKind", vec![]),
+					_ => Type::Rt("TryFromFloatSecsErrorKind", vec![]),
+				},
+				library::Std::ParseBoolError => Type::Rt("ParseBoolError", vec![]),
+				library::Std::ParseCharError => Type::Rt("ParseCharError", vec![]),
 				library::Std::ParseFloatError => Type::Rt("ParseFloatError", vec![]),
 				library::Std::TryFromFloatSecsError => Type::Rt("TryFromFloatSecsError", vec![]),
 				library::Std::Formatter => Type::Rt("Formatter", vec![]),
@@ -1496,7 +1546,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					("end".into(), self.ty(args.type_at(0), span)),
 					("inclusive".into(), Type::Builtin("true")),
 				]),
-				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFrom => Type::Rt("RangeFrom", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
 				library::Std::NonNull => self.pointer_ty(args.type_at(0), span),
@@ -1557,7 +1607,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.ty(inner, span);
 		}
 		// Nothing, as its value is.
-		if adt.is_phantom_data() {
+		if library::nothing(tcx, Ty::new_adt(tcx, adt, args)) {
 			return Type::Builtin("undefined");
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
@@ -1699,7 +1749,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// seen through the wrappers that erase to their contents.
 	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
-			ty::Tuple(tys) if tys.is_empty() => Erased {
+			_ if library::nothing(self.tcx, ty) => Erased {
 				undefined: true,
 				..Erased::default()
 			},
@@ -1710,17 +1760,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// An `rt.Place`, which is an object.
 			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
-			// Nothing, as `()` is.
-			ty::Adt(adt, _) if adt.is_phantom_data() => Erased {
-				undefined: true,
-				..Erased::default()
-			},
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
 				Some(
 					library::Std::Box
 					| library::Std::Pin
 					| library::Std::Reverse
 					| library::Std::NonZero
+					| library::Std::Wrapping
 					| library::Std::PoisonError,
 				) => self.erases_to(args.type_at(0)),
 				// `undefined` while it holds nothing.
@@ -1733,10 +1779,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
 					self.erases_to(args.type_at(1)).option()
 				}
-				Some(library::Std::RangeFull) => Erased {
-					undefined: true,
-					..Erased::default()
-				},
 				_ => Erased::default(),
 			},
 			_ => Erased::default(),
@@ -1905,6 +1947,22 @@ pub fn camel(name: &str) -> String {
 		out.push('_');
 	}
 	out
+}
+
+/// `item` with each type parameter its type never names marked unused, as TS wants of
+/// one only a `PhantomData` held.
+fn unnamed_params(mut item: Item) -> Item {
+	let (params, types): (&mut Vec<String>, Vec<&Type>) = match &mut item {
+		Item::Struct { params, fields, .. } => (params, fields.iter().map(|f| &f.ty).collect()),
+		Item::Union { params, ty, .. } => (params, vec![&*ty]),
+		_ => return item,
+	};
+	for param in params.iter_mut() {
+		if !types.iter().any(|t| t.names(param)) {
+			*param = format!("_{param}");
+		}
+	}
+	item
 }
 
 /// A field's property name: `camelCase`, or `_0` for a tuple field.

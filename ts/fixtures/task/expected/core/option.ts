@@ -4,7 +4,7 @@ import * as rt from "../rt.ts";
 import type * as Any from "../core/any.Any.ts";
 import type * as Part from "../drops/objects.Part.ts";
 import type * as Key from "../drops.Key.ts";
-import type * as Guard from "../model.Guard.ts";
+import * as Guard from "../model.Guard.ts";
 
 export function isSomeAnd$17cacqw(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => boolean): boolean {
 	if (self === undefined) {
@@ -58,9 +58,44 @@ export function map$0s8hob8(self: Part.Part | undefined, _: (a0: Part.Part) => r
 	return self.take$Part();
 }
 
+export function map$01pvlgn(self: [Guard.Guard, Guard.Guard] | undefined, f: (a0: [Guard.Guard, Guard.Guard]) => [rt.u32, rt.u32]): [rt.u32, rt.u32] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1raha9y(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0lq7mno(self: Guard.Guard | undefined, _: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return Guard.id(self);
+}
+
+export function map$0782hf5(self: Key.Key | undefined, f: (a0: Key.Key) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0ccnsmq(self: Guard.Guard | undefined | rt.None, f: (a0: Guard.Guard | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
+	}
+	return f(self);
+}
+
+export function map$0hegtde(self: Key.Key | undefined | rt.None, f: (a0: Key.Key | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
 	}
 	return f(self);
 }
@@ -144,6 +179,13 @@ export function mapOr$01ozsk3(self: Guard.Guard | undefined, default_: rt.u32, f
 }
 
 export function mapOr$1w10sgd(self: Key.Key | undefined, default_: rt.u32, f: (a0: Key.Key) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$00i7kb3(self: rt.Ordering | undefined, default_: rt.i8, f: (a0: rt.Ordering) => rt.i8): rt.i8 {
 	if (self === undefined) {
 		return default_;
 	}

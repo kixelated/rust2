@@ -2,8 +2,9 @@
 //! `[Symbol.dispose]` of its own, in each std type that drops what it holds, and generic
 //! types that implement `Drop`. Each step logs every drop, so the log shows the order.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use kio::Consumer;
@@ -23,6 +24,7 @@ macro_rules! list {
 
 mod closures;
 mod folds;
+mod inside;
 mod iters;
 mod objects;
 mod once;
@@ -78,11 +80,12 @@ pub fn cells(log: &Log, id: u32, arg: u8) {
 	once::run(log, id, arg);
 }
 
-/// Run scenario `arg % 15`: what every value std holds drops, where Rust drops it, and in
+/// Run scenario `arg % 16`: what every value std holds drops, where Rust drops it, and in
 /// Rust's order.
 pub fn run(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
-	match arg % 15 {
+	match arg % 16 {
+		15 => elements(log, id),
 		14 => closures::iterated(log, id),
 		12 => closures::scoped(log, id),
 		13 => closures::discarded(log, id),
@@ -341,6 +344,27 @@ fn ordered(log: &Log, id: u32) {
 	map.clear();
 	set.clear();
 	log.note(format!("left {} {} {}", map.len(), set.len(), queue.len()));
+	// Past one node, whose branches bound their children by keys: a key `replace`, `take`,
+	// or `remove` gives back drops, which a lookup through a branch still holding it would
+	// misread.
+	let sink = Log::new();
+	let mut many = BTreeSet::new();
+	for n in 0..400 {
+		many.insert(Key::new(n, sink.clone()));
+	}
+	let found = |many: &BTreeSet<Key>| (0..400).filter(|&n| many.contains(&Key::new(n, sink.clone()))).count();
+	for n in (0..400).step_by(3) {
+		drop(many.replace(Key::new(n, sink.clone())));
+	}
+	log.note(format!("replaced {} {}", found(&many), many.len()));
+	for n in (0..400).step_by(7) {
+		drop(many.take(&Key::new(n, sink.clone())));
+	}
+	log.note(format!("taken {} {}", found(&many), many.len()));
+	for n in (0..400).step_by(5) {
+		many.remove(&Key::new(n, sink.clone()));
+	}
+	log.note(format!("removed {} {}", found(&many), many.len()));
 }
 
 /// The same of hash collections, whose order of drops std leaves unspecified: each key
@@ -482,9 +506,155 @@ fn options(log: &Log, id: u32) {
 	log.note(format!("answered {kept} {}", matches!(answered, Some(Err(4)))));
 }
 
+/// What std's accessors of elements that are each an `Option` of a value that drops give
+/// and drop: `None` for no element, apart from the `Some(None)` of a `None` one, and each
+/// value once, where Rust drops it.
+fn elements(log: &Log, id: u32) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let key = |n: u32| Key::new(id + n, log.clone());
+	let ids = |o: &Option<Guard>| o.as_ref().map(Guard::id);
+	let mut v = list![Some(guard(1)), None, Some(guard(2)), None];
+	log.note(format!("vec {:?} {:?}", v.first().map(ids), v.last().map(ids)));
+	log.note(format!("get {:?} {:?}", v.get(1).map(ids), v.get(4).map(ids)));
+	// Over a `None`, which drops nothing, and over a guard, which drops it.
+	if let Some(o) = v.last_mut() {
+		*o = Some(guard(3));
+	}
+	if let Some(o) = v.first_mut() {
+		*o = None;
+	}
+	// What the test changes in place it keeps, and what it doesn't take stays.
+	let kept = v.pop_if(|o| {
+		*o = None;
+		false
+	});
+	let taken = v.pop_if(|o| {
+		*o = Some(guard(12));
+		true
+	});
+	log.note(format!("pop_if {} {:?}", kept.is_some(), taken.as_ref().map(ids)));
+	drop(taken);
+	while let Some(o) = v.pop() {
+		log.note(format!("pop {:?}", ids(&o)));
+	}
+	log.note(format!("popped {:?}", v.pop().map(|o| ids(&o))));
+	// A test that owns a guard drops it uncalled without an element, and else once called.
+	let owned = guard(14);
+	log.note(format!("uncalled {}", v.pop_if(move |_| owned.id() > 0).is_some()));
+	v.push(None);
+	let owned = guard(15);
+	let called = v.pop_if(move |o| {
+		log.note(format!("test {}", owned.id()));
+		o.is_none()
+	});
+	log.note(format!("called {:?}", called.map(|o| ids(&o))));
+	let mut q = VecDeque::new();
+	q.push_back(None);
+	q.push_back(Some(guard(4)));
+	q.push_front(Some(guard(5)));
+	q.push_back(None);
+	log.note(format!(
+		"deque {:?} {:?} {:?}",
+		q.front().map(ids),
+		q.back().map(ids),
+		q.get(4).map(ids)
+	));
+	if let Some(o) = q.front_mut() {
+		*o = None;
+	}
+	let removed = q.remove(2);
+	log.note(format!(
+		"remove {:?} {:?}",
+		removed.as_ref().map(ids),
+		q.remove(3).map(|o| ids(&o))
+	));
+	drop(removed);
+	q.push_back(Some(guard(6)));
+	q.push_back(Some(guard(13)));
+	q.push_front(None);
+	let back = q.swap_remove_back(0);
+	log.note(format!(
+		"swap_remove {:?} {:?} {:?}",
+		back.as_ref().map(ids),
+		q.swap_remove_front(9).map(|o| ids(&o)),
+		q.swap_remove_front(1).map(|o| ids(&o))
+	));
+	drop(back);
+	let front = q.pop_front();
+	log.note(format!("front {:?}", front.as_ref().map(ids)));
+	while let Some(o) = q.pop_back() {
+		log.note(format!("back {:?}", ids(&o)));
+	}
+	log.note(format!(
+		"emptied {:?} {:?}",
+		q.pop_front().map(|o| ids(&o)),
+		front.map(|o| ids(&o))
+	));
+	let keys = |o: &Option<Key>| o.as_ref().map(|k| k.id);
+	let mut heap = BinaryHeap::new();
+	heap.push(Some(key(7)));
+	heap.push(None);
+	heap.push(Some(key(8)));
+	log.note(format!("heap {:?}", heap.peek().map(keys)));
+	let top = heap.pop();
+	log.note(format!("top {:?}", top.as_ref().map(keys)));
+	drop(top);
+	let mut sorted = BTreeSet::new();
+	sorted.insert(Some(key(9)));
+	sorted.insert(None);
+	sorted.insert(Some(key(10)));
+	log.note(format!(
+		"set {:?} {:?}",
+		sorted.first().map(keys),
+		sorted.last().map(keys)
+	));
+	// The key `replace` gives back drops when its caller drops it, and the one it keeps
+	// with the set; `get` and `take` find either by an equal key.
+	let replaced = sorted.replace(Some(key(9)));
+	log.note(format!(
+		"replace {:?} {:?}",
+		replaced.as_ref().map(keys),
+		sorted.replace(None).map(|o| keys(&o))
+	));
+	drop(replaced);
+	log.note(format!("get {:?}", sorted.get(&Some(key(10))).map(keys)));
+	let taken = sorted.take(&Some(key(10)));
+	log.note(format!(
+		"take {:?} {:?}",
+		taken.as_ref().map(keys),
+		sorted.take(&Some(key(14))).is_some()
+	));
+	drop(taken);
+	sorted.insert(Some(key(10)));
+	let least = sorted.pop_first();
+	let most = sorted.pop_last();
+	log.note(format!(
+		"popped {:?} {:?}",
+		least.map(|o| keys(&o)),
+		most.map(|o| keys(&o))
+	));
+	// One key that drops, whose order of drops beside others std leaves unspecified.
+	let mut hashed = HashSet::new();
+	hashed.insert(Some(key(11)));
+	log.note(format!("hashed {:?}", hashed.get(&None).map(keys)));
+	hashed.insert(None);
+	let taken = hashed.take(&None);
+	log.note(format!(
+		"taken {:?} {:?}",
+		taken.map(|o| keys(&o)),
+		hashed.take(&None).map(|o| keys(&o))
+	));
+	let replaced = hashed.replace(Some(key(11)));
+	log.note(format!("replaced {:?}", replaced.as_ref().map(keys)));
+	drop(replaced);
+	let held = hashed.take(&Some(key(11)));
+	log.note(format!("held {:?}", held.map(|o| keys(&o))));
+	log.note(format!("left {} {} {}", heap.len(), sorted.len(), hashed.len()));
+}
+
 /// What maps keyed by `Arc<str>` drop of the keys they are given or hold, and `max` and
-/// `min` of the operand they do not return, read by the keys' counts; and what
-/// `or_insert` drops of a value JS copies, which it returns a place for.
+/// `min` of the operand they do not return, read by the keys' counts; what `or_insert`
+/// drops of a value JS copies, which it returns a place for; and what `into_inner` gives.
 fn arcs(log: &Log, id: u32) {
 	let count = |what: &str, key: &Arc<str>| log.note(format!("{what} {}", Arc::strong_count(key)));
 	let name: Arc<str> = Arc::from("name");
@@ -520,13 +690,32 @@ fn arcs(log: &Log, id: u32) {
 		Guard::new(id + 4, log.clone()),
 	));
 	log.note(format!("tags {}", tags.len()));
+	// `into_inner` gives the value from the last strong handle alone, after which a `Weak`
+	// no longer upgrades; another's only drops its share.
+	let shared = Arc::new(Guard::new(id + 5, log.clone()));
+	let weak = Arc::downgrade(&shared);
+	let clone = Arc::clone(&shared);
+	log.note(format!("into_inner {}", Arc::into_inner(shared).is_some()));
+	let inner = Arc::into_inner(clone);
+	log.note(format!(
+		"into_inner {:?} {}",
+		inner.as_ref().map(Guard::id),
+		weak.upgrade().is_some()
+	));
+	drop(inner);
+	let held = Rc::new(Some(Guard::new(id + 6, log.clone())));
+	let again = Rc::clone(&held);
+	drop(Rc::into_inner(held));
+	let inner = Rc::into_inner(again);
+	log.note(format!("rc {:?}", inner.as_ref().map(|o| o.as_ref().map(Guard::id))));
+	drop(inner);
 	drop(map);
 	count("dropped", &name);
 	count("dropped", &other);
 }
 
-/// Run scenario `arg % 31` of what std's by-value consumers drop of adaptors that hold
-/// closures that drop.
+/// Run scenario `arg % 42` of what std's by-value consumers drop of adaptors that hold
+/// closures that drop, and of zips of items that drop.
 pub fn folded(log: &Log, id: u32, arg: u8) {
 	folds::folded(log, id, arg);
 }
@@ -535,6 +724,18 @@ pub fn folded(log: &Log, id: u32, arg: u8) {
 /// beside another.
 pub fn rfolded(log: &Log, id: u32, arg: u8) {
 	folds::rfolded(log, id, arg);
+}
+
+/// Run scenario `arg % 10` of where std drops values inside its iterators and formatting.
+/// Three panic, each with std's message: in a `for_each`, a drain past the end, and a
+/// range that panics as `String`'s drop it.
+pub fn inside(log: &Log, id: u32, arg: u8) {
+	inside::inside(log, id, arg);
+}
+
+/// Run scenario `arg % 9` of what std's comparisons of iterators drop.
+pub fn compared(log: &Log, id: u32, arg: u8) {
+	iters::compared(log, id, arg);
 }
 
 /// Run scenario `arg % 9` of what a `Vec`'s edits, its, a tuple's, and a box's `clone`,

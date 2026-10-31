@@ -142,13 +142,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		let bodies = tcx
-			.mir_keys(())
-			.iter()
-			.map(|def_id| def_id.to_def_id())
-			.chain(self.read.iter().copied());
+		let bodies = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id());
 		// A binding's code, a bound type's methods' included, is code it doesn't read.
-		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| {
+		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &self.read, &|def_id| {
 			self.crates.translates(def_id) && !self.bound(def_id)
 		});
 	}
@@ -467,8 +463,6 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	if program.checks.is_empty() {
 		return;
 	}
-	let module = check_module();
-	let path = out.join(module_file(&module));
 	let failed = |msg: String| {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
 		_ = crate::program::clean(out);
@@ -476,6 +470,14 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	if let Err(err) = tsc_version() {
 		return failed(err);
 	}
+	// `tsc` names each file from its working directory, which the OS resolves through any
+	// symlink, so it's given the project by the real path too.
+	let real = match out.canonicalize() {
+		Ok(real) => real,
+		Err(err) => return failed(format!("resolving {}: {err}", out.display())),
+	};
+	let module = check_module();
+	let path = real.join(module_file(&module));
 	let items: Vec<&Item> = program.checks.iter().map(|check| &check.item).collect();
 	let printed = match crate::print::module(program, &module, &items, &path) {
 		Ok(printed) => printed,
@@ -513,19 +515,14 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	}
 	let text = String::from_utf8_lossy(&output.stdout);
 	let prefix = format!("{name}(");
-	// Where the output is, which a message naming a module spells out, as given or as the
-	// path it resolves to.
-	let dirs: Vec<String> = [Some(out.to_path_buf()), out.canonicalize().ok()]
-		.into_iter()
-		.flatten()
-		.map(|dir| format!("{}/", dir.display()))
-		.collect();
+	// Where the output is, which a message naming a module spells out.
+	let dir = format!("{}/", real.display());
 	// Each item's instances of a generic function fail alike, so each failure is reported once.
 	let mut reported = std::collections::HashSet::new();
 	for diagnostic in diagnostics(&text) {
 		// One in a binding's file names it from the runtime's directory.
 		let diagnostic = diagnostic.strip_prefix("../").unwrap_or(&diagnostic);
-		let diagnostic = dirs.iter().fold(diagnostic.to_string(), |d, dir| d.replace(dir, ""));
+		let diagnostic = diagnostic.replace(&dir, "");
 		let check = diagnostic
 			.strip_prefix(&prefix)
 			.and_then(|rest| rest.split([',', ')']).next())

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- A `start..` is an `rt.RangeFrom`, an iterator as `rt.Range` is, rather than
+  `{ start }`: a caller passes one as `new rt.RangeFrom(start, rt.u64Step)`, with its
+  integer type's `Step`, or `rt.charStep`, and none for other types. A binding taking one
+  still reads its `start`. An `rt.Range` or `rt.RangeInclusive` of `char`s takes
+  `rt.charStep` too, to step past the surrogates. One of unsigned `NonZero`s takes
+  `rt.nonZeroStep` of its integer's `Step` and maximum, as in
+  `new rt.RangeInclusive(lo, hi, rt.nonZeroStep(rt.u8Step, 255))`.
+- A closure, a `fn` pointer, a `dyn Fn`, or a function item as a value returns
+  `undefined` for `()`, not `void`, as in `(a0: rt.u8) => undefined`: a caller passes such
+  a parameter a function typed `=> undefined`.
 - An instance of a generic std function, such as `core/option.ts`'s, is named for a hash
   of its text, `map$1cf8u0y`, rather than for its type arguments and the closure of one
   of the instances merged into it, `map$Option_u64_u64_rescale_closure0`. A caller that

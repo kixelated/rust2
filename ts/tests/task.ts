@@ -56,6 +56,8 @@ export interface Fixture<V> {
 		cells(log: Log, id: number, arg: number): void;
 		folded(log: Log, id: number, arg: number): void;
 		rfolded(log: Log, id: number, arg: number): void;
+		inside(log: Log, id: number, arg: number): void;
+		compared(log: Log, id: number, arg: number): void;
 	};
 	futures: {
 		helpers(rx: Consumer, guard: Guard): Future<V>;
@@ -309,6 +311,8 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.front(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
+	["inside", (r, arg) => r.f.drops.inside(r.log, 1000 * r.exec.tasks.length, arg)],
+	["compared", (r, arg) => r.f.drops.compared(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
 /** The script runner, as `harness.rs` runs it natively. */
@@ -385,7 +389,7 @@ export const cases: Uint8Array[] = [
 	script(["open", 0], ["front", 0], ["run", 0], ["send", 4], ["send", 3], ["send", 7], ["send", 9], ["send", 5], ["run", 0], ["send", 6], ["run", 0], ["send", 1], ["step", 0], ["close", 0], ["run", 0]),
 	script(["open", 0], ["front", 0], ["front", 0], ["run", 0], ["send", 2], ["run", 0], ["send", 8], ["step", 0], ["drop", 1], ["run", 0], ["drop", 0]),
 	// Each scenario of values std holds that drop.
-	...Array.from({ length: 15 }, (_, arg) => script(["drops", arg])),
+	...Array.from({ length: 16 }, (_, arg) => script(["drops", arg])),
 	// Each of a `Vec`'s edits, its, a tuple's, and a box's `clone`, and `Ord`'s defaults.
 	...Array.from({ length: 9 }, (_, arg) => script(["edited", arg])),
 	// What boxed and shared trait objects drop, `dyn Any`s, and `dyn Fn*`s.
@@ -393,6 +397,10 @@ export const cases: Uint8Array[] = [
 	// What one-time cells drop.
 	...Array.from({ length: 6 }, (_, arg) => script(["cells", arg])),
 	// Each scenario of adaptors' closures that drop, folded either way.
-	...Array.from({ length: 31 }, (_, arg) => script(["folded", arg])),
+	...Array.from({ length: 42 }, (_, arg) => script(["folded", arg])),
 	...Array.from({ length: 9 }, (_, arg) => script(["rfolded", arg])),
+	// Where std drops values inside its iterators and formatting.
+	...[...Array.from({ length: 10 }, (_, arg) => arg), 19, 29].map((arg) => script(["inside", arg])),
+	// What std's comparisons of iterators drop.
+	...Array.from({ length: 9 }, (_, arg) => script(["compared", arg])),
 ];

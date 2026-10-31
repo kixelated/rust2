@@ -179,8 +179,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
+				(library::Std::Cow, _) if let Some(elem) = library::cow_slice(tcx, Ty::new_adt(tcx, adt, gargs)) => {
+					library::cow_made(elem, variant, values.pop().unwrap())
+				}
 				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
-				(library::Std::Reverse, _) => values.pop().unwrap(),
+				(library::Std::Reverse | library::Std::Wrapping, _) => values.pop().unwrap(),
 				(library::Std::Bound | library::Std::TryLockError, _) => {
 					let ts_ty = self.t.ty(Ty::new_adt(tcx, adt, gargs), span);
 					library::tagged(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
@@ -222,7 +225,34 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A function item as a value.
+	/// A value of one of std's types made of zero-sized `values`, which MIR reads as a
+	/// constant rather than from what made it, or `values` back for another type.
+	pub fn zero_sized_std(&mut self, ty: Ty<'tcx>, values: Vec<Expr>, span: Span) -> Result<Expr, Vec<Expr>> {
+		let tcx = self.t.tcx;
+		let ty::Adt(adt, _) = ty.kind() else {
+			return Err(values);
+		};
+		if library::nothing(tcx, ty) {
+			return Ok(Expr::undefined());
+		}
+		// Typed, as what reads it may infer nothing of it.
+		if library::empty_iter(tcx, adt.did()) {
+			let ts_ty = self.t.ty(ty, span);
+			return Ok(Expr::As(Box::new(Expr::rt("iterEmpty", Vec::new())), ts_ty));
+		}
+		let Some((make, gargs)) = super::iter::maker(self.t, ty) else {
+			return Err(values);
+		};
+		let mut pre = Vec::new();
+		let made = self.call_def(make, gargs, values, span, &mut pre);
+		Ok(match pre.is_empty() {
+			true => made,
+			false => self.err(span, format!("a constant of type `{ty}` whose making takes statements")),
+		})
+	}
+
+	/// A function item as a value, typed as one: a declared function's `()` result is `void`,
+	/// which a value's type says is `undefined`.
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
 		let sig = self.t.sig(def_id, gargs);
@@ -246,16 +276,26 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
 		{
-			if let Some(sym) = self.t.bound_fn(instance, span) {
-				return Expr::Sym(sym);
-			}
-			if self.t.lowers(instance) {
-				return Expr::Sym(self.t.callee(instance, span));
+			let sym = match self.t.bound_fn(instance, span) {
+				Some(sym) => Some(sym),
+				None => self.t.lowers(instance).then(|| self.t.callee(instance, span)),
+			};
+			if let Some(sym) = sym {
+				return match sig.output().is_unit() {
+					true => Expr::As(Box::new(Expr::Sym(sym)), self.t.fn_ty(sig.inputs(), sig.output(), span)),
+					false => Expr::Sym(sym),
+				};
 			}
 		}
 		let mut body = Vec::new();
 		let call = self.call_def(def_id, gargs, values, span, &mut body);
-		body.push(StmtKind::Return(Some(call.typed())).at(None));
+		body.push(
+			match sig.output().is_unit() {
+				true => StmtKind::Expr(call),
+				false => StmtKind::Return(Some(call.typed())),
+			}
+			.at(None),
+		);
 		let params = names
 			.into_iter()
 			.zip(sig.inputs())
@@ -264,7 +304,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Param { name, ty: Some(ty) }
 			})
 			.collect();
-		let ret = self.t.ret_ty(sig.output(), span);
+		let ret = self.t.ty(sig.output(), span);
 		Expr::Arrow(params, ret, body)
 	}
 }
