@@ -1620,8 +1620,16 @@ pub fn cell_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	put_eq(RefCell::new(va.clone()) == RefCell::new(vb.clone()), &log, out);
 	put_eq(Cell::new(&va[..]) != Cell::new(&vb[..]), &log, out);
 	put_eq(each(&va, |&p| Cell::new(p)) == each(&vb, |&p| Cell::new(p)), &log, out);
-	put_eq(each(&va, |&p| RefCell::new(p)) != each(&vb, |&p| RefCell::new(p)), &log, out);
-	put_eq((Cell::new(x), RefCell::new(y)) != (Cell::new(y), RefCell::new(x)), &log, out);
+	put_eq(
+		each(&va, |&p| RefCell::new(p)) != each(&vb, |&p| RefCell::new(p)),
+		&log,
+		out,
+	);
+	put_eq(
+		(Cell::new(x), RefCell::new(y)) != (Cell::new(y), RefCell::new(x)),
+		&log,
+		out,
+	);
 	put_eq(Arc::new(RefCell::new(x)) != Arc::new(RefCell::new(y)), &log, out);
 
 	// `Ord`'s defaults, by the cells' `lt` and `le`.
@@ -1663,7 +1671,11 @@ pub fn cell_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	out.push(set.len() as u8);
 	out.push(set.contains(&Cell::new(at(0) as u8 % 8)) as u8);
 	out.extend(set.iter().map(|c| c.get()));
-	let map: BTreeMap<RefCell<u8>, usize> = data.iter().enumerate().map(|(i, &v)| (RefCell::new(v % 8), i)).collect();
+	let map: BTreeMap<RefCell<u8>, usize> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &v)| (RefCell::new(v % 8), i))
+		.collect();
 	out.push(map.get(&RefCell::new(at(1) as u8 % 8)).map_or(0xff, |&i| i as u8));
 
 	// What each compared left borrowed is released.

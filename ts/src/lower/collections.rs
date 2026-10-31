@@ -1139,6 +1139,7 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
+		ty::Adt(..) if let Some((inner, _)) = cell_of(b, ty) => own_ord(b, inner, seen),
 		// A binding's, hand-written even where the Rust impl is derived.
 		ty::Adt(adt, _) if b.t.bound_drops(adt.did()).is_some() => true,
 		ty::Adt(adt, args) if b.t.own(adt.did()) => {

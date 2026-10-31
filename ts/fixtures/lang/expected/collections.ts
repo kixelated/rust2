@@ -4139,8 +4139,8 @@ export function putOrder(order: rt.Ordering | undefined, log: rt.Cell<rt.u16>, o
  * Comparisons of `Cell`s and `RefCell`s, which compare what they hold by its `eq`, its
  * tests, its `partial_cmp`, and its `cmp`, and whose `ne` is `!eq`, and `==` of one-time
  * cells: of a `Quirky`, numbers, and `Option`s, nested, held by what compares by `ne`, as
- * B-tree keys, and a `RefCell` against itself. Then, as `kind` picks, a `RefCell` compared while mutably
- * borrowed, which panics, or held by an `Arc` that finds itself equal first.
+ * B-tree keys, and a `RefCell` against itself. Then, as `kind` picks, a `RefCell` compared
+ * while mutably borrowed, which panics, or held by an `Arc` that finds itself equal first.
  */
 export function cellEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _699!: [Quirky.Quirky, Quirky.Quirky];
