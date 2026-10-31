@@ -220,6 +220,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				"an array repeat of a value that drops, which is not supported yet",
 			);
 		}
+		let item_ty = self.b.t.ty(elem_ty, span);
+		let each = |body: Vec<Stmt>| {
+			Expr::ident("Array").member("from").call(vec![
+				Expr::Object(vec![(Key::Name("length".into()), Expr::lit(n.to_string()))]),
+				Expr::Arrow(Vec::new(), item_ty.clone(), body),
+			])
+		};
+		// What isn't `Copy` repeats only as a constant, which Rust makes anew for each element.
+		if !self.b.t.is_copy(elem_ty) {
+			let mut body = Vec::new();
+			let item = self.operand(op, span, &mut body);
+			body.push(StmtKind::Return(Some(item.typed())).at(None));
+			return each(body);
+		}
 		let v = self.operand(op, span, out);
 		match elem_ty.kind() {
 			ty::Uint(ty::UintTy::U8) => {
@@ -232,11 +246,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			_ => {
 				let v = self.path(v, "item", out);
 				let item = self.b.t.copied(v, elem_ty, span);
-				let item_ty = self.b.t.ty(elem_ty, span);
-				Expr::ident("Array").member("from").call(vec![
-					Expr::Object(vec![(Key::Name("length".into()), Expr::lit(n.to_string()))]),
-					Expr::Arrow(Vec::new(), item_ty, vec![StmtKind::Return(Some(item.typed())).at(None)]),
-				])
+				each(vec![StmtKind::Return(Some(item.typed())).at(None)])
 			}
 		}
 	}

@@ -247,6 +247,9 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 			return None;
 		};
 		if let Some(derives) = pointer::derives(self.t.tcx, def_id) {
+			if pointer::stores(self.t.tcx, def_id) && given.iter().any(|&i| i > 0) {
+				return None;
+			}
 			let same = derives == Derives::Same
 				&& given == [0]
 				&& args[0].node.place().is_some_and(|p| held.points(p.local));

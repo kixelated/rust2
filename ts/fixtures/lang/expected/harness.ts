@@ -35,7 +35,7 @@ import { locks, relock, rwlocks } from "./locks.ts";
 import { nested } from "./nested.ts";
 import { objects } from "./objects.ts";
 import { orders, bytes as orders_bytes } from "./orders.ts";
-import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels, cells as pointers_cells, rebound, lapsed, writers, made } from "./pointers.ts";
+import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels, cells as pointers_cells, rebound, lapsed, writers, made, segments, uninitRuns } from "./pointers.ts";
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, uninhabited, closures, library, flows } from "./shapes.ts";
 import { singles, mulAdds as singles_mulAdds, formats as singles_formats, parses as singles_parses } from "./singles.ts";
@@ -200,6 +200,10 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		fmt_iters(data72, out73);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["zeros::unread", unread as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::range_froms", rangeFroms as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::range_methods", rangeMethods as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["clones::iters", iters as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::cell_eqs", cellEqs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::compares", compares as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::unlike_compares", unlikeCompares as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["cycles::cycles", cycles as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::lapsed", (_2173: rt.u8, data73: rt.ByteSlice, out74: rt.ByteVec): undefined => {
 		lapsed(data73, out74);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::segments", (_2174: rt.u8, data74: rt.ByteSlice, out75: rt.ByteVec): undefined => {
+		segments(data74, out75);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::uninit_runs", (_2175: rt.u8, data75: rt.ByteSlice, out76: rt.ByteVec): undefined => {
+		uninitRuns(data75, out76);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
 }
 

@@ -231,6 +231,16 @@ pub fn derives(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Option<
 	}
 }
 
+/// Whether std's `def_id`, which [`derives`] describes, keeps its second argument where its
+/// first points.
+pub fn stores(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if matches!(owner.as_str(), "ptr" | "NonNull" | "MaybeUninit")
+			&& matches!(name.as_str(), "write" | "write_unaligned" | "write_volatile")
+	)
+}
+
 /// Whether std's `def_id` returns memory nothing points into yet.
 pub fn allocates(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	super::library::is_std(tcx, def_id)
