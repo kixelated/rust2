@@ -141,9 +141,14 @@ macro_rules! folds {
 		read!(|r| r.by_ref().map(|x| lo..=x).flatten().count());
 		read!(|r| r.by_ref().flat_map(|x| x..=hi).position(|x| is_k(&x)));
 		read!(|r| r.by_ref().flat_map(|x| [x, x]).rev().last());
-		// `step_by` and `zip` read it by `nth` and `next`, as std's do.
+		// `step_by` and `zip` read it by `nth` and `next`, as std's do, but a `zip` of two
+		// `TrustedLen` iterators folds only as many pairs as its size hint's upper bound.
 		read!(|r| r.by_ref().step_by(n + 1).count());
 		read!(|r| r.by_ref().zip(0..n).any(|_| false));
+		read!(|r| r.by_ref().zip(0..n).count());
+		read!(|r| r.by_ref().zip(0..n).last());
+		read!(|r| r.by_ref().zip(0..n).map(|(x, _)| x).collect::<Vec<_>>().len());
+		read!(|r| r.by_ref().zip(0..n).position(|_| false));
 		// Collected as `Result`s, read by `try_fold` until the first error.
 		read!(|r| r.by_ref().map(|x| Ok::<$t, ()>(x)).collect::<Result<Vec<_>, _>>().map(|v| v.len()));
 		read!(|r| {
