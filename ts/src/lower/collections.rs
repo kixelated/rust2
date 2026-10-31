@@ -63,9 +63,9 @@ pub fn call<'tcx>(
 			// `Ord`'s defaults, of a std type or the crate's, which compare by `PartialOrd`'s `<`,
 			// `<=`, and `>`.
 			("Ord", "max" | "min" | "clamp", ..) if let Some(t) = self_ty => {
-				let t = peel(b, t);
-				let local = matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did()));
-				if !(std_key(b, t) || local) || Int::of(t).is_some() {
+				let t = peel_ord(b, t, false);
+				let own = matches!(t.kind(), ty::Adt(adt, _) if b.t.own(adt.did())) || pointee(b, t).is_some();
+				if !(std_key(b, t) || own) || Int::of(t).is_some() {
 					return Err(args);
 				}
 				let tests: &[&str] = if name == "clamp" { &["le", "lt", "gt"] } else { &["lt"] };
@@ -339,9 +339,10 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 /// by elements that do. Else the impl of `PartialEq<other>` is its own.
 fn alike<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, other: Ty<'tcx>) -> bool {
 	// A crate's type against a reference compares by an impl of the crate's own, which no
-	// reference's forwards to.
+	// reference's forwards to, as do two references or `Box`es of one with their own.
 	let (ty, other) = peel_pair(b, trait_fn(b.t.tcx, "PartialEq", "eq"), ty, other);
-	if (ty.is_ref() || other.is_ref()) && (local(b, peel(b, ty)) || local(b, peel(b, other))) {
+	if (pointee(b, ty).is_some() || pointee(b, other).is_some()) && (local(b, peel(b, ty)) || local(b, peel(b, other)))
+	{
 		return false;
 	}
 	let (ty, other) = (peel(b, ty), peel(b, other));
@@ -407,13 +408,80 @@ fn arg<'tcx>(coll: Ty<'tcx>, n: usize) -> Ty<'tcx> {
 /// What a JS value of `ty` is: through references and boxes, which are their pointee,
 /// up to a `&mut` that is an `rt.Place`, and a `NonZero`, which is its integer.
 fn peel<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-	match ty.kind() {
-		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => peel(b, *inner),
-		ty::Adt(adt, args) if matches!(Std::of(b.t.tcx, adt.did()), Some(Std::Box | Std::NonZero)) => {
-			peel(b, args.type_at(0))
-		}
-		_ => ty,
+	match pointee(b, ty) {
+		Some(inner) => peel(b, inner),
+		None => ty,
 	}
+}
+
+/// What `ty` points at, if JS holds it as that: `peel`'s one step.
+fn pointee<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match ty.kind() {
+		ty::Ref(_, inner, _) if b.t.place_pointee(ty).is_none() => Some(*inner),
+		ty::Adt(adt, args) if matches!(Std::of(b.t.tcx, adt.did()), Some(Std::Box | Std::NonZero)) => {
+			Some(args.type_at(0))
+		}
+		_ => None,
+	}
+}
+
+/// `ty` through what `peel` peels, while std's impl of `f`, a comparison trait's or
+/// `Hash`'s required method, forwards to what each points at: a crate's own impl on a
+/// reference or a `Box` is where it stops. `args` makes `f`'s generic arguments of a type.
+fn peel_by<'tcx>(
+	b: &Body<'_, '_, 'tcx>,
+	f: DefId,
+	mut ty: Ty<'tcx>,
+	args: impl Fn(Ty<'tcx>) -> GenericArgsRef<'tcx>,
+) -> Ty<'tcx> {
+	while let Some(inner) = pointee(b, ty)
+		&& !own_impl(b, f, args(ty))
+	{
+		ty = inner;
+	}
+	ty
+}
+
+/// `ty` through what `peel_by` peels for `PartialOrd`, or for `Ord` unless `partial`.
+pub fn peel_ord<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool) -> Ty<'tcx> {
+	let tcx = b.t.tcx;
+	match partial {
+		true => peel_by(b, trait_fn(tcx, "PartialOrd", "partial_cmp"), ty, |t| {
+			tcx.mk_args(&[t.into(), t.into()])
+		}),
+		false => peel_by(b, trait_fn(tcx, "Ord", "cmp"), ty, |t| tcx.mk_args(&[t.into()])),
+	}
+}
+
+/// `ty` through what `peel_by` peels for `PartialEq`.
+fn peel_eq<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	let tcx = b.t.tcx;
+	peel_by(b, trait_fn(tcx, "PartialEq", "eq"), ty, |t| {
+		tcx.mk_args(&[t.into(), t.into()])
+	})
+}
+
+/// `ty` through what `peel_by` peels for `Hash` into a `hasher`.
+fn peel_hash<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>) -> Ty<'tcx> {
+	let tcx = b.t.tcx;
+	peel_by(b, trait_fn(tcx, "Hash", "hash"), ty, |t| {
+		tcx.mk_args(&[t.into(), hasher.into()])
+	})
+}
+
+/// Whether `f` with `args` resolves to an impl other than std's.
+fn own_impl<'tcx>(b: &Body<'_, '_, 'tcx>, f: DefId, args: GenericArgsRef<'tcx>) -> bool {
+	let tcx = b.t.tcx;
+	Instance::try_resolve(tcx, b.t.typing_env_pub(), f, args)
+		.ok()
+		.flatten()
+		.is_some_and(|instance| !library::is_std(tcx, instance.def_id()))
+}
+
+/// Whether `ty`, as `peel_by` leaves it, compares and hashes by the crate's own impls: of a
+/// type of its own, or of a reference or a `Box` where `peel_by` stopped.
+pub fn by_own<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	local(b, ty) || pointee(b, ty).is_some()
 }
 
 /// Evaluate `values` for their effects: a receiver or a capacity, which nothing here keeps.
@@ -645,13 +713,14 @@ fn empty<'tcx>(b: &mut Body<'_, '_, 'tcx>, new: Expr, coll: Ty<'tcx>, span: Span
 /// The `rt.Hashing` a hash collection of type `coll` finds a `key` that is a JS object
 /// by, or `Some(None)` if every key is a JS primitive that compares as Rust's `Eq` does.
 fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span: Span) -> Option<Option<Expr>> {
-	let key = peel(b, key);
-	let primitive = match key.kind() {
+	let peeled = peel(b, key);
+	let primitive = match peeled.kind() {
 		ty::Bool | ty::Char | ty::Str => true,
-		_ if library::nothing(b.t.tcx, key) => true,
-		ty::Int(_) | ty::Uint(_) => !Int::of(key)?.big(),
-		ty::Adt(..) if library::string(b.t.tcx, key) => true,
-		ty::Adt(adt, _) if b.t.own(adt.did()) && fieldless(*adt) => derived_eq(b, key),
+		_ if library::nothing(b.t.tcx, peeled) => true,
+		ty::Int(_) | ty::Uint(_) => !Int::of(peeled)?.big(),
+		ty::Adt(..) if library::string(b.t.tcx, peeled) => true,
+		// Unless a reference to it compares by its own `PartialEq`.
+		ty::Adt(adt, _) if b.t.own(adt.did()) && fieldless(*adt) => peel_eq(b, key) == peeled && derived_eq(b, peeled),
 		_ => false,
 	};
 	if primitive {
@@ -665,7 +734,7 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 	// A fieldless enum is a JS string, and a bound value may be any primitive, which its
 	// own `Eq` may tell apart where JS can't, as is the `Some` of an `Option` of one, and a
 	// `Reverse` or a `Wrapping` of one.
-	let mut held = key;
+	let mut held = peeled;
 	while let Some(inner) = option_of(b, held)
 		.or_else(|| reverse_of(b, held))
 		.or_else(|| wrapping_of(b, held))
@@ -692,11 +761,11 @@ fn local<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 /// `Arc`s, but not slices, `Option`s, `Reverse`s, or cells, whose `ne` is `!eq`.
 fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
-	let ty = peel(b, ty);
+	let ty = peel_eq(b, ty);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => own_ne(b, inner),
-		_ if local(b, ty) => {
+		_ if by_own(b, ty) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -712,12 +781,12 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 /// default: through a tuple's last element, `Arc`s, `Reverse`s, and cells.
 fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 	let tcx = b.t.tcx;
-	let ty = peel(b, ty);
+	let ty = peel_ord(b, ty, true);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
 		ty::Adt(..) if let Some((inner, _)) = cell_of(b, ty) => own_test(b, inner, test),
-		_ if local(b, ty) => {
+		_ if by_own(b, ty) => {
 			let f = trait_fn(tcx, "PartialOrd", test);
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
 				.ok()
@@ -732,7 +801,7 @@ fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 /// where `ty` reaches it, or else by `partial_cmp`, as the trait's defaults test it.
 pub fn test_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str, span: Span) -> Expr {
 	let tcx = b.t.tcx;
-	let ty = peel(b, ty);
+	let ty = peel_ord(b, ty, true);
 	// An integer's, which the runtime tests directly rather than through `partial_cmp`.
 	if matches!(ty.kind(), ty::Char | ty::Int(_) | ty::Uint(_)) {
 		return Expr::Rt(test.into());
@@ -1056,7 +1125,7 @@ fn deque<'tcx>(
 		(_, "remove") => Expr::rt("dequeRemove", values),
 		(_, "insert") => Expr::rt("dequeInsert", values),
 		(_, "contains") => {
-			values.push(eq_fn(b, peel(b, item), span));
+			values.push(eq_fn(b, item, span));
 			Expr::rt("dequeContains", values)
 		}
 		(_, "iter_mut") if b.t.needs_place(item) => Expr::rt("dequeIterMut", values),
@@ -1643,10 +1712,11 @@ fn cell_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<(Ty<'tcx>, &'st
 }
 
 /// `Ord::cmp` of `ty` as a function, or `PartialOrd::partial_cmp` if `partial`: the
-/// runtime's for a std type, which calls the same of what it holds, or the crate's.
+/// runtime's for a std type, which calls the same of what it holds, or the crate's, of its
+/// type or a reference to it.
 pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
 	let tcx = b.t.tcx;
-	let ty = peel(b, ty);
+	let ty = peel_ord(b, ty, partial);
 	match ty.kind() {
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) => Expr::Rt("cmp".into()),
 		// `None` for a NaN: only `PartialOrd`, since a float is no `Ord`.
@@ -1676,11 +1746,11 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
 		// Whichever form it has, as the key it is or the operand a reference passes.
 		_ if bytes(b, ty) => Expr::Rt("cmpBytes".into()),
-		_ if local(b, ty) && partial => {
+		_ if by_own(b, ty) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
-		_ if local(b, ty) => {
+		_ if by_own(b, ty) => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
@@ -1690,10 +1760,11 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 	}
 }
 
-/// `PartialEq::eq` of `ty`, as a function: the runtime's for a std type, or the crate's.
+/// `PartialEq::eq` of `ty`, as a function: the runtime's for a std type, or the crate's, of
+/// its type or a reference to it.
 pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
-	let ty = peel(b, ty);
+	let ty = peel_eq(b, ty);
 	match ty.kind() {
 		ty::Int(_) | ty::Uint(_)
 			if let Some(int) = Int::of(ty)
@@ -1730,7 +1801,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 		}
 		// Whose `ne` is `!eq`, which compares what it holds by `eq`.
 		ty::Adt(..) if let Some((inner, by)) = cell_of(b, ty) => Expr::rt(by, vec![eq_fn(b, inner, span)]),
-		ty::Adt(..) if local(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
+		_ if by_own(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
@@ -1742,7 +1813,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 /// `!<ty as PartialEq>::ne`, as a function: `eq_fn`'s, but through the crate's own `ne` of
 /// `ty` or of what a tuple or an `Arc` holds, which std's `ne` of each calls.
 fn not_ne_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
-	let ty = peel(b, ty);
+	let ty = peel_eq(b, ty);
 	match ty.kind() {
 		_ if !own_ne(b, ty) => eq_fn(b, ty, span),
 		// `!(a.0 != b.0 || ...)`: each field's `!ne` in turn.
@@ -1828,7 +1899,7 @@ pub fn pair_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, by_ne
 }
 
 /// `<t as PartialOrd<u>>::partial_cmp` as a function, which std's `partial_cmp` of a `t`
-/// and a `u` calls: through the references std's forwards through, `cmp_fn`'s where std's
+/// and a `u` calls: through what std's forwards through, `cmp_fn`'s where std's
 /// impl compares one type, and else the crate's own.
 pub fn pair_partial_cmp<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
@@ -1837,33 +1908,19 @@ pub fn pair_partial_cmp<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tc
 	}
 	let f = trait_fn(tcx, "PartialOrd", "partial_cmp");
 	let (pt, pu) = peel_pair(b, f, t, u);
-	let std = Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[pt.into(), pu.into()]))
-		.ok()
-		.flatten()
-		.is_some_and(|instance| library::is_std(tcx, instance.def_id()));
-	if std && same_key(b, pt, pu) {
+	if !own_impl(b, f, tcx.mk_args(&[pt.into(), pu.into()])) && same_key(b, pt, pu) {
 		return cmp_fn(b, pt, true, span);
 	}
 	impl_fn(b, "PartialOrd", "partial_cmp", pt, pu, [t, u], span)
 }
 
-/// `t` and `u` through the references whose impl of `f`, `PartialEq::eq` or
-/// `PartialOrd::partial_cmp`, std's of two references forwards through, one of each at a
-/// time, while JS holds both as what they point at. A crate's own impl of two references
-/// is where they stop.
+/// `t` and `u` through what `peel` peels, one of each at a time, while std's impl of `f`,
+/// `PartialEq::eq` or `PartialOrd::partial_cmp`, forwards through both: a crate's own impl
+/// of two references or `Box`es is where they stop.
 fn peel_pair<'tcx>(b: &Body<'_, '_, 'tcx>, f: DefId, t: Ty<'tcx>, u: Ty<'tcx>) -> (Ty<'tcx>, Ty<'tcx>) {
-	let tcx = b.t.tcx;
-	let forwards = || {
-		Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[t.into(), u.into()]))
-			.ok()
-			.flatten()
-			.is_some_and(|instance| library::is_std(tcx, instance.def_id()))
-	};
-	match (t.kind(), u.kind()) {
-		(ty::Ref(_, t_in, _), ty::Ref(_, u_in, _))
-			if b.t.place_pointee(t).is_none() && b.t.place_pointee(u).is_none() && forwards() =>
-		{
-			peel_pair(b, f, *t_in, *u_in)
+	match (pointee(b, t), pointee(b, u)) {
+		(Some(t_in), Some(u_in)) if !own_impl(b, f, b.t.tcx.mk_args(&[t.into(), u.into()])) => {
+			peel_pair(b, f, t_in, u_in)
 		}
 		_ => (t, u),
 	}
@@ -1922,10 +1979,10 @@ fn impl_fn<'tcx>(
 }
 
 /// `Hash::hash` of `ty` into a `hasher`, as a function: the runtime's for a std type, or
-/// the crate's.
+/// the crate's, of its type or a reference to it.
 fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
-	let ty = peel(b, ty);
+	let ty = peel_hash(b, ty, hasher);
 	match ty.kind() {
 		// What std writes of each: a `bool` as a byte, a `char` as its `u32`.
 		ty::Bool => Expr::Rt("hash8".into()),
@@ -1965,7 +2022,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		}
 		// Its length, then its bytes, whichever form it is: a `[u8; N]` hashes as a slice.
 		_ if bytes(b, ty) => Expr::Rt("hashBytes".into()),
-		_ if local(b, ty) => {
+		_ if by_own(b, ty) => {
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
 		}
@@ -1975,12 +2032,12 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 }
 
 /// Whether the crate's own `Hash` of `elem` overrides `hash_slice`, which a slice of it
-/// hashes through in place of each element's `hash`.
+/// hashes through in place of each element's `hash`. A reference's that std's forwards
+/// through is std's default, which hashes each by what it points at.
 fn own_hash_slice<'tcx>(b: &Body<'_, '_, 'tcx>, elem: Ty<'tcx>, hasher: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
-	let elem = peel(b, elem);
 	let f = trait_fn(tcx, "Hash", "hash_slice");
-	local(b, elem)
+	by_own(b, peel_hash(b, elem, hasher))
 		&& Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[elem.into(), hasher.into()]))
 			.ok()
 			.flatten()

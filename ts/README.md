@@ -328,7 +328,9 @@ whatever their form, so a map of `Vec<u8>` finds a `&[u8]` and one of `[u16; 2]`
 Slices, arrays, `Vec`s, and `VecDeque`s compare against each
 other as std's do, by their lengths and then each pair of items in order, through the
 items' own `PartialEq<U>`, and its `ne` where the crate overrides it, which a tuple's and
-an `Arc`'s `!=` call as well. A reference std makes to a byte array it holds, as a
+an `Arc`'s `!=` call as well. What a composite holds compares, orders, and hashes through a
+reference or a `Box` as std's impls forward it, by what it points at, or by the crate's
+own impl on the reference or `Box` itself. A reference std makes to a byte array it holds, as a
 collection's `keys`, `HashSet::get`, and `retain`'s closure, `Option::iter`,
 `slice::first`, and `filter`'s closure over `[u8; N]` items get one, is an `rt.ByteSlice`
 of its bytes, as a `&[u8; N]` is elsewhere; a `&mut` writes where std holds them. A
