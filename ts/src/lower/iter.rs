@@ -985,6 +985,8 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 			ty::Closure(..) => parts(vec![("f", value(b, arg(0)?))]),
 			_ => Expr::undefined(),
 		},
+		// A slice's parts by a closure clone the closure.
+		["slice", "iter", "Split" | "SplitInclusive" | "RSplit"] => parts(vec![("f", value(b, arg(1)?))]),
 		// Its closure is what `rt.iterFrom` reads by.
 		["iter", "sources", "from_fn", "FromFn"] => parts(vec![("v", value(b, arg(0)?))]),
 		["iter", "sources", "successors", "Successors"] => {
@@ -1035,8 +1037,8 @@ fn parts(parts: Vec<(&str, Expr)>) -> Expr {
 	}
 }
 
-/// Whether std's iterator `did` holds a closure that its `rt.Iter` drops after the iterator
-/// it wraps, as std's fields order them.
+/// Whether std's iterator `did` holds a closure that its `rt.Iter` drops, after the iterator
+/// it wraps if any, as std's fields order them.
 pub(super) fn holds_closure(tcx: ty::TyCtxt<'_>, did: DefId) -> bool {
 	let path = library::std_path(tcx, did);
 	let path: Vec<&str> = path.iter().map(String::as_str).collect();
@@ -1050,6 +1052,20 @@ pub(super) fn holds_closure(tcx: ty::TyCtxt<'_>, did: DefId) -> bool {
 		] | ["iter", "adapters", "flatten", "FlatMap"]
 			| ["iter", "sources", "from_fn", "FromFn"]
 			| ["iter", "sources", "successors", "Successors"]
+			| [
+				"slice",
+				"iter",
+				"Split"
+					| "SplitMut"
+					| "RSplit"
+					| "RSplitMut"
+					| "SplitInclusive"
+					| "SplitInclusiveMut"
+					| "SplitN"
+					| "SplitNMut"
+					| "RSplitN"
+					| "RSplitNMut"
+			]
 	)
 }
 
