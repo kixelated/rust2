@@ -65,11 +65,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 	}
 
+	/// Whether a pointer to `ty` is an identity: one to `()`, through any `MaybeUninit`s.
+	pub fn identity_pointee(&self, ty: Ty<'tcx>) -> bool {
+		self.uninit_inner(ty).is_unit()
+	}
+
 	/// Why pointers to `ty` that are not null don't compare as their JS values, if they
 	/// don't. Two `rt.Place`s of one place are two objects, and Rust leaves where a value of
 	/// no bytes is unspecified, but a pointer to `()` is an identity.
 	pub fn incomparable(&self, ty: Ty<'tcx>) -> Option<String> {
-		if ty.is_unit() {
+		if self.identity_pointee(ty) {
 			return None;
 		}
 		if self.zero_sized(ty) {
@@ -322,18 +327,18 @@ pub fn call<'tcx>(
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
 		// A pointer to `()` is an identity, which the `rt.Place` of a place or a reference
 		// is not. A box of one holds nothing, so its pointer is dangling.
-		("MaybeUninit", "as_ptr" | "as_mut_ptr") | ("UnsafeCell", "get") if pointee().is_unit() => b.err(
+		("MaybeUninit", "as_ptr" | "as_mut_ptr") | ("UnsafeCell", "get") if b.t.identity_pointee(pointee()) => b.err(
 			span,
 			"a raw pointer to a place of `()`, which has no address of its own",
 		),
-		("From", "from") if pointer_self(b, call).is_some_and(|t| t.is_unit()) => b.err(
+		("From", "from") if pointer_self(b, call).is_some_and(|t| b.t.identity_pointee(t)) => b.err(
 			span,
 			"a raw pointer to a place of `()`, which has no address of its own",
 		),
-		("Box", "into_raw" | "leak") if pointee().is_unit() => Expr::Rt("DANGLING_UNIT".into()),
+		("Box", "into_raw" | "leak") if b.t.identity_pointee(pointee()) => Expr::Rt("DANGLING_UNIT".into()),
 		// One to a value of no bytes points at one, which every read of it reads. One to
 		// `()` is an identity, the same for every call, as its address is.
-		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if pointee().is_unit() => {
+		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.identity_pointee(pointee()) => {
 			Expr::Rt("DANGLING_UNIT".into())
 		}
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.zero_sized(pointee()) => {

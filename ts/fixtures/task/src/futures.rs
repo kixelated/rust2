@@ -159,12 +159,13 @@ pub async fn wakers(mut rx: Consumer, guard: Guard) -> u64 {
 		ptr::null::<()>() == ptr::dangling(),
 		ptr::dangling::<()>() == ptr::dangling(),
 		unit.cast_const() == ptr::dangling(),
+		ptr::dangling::<std::mem::MaybeUninit<()>>().cast::<()>() == ptr::dangling(),
 	];
 	// SAFETY: the box's own pointer, which nothing else holds.
 	drop(unsafe { Box::from_raw(unit) });
-	assign(Box::leak(Box::new(())));
+	put(Box::leak(Box::new(())), ());
 	// SAFETY: a dangling pointer to a value of no bytes is valid to write.
-	assign(unsafe { &mut *ptr::dangling_mut() });
+	put(unsafe { &mut *ptr::dangling_mut() }, ());
 	guard.note(&format!("wakers {checks:?}"));
 	drop((a, b, other, plain));
 	let mut last: Option<Identity> = None;
@@ -196,9 +197,9 @@ pub async fn wakers(mut rx: Consumer, guard: Guard) -> u64 {
 	}
 }
 
-/// Write `()` through `value`, which a dangling pointer may give.
-fn assign(value: &mut ()) {
-	*value = ();
+/// Write `value` through `slot`, which a dangling pointer to `()` may give.
+fn put<T>(slot: &mut T, value: T) {
+	*slot = value;
 }
 
 /// A boxed future, as moq's `MaybeSendBox` is.

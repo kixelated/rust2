@@ -80,7 +80,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						[rest @ .., mir::ProjectionElem::Deref]
 							if !self.box_pointer(place.local) && {
 								let base = Place::ty_from(place.local, rest, &self.mir.local_decls, tcx).ty;
-								match pointee.is_unit() {
+								match self.b.t.identity_pointee(pointee) {
 									true => base.is_raw_ptr(),
 									false => self.b.t.place_pointee(base).is_some(),
 								}
@@ -92,7 +92,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							};
 							self.place_expr(base, span, out)
 						}
-						_ if pointee.is_unit() => self.err(
+						_ if self.b.t.identity_pointee(pointee) => self.err(
 							span,
 							"a raw pointer to a place of `()`, which has no address of its own",
 						),

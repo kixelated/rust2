@@ -275,73 +275,73 @@ export class wakersFuture {
 						const _54: boolean = this.#a.vtable === this.#plain.vtable;
 						const _61: boolean = rt.willWake(this.#a, this.#noop);
 						const _63: boolean = rt.willWake(this.#noop, rt.NOOP_WAKER);
-						const _137: rt.Waker = this.#noop;
+						const _143: rt.Waker = this.#noop;
 						const _67: rt.Waker = this.#noop.clone();
-						this.#checks = [_26, _31, _34, _39, _42, _47, _54, _61, _63, rt.willWake(_137, _67), ((this.#noop.data as rt.Place<undefined>)) === rt.NULL, rt.willWake(this.#one.value.task, this.#noop), rt.NULL === rt.DANGLING_UNIT, rt.DANGLING_UNIT === rt.DANGLING_UNIT, unit === rt.DANGLING_UNIT];
+						this.#checks = [_26, _31, _34, _39, _42, _47, _54, _61, _63, rt.willWake(_143, _67), ((this.#noop.data as rt.Place<undefined>)) === rt.NULL, rt.willWake(this.#one.value.task, this.#noop), rt.NULL === rt.DANGLING_UNIT, rt.DANGLING_UNIT === rt.DANGLING_UNIT, unit === rt.DANGLING_UNIT, rt.DANGLING_UNIT === rt.DANGLING_UNIT];
 						_67[Symbol.dispose]();
 						_29[Symbol.dispose]();
-						assign(rt.DANGLING_UNIT);
-						assign(rt.DANGLING_UNIT);
+						put$unit(rt.DANGLING_UNIT, undefined);
+						put$unit(rt.DANGLING_UNIT, undefined);
 						const arg = this.#checks;
 						const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(arg, f, rt.fmtBool)];
-						const _94: string = rt.fmtFormat(["wakers ", args2[0]]);
-						Guard.note(this.#guard, _94);
+						const _100: string = rt.fmtFormat(["wakers ", args2[0]]);
+						Guard.note(this.#guard, _100);
 						drop$Waker_Waker_Waker_Waker([this.#a, this.#b, this.#other, this.#plain] as [rt.Waker, rt.Waker, rt.Waker, rt.Waker]);
 						this.#last = undefined as [rt.Place<undefined>, rt.WakerVTable] | undefined;
 						this.#total = 0;
-						bb0 = 62;
+						bb0 = 65;
 						continue;
 					}
 					if (this.#state === 1) {
 						rt.asyncFnResumed();
 					} else {
-						bb0 = 67;
+						bb0 = 70;
 						continue;
 					}
-				case 62:
+				case 65:
 					this.#pinned = new recvFuture(this.#rx);
 					this.#next = this.#pinned;
-					const _141: rt.Waker = this.#noop;
+					const _147: rt.Waker = this.#noop;
 					this.#awaitee = new rt.PollFn((cx: rt.Context): rt.Poll<rt.u64 | undefined> => {
 						const waker: rt.Waker = cx;
-						const _85: [rt.Place<undefined>, rt.WakerVTable] | undefined = [waker.data as rt.Place<undefined>, waker.vtable];
-						const same: boolean = rt.eqOption(rt.eqTuple([rt.same, rt.same]))(this.#last, _85);
+						const _89: [rt.Place<undefined>, rt.WakerVTable] | undefined = [waker.data as rt.Place<undefined>, waker.vtable];
+						const same: boolean = rt.eqOption(rt.eqTuple([rt.same, rt.same]))(this.#last, _89);
 						this.#last = [waker.data as rt.Place<undefined>, waker.vtable] as [rt.Place<undefined>, rt.WakerVTable];
 						return run$Poll_Option_u64_wakers_closure0_closure1_closure0(waker, (): rt.Poll<rt.u64 | undefined> => {
 							const clone: rt.Waker = waker.clone();
 							const lent: rt.Context = clone;
-							const inner: [boolean, boolean] = run$bool_bool_wakers_closure0_closure1_closure0_closure0(_141, (): [boolean, boolean] => {
-								return [polling(_141), polling(waker)] as [boolean, boolean];
+							const inner: [boolean, boolean] = run$bool_bool_wakers_closure0_closure1_closure0_closure0(_147, (): [boolean, boolean] => {
+								return [polling(_147), polling(waker)] as [boolean, boolean];
 							});
 							const _153: boolean = polling(clone);
 							const _183: boolean = rt.willWake(lent, waker);
 							const _222: boolean = polling(waker);
 							const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(same, f), (f: rt.Formatter) => rt.fmtBool(_153, f), (f: rt.Formatter) => rt.fmtBool(_183, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtBool(inner[0], f), (f: rt.Formatter) => rt.fmtBool(inner[1], f)], f), (f: rt.Formatter) => rt.fmtBool(_222, f)];
-							const _88: string = rt.fmtFormat(["same ", args4[0], " clone ", args4[1], " lent ", args4[2], " inner ", args4[3], " after ", args4[4]]);
-							Guard.note(this.#guard, _88);
+							const _810: string = rt.fmtFormat(["same ", args4[0], " clone ", args4[1], " lent ", args4[2], " inner ", args4[3], " after ", args4[4]]);
+							Guard.note(this.#guard, _810);
 							const _04: rt.Poll<rt.u64 | undefined> = this.#next.poll(cx);
 							clone[Symbol.dispose]();
 							return _04;
 						});
 					});
-					bb0 = 67;
+					bb0 = 70;
 					continue;
-				case 67:
-					const _120: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
-					if (_120 !== rt.Pending) {
-						const value: rt.u64 | undefined = _120;
+				case 70:
+					const _126: rt.Poll<rt.u64 | undefined> = this.#awaitee.poll(_2);
+					if (_126 !== rt.Pending) {
+						const value: rt.u64 | undefined = _126;
 						if (value === undefined) {
-							const _132: rt.u64 = this.#total;
+							const _138: rt.u64 = this.#total;
 							rt.drop(this.#pinned);
 							this.#one[Symbol.dispose]();
 							this.#guard[Symbol.dispose]();
 							this.#rx[Symbol.dispose]();
 							this.#state = 1;
-							return _132;
+							return _138;
 						}
 						this.#total = rt.u64Add(this.#total, value);
 						rt.drop(this.#pinned);
-						bb0 = 62;
+						bb0 = 65;
 						continue;
 					}
 					this.#state = 3;
@@ -351,8 +351,9 @@ export class wakersFuture {
 	}
 }
 
-/** Write `()` through `value`, which a dangling pointer may give. */
-export function assign(_value: rt.Place<undefined>): void {
+/** Write `value` through `slot`, which a dangling pointer to `()` may give. */
+export function put$unit(slot: rt.Place<undefined>, _: undefined): void {
+	slot.v = undefined;
 }
 
 /**
