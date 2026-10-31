@@ -209,6 +209,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::uninit_runs", |_, data, out| pointers::uninit_runs(data, out)),
 		("keys::byte_refs", keys::byte_refs),
 		("orders::held", |_, data, out| orders::held(data, out)),
+		("zeros::writes", zeros::writes),
 	]
 }
 

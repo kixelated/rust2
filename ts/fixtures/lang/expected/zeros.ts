@@ -5,6 +5,7 @@ import { drop$Lock_Loud, drop$Lock_u32 } from "./lib.ts";
 import { thenSome$1j8foe9 } from "./core/bool.ts";
 import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1la41a6 as option_unwrapOr$1la41a6, unwrapOrDefault$1b97y1a as option_unwrapOrDefault$1b97y1a, map$0po44cb as option_map$0po44cb, map$1ibcmaa as option_map$1ibcmaa, map$1qp1ym6 as option_map$1qp1ym6, map$1iwwjee as option_map$1iwwjee } from "./core/option.ts";
 import * as Both from "./zeros.Both.ts";
+import * as Defaulted from "./zeros.Defaulted.ts";
 import * as Holds from "./zeros.Holds.ts";
 import * as zeros_Lock from "./zeros.Lock.ts";
 import * as Loud from "./zeros.Loud.ts";
@@ -489,6 +490,83 @@ export function unread(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		drop$Lock_u32(lock);
 		rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicLoad(LOG, 0))), undefined, true);
 	}
+}
+
+/** A fresh `&mut ()`, after logging `tag`. */
+export function leaked(tag: rt.u32): rt.Place<undefined> {
+	log(tag);
+	return rt.DANGLING_UNIT;
+}
+
+/** A fresh `*mut ()`, after logging `tag`. */
+export function raw(tag: rt.u32): rt.Place<undefined> {
+	log(tag);
+	return rt.DANGLING_UNIT;
+}
+
+/**
+ * Writes through a `&mut` or a pointer to a value of no bytes, which have nothing to
+ * read or write but still run their operands.
+ */
+export function writes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	rt.atomicStore(LOG, 0, 0);
+	const n: rt.u8 = data.length & 0xff;
+	const _9: rt.u8 = rt.u8Rem(kind, 5);
+	if (_9 === 0) {
+		leaked(1);
+		rt.byteVecPush(out, true ? 1 : 0);
+		leaked(2);
+		leaked(3);
+		leaked(4);
+		leaked(6);
+		rt.byteVecPush(out, ((true ? 1 : 0)) | ((n << 1) & 0xff));
+	} else if (_9 === 1) {
+		rt.byteVecPush(out, true ? 1 : 0);
+		unit();
+		zeros_Unit.default$Default();
+		rt.byteVecPush(out, ((zeros_Unit.eq$PartialEq({}, zeros_Unit.default$Default()) ? 1 : 0)) | ((n << 1) & 0xff));
+		rt.byteVecPush(out, Defaulted.eq$PartialEq({}, Defaulted.default$Default()) ? 1 : 0);
+	} else if (_9 === 2) {
+		raw(1);
+		raw(2);
+		raw(3);
+		raw(4);
+		const q: zeros_Unit.Unit = {};
+		unit();
+		const _96: zeros_Unit.Unit = {};
+		rt.byteVecPush(out, ((zeros_Unit.eq$PartialEq(q, _96) ? 1 : 0)) | ((n << 1) & 0xff));
+	} else if (_9 === 3) {
+		const _113: rt.Cell<undefined> = new rt.Cell(undefined);
+		rt.cellReplace(_113, undefined);
+		rt.cellReplace(_113, undefined);
+		rt.cellSet(_113, undefined);
+		rt.sliceSwap([undefined, undefined, undefined], 0, n as rt.usize);
+		const v: zeros_Unit.Unit[] = rt.vecFromElem({}, 2, undefined);
+		rt.sliceSwap(v, 0, 1);
+		rt.byteVecPush(out, ([undefined, undefined, undefined].length & 0xff) | (((v.length & 0xff) << 4) & 0xff));
+		const _141: rt.Cell<undefined> = new rt.Cell(undefined);
+		rt.cellReplace(_141, undefined);
+		rt.cellReplace(_141, undefined);
+		rt.byteVecPush(out, true ? 1 : 0);
+	} else {
+		let o: undefined | rt.None = thenSome$1j8foe9(n > 0, undefined);
+		const old2: undefined | rt.None = o;
+		o = undefined;
+		rt.byteVecPush(out, ((old2 !== rt.None ? 1 : 0)) | ((((o !== rt.None ? 1 : 0)) << 1) & 0xff));
+		const taken2: undefined | rt.None = o;
+		o = rt.None;
+		const taken: undefined | rt.None = taken2;
+		o = rt.None;
+		rt.byteVecPush(out, ((taken !== rt.None ? 1 : 0)) | ((((o !== rt.None ? 1 : 0)) << 1) & 0xff));
+		let x: rt.u8 = n;
+		x = 1;
+		x = 0;
+		let y: rt.u8 | undefined = n;
+		y = undefined;
+		y = n;
+		rt.byteVecPush(out, x | ((option_unwrapOr$0r2bmpr(y, 0) << 4) & 0xff));
+	}
+	rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicLoad(LOG, 0))), undefined, true);
 }
 
 //# sourceMappingURL=zeros.ts.map

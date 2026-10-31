@@ -531,9 +531,7 @@ export function retargeted(n: rt.u8): Uint8Array {
 	let a: [rt.u8, rt.u8] = [n, ~n & 0xff];
 	const b: [rt.u8, rt.u8] = [n ^ 5, n];
 	let r: [rt.u8, rt.u8] = a;
-	const old = r;
 	r = b;
-	old;
 	const p: [rt.u8, rt.u8] = r;
 	a = [0, 0] as [rt.u8, rt.u8];
 	return Uint8Array.of(p[0] ^ a[0], p[1]);

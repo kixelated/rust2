@@ -544,6 +544,10 @@ const setOps = [
 const zerosOp = op("zeros::zeros");
 const zeros = Array.from({ length: 7 * 4 }, (_, i) => Uint8Array.of(zerosOp, i % 7, ...Array.from({ length: Math.floor(i / 7) }, (_, b) => b)));
 
+/** `zeros::writes` of each case, on up to three bytes: the last past the slice it swaps in. */
+const writesOp = op("zeros::writes");
+const writes = Array.from({ length: 5 * 4 }, (_, i) => Uint8Array.of(writesOp, i % 5, ...Array.from({ length: Math.floor(i / 5) }, (_, b) => b)));
+
 /**
  * `collections::unlike_eqs` of every pair of positions where `eq` and `ne` disagree and each
  * length the right side may lose, over no items, one, two, a wrapped deque's four, and nine,
@@ -625,4 +629,4 @@ function wraps(): Uint8Array[] {
 	return cases;
 }
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods, ...wraps(), ...refOrders];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...writes, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods, ...wraps(), ...refOrders];
