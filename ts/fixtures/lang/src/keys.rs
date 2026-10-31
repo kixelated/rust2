@@ -6,6 +6,7 @@
 //! Then arrays of each element type as keys, found by the slices they borrow as.
 
 use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -1099,4 +1100,197 @@ fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -
 			out.extend([refs.get(first).copied().unwrap_or(0xdd), hashed.contains(first) as u8]);
 		}
 	}
+}
+
+/// Arrays of bytes std takes by reference: copied into each collection `extend` fills from
+/// references to them, lent to an adaptor's closure as std lends the items it holds, and
+/// held as `&[u8; N]` keys beside `[u8; N]` values. Of two bytes, and of none.
+pub fn byte_refs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	match kind % 2 {
+		0 => taken(data, |w| [w[0] % 4, w[1] % 4], out),
+		_ => taken(data, |_| [0u8; 0], out),
+	}
+}
+
+/// Pushes its byte to the log it shares as it drops, and its clone another.
+struct Dropped<'a>(u8, &'a RefCell<Vec<u8>>);
+
+impl Dropped<'_> {
+	/// Whether it has a byte, read through the whole value, so a closure captures it whole.
+	fn live(&self) -> bool {
+		self.0 != 0
+	}
+}
+
+impl Clone for Dropped<'_> {
+	fn clone(&self) -> Self {
+		Dropped(self.0.wrapping_add(0x10), self.1)
+	}
+}
+
+impl Drop for Dropped<'_> {
+	fn drop(&mut self) {
+		self.1.borrow_mut().push(self.0);
+	}
+}
+
+/// `byte_refs` of the arrays `make` makes of each window of two bytes.
+fn taken<const N: usize>(data: &[u8], make: impl Fn(&[u8]) -> [u8; N], out: &mut Vec<u8>) {
+	let mut pairs: Vec<[u8; N]> = data.windows(2).map(make).collect();
+	let mut vec: Vec<[u8; N]> = Vec::new();
+	vec.extend(&pairs);
+	let mut deque: VecDeque<[u8; N]> = VecDeque::new();
+	deque.extend(pairs.iter());
+	let mut heap: BinaryHeap<[u8; N]> = BinaryHeap::new();
+	heap.extend(&pairs);
+	let mut set: HashSet<[u8; N]> = HashSet::new();
+	set.extend(&pairs);
+	let mut ordered: BTreeSet<[u8; N]> = BTreeSet::new();
+	ordered.extend(pairs.iter());
+	let mut map: HashMap<[u8; N], [u8; N]> = HashMap::new();
+	map.extend(pairs.iter().map(|p| (p, p)));
+	let mut tree: BTreeMap<[u8; N], [u8; N]> = BTreeMap::new();
+	tree.extend(pairs.iter().zip(&pairs));
+	// Each holds its own copies: a write through one leaves the source and the others.
+	for p in pairs.iter_mut() {
+		if let Some(b) = p.first_mut() {
+			*b ^= 0x10;
+		}
+	}
+	for v in vec.iter_mut() {
+		if let Some(b) = v.last_mut() {
+			*b ^= 0x20;
+		}
+	}
+	for v in deque.iter_mut() {
+		if let Some(b) = v.first_mut() {
+			*b ^= 0x40;
+		}
+	}
+	for v in map.values_mut() {
+		if let Some(b) = v.last_mut() {
+			*b ^= 0x80;
+		}
+	}
+	for v in tree.values_mut() {
+		if let Some(b) = v.first_mut() {
+			*b ^= 0x08;
+		}
+	}
+	out.extend(pairs.iter().flatten());
+	out.extend(vec.iter().flatten());
+	out.extend(deque.iter().flatten());
+	out.extend(heap.into_sorted_vec().iter().flatten());
+	let mut members: Vec<[u8; N]> = set.iter().copied().collect();
+	members.sort();
+	out.extend(members.iter().flatten());
+	out.extend(ordered.iter().flatten());
+	let mut entries: Vec<([u8; N], [u8; N])> = map.iter().map(|(k, v)| (*k, *v)).collect();
+	entries.sort();
+	for (k, v) in &entries {
+		out.extend(k.iter().chain(v));
+	}
+	for (k, v) in &tree {
+		out.extend(k.iter().chain(v));
+	}
+	out.extend([vec.len(), deque.len(), set.len(), ordered.len(), map.len(), tree.len()].map(|n| n as u8));
+	// std's adaptors lend their closures each array they hold.
+	out.push(vec.clone().into_iter().filter(|p| p.first() != p.last()).count() as u8);
+	let kept: Vec<[u8; N]> = pairs.iter().copied().filter(|p| p.iter().any(|&b| b < 2)).collect();
+	out.extend(kept.iter().flatten());
+	let mut rest = deque
+		.clone()
+		.into_iter()
+		.skip_while(|p| p.first() == Some(&0x40))
+		.peekable();
+	if let Some(p) = rest.peek() {
+		out.extend_from_slice(p);
+	}
+	if let Some(p) = rest.peek_mut()
+		&& let Some(b) = p.first_mut()
+	{
+		*b = 0xaa;
+	}
+	out.extend(rest.next().iter().flatten());
+	let mut seen = 0u8;
+	let taken: Vec<[u8; N]> = (vec.iter().copied())
+		.inspect(|p| seen = seen.wrapping_add(p.len() as u8))
+		.take_while(|p| p.last() != Some(&0x23))
+		.collect();
+	out.extend([seen, taken.len() as u8]);
+	out.extend(vec.iter().copied().max_by(|a, b| a.cmp(b)).iter().flatten());
+	out.extend(
+		vec.iter()
+			.copied()
+			.min_by_key(|p| p.iter().fold(0u8, |a, b| a ^ b))
+			.iter()
+			.flatten(),
+	);
+	out.extend(
+		pairs
+			.iter()
+			.copied()
+			.find(|p| p.iter().sum::<u8>() > 0x12)
+			.iter()
+			.flatten(),
+	);
+	out.push(vec.iter().copied().is_sorted_by(|a, b| a <= b) as u8);
+	out.extend(deque.iter().copied().rfind(|p| p < &[0x50; N]).iter().flatten());
+	// A closure std lends arrays to drops where std drops it, and a held one's clone is its
+	// own, each logged as it drops.
+	let log = RefCell::new(Vec::new());
+	let first = Dropped(1, &log);
+	let sorted = vec.iter().copied().is_sorted_by(move |a, b| first.live() && a <= b);
+	log.borrow_mut().push(sorted as u8 | 0x80);
+	let second = Dropped(2, &log);
+	let filtered = (vec.clone().into_iter()).filter(move |p| second.live() && p.last() != Some(&0x21));
+	let again = filtered.clone();
+	let counted = again.count() as u8;
+	log.borrow_mut().push(counted);
+	let counted = filtered.count() as u8;
+	log.borrow_mut().push(counted);
+	out.extend(log.take());
+	// A map's references to the arrays it holds, mapped and collected.
+	let mut lent: Vec<(&[u8; N], &[u8; N])> = map.iter().map(|(k, v)| (k, v)).collect();
+	lent.sort();
+	for (k, v) in lent {
+		out.extend(k.iter().chain(v));
+	}
+	let by_key: HashMap<&[u8; N], u8> = tree.iter().map(|(k, v)| (k, v.len() as u8)).collect();
+	out.push(by_key.len() as u8);
+	// Keys held as `&[u8; N]` beside values held as `[u8; N]`, each lent as its own slice.
+	let mut refs: HashMap<&[u8; N], [u8; N]> = pairs.iter().map(|p| (p, *p)).collect();
+	let mut sorted: BTreeMap<&[u8; N], [u8; N]> = pairs.iter().map(|p| (p, *p)).collect();
+	for (k, v) in refs.iter_mut() {
+		if let Some(b) = v.last_mut() {
+			*b ^= k.first().copied().unwrap_or(1);
+		}
+	}
+	for v in sorted.values_mut() {
+		if let Some(b) = v.first_mut() {
+			*b = b.wrapping_add(1);
+		}
+	}
+	let probe: [u8; N] = pairs.first().map_or([0; N], |p| *p);
+	out.extend(refs.get(&probe).into_iter().flatten());
+	out.extend(refs.get(&&probe).into_iter().flatten());
+	out.extend(sorted.get(&probe).into_iter().flatten());
+	if let Some((k, v)) = refs.get_key_value(&probe) {
+		out.extend(k.iter().chain(v));
+	}
+	out.extend(refs.entry(&probe).or_insert([0xee; N]).iter());
+	let mut keys: Vec<&[u8; N]> = refs.keys().copied().collect();
+	keys.sort();
+	out.extend(keys.iter().copied().flatten());
+	let mut values: Vec<[u8; N]> = refs.values().copied().collect();
+	values.sort();
+	out.extend(values.iter().flatten());
+	for (k, v) in &sorted {
+		out.extend(k.iter().chain(v));
+	}
+	refs.retain(|k, v| k.first() == v.first());
+	sorted.retain(|k, v| k.last() != v.last());
+	out.extend([refs.len() as u8, sorted.len() as u8]);
+	out.extend(sorted.into_keys().next().iter().copied().flatten());
+	out.extend(refs.into_values().map(|v| v.len() as u8));
 }

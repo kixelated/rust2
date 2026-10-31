@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$Tick_i128, copy$Tick_i16, copy$Tick_i32, copy$Tick_i64, copy$Tick_i8, copy$Tick_isize, copy$Tick_u128, copy$Tick_u16, copy$Tick_u32, copy$Tick_u64, copy$Tick_u8, copy$Tick_usize } from "./lib.ts";
-import { isSomeAnd$08u1px1, unwrapOr$0r2bmpr } from "./core/option.ts";
+import { isSomeAnd$08u1px1, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr } from "./core/option.ts";
 import * as Tick from "./wraps.Tick.ts";
 
 export function hashed$Tick_i128(v: Tick.Tick<rt.i128>): rt.u64 {
@@ -237,7 +237,7 @@ export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u8FromBeBytes(buf);
 	};
@@ -246,7 +246,7 @@ export function u8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.u8 = _8[1];
 	const c: rt.u8 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 1, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 1, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -420,7 +420,7 @@ export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u16FromBeBytes(buf);
 	};
@@ -429,7 +429,7 @@ export function u16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.u16 = _8[1];
 	const c: rt.u16 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 2, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 2, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -603,7 +603,7 @@ export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u32FromBeBytes(buf);
 	};
@@ -612,7 +612,7 @@ export function u32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.u32 = _8[1];
 	const c: rt.u32 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -786,7 +786,7 @@ export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u64FromBeBytes(buf);
 	};
@@ -795,7 +795,7 @@ export function u64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.u64 = _8[1];
 	const c: rt.u64 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 8, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 8, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -969,7 +969,7 @@ export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.u128FromBeBytes(buf);
 	};
@@ -978,7 +978,7 @@ export function u128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.u128 = _8[1];
 	const c: rt.u128 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 16, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 16, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -1152,7 +1152,7 @@ export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.usizeFromBeBytes(buf);
 	};
@@ -1161,7 +1161,7 @@ export function usizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.usize = _8[1];
 	const c: rt.usize = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -1335,7 +1335,7 @@ export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i8FromBeBytes(buf);
 	};
@@ -1344,7 +1344,7 @@ export function i8s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.i8 = _8[1];
 	const c: rt.i8 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 1, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 1, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -1520,7 +1520,7 @@ export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i16FromBeBytes(buf);
 	};
@@ -1529,7 +1529,7 @@ export function i16s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.i16 = _8[1];
 	const c: rt.i16 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 2, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 2, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -1705,7 +1705,7 @@ export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i32FromBeBytes(buf);
 	};
@@ -1714,7 +1714,7 @@ export function i32s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.i32 = _8[1];
 	const c: rt.i32 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -1890,7 +1890,7 @@ export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i64FromBeBytes(buf);
 	};
@@ -1899,7 +1899,7 @@ export function i64s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.i64 = _8[1];
 	const c: rt.i64 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 8, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 8, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -2075,7 +2075,7 @@ export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.i128FromBeBytes(buf);
 	};
@@ -2084,7 +2084,7 @@ export function i128s(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.i128 = _8[1];
 	const c: rt.i128 = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 16, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 16, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);
@@ -2260,7 +2260,7 @@ export function isizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			if (_10 === rt.DONE) {
 				break;
 			}
-			_10[1].v = unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
+			_10[1].v = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(at, _10[0])), 0);
 		}
 		return rt.isizeFromBeBytes(buf);
 	};
@@ -2269,7 +2269,7 @@ export function isizes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const b: rt.isize = _8[1];
 	const c: rt.isize = _8[2];
 	const byte: (a0: rt.usize) => rt.u8 = (i2: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, rt.usizeAdd(3 * 4, i2)), 0);
 	};
 	const n: rt.usize = ((byte(1) << 24) | byte(0)) >>> 0 as rt.usize;
 	const _31: rt.u8 = rt.u8Rem(kind, 24);

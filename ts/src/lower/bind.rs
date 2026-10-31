@@ -144,7 +144,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let bodies = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id());
 		// A binding's code, a bound type's methods' included, is code it doesn't read.
-		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &self.read, &|def_id| {
+		self.writes = super::copy::Writes::of_bodies(self, bodies, &self.read, &|def_id| {
 			self.crates.translates(def_id) && !self.bound(def_id)
 		});
 	}
@@ -201,6 +201,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return None;
 		};
 		(adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some()).then_some(adt.did())
+	}
+
+	/// Each file the config binds: its module, what importers call it, and its file's name
+	/// as an identifier.
+	pub(super) fn bound_files(&self) -> impl Iterator<Item = (&ModPath, &str, &str)> {
+		(self.bindings.files.iter()).map(|(module, file)| (module, file.namespace.as_str(), file.prefix.as_str()))
 	}
 
 	/// Whether `def_id` is of a crate that translates, rather than bound.

@@ -2,8 +2,8 @@
 
 import * as rt from "../../rt.ts";
 import { copy$Twin_Twin } from "../../lib.ts";
-import type * as Noisy from "../../locals.Noisy.ts";
-import type * as Twin from "../../locals.Twin.ts";
+import type * as locals_Noisy from "../../locals.Noisy.ts";
+import type * as locals_Twin from "../../locals.Twin.ts";
 
 export function set$0st49po(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): void {
 	rt.localKeyInitializeWith(self, new rt.Cell(value), (value2: rt.Cell<rt.u32> | undefined, cell: rt.Cell<rt.u32>): undefined => {
@@ -13,8 +13,8 @@ export function set$0st49po(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u32): 
 	});
 }
 
-export function get$1jdtkm4(self: rt.LocalKey<rt.Cell<[Twin.Twin, Twin.Twin]>>): [Twin.Twin, Twin.Twin] {
-	return ((a0: rt.Cell<[Twin.Twin, Twin.Twin]>): [Twin.Twin, Twin.Twin] => {
+export function get$1jdtkm4(self: rt.LocalKey<rt.Cell<[locals_Twin.Twin, locals_Twin.Twin]>>): [locals_Twin.Twin, locals_Twin.Twin] {
+	return ((a0: rt.Cell<[locals_Twin.Twin, locals_Twin.Twin]>): [locals_Twin.Twin, locals_Twin.Twin] => {
 		return copy$Twin_Twin(a0.v);
 	})(self.get());
 }
@@ -38,11 +38,11 @@ export function replace$0kxb7te(self: rt.LocalKey<rt.Cell<rt.u32>>, value: rt.u3
 	})(self.get());
 }
 
-export function withBorrow$1qygtee(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, f: (a0: Noisy.Noisy | undefined) => rt.u8): rt.u8 {
+export function withBorrow$1qygtee(self: rt.LocalKey<rt.RefCell<locals_Noisy.Noisy | undefined>>, f: (a0: locals_Noisy.Noisy | undefined) => rt.u8): rt.u8 {
 	const captured = f;
-	return ((cell: rt.RefCell<Noisy.Noisy | undefined>): rt.u8 => {
-		const _32: (a0: Noisy.Noisy | undefined) => rt.u8 = captured;
-		const _7: rt.RefCell<Noisy.Noisy | undefined> = rt.refCellBorrow(cell);
+	return ((cell: rt.RefCell<locals_Noisy.Noisy | undefined>): rt.u8 => {
+		const _32: (a0: locals_Noisy.Noisy | undefined) => rt.u8 = captured;
+		const _7: rt.RefCell<locals_Noisy.Noisy | undefined> = rt.refCellBorrow(cell);
 		const _02: rt.u8 = _32(_7.value);
 		rt.refRelease(_7);
 		return _02;
@@ -93,8 +93,8 @@ export function withBorrow$15ql9sa(self: rt.LocalKey<rt.RefCell<rt.u32>>, f: (a0
 	})(self.get());
 }
 
-export function take$1x34chv(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>): Noisy.Noisy | undefined {
-	return ((a0: rt.RefCell<Noisy.Noisy | undefined>): Noisy.Noisy | undefined => {
+export function take$1x34chv(self: rt.LocalKey<rt.RefCell<locals_Noisy.Noisy | undefined>>): locals_Noisy.Noisy | undefined {
+	return ((a0: rt.RefCell<locals_Noisy.Noisy | undefined>): locals_Noisy.Noisy | undefined => {
 		return rt.refCellReplace(a0, undefined);
 	})(self.get());
 }
@@ -105,9 +105,9 @@ export function take$122f15k(self: rt.LocalKey<rt.RefCell<rt.ByteVec>>): rt.Byte
 	})(self.get());
 }
 
-export function replace$0bb3zeq(self: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>>, value: Noisy.Noisy | undefined): Noisy.Noisy | undefined {
+export function replace$0bb3zeq(self: rt.LocalKey<rt.RefCell<locals_Noisy.Noisy | undefined>>, value: locals_Noisy.Noisy | undefined): locals_Noisy.Noisy | undefined {
 	const captured = value;
-	return rt.closure((cell: rt.RefCell<Noisy.Noisy | undefined>): Noisy.Noisy | undefined => {
+	return rt.closure((cell: rt.RefCell<locals_Noisy.Noisy | undefined>): locals_Noisy.Noisy | undefined => {
 		return rt.refCellReplace(cell, captured);
 	}, (): void => {
 		rt.drop(captured);

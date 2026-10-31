@@ -14,7 +14,7 @@ import { thenSome$1ugl8af } from "./core/bool.ts";
 import type * as SessionError from "./lib.SessionError.ts";
 import * as Group from "./lite/group.Group.ts";
 import * as Probe from "./lite/probe.Probe.ts";
-import type * as Version from "./lite/version.Version.ts";
+import type * as lite_version_Version from "./lite/version.Version.ts";
 
 /**
  * Each case, which the first byte picks modulo their count, so a case added at the end
@@ -47,27 +47,27 @@ export function form(selector: rt.u8): Form.Form {
 	return { tag: "LeadingOnes", seven: true } as Form.Form;
 }
 
-export function liteVersion(selector: rt.u8): Version.Version {
+export function liteVersion(selector: rt.u8): lite_version_Version.Version {
 	const _2: rt.u8 = rt.u8Rem(selector, 7);
 	if (_2 === 0) {
-		return "Lite01" as Version.Version;
+		return "Lite01" as lite_version_Version.Version;
 	}
 	if (_2 === 1) {
-		return "Lite02" as Version.Version;
+		return "Lite02" as lite_version_Version.Version;
 	}
 	if (_2 === 2) {
-		return "Lite03" as Version.Version;
+		return "Lite03" as lite_version_Version.Version;
 	}
 	if (_2 === 3) {
-		return "Lite04" as Version.Version;
+		return "Lite04" as lite_version_Version.Version;
 	}
 	if (_2 === 4) {
-		return "Lite05" as Version.Version;
+		return "Lite05" as lite_version_Version.Version;
 	}
 	if (_2 === 5) {
-		return "Lite06" as Version.Version;
+		return "Lite06" as lite_version_Version.Version;
 	}
-	return "Lite07" as Version.Version;
+	return "Lite07" as lite_version_Version.Version;
 }
 
 export function putU64(out: rt.ByteVec, value: rt.u64): void {
@@ -438,7 +438,7 @@ export function roundtrip$Versions(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
 export function roundtripLite$Group(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
-		const version: Version.Version = liteVersion(data.data[data.start]);
+		const version: lite_version_Version.Version = liteVersion(data.data[data.start]);
 		const _8: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$Decode_Version(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), version);
 		if (_8.ok) {
 			const value: Group.Group = _8.value[0];
@@ -460,7 +460,7 @@ export function roundtripLite$Group(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
 export function roundtripLite$Probe(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
-		const version: Version.Version = liteVersion(data.data[data.start]);
+		const version: lite_version_Version.Version = liteVersion(data.data[data.start]);
 		const _8: rt.Result<[Probe.Probe, rt.usize], DecodeError.DecodeError> = Probe.decodeSlice$Decode_Version(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), version);
 		if (_8.ok) {
 			const value: Probe.Probe = _8.value[0];
@@ -482,7 +482,7 @@ export function roundtripLite$Probe(data: rt.ByteSlice, out: rt.ByteVec): void {
 /** Encode messages built from the data, at a lite version. */
 export function encodeMessages(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
-		const version: Version.Version = liteVersion(data.data[data.start]);
+		const version: lite_version_Version.Version = liteVersion(data.data[data.start]);
 		const _10: [rt.u64, rt.ByteSlice] = takeU64(new rt.ByteSlice(data.data, data.start + 1, data.length - 1));
 		const subscribe: rt.u64 = _10[0];
 		const _13: [rt.u64, rt.ByteSlice] = takeU64(_10[1]);
@@ -506,7 +506,7 @@ export function encodeMessages(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
-export function encodeMessage$Group(msg: Group.Group, version: Version.Version, out: rt.ByteVec): void {
+export function encodeMessage$Group(msg: Group.Group, version: lite_version_Version.Version, out: rt.ByteVec): void {
 	const buf: rt.ByteVec = new rt.ByteVec();
 	const _7: Form.Form = Form.from$From_Version(version);
 	const w: Encoder.Encoder = Encoder.new(buf, _7);
@@ -520,7 +520,7 @@ export function encodeMessage$Group(msg: Group.Group, version: Version.Version, 
 	}
 }
 
-export function encodeMessage$Probe(msg: Probe.Probe, version: Version.Version, out: rt.ByteVec): void {
+export function encodeMessage$Probe(msg: Probe.Probe, version: lite_version_Version.Version, out: rt.ByteVec): void {
 	const buf: rt.ByteVec = new rt.ByteVec();
 	const _7: Form.Form = Form.from$From_Version(version);
 	const w: Encoder.Encoder = Encoder.new(buf, _7);

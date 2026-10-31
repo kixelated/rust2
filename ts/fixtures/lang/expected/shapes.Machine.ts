@@ -3,30 +3,30 @@
 import * as rt from "./rt.ts";
 import { copy$Point } from "./lib.ts";
 import * as Point from "./shapes.Point.ts";
-import * as Shape from "./shapes.Shape.ts";
+import * as shapes_Shape from "./shapes.Shape.ts";
 
 /** A state a method matches, changing it between its matches. */
 export interface Machine {
-	state: Shape.Shape;
+	state: shapes_Shape.Shape;
 	steps: rt.u8;
 }
 
 export function step(self: Machine): void {
-	let _3!: Shape.Shape;
+	let _3!: shapes_Shape.Shape;
 	self.steps = rt.u8Add(self.steps, 1);
 	if (self.state.tag === "Dot") {
-		_3 = { tag: "Line", _0: copy$Point(Point.new(1, 2)), _1: copy$Point(Point.new(3, 4)) } as Shape.Shape;
+		_3 = { tag: "Line", _0: copy$Point(Point.new(1, 2)), _1: copy$Point(Point.new(3, 4)) } as shapes_Shape.Shape;
 	} else if (self.state.tag === "Line") {
-		_3 = { tag: "Rect", corner: copy$Point(copy$Point(self.state._0)), width: 5, height: 6 } as Shape.Shape;
+		_3 = { tag: "Rect", corner: copy$Point(copy$Point(self.state._0)), width: 5, height: 6 } as shapes_Shape.Shape;
 	} else {
-		_3 = { tag: "Dot" } as Shape.Shape;
+		_3 = { tag: "Dot" } as shapes_Shape.Shape;
 	}
 	self.state = _3;
 }
 
 /** Reads the state, which a shared borrow can't change. */
 export function peek(self: Machine): rt.u8 {
-	return self.steps ^ (rt.u64Low(Shape.area$Area(self.state)) & 0xff);
+	return self.steps ^ (rt.u64Low(shapes_Shape.area$Area(self.state)) & 0xff);
 }
 
 export function log(self: Machine, v: rt.u8): rt.u8 {
@@ -37,8 +37,8 @@ export function log(self: Machine, v: rt.u8): rt.u8 {
 export function run(self: Machine, n: rt.u8): rt.u8 {
 	if (self.state.tag === "Dot") {
 		step(self);
-		if ((self.state as Shape.Shape).tag === "Line") {
-			return (copy$Point(((self.state as Shape.Shape) as { tag: "Line"; _0: Point.Point; _1: Point.Point })._1).x & 0xff) ^ self.steps ^ n;
+		if ((self.state as shapes_Shape.Shape).tag === "Line") {
+			return (copy$Point(((self.state as shapes_Shape.Shape) as { tag: "Line"; _0: Point.Point; _1: Point.Point })._1).x & 0xff) ^ self.steps ^ n;
 		}
 		return 27;
 	}

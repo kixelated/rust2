@@ -221,10 +221,10 @@ pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::
 	*dst = src;
 }
 
-/// A std adaptor lends its callback a reference to each array of bytes it holds, which it
-/// would pass as the array, not a slice of it.
-pub fn filter_owned_bytes(v: Vec<[u8; 2]>) -> usize {
-	v.into_iter().filter(|p| p[0] != 0).count()
+/// `copied` is given a reference to an array of bytes, a slice of it, which its mapping
+/// would copy as the array.
+pub fn copied_bytes(v: &[[u8; 2]]) -> [u8; 2] {
+	v.first().copied().unwrap_or_default()
 }
 
 /// Each copy of a closure has its own captures, which copies of an arrow function share.
@@ -826,11 +826,6 @@ impl std::fmt::Write for Sink {
 	}
 }
 
-/// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
-pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
-	map.into_keys().next().map_or(0, |k| k[0])
-}
-
 pub struct Plain {
 	pub at: (u32, u32),
 }
@@ -943,11 +938,6 @@ pub fn uninit_part_replaced(n: u32) -> u32 {
 	let q = gap.slot.as_mut_ptr();
 	reset_gap(&mut gap);
 	unsafe { (*p).0 + (*q).1 }
-}
-
-/// A set of `[u8; 2]` extended by references to arrays, which it would keep as slices.
-pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
-	set.extend(pairs);
 }
 
 /// A key ordered by its own `Ord`.
@@ -1073,4 +1063,104 @@ pub fn pointer_kept_across(data: &[u32]) -> u32 {
 		last = &raw mut pair;
 	}
 	sum
+}
+
+/// Structs JS keeps as objects, each holding an `rt.Cell` of an object, one for each write
+/// of fresh memory made while a pointer into it may still be read, which gives the cell
+/// another object.
+pub struct Escaped(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Called(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Looped(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Aliased(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Rewritten(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Keeper {
+	pub whole: *mut Escaped,
+	pub part: *mut (u16, u16),
+}
+
+fn keep_part(keeper: &mut Keeper) {
+	keeper.part = unsafe { (*keeper.whole).0.get() };
+}
+
+/// A fresh allocation written whole again after its pointer escaped into a struct.
+pub fn escaped_into_struct(n: u16, keeper: &mut Keeper) -> u16 {
+	let p = Box::into_raw(Box::new(std::mem::MaybeUninit::<Escaped>::uninit())).cast::<Escaped>();
+	unsafe { p.write(Escaped(std::cell::UnsafeCell::new((n, n)))) };
+	keeper.whole = p;
+	keep_part(keeper);
+	unsafe { p.write(Escaped(std::cell::UnsafeCell::new((0, 0)))) };
+	unsafe { (*keeper.part).0 }
+}
+
+fn kept_part(p: *mut Called, kept: &mut Vec<*mut (u16, u16)>) {
+	kept.push(unsafe { (*p).0.get() });
+}
+
+/// A fresh allocation written whole again after its pointer escaped into a call.
+pub fn escaped_into_call(n: u16) -> u16 {
+	let p = Box::into_raw(Box::new(std::mem::MaybeUninit::<Called>::uninit())).cast::<Called>();
+	unsafe { p.write(Called(std::cell::UnsafeCell::new((n, n)))) };
+	let mut kept = Vec::new();
+	kept_part(p, &mut kept);
+	unsafe { p.write(Called(std::cell::UnsafeCell::new((0, 0)))) };
+	unsafe { (*kept[0]).0 }
+}
+
+/// A fresh allocation written whole in each iteration, read after through the pointer an
+/// earlier iteration took into it.
+pub fn kept_across_writes(data: &[u16]) -> u16 {
+	let p = Box::into_raw(Box::new(std::mem::MaybeUninit::<Looped>::uninit())).cast::<Looped>();
+	let mut kept: *mut (u16, u16) = std::ptr::null_mut();
+	let mut sum = 0;
+	for &n in data {
+		unsafe { p.write(Looped(std::cell::UnsafeCell::new((n, n)))) };
+		if !kept.is_null() {
+			sum += unsafe { (*kept).0 };
+		}
+		kept = unsafe { (*p).0.get() };
+	}
+	sum
+}
+
+/// A fresh allocation written whole through an alias of its pointer while a pointer into it
+/// may still be read.
+pub fn written_through_alias(n: u16) -> u16 {
+	let p = Box::into_raw(Box::new(std::mem::MaybeUninit::<Aliased>::uninit())).cast::<Aliased>();
+	unsafe { p.write(Aliased(std::cell::UnsafeCell::new((n, n)))) };
+	let part = unsafe { (*p).0.get() };
+	let alias = p;
+	unsafe { alias.write(Aliased(std::cell::UnsafeCell::new((0, 0)))) };
+	unsafe { (*part).0 }
+}
+
+/// A `MaybeUninit` written whole again while a pointer into it may still be read.
+pub fn uninit_rewritten(n: u16) -> u16 {
+	let mut slot = std::mem::MaybeUninit::<Rewritten>::uninit();
+	slot.write(Rewritten(std::cell::UnsafeCell::new((n, n))));
+	let part = unsafe { slot.assume_init_ref().0.get() };
+	slot.write(Rewritten(std::cell::UnsafeCell::new((0, 0))));
+	unsafe { (*part).0 }
+}
+
+pub struct Loaded(pub std::cell::UnsafeCell<(u16, u16)>);
+
+/// A fresh allocation written whole again through a pointer to it read out of another
+/// allocation, while a pointer into it may still be read.
+pub fn written_through_loaded(n: u16) -> u16 {
+	let p = Box::into_raw(Box::new(std::mem::MaybeUninit::<Loaded>::uninit())).cast::<Loaded>();
+	unsafe { p.write(Loaded(std::cell::UnsafeCell::new((n, n)))) };
+	let part = unsafe { (*p).0.get() };
+	let container = Box::into_raw(Box::new(p.cast_const()));
+	unsafe {
+		container
+			.read()
+			.cast_mut()
+			.write(Loaded(std::cell::UnsafeCell::new((0, 0))))
+	};
+	unsafe { (*part).0 }
 }

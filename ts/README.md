@@ -94,7 +94,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
 | `Cow<[T]>` | `rt.Cow<T>`: the `Vec` it owns, or an `rt.Borrowed` holding the slice it borrows; `rt.ByteCow` for bytes, an `rt.ByteVec` or an `rt.ByteSlice` |
 | `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, a `String`, or a reference, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
-| `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A `*const ()` is an identity, such as a waker's data, and `rt.DANGLING_UNIT` when dangling; one to a place of `()` or from a reference to one is refused. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
+| `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A `*const ()` is an identity, such as a waker's data, and `rt.DANGLING_UNIT` when dangling; one to a place of `()` or from a reference to one is refused. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there while a pointer into that memory may still be read, which a write into a fresh allocation, or a variable before any pointer into it is taken, can't; a read copies what the crate writes into in place |
 | `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
 | `union` | an object of slots named by offset, `at0` and `at8`, each holding the field part kept there; fields must overlap in the same type, or in a non-null pointer and an `Option` of it |
 | an iterator | `rt.Iter<Item>`, whose adaptors are runtime functions: `rt.iterMap(rt.iterSlice(v), f)` |
@@ -287,7 +287,15 @@ arguments. Types are translated once, generically, so a function of a generic ty
 instance's, declaring the instance it takes as `self`:
 `fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
 type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
-and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, enum, tuple,
+and exports it as its own: `function new_` is `Decoder.new`. A module imports a function
+or value by its name, and a type's module whole by the type's, `import * as Decoder`,
+unless another module could declare one of that name, or the importer declares one,
+as a trait object's class is named for the type it wraps: then by its name after the
+shortest end of its module's path no other such module shares, as `counts_Noisy` or
+`option_unwrapOr$0r2bmpr`. The modules that could are counted over every item of the crate,
+the crates it translates, and std's that translate, whether or not translation reaches
+them, so reaching more renames no binding. A local is renamed `x_` only where its own
+function refers to a binding `x`. A `Copy` struct, enum, tuple,
 or array, or an `Option`, `Result`, or `Poll` holding one, is copied where Rust copies
 it, since JS would share the object: by a function of `lib.ts` made for its type, such
 as `copy$Point`, which copies what it holds by value and shares what it holds by
@@ -330,9 +338,12 @@ other as std's do, by their lengths and then each pair of items in order, throug
 items' own `PartialEq<U>`, and its `ne` where the crate overrides it, which a tuple's and
 an `Arc`'s `!=` call as well. What a composite holds compares, orders, and hashes through a
 reference or a `Box` as std's impls forward it, by what it points at, or by the crate's
-own impl on the reference or `Box` itself. A collection's reference to a byte array it holds, as `keys`,
-`HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a
-`&[u8; N]` is elsewhere; a `&mut` writes where the collection holds them. A `&mut` to a value a map holds that JS copies,
+own impl on the reference or `Box` itself. A reference std makes to a byte array it holds, as a
+collection's `keys`, `HashSet::get`, and `retain`'s closure, `Option::iter`,
+`slice::first`, and `filter`'s closure over `[u8; N]` items get one, is an `rt.ByteSlice`
+of its bytes, as a `&[u8; N]` is elsewhere; a `&mut` writes where std holds them. A
+`&[u8; N]` std was given and holds, as a `HashMap<&[u8; N], V>`'s keys, stays the slice it
+was, and `extend` by references to arrays copies each into its own `Uint8Array`. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, and hashes a key

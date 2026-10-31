@@ -3,12 +3,12 @@
 import * as rt from "./rt.ts";
 import { copy$Option_u64_u64, copy$Twin, copy$u8_u8 } from "./lib.ts";
 import { thenSome$1d6toqn } from "./core/bool.ts";
-import { mapOr$0cqaybi, mapOr$1w5qtj7, mapOr$0ucbp7g } from "./core/option.ts";
-import { mapOr$18ipla0 } from "./core/result.ts";
-import * as Noisy from "./locals.Noisy.ts";
-import type * as Polling from "./locals.Polling.ts";
-import type * as Twin from "./locals.Twin.ts";
-import { set$0st49po, get$1jdtkm4, get$1ei2eoj, take$09yi5f2, replace$0kxb7te, withBorrow$1qygtee, withBorrow$1k8k9m1, withBorrow$0r4ucls, withBorrow$1t1sbub, withBorrow$15ql9sa, take$1x34chv, take$122f15k, replace$0bb3zeq, replace$1xk72wn } from "./std/thread/local.ts";
+import { mapOr$0cqaybi as option_mapOr$0cqaybi, mapOr$1w5qtj7 as option_mapOr$1w5qtj7, mapOr$0ucbp7g as option_mapOr$0ucbp7g } from "./core/option.ts";
+import { mapOr$18ipla0 as result_mapOr$18ipla0 } from "./core/result.ts";
+import * as locals_Noisy from "./locals.Noisy.ts";
+import type * as locals_Polling from "./locals.Polling.ts";
+import type * as locals_Twin from "./locals.Twin.ts";
+import { set$0st49po as local_set$0st49po, get$1jdtkm4 as local_get$1jdtkm4, get$1ei2eoj as local_get$1ei2eoj, take$09yi5f2 as local_take$09yi5f2, replace$0kxb7te, withBorrow$1qygtee, withBorrow$1k8k9m1, withBorrow$0r4ucls, withBorrow$1t1sbub, withBorrow$15ql9sa, take$1x34chv as local_take$1x34chv, take$122f15k as local_take$122f15k, replace$0bb3zeq, replace$1xk72wn } from "./std/thread/local.ts";
 
 export const COUNT: rt.LocalKey<rt.Cell<rt.u32>> = /* @__PURE__ */ new rt.LocalKey(COUNT$init, false);
 
@@ -16,10 +16,10 @@ export function COUNT$init(): rt.Cell<rt.u32> {
 	return new rt.Cell(7);
 }
 
-export const HELD: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>> = /* @__PURE__ */ new rt.LocalKey(HELD$init, false);
+export const HELD: rt.LocalKey<rt.RefCell<locals_Noisy.Noisy | undefined>> = /* @__PURE__ */ new rt.LocalKey(HELD$init, false);
 
-export function HELD$init(): rt.RefCell<Noisy.Noisy | undefined> {
-	return new rt.RefCell(undefined as Noisy.Noisy | undefined);
+export function HELD$init(): rt.RefCell<locals_Noisy.Noisy | undefined> {
+	return new rt.RefCell(undefined as locals_Noisy.Noisy | undefined);
 }
 
 export const LOG: rt.LocalKey<rt.RefCell<rt.ByteVec>> = /* @__PURE__ */ new rt.LocalKey((): rt.RefCell<rt.ByteVec> => {
@@ -30,18 +30,18 @@ export function LOG$init(_1: undefined): rt.RefCell<rt.ByteVec> {
 	return new rt.RefCell(rt.byteVecFrom(Uint8Array.of(1, 2, 3)));
 }
 
-export const PAIRS: rt.LocalKey<rt.Cell<[Twin.Twin, Twin.Twin]>> = /* @__PURE__ */ new rt.LocalKey(PAIRS$init, false);
+export const PAIRS: rt.LocalKey<rt.Cell<[locals_Twin.Twin, locals_Twin.Twin]>> = /* @__PURE__ */ new rt.LocalKey(PAIRS$init, false);
 
-export function PAIRS$init(): rt.Cell<[Twin.Twin, Twin.Twin]> {
-	const x: Twin.Twin = { _0: 1, _1: 2 };
-	const y: Twin.Twin = copy$Twin(x);
+export function PAIRS$init(): rt.Cell<[locals_Twin.Twin, locals_Twin.Twin]> {
+	const x: locals_Twin.Twin = { _0: 1, _1: 2 };
+	const y: locals_Twin.Twin = copy$Twin(x);
 	x._0 = 3;
-	return new rt.Cell([copy$Twin(x), copy$Twin(y)] as [Twin.Twin, Twin.Twin]);
+	return new rt.Cell([copy$Twin(x), copy$Twin(y)] as [locals_Twin.Twin, locals_Twin.Twin]);
 }
 
-export const POLLING: rt.LocalKey<Polling.Polling> = /* @__PURE__ */ new rt.LocalKey(POLLING$init, false);
+export const POLLING: rt.LocalKey<locals_Polling.Polling> = /* @__PURE__ */ new rt.LocalKey(POLLING$init, false);
 
-export function POLLING$init(): Polling.Polling {
+export function POLLING$init(): locals_Polling.Polling {
 	return { current: new rt.Cell(undefined as [rt.u64, rt.u64] | undefined), held: new rt.RefCell(new rt.ByteVec()) };
 }
 
@@ -64,26 +64,26 @@ export function locals(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(withBorrow$1k8k9m1(LOG, (log2: rt.ByteVec): rt.ByteVec => {
 		return rt.byteVecFrom(rt.byteVecView(log2));
 	}))), undefined, true);
-	rt.byteVecPush(out, ((p: Polling.Polling): rt.u8 => {
-		return mapOr$0ucbp7g(copy$Option_u64_u64(p.current.v), 253, (_2: [rt.u64, rt.u64]): rt.u8 => {
+	rt.byteVecPush(out, ((p: locals_Polling.Polling): rt.u8 => {
+		return option_mapOr$0ucbp7g(copy$Option_u64_u64(p.current.v), 253, (_2: [rt.u64, rt.u64]): rt.u8 => {
 			return rt.u64Low(_2[0]) & 0xff;
 		});
 	})(POLLING.get()));
-	rt.byteVecPush(out, ((p2: Polling.Polling): rt.u8 => {
+	rt.byteVecPush(out, ((p2: locals_Polling.Polling): rt.u8 => {
 		const _64: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(p2.held);
 		const _05: rt.u8 = _64.value.length & 0xff;
 		rt.refRelease(_64);
 		return _05;
 	})(POLLING.get()));
-	rt.byteVecPush(out, withBorrow$1qygtee(HELD, (held: Noisy.Noisy | undefined): rt.u8 => {
-		return mapOr$0cqaybi(held, 253, (n: Noisy.Noisy): rt.u8 => {
+	rt.byteVecPush(out, withBorrow$1qygtee(HELD, (held: locals_Noisy.Noisy | undefined): rt.u8 => {
+		return option_mapOr$0cqaybi(held, 253, (n: locals_Noisy.Noisy): rt.u8 => {
 			return n.id;
 		});
 	}));
 	rt.byteVecPush(out, withBorrow$1t1sbub(TALLY, (tally: rt.u32): rt.u8 => {
 		return tally & 0xff;
 	}));
-	const _26: [Twin.Twin, Twin.Twin] = get$1jdtkm4(PAIRS);
+	const _26: [locals_Twin.Twin, locals_Twin.Twin] = local_get$1jdtkm4(PAIRS);
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_26[0]._0 & 0xff, _26[0]._1 & 0xff, _26[1]._0 & 0xff, _26[1]._1 & 0xff)), undefined, true);
 	rt.byteVecPush(out, serial(false));
 	const log: rt.Arc<rt.Mutex<rt.ByteVec>> = new rt.Arc(new rt.Mutex(new rt.ByteVec()));
@@ -103,7 +103,7 @@ export function locals(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.refMutRelease(_513);
 			})(LOG.get());
 		} else if (_46 === 2) {
-			rt.byteVecPush(out, mapOr$18ipla0(rt.Ok(((log6: rt.RefCell<rt.ByteVec>): rt.usize => {
+			rt.byteVecPush(out, result_mapOr$18ipla0(rt.Ok(((log6: rt.RefCell<rt.ByteVec>): rt.usize => {
 				const _512: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(log6);
 				const _020: rt.usize = _512.value.length;
 				rt.refRelease(_512);
@@ -123,11 +123,11 @@ export function locals(data: rt.ByteSlice, out: rt.ByteVec): void {
 				})(LOG.get());
 			})(COUNT.get()));
 		} else if (_46 === 4) {
-			const outer: [rt.u64, rt.u64] | undefined = ((p3: Polling.Polling): [rt.u64, rt.u64] | undefined => {
+			const outer: [rt.u64, rt.u64] | undefined = ((p3: locals_Polling.Polling): [rt.u64, rt.u64] | undefined => {
 				const _45: [rt.u64, rt.u64] | undefined = [op as rt.u64, 1];
 				return rt.cellReplace(p3.current, _45);
 			})(POLLING.get());
-			const len: rt.usize = ((p4: Polling.Polling): rt.usize => {
+			const len: rt.usize = ((p4: locals_Polling.Polling): rt.usize => {
 				const _611: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(p4.held);
 				rt.byteVecPush(_611.value, op);
 				rt.refMutRelease(_611);
@@ -136,26 +136,26 @@ export function locals(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.refRelease(_1110);
 				return _016;
 			})(POLLING.get());
-			rt.byteVecPush(out, mapOr$0ucbp7g(outer, 253, (_23: [rt.u64, rt.u64]): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$0ucbp7g(outer, 253, (_23: [rt.u64, rt.u64]): rt.u8 => {
 				return rt.u64Low(_23[0]) & 0xff;
 			}));
 			rt.byteVecPush(out, len & 0xff);
 		} else if (_46 === 5) {
-			((held3: rt.RefCell<Noisy.Noisy | undefined>): undefined => {
-				const _316: Noisy.Noisy | undefined = new Noisy.Noisy(op, rt.arcClone(log));
-				const _94: rt.RefCell<Noisy.Noisy | undefined> = rt.refCellBorrowMut(held3);
+			((held3: rt.RefCell<locals_Noisy.Noisy | undefined>): undefined => {
+				const _316: locals_Noisy.Noisy | undefined = new locals_Noisy.Noisy(op, rt.arcClone(log));
+				const _94: rt.RefCell<locals_Noisy.Noisy | undefined> = rt.refCellBorrowMut(held3);
 				rt.drop(_94.value);
 				_94.value = _316;
 				rt.refMutRelease(_94);
 			})(HELD.get());
 		} else if (_46 === 6) {
-			set$0st49po(COUNT, rt.u32WrappingMul(get$1ei2eoj(COUNT), 3));
+			local_set$0st49po(COUNT, rt.u32WrappingMul(local_get$1ei2eoj(COUNT), 3));
 			rt.byteVecPush(out, replace$0kxb7te(COUNT, op as rt.u32) & 0xff);
-			rt.byteVecPush(out, take$09yi5f2(COUNT) & 0xff);
-			set$0st49po(COUNT, rt.u32Add(op as rt.u32, 1));
-			const _103: [Twin.Twin, Twin.Twin] = get$1jdtkm4(PAIRS);
+			rt.byteVecPush(out, local_take$09yi5f2(COUNT) & 0xff);
+			local_set$0st49po(COUNT, rt.u32Add(op as rt.u32, 1));
+			const _103: [locals_Twin.Twin, locals_Twin.Twin] = local_get$1jdtkm4(PAIRS);
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_103[0]._0 & 0xff, _103[0]._1 & 0xff, _103[1]._0 & 0xff, _103[1]._1 & 0xff)), undefined, true);
-			rt.byteVecPush(out, mapOr$1w5qtj7(thenSome$1d6toqn(rt.u8Rem(op, 2) === 0, undefined), 253, (_22: undefined): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$1w5qtj7(thenSome$1d6toqn(rt.u8Rem(op, 2) === 0, undefined), 253, (_22: undefined): rt.u8 => {
 				return 1;
 			}));
 		} else if (_46 === 7) {
@@ -167,21 +167,21 @@ export function locals(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}));
 			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(replace$1xk72wn(LOG, rt.byteVecFrom(Uint8Array.of(op))))), undefined, true);
 			rt.localKeyRefCellSet(LOG, rt.byteVecFrom(Uint8Array.of(op, op)));
-			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(take$122f15k(LOG))), undefined, true);
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(local_take$122f15k(LOG))), undefined, true);
 			rt.localKeyRefCellSet(LOG, rt.byteVecFrom(Uint8Array.of(1, 2, 3)));
-			const _141: rt.LocalKey<rt.RefCell<Noisy.Noisy | undefined>> = HELD;
+			const _141: rt.LocalKey<rt.RefCell<locals_Noisy.Noisy | undefined>> = HELD;
 			const _144: rt.Arc<rt.Mutex<rt.ByteVec>> = rt.arcClone(log);
-			rt.localKeyRefCellSet(_141, new Noisy.Noisy(op, _144), rt.drop);
-			rt.localKeyWithBorrowMutPlace(HELD, (held2: rt.Place<Noisy.Noisy | undefined>): undefined => {
+			rt.localKeyRefCellSet(_141, new locals_Noisy.Noisy(op, _144), rt.drop);
+			rt.localKeyWithBorrowMutPlace(HELD, (held2: rt.Place<locals_Noisy.Noisy | undefined>): undefined => {
 				rt.drop(held2.v);
 				held2.v = undefined;
 			});
-			const old: Noisy.Noisy | undefined = replace$0bb3zeq(HELD, new Noisy.Noisy(rt.u8WrappingAdd(op, 1), rt.arcClone(log)));
-			rt.byteVecPush(out, mapOr$0cqaybi(old, 253, (n2: Noisy.Noisy): rt.u8 => {
+			const old: locals_Noisy.Noisy | undefined = replace$0bb3zeq(HELD, new locals_Noisy.Noisy(rt.u8WrappingAdd(op, 1), rt.arcClone(log)));
+			rt.byteVecPush(out, option_mapOr$0cqaybi(old, 253, (n2: locals_Noisy.Noisy): rt.u8 => {
 				return n2.id;
 			}));
 			rt.drop(old);
-			rt.byteVecPush(out, mapOr$0cqaybi(take$1x34chv(HELD), 253, (n3: Noisy.Noisy): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$0cqaybi(local_take$1x34chv(HELD), 253, (n3: locals_Noisy.Noisy): rt.u8 => {
 				const _012: rt.u8 = n3.id;
 				n3[Symbol.dispose]();
 				return _012;
@@ -218,17 +218,17 @@ export function locals(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecTruncate(_516.value, 3);
 		rt.refMutRelease(_516);
 	})(LOG.get());
-	((p5: Polling.Polling): undefined => {
+	((p5: locals_Polling.Polling): undefined => {
 		rt.cellSet(p5.current, undefined as [rt.u64, rt.u64] | undefined);
 		const _911: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(p5.held);
 		rt.byteVecClear(_911.value);
 		rt.refMutRelease(_911);
 	})(POLLING.get());
-	rt.drop(((held4: rt.RefCell<Noisy.Noisy | undefined>): Noisy.Noisy | undefined => {
-		const _518: rt.RefCell<Noisy.Noisy | undefined> = rt.refCellBorrowMut(held4);
+	rt.drop(((held4: rt.RefCell<locals_Noisy.Noisy | undefined>): locals_Noisy.Noisy | undefined => {
+		const _518: rt.RefCell<locals_Noisy.Noisy | undefined> = rt.refCellBorrowMut(held4);
 		const taken = _518.value;
 		_518.value = undefined;
-		const _022: Noisy.Noisy | undefined = taken;
+		const _022: locals_Noisy.Noisy | undefined = taken;
 		rt.refMutRelease(_518);
 		return _022;
 	})(HELD.get()));

@@ -112,6 +112,93 @@ pub struct Program {
 	pub bound: BTreeMap<ModPath, Bound>,
 	/// What `tsc` checks each binding against: a function of the check module each.
 	pub checks: Vec<Check>,
+	/// What import bindings avoid.
+	pub names: Names,
+}
+
+/// The census import bindings are chosen by: each name a module could declare at its top
+/// level, as far as its first `$`, as [`Program::name`] names the symbol, and every module
+/// of the crate graph that could, whether or not translation reaches it. An import binds
+/// by its plain name where no other module could declare one of it, so whether it does
+/// depends on the crate graph alone, as rustc's trimmed paths do.
+#[derive(Debug, Default)]
+pub struct Names(HashMap<String, BTreeMap<ModPath, ModPath>>);
+
+impl Names {
+	/// Note that `module` could declare `name`, which importers qualify by `path`.
+	pub fn declare(&mut self, name: &str, module: ModPath, path: ModPath) {
+		self.0.entry(root(name).to_string()).or_default().insert(module, path);
+	}
+
+	/// What an importer prefixes `name` from `module` with, after an `_`: the shortest end
+	/// of its module path no other module that could declare it shares, or `None` where no
+	/// other could. `always` qualifies it even so, where the importer declares the name
+	/// itself.
+	pub fn qualifier(&self, name: &str, module: &ModPath, always: bool) -> Result<Option<String>, String> {
+		let root = root(name);
+		let path = self
+			.0
+			.get(root)
+			.and_then(|modules| modules.get(module))
+			.ok_or_else(|| {
+				format!(
+					"the census of names misses `{name}`, which {} declares",
+					module_file(module).display()
+				)
+			})?;
+		let modules = &self.0[root];
+		if !always && modules.len() == 1 {
+			return Ok(None);
+		}
+		let others: Vec<&ModPath> = (modules.iter())
+			.filter(|(other, _)| *other != module)
+			.map(|(_, path)| path)
+			.collect();
+		let len = (1..path.len())
+			.find(|&len| (others.iter()).all(|other| *other == path || !other.ends_with(&path[path.len() - len..])))
+			.unwrap_or(path.len());
+		let mut qualifier = path[path.len() - len..].join("_");
+		// A type and a value of one Rust module, in their two namespaces: the type's module
+		// adds its name, as its file does.
+		if others.contains(&path) && module.last().is_some_and(|last| last.contains('.')) {
+			qualifier = format!("{qualifier}_{root}");
+		}
+		Ok(Some(qualifier))
+	}
+
+	/// Fail where two qualified bindings, or one and a plain name, would be one name, so
+	/// that no translation can bind two items alike.
+	pub fn check(&self) -> Result<(), String> {
+		let mut bindings: HashMap<String, &ModPath> = HashMap::new();
+		for (name, modules) in &self.0 {
+			for module in modules.keys() {
+				let Some(qualifier) = self.qualifier(name, module, false)? else {
+					continue;
+				};
+				let binding = format!("{qualifier}_{name}");
+				if self.0.contains_key(&binding) {
+					return Err(format!(
+						"`{name}` of {} would bind as `{binding}`, which is another item's name",
+						module_file(module).display()
+					));
+				}
+				if let Some(other) = bindings.insert(binding.clone(), module) {
+					return Err(format!(
+						"{} and {} would each bind an item as `{binding}`",
+						module_file(other).display(),
+						module_file(module).display()
+					));
+				}
+			}
+		}
+		Ok(())
+	}
+}
+
+/// A name as far as its first `$`, which the suffixes and numbers after it only tell apart
+/// within one module.
+pub fn root(name: &str) -> &str {
+	name.split('$').next().unwrap_or(name)
 }
 
 /// A binding's file, which callers import whole, as they do a type's module.
