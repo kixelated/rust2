@@ -1164,3 +1164,126 @@ pub fn written_through_loaded(n: u16) -> u16 {
 	};
 	unsafe { (*part).0 }
 }
+
+/// Structs JS keeps as objects, each holding an `rt.Cell`, one for each kind of whole
+/// write of a value that holds one, which gives it another cell, while a pointer to the
+/// cell, taken through a reference to the struct, may still be read.
+pub struct InArray(pub std::cell::UnsafeCell<u16>);
+
+pub struct InTuple(pub std::cell::UnsafeCell<u16>);
+
+pub struct InNested(pub std::cell::UnsafeCell<u16>);
+
+pub struct InPayload(pub std::cell::UnsafeCell<u16>);
+
+pub struct InField(pub std::cell::UnsafeCell<u16>);
+
+pub struct InGeneric(pub std::cell::UnsafeCell<u16>);
+
+pub struct InWritten(pub std::cell::UnsafeCell<u16>);
+
+pub struct Mid<T>(pub u16, pub T);
+
+pub struct Outer<T>(pub Mid<T>);
+
+fn array_part(held: &InArray) -> *mut u16 {
+	held.0.get()
+}
+
+fn tuple_part(held: &InTuple) -> *mut u16 {
+	held.0.get()
+}
+
+fn nested_part(held: &InNested) -> *mut u16 {
+	held.0.get()
+}
+
+fn payload_part(held: &InPayload) -> *mut u16 {
+	held.0.get()
+}
+
+fn field_part(held: &InField) -> *mut u16 {
+	held.0.get()
+}
+
+fn generic_part(held: &InGeneric) -> *mut u16 {
+	held.0.get()
+}
+
+fn written_part(held: &InWritten) -> *mut u16 {
+	held.0.get()
+}
+
+fn cell(n: u16) -> std::cell::UnsafeCell<u16> {
+	std::cell::UnsafeCell::new(n)
+}
+
+/// A whole array written, then a pointer into its element read.
+pub fn array_part_replaced(n: u16) -> u16 {
+	let mut whole = [InArray(cell(n)), InArray(cell(n))];
+	let p = &raw mut whole;
+	let part = array_part(unsafe { &(*p)[1] });
+	unsafe { *p = [InArray(cell(0)), InArray(cell(0))] };
+	unsafe { *part }
+}
+
+/// A whole tuple written, then a pointer into its element read.
+pub fn tuple_part_replaced(n: u16) -> u16 {
+	let mut whole = (n, InTuple(cell(n)));
+	let p = &raw mut whole;
+	let part = tuple_part(unsafe { &(*p).1 });
+	unsafe { *p = (0, InTuple(cell(0))) };
+	unsafe { *part }
+}
+
+/// A whole struct written, then a pointer into a struct its field holds read.
+pub fn nested_part_replaced(n: u16) -> u16 {
+	let mut whole = Outer(Mid(n, InNested(cell(n))));
+	let p = &raw mut whole;
+	let part = nested_part(unsafe { &(*p).0.1 });
+	unsafe { *p = Outer(Mid(0, InNested(cell(0)))) };
+	unsafe { *part }
+}
+
+/// A whole `Option` written, then a pointer into its payload read.
+pub fn payload_part_replaced(n: u16) -> u16 {
+	let mut whole = Some(InPayload(cell(n)));
+	let p = &raw mut whole;
+	let Some(held) = (unsafe { &*p }) else {
+		return 0;
+	};
+	let part = payload_part(held);
+	unsafe { *p = Some(InPayload(cell(0))) };
+	unsafe { *part }
+}
+
+/// A whole field written, then a pointer into a struct it holds read.
+pub fn field_part_replaced(n: u16) -> u16 {
+	let mut whole = Outer(Mid(n, InField(cell(n))));
+	let p = &raw mut whole;
+	let part = field_part(unsafe { &(*p).0.1 });
+	unsafe { (*p).0 = Mid(0, InField(cell(0))) };
+	unsafe { *part }
+}
+
+fn set<T>(slot: *mut T, value: T) {
+	unsafe { *slot = value }
+}
+
+/// A whole struct written by a generic body, then a pointer into a struct it holds read.
+pub fn generic_part_replaced(n: u16) -> u16 {
+	let mut whole = Outer(Mid(n, InGeneric(cell(n))));
+	let p = &raw mut whole;
+	let part = generic_part(unsafe { &(*p).0.1 });
+	set(p, Outer(Mid(0, InGeneric(cell(0)))));
+	unsafe { *part }
+}
+
+/// A whole array written by std, then a pointer into its element read.
+pub fn written_part_replaced(n: u16) -> u16 {
+	let mut whole = [InWritten(cell(n))];
+	let p = &raw mut whole;
+	let part = written_part(unsafe { &(*p)[0] });
+	unsafe { p.write([InWritten(cell(0))]) };
+	unsafe { *part }
+}
