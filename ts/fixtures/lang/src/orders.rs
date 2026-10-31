@@ -2,12 +2,13 @@
 //! `is_sorted` family, and `BinaryHeap`, of a type that logs each comparison std makes of
 //! it and each drop, so which tests run, in what order, which of equal values comes out,
 //! and when each value drops all show. Then byte arrays, slices, and vectors, by their
-//! bytes and then their length.
+//! bytes and then their length, and `Result`s, `Poll`s, and deques, by what they hold.
 
 use std::cell::RefCell;
 use std::cmp::{self, Ordering, Reverse};
 use std::collections::binary_heap::PeekMut;
-use std::collections::{BTreeMap, BinaryHeap};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
+use std::task::Poll;
 
 thread_local! {
 	static LOG: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
@@ -323,4 +324,158 @@ pub fn bytes(data: &[u8], out: &mut Vec<u8>) {
 	}
 	refs.sort();
 	out.extend(refs.iter().map(|(a, n)| a[0] ^ n));
+}
+
+/// Ordered by `PartialOrd` by its key, but not at all where either key is 7, and by `Ord`
+/// the other way, so which of the two std calls shows. Each comparison logs which it is and
+/// the two tags.
+struct Part {
+	key: u8,
+	tag: u8,
+}
+
+fn part(tag: usize, key: u8) -> Part {
+	Part {
+		key: key % 8,
+		tag: tag as u8,
+	}
+}
+
+impl PartialEq for Part {
+	fn eq(&self, other: &Self) -> bool {
+		log([b'=', self.tag, other.tag]);
+		self.key == other.key
+	}
+}
+
+impl Eq for Part {}
+
+impl PartialOrd for Part {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		log([b'p', self.tag, other.tag]);
+		match self.key == 7 || other.key == 7 {
+			true => None,
+			false => self.key.partial_cmp(&other.key),
+		}
+	}
+}
+
+impl Ord for Part {
+	fn cmp(&self, other: &Self) -> Ordering {
+		log([b'c', self.tag, other.tag]);
+		other.key.cmp(&self.key)
+	}
+}
+
+fn order(o: Option<Ordering>) -> u8 {
+	o.map_or(9, |o| o as i8 as u8)
+}
+
+/// A deque of `f` of each byte and its index: straight, or with its first half pushed to the
+/// front in reverse, so it wraps around its buffer.
+fn deque<T>(s: &[u8], wraps: bool, f: impl Fn(usize, u8) -> T) -> VecDeque<T> {
+	let at = if wraps { s.len() / 2 } else { 0 };
+	let (front, back) = s.split_at(at);
+	let mut d: VecDeque<T> = back.iter().enumerate().map(|(i, &b)| f(i + at, b)).collect();
+	for (i, &b) in front.iter().enumerate().rev() {
+		d.push_front(f(i, b));
+	}
+	d
+}
+
+/// `Result`s and `Poll`s, by variant, `Ok` before `Err` and `Ready` before `Pending`, and
+/// then by what each holds, and deques as sequences of their items, however each one's
+/// ring buffer wraps: of parts, which log where std stops, and of floats, whose NaN orders
+/// as nothing. Then each as a B-tree key.
+pub fn held(data: &[u8], out: &mut Vec<u8>) {
+	let result = |i: usize, b: u8| match b & 0x80 {
+		0 => Ok(part(i, b)),
+		_ => Err(part(i, b >> 3)),
+	};
+	let float = |b: u8| {
+		let x = if b % 5 == 0 { f64::NAN } else { f64::from(b % 4) };
+		if b & 1 == 0 { Ok(x) } else { Err(x) }
+	};
+	let poll = |b: u8| if b % 3 == 0 { Poll::Pending } else { Poll::Ready(b % 4) };
+	for (i, w) in data.windows(2).enumerate() {
+		let (a, b) = (result(2 * i, w[0]), result(2 * i + 1, w[1]));
+		out.extend([order(a.partial_cmp(&b)), a.cmp(&b) as i8 as u8]);
+		out.extend([a < b, a <= b, a > b, a >= b, a == b].map(u8::from));
+		out.extend([order(Some(&a).partial_cmp(&Some(&b))), order(Some((&a,).cmp(&(&b,))))]);
+		out.extend([[&a, &b] < [&b, &a], vec![&a] >= vec![&b]].map(u8::from));
+		flush(out);
+		let (x, y) = (float(w[0]), float(w[1]));
+		out.extend([order(x.partial_cmp(&y)), order(Some(x).partial_cmp(&Some(y)))]);
+		out.extend([x < y, x <= y, x > y, x >= y, x == y, (x, 1) < (y, 0)].map(u8::from));
+		let (p, q) = (poll(w[0]), poll(w[1]));
+		out.extend([
+			p.cmp(&q) as i8 as u8,
+			order(p.partial_cmp(&q)),
+			p.cmp(&Poll::Pending) as i8 as u8,
+		]);
+		out.extend([p < q, p >= q, p == q, q > Poll::Ready(2), Some(p) != Some(q)].map(u8::from));
+		out.push(order(Poll::Ready(x).partial_cmp(&Poll::Ready(y))));
+	}
+	// Each prefix, straight, against each suffix, wrapped: a shorter one that is a prefix of
+	// the other is less.
+	let cut = data.len().min(6);
+	for i in 0..=cut {
+		for j in 0..=cut {
+			let (d, e) = (
+				deque(&data[..i], false, part),
+				deque(&data[j..cut], true, |i, b| part(i + 50, b)),
+			);
+			out.extend([
+				order(d.partial_cmp(&e)),
+				d.cmp(&e) as i8 as u8,
+				order(e.partial_cmp(&d)),
+			]);
+			out.extend([d < e, d >= e, e > d, d == e].map(u8::from));
+			out.extend([
+				order(Some(&d).partial_cmp(&Some(&e))),
+				order(Some(vec![&e].cmp(&vec![&d]))),
+			]);
+			let floats = |d: &VecDeque<Part>| -> VecDeque<f64> {
+				d.iter()
+					.map(|p| if p.key == 7 { f64::NAN } else { f64::from(p.key) })
+					.collect()
+			};
+			out.push(order(floats(&d).partial_cmp(&floats(&e))));
+			let (r, s) = (Ok::<_, u8>(d), Err::<VecDeque<Part>, _>(e.len() as u8));
+			out.extend([order(r.partial_cmp(&s)), (r < s) as u8]);
+			flush(out);
+		}
+	}
+	// Keys whose comparisons log nothing, since how often a B-tree calls `Ord` is the runtime's.
+	let results: BTreeMap<Result<u8, i8>, usize> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &b)| (if b & 1 == 0 { Ok(b / 2 % 8) } else { Err(b as i8 >> 4) }, i))
+		.collect();
+	for (k, &i) in &results {
+		out.extend(match k {
+			Ok(v) => [0, *v, i as u8],
+			Err(e) => [1, *e as u8, i as u8],
+		});
+	}
+	out.extend(results.get(&Ok(3)).map(|&i| i as u8));
+	out.extend(results.get(&Err(-1)).map(|&i| i as u8));
+	let mut deques = BTreeMap::new();
+	for (i, c) in data.chunks(3).enumerate() {
+		let d = deque(c, i % 2 == 1, |_, b| b % 4);
+		let key = if c[0] & 1 == 0 { Ok(d) } else { Err(poll(c[0])) };
+		out.extend(deques.insert(key, i).map(|i| i as u8));
+	}
+	out.extend(deques.values().map(|&i| i as u8));
+	let probe = deque(&data[..data.len().min(3)], true, |_, b| b % 4);
+	out.push(deques.contains_key(&Ok(probe)) as u8);
+	let polls: BTreeSet<Poll<u8>> = data.iter().map(|&b| poll(b)).collect();
+	out.extend(polls.iter().map(|p| match p {
+		Poll::Ready(v) => *v,
+		Poll::Pending => 9,
+	}));
+	let mut sorted: Vec<Result<u8, i8>> = results.into_keys().rev().collect();
+	sorted.sort();
+	out.push(sorted.is_sorted() as u8);
+	out.extend(sorted.iter().max().map(|r| r.is_ok() as u8));
 }

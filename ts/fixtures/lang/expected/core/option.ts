@@ -398,6 +398,13 @@ export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices
 	return f(self);
 }
 
+export function map$0isl2bb(self: rt.Result<rt.u8, rt.i8> | undefined, f: (a0: rt.Result<rt.u8, rt.i8>) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1httady(self: string[] | undefined, f: (a0: string[]) => string): string | undefined {
 	if (self === undefined) {
 		return undefined;

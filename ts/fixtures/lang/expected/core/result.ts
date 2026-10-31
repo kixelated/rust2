@@ -11,7 +11,9 @@ import { eq$08q6k9m } from "../core/fmt.ts";
 import { eq$1nf2rde, eq$18sin5z } from "../core/num/error.ts";
 import { eq$1horntk } from "../core/num/float_parse.ts";
 import { eq$1v93ipo, eq$1f3e51k } from "../core/str/error.ts";
+import { cmp$175ka5q } from "../core/task/poll.ts";
 import { eq$0dhyfbb } from "../core/time.ts";
+import * as Part from "../orders.Part.ts";
 
 export function eq$07tp3i1(self: rt.Result<ByRef.ByRef, rt.u8>, other: rt.Result<ByRef.ByRef, rt.u8>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
@@ -63,6 +65,16 @@ export function eq$04qb8k3(self: rt.Result<rt.u8 | undefined, rt.ParseIntError>,
 	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
+export function eq$1h4guz2(self: rt.Result<Part.Part, Part.Part>, other: rt.Result<Part.Part, Part.Part>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return Part.eq$PartialEq(self.value, (other as { ok: true; value: Part.Part }).value);
+	}
+	return Part.eq$PartialEq(self.error, (other as { ok: false; error: Part.Part }).error);
+}
+
 export function eq$10fppe8(self: rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError>, other: rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
 		return false;
@@ -111,6 +123,16 @@ export function eq$1dhtbkj(self: rt.Result<rt.f64, rt.ParseFloatError>, other: r
 		return self.value === (other as { ok: true; value: rt.f64 }).value;
 	}
 	return eq$1horntk(self.error, (other as { ok: false; error: rt.ParseFloatError }).error);
+}
+
+export function eq$15zrpyn(self: rt.Result<rt.f64, rt.f64>, other: rt.Result<rt.f64, rt.f64>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return self.value === (other as { ok: true; value: rt.f64 }).value;
+	}
+	return self.error === (other as { ok: false; error: rt.f64 }).error;
 }
 
 export function eq$0pe0qmq(self: rt.Result<rt.i128, rt.ParseIntError>, other: rt.Result<rt.i128, rt.ParseIntError>): boolean {
@@ -311,6 +333,83 @@ export function eq$1xhgva4(self: rt.Result<rt.usize, never>, other: rt.Result<rt
 		return self.value === (other as { ok: true; value: rt.usize }).value;
 	}
 	return true;
+}
+
+export function partialCmp$0dsnz8b(self: rt.Result<Part.Part, Part.Part>, other: rt.Result<Part.Part, Part.Part>): rt.Ordering | undefined {
+	if (self.ok) {
+		if (other.ok) {
+			return Part.partialCmp$PartialOrd(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return Part.partialCmp$PartialOrd(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
+export function partialCmp$0jw1zrl(self: rt.Result<rt.VecDeque<Part.Part>, rt.u8>, other: rt.Result<rt.VecDeque<Part.Part>, rt.u8>): rt.Ordering | undefined {
+	if (self.ok) {
+		if (other.ok) {
+			return rt.cmpDeque(Part.partialCmp$PartialOrd)(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return rt.cmp(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
+export function partialCmp$0v2kxbo(self: rt.Result<rt.f64, rt.f64>, other: rt.Result<rt.f64, rt.f64>): rt.Ordering | undefined {
+	if (self.ok) {
+		if (other.ok) {
+			return rt.f64PartialCmp(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return rt.f64PartialCmp(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
+export function partialCmp$0hea5es(self: rt.Result<rt.u8, rt.i8>, other: rt.Result<rt.u8, rt.i8>): rt.Ordering | undefined {
+	if (self.ok) {
+		if (other.ok) {
+			return rt.cmp(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return rt.cmp(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
+export function cmp$16nxczk(self: rt.Result<Part.Part, Part.Part>, other: rt.Result<Part.Part, Part.Part>): rt.Ordering {
+	if (self.ok) {
+		if (other.ok) {
+			return Part.cmp$Ord(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return Part.cmp$Ord(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
+export function cmp$0nb553d(self: rt.Result<rt.VecDeque<rt.u8>, rt.Poll<rt.u8>>, other: rt.Result<rt.VecDeque<rt.u8>, rt.Poll<rt.u8>>): rt.Ordering {
+	if (self.ok) {
+		if (other.ok) {
+			return rt.cmpDeque(rt.cmp)(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return cmp$175ka5q(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
+export function cmp$06akmd5(self: rt.Result<rt.u8, rt.i8>, other: rt.Result<rt.u8, rt.i8>): rt.Ordering {
+	if (self.ok) {
+		if (other.ok) {
+			return rt.cmp(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return rt.cmp(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
 }
 
 export function isOkAnd$0jj0nkw(self: rt.Result<rt.u8, rt.u16>, f: (a0: rt.u8) => boolean): boolean {

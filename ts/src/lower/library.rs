@@ -641,7 +641,8 @@ pub fn inherent_std(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Std> {
 
 /// Whether std's `instance` lowers from its own MIR, as the crate's functions do, rather
 /// than mapping here: a method of `bool`, `Option`, `Result`, `Poll`, or `LocalKey`, or
-/// their `Clone`, or the derived `PartialEq::eq` of a `Result` or of one of std's errors,
+/// their `Clone`, or the derived `PartialEq::eq` of a `Result`, a `Poll`, or one of std's
+/// errors, or a `Result`'s or a `Poll`'s derived `PartialOrd::partial_cmp` and `Ord::cmp`,
 /// or `cmp`'s `max` and `min` and their `_by` and `_by_key` forms, or what
 /// parses an integer, a `NonZero`, or a `bool`: `str::parse` of one, its `FromStr`,
 /// `from_str_radix`, and what they call, `char::to_digit` and the radix's panic among it.
@@ -724,9 +725,18 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return false;
 	}
 	if let Some(tr) = tcx.trait_impl_of_assoc(did).map(|imp| tcx.impl_trait_id(imp)) {
-		// `Result`'s derived `PartialEq`, which compares what each holds by its own.
-		if std == Some(Std::Result) && tcx.is_lang_item(tr, rustc_attr_ir::LangItem::PartialEq) {
-			return name == rustc_span::sym::eq;
+		// A `Result`'s or a `Poll`'s derived `PartialEq`, `PartialOrd`, and `Ord`, which compare
+		// by variant and then what each holds by its own.
+		if matches!(std, Some(Std::Result | Std::Poll)) {
+			if tcx.is_lang_item(tr, rustc_attr_ir::LangItem::PartialEq) {
+				return name == rustc_span::sym::eq;
+			}
+			if tcx.is_lang_item(tr, rustc_attr_ir::LangItem::PartialOrd) {
+				return name == rustc_span::sym::partial_cmp;
+			}
+			if tcx.is_diagnostic_item(rustc_span::sym::Ord, tr) {
+				return name == rustc_span::sym::cmp;
+			}
 		}
 		// A `Clone` that only copies is the copy.
 		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)

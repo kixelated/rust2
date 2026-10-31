@@ -3770,7 +3770,7 @@ export function unlikeEqs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 	putEq(rt.eqSeq(rt.same)(wide_, wrapped), log, out);
 	const _366: rt.VecDeque<rt.u16>[] = [rt.dequeClone(wide_, undefined)];
 	const _371: rt.VecDeque<rt.u16>[] = [wrapped];
-	putEq(rt.eqSeq(rt.eqSeq(rt.same))(_366, _371), log, out);
+	putEq(rt.eqSlice(rt.eqSeq(rt.same))(_366, _371), log, out);
 	const it: rt.Peekable<Left.Left[]> = rt.iterPeekable(rt.iterSlice([lefts(), lefts(), lefts()]));
 	const exact: Right.Right[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_29: rt.u8): Right.Right => {
 		return { _0: _29 as rt.u16 };
