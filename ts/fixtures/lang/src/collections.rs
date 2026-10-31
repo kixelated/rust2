@@ -1613,6 +1613,11 @@ fn put_order(order: Option<Ordering>, log: &std::cell::Cell<u16>, out: &mut Vec<
 	out.extend(log.replace(0).to_le_bytes());
 }
 
+fn put_cmp(order: Ordering, log: &std::cell::Cell<u16>, out: &mut Vec<u8>) {
+	out.push(order as i8 as u8);
+	out.extend(log.replace(0).to_le_bytes());
+}
+
 /// Each of `PartialEq`'s, `PartialOrd`'s, and `Ord`'s comparisons of `$a` and `$b`.
 macro_rules! compared {
 	($a:expr, $b:expr, $log:expr, $out:expr) => {{
@@ -1623,7 +1628,7 @@ macro_rules! compared {
 		put_eq($a > $b, $log, $out);
 		put_eq($a >= $b, $log, $out);
 		put_order($a.partial_cmp(&$b), $log, $out);
-		put_order(Some($a.cmp(&$b)), $log, $out);
+		put_cmp($a.cmp(&$b), $log, $out);
 	}};
 }
 
@@ -1923,41 +1928,38 @@ pub fn ref_orders(_kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	fn order_byte(o: Option<Ordering>) -> u8 {
 		o.map_or(9, |o| o as i8 as u8)
 	}
+	fn cmp_byte(o: Ordering) -> u8 {
+		o as i8 as u8
+	}
 	macro_rules! composites {
 		($a:expr, $b:expr, $out:expr) => {{
 			let (a, b, out): (_, _, &mut Vec<u8>) = ($a, $b, $out);
 			out.extend([(a,) == (b,), (a,) != (b,), (a,) < (b,), (7u8, a) >= (7, b)].map(u8::from));
-			out.extend(
-				[
-					(a,).partial_cmp(&(b,)),
-					Some((a,).cmp(&(b,))),
-					Some((7u8, a).cmp(&(7, b))),
-				]
-				.map(order_byte),
-			);
-			out.extend([Some(a).partial_cmp(&Some(b)), Some(Some(a).cmp(&Some(b)))].map(order_byte));
+			out.push(order_byte((a,).partial_cmp(&(b,))));
+			out.extend([(a,).cmp(&(b,)), (7u8, a).cmp(&(7, b))].map(cmp_byte));
+			out.extend([
+				order_byte(Some(a).partial_cmp(&Some(b))),
+				cmp_byte(Some(a).cmp(&Some(b))),
+			]);
 			out.extend([Some(a) == Some(b), Some(a) < Some(b)].map(u8::from));
 			out.push(u8::from(Ok::<_, u8>(a) == Ok(b)));
-			out.extend(
-				[
-					[a, b][..].partial_cmp(&[b, a][..]),
-					Some([a, b].cmp(&[b, a])),
-					Some(vec![a].cmp(&vec![b])),
-				]
-				.map(order_byte),
-			);
+			out.push(order_byte([a, b][..].partial_cmp(&[b, a][..])));
+			out.extend([[a, b].cmp(&[b, a]), vec![a].cmp(&vec![b])].map(cmp_byte));
 			out.extend([[a, b] == [b, a], [a][..] < [b][..], vec![a, b] != vec![b, a]].map(u8::from));
 			out.push(u8::from(VecDeque::from([a, b]) == VecDeque::from([b, a])));
-			out.extend([Reverse(a).partial_cmp(&Reverse(b)), Some(Reverse(a).cmp(&Reverse(b)))].map(order_byte));
-			out.extend(
-				[
-					Cell::new(a).partial_cmp(&Cell::new(b)),
-					Some(RefCell::new(a).cmp(&RefCell::new(b))),
-				]
-				.map(order_byte),
-			);
+			out.extend([
+				order_byte(Reverse(a).partial_cmp(&Reverse(b))),
+				cmp_byte(Reverse(a).cmp(&Reverse(b))),
+			]);
+			out.extend([
+				order_byte(Cell::new(a).partial_cmp(&Cell::new(b))),
+				cmp_byte(RefCell::new(a).cmp(&RefCell::new(b))),
+			]);
 			out.extend([Cell::new(a) == Cell::new(b), RefCell::new(a) < RefCell::new(b)].map(u8::from));
-			out.extend([[a, b].iter().partial_cmp([b, a].iter()), Some([a].into_iter().cmp([b]))].map(order_byte));
+			out.extend([
+				order_byte([a, b].iter().partial_cmp([b, a].iter())),
+				cmp_byte([a].into_iter().cmp([b])),
+			]);
 			out.extend(
 				[
 					[a, b].into_iter().eq([b, a]),
@@ -1967,15 +1969,8 @@ pub fn ref_orders(_kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				.map(u8::from),
 			);
 			out.extend([a == b, a != b, a < b, a >= b, &a == &b, &a > &b].map(u8::from));
-			out.extend(
-				[
-					a.partial_cmp(&b),
-					Some(a.cmp(&b)),
-					(&a).partial_cmp(&&b),
-					Some((&a).cmp(&&b)),
-				]
-				.map(order_byte),
-			);
+			out.extend([a.partial_cmp(&b), (&a).partial_cmp(&&b)].map(order_byte));
+			out.extend([a.cmp(&b), (&a).cmp(&&b)].map(cmp_byte));
 			out.extend([a.max(b).0, a.min(b).0, (&a).max(&b).0, a.clamp(b, b).0].map(|v| v as u8));
 			out.extend(hashed(a));
 			out.extend(hashed(&a));
@@ -2029,20 +2024,13 @@ pub fn ref_orders(_kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		let (a, b) = (&mixed[i], &mixed[j]);
 		out.extend([(a,) < (b,), Some(a) <= Some(b), [a] == [b], vec![a] < vec![b]].map(u8::from));
 		let orders = [
-			Some((a,).cmp(&(b,))),
-			Some(Some(a).cmp(&Some(b))),
-			Some([a].cmp(&[b])),
-			Some(Reverse(a).cmp(&Reverse(b))),
+			(a,).cmp(&(b,)),
+			Some(a).cmp(&Some(b)),
+			[a].cmp(&[b]),
+			Reverse(a).cmp(&Reverse(b)),
 		];
-		out.extend(orders.map(order_byte));
-		out.extend(
-			[
-				Some((&a,).cmp(&(&b,))),
-				Some([a].into_iter().cmp([b])),
-				Some([a].iter().cmp([b].iter())),
-			]
-			.map(order_byte),
-		);
+		out.extend(orders.map(cmp_byte));
+		out.extend([(&a,).cmp(&(&b,)), [a].into_iter().cmp([b]), [a].iter().cmp([b].iter())].map(cmp_byte));
 		out.extend(hashed((a,)));
 		out.extend(hashed([&a]));
 		let (a, b) = (Box::new(Boxed(data[i].into())), Box::new(Boxed(data[j].into())));

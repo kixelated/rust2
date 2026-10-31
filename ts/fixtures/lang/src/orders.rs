@@ -2,7 +2,8 @@
 //! `is_sorted` family, and `BinaryHeap`, of a type that logs each comparison std makes of
 //! it and each drop, so which tests run, in what order, which of equal values comes out,
 //! and when each value drops all show. Then byte arrays, slices, and vectors, by their
-//! bytes and then their length, and `Result`s, `Poll`s, and deques, by what they hold.
+//! bytes and then their length, `Result`s, `Poll`s, and deques, by what they hold, and
+//! tuples, by their fields.
 
 use std::cell::RefCell;
 use std::cmp::{self, Ordering, Reverse};
@@ -367,6 +368,68 @@ impl Ord for Part {
 	}
 }
 
+/// Tuples by their fields in order, of `Part`s beside integers, vectors, and floats, which
+/// order as nothing at NaN: of one field, two, and twelve, through a generic function, as
+/// an array's, a vector's, an `Option`'s, a `Result`'s, and a `Reverse`'s, by `max`,
+/// `min`, `clamp`, and their `_by` forms, and as `sort_by` orders them, whose comparisons
+/// are the runtime's own.
+pub fn tuples(data: &[u8], out: &mut Vec<u8>) {
+	fn ranked<T: Ord>(a: &(&Part, T), b: &(&Part, T)) -> Ordering {
+		a.cmp(b)
+	}
+	let float = |b: u8| if b % 5 == 0 { f64::NAN } else { f64::from(b % 4) };
+	let parts: Vec<Part> = data.iter().enumerate().map(|(i, &b)| part(i, b)).collect();
+	for (i, w) in data.windows(2).enumerate() {
+		let (a, b) = (&parts[i], &parts[i + 1]);
+		let (x, y) = (w[0] % 3, w[1] % 3);
+		let orders = [
+			(a,).cmp(&(b,)),
+			(a, x).cmp(&(b, y)),
+			(x, a).cmp(&(y, b)),
+			ranked(&(a, x), &(b, y)),
+			ranked(&(a, vec![x]), &(b, vec![y])),
+		];
+		out.extend(orders.map(|o| o as i8 as u8));
+		flush(out);
+		let s = (x, 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, a);
+		let t = (y, 0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8, 8u8, 9u8, b);
+		out.extend([s.cmp(&t) as i8 as u8, order(s.partial_cmp(&t)), u8::from(s < t)]);
+		flush(out);
+		let (fx, fy) = (float(w[0]), float(w[1]));
+		out.extend([
+			order((a, fx).partial_cmp(&(b, fy))),
+			order((fx, a).partial_cmp(&(fy, b))),
+			order((x, fx).partial_cmp(&(y, fy))),
+		]);
+		out.extend([(a, fx) < (b, fy), (fx, x) >= (fy, y)].map(u8::from));
+		flush(out);
+		let orders = [
+			[(a, x)].cmp(&[(b, y)]),
+			vec![(x, a)].cmp(&vec![(y, b)]),
+			Some((a, x)).cmp(&Some((b, y))),
+			Ok::<_, u8>((a,)).cmp(&Ok((b,))),
+			Reverse((a, x)).cmp(&Reverse((b, y))),
+		];
+		out.extend(orders.map(|o| o as i8 as u8));
+		flush(out);
+		let (max, min) = ((a, x).max((b, y)), (x, a).min((y, b)));
+		let clamped = (x, a).clamp((0, b), (2, b));
+		out.extend([max.0.tag, max.1, min.0, min.1.tag, clamped.0, clamped.1.tag]);
+		flush(out);
+		let total = |p: &(f64, u8), q: &(f64, u8)| p.partial_cmp(q).unwrap_or(Ordering::Less);
+		let (p, q) = ((fx, x), (fy, y));
+		let by = [cmp::max_by(p, q, total), cmp::min_by(p, q, total)];
+		out.extend(by.iter().flat_map(|&(f, n)| [if f.is_nan() { 9 } else { f as u8 }, n]));
+	}
+	let mut pairs: Vec<(u8, &Part)> = parts.iter().map(|p| (p.tag % 3, p)).collect();
+	pairs.sort_by(|p, q| (p.0, p.1).cmp(&(q.0, q.1)));
+	out.extend(pairs.iter().map(|p| p.1.tag));
+	LOG.with_borrow_mut(Vec::clear);
+	let mut floats: Vec<(f64, u8)> = data.iter().map(|&b| (f64::from(b % 4), b)).collect();
+	floats.sort_by(|p, q| p.partial_cmp(q).expect("no NaN"));
+	out.extend(floats.iter().map(|p| p.1));
+}
+
 fn order(o: Option<Ordering>) -> u8 {
 	o.map_or(9, |o| o as i8 as u8)
 }
@@ -401,7 +464,7 @@ pub fn held(data: &[u8], out: &mut Vec<u8>) {
 		let (a, b) = (result(2 * i, w[0]), result(2 * i + 1, w[1]));
 		out.extend([order(a.partial_cmp(&b)), a.cmp(&b) as i8 as u8]);
 		out.extend([a < b, a <= b, a > b, a >= b, a == b].map(u8::from));
-		out.extend([order(Some(&a).partial_cmp(&Some(&b))), order(Some((&a,).cmp(&(&b,))))]);
+		out.extend([order(Some(&a).partial_cmp(&Some(&b))), (&a,).cmp(&(&b,)) as i8 as u8]);
 		out.extend([[&a, &b] < [&b, &a], vec![&a] >= vec![&b]].map(u8::from));
 		flush(out);
 		let (x, y) = (float(w[0]), float(w[1]));
@@ -433,7 +496,7 @@ pub fn held(data: &[u8], out: &mut Vec<u8>) {
 			out.extend([d < e, d >= e, e > d, d == e].map(u8::from));
 			out.extend([
 				order(Some(&d).partial_cmp(&Some(&e))),
-				order(Some(vec![&e].cmp(&vec![&d]))),
+				vec![&e].cmp(&vec![&d]) as i8 as u8,
 			]);
 			let floats = |d: &VecDeque<Part>| -> VecDeque<f64> {
 				d.iter()

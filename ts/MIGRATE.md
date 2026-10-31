@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `rt.cmpTuple` takes the tuple type it compares and what it returns, `rt.Ordering` for
+  `Ord::cmp` or `rt.Ordering | undefined` for `PartialOrd::partial_cmp`, as type
+  arguments, as in `rt.cmpTuple<[rt.u8, Key], rt.Ordering>([rt.cmp, Key.cmp$cmp_Ord])`.
+
 - An instance's suffix spells each type, trait, and closure by its path, the crate's own
   by its module path, a dependency's under its crate, and std's by its public path
   without a module its item repeats; `&` as `ref`, `&mut` as `mut`, and a slice, array,

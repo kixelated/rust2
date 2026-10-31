@@ -166,7 +166,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const a2: rt.u16 = _218[0];
 			const b7: rt.u16 = _218[1];
 			return [rt.u16Rem(b7, 3), a2, b7] as [rt.u16, rt.u16, rt.u16];
-		}, rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
+		}, rt.cmpLt(rt.cmpTuple<[rt.u16, rt.u16, rt.u16], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])));
 		for (const _205 of pairs2) {
 			putU16s(out, [_205[0], _205[1]]);
 		}
@@ -266,10 +266,10 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		fmt_put(out, copy[0]);
 		const _470: [rt.u8, string] = [copy[1], copy[0]];
 		const _474: [rt.u8, string] = [at(1), pair[0]];
-		rt.byteVecPush(out, rt.cmpTuple([rt.cmp, rt.cmpStr])(_470, _474) === 1 ? 1 : 0);
+		rt.byteVecPush(out, rt.cmpTuple<[rt.u8, string], rt.Ordering | undefined>([rt.cmp, rt.cmpStr])(_470, _474) === 1 ? 1 : 0);
 		const _483: [rt.u8, rt.u8] = [at(0), at(1)];
 		const _491: [rt.u8, rt.u8] = [at(1), at(0)];
-		rt.byteVecPush(out, rt.cmpTuple([rt.cmp, rt.cmp])(_483, _491) === -1 ? 1 : 0);
+		rt.byteVecPush(out, rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])(_483, _491) === -1 ? 1 : 0);
 		const grown: rt.u16[] = words.slice();
 		rt.vecExtendFromSlice(grown, words);
 		putU16s(out, grown);
