@@ -383,6 +383,86 @@ export function partsRemainder<S>(parts: Iter<S>): S {
 	return (parts as PartsIter<S>).remainder();
 }
 
+/** `slice::split`: the parts between the elements `f` is true of, the empty ones too. */
+export function sliceSplit<T>(s: T[], f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceCopy, f, false, false);
+}
+
+/** `slice::split_mut`: as `split`, but each part a view of `s` that writes through to it. */
+export function sliceSplitMut<T>(s: T[], f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceView, f, false, false);
+}
+
+/** `slice::rsplit`: `split` from the back. */
+export function sliceRsplit<T>(s: T[], f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceCopy, f, true, false);
+}
+
+/** `slice::rsplit_mut`. */
+export function sliceRsplitMut<T>(s: T[], f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceView, f, true, false);
+}
+
+/** `slice::split_inclusive`: as `split`, but each part ends with its separator. */
+export function sliceSplitInclusive<T>(s: T[], f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceCopy, f, false, true);
+}
+
+/** `slice::split_inclusive_mut`. */
+export function sliceSplitInclusiveMut<T>(s: T[], f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceView, f, false, true);
+}
+
+/** `slice::splitn`: `split`, but the `n`th part all that is left. */
+export function sliceSplitn<T>(s: T[], n: number, f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceCopy, f, false, false, n);
+}
+
+/** `slice::splitn_mut`. */
+export function sliceSplitnMut<T>(s: T[], n: number, f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceView, f, false, false, n);
+}
+
+/** `slice::rsplitn`: `rsplit`, but the `n`th part all that is left. */
+export function sliceRsplitn<T>(s: T[], n: number, f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceCopy, f, true, false, n);
+}
+
+/** `slice::rsplitn_mut`. */
+export function sliceRsplitnMut<T>(s: T[], n: number, f: (item: T) => boolean): Iter<T[]> {
+	return new SplitIter(s, s, 0, sliceView, f, true, false, n);
+}
+
+/** `slice::split` and `split_mut` of bytes, whose parts are views already. */
+export function byteSliceSplit(s: ByteSlice, f: (byte: number) => boolean): Iter<ByteSlice> {
+	return new SplitIter(s, s.data, s.start, byteSlicePart, f, false, false);
+}
+
+/** `slice::rsplit` and `rsplit_mut` of bytes. */
+export function byteSliceRsplit(s: ByteSlice, f: (byte: number) => boolean): Iter<ByteSlice> {
+	return new SplitIter(s, s.data, s.start, byteSlicePart, f, true, false);
+}
+
+/** `slice::split_inclusive` and `split_inclusive_mut` of bytes. */
+export function byteSliceSplitInclusive(s: ByteSlice, f: (byte: number) => boolean): Iter<ByteSlice> {
+	return new SplitIter(s, s.data, s.start, byteSlicePart, f, false, true);
+}
+
+/** `slice::splitn` and `splitn_mut` of bytes. */
+export function byteSliceSplitn(s: ByteSlice, n: number, f: (byte: number) => boolean): Iter<ByteSlice> {
+	return new SplitIter(s, s.data, s.start, byteSlicePart, f, false, false, n);
+}
+
+/** `slice::rsplitn` and `rsplitn_mut` of bytes. */
+export function byteSliceRsplitn(s: ByteSlice, n: number, f: (byte: number) => boolean): Iter<ByteSlice> {
+	return new SplitIter(s, s.data, s.start, byteSlicePart, f, true, false, n);
+}
+
+/** `slice::Split::as_slice`: what is left to split, or nothing once it is done. */
+export function splitAsSlice<S>(parts: Iter<S>): S {
+	return (parts as SplitIter<S, unknown>).asSlice();
+}
+
 /** `size` elements at a time, all of them or `exact`ly so, from the back if `rev`. */
 function chunks<S>(s: S, length: number, size: number, exact: boolean, rev: boolean, part: (s: S, start: number, end: number) => S): Iter<S> {
 	if (size === 0) panic("chunk size must be non-zero");
@@ -1596,6 +1676,127 @@ class PartsIter<S> extends Iter<S> {
 		const step = Math.min(n, this.back - this.front);
 		this.back -= step;
 		return n - step;
+	}
+}
+
+/**
+ * `slice::Split` and its forms of `s`, whose elements `items` holds from `offset`: the
+ * parts between the elements `f` is true of, as `part` slices them, read as std's are.
+ * Each read searches what is left from its end, calling `f` on each element in turn up to
+ * the first it is true of, and keeps what it passed by in the part. A part found from the
+ * back of a `split_inclusive` ends with an element the search leaves out, so a read from
+ * the front may call `f` on it again, as std's does.
+ */
+class SplitIter<S, T> extends Iter<S> implements Disposable {
+	readonly #s: S;
+	readonly #items: ArrayLike<T>;
+	readonly #offset: number;
+	readonly #part: (s: S, start: number, end: number) => S;
+	readonly #f: (item: T) => boolean;
+	/** Whether `next` reads from the back, as `rsplit`'s does. */
+	readonly #rev: boolean;
+	/** Whether each part ends with its separator, as `split_inclusive`'s does. */
+	readonly #inclusive: boolean;
+	/** How many more parts a `splitn` yields, the last of them all that is left. */
+	#count: number | undefined;
+	/** What is left to split: `s[start..end]`. */
+	#start = 0;
+	#end: number;
+	#finished: boolean;
+	#dropped = false;
+
+	constructor(s: S, items: ArrayLike<T>, offset: number, part: (s: S, start: number, end: number) => S, f: (item: T) => boolean, rev: boolean, inclusive: boolean, count?: number) {
+		super();
+		this.#s = s;
+		this.#items = items;
+		this.#offset = offset;
+		this.#part = part;
+		this.#f = f;
+		this.#rev = rev;
+		this.#inclusive = inclusive;
+		this.#count = count;
+		this.#end = (s as { length: number }).length;
+		// An empty slice has no part to include a separator in.
+		this.#finished = inclusive && this.#end === 0;
+	}
+
+	override clone(h?: Clones): Iter<S> {
+		const it = new SplitIter(this.#s, this.#items, this.#offset, this.#part, cloned(this.#f, h?.f), this.#rev, this.#inclusive, this.#count);
+		it.#start = this.#start;
+		it.#end = this.#end;
+		it.#finished = this.#finished;
+		return it;
+	}
+
+	next(): S | Done {
+		if (this.#count !== undefined) {
+			if (this.#count === 0) return DONE;
+			if (this.#count-- === 1) return this.#finish();
+		}
+		return this.#rev ? this.#back() : this.#front();
+	}
+
+	override nextBack(): S | Done {
+		return this.#rev ? this.#front() : this.#back();
+	}
+
+	override sizeHint(): SizeHint {
+		const left = this.#end - this.#start;
+		// No separator yields one part, and all of them one more than there are elements.
+		const upper = this.#inclusive ? Math.max(1, left) : left + 1;
+		const [lower, most]: SizeHint = this.#finished ? [0, 0] : [1, upper];
+		const n = this.#count;
+		return n === undefined ? [lower, most] : [Math.min(n, lower), Math.min(n, most as number)];
+	}
+
+	/** What is left to split, or nothing once the last part is taken. */
+	asSlice(): S {
+		return this.#part(this.#s, this.#start, this.#finished ? this.#start : this.#end);
+	}
+
+	/** The rest, as the last part. */
+	#finish(): S | Done {
+		if (this.#finished) return DONE;
+		this.#finished = true;
+		return this.#part(this.#s, this.#start, this.#end);
+	}
+
+	#front(): S | Done {
+		if (this.#finished) return DONE;
+		const start = this.#start;
+		let i = start;
+		while (i < this.#end && !this.#f(this.#items[this.#offset + i])) i++;
+		if (this.#inclusive) {
+			const end = Math.min(i + 1, this.#end);
+			if (end === this.#end) this.#finished = true;
+			this.#start = end;
+			return this.#part(this.#s, start, end);
+		}
+		if (i === this.#end) return this.#finish();
+		this.#start = i + 1;
+		return this.#part(this.#s, start, i);
+	}
+
+	#back(): S | Done {
+		if (this.#finished) return DONE;
+		const end = this.#end;
+		// The last element ends an inclusive part whether it is a separator or not.
+		let i = this.#inclusive ? Math.max(end - 1, this.#start) : end;
+		while (i > this.#start && !this.#f(this.#items[this.#offset + i - 1])) i--;
+		if (this.#inclusive) {
+			if (i === this.#start) this.#finished = true;
+			this.#end = i;
+			return this.#part(this.#s, i, end);
+		}
+		if (i === this.#start) return this.#finish();
+		this.#end = i - 1;
+		return this.#part(this.#s, i, end);
+	}
+
+	[Symbol.dispose](): void {
+		if (this.#dropped) return;
+		this.#dropped = true;
+		dispose(this.#f);
 	}
 }
 

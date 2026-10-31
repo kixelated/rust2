@@ -12,7 +12,8 @@
 //! write of a variable they name, what
 //! `Hash` writes into `DefaultHasher` and `RandomState`, slices' `windows` and chunks,
 //! mutable ones written through, their parts by inclusive and checked ranges and by fixed
-//! size, `Vec::drain`, `concat` and `join` of slices of slices, the order, equality, and
+//! size, slices split by a predicate, `Vec::drain`, `concat` and `join` of slices of
+//! slices, the order, equality, and
 //! hashes of bytes, ranges of `Bound`s and of the crate's own `RangeBounds`, the equality
 //! of `Result`s and std's errors, inclusive ranges read through each adaptor, iterators'
 //! size hints, the capacity overflows collections reserving by them panic with, and
@@ -22,6 +23,7 @@
 //! `fmt::Fault` an error only `caller.ts` prints.
 
 #![feature(iter_order_by)]
+#![feature(split_as_slice)]
 
 mod arrays;
 mod atomics;
@@ -61,6 +63,7 @@ mod objects;
 mod orders;
 mod pointers;
 mod refs;
+mod separated;
 mod shapes;
 mod singles;
 mod slices;
