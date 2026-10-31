@@ -2481,7 +2481,10 @@ fn vec_clone<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, elem: Ty<'tcx>, span
 /// make one.
 fn slice_boxed<'tcx>(b: &mut Body<'_, '_, 'tcx>, slice: Expr, elem: Ty<'tcx>, span: Span) -> Option<Expr> {
 	match elem.kind() {
-		ty::Uint(ty::UintTy::U8) => Some(Expr::rt("byteSliceFrom", vec![Expr::rt("byteSliceToArray", vec![slice])])),
+		ty::Uint(ty::UintTy::U8) => Some(Expr::rt(
+			"byteSliceFrom",
+			vec![Expr::rt("byteSliceToArray", vec![slice])],
+		)),
 		_ => vec_clone(b, slice, elem, span),
 	}
 }
@@ -2961,7 +2964,12 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
 			// An empty slice or text, its own.
 			Std::Box if !args.type_at(0).is_sized(tcx, b.t.typing_env_pub()) => {
-				return default_value(b, Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, args.type_at(0)), span, out);
+				return default_value(
+					b,
+					Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, args.type_at(0)),
+					span,
+					out,
+				);
 			}
 			Std::Box | Std::Wrapping | Std::Saturating => part(b, args.type_at(0), out),
 			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),

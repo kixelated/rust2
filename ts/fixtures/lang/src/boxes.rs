@@ -297,7 +297,12 @@ pub fn boxes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			if let Some(q) = quads_v.first_mut() {
 				q[0] = 0x77;
 			}
-			for (a, b) in boxed.iter().chain(pairs.iter()).chain(from_array.iter()).chain(array.iter()) {
+			for (a, b) in boxed
+				.iter()
+				.chain(pairs.iter())
+				.chain(from_array.iter())
+				.chain(array.iter())
+			{
 				out.push(*a);
 				out.extend(b.to_le_bytes());
 			}

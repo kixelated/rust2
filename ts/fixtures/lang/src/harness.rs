@@ -2,9 +2,9 @@
 //! case and the rest is its input.
 
 use crate::{
-	arrays, atomics, borrows, bounds, boxes, captures, cells, chars, chunks, clones, collections, combinators, counts, cows,
-	cycles, defaults, durations, dyns, edits, errors, floats, fmt, folds, generics, hashes, hints, holds, ints, iters,
-	joins, keys, locals, locks, methods, nested, objects, orders, pointers, refs, saturates, separated, shapes,
+	arrays, atomics, borrows, bounds, boxes, captures, cells, chars, chunks, clones, collections, combinators, counts,
+	cows, cycles, defaults, durations, dyns, edits, errors, floats, fmt, folds, generics, hashes, hints, holds, ints,
+	iters, joins, keys, locals, locks, methods, nested, objects, orders, pointers, refs, saturates, separated, shapes,
 	singles, slices, splits, statics, strs, tuples, utf8, wrappers, wraps, zeros,
 };
 
