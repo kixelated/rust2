@@ -846,7 +846,7 @@ fn local<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 }
 
 /// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples and
-/// `Arc`s, but not slices, `Option`s, or `Reverse`s, whose `ne` is `!eq`.
+/// `Arc`s, but not slices, `Option`s, `Reverse`s, or cells, whose `ne` is `!eq`.
 fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
@@ -866,13 +866,14 @@ fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 
 /// Whether `ty`'s `PartialOrd::{test}`, `lt` or another of its tests, reaches the crate's
 /// own `test` of a type it holds, which `partial_cmp` stands for only while that is the
-/// default: through a tuple's last element, `Arc`s, and `Reverse`s.
+/// default: through a tuple's last element, `Arc`s, `Reverse`s, and cells.
 fn own_test<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.last().is_some_and(|&t| own_test(b, t, test)),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_test(b, inner, test),
+		ty::Adt(..) if let Some((inner, _)) = cell_of(b, ty) => own_test(b, inner, test),
 		_ if local(b, ty) => {
 			let f = trait_fn(tcx, "PartialOrd", test);
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into(), ty.into()]))
@@ -914,6 +915,7 @@ pub fn test_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, test: &str, span:
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
 			Expr::rt("cmpReverse", vec![test_fn(b, inner, test, span)])
 		}
+		ty::Adt(..) if let Some((inner, by)) = cell_of(b, ty) => Expr::rt(by, vec![test_fn(b, inner, test, span)]),
 		_ => {
 			let f = trait_fn(tcx, "PartialOrd", test);
 			b.fn_value(f, tcx.mk_args(&[ty.into(), ty.into()]), span)
@@ -1137,6 +1139,7 @@ fn own_ord<'tcx>(
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ord(b, t, seen)),
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)) => own_ord(b, inner, seen),
+		ty::Adt(..) if let Some((inner, _)) = cell_of(b, ty) => own_ord(b, inner, seen),
 		// A binding's, hand-written even where the Rust impl is derived.
 		ty::Adt(adt, _) if b.t.bound_drops(adt.did()).is_some() => true,
 		ty::Adt(adt, args) if b.t.own(adt.did()) => {
@@ -1588,6 +1591,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
 			held(inner)
 		}
+		ty::Adt(..) if let Some((inner, _)) = cell_of(b, ty) => held(inner),
 		// Whose derived `PartialEq` lowers from its MIR.
 		ty::Adt(_, args) if b.t.std_of(ty) == Some(Std::Result) => args.types().all(held),
 		ty::Adt(..) if b.t.std_of(ty).is_some_and(Std::error) => true,
@@ -1734,6 +1738,24 @@ fn arc_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Arc)).then(|| arg(ty, 0))
 }
 
+/// What one of std's cells of type `ty` compares by, and the runtime's function that reads
+/// it from each: a `Cell`'s and a `RefCell`'s value, which a `RefCell`'s borrows, or a
+/// one-time cell's `Option`, which only `PartialEq` compares.
+fn cell_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<(Ty<'tcx>, &'static str)> {
+	let ty::Adt(adt, args) = ty.kind() else {
+		return None;
+	};
+	match b.t.std_of(ty)? {
+		Std::Cell => Some((args.type_at(0), "cellBy")),
+		// Not an `RwLock`, which compares by nothing.
+		Std::RefCell if b.t.tcx.is_diagnostic_item(rustc_span::sym::RefCell, adt.did()) => {
+			Some((args.type_at(0), "refCellBy"))
+		}
+		Std::OnceCell | Std::OnceLock => Some((Ty::new_option(b.t.tcx, args.type_at(0)), "cellBy")),
+		_ => None,
+	}
+}
+
 /// `Ord::cmp` of `ty` as a function, or `PartialOrd::partial_cmp` if `partial`: the
 /// runtime's for a std type, which calls the same of what it holds, or the crate's.
 pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, span: Span) -> Expr {
@@ -1757,6 +1779,7 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 			Expr::rt("cmpOption", [cmp].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("cmpArc", vec![cmp_fn(b, inner, partial, span)]),
+		ty::Adt(..) if let Some((inner, by)) = cell_of(b, ty) => Expr::rt(by, vec![cmp_fn(b, inner, partial, span)]),
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
 			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
 		}
@@ -1811,6 +1834,8 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			let eq = eq_fn(b, inner, span);
 			arc_eq(b, inner, eq)
 		}
+		// Whose `ne` is `!eq`, which compares what it holds by `eq`.
+		ty::Adt(..) if let Some((inner, by)) = cell_of(b, ty) => Expr::rt(by, vec![eq_fn(b, inner, span)]),
 		ty::Adt(..) if local(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)

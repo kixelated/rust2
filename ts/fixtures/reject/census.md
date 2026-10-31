@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 117
-- Function instances: 139
+- Refusals: 118
+- Function instances: 143
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -40,6 +40,7 @@
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:534:12 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:279:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:401:6 |
+| 1 | `collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet | fixtures/reject/src/lib.rs:985:22 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | fixtures/reject/src/lib.rs:62:10 |
 | 1 | a `collect` in place of `_`, a zip std reads by index, holding values that drop, which is not supported yet | fixtures/reject/src/lib.rs:221:40 |
 | 1 | a `skip` of `_`, a zip std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:214:8 |
@@ -132,6 +133,8 @@ The type or module each refused type or path belongs to.
 | 1 | `poll` | fixtures/reject/src/lib.rs:515:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:515:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:558:4 |
+| 1 | `std::cell::Cell` | fixtures/reject/src/lib.rs:985:22 |
+| 1 | `std::collections::BTreeMap` | fixtures/reject/src/lib.rs:985:22 |
 | 1 | `std::iter::Extend` | fixtures/reject/src/lib.rs:955:6 |
 | 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:221:40 |
 | 1 | `std::iter::Zip` | fixtures/reject/src/lib.rs:214:8 |
@@ -186,6 +189,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::sync::Mutex::get_mut` | fixtures/reject/src/lib.rs:534:12 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:279:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | `BytesMut::capacity` | fixtures/reject/src/lib.rs:401:6 |
+| 1 | `collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet | `std::collections::BTreeMap`, `std::cell::Cell` | fixtures/reject/src/lib.rs:985:22 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | `Sink` | fixtures/reject/src/lib.rs:62:10 |
 | 1 | a `collect` in place of `_`, a zip std reads by index, holding values that drop, which is not supported yet | `std::iter::Map` | fixtures/reject/src/lib.rs:221:40 |
 | 1 | a `skip` of `_`, a zip std reads by index, of items that drop, which is not supported yet | `std::iter::Zip` | fixtures/reject/src/lib.rs:214:8 |
@@ -490,6 +494,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:401:6: `BytesMut::capacity`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported
+
+</details>
+
+<details><summary>`collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:985:22: `collect` of `std::collections::BTreeMap<std::cell::Cell<Ranked>, Noisy>`, which sorts by `std::cell::Cell<Ranked>`'s own `Ord`, of entries that drop, which is not supported yet
 
 </details>
 

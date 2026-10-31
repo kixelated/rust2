@@ -3,6 +3,7 @@
 import * as rt from "./rt.ts";
 import type * as Logged from "./clones.Logged.ts";
 import type * as Picky from "./collections.Picky.ts";
+import type * as Quirky from "./collections.Quirky.ts";
 import type * as Tally from "./collections.Tally.ts";
 import type * as Any from "./core/any.Any.ts";
 import type * as ArcReleasing from "./counts.ArcReleasing.ts";
@@ -230,6 +231,14 @@ export function copy$Points(v: Point.Point[]): Point.Point[] {
 
 export function copy$Poll_u8s(v: rt.Poll<Uint8Array>): rt.Poll<Uint8Array> {
 	return v === rt.Pending ? v : copy$u8s(v);
+}
+
+export function copy$Quirky(v: Quirky.Quirky): Quirky.Quirky {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$Quirkys(v: Quirky.Quirky[]): Quirky.Quirky[] {
+	return v.map(copy$Quirky);
 }
 
 export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>): rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> {

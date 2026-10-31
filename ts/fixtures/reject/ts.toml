@@ -95,5 +95,6 @@ roots = [
     "made_part_replaced",
     "uninit_part_replaced",
     "byte_extended",
+    "ranked_cells",
 ]
 printable = ["Meters"]
