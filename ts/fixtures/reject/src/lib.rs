@@ -1740,9 +1740,13 @@ fn core_of(i: &mut Core) -> *mut Core {
 /// A pointer a callee returns into a part of a variable, which the caller's assignment of
 /// the whole variable replaces.
 pub fn part_rebound(n: u32) -> u32 {
-	let mut d = Nest { mid: Middle { inner: Core(n) } };
+	let mut d = Nest {
+		mid: Middle { inner: Core(n) },
+	};
 	let p = core_of(&mut d.mid.inner);
-	d = Nest { mid: Middle { inner: Core(0) } };
+	d = Nest {
+		mid: Middle { inner: Core(0) },
+	};
 	unsafe { (*p).0 + d.mid.inner.0 }
 }
 

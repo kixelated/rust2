@@ -748,11 +748,18 @@ pub fn retargeted<'tcx>(
 		}
 	}
 	let rebinding = |args: &[rustc_span::Spanned<mir::Operand<'tcx>>], func: &mir::Operand<'tcx>| {
-		let i = args
-			.iter()
-			.position(|a| a.node.place().and_then(|p| p.as_local()).is_some_and(|l| lent.contains(&l)))?;
+		let i = args.iter().position(|a| {
+			a.node
+				.place()
+				.and_then(|p| p.as_local())
+				.is_some_and(|l| lent.contains(&l))
+		})?;
 		let (def_id, _) = func.const_fn_def()?;
-		Some((i, super::library::key(tcx, def_id).map(|(_, name)| name), super::pointer::rebinds(tcx, def_id)))
+		Some((
+			i,
+			super::library::key(tcx, def_id).map(|(_, name)| name),
+			super::pointer::rebinds(tcx, def_id),
+		))
 	};
 	// Each `&mut local` is used once, by such a call.
 	let mut uses = FxHashMap::default();
@@ -774,13 +781,17 @@ pub fn retargeted<'tcx>(
 	// What a local assigned once, from a borrow, borrows.
 	let borrowed = |op: &mir::Operand<'tcx>| {
 		let by = op.place()?.as_local()?;
-		let called = body.basic_blocks.iter().any(|data| {
-			matches!(&data.terminator().kind, mir::TerminatorKind::Call { destination, .. } if destination.local == by)
-		});
-		let mut defs = body.basic_blocks.iter().flat_map(|data| &data.statements).filter_map(|stmt| match &stmt.kind {
-			mir::StatementKind::Assign(assign) if assign.0.local == by => Some(&assign.1),
-			_ => None,
-		});
+		let called = body.basic_blocks.iter().any(
+			|data| matches!(&data.terminator().kind, mir::TerminatorKind::Call { destination, .. } if destination.local == by),
+		);
+		let mut defs = body
+			.basic_blocks
+			.iter()
+			.flat_map(|data| &data.statements)
+			.filter_map(|stmt| match &stmt.kind {
+				mir::StatementKind::Assign(assign) if assign.0.local == by => Some(&assign.1),
+				_ => None,
+			});
 		match (defs.next(), defs.next(), called) {
 			(Some(Rvalue::Ref(_, _, p)), None, false) => Some(*p),
 			_ => None,
@@ -796,8 +807,12 @@ pub fn retargeted<'tcx>(
 			Some(i) => i,
 			None => {
 				match &data.terminator().kind {
-					mir::TerminatorKind::Call { destination, .. } if destination.as_local() == Some(local) => return None,
-					mir::TerminatorKind::Yield { resume_arg, .. } if resume_arg.as_local() == Some(local) => return None,
+					mir::TerminatorKind::Call { destination, .. } if destination.as_local() == Some(local) => {
+						return None;
+					}
+					mir::TerminatorKind::Yield { resume_arg, .. } if resume_arg.as_local() == Some(local) => {
+						return None;
+					}
 					mir::TerminatorKind::Call { func, args, .. } => match rebinding(args, func) {
 						Some((_, Some(name), _)) if name == "replace" => {
 							found.push(borrowed(&args[1].node)?);

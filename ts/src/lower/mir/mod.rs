@@ -2871,9 +2871,10 @@ impl cfg::Lower for Fx<'_, '_, '_, '_> {
 		let forward = |to: usize| self.forward(BasicBlock::from_usize(to)).as_usize();
 		match exit {
 			Exit::Goto(to) => Exit::Goto(forward(to)),
-			Exit::Branch(arms, default) => {
-				Exit::Branch(arms.into_iter().map(|(cond, to)| (cond, forward(to))).collect(), forward(default))
-			}
+			Exit::Branch(arms, default) => Exit::Branch(
+				arms.into_iter().map(|(cond, to)| (cond, forward(to))).collect(),
+				forward(default),
+			),
 			Exit::End => Exit::End,
 		}
 	}

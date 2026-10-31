@@ -1846,9 +1846,10 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// the path is such an object, as one is for the pointer `UnsafeCell::get` gives. A
 	/// place read through a reference to a place this body borrows is that place.
 	pub(super) fn out_of_step(&self, place: Place<'tcx>, cells: bool) -> Option<String> {
-		self.borrowed_places(place)
-			.into_iter()
-			.find_map(|place| self.parts_out_of_step(place, cells).or_else(|| self.reassigned(place, cells)))
+		self.borrowed_places(place).into_iter().find_map(|place| {
+			self.parts_out_of_step(place, cells)
+				.or_else(|| self.reassigned(place, cells))
+		})
 	}
 
 	/// Why a reference made of `place` here would not keep pointing where Rust's does, if
@@ -1858,7 +1859,11 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// it, may still be read, as [`Self::out_of_step`] judges the pointer.
 	pub(super) fn lent_out_of_step(&self, place: Place<'tcx>) -> Option<String> {
 		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
-		if !self.b.t.taken(self.mir.source.def_id(), ty, &|part| self.pointed_object(part, true)) {
+		if !self
+			.b
+			.t
+			.taken(self.mir.source.def_id(), ty, &|part| self.pointed_object(part, true))
+		{
 			return None;
 		}
 		let assigned = self
@@ -1873,7 +1878,9 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	/// The places a pointer made of `place` here may point into, as
 	/// [`copy::borrowed_places`] reads them through this body's borrows.
 	fn borrowed_places(&self, place: Place<'tcx>) -> Vec<Place<'tcx>> {
-		crate::lower::copy::borrowed_places(self.tcx, self.mir, place, self.at, &|local| self.borrow_of(local, false))
+		crate::lower::copy::borrowed_places(self.tcx, self.mir, place, self.at, &|local| {
+			self.borrow_of(local, false)
+		})
 	}
 
 	/// Why a raw pointer to `place`, read through no borrow of this body's, would not keep
