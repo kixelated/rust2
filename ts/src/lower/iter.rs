@@ -866,7 +866,7 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 		]
 		| ["str", "iter", "Chars" | "Bytes"]
 		| ["option", "Iter"]
-		| ["ops", "range", "Range" | "RangeInclusive"]
+		| ["ops", "range", "Range" | "RangeFrom" | "RangeInclusive"]
 		| ["collections", "vec_deque", "iter", "Iter"]
 		| ["collections", "binary_heap", "Iter"]
 		| ["collections", "btree", "map", "Iter" | "Keys" | "Values" | "Range"]

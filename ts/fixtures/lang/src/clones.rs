@@ -173,6 +173,10 @@ pub fn iters(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			both!(lo..hi, |x| x);
 			both!(lo..=hi, |x| x);
 			both!(u64::from(lo)..u64::from(hi), |x| x as u8);
+			// `start..`, which never ends: bounded by `turns`' reads, short of `u8::MAX`.
+			front!(lo.., |x| x);
+			front!(u64::from(lo) << 53.., |x| (x >> 50) as u8 ^ x as u8);
+			front!(char::from(b'a' + lo).., |c| c as u8);
 			both!(data.first().into_iter(), id);
 			both!(data.first().copied().into_iter(), |x| x);
 			both!(std::iter::once(n as u8), |x| x);
