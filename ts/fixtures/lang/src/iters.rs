@@ -1311,6 +1311,13 @@ fn chars(a: u8, data: &[u8], how: u8, out: &mut Vec<u8>) {
 	out.extend([lo as u8, hi.map_or(0xee, |h| h as u8), (gap..end).count() as u8]);
 	out.extend((gap..=end).map(|c| c as u32 as u8));
 	out.push(('\u{d7ff}'..'\u{e000}').count() as u8);
+	// Inclusive ones stepped past either end of the chars, which leaves the bound there.
+	let mut last = top..=char::MAX;
+	put(last.nth(n % 6).unwrap_or('-'), out);
+	put(*last.start(), out);
+	let mut first = '\0'..=char::from_u32(near).unwrap();
+	put(first.nth_back(n % 6).unwrap_or('-'), out);
+	put(*first.end(), out);
 }
 
 /// `start..` as what each adaptor and consumer taking an `IntoIterator` takes, and as its

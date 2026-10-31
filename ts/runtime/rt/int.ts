@@ -78,12 +78,17 @@ export type IntErrorKind = "Empty" | "InvalidDigit" | "PosOverflow" | "NegOverfl
 /** `core::num::ParseIntError`: why an integer didn't parse. */
 export type ParseIntError = { readonly kind: IntErrorKind };
 
-/** `char`'s `Step`: `n` moved by `by` past the surrogates, which no `char` is, and whether that left the chars. */
+/**
+ * `char`'s `Step`: `n` moved by `by` past the surrogates, which no `char` is, and whether
+ * that left the chars, past which it stays at the last or first, as std's does.
+ */
 export const charStep: Step<char> = (n, by) => {
 	let v = n + by;
 	if (by > 0 && n < 0xd800 && v >= 0xd800) v += 0x800;
 	else if (by < 0 && n >= 0xe000 && v < 0xe000) v -= 0x800;
-	return [v as char, v < 0 || v > 0x10ffff];
+	if (v > 0x10ffff) return [0x10ffff as char, true];
+	if (v < 0) return [0 as char, true];
+	return [v as char, false];
 };
 
 /** `core::char::CharErrorKind`: why a `char` didn't parse, by variant name. */

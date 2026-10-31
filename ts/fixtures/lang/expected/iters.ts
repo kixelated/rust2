@@ -4112,7 +4112,8 @@ export function chars(a: rt.u8, data: rt.ByteSlice, how: rt.u8, out: rt.ByteVec)
 	fromTop$char_chars_closure0(gap, data, how, out, (c3: rt.char, out3: rt.ByteVec): undefined => {
 		rt.iterExtendBytes(out3, rt.iterSlice(rt.u32ToBeBytes(c3 as rt.u32).reverse()), undefined, true);
 	});
-	fromTop$char_chars_closure0(rt.optionUnwrap(rt.charFromU32(rt.u32Sub(1114111 as rt.u32, near))), data, how, out, (c4: rt.char, out4: rt.ByteVec): undefined => {
+	const top: rt.char = rt.optionUnwrap(rt.charFromU32(rt.u32Sub(1114111 as rt.u32, near)));
+	fromTop$char_chars_closure0(top, data, how, out, (c4: rt.char, out4: rt.ByteVec): undefined => {
 		rt.iterExtendBytes(out4, rt.iterSlice(rt.u32ToBeBytes(c4 as rt.u32).reverse()), undefined, true);
 	});
 	const n: rt.usize = data.length;
@@ -4139,6 +4140,16 @@ export function chars(a: rt.u8, data: rt.ByteSlice, how: rt.u8, out: rt.ByteVec)
 		return (c5 as rt.u32) & 0xff;
 	}), undefined, true);
 	rt.byteVecPush(out, rt.iterCount(new rt.Range(55295, 57344, rt.charStep)) & 0xff);
+	const last: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(top, 1114111, rt.charStep);
+	const part4 = unwrapOr$0k15iai(rt.iterNth(last, rt.usizeRem(n, 6)), 45);
+	_8(part4, out);
+	const part5 = rt.rangeInclusiveStart(last);
+	_8(part5, out);
+	const first: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(0, rt.optionUnwrap(rt.charFromU32(near)), rt.charStep);
+	const part6 = unwrapOr$0k15iai(rt.iterNthBack(first, rt.usizeRem(n, 6)), 45);
+	_8(part6, out);
+	const part7 = rt.rangeInclusiveEnd(first);
+	_8(part7, out);
 }
 
 /**
