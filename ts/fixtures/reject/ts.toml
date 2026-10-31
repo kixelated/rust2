@@ -111,5 +111,7 @@ roots = [
     "kept_across_iterations",
     "lent_kept",
     "pushed_part_kept",
+    "tallied",
+    "tallied_alone",
 ]
 printable = ["Meters"]

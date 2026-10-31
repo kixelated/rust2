@@ -581,6 +581,13 @@ export function map$0gn4nwv(self: rt.u8 | undefined, _: (a0: rt.u8) => Side.Side
 	return side(self);
 }
 
+export function map$1pb5zw8(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u16, rt.u8]): [rt.u16, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1fmzefe(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
 	if (self === undefined) {
 		return undefined;
