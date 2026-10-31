@@ -34,4 +34,3 @@ generic std gap is planned here even when moq never calls it.
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [A tuple's cmp typed as total](/quest/m3/ts-cmp-tuple-total.md) - `rt.cmpTuple` of total fields types its result as `Ordering`
 - [concat and join of slices of arrays](/quest/m3/ts-slice-concat.md) - `concat` and `join` of a slice of arrays or slices translate
-- [collect into tuples of collections](/quest/m3/ts-collect-tuples.md) - `collect` into a tuple of collections translates

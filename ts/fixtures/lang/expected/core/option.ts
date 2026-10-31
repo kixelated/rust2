@@ -503,6 +503,13 @@ export function map$0ejznqm(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.ByteVe
 	return f(self);
 }
 
+export function map$1pb5zw8(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u16, rt.u8]): [rt.u16, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1qp1ym6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;

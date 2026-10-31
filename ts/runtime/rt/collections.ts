@@ -14,7 +14,7 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { ByteSlice, ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
+import { ByteSlice, ByteVec, byteVecPush, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
 import {
@@ -26,6 +26,7 @@ import {
 	iterChain,
 	iterEmpty,
 	iterFilter,
+	iterMap,
 	iterOnce,
 	iterSlice,
 	type RangeInclusive,
@@ -36,6 +37,7 @@ import {
 	dequeReserve,
 	vecCapacity,
 	vecGrow,
+	vecReserve,
 	vecReserveExact,
 } from "./iter.ts";
 import { type Arc, drop as dispose, dropAll, dropRange } from "./task.ts";
@@ -908,14 +910,14 @@ function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) =>
 }
 
 /**
- * hashbrown's reserve before it extends `m` by `items`: the lower bound, or half of it
- * rounded up if `m` holds any, which panics past `max` entries, the most its table holds.
+ * hashbrown's `extend_reserve` of `m` for `additional` more, as its `extend` makes for an
+ * iterator's lower bound: all of it, or half rounded up if `m` holds any, which panics past
+ * `max` entries, the most its table holds.
  */
-function hashReserve<K, V>(m: HashMap<K, V>, items: Iter<unknown>, max: number | undefined): void {
+function hashReserve<K, V>(m: HashMap<K, V>, additional: number, max: number | undefined): void {
 	if (max === undefined) return;
-	const lower = items.sizeHint()[0];
 	const n = hashLen(m);
-	if (n + (n === 0 ? lower : Math.ceil(lower / 2)) > max) panic("Hash table capacity overflow");
+	if (n + (n === 0 ? additional : Math.ceil(additional / 2)) > max) panic("Hash table capacity overflow");
 }
 
 /**
@@ -924,7 +926,7 @@ function hashReserve<K, V>(m: HashMap<K, V>, items: Iter<unknown>, max: number |
  * drops, then the value it replaced.
  */
 export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key: K) => void, v?: (value: V) => void, take?: Take, max?: number): HashMap<K, V> {
-	hashReserve(m, items, max);
+	hashReserve(m, items.sizeHint()[0], max);
 	const add = (item: [K, V]) => {
 		const old = hashInsert(m, item[0], item[1], k);
 		if (old !== undefined) v?.(old);
@@ -934,7 +936,7 @@ export function hashExtend<K, V>(m: HashMap<K, V>, items: Iter<[K, V]>, k?: (key
 
 /** `extend` of a set with keys, and `collect` into one, as `hashExtend`: a key already there drops. */
 export function hashExtendKeys<K>(m: HashSet<K>, keys: Iter<K>, k?: (key: K) => void, take?: Take, max?: number): HashSet<K> {
-	hashReserve(m, keys, max);
+	hashReserve(m, keys.sizeHint()[0], max);
 	return extending(m, keys, (key) => hashAdd(m, key, k), take);
 }
 
@@ -3064,3 +3066,149 @@ function rebuild<T>(d: T[], le: Test<T>, ge: Test<T>, lt: Test<T>): void {
 		siftDownRange(d, n, d.length, le, ge, lt);
 	}
 }
+
+// Tuples of collections, which std's `Extend` of 2- through 12-tuples extends by each
+// collection's `extend_reserve` and `extend_one` (core/src/iter/traits/collect.rs). A
+// `Part` stands in for one collection's.
+
+/**
+ * A collection of type `C` as a tuple's `Extend` adds to it: `reserve` is its
+ * `extend_reserve`, if it reserves, and `one` its `extend_one` of an item, giving the
+ * collection back, which for a `String` is a new one.
+ */
+export interface Part<C, T> {
+	reserve?(c: C, additional: number): void;
+	one(c: C, item: T): C;
+}
+
+/**
+ * `Extend::extend` of `t`, a tuple of collections, by `items`, and `collect` into the
+ * tuple of their defaults: each reserves the lower bound of the size hint, if any, in
+ * order, and then each item's fields extend them in order, by `for_each` as `take` says.
+ */
+export function tupleExtend<T extends unknown[]>(t: T, items: Iter<unknown[]>, parts: Part<unknown, unknown>[], take?: Take): T {
+	tupleReserve(t, parts, items.sizeHint()[0]);
+	return extending(t, items, (item) => tupleOne(t, parts, item), take);
+}
+
+/** A tuple's `extend_reserve` of `additional` more in each of its collections, where the size hint has a lower bound. */
+function tupleReserve(t: unknown[], parts: Part<unknown, unknown>[], additional: number): void {
+	if (additional === 0) return;
+	for (let i = 0; i < parts.length; i++) parts[i].reserve?.(t[i], additional);
+}
+
+/** A tuple's `extend_one`: each field of `item` into its collection, in order. */
+function tupleOne(t: unknown[], parts: Part<unknown, unknown>[], item: unknown[]): void {
+	for (let i = 0; i < parts.length; i++) t[i] = parts[i].one(t[i], item[i]);
+}
+
+/** A tuple of collections within a tuple, which reserves and extends each of its own. */
+export function tuplePart(parts: Part<unknown, unknown>[]): Part<unknown[], unknown[]> {
+	return {
+		reserve: (t, additional) => tupleReserve(t, parts, additional),
+		one: (t, item) => {
+			tupleOne(t, parts, item);
+			return t;
+		},
+	};
+}
+
+/** A 1-tuple's `Extend::extend` of `t`, which is its collection's own `extend`, by `extend`, of each item's field. */
+export function tupleExtendOne<C, T>(t: [C], items: Iter<[T]>, extend: (c: C, items: Iter<T>) => C): [C] {
+	t[0] = extend(t[0], iterMap(items, (item) => item[0]));
+	return t;
+}
+
+/** `part` of a borrowed `Copy` item, which it adds a `copy` of. */
+export function copiedPart<C, T>(part: Part<C, T>, copy: (item: T) => T): Part<C, T> {
+	return { reserve: part.reserve, one: (c, item) => part.one(c, copy(item)) };
+}
+
+/** A `Vec` of `size`-byte elements, which pushes each. */
+export function vecPart<T>(size?: number): Part<T[], T> {
+	return {
+		reserve: size === undefined ? undefined : (v, additional) => vecReserve(v.length, additional, size),
+		one: (v, item) => {
+			v.push(item);
+			return v;
+		},
+	};
+}
+
+/** A `Vec<u8>`, as `vecPart`. */
+export const BYTE_VEC_PART: Part<ByteVec, number> = {
+	reserve: (v, additional) => vecReserve(v.length, additional, 1),
+	one: (v, item) => {
+		byteVecPush(v, item);
+		return v;
+	},
+};
+
+/** A `VecDeque` of `size`-byte elements, which pushes each at the back. */
+export function dequePart<T>(size?: number): Part<VecDeque<T>, T> {
+	return {
+		reserve: size === undefined ? undefined : (q, additional) => vecReserve(q.n, additional, size),
+		one: (q, item) => {
+			dequePushBack(q, item);
+			return q;
+		},
+	};
+}
+
+/** A `BinaryHeap` of `size`-byte elements, which pushes each, sifting it up by `le`. */
+export function heapPart<T>(le: Test<T>, size?: number): Part<BinaryHeap<T>, T> {
+	return {
+		reserve: size === undefined ? undefined : (h, additional) => vecReserve(h.d.length, additional, size),
+		one: (h, item) => {
+			heapPush(h, item, le);
+			return h;
+		},
+	};
+}
+
+/** A `HashMap`, which inserts each entry as `hashExtend` does, and reserves as `hashReserve`. */
+export function hashPart<K, V>(k?: (key: K) => void, v?: (value: V) => void, max?: number): Part<HashMap<K, V>, [K, V]> {
+	return {
+		reserve: (m, additional) => hashReserve(m, additional, max),
+		one: (m, item) => {
+			const old = hashInsert(m, item[0], item[1], k);
+			if (old !== undefined) v?.(old);
+			return m;
+		},
+	};
+}
+
+/** A `HashSet`, which adds each key as `hashExtendKeys` does. */
+export function hashKeysPart<K>(k?: (key: K) => void, max?: number): Part<HashSet<K>, K> {
+	return {
+		reserve: (m, additional) => hashReserve(m, additional, max),
+		one: (m, key) => {
+			hashAdd(m, key, k);
+			return m;
+		},
+	};
+}
+
+/** A `BTreeMap`, which inserts each entry as `btreeExtend` does, and never reserves. */
+export function btreePart<K, V>(k?: (key: K) => void, v?: (value: V) => void): Part<BTreeMap<K, V>, [K, V]> {
+	return {
+		one: (m, item) => {
+			const old = btreeInsert(m, item[0], item[1], k);
+			if (old !== undefined) v?.(old);
+			return m;
+		},
+	};
+}
+
+/** A `BTreeSet`, which adds each key as `btreeExtendKeys` does. */
+export function btreeKeysPart<K>(k?: (key: K) => void): Part<BTreeSet<K>, K> {
+	return {
+		one: (m, key) => {
+			btreeAdd(m, key, k);
+			return m;
+		},
+	};
+}
+
+/** `()`, which extends by `()`s. */
+export const UNIT_PART: Part<undefined, undefined> = { one: () => undefined };

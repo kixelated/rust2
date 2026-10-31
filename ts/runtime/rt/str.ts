@@ -7,7 +7,7 @@
 // surrogate pair.
 
 import { fmtCharDebug, type Place, panic, panicFmt, stringLen } from "../rt.ts";
-import { type Bounds, boundsRange } from "./collections.ts";
+import { type Bounds, boundsRange, type Part } from "./collections.ts";
 import type { char, u8, usize } from "./int.ts";
 import { type Clones, DONE, type Done, Iter, iterForEach, iterSlice, type SizeHint } from "./iter.ts";
 import { drop as dispose } from "./task.ts";
@@ -521,6 +521,15 @@ export function stringExtendChars(s: string, it: Iter<char>, drops = false): str
 	);
 	return s;
 }
+
+/** `String` as a tuple's part, of chars, which reserves as `stringReserve`. */
+export const STRING_CHARS_PART: Part<string, char> = {
+	reserve: stringReserve,
+	one: (s, c) => s + String.fromCodePoint(c),
+};
+
+/** `String` as a tuple's part, of strings, which never reserves. */
+export const STRING_PART: Part<string, string> = { one: (s, text) => s + text };
 
 /** `Extend` of `s` by strings, `&str`, `String`, or `Cow<str>`, and `collect` of `&str`s from `""`. */
 export function stringExtend(s: string, it: Iter<string>, drops = false): string {

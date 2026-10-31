@@ -43,6 +43,7 @@ import { parts as slices_parts, chunked, subslices, drains as slices_drains, ran
 import { splits } from "./splits.ts";
 import { statics, cells as statics_cells, onces } from "./statics.ts";
 import { strs, slices as strs_slices, edits as strs_edits, parses as strs_parses, iters as strs_iters, drains as strs_drains, hinted } from "./strs.ts";
+import { tuples } from "./tuples.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
 import { u8s as wraps_u8s, u16s as wraps_u16s, u32s as wraps_u32s, u64s as wraps_u64s, u128s as wraps_u128s, usizes as wraps_usizes, i8s as wraps_i8s, i16s as wraps_i16s, i32s as wraps_i32s, i64s as wraps_i64s, i128s as wraps_i128s, isizes as wraps_isizes } from "./wraps.ts";
@@ -209,7 +210,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		uninitRuns(data76, out77);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["keys::byte_refs", byteRefs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["orders::held", (_2177: rt.u8, data77: rt.ByteSlice, out78: rt.ByteVec): undefined => {
 		held(data77, out78);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["tuples::tuples", tuples as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
 }
 
 /** Run one case. */

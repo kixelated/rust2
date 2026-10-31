@@ -38,6 +38,8 @@ import type * as Point from "./shapes.Point.ts";
 import type * as shapes_Shape from "./shapes.Shape.ts";
 import type * as slices_Pair from "./slices.Pair.ts";
 import * as statics_Lock from "./statics.Lock.ts";
+import type * as tuples_Logged from "./tuples.Logged.ts";
+import type * as Spot from "./tuples.Spot.ts";
 import * as Tick from "./wraps.Tick.ts";
 import * as zeros_Lock from "./zeros.Lock.ts";
 import type * as Loud from "./zeros.Loud.ts";
@@ -260,6 +262,10 @@ export function copy$Shape(v: shapes_Shape.Shape): shapes_Shape.Shape {
 	return v;
 }
 
+export function copy$Spot(v: Spot.Spot): Spot.Spot {
+	return { x: v.x, y: v.y };
+}
+
 export function copy$Tally(v: collections_Tally.Tally): collections_Tally.Tally {
 	return { n: v.n };
 }
@@ -428,6 +434,10 @@ export function drop$Lock_u8_Rc_unit(_1: statics_Lock.Lock<[rt.u8, rt.Arc<undefi
 	statics_Lock.drop$Drop_u8_Rc_unit(_1);
 }
 
+export function drop$Logged_u8(_1: [tuples_Logged.Logged, rt.u8]): void {
+	_1[0][Symbol.dispose]();
+}
+
 export function drop$RefCell_Vec_Arc_ArcReleasing(value: rt.RefCell<rt.Arc<ArcReleasing.ArcReleasing>[]>): void {
 	rt.dropAll(value.value);
 }
@@ -527,6 +537,10 @@ export function drop$Vec_Rc_Noisy_Vec_Rc_Noisy_Vec_RcShared_Vec_Noisy_Vec_Vec_Rc
 }
 
 export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$u8_Logged(_1: [rt.u8, tuples_Logged.Logged]): void {
 	_1[1][Symbol.dispose]();
 }
 

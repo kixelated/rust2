@@ -106,5 +106,7 @@ roots = [
     "written_through_alias",
     "uninit_rewritten",
     "written_through_loaded",
+    "tallied",
+    "tallied_alone",
 ]
 printable = ["Meters"]
