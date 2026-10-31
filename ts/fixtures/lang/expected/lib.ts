@@ -36,6 +36,8 @@ import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
 import type * as slices_Pair from "./slices.Pair.ts";
 import * as Lock from "./statics.Lock.ts";
+import * as zeros_Lock from "./zeros.Lock.ts";
+import type * as Loud from "./zeros.Loud.ts";
 
 export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
 	return { _0: v._0 };
@@ -351,8 +353,16 @@ export function drop$List_String(_1: List.List<string>): void {
 	List.drop$Drop_String(_1);
 }
 
+export function drop$Lock_Loud(_1: zeros_Lock.Lock<Loud.Loud>): void {
+	zeros_Lock.drop$Drop_Loud(_1);
+}
+
 export function drop$Lock_Rc_unit(_1: Lock.Lock<rt.Arc<undefined>>): void {
 	Lock.drop$Drop_Rc_unit(_1);
+}
+
+export function drop$Lock_u32(_1: zeros_Lock.Lock<rt.u32>): void {
+	zeros_Lock.drop$Drop_u32(_1);
 }
 
 export function drop$Lock_u8_Rc_unit(_1: Lock.Lock<[rt.u8, rt.Arc<undefined>]>): void {
