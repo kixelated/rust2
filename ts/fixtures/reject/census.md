@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 120
-- Function instances: 148
+- Refusals: 126
+- Function instances: 154
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -9,8 +9,8 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 17 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
+| 14 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
 | 12 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:623:10 |
-| 8 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
 | 4 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:227:16 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:344:2 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:237:14 |
@@ -77,7 +77,7 @@ The type or module each refused type or path belongs to.
 
 | Count | API | First |
 | ---: | --- | --- |
-| 16 | `(u32, u32)` | fixtures/reject/src/lib.rs:623:10 |
+| 22 | `(u32, u32)` | fixtures/reject/src/lib.rs:623:10 |
 | 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:344:2 |
 | 6 | `f16` | fixtures/reject/src/lib.rs:7:14 |
 | 5 | `Gap` | fixtures/reject/src/lib.rs:928:10 |
@@ -159,7 +159,7 @@ The type or module each refused type or path belongs to.
 
 | Count | Construct | Type or path | First |
 | ---: | --- | --- | --- |
-| 6 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:631:10 |
+| 12 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:631:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | `std::borrow::Cow` | fixtures/reject/src/lib.rs:344:2 |
 | 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Gap` | fixtures/reject/src/lib.rs:928:10 |
 | 3 | unsupported type `_` | `f16` | fixtures/reject/src/lib.rs:7:14 |
@@ -274,6 +274,25 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>a raw pointer to `_` in a variable assigned again while it may point there (14)</summary>
+
+- fixtures/reject/src/lib.rs:631:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:639:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:648:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:656:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:665:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:673:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:711:15: a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:724:15: a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1026:26: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1039:22: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1049:12: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1058:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1068:17: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1073:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+
+</details>
+
 <details><summary>a raw pointer to `_` in `_`, which the crate may put another object in place of (12)</summary>
 
 - fixtures/reject/src/lib.rs:623:10: a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of
@@ -288,19 +307,6 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:930:58: a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:942:19: a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:943:19: a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of
-
-</details>
-
-<details><summary>a raw pointer to `_` in a variable assigned again while it may point there (8)</summary>
-
-- fixtures/reject/src/lib.rs:631:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:639:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:648:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:656:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:665:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:673:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:711:15: a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there
-- fixtures/reject/src/lib.rs:724:15: a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there
 
 </details>
 

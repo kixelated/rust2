@@ -15,6 +15,7 @@ mod cfg;
 pub mod coroutine;
 mod decided;
 pub mod glue;
+mod holders;
 mod inline;
 mod memory;
 mod place;

@@ -188,6 +188,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::compares", iters::compares),
 		("collections::unlike_compares", collections::unlike_compares),
 		("cycles::cycles", cycles::cycles),
+		("pointers::lapsed", |_, data, out| pointers::lapsed(data, out)),
 	]
 }
 
