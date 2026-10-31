@@ -58,6 +58,13 @@ export function map$0s8hob8(self: Part.Part | undefined, _: (a0: Part.Part) => r
 	return self.take$Part();
 }
 
+export function map$01pvlgn(self: [Guard.Guard, Guard.Guard] | undefined, f: (a0: [Guard.Guard, Guard.Guard]) => [rt.u32, rt.u32]): [rt.u32, rt.u32] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1raha9y(self: Guard.Guard | undefined, f: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;

@@ -16,9 +16,11 @@
 // `nth_back`, and `advance_by` are its own, as std's are, reading and dropping what they
 // skip in its order. A consumer std folds reads what `folded` returns, which steps
 // an inclusive range as its `try_fold` does, and by `nextBack` as its `try_rfold` does,
-// as does each adaptor whose std's folds its iterator. Where std's `count` and `last` drop items in
-// an order each kind of iterator has its own, the `owned` functions follow it, dispatching
-// on the kind, so a bundle that never drops an item carries none of it.
+// as does each adaptor whose std's folds its iterator; `folded(true)` reads as `fold`
+// does, which differs only for a zip that reads no more pairs than its size hint. Where
+// std's `count` and `last` drop items in an order each kind of iterator has its own, the
+// `owned` functions follow it, dispatching on the kind, so a bundle that never drops an
+// item carries none of it.
 
 import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
@@ -116,10 +118,11 @@ export abstract class Iter<T> implements Iterable<T> {
 	}
 
 	/**
-	 * What std's `try_fold` reads it by, and `try_rfold` by `nextBack`: itself, but for an
-	 * inclusive range, which steps its own way, and an adaptor that folds one.
+	 * What std's `try_fold` reads it by, and `try_rfold` by `nextBack`, or its `fold` and
+	 * `rfold` if `fold`: itself, but for an inclusive range, which steps its own way, a zip
+	 * whose `fold` stops at its size hint, and an adaptor that folds either.
 	 */
-	folded(): Iter<T> {
+	folded(_fold = false): Iter<T> {
 		return this;
 	}
 
@@ -153,7 +156,7 @@ export abstract class Iter<T> implements Iterable<T> {
  * back if `back`, and then `release` and `it`.
  */
 function foldBy<T, A>(it: Iter<T>, back: boolean, acc: A, f: (acc: A, item: T) => A, release?: () => void): A {
-	const folded = it.folded();
+	const folded = it.folded(true);
 	for (;;) {
 		const item = back ? folded.nextBack() : folded.next();
 		if (item === DONE) break;
@@ -486,7 +489,7 @@ export function iterExtend<T>(v: T[], items: Iter<T>, take?: Take, size?: number
 	}
 	if (size !== undefined) vecReserveExact(items, v.length, size);
 	if (take === undefined) {
-		const folded = items.folded();
+		const folded = items.folded(trusted);
 		for (let item = folded.next(); item !== DONE; item = folded.next()) v.push(item);
 		return;
 	}
@@ -506,7 +509,7 @@ export function iterExtendBytes(v: ByteVec, items: Iter<number>, take?: Take, tr
 	}
 	vecReserveExact(items, v.length, 1);
 	if (take === undefined) {
-		const folded = items.folded();
+		const folded = items.folded(true);
 		for (let item = folded.next(); item !== DONE; item = folded.next()) byteVecPush(v, item);
 		return;
 	}
@@ -551,13 +554,21 @@ export function iterChain<T>(it: Iter<T>, other: Iter<T>): Iter<T> {
 }
 
 /**
- * `zip`, with `other` already made an iterator, as std does when it is called, dropping
- * an item of either it reads without one of the other by `dropA` or `dropB`. A `trusted`
- * zip is one of two `TrustedRandomAccess` iterators, which std reads by index up to the
- * shorter length and never past it.
+ * How std's `Zip` reads its iterators, by the traits both implement: `index` of two
+ * `TrustedRandomAccess` ones, which it reads by index up to the shorter length and never
+ * past it, and `len` of two `TrustedLen` ones, whose `fold` reads as many pairs as its
+ * size hint's upper bound, where `next` reads the first once past a shorter second.
  */
-export function iterZip<T, U>(it: Iter<T>, other: Iter<U>, trusted = false, dropA?: Drop<T>, dropB?: Drop<U>): Iter<[T, U]> {
-	return trusted ? new TrustedZipIter(it, other) : new ZipIter(it, other, dropA, dropB);
+export type Trusted = "index" | "len";
+
+/**
+ * `zip`, with `other` already made an iterator, as std does when it is called, read as
+ * `trusted` says, dropping an item of either it reads without one of the other by `dropA`
+ * or `dropB`.
+ */
+export function iterZip<T, U>(it: Iter<T>, other: Iter<U>, trusted?: Trusted, dropA?: Drop<T>, dropB?: Drop<U>): Iter<[T, U]> {
+	if (trusted === "index") return new TrustedZipIter(it, other, dropA, dropB);
+	return new ZipIter(it, other, trusted === "len", dropA, dropB);
 }
 
 /** `Iterator::rev`. */
@@ -674,7 +685,7 @@ function each<T>(it: Iter<T>, f: (item: T) => void, take: Take | undefined): voi
 
 /** `Iterator::count` of an iterator that drops nothing. */
 export function iterCount<T>(it: Iter<T>): number {
-	const folded = it.folded();
+	const folded = it.folded(true);
 	let n = 0;
 	while (folded.next() !== DONE) n++;
 	return n;
@@ -684,7 +695,7 @@ export function iterCount<T>(it: Iter<T>): number {
 export function iterLast<T>(it: Iter<T>): T | undefined;
 export function iterLast<T>(it: Iter<T>, none: None): T | None;
 export function iterLast<T>(it: Iter<T>, none?: None): T | undefined | None {
-	const folded = it.folded();
+	const folded = it.folded(true);
 	let last: T | Done = DONE;
 	for (let item = folded.next(); item !== DONE; item = folded.next()) last = item;
 	return iterToOption(last, none);
@@ -802,7 +813,7 @@ export function iterReduce<T>(it: Iter<T>, f: (acc: T, item: T) => T, drops = fa
  */
 export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, drops = false, owns = false): A {
 	if (!drops) {
-		const folded = it.folded();
+		const folded = it.folded(true);
 		let acc = init;
 		for (let item = folded.next(); item !== DONE; item = folded.next()) acc = f(acc, item);
 		if (owns) dispose(f);
@@ -814,7 +825,7 @@ export function iterFold<T, A>(it: Iter<T>, init: A, f: (acc: A, item: T) => A, 
 /** `Iterator::for_each`, which drops `f` if it `owns` it, as `iterFold` does. */
 export function iterForEach<T>(it: Iter<T>, f: (item: T) => void, drops = false, owns = false): void {
 	if (!drops) {
-		const folded = it.folded();
+		const folded = it.folded(true);
 		for (let item = folded.next(); item !== DONE; item = folded.next()) f(item);
 		if (owns) dispose(f);
 		return;
@@ -898,7 +909,7 @@ function best<T, K>(it: Iter<T>, f: (item: T) => K, lt: Lt<K>, least: boolean, d
 		let best = it.next();
 		if (best === DONE) return DONE;
 		let key = f(best);
-		const folded = it.folded();
+		const folded = it.folded(true);
 		for (let item = folded.next(); item !== DONE; item = folded.next()) {
 			const k = f(item);
 			if (least ? lt(k, key) : !lt(k, key)) [best, key] = [item, k];
@@ -966,7 +977,7 @@ export function iterToArray<T>(it: Iter<T>, take?: Take, size?: number, trusted 
 	}
 	if (size !== undefined) vecReserveExact(it, 0, size);
 	if (take === undefined) {
-		const folded = it.folded();
+		const folded = it.folded(trusted);
 		for (let item = folded.next(); item !== DONE; item = folded.next()) out.push(item);
 		return out;
 	}
@@ -989,7 +1000,7 @@ export function iterToByteVec(it: Iter<number>, take?: Take, trusted = false): B
 	}
 	vecReserveExact(it, 0, 1);
 	if (take === undefined) {
-		const folded = it.folded();
+		const folded = it.folded(true);
 		for (let item = folded.next(); item !== DONE; item = folded.next()) byteVecPush(out, item);
 		return out;
 	}
@@ -1560,8 +1571,8 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 		return this.inner.len();
 	}
 
-	override folded(): Iter<U> {
-		const inner = this.inner.folded();
+	override folded(fold = false): Iter<U> {
+		const inner = this.inner.folded(fold);
 		if (inner === this.inner) return this;
 		return new MapIter(inner, this.f);
 	}
@@ -1624,6 +1635,13 @@ class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 		return rfindItem(this.inner, this.f, this.drop);
 	}
 
+	/** std's `fold` folds its iterator, where `next` reads it as `try_fold` does. */
+	override folded(fold = false): Iter<T> {
+		const inner = fold ? this.inner.folded(true) : this.inner;
+		if (inner === this.inner) return this;
+		return new FilterIter(inner, this.f, this.drop);
+	}
+
 	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
 	override fold<A>(acc: A, g: (acc: A, item: T) => A, release?: () => void): A {
 		return this.inner.fold(acc, this.filterFold(g), then(this.take(), release));
@@ -1674,6 +1692,13 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | Non
 			if (mapped !== this.none) return mapped as U;
 		}
 		return DONE;
+	}
+
+	/** std's `fold` folds its iterator, where `next` reads it as `try_fold` does. */
+	override folded(fold = false): Iter<U> {
+		const inner = fold ? this.inner.folded(true) : this.inner;
+		if (inner === this.inner) return this;
+		return new FilterMapIter(inner, this.f, this.none);
 	}
 
 	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
@@ -1739,8 +1764,8 @@ class EnumerateIter<T> extends Adaptor<T, [number, T]> {
 	}
 
 	/** std's: its iterator folded, counting each item as it goes, and from the back from its length. */
-	override folded(): Iter<[number, T]> {
-		const inner = this.inner.folded();
+	override folded(fold = false): Iter<[number, T]> {
+		const inner = this.inner.folded(fold);
 		if (inner === this.inner) return this;
 		const front = (): [number, T] | Done => {
 			const item = inner.next();
@@ -1824,9 +1849,9 @@ class ChainIter<T> extends Iter<T> implements Disposable {
 	}
 
 	/** std's: each folded in turn, the first dropped once it ends. */
-	override folded(): Iter<T> {
-		const a = this.a?.folded();
-		const b = this.b?.folded();
+	override folded(fold = false): Iter<T> {
+		const a = this.a?.folded(fold);
+		const b = this.b?.folded(fold);
 		if (a === this.a && b === this.b) return this;
 		const front = (): T | Done => {
 			if (this.a !== undefined) {
@@ -1910,17 +1935,25 @@ class ChainIter<T> extends Iter<T> implements Disposable {
 }
 
 class ZipIter<A, B> extends Iter<[A, B]> implements Disposable {
-	protected readonly a: Iter<A>;
-	protected readonly b: Iter<B>;
-	private readonly dropA: Drop<A> | undefined;
-	private readonly dropB: Drop<B> | undefined;
+	readonly a: Iter<A>;
+	readonly b: Iter<B>;
+	/** Whether both are `TrustedLen`, so `fold` stops at its size hint. */
+	private readonly bounded: boolean;
+	protected readonly dropA: Drop<A> | undefined;
+	protected readonly dropB: Drop<B> | undefined;
 
-	constructor(a: Iter<A>, b: Iter<B>, dropA?: Drop<A>, dropB?: Drop<B>) {
+	constructor(a: Iter<A>, b: Iter<B>, bounded: boolean, dropA?: Drop<A>, dropB?: Drop<B>) {
 		super();
 		this.a = a;
 		this.b = b;
+		this.bounded = bounded;
 		this.dropA = dropA;
 		this.dropB = dropB;
+	}
+
+	/** std's `SpecFold` of two `TrustedLen` iterators, which `try_fold` doesn't share. */
+	override folded(fold = false): Iter<[A, B]> {
+		return fold && this.bounded ? new ZipFold(this) : this;
 	}
 
 	/** An item of `a` it read, dropped if `b` ends. */
@@ -1970,13 +2003,46 @@ class ZipIter<A, B> extends Iter<[A, B]> implements Disposable {
 	}
 }
 
-/** std's `Zip` of two `TrustedRandomAccess` iterators, which counts the pairs it reads. */
+/**
+ * A zip of two `TrustedLen` iterators as std's `fold` reads it: as many pairs as its size
+ * hint's upper bound when it starts, which `TrustedLen` promises each holds, and from the
+ * back by `next_back`, as `rfold` reads it.
+ */
+class ZipFold<A, B> extends Iter<[A, B]> {
+	private readonly zip: ZipIter<A, B>;
+	/** The pairs left, once it starts, or -1. */
+	private left = -1;
+
+	constructor(zip: ZipIter<A, B>) {
+		super();
+		this.zip = zip;
+	}
+
+	next(): [A, B] | Done {
+		if (this.left < 0) this.left = this.zip.sizeHint()[1] ?? Infinity;
+		if (this.left === 0) return DONE;
+		this.left--;
+		const a = this.zip.a.next();
+		const b = this.zip.b.next();
+		if (a === DONE || b === DONE) panic("internal error: entered unreachable code");
+		return [a, b];
+	}
+
+	override nextBack(): [A, B] | Done {
+		return this.zip.nextBack();
+	}
+}
+
+/**
+ * std's `Zip` of two `TrustedRandomAccess` iterators, which counts the pairs it reads, and
+ * which `fold` reads as `next` does.
+ */
 class TrustedZipIter<A, B> extends ZipIter<A, B> {
 	private index = 0;
 	private end: number;
 
-	constructor(a: Iter<A>, b: Iter<B>) {
-		super(a, b);
+	constructor(a: Iter<A>, b: Iter<B>, dropA?: Drop<A>, dropB?: Drop<B>) {
+		super(a, b, false, dropA, dropB);
 		this.end = Math.min(a.len(), b.len());
 	}
 
@@ -1984,6 +2050,19 @@ class TrustedZipIter<A, B> extends ZipIter<A, B> {
 		if (this.index >= this.end) return DONE;
 		this.index++;
 		return super.next();
+	}
+
+	/** std's: each pair it skips made and dropped one side at a time, then `next`. */
+	override nth(n: number): [A, B] | Done {
+		const skip = Math.min(n, this.end - this.index);
+		for (let i = 0; i < skip; i++) {
+			this.index++;
+			const a = this.a.next();
+			if (a !== DONE) this.dropA?.(a);
+			const b = this.b.next();
+			if (b !== DONE) this.dropB?.(b);
+		}
+		return this.next();
 	}
 
 	override nextBack(): [A, B] | Done {
@@ -2034,8 +2113,8 @@ class RevIter<T> extends Adaptor<T, T> {
 		return this.inner.nth(n, drop);
 	}
 
-	override folded(): Iter<T> {
-		const inner = this.inner.folded();
+	override folded(fold = false): Iter<T> {
+		const inner = this.inner.folded(fold);
 		if (inner === this.inner) return this;
 		return new RevIter(inner);
 	}
@@ -2117,8 +2196,8 @@ class SkipIter<T> extends Adaptor<T, T> {
 	 * std's: past what it skips by `nth`, one short of where `next` reads, then its iterator
 	 * folded, and from the back, its iterator folded down to what it skips.
 	 */
-	override folded(): Iter<T> {
-		const inner = this.inner.folded();
+	override folded(fold = false): Iter<T> {
+		const inner = this.inner.folded(fold);
 		if (inner === this.inner) return this;
 		const front = (): T | Done => {
 			if (this.n > 0) {
@@ -2302,6 +2381,13 @@ class SkipWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 
 	override sizeHint(): SizeHint {
 		return fewer(this.inner);
+	}
+
+	/** std's `fold`: its first item by `next`, and then its iterator folded. */
+	override folded(fold = false): Iter<T> {
+		const inner = fold ? this.inner.folded(true) : this.inner;
+		if (inner === this.inner) return this;
+		return new FromNext(inner, (inner) => (this.flag ? inner.next() : this.next()));
 	}
 
 	/** std's: its first item by `next`, and then its iterator's fold, after which `f` drops. */
@@ -2507,8 +2593,8 @@ class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 		return this.inner.len();
 	}
 
-	override folded(): Iter<T> {
-		const inner = this.inner.folded();
+	override folded(fold = false): Iter<T> {
+		const inner = this.inner.folded(fold);
 		if (inner === this.inner) return this;
 		return new InspectIter(inner, this.f);
 	}
@@ -2580,8 +2666,8 @@ class FuseIter<T> extends Iter<T> implements Disposable {
 	}
 
 	/** std's: its iterator folded, dropped once it ends unless it is fused. */
-	override folded(): Iter<T> {
-		const inner = this.inner?.folded();
+	override folded(fold = false): Iter<T> {
+		const inner = this.inner?.folded(fold);
 		if (inner === this.inner) return this;
 		const front = () => (this.inner === undefined ? DONE : this.clear(inner!.next()));
 		const back = () => (this.inner === undefined ? DONE : this.clear(inner!.nextBack()));
@@ -2738,9 +2824,9 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 	/** Its fold's view, which each fold starts anew. */
 	private view: FlattenFold<T, V> | undefined;
 
-	override folded(): Iter<V> {
+	override folded(fold = false): Iter<V> {
 		this.view ??= new FlattenFold(this);
-		return this.view.reset();
+		return this.view.reset(fold);
 	}
 
 	override fold<A>(acc: A, f: (acc: A, item: V) => A, release?: () => void): A {
@@ -2823,6 +2909,8 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
  */
 class FlattenFold<T, V> extends Iter<V> {
 	readonly of: FlattenIter<T, V>;
+	/** Whether it reads as `fold` does, which folds its source and each iterator. */
+	private whole = false;
 	/** At its own end, then its source's, then the other end. */
 	private phase = 0;
 	private source: Iter<T> | undefined;
@@ -2835,10 +2923,11 @@ class FlattenFold<T, V> extends Iter<V> {
 		this.of = of;
 	}
 
-	/** Itself, at the start of a fold. */
-	reset(): this {
+	/** Itself, at the start of a fold, or a `try_fold` unless `fold`. */
+	reset(fold: boolean): this {
+		this.whole = fold;
 		this.phase = 0;
-		this.source = this.of.outer?.folded();
+		this.source = this.of.outer?.folded(fold);
 		this.held = this.reading = undefined;
 		return this;
 	}
@@ -2856,7 +2945,7 @@ class FlattenFold<T, V> extends Iter<V> {
 		for (;;) {
 			const it = back !== (this.phase === 2) ? of.back : of.front;
 			if (it !== undefined) {
-				if (it !== this.held) [this.held, this.reading] = [it, it.folded()];
+				if (it !== this.held) [this.held, this.reading] = [it, it.folded(this.whole)];
 				const item = back ? this.reading!.nextBack() : this.reading!.next();
 				if (item !== DONE) return item;
 			}
@@ -2946,8 +3035,8 @@ export class Peekable<T> extends Adaptor<T, T> {
 	 * std's: the item it peeked, or none past a peeked end, and then its iterator folded; from
 	 * the back, its iterator folded and then the item it peeked, which it holds until then.
 	 */
-	override folded(): Iter<T> {
-		const inner = this.inner.folded();
+	override folded(fold = false): Iter<T> {
+		const inner = this.inner.folded(fold);
 		if (inner === this.inner) return this;
 		const front = () => (this.peeked ? this.take() : inner.next());
 		const back = (): T | Done => {

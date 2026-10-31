@@ -62,7 +62,7 @@ export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 				}
 				const front: rt.ByteSlice = new rt.ByteSlice(data.data, data.start, mid);
 				const back: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + mid, data.length - mid);
-				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterMap(rt.iterZip(rt.iterSlice(rt.byteSliceView(front)), rt.iterRev(rt.iterSlice(rt.byteSliceView(back)))), (_216: [rt.u8, rt.u8]): rt.u8 => {
+				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterMap(rt.iterZip(rt.iterSlice(rt.byteSliceView(front)), rt.iterRev(rt.iterSlice(rt.byteSliceView(back))), "len"), (_216: [rt.u8, rt.u8]): rt.u8 => {
 					return _216[0] ^ _216[1];
 				}), undefined, true)));
 				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(rt.iterToByteVec(rt.iterRev(rt.iterChain(rt.iterSlice(rt.byteSliceView(front)), rt.iterSlice(rt.byteSliceView(back)))), undefined, true)));
@@ -214,12 +214,12 @@ export function consumers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			const b16: rt.u8 = _224;
 			rt.byteVecPush(log, b16);
 			return b16;
-		}), rt.iterSlice(rt.byteSliceView(short)), true)) & 0xff);
+		}), rt.iterSlice(rt.byteSliceView(short)), "index")) & 0xff);
 		const iter: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_225: rt.u8): rt.u8 => {
 			const b17: rt.u8 = _225;
 			rt.byteVecPush(log, ~b17 & 0xff);
 			return b17;
-		}), rt.iterSlice(rt.byteSliceView(short)), true);
+		}), rt.iterSlice(rt.byteSliceView(short)), "index");
 		while (true) {
 			const _69: [rt.u8, rt.u8] | rt.Done = iter.next();
 			if (_69 === rt.DONE) {
@@ -241,7 +241,7 @@ export function consumers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		}
 		const back: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_227: rt.u8): rt.u8 => {
 			return rotateFree$RotateFree_u8(_227);
-		}), rt.iterSlice(rt.byteSliceView(short)), true);
+		}), rt.iterSlice(rt.byteSliceView(short)), "index");
 		const _97: [rt.u8, rt.u8] | undefined = rt.iterToOption(back.nextBack());
 		if (_97 !== undefined) {
 			const a3: rt.u8 = _97[0];
@@ -1669,6 +1669,1564 @@ export function at$Option_u8(items: Array<rt.u8 | undefined>, i: rt.usize): rt.u
 
 export function at$u8(items: rt.ByteSlice, i: rt.usize): rt.u8 | undefined {
 	return rt.byteSliceGet(items, i);
+}
+
+/**
+ * A zip of each kind std specializes, of sides whose closures log each item they make, and
+ * either side shorter or empty: by index (`TrustedRandomAccess`), folded by its size hint
+ * (`TrustedLen`, or only `TrustedRandomAccessNoCoerce`), and by `next` (neither), read by
+ * each of std's consumers, and through adaptors that fold it or read it by `try_fold`.
+ */
+export function zips(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _18!: [rt.ByteSlice, rt.ByteSlice];
+	const _40: (a0: [rt.u8, rt.u8]) => rt.u8 = (_2: [rt.u8, rt.u8]): rt.u8 => {
+		return _2[0] ^ _2[1];
+	};
+	const _201: (a0: [rt.u8, rt.u8]) => rt.u8 = (_23: [rt.u8, rt.u8]): rt.u8 => {
+		return _23[0] ^ _23[1];
+	};
+	const _380: (a0: [rt.u8, rt.u8]) => rt.u8 = (_25: [rt.u8, rt.u8]): rt.u8 => {
+		return _25[0] ^ _25[1];
+	};
+	const _573: (a0: [rt.u8, rt.u8]) => rt.u8 = (_27: [rt.u8, rt.u8]): rt.u8 => {
+		return _27[0] ^ _27[1];
+	};
+	const _750: (a0: [rt.u8, rt.u8]) => rt.u8 = (_210: [rt.u8, rt.u8]): rt.u8 => {
+		return _210[0] ^ _210[1];
+	};
+	const _926: (a0: [rt.u8, rt.u8]) => rt.u8 = (_218: [rt.u8, rt.u8]): rt.u8 => {
+		return _218[0] ^ _218[1];
+	};
+	const _1101: (a0: [rt.u8, rt.u8]) => rt.u8 = (_221: [rt.u8, rt.u8]): rt.u8 => {
+		return _221[0] ^ _221[1];
+	};
+	const mid: number = rt.usizeRem(kind >> 5 as rt.usize, rt.usizeAdd(data.length, 1));
+	if (mid > data.length) {
+		rt.panic("mid > len");
+	}
+	if (!((kind & 8) === 0)) {
+		_18 = [new rt.ByteSlice(data.data, data.start + mid, data.length - mid), new rt.ByteSlice(data.data, data.start, mid)] as [rt.ByteSlice, rt.ByteSlice];
+	} else {
+		_18 = [new rt.ByteSlice(data.data, data.start, mid), new rt.ByteSlice(data.data, data.start + mid, data.length - mid)] as [rt.ByteSlice, rt.ByteSlice];
+	}
+	const a2: rt.ByteSlice = _18[0];
+	const b2: rt.ByteSlice = _18[1];
+	const other: boolean = (kind & 4) !== 0;
+	const n: rt.usize = mapOr$1t0muvr(rt.byteSliceFirst(data), 0, (_223: rt.u8): rt.usize => {
+		return rt.usizeRem(_223 as rt.usize, 4);
+	});
+	const log: rt.RefCell<rt.ByteVec> = new rt.RefCell(new rt.ByteVec());
+	const _28: rt.u8 = rt.u8Rem(kind, 4);
+	if (_28 === 0) {
+		if ((kind & 16) === 0) {
+			const z: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2290: rt.u8): rt.u8 => {
+				const x231: rt.u8 = _2290;
+				const _6238: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6238.value, x231 ^ 1);
+				rt.refMutRelease(_6238);
+				return x231;
+			}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2291: rt.u8): rt.u8 => {
+				const x232: rt.u8 = _2291;
+				const _6239: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6239.value, x232 ^ 2);
+				rt.refMutRelease(_6239);
+				return x232;
+			}), "index");
+			const _41: rt.usize = rt.usizeRem(data.length, 8);
+			if (_41 === 0) {
+				rt.byteVecPush(out, rt.iterCount(z) & 0xff);
+			} else if (_41 === 1) {
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z), 238, (_2300: [rt.u8, rt.u8]): rt.u8 => {
+					return _2300[0] ^ _2300[1];
+				}));
+			} else if (_41 === 2) {
+				rt.iterForEach(z, (p21: [rt.u8, rt.u8]): undefined => {
+					rt.byteVecPush(out, _40(p21));
+				});
+			} else if (_41 === 3) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z, (_2299: [rt.u8, rt.u8]): rt.u32 => {
+					return rt.u32Add(_2299[0] as rt.u32, _2299[1] as rt.u32);
+				}), rt.u32Add, 0)).reverse()), undefined, true);
+			} else if (_41 === 4) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z, (_2298: [rt.u8, rt.u8]): rt.u8 => {
+					return _2298[0] ^ _2298[1];
+				}), undefined, true))), undefined, true);
+			} else if (_41 === 5) {
+				rt.byteVecPush(out, rt.iterFold(z, 0, (acc7: rt.u8, p20: [rt.u8, rt.u8]): rt.u8 => {
+					return rt.u8WrappingMul(acc7, 3) ^ _40(p20);
+				}));
+			} else if (_41 === 6) {
+				rt.byteVecPush(out, rt.iterAny(rt.iterMap(z, (_2297: [rt.u8, rt.u8]): rt.u8 => {
+					return _2297[0] ^ _2297[1];
+				}), (x239: rt.u8): boolean => {
+					return x239 === 0;
+				}) ? 1 : 0);
+			} else {
+				const z2: rt.Iter<[rt.u8, rt.u8]> = z;
+				rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z2, (_2292: [rt.u8, rt.u8]): boolean => {
+					return _2292[0] > _2292[1];
+				}), 238, (i14: rt.usize): rt.u8 => {
+					return i14 & 0xff;
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z2, (_2293: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2293[0], 3) === 0;
+				}), 238, (_2294: [rt.u8, rt.u8]): rt.u8 => {
+					return _2294[0] ^ _2294[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z2, n), 238, (_2295: [rt.u8, rt.u8]): rt.u8 => {
+					return _2295[0] ^ _2295[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z2.next()), 238, (_2296: [rt.u8, rt.u8]): rt.u8 => {
+					return _2296[0] ^ _2296[1];
+				}));
+			}
+		} else {
+			const _79: rt.usize = rt.usizeRem(data.length, 8);
+			if (_79 === 0) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2287: rt.u8): rt.u8 => {
+					const x228: rt.u8 = _2287;
+					const _6236: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6236.value, x228 ^ 1);
+					rt.refMutRelease(_6236);
+					return x228;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2288: rt.u8): rt.u8 => {
+					const x229: rt.u8 = _2288;
+					const _6237: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6237.value, x229 ^ 2);
+					rt.refMutRelease(_6237);
+					return x229;
+				}), "index"), (_2289: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2289[0], 2) === 0;
+				})) & 0xff);
+			} else if (_79 === 1) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2284: rt.u8): rt.u8 => {
+					const x225: rt.u8 = _2284;
+					const _6234: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6234.value, x225 ^ 1);
+					rt.refMutRelease(_6234);
+					return x225;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2285: rt.u8): rt.u8 => {
+					const x226: rt.u8 = _2285;
+					const _6235: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6235.value, x226 ^ 2);
+					rt.refMutRelease(_6235);
+					return x226;
+				}), "index"), (_2286: [rt.u8, rt.u8]): rt.u8 | undefined => {
+					return rt.u8CheckedSub(_2286[0], _2286[1]);
+				})) & 0xff);
+			} else if (_79 === 2) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2281: rt.u8): rt.u8 => {
+					const x222: rt.u8 = _2281;
+					const _6232: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6232.value, x222 ^ 1);
+					rt.refMutRelease(_6232);
+					return x222;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2282: rt.u8): rt.u8 => {
+					const x223: rt.u8 = _2282;
+					const _6233: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6233.value, x223 ^ 2);
+					rt.refMutRelease(_6233);
+					return x223;
+				}), "index"), (_2283: [rt.u8, rt.u8]): boolean => {
+					return _2283[0] < 128;
+				})) & 0xff);
+			} else if (_79 === 3) {
+				rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2278: rt.u8): rt.u8 => {
+					const x220: rt.u8 = _2278;
+					const _6230: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6230.value, x220 ^ 1);
+					rt.refMutRelease(_6230);
+					return x220;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2279: rt.u8): rt.u8 => {
+					const x221: rt.u8 = _2279;
+					const _6231: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6231.value, x221 ^ 2);
+					rt.refMutRelease(_6231);
+					return x221;
+				}), "index")), (_2280: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+					return _2280[0] & 0xff;
+				})), 238));
+			} else if (_79 === 4) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2276: rt.u8): rt.u8 => {
+					const x218: rt.u8 = _2276;
+					const _6228: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6228.value, x218 ^ 1);
+					rt.refMutRelease(_6228);
+					return x218;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2277: rt.u8): rt.u8 => {
+					const x219: rt.u8 = _2277;
+					const _6229: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6229.value, x219 ^ 2);
+					rt.refMutRelease(_6229);
+					return x219;
+				}), "index"), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+			} else if (_79 === 5) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2274: rt.u8): rt.u8 => {
+					const x216: rt.u8 = _2274;
+					const _6226: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6226.value, x216 ^ 1);
+					rt.refMutRelease(_6226);
+					return x216;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2275: rt.u8): rt.u8 => {
+					const x217: rt.u8 = _2275;
+					const _6227: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6227.value, x217 ^ 2);
+					rt.refMutRelease(_6227);
+					return x217;
+				}), "index"), n)) & 0xff);
+			} else if (_79 === 6) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2272: rt.u8): rt.u8 => {
+					const x214: rt.u8 = _2272;
+					const _6224: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6224.value, x214 ^ 1);
+					rt.refMutRelease(_6224);
+					return x214;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2273: rt.u8): rt.u8 => {
+					const x215: rt.u8 = _2273;
+					const _6225: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6225.value, x215 ^ 2);
+					rt.refMutRelease(_6225);
+					return x215;
+				}), "index"), n)) & 0xff);
+			} else {
+				const p: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2270: rt.u8): rt.u8 => {
+					const x212: rt.u8 = _2270;
+					const _6222: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6222.value, x212 ^ 1);
+					rt.refMutRelease(_6222);
+					return x212;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2271: rt.u8): rt.u8 => {
+					const x213: rt.u8 = _2271;
+					const _6223: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6223.value, x213 ^ 2);
+					rt.refMutRelease(_6223);
+					return x213;
+				}), "index"));
+				rt.byteVecPush(out, (rt.peekablePeek(p) !== undefined ? 1 : 0) ^ (rt.iterCount(p) & 0xff));
+			}
+		}
+	} else if (_28 === 1) {
+		if (!other) {
+			if ((kind & 16) === 0) {
+				const z3: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2259: rt.u8): rt.u8 => {
+					const x200: rt.u8 = _2259;
+					const _6218: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6218.value, x200 ^ 3);
+					rt.refMutRelease(_6218);
+					return x200;
+				}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2260: rt.u8): rt.u8 => {
+					const x201: rt.u8 = _2260;
+					const _6219: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6219.value, x201 ^ 4);
+					rt.refMutRelease(_6219);
+					return x201;
+				}), "len");
+				const _202: rt.usize = rt.usizeRem(data.length, 8);
+				if (_202 === 0) {
+					rt.byteVecPush(out, rt.iterCount(z3) & 0xff);
+				} else if (_202 === 1) {
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z3), 238, (_2269: [rt.u8, rt.u8]): rt.u8 => {
+						return _2269[0] ^ _2269[1];
+					}));
+				} else if (_202 === 2) {
+					rt.iterForEach(z3, (p19: [rt.u8, rt.u8]): undefined => {
+						rt.byteVecPush(out, _201(p19));
+					});
+				} else if (_202 === 3) {
+					rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z3, (_2268: [rt.u8, rt.u8]): rt.u32 => {
+						return rt.u32Add(_2268[0] as rt.u32, _2268[1] as rt.u32);
+					}), rt.u32Add, 0)).reverse()), undefined, true);
+				} else if (_202 === 4) {
+					rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z3, (_2267: [rt.u8, rt.u8]): rt.u8 => {
+						return _2267[0] ^ _2267[1];
+					}), undefined, true))), undefined, true);
+				} else if (_202 === 5) {
+					rt.byteVecPush(out, rt.iterFold(z3, 0, (acc6: rt.u8, p18: [rt.u8, rt.u8]): rt.u8 => {
+						return rt.u8WrappingMul(acc6, 3) ^ _201(p18);
+					}));
+				} else if (_202 === 6) {
+					rt.byteVecPush(out, rt.iterAny(rt.iterMap(z3, (_2266: [rt.u8, rt.u8]): rt.u8 => {
+						return _2266[0] ^ _2266[1];
+					}), (x208: rt.u8): boolean => {
+						return x208 === 0;
+					}) ? 1 : 0);
+				} else {
+					const z4: rt.Iter<[rt.u8, rt.u8]> = z3;
+					rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z4, (_2261: [rt.u8, rt.u8]): boolean => {
+						return _2261[0] > _2261[1];
+					}), 238, (i12: rt.usize): rt.u8 => {
+						return i12 & 0xff;
+					}));
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z4, (_2262: [rt.u8, rt.u8]): boolean => {
+						return rt.u8Rem(_2262[0], 3) === 0;
+					}), 238, (_2263: [rt.u8, rt.u8]): rt.u8 => {
+						return _2263[0] ^ _2263[1];
+					}));
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z4, n), 238, (_2264: [rt.u8, rt.u8]): rt.u8 => {
+						return _2264[0] ^ _2264[1];
+					}));
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z4.next()), 238, (_2265: [rt.u8, rt.u8]): rt.u8 => {
+						return _2265[0] ^ _2265[1];
+					}));
+				}
+			} else {
+				const _240: rt.usize = rt.usizeRem(data.length, 8);
+				if (_240 === 0) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2256: rt.u8): rt.u8 => {
+						const x197: rt.u8 = _2256;
+						const _6216: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6216.value, x197 ^ 3);
+						rt.refMutRelease(_6216);
+						return x197;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2257: rt.u8): rt.u8 => {
+						const x198: rt.u8 = _2257;
+						const _6217: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6217.value, x198 ^ 4);
+						rt.refMutRelease(_6217);
+						return x198;
+					}), "len"), (_2258: [rt.u8, rt.u8]): boolean => {
+						return rt.u8Rem(_2258[0], 2) === 0;
+					})) & 0xff);
+				} else if (_240 === 1) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2253: rt.u8): rt.u8 => {
+						const x194: rt.u8 = _2253;
+						const _6214: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6214.value, x194 ^ 3);
+						rt.refMutRelease(_6214);
+						return x194;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2254: rt.u8): rt.u8 => {
+						const x195: rt.u8 = _2254;
+						const _6215: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6215.value, x195 ^ 4);
+						rt.refMutRelease(_6215);
+						return x195;
+					}), "len"), (_2255: [rt.u8, rt.u8]): rt.u8 | undefined => {
+						return rt.u8CheckedSub(_2255[0], _2255[1]);
+					})) & 0xff);
+				} else if (_240 === 2) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2250: rt.u8): rt.u8 => {
+						const x191: rt.u8 = _2250;
+						const _6212: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6212.value, x191 ^ 3);
+						rt.refMutRelease(_6212);
+						return x191;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2251: rt.u8): rt.u8 => {
+						const x192: rt.u8 = _2251;
+						const _6213: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6213.value, x192 ^ 4);
+						rt.refMutRelease(_6213);
+						return x192;
+					}), "len"), (_2252: [rt.u8, rt.u8]): boolean => {
+						return _2252[0] < 128;
+					})) & 0xff);
+				} else if (_240 === 3) {
+					rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2247: rt.u8): rt.u8 => {
+						const x189: rt.u8 = _2247;
+						const _6210: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6210.value, x189 ^ 3);
+						rt.refMutRelease(_6210);
+						return x189;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2248: rt.u8): rt.u8 => {
+						const x190: rt.u8 = _2248;
+						const _6211: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6211.value, x190 ^ 4);
+						rt.refMutRelease(_6211);
+						return x190;
+					}), "len")), (_2249: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+						return _2249[0] & 0xff;
+					})), 238));
+				} else if (_240 === 4) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2245: rt.u8): rt.u8 => {
+						const x187: rt.u8 = _2245;
+						const _6208: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6208.value, x187 ^ 3);
+						rt.refMutRelease(_6208);
+						return x187;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2246: rt.u8): rt.u8 => {
+						const x188: rt.u8 = _2246;
+						const _6209: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6209.value, x188 ^ 4);
+						rt.refMutRelease(_6209);
+						return x188;
+					}), "len"), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+				} else if (_240 === 5) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2243: rt.u8): rt.u8 => {
+						const x185: rt.u8 = _2243;
+						const _6206: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6206.value, x185 ^ 3);
+						rt.refMutRelease(_6206);
+						return x185;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2244: rt.u8): rt.u8 => {
+						const x186: rt.u8 = _2244;
+						const _6207: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6207.value, x186 ^ 4);
+						rt.refMutRelease(_6207);
+						return x186;
+					}), "len"), n)) & 0xff);
+				} else if (_240 === 6) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2241: rt.u8): rt.u8 => {
+						const x183: rt.u8 = _2241;
+						const _6204: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6204.value, x183 ^ 3);
+						rt.refMutRelease(_6204);
+						return x183;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2242: rt.u8): rt.u8 => {
+						const x184: rt.u8 = _2242;
+						const _6205: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6205.value, x184 ^ 4);
+						rt.refMutRelease(_6205);
+						return x184;
+					}), "len"), n)) & 0xff);
+				} else {
+					const p2: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2239: rt.u8): rt.u8 => {
+						const x181: rt.u8 = _2239;
+						const _6202: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6202.value, x181 ^ 3);
+						rt.refMutRelease(_6202);
+						return x181;
+					}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2240: rt.u8): rt.u8 => {
+						const x182: rt.u8 = _2240;
+						const _6203: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6203.value, x182 ^ 4);
+						rt.refMutRelease(_6203);
+						return x182;
+					}), "len"));
+					rt.byteVecPush(out, (rt.peekablePeek(p2) !== undefined ? 1 : 0) ^ (rt.iterCount(p2) & 0xff));
+				}
+			}
+		} else if ((kind & 16) === 0) {
+			const z5: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2228: rt.u8): rt.u8 => {
+				const x169: rt.u8 = _2228;
+				const _6198: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6198.value, x169 ^ 5);
+				rt.refMutRelease(_6198);
+				return x169;
+			}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2229: rt.u8): rt.u8 => {
+				const x170: rt.u8 = _2229;
+				const _6199: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6199.value, x170 ^ 6);
+				rt.refMutRelease(_6199);
+				return x170;
+			}), "len");
+			const _381: rt.usize = rt.usizeRem(data.length, 8);
+			if (_381 === 0) {
+				rt.byteVecPush(out, rt.iterCount(z5) & 0xff);
+			} else if (_381 === 1) {
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z5), 238, (_2238: [rt.u8, rt.u8]): rt.u8 => {
+					return _2238[0] ^ _2238[1];
+				}));
+			} else if (_381 === 2) {
+				rt.iterForEach(z5, (p17: [rt.u8, rt.u8]): undefined => {
+					rt.byteVecPush(out, _380(p17));
+				});
+			} else if (_381 === 3) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z5, (_2237: [rt.u8, rt.u8]): rt.u32 => {
+					return rt.u32Add(_2237[0] as rt.u32, _2237[1] as rt.u32);
+				}), rt.u32Add, 0)).reverse()), undefined, true);
+			} else if (_381 === 4) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z5, (_2236: [rt.u8, rt.u8]): rt.u8 => {
+					return _2236[0] ^ _2236[1];
+				}), undefined, true))), undefined, true);
+			} else if (_381 === 5) {
+				rt.byteVecPush(out, rt.iterFold(z5, 0, (acc5: rt.u8, p16: [rt.u8, rt.u8]): rt.u8 => {
+					return rt.u8WrappingMul(acc5, 3) ^ _380(p16);
+				}));
+			} else if (_381 === 6) {
+				rt.byteVecPush(out, rt.iterAny(rt.iterMap(z5, (_2235: [rt.u8, rt.u8]): rt.u8 => {
+					return _2235[0] ^ _2235[1];
+				}), (x177: rt.u8): boolean => {
+					return x177 === 0;
+				}) ? 1 : 0);
+			} else {
+				const z6: rt.Iter<[rt.u8, rt.u8]> = z5;
+				rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z6, (_2230: [rt.u8, rt.u8]): boolean => {
+					return _2230[0] > _2230[1];
+				}), 238, (i10: rt.usize): rt.u8 => {
+					return i10 & 0xff;
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z6, (_2231: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2231[0], 3) === 0;
+				}), 238, (_2232: [rt.u8, rt.u8]): rt.u8 => {
+					return _2232[0] ^ _2232[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z6, n), 238, (_2233: [rt.u8, rt.u8]): rt.u8 => {
+					return _2233[0] ^ _2233[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z6.next()), 238, (_2234: [rt.u8, rt.u8]): rt.u8 => {
+					return _2234[0] ^ _2234[1];
+				}));
+			}
+		} else {
+			const _419: rt.usize = rt.usizeRem(data.length, 8);
+			if (_419 === 0) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2225: rt.u8): rt.u8 => {
+					const x166: rt.u8 = _2225;
+					const _6196: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6196.value, x166 ^ 5);
+					rt.refMutRelease(_6196);
+					return x166;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2226: rt.u8): rt.u8 => {
+					const x167: rt.u8 = _2226;
+					const _6197: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6197.value, x167 ^ 6);
+					rt.refMutRelease(_6197);
+					return x167;
+				}), "len"), (_2227: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2227[0], 2) === 0;
+				})) & 0xff);
+			} else if (_419 === 1) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2222: rt.u8): rt.u8 => {
+					const x163: rt.u8 = _2222;
+					const _6194: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6194.value, x163 ^ 5);
+					rt.refMutRelease(_6194);
+					return x163;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2223: rt.u8): rt.u8 => {
+					const x164: rt.u8 = _2223;
+					const _6195: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6195.value, x164 ^ 6);
+					rt.refMutRelease(_6195);
+					return x164;
+				}), "len"), (_2224: [rt.u8, rt.u8]): rt.u8 | undefined => {
+					return rt.u8CheckedSub(_2224[0], _2224[1]);
+				})) & 0xff);
+			} else if (_419 === 2) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2219: rt.u8): rt.u8 => {
+					const x160: rt.u8 = _2219;
+					const _6192: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6192.value, x160 ^ 5);
+					rt.refMutRelease(_6192);
+					return x160;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2220: rt.u8): rt.u8 => {
+					const x161: rt.u8 = _2220;
+					const _6193: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6193.value, x161 ^ 6);
+					rt.refMutRelease(_6193);
+					return x161;
+				}), "len"), (_2221: [rt.u8, rt.u8]): boolean => {
+					return _2221[0] < 128;
+				})) & 0xff);
+			} else if (_419 === 3) {
+				rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2216: rt.u8): rt.u8 => {
+					const x158: rt.u8 = _2216;
+					const _6190: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6190.value, x158 ^ 5);
+					rt.refMutRelease(_6190);
+					return x158;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2217: rt.u8): rt.u8 => {
+					const x159: rt.u8 = _2217;
+					const _6191: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6191.value, x159 ^ 6);
+					rt.refMutRelease(_6191);
+					return x159;
+				}), "len")), (_2218: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+					return _2218[0] & 0xff;
+				})), 238));
+			} else if (_419 === 4) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2214: rt.u8): rt.u8 => {
+					const x156: rt.u8 = _2214;
+					const _6188: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6188.value, x156 ^ 5);
+					rt.refMutRelease(_6188);
+					return x156;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2215: rt.u8): rt.u8 => {
+					const x157: rt.u8 = _2215;
+					const _6189: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6189.value, x157 ^ 6);
+					rt.refMutRelease(_6189);
+					return x157;
+				}), "len"), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+			} else if (_419 === 5) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2212: rt.u8): rt.u8 => {
+					const x154: rt.u8 = _2212;
+					const _6186: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6186.value, x154 ^ 5);
+					rt.refMutRelease(_6186);
+					return x154;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2213: rt.u8): rt.u8 => {
+					const x155: rt.u8 = _2213;
+					const _6187: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6187.value, x155 ^ 6);
+					rt.refMutRelease(_6187);
+					return x155;
+				}), "len"), n)) & 0xff);
+			} else if (_419 === 6) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2210: rt.u8): rt.u8 => {
+					const x152: rt.u8 = _2210;
+					const _6184: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6184.value, x152 ^ 5);
+					rt.refMutRelease(_6184);
+					return x152;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2211: rt.u8): rt.u8 => {
+					const x153: rt.u8 = _2211;
+					const _6185: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6185.value, x153 ^ 6);
+					rt.refMutRelease(_6185);
+					return x153;
+				}), "len"), n)) & 0xff);
+			} else {
+				const p3: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterZip(rt.iterChain(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2208: rt.u8): rt.u8 => {
+					const x150: rt.u8 = _2208;
+					const _6182: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6182.value, x150 ^ 5);
+					rt.refMutRelease(_6182);
+					return x150;
+				}), rt.iterSlice(rt.byteSliceView(b2))), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2209: rt.u8): rt.u8 => {
+					const x151: rt.u8 = _2209;
+					const _6183: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6183.value, x151 ^ 6);
+					rt.refMutRelease(_6183);
+					return x151;
+				}), "len"));
+				rt.byteVecPush(out, (rt.peekablePeek(p3) !== undefined ? 1 : 0) ^ (rt.iterCount(p3) & 0xff));
+			}
+		}
+	} else if (_28 === 2) {
+		if (!other) {
+			if ((kind & 16) === 0) {
+				const z7: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x138: rt.u8): rt.u8 => {
+					const _6178: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6178.value, x138 ^ 7);
+					rt.refMutRelease(_6178);
+					return x138;
+				}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x139: rt.u8): rt.u8 => {
+					const _6179: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6179.value, x139 ^ 8);
+					rt.refMutRelease(_6179);
+					return x139;
+				}), "len");
+				const _574: rt.usize = rt.usizeRem(data.length, 8);
+				if (_574 === 0) {
+					rt.byteVecPush(out, rt.iterCount(z7) & 0xff);
+				} else if (_574 === 1) {
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z7), 238, (_2207: [rt.u8, rt.u8]): rt.u8 => {
+						return _2207[0] ^ _2207[1];
+					}));
+				} else if (_574 === 2) {
+					rt.iterForEach(z7, (p15: [rt.u8, rt.u8]): undefined => {
+						rt.byteVecPush(out, _573(p15));
+					});
+				} else if (_574 === 3) {
+					rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z7, (_2206: [rt.u8, rt.u8]): rt.u32 => {
+						return rt.u32Add(_2206[0] as rt.u32, _2206[1] as rt.u32);
+					}), rt.u32Add, 0)).reverse()), undefined, true);
+				} else if (_574 === 4) {
+					rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z7, (_2205: [rt.u8, rt.u8]): rt.u8 => {
+						return _2205[0] ^ _2205[1];
+					}), undefined, true))), undefined, true);
+				} else if (_574 === 5) {
+					rt.byteVecPush(out, rt.iterFold(z7, 0, (acc4: rt.u8, p14: [rt.u8, rt.u8]): rt.u8 => {
+						return rt.u8WrappingMul(acc4, 3) ^ _573(p14);
+					}));
+				} else if (_574 === 6) {
+					rt.byteVecPush(out, rt.iterAny(rt.iterMap(z7, (_2204: [rt.u8, rt.u8]): rt.u8 => {
+						return _2204[0] ^ _2204[1];
+					}), (x146: rt.u8): boolean => {
+						return x146 === 0;
+					}) ? 1 : 0);
+				} else {
+					const z8: rt.Iter<[rt.u8, rt.u8]> = z7;
+					rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z8, (_2199: [rt.u8, rt.u8]): boolean => {
+						return _2199[0] > _2199[1];
+					}), 238, (i8: rt.usize): rt.u8 => {
+						return i8 & 0xff;
+					}));
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z8, (_2200: [rt.u8, rt.u8]): boolean => {
+						return rt.u8Rem(_2200[0], 3) === 0;
+					}), 238, (_2201: [rt.u8, rt.u8]): rt.u8 => {
+						return _2201[0] ^ _2201[1];
+					}));
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z8, n), 238, (_2202: [rt.u8, rt.u8]): rt.u8 => {
+						return _2202[0] ^ _2202[1];
+					}));
+					rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z8.next()), 238, (_2203: [rt.u8, rt.u8]): rt.u8 => {
+						return _2203[0] ^ _2203[1];
+					}));
+				}
+			} else {
+				const _612: rt.usize = rt.usizeRem(data.length, 8);
+				if (_612 === 0) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x135: rt.u8): rt.u8 => {
+						const _6176: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6176.value, x135 ^ 7);
+						rt.refMutRelease(_6176);
+						return x135;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x136: rt.u8): rt.u8 => {
+						const _6177: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6177.value, x136 ^ 8);
+						rt.refMutRelease(_6177);
+						return x136;
+					}), "len"), (_2198: [rt.u8, rt.u8]): boolean => {
+						return rt.u8Rem(_2198[0], 2) === 0;
+					})) & 0xff);
+				} else if (_612 === 1) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x132: rt.u8): rt.u8 => {
+						const _6174: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6174.value, x132 ^ 7);
+						rt.refMutRelease(_6174);
+						return x132;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x133: rt.u8): rt.u8 => {
+						const _6175: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6175.value, x133 ^ 8);
+						rt.refMutRelease(_6175);
+						return x133;
+					}), "len"), (_2197: [rt.u8, rt.u8]): rt.u8 | undefined => {
+						return rt.u8CheckedSub(_2197[0], _2197[1]);
+					})) & 0xff);
+				} else if (_612 === 2) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x129: rt.u8): rt.u8 => {
+						const _6172: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6172.value, x129 ^ 7);
+						rt.refMutRelease(_6172);
+						return x129;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x130: rt.u8): rt.u8 => {
+						const _6173: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6173.value, x130 ^ 8);
+						rt.refMutRelease(_6173);
+						return x130;
+					}), "len"), (_2196: [rt.u8, rt.u8]): boolean => {
+						return _2196[0] < 128;
+					})) & 0xff);
+				} else if (_612 === 3) {
+					rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x127: rt.u8): rt.u8 => {
+						const _6170: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6170.value, x127 ^ 7);
+						rt.refMutRelease(_6170);
+						return x127;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x128: rt.u8): rt.u8 => {
+						const _6171: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6171.value, x128 ^ 8);
+						rt.refMutRelease(_6171);
+						return x128;
+					}), "len")), (_2195: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+						return _2195[0] & 0xff;
+					})), 238));
+				} else if (_612 === 4) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x125: rt.u8): rt.u8 => {
+						const _6168: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6168.value, x125 ^ 7);
+						rt.refMutRelease(_6168);
+						return x125;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x126: rt.u8): rt.u8 => {
+						const _6169: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6169.value, x126 ^ 8);
+						rt.refMutRelease(_6169);
+						return x126;
+					}), "len"), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+				} else if (_612 === 5) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x123: rt.u8): rt.u8 => {
+						const _6166: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6166.value, x123 ^ 7);
+						rt.refMutRelease(_6166);
+						return x123;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x124: rt.u8): rt.u8 => {
+						const _6167: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6167.value, x124 ^ 8);
+						rt.refMutRelease(_6167);
+						return x124;
+					}), "len"), n)) & 0xff);
+				} else if (_612 === 6) {
+					rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x121: rt.u8): rt.u8 => {
+						const _6164: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6164.value, x121 ^ 7);
+						rt.refMutRelease(_6164);
+						return x121;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x122: rt.u8): rt.u8 => {
+						const _6165: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6165.value, x122 ^ 8);
+						rt.refMutRelease(_6165);
+						return x122;
+					}), "len"), n)) & 0xff);
+				} else {
+					const p4: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), (x119: rt.u8): rt.u8 => {
+						const _6162: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6162.value, x119 ^ 7);
+						rt.refMutRelease(_6162);
+						return x119;
+					}), rt.iterMap(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(b2))), (x120: rt.u8): rt.u8 => {
+						const _6163: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+						rt.byteVecPush(_6163.value, x120 ^ 8);
+						rt.refMutRelease(_6163);
+						return x120;
+					}), "len"));
+					rt.byteVecPush(out, (rt.peekablePeek(p4) !== undefined ? 1 : 0) ^ (rt.iterCount(p4) & 0xff));
+				}
+			}
+		} else if ((kind & 16) === 0) {
+			const z9: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x107: rt.u8): rt.u8 => {
+				const _6158: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6158.value, x107 ^ 9);
+				rt.refMutRelease(_6158);
+				return x107;
+			}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2185: rt.u8): rt.u8 => {
+				const x108: rt.u8 = _2185;
+				const _6159: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6159.value, x108 ^ 10);
+				rt.refMutRelease(_6159);
+				return x108;
+			}), "len");
+			const _751: rt.usize = rt.usizeRem(data.length, 8);
+			if (_751 === 0) {
+				rt.byteVecPush(out, rt.iterCount(z9) & 0xff);
+			} else if (_751 === 1) {
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z9), 238, (_2194: [rt.u8, rt.u8]): rt.u8 => {
+					return _2194[0] ^ _2194[1];
+				}));
+			} else if (_751 === 2) {
+				rt.iterForEach(z9, (p13: [rt.u8, rt.u8]): undefined => {
+					rt.byteVecPush(out, _750(p13));
+				});
+			} else if (_751 === 3) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z9, (_2193: [rt.u8, rt.u8]): rt.u32 => {
+					return rt.u32Add(_2193[0] as rt.u32, _2193[1] as rt.u32);
+				}), rt.u32Add, 0)).reverse()), undefined, true);
+			} else if (_751 === 4) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z9, (_2192: [rt.u8, rt.u8]): rt.u8 => {
+					return _2192[0] ^ _2192[1];
+				}), undefined, true))), undefined, true);
+			} else if (_751 === 5) {
+				rt.byteVecPush(out, rt.iterFold(z9, 0, (acc3: rt.u8, p12: [rt.u8, rt.u8]): rt.u8 => {
+					return rt.u8WrappingMul(acc3, 3) ^ _750(p12);
+				}));
+			} else if (_751 === 6) {
+				rt.byteVecPush(out, rt.iterAny(rt.iterMap(z9, (_2191: [rt.u8, rt.u8]): rt.u8 => {
+					return _2191[0] ^ _2191[1];
+				}), (x115: rt.u8): boolean => {
+					return x115 === 0;
+				}) ? 1 : 0);
+			} else {
+				const z10: rt.Iter<[rt.u8, rt.u8]> = z9;
+				rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z10, (_2186: [rt.u8, rt.u8]): boolean => {
+					return _2186[0] > _2186[1];
+				}), 238, (i6: rt.usize): rt.u8 => {
+					return i6 & 0xff;
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z10, (_2187: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2187[0], 3) === 0;
+				}), 238, (_2188: [rt.u8, rt.u8]): rt.u8 => {
+					return _2188[0] ^ _2188[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z10, n), 238, (_2189: [rt.u8, rt.u8]): rt.u8 => {
+					return _2189[0] ^ _2189[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z10.next()), 238, (_2190: [rt.u8, rt.u8]): rt.u8 => {
+					return _2190[0] ^ _2190[1];
+				}));
+			}
+		} else {
+			const _789: rt.usize = rt.usizeRem(data.length, 8);
+			if (_789 === 0) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x104: rt.u8): rt.u8 => {
+					const _6156: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6156.value, x104 ^ 9);
+					rt.refMutRelease(_6156);
+					return x104;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2183: rt.u8): rt.u8 => {
+					const x105: rt.u8 = _2183;
+					const _6157: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6157.value, x105 ^ 10);
+					rt.refMutRelease(_6157);
+					return x105;
+				}), "len"), (_2184: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2184[0], 2) === 0;
+				})) & 0xff);
+			} else if (_789 === 1) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x101: rt.u8): rt.u8 => {
+					const _6154: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6154.value, x101 ^ 9);
+					rt.refMutRelease(_6154);
+					return x101;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2181: rt.u8): rt.u8 => {
+					const x102: rt.u8 = _2181;
+					const _6155: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6155.value, x102 ^ 10);
+					rt.refMutRelease(_6155);
+					return x102;
+				}), "len"), (_2182: [rt.u8, rt.u8]): rt.u8 | undefined => {
+					return rt.u8CheckedSub(_2182[0], _2182[1]);
+				})) & 0xff);
+			} else if (_789 === 2) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x98: rt.u8): rt.u8 => {
+					const _6152: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6152.value, x98 ^ 9);
+					rt.refMutRelease(_6152);
+					return x98;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2179: rt.u8): rt.u8 => {
+					const x99: rt.u8 = _2179;
+					const _6153: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6153.value, x99 ^ 10);
+					rt.refMutRelease(_6153);
+					return x99;
+				}), "len"), (_2180: [rt.u8, rt.u8]): boolean => {
+					return _2180[0] < 128;
+				})) & 0xff);
+			} else if (_789 === 3) {
+				rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x96: rt.u8): rt.u8 => {
+					const _6150: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6150.value, x96 ^ 9);
+					rt.refMutRelease(_6150);
+					return x96;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2177: rt.u8): rt.u8 => {
+					const x97: rt.u8 = _2177;
+					const _6151: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6151.value, x97 ^ 10);
+					rt.refMutRelease(_6151);
+					return x97;
+				}), "len")), (_2178: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+					return _2178[0] & 0xff;
+				})), 238));
+			} else if (_789 === 4) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x94: rt.u8): rt.u8 => {
+					const _6148: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6148.value, x94 ^ 9);
+					rt.refMutRelease(_6148);
+					return x94;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2176: rt.u8): rt.u8 => {
+					const x95: rt.u8 = _2176;
+					const _6149: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6149.value, x95 ^ 10);
+					rt.refMutRelease(_6149);
+					return x95;
+				}), "len"), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+			} else if (_789 === 5) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x92: rt.u8): rt.u8 => {
+					const _6146: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6146.value, x92 ^ 9);
+					rt.refMutRelease(_6146);
+					return x92;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2175: rt.u8): rt.u8 => {
+					const x93: rt.u8 = _2175;
+					const _6147: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6147.value, x93 ^ 10);
+					rt.refMutRelease(_6147);
+					return x93;
+				}), "len"), n)) & 0xff);
+			} else if (_789 === 6) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x90: rt.u8): rt.u8 => {
+					const _6144: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6144.value, x90 ^ 9);
+					rt.refMutRelease(_6144);
+					return x90;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2174: rt.u8): rt.u8 => {
+					const x91: rt.u8 = _2174;
+					const _6145: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6145.value, x91 ^ 10);
+					rt.refMutRelease(_6145);
+					return x91;
+				}), "len"), n)) & 0xff);
+			} else {
+				const p5: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterZip(rt.iterMap(rt.iterSkip(rt.iterSlice(rt.byteVecView(rt.byteSliceToByteVec(a2))), 1), (x88: rt.u8): rt.u8 => {
+					const _6142: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6142.value, x88 ^ 9);
+					rt.refMutRelease(_6142);
+					return x88;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2173: rt.u8): rt.u8 => {
+					const x89: rt.u8 = _2173;
+					const _6143: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6143.value, x89 ^ 10);
+					rt.refMutRelease(_6143);
+					return x89;
+				}), "len"));
+				rt.byteVecPush(out, (rt.peekablePeek(p5) !== undefined ? 1 : 0) ^ (rt.iterCount(p5) & 0xff));
+			}
+		}
+	} else if (!other) {
+		if ((kind & 16) === 0) {
+			const z11: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2161: rt.u8): rt.u8 => {
+				const x76: rt.u8 = _2161;
+				const _6138: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6138.value, x76 ^ 11);
+				rt.refMutRelease(_6138);
+				return x76;
+			}), (_2162: rt.u8): boolean => {
+				return true;
+			}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2163: rt.u8): rt.u8 => {
+				const x77: rt.u8 = _2163;
+				const _6139: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6139.value, x77 ^ 12);
+				rt.refMutRelease(_6139);
+				return x77;
+			}));
+			const _927: rt.usize = rt.usizeRem(data.length, 8);
+			if (_927 === 0) {
+				rt.byteVecPush(out, rt.iterCount(z11) & 0xff);
+			} else if (_927 === 1) {
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z11), 238, (_2172: [rt.u8, rt.u8]): rt.u8 => {
+					return _2172[0] ^ _2172[1];
+				}));
+			} else if (_927 === 2) {
+				rt.iterForEach(z11, (p11: [rt.u8, rt.u8]): undefined => {
+					rt.byteVecPush(out, _926(p11));
+				});
+			} else if (_927 === 3) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z11, (_2171: [rt.u8, rt.u8]): rt.u32 => {
+					return rt.u32Add(_2171[0] as rt.u32, _2171[1] as rt.u32);
+				}), rt.u32Add, 0)).reverse()), undefined, true);
+			} else if (_927 === 4) {
+				rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z11, (_2170: [rt.u8, rt.u8]): rt.u8 => {
+					return _2170[0] ^ _2170[1];
+				}), "next"))), undefined, true);
+			} else if (_927 === 5) {
+				rt.byteVecPush(out, rt.iterFold(z11, 0, (acc2: rt.u8, p10: [rt.u8, rt.u8]): rt.u8 => {
+					return rt.u8WrappingMul(acc2, 3) ^ _926(p10);
+				}));
+			} else if (_927 === 6) {
+				rt.byteVecPush(out, rt.iterAny(rt.iterMap(z11, (_2169: [rt.u8, rt.u8]): rt.u8 => {
+					return _2169[0] ^ _2169[1];
+				}), (x84: rt.u8): boolean => {
+					return x84 === 0;
+				}) ? 1 : 0);
+			} else {
+				const z12: rt.Iter<[rt.u8, rt.u8]> = z11;
+				rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z12, (_2164: [rt.u8, rt.u8]): boolean => {
+					return _2164[0] > _2164[1];
+				}), 238, (i4: rt.usize): rt.u8 => {
+					return i4 & 0xff;
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z12, (_2165: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2165[0], 3) === 0;
+				}), 238, (_2166: [rt.u8, rt.u8]): rt.u8 => {
+					return _2166[0] ^ _2166[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z12, n), 238, (_2167: [rt.u8, rt.u8]): rt.u8 => {
+					return _2167[0] ^ _2167[1];
+				}));
+				rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z12.next()), 238, (_2168: [rt.u8, rt.u8]): rt.u8 => {
+					return _2168[0] ^ _2168[1];
+				}));
+			}
+		} else {
+			const _965: rt.usize = rt.usizeRem(data.length, 8);
+			if (_965 === 0) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2157: rt.u8): rt.u8 => {
+					const x73: rt.u8 = _2157;
+					const _6136: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6136.value, x73 ^ 11);
+					rt.refMutRelease(_6136);
+					return x73;
+				}), (_2158: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2159: rt.u8): rt.u8 => {
+					const x74: rt.u8 = _2159;
+					const _6137: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6137.value, x74 ^ 12);
+					rt.refMutRelease(_6137);
+					return x74;
+				})), (_2160: [rt.u8, rt.u8]): boolean => {
+					return rt.u8Rem(_2160[0], 2) === 0;
+				})) & 0xff);
+			} else if (_965 === 1) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2153: rt.u8): rt.u8 => {
+					const x70: rt.u8 = _2153;
+					const _6134: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6134.value, x70 ^ 11);
+					rt.refMutRelease(_6134);
+					return x70;
+				}), (_2154: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2155: rt.u8): rt.u8 => {
+					const x71: rt.u8 = _2155;
+					const _6135: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6135.value, x71 ^ 12);
+					rt.refMutRelease(_6135);
+					return x71;
+				})), (_2156: [rt.u8, rt.u8]): rt.u8 | undefined => {
+					return rt.u8CheckedSub(_2156[0], _2156[1]);
+				})) & 0xff);
+			} else if (_965 === 2) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2149: rt.u8): rt.u8 => {
+					const x67: rt.u8 = _2149;
+					const _6132: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6132.value, x67 ^ 11);
+					rt.refMutRelease(_6132);
+					return x67;
+				}), (_2150: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2151: rt.u8): rt.u8 => {
+					const x68: rt.u8 = _2151;
+					const _6133: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6133.value, x68 ^ 12);
+					rt.refMutRelease(_6133);
+					return x68;
+				})), (_2152: [rt.u8, rt.u8]): boolean => {
+					return _2152[0] < 128;
+				})) & 0xff);
+			} else if (_965 === 3) {
+				rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2145: rt.u8): rt.u8 => {
+					const x65: rt.u8 = _2145;
+					const _6130: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6130.value, x65 ^ 11);
+					rt.refMutRelease(_6130);
+					return x65;
+				}), (_2146: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2147: rt.u8): rt.u8 => {
+					const x66: rt.u8 = _2147;
+					const _6131: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6131.value, x66 ^ 12);
+					rt.refMutRelease(_6131);
+					return x66;
+				}))), (_2148: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+					return _2148[0] & 0xff;
+				})), 238));
+			} else if (_965 === 4) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2142: rt.u8): rt.u8 => {
+					const x63: rt.u8 = _2142;
+					const _6128: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6128.value, x63 ^ 11);
+					rt.refMutRelease(_6128);
+					return x63;
+				}), (_2143: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2144: rt.u8): rt.u8 => {
+					const x64: rt.u8 = _2144;
+					const _6129: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6129.value, x64 ^ 12);
+					rt.refMutRelease(_6129);
+					return x64;
+				})), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+			} else if (_965 === 5) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2139: rt.u8): rt.u8 => {
+					const x61: rt.u8 = _2139;
+					const _6126: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6126.value, x61 ^ 11);
+					rt.refMutRelease(_6126);
+					return x61;
+				}), (_2140: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2141: rt.u8): rt.u8 => {
+					const x62: rt.u8 = _2141;
+					const _6127: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6127.value, x62 ^ 12);
+					rt.refMutRelease(_6127);
+					return x62;
+				})), n)) & 0xff);
+			} else if (_965 === 6) {
+				rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2136: rt.u8): rt.u8 => {
+					const x59: rt.u8 = _2136;
+					const _6124: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6124.value, x59 ^ 11);
+					rt.refMutRelease(_6124);
+					return x59;
+				}), (_2137: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2138: rt.u8): rt.u8 => {
+					const x60: rt.u8 = _2138;
+					const _6125: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6125.value, x60 ^ 12);
+					rt.refMutRelease(_6125);
+					return x60;
+				})), n)) & 0xff);
+			} else {
+				const p6: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterZip(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2133: rt.u8): rt.u8 => {
+					const x57: rt.u8 = _2133;
+					const _6122: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6122.value, x57 ^ 11);
+					rt.refMutRelease(_6122);
+					return x57;
+				}), (_2134: rt.u8): boolean => {
+					return true;
+				}), rt.iterMap(rt.iterSlice(rt.byteSliceView(b2)), (_2135: rt.u8): rt.u8 => {
+					const x58: rt.u8 = _2135;
+					const _6123: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+					rt.byteVecPush(_6123.value, x58 ^ 12);
+					rt.refMutRelease(_6123);
+					return x58;
+				})));
+				rt.byteVecPush(out, (rt.peekablePeek(p6) !== undefined ? 1 : 0) ^ (rt.iterCount(p6) & 0xff));
+			}
+		}
+	} else if ((kind & 16) === 0) {
+		const z13: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2120: rt.u8): rt.u8 => {
+			const x43: rt.u8 = _2120;
+			const _6116: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_6116.value, x43 ^ 13);
+			rt.refMutRelease(_6116);
+			return x43;
+		}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2121: rt.u8): rt.u8 => {
+			const x44: rt.u8 = _2121;
+			const _6117: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_6117.value, x44 ^ 14);
+			rt.refMutRelease(_6117);
+			return x44;
+		}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2122: rt.u8): rt.u8 => {
+			const x45: rt.u8 = _2122;
+			const _6118: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_6118.value, x45 ^ 15);
+			rt.refMutRelease(_6118);
+			return x45;
+		}), "len"), (_2123: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+			return [_2123[0][0] ^ _2123[1], _2123[0][1]] as [rt.u8, rt.u8];
+		});
+		const _1102: rt.usize = rt.usizeRem(data.length, 8);
+		if (_1102 === 0) {
+			rt.byteVecPush(out, rt.iterCount(z13) & 0xff);
+		} else if (_1102 === 1) {
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterLast(z13), 238, (_2132: [rt.u8, rt.u8]): rt.u8 => {
+				return _2132[0] ^ _2132[1];
+			}));
+		} else if (_1102 === 2) {
+			rt.iterForEach(z13, (p9: [rt.u8, rt.u8]): undefined => {
+				rt.byteVecPush(out, _1101(p9));
+			});
+		} else if (_1102 === 3) {
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.iterSum(rt.iterMap(z13, (_2131: [rt.u8, rt.u8]): rt.u32 => {
+				return rt.u32Add(_2131[0] as rt.u32, _2131[1] as rt.u32);
+			}), rt.u32Add, 0)).reverse()), undefined, true);
+		} else if (_1102 === 4) {
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.iterMap(z13, (_2130: [rt.u8, rt.u8]): rt.u8 => {
+				return _2130[0] ^ _2130[1];
+			}), undefined, true))), undefined, true);
+		} else if (_1102 === 5) {
+			rt.byteVecPush(out, rt.iterFold(z13, 0, (acc: rt.u8, p8: [rt.u8, rt.u8]): rt.u8 => {
+				return rt.u8WrappingMul(acc, 3) ^ _1101(p8);
+			}));
+		} else if (_1102 === 6) {
+			rt.byteVecPush(out, rt.iterAny(rt.iterMap(z13, (_2129: [rt.u8, rt.u8]): rt.u8 => {
+				return _2129[0] ^ _2129[1];
+			}), (x53: rt.u8): boolean => {
+				return x53 === 0;
+			}) ? 1 : 0);
+		} else {
+			const z14: rt.Iter<[rt.u8, rt.u8]> = z13;
+			rt.byteVecPush(out, mapOr$02k4ito(rt.iterPosition(z14, (_2124: [rt.u8, rt.u8]): boolean => {
+				return _2124[0] > _2124[1];
+			}), 238, (i2: rt.usize): rt.u8 => {
+				return i2 & 0xff;
+			}));
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterFind(z14, (_2125: [rt.u8, rt.u8]): boolean => {
+				return rt.u8Rem(_2125[0], 3) === 0;
+			}), 238, (_2126: [rt.u8, rt.u8]): rt.u8 => {
+				return _2126[0] ^ _2126[1];
+			}));
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterNth(z14, n), 238, (_2127: [rt.u8, rt.u8]): rt.u8 => {
+				return _2127[0] ^ _2127[1];
+			}));
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z14.next()), 238, (_2128: [rt.u8, rt.u8]): rt.u8 => {
+				return _2128[0] ^ _2128[1];
+			}));
+		}
+	} else {
+		const _1140: rt.usize = rt.usizeRem(data.length, 8);
+		if (_1140 === 0) {
+			rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2115: rt.u8): rt.u8 => {
+				const x38: rt.u8 = _2115;
+				const _6112: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6112.value, x38 ^ 13);
+				rt.refMutRelease(_6112);
+				return x38;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2116: rt.u8): rt.u8 => {
+				const x39: rt.u8 = _2116;
+				const _6113: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6113.value, x39 ^ 14);
+				rt.refMutRelease(_6113);
+				return x39;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2117: rt.u8): rt.u8 => {
+				const x40: rt.u8 = _2117;
+				const _6114: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6114.value, x40 ^ 15);
+				rt.refMutRelease(_6114);
+				return x40;
+			}), "len"), (_2118: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_2118[0][0] ^ _2118[1], _2118[0][1]] as [rt.u8, rt.u8];
+			}), (_2119: [rt.u8, rt.u8]): boolean => {
+				return rt.u8Rem(_2119[0], 2) === 0;
+			})) & 0xff);
+		} else if (_1140 === 1) {
+			rt.byteVecPush(out, rt.iterCount(rt.iterFilterMap(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2110: rt.u8): rt.u8 => {
+				const x33: rt.u8 = _2110;
+				const _6108: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6108.value, x33 ^ 13);
+				rt.refMutRelease(_6108);
+				return x33;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2111: rt.u8): rt.u8 => {
+				const x34: rt.u8 = _2111;
+				const _6109: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6109.value, x34 ^ 14);
+				rt.refMutRelease(_6109);
+				return x34;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2112: rt.u8): rt.u8 => {
+				const x35: rt.u8 = _2112;
+				const _6110: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6110.value, x35 ^ 15);
+				rt.refMutRelease(_6110);
+				return x35;
+			}), "len"), (_2113: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_2113[0][0] ^ _2113[1], _2113[0][1]] as [rt.u8, rt.u8];
+			}), (_2114: [rt.u8, rt.u8]): rt.u8 | undefined => {
+				return rt.u8CheckedSub(_2114[0], _2114[1]);
+			})) & 0xff);
+		} else if (_1140 === 2) {
+			rt.byteVecPush(out, rt.iterCount(rt.iterSkipWhile(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2105: rt.u8): rt.u8 => {
+				const x28: rt.u8 = _2105;
+				const _6104: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6104.value, x28 ^ 13);
+				rt.refMutRelease(_6104);
+				return x28;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2106: rt.u8): rt.u8 => {
+				const x29: rt.u8 = _2106;
+				const _6105: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6105.value, x29 ^ 14);
+				rt.refMutRelease(_6105);
+				return x29;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2107: rt.u8): rt.u8 => {
+				const x30: rt.u8 = _2107;
+				const _6106: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6106.value, x30 ^ 15);
+				rt.refMutRelease(_6106);
+				return x30;
+			}), "len"), (_2108: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_2108[0][0] ^ _2108[1], _2108[0][1]] as [rt.u8, rt.u8];
+			}), (_2109: [rt.u8, rt.u8]): boolean => {
+				return _2109[0] < 128;
+			})) & 0xff);
+		} else if (_1140 === 3) {
+			rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.iterLast(rt.iterMap(rt.iterEnumerate(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_2100: rt.u8): rt.u8 => {
+				const x24: rt.u8 = _2100;
+				const _6100: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6100.value, x24 ^ 13);
+				rt.refMutRelease(_6100);
+				return x24;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_2101: rt.u8): rt.u8 => {
+				const x25: rt.u8 = _2101;
+				const _6101: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6101.value, x25 ^ 14);
+				rt.refMutRelease(_6101);
+				return x25;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_2102: rt.u8): rt.u8 => {
+				const x26: rt.u8 = _2102;
+				const _6102: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_6102.value, x26 ^ 15);
+				rt.refMutRelease(_6102);
+				return x26;
+			}), "len"), (_2103: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_2103[0][0] ^ _2103[1], _2103[0][1]] as [rt.u8, rt.u8];
+			})), (_2104: [rt.usize, [rt.u8, rt.u8]]): rt.u8 => {
+				return _2104[0] & 0xff;
+			})), 238));
+		} else if (_1140 === 4) {
+			rt.byteVecPush(out, rt.iterCount(rt.iterChain(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_279: rt.u8): rt.u8 => {
+				const x20: rt.u8 = _279;
+				const _671: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_671.value, x20 ^ 13);
+				rt.refMutRelease(_671);
+				return x20;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_284: rt.u8): rt.u8 => {
+				const x21: rt.u8 = _284;
+				const _680: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_680.value, x21 ^ 14);
+				rt.refMutRelease(_680);
+				return x21;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_294: rt.u8): rt.u8 => {
+				const x22: rt.u8 = _294;
+				const _685: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_685.value, x22 ^ 15);
+				rt.refMutRelease(_685);
+				return x22;
+			}), "len"), (_299: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_299[0][0] ^ _299[1], _299[0][1]] as [rt.u8, rt.u8];
+			}), rt.iterSlice([[1, 2] as [rt.u8, rt.u8]]))) & 0xff);
+		} else if (_1140 === 5) {
+			rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_251: rt.u8): rt.u8 => {
+				const x16: rt.u8 = _251;
+				const _642: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_642.value, x16 ^ 13);
+				rt.refMutRelease(_642);
+				return x16;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_256: rt.u8): rt.u8 => {
+				const x17: rt.u8 = _256;
+				const _651: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_651.value, x17 ^ 14);
+				rt.refMutRelease(_651);
+				return x17;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_265: rt.u8): rt.u8 => {
+				const x18: rt.u8 = _265;
+				const _656: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_656.value, x18 ^ 15);
+				rt.refMutRelease(_656);
+				return x18;
+			}), "len"), (_270: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_270[0][0] ^ _270[1], _270[0][1]] as [rt.u8, rt.u8];
+			}), n)) & 0xff);
+		} else if (_1140 === 6) {
+			rt.byteVecPush(out, rt.iterCount(rt.iterSkip(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_232: rt.u8): rt.u8 => {
+				const x12: rt.u8 = _232;
+				const _611: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_611.value, x12 ^ 13);
+				rt.refMutRelease(_611);
+				return x12;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_235: rt.u8): rt.u8 => {
+				const x13: rt.u8 = _235;
+				const _623: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_623.value, x13 ^ 14);
+				rt.refMutRelease(_623);
+				return x13;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_236: rt.u8): rt.u8 => {
+				const x14: rt.u8 = _236;
+				const _628: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_628.value, x14 ^ 15);
+				rt.refMutRelease(_628);
+				return x14;
+			}), "len"), (_239: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_239[0][0] ^ _239[1], _239[0][1]] as [rt.u8, rt.u8];
+			}), n)) & 0xff);
+		} else {
+			const p7: rt.Peekable<[rt.u8, rt.u8]> = rt.iterPeekable(rt.iterMap(rt.iterZip(rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(a2)), (_224: rt.u8): rt.u8 => {
+				const x8: rt.u8 = _224;
+				const _62: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_62.value, x8 ^ 13);
+				rt.refMutRelease(_62);
+				return x8;
+			}), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(b2))), (_227: rt.u8): rt.u8 => {
+				const x9: rt.u8 = _227;
+				const _63: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_63.value, x9 ^ 14);
+				rt.refMutRelease(_63);
+				return x9;
+			}), "len"), rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(a2))), (_228: rt.u8): rt.u8 => {
+				const x10: rt.u8 = _228;
+				const _66: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+				rt.byteVecPush(_66.value, x10 ^ 15);
+				rt.refMutRelease(_66);
+				return x10;
+			}), "len"), (_231: [[rt.u8, rt.u8], rt.u8]): [rt.u8, rt.u8] => {
+				return [_231[0][0] ^ _231[1], _231[0][1]] as [rt.u8, rt.u8];
+			}));
+			rt.byteVecPush(out, (rt.peekablePeek(p7) !== undefined ? 1 : 0) ^ (rt.iterCount(p7) & 0xff));
+		}
+	}
+	const _1318: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(log);
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_1318.value));
+	rt.refRelease(_1318);
+}
+
+/**
+ * `next_back` of a zip of sides that each log what they make: std trims the longer side
+ * first, a by-index zip only a side that logs, then reads both from the back.
+ */
+export function zipsBack(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	const mid: number = rt.usizeRem(kind >> 3 as rt.usize, rt.usizeAdd(data.length, 1));
+	if (mid > data.length) {
+		rt.panic("mid > len");
+	}
+	const log: rt.RefCell<rt.ByteVec> = new rt.RefCell(new rt.ByteVec());
+	const _18: rt.u8 = rt.u8Rem(kind, 4);
+	if (_18 === 0) {
+		const z: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start, mid))), (_218: rt.u8): rt.u8 => {
+			const x16: rt.u8 = _218;
+			const _68: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_68.value, x16 ^ 1);
+			rt.refMutRelease(_68);
+			return x16;
+		}), rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + mid, data.length - mid))), "index");
+		if ((kind & 4) !== 0) {
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z.next()), 238, (_219: [rt.u8, rt.u8]): rt.u8 => {
+				return _219[0] ^ _219[1];
+			}));
+		}
+		while (true) {
+			const _33: [rt.u8, rt.u8] | undefined = rt.iterToOption(z.nextBack());
+			if (_33 !== undefined) {
+				rt.byteVecPush(out, _33[0] ^ _33[1]);
+				rt.byteVecPush(out, z.len() & 0xff);
+			} else {
+				break;
+			}
+		}
+		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z.next()), 238, (_220: [rt.u8, rt.u8]): rt.u8 => {
+			return _220[0] ^ _220[1];
+		}));
+	} else if (_18 === 1) {
+		const z2: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start, mid))), rt.iterMap(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + mid, data.length - mid))), (_215: rt.u8): rt.u8 => {
+			const x13: rt.u8 = _215;
+			const _66: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_66.value, x13 ^ 2);
+			rt.refMutRelease(_66);
+			return x13;
+		}), "index");
+		if ((kind & 4) !== 0) {
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z2.next()), 238, (_216: [rt.u8, rt.u8]): rt.u8 => {
+				return _216[0] ^ _216[1];
+			}));
+		}
+		while (true) {
+			const _61: [rt.u8, rt.u8] | undefined = rt.iterToOption(z2.nextBack());
+			if (_61 !== undefined) {
+				rt.byteVecPush(out, _61[0] ^ _61[1]);
+				rt.byteVecPush(out, z2.len() & 0xff);
+			} else {
+				break;
+			}
+		}
+		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z2.next()), 238, (_217: [rt.u8, rt.u8]): rt.u8 => {
+			return _217[0] ^ _217[1];
+		}));
+	} else if (_18 === 2) {
+		const z3: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start, mid))), (_211: rt.u8): rt.u8 => {
+			const x9: rt.u8 = _211;
+			const _64: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_64.value, x9 ^ 3);
+			rt.refMutRelease(_64);
+			return x9;
+		}), rt.iterMap(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + mid, data.length - mid))), (_212: rt.u8): rt.u8 => {
+			const x10: rt.u8 = _212;
+			const _65: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_65.value, x10 ^ 4);
+			rt.refMutRelease(_65);
+			return x10;
+		}), "index");
+		if ((kind & 4) !== 0) {
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z3.next()), 238, (_213: [rt.u8, rt.u8]): rt.u8 => {
+				return _213[0] ^ _213[1];
+			}));
+		}
+		while (true) {
+			const _91: [rt.u8, rt.u8] | undefined = rt.iterToOption(z3.nextBack());
+			if (_91 !== undefined) {
+				rt.byteVecPush(out, _91[0] ^ _91[1]);
+				rt.byteVecPush(out, z3.len() & 0xff);
+			} else {
+				break;
+			}
+		}
+		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z3.next()), 238, (_214: [rt.u8, rt.u8]): rt.u8 => {
+			return _214[0] ^ _214[1];
+		}));
+	} else {
+		const z4: rt.Iter<[rt.u8, rt.u8]> = rt.iterZip(rt.iterMap(rt.iterRev(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start, mid)))), (_2: rt.u8): rt.u8 => {
+			const x5: rt.u8 = _2;
+			const _62: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_62.value, x5 ^ 5);
+			rt.refMutRelease(_62);
+			return x5;
+		}), rt.iterMap(rt.iterSlice(rt.byteSliceView(new rt.ByteSlice(data.data, data.start + mid, data.length - mid))), (_24: rt.u8): rt.u8 => {
+			const x6: rt.u8 = _24;
+			const _63: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(log);
+			rt.byteVecPush(_63.value, x6 ^ 6);
+			rt.refMutRelease(_63);
+			return x6;
+		}), "len");
+		if ((kind & 4) !== 0) {
+			rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z4.next()), 238, (_29: [rt.u8, rt.u8]): rt.u8 => {
+				return _29[0] ^ _29[1];
+			}));
+		}
+		while (true) {
+			const _122: [rt.u8, rt.u8] | undefined = rt.iterToOption(z4.nextBack());
+			if (_122 !== undefined) {
+				rt.byteVecPush(out, _122[0] ^ _122[1]);
+				rt.byteVecPush(out, z4.len() & 0xff);
+			} else {
+				break;
+			}
+		}
+		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(z4.next()), 238, (_210: [rt.u8, rt.u8]): rt.u8 => {
+			return _210[0] ^ _210[1];
+		}));
+	}
+	const _141: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(log);
+	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(_141.value));
+	rt.refRelease(_141);
 }
 
 //# sourceMappingURL=iters.ts.map

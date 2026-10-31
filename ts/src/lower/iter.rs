@@ -431,6 +431,20 @@ pub fn call<'tcx>(
 		}
 		// What each drops: an item it skips or rejects, or one it peeked.
 		"filter" | "skip_while" | "take_while" | "peekable" | "skip" | "take" | "step_by" => {
+			// std reads such a `skip` by index where what wraps it does, making and dropping each
+			// skipped pair whole, and else by the zip's `nth`, a side at a time.
+			if name == "skip"
+				&& b.t.drops(item)
+				&& implements(b.t, self_ty, "TrustedRandomAccess")
+				&& nth_zips(tcx, self_ty)
+			{
+				return Some(b.err(
+					span,
+					format!(
+						"a `skip` of `{self_ty}`, a zip std reads by index, of items that drop, which is not supported yet"
+					),
+				));
+			}
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, vec![dropper]))
 		}
@@ -605,19 +619,8 @@ pub fn call<'tcx>(
 			};
 			let (a, other_iter) = (sides.type_at(0), sides.type_at(1));
 			let other_item = b.t.iter_item(other_iter)?;
-			let trusted = zip_reads_by_index(b, a, other_iter, span);
-			// std's reads one item past the end of the first, which it drops, where `next`
-			// could see the difference.
-			if trusted && (b.t.drops(item) || b.t.drops(other_item)) {
-				return Some(b.err(
-					span,
-					format!(
-						"a `zip` of `{a}` and `{other_iter}`, which std reads by index, of items that drop, which is not supported yet"
-					),
-				));
-			}
 			let droppers = vec![
-				Expr::lit(if trusted { "true" } else { "false" }),
+				zip_trusted(b, a, other_iter),
 				b.t.dropper(item, span),
 				b.t.dropper(other_item, span),
 			];
@@ -738,6 +741,19 @@ fn std_iter_path(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> Option<Vec<String>> {
 		return None;
 	};
 	Some(library::std_path(tcx, adt.did())).filter(|p| !p.is_empty())
+}
+
+/// Whether `nth` of `ty`, an iterator, is that of a zip it wraps, through the adaptors
+/// whose `nth` is their iterator's.
+fn nth_zips(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
+	let ty::Adt(adt, args) = ty.kind() else {
+		return false;
+	};
+	match library::std_path(tcx, adt.did()).last().map(String::as_str) {
+		Some("Zip") => true,
+		Some("Enumerate" | "Fuse" | "Skip") => nth_zips(tcx, args.type_at(0)),
+		_ => false,
+	}
 }
 
 /// Whether std's `owner::name` takes a closure by value that it drops as its fold ends,
@@ -866,33 +882,19 @@ fn flattens<'tcx>(b: &mut Body<'_, '_, 'tcx>, inner: Ty<'tcx>, span: Span) {
 	}
 }
 
-/// Whether std's `Zip` of `a` and `b` reads both by index, never past the shorter: when
-/// both are `TrustedRandomAccess`. Refuse one that `fold` reads that way but `next` does
-/// not, where the first calls a closure that would see the difference.
-fn zip_reads_by_index<'tcx>(b: &mut Body<'_, '_, 'tcx>, a: Ty<'tcx>, other: Ty<'tcx>, span: Span) -> bool {
-	let both = |b: &mut Body<'_, '_, 'tcx>, name: &str| implements(b.t, a, name) && implements(b.t, other, name);
-	if both(b, "TrustedRandomAccess") {
-		return true;
+/// `rt.Trusted`, how std's `Zip` of `a` and `b` reads them, by the traits it specializes
+/// on: by index if both are `TrustedRandomAccess`, and folded by its size hint if both are
+/// `TrustedLen`, or `TrustedRandomAccessNoCoerce`, whose `fold` reads by index as many
+/// pairs as their exact size hints, but whose `next` reads as any other zip's does.
+fn zip_trusted<'tcx>(b: &Body<'_, '_, 'tcx>, a: Ty<'tcx>, other: Ty<'tcx>) -> Expr {
+	let both = |name: &str| implements(b.t, a, name) && implements(b.t, other, name);
+	if both("TrustedRandomAccess") {
+		Expr::Str("index".into())
+	} else if both("TrustedLen") || both("TrustedRandomAccessNoCoerce") {
+		Expr::Str("len".into())
+	} else {
+		Expr::undefined()
 	}
-	if (both(b, "TrustedRandomAccessNoCoerce") || both(b, "TrustedLen")) && calls_closures(b.t.tcx, a) {
-		b.t.err(
-			span,
-			format!("a `zip` of `{a}`, whose closures std calls one item further through `next` than through `fold`"),
-		);
-	}
-	false
-}
-
-/// Whether `ty`, an iterator, has std's closure-calling adaptors in it, which std counts as
-/// side effects.
-fn calls_closures(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
-	ty.walk().filter_map(|arg| arg.as_type()).any(|t| match t.kind() {
-		ty::Adt(adt, _) => matches!(
-			library::std_path(tcx, adt.did()).last().map(String::as_str),
-			Some("Map" | "Cloned" | "Inspect")
-		),
-		_ => false,
-	})
 }
 
 /// Whether `ty` implements `core`'s trait `name`, one std specializes on: an iterator
@@ -949,10 +951,11 @@ fn collect<'tcx>(
 	match std {
 		Std::Vec => Some(match args.type_at(0).kind() {
 			ty::Uint(ty::UintTy::U8) => {
-				let take = iter_take(b, from, implements(b.t, from, "TrustedLen"), span);
+				let (folds, by_index) = collect_folds(b, from, args.type_at(0), span);
+				let take = iter_take(b, from, folds, span);
 				Expr::rt(
 					"iterToByteVec",
-					tail(vec![iter], vec![take, Expr::lit(trusted.to_string())]),
+					tail(vec![iter], vec![take, Expr::lit((trusted || by_index).to_string())]),
 				)
 			}
 			_ => to_array(b, iter, from, args.type_at(0), trusted, span),
@@ -1062,10 +1065,8 @@ fn drops_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> boo
 }
 
 /// `rt.iterToArray` of `iter`, an iterator of type `from`, collected into a `Vec<elem>` as
-/// std's does: by `next` where it collects in place of the `Vec` its items come from, by
-/// `try_fold`, which drops the closures the iterator holds only with it, where its own
-/// `fold` drops them first. It reserves as std's does for a `TrustedLen` iterator if
-/// `trusted`.
+/// `collect_folds` says std's reads it. It reserves as std's does for a `TrustedLen`
+/// iterator if `trusted`.
 pub(super) fn to_array<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	iter: Expr,
@@ -1074,13 +1075,43 @@ pub(super) fn to_array<'tcx>(
 	trusted: bool,
 	span: Span,
 ) -> Expr {
-	let folds = implements(b.t, from, "TrustedLen") && !in_place(b.t, from, elem);
+	let (folds, by_index) = collect_folds(b, from, elem, span);
 	let take = iter_take(b, from, folds, span);
 	let size = size_of(b, elem, span);
 	Expr::rt(
 		"iterToArray",
-		tail(vec![iter], vec![take, size, Expr::lit(trusted.to_string())]),
+		tail(
+			vec![iter],
+			vec![take, size, Expr::lit((trusted || by_index).to_string())],
+		),
 	)
+}
+
+/// Whether std's `collect` of an iterator of type `from` into a `Vec<elem>` folds it, and
+/// whether by index, reading no item past its length. In place of the `Vec` its items come
+/// from, it reads a `TrustedRandomAccessNoCoerce` one by index and any other by `try_fold`,
+/// then drops it whole, as reading by `next` and then dropping it does but for a zip, whose
+/// `next` reads a side once past the other: that one folds, its length reserved as a
+/// `TrustedLen` one's, and is refused if it holds values that drop, which its `fold` drops
+/// as each fold ends. Elsewhere, it folds a `TrustedLen` one by its own `fold`, which drops
+/// them first, and reads any other by `next`.
+fn collect_folds<'tcx>(b: &mut Body<'_, '_, 'tcx>, from: Ty<'tcx>, elem: Ty<'tcx>, span: Span) -> (bool, bool) {
+	if !in_place(b.t, from, elem) {
+		return (implements(b.t, from, "TrustedLen"), false);
+	}
+	let zips = from.walk().filter_map(|arg| arg.as_type()).any(|t| {
+		matches!(t.kind(), ty::Adt(adt, _) if library::std_path(b.t.tcx, adt.did()).last().map(String::as_str) == Some("Zip"))
+	});
+	let by_index = zips && implements(b.t, from, "TrustedRandomAccessNoCoerce");
+	if by_index && drops_iter(b, from, span) {
+		b.t.err(
+			span,
+			format!(
+				"a `collect` in place of `{from}`, a zip std reads by index, holding values that drop, which is not supported yet"
+			),
+		);
+	}
+	(by_index, by_index)
 }
 
 /// Whether std's `collect` of an iterator of type `iter` into a `Vec<elem>` writes in place

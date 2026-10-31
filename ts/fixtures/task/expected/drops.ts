@@ -1248,8 +1248,8 @@ export function arcs(log: Log.Log, id: rt.u32): void {
 }
 
 /**
- * Run scenario `arg % 33` of what std's by-value consumers drop of adaptors that hold
- * closures that drop.
+ * Run scenario `arg % 42` of what std's by-value consumers drop of adaptors that hold
+ * closures that drop, and of zips of items that drop.
  */
 export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	folds_folded(log, id, arg);

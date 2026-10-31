@@ -126,7 +126,7 @@ export function looped(log: Log.Log, id: rt.u32): void {
 	const v6: Guard.Guard[] = [];
 	const _238: Guard.Guard = guard(23);
 	v6.push(_238);
-	const part6 = rt.ownedCount(rt.iterZip(_216, rt.iterSlice(v6, rt.drop), false, rt.drop, rt.drop), drop$Guard_Guard);
+	const part6 = rt.ownedCount(rt.iterZip(_216, rt.iterSlice(v6, rt.drop), "len", rt.drop, rt.drop), drop$Guard_Guard);
 	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part6, f)];
 	Log.note(log, rt.fmtFormat(["zip ", args14[0]]));
 	const v7: Guard.Guard[] = [];

@@ -7,12 +7,12 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::log::Log;
 use crate::model::Guard;
 
-/// Run scenario `arg % 34`. Items are guards 1 to 7; what closures own, 10 and up.
+/// Run scenario `arg % 42`. Items are guards 1 to 7; what closures own, 10 and up.
 pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 	let guard = |n: u32| Guard::new(id + n, log.clone());
 	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
 	let (c, d) = (guard(10), guard(11));
-	match arg % 34 {
+	match arg % 42 {
 		0 => {
 			let n = guards(1, 5).into_iter().map(move |g| g.id() + c.id()).count();
 			let sum: u32 = guards(5, 8).into_iter().map(move |g| g.id() - id + d.id() - id).sum();
@@ -383,6 +383,7 @@ pub(super) fn folded(log: &Log, id: u32, arg: u8) {
 		31 => options(log, id),
 		32 => reducers(log, id),
 		33 => closures(log, id),
+		34..42 => zips(log, id, arg - 34),
 		_ => {
 			let n: u32 = guards(1, 6)
 				.into_iter()
@@ -677,4 +678,108 @@ fn closures(log: &Log, id: u32) {
 	})
 	.count();
 	log.note(format!("walked {n}"));
+}
+
+/// Scenario `arg` of a zip of items that drop, each side made by a closure where std reads
+/// it by index: by index, `next` makes no item past the shorter side and `next_back` makes
+/// and drops the longer side's extra first; a zip of two `TrustedLen` iterators, or two only
+/// `TrustedRandomAccessNoCoerce`, folds no pair past its size hint, and drops the rest with
+/// itself, where `try_fold` and `next` read the first side once more and drop that item.
+fn zips(log: &Log, id: u32, arg: u8) {
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |from: u32, to: u32| (from..to).map(guard).collect::<Vec<_>>();
+	// A guard made by a side's closure, which says so, where std reads by index.
+	let made = |n: u32| {
+		log.note(format!("make {n}"));
+		guard(n)
+	};
+	let ids = |p: Option<(Guard, Guard)>| p.map(|(a, b)| (a.id() - id, b.id() - id));
+	match arg {
+		0 => {
+			let n = (1..4).map(made).zip((4..6).map(made)).count();
+			let nth = ids((1..4).map(made).zip((4..7).map(made)).nth(1));
+			let past = ids((1..3).map(made).zip((3..6).map(made)).nth(3));
+			log.note(format!("index {n} {nth:?} {past:?}"));
+		}
+		1 => {
+			let mut longer = (1..5).map(made).zip((5..7).map(made));
+			let back = ids(longer.next_back());
+			let front = ids(longer.next());
+			let mut shorter = (1..3).map(made).zip((3..7).map(made));
+			let next = ids(shorter.next());
+			let rest = shorter.rev().map(|(a, b)| a.id() + b.id() - 2 * id).collect::<Vec<_>>();
+			log.note(format!("back {back:?} {front:?} {next:?} {rest:?}"));
+		}
+		2 => {
+			let n = guards(1, 4).into_iter().zip(guards(4, 6)).count();
+			let any = guards(1, 4).into_iter().zip(guards(4, 6)).any(|_| false);
+			let last = ids(guards(1, 3).into_iter().zip(guards(3, 6)).last());
+			guards(1, 4)
+				.into_iter()
+				.zip(guards(4, 6))
+				.for_each(|(a, b)| log.note(format!("each {} {}", a.id() - id, b.id() - id)));
+			log.note(format!("len {n} {any} {last:?}"));
+		}
+		3 => {
+			let zip = || {
+				vec![1, 2, 3]
+					.into_iter()
+					.map(made)
+					.zip(vec![4, 5].into_iter().map(made))
+			};
+			let n = zip().count();
+			let at = zip().position(|_| false);
+			let sum: u32 = zip().map(|(a, b)| a.id() + b.id() - 2 * id).sum();
+			let skipped = vec![1, 2, 3, 4]
+				.into_iter()
+				.skip(1)
+				.map(made)
+				.zip((5..7).map(made))
+				.count();
+			// Collected in place by index, then dropped whole: `c`'s closure, then `d`'s.
+			let (c, d) = (guard(10), guard(11));
+			let kept: Vec<u32> = vec![1, 2, 3]
+				.into_iter()
+				.map(move |x| x + c.id() - id)
+				.map(move |x| x + d.id() - id)
+				.collect();
+			log.note(format!("no coerce {n} {at:?} {sum} {skipped} {kept:?}"));
+		}
+		4 => {
+			let v = guards(1, 4).into_iter().zip((4..6).map(guard)).collect::<Vec<_>>();
+			log.note(format!("collect {}", v.len()));
+			drop(v);
+			let found = ids(guards(1, 3)
+				.into_iter()
+				.zip((3..6).map(guard))
+				.find(|(a, _)| a.id() == id + 9));
+			log.note(format!("find {found:?}"));
+		}
+		5 => {
+			let nested = || guards(1, 4).into_iter().zip(guards(4, 6)).zip((6..9).map(guard));
+			let n = nested().count();
+			let found = nested().find(|((a, _), _)| a.id() == id + 9).is_some();
+			log.note(format!("nested {n} {found}"));
+		}
+		6 => {
+			// Neither side `TrustedLen`: `fold` reads by `next`, past the shorter side.
+			let n = guards(1, 4)
+				.into_iter()
+				.filter(|g| g.id() != id)
+				.zip(guards(4, 6))
+				.count();
+			let m = guards(1, 3)
+				.into_iter()
+				.zip(guards(3, 6).into_iter().filter(|g| g.id() != id))
+				.count();
+			log.note(format!("neither {n} {m}"));
+		}
+		_ => {
+			let v = [1, 2, 3];
+			let n = v.iter().map(|&n| made(n)).zip(0..2).count();
+			let back = v.iter().map(|&n| made(n)).zip(0..2).rev().count();
+			let empty = v.iter().map(|&n| made(n)).zip(0..0).count() + (0..0).zip(v.iter().map(|&n| made(n))).count();
+			log.note(format!("trimmed {n} {back} {empty}"));
+		}
+	}
 }
