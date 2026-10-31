@@ -122,7 +122,7 @@ roots = [
     "pushed_part_kept",
     "tallied",
     "tallied_alone",
-    "ascii_upper",
+    "ascii_octal",
     "array_part_replaced",
     "tuple_part_replaced",
     "nested_part_replaced",
@@ -140,5 +140,12 @@ roots = [
     "kept_instance",
     "atomic_swapped",
     "atomic_exchanged",
+    "ref_replaced",
+    "ref_taken",
+    "key_set",
+    "key_replaced",
+    "key_taken",
+    "ascii_in_tuple",
+    "ascii_part",
 ]
 printable = ["Meters"]

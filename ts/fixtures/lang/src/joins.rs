@@ -1,7 +1,7 @@
-//! `concat` and `join` of slices of arrays, slices, and vectors, of bytes and of other
-//! values, and of text: each item's elements cloned once, in order, with the separator's
-//! between them, outer and inner slices empty or not, and totals past what the result may
-//! hold, which panic as std's do.
+//! `concat` and `join` of slices of arrays, slices, vectors, and boxed slices, of bytes
+//! and of other values, and of text: each item's elements cloned once, in order, with the
+//! separator's between them, outer and inner slices empty or not, and totals past what the
+//! result may hold, which panic as std's do.
 
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -88,6 +88,10 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			bytes(owned.concat(), out);
 			bytes(owned.join(&sep), out);
 			bytes(owned.join(seps), out);
+			let boxed: Vec<Box<[u8]>> = parts.iter().map(|&p| Box::from(p)).collect();
+			bytes(boxed.concat(), out);
+			bytes(boxed.join(&sep), out);
+			bytes(boxed.join(seps), out);
 			let none: [&[u8]; 0] = [];
 			bytes(none.concat(), out);
 			bytes(none.join(&sep), out);
@@ -131,6 +135,10 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			wides(slices.concat(), out);
 			wides(slices.join(&sep), out);
 			wides(slices.join(&wide_seps[..]), out);
+			let boxed: Vec<Box<[u16]>> = wide.iter().cloned().map(Vec::into_boxed_slice).collect();
+			wides(boxed.concat(), out);
+			wides(boxed.join(&sep), out);
+			wides(boxed.join(&wide_seps[..]), out);
 			let pairs: Vec<[u16; 2]> = slices
 				.iter()
 				.map(|s| [s.len() as u16, s.first().copied().unwrap_or(0)])
@@ -163,6 +171,12 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			ids(slices.concat(), &log, out);
 			ids(slices.join(&sep), &log, out);
 			ids(slices.join(&seps[..]), &log, out);
+			let boxed: Vec<Box<[Logged]>> = slices.iter().map(|&s| Box::from(s)).collect();
+			flush(&log, out);
+			ids(boxed.concat(), &log, out);
+			ids(boxed.join(&sep), &log, out);
+			drop(boxed);
+			flush(&log, out);
 			let pairs = [[logged(2), logged(4)], [logged(6), logged(8)]];
 			ids(pairs.concat(), &log, out);
 			ids(pairs.join(&sep), &log, out);

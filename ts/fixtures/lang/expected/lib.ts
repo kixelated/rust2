@@ -58,6 +58,10 @@ export function copy$Option_array2_Option_u8(v: Array<rt.u8 | undefined> | undef
 	return v === undefined ? v : copy$array_Option_u8(v);
 }
 
+export function copy$Option_array2_char(v: rt.char[] | undefined): rt.char[] | undefined {
+	return v === undefined ? v : copy$array_char(v);
+}
+
 export function copy$Option_array2_keys_Hop(v: Hop.Hop[] | undefined): Hop.Hop[] | undefined {
 	return v === undefined ? v : copy$array_keys_Hop(v);
 }
@@ -116,6 +120,10 @@ export function copy$array_Option_u8(v: Array<rt.u8 | undefined>): Array<rt.u8 |
 
 export function copy$array_array2_u8(v: Uint8Array[]): Uint8Array[] {
 	return v.map(copy$array_u8);
+}
+
+export function copy$array_char(v: rt.char[]): rt.char[] {
+	return v.slice();
 }
 
 export function copy$array_collections_Quirky(v: Quirky.Quirky[]): Quirky.Quirky[] {
@@ -511,6 +519,10 @@ export function drop$Vec_sync_Arc_counts_Noisy(value: rt.Arc<counts_Noisy.Noisy>
 }
 
 export function drop$array2_joins_Logged(value: joins_Logged.Logged[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$boxed_Box_slice_joins_Logged(value: joins_Logged.Logged[]): void {
 	rt.dropAll(value);
 }
 

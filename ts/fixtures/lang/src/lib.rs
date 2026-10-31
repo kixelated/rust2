@@ -1,6 +1,6 @@
 //! The language the driver translates, exercised against native Rust: every integer
 //! width's arithmetic, casts, and inherent methods, `f64`, `char`s and the `str` methods over them,
-//! `Cow<str>`, `Duration`, control flow, patterns, byte slices split apart, `Copy`
+//! `Cow<str>`, boxed slices and text, `Duration`, control flow, patterns, byte slices split apart, `Copy`
 //! aggregates, closures and what they write of what they captured, traits, generic
 //! types, formatting, collections, UTF-8 decoding, `&mut` to values JS copies, whole
 //! writes through a `&mut` to an object, the standard library calls it maps, `Option`'s
@@ -26,9 +26,11 @@
 #![feature(iter_order_by, split_as_slice, wrapping_int_impl, wrapping_next_power_of_two)]
 
 mod arrays;
+mod ascii;
 mod atomics;
 mod borrows;
 mod bounds;
+mod boxes;
 mod captures;
 mod cells;
 mod chars;
