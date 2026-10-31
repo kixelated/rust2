@@ -250,6 +250,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("ascii::chars", ascii::chars),
 		("ascii::slices", ascii::slices),
 		("arrays::given", arrays::given),
+		("pointers::taken", |_, data, out| pointers::taken(data, out)),
 	]
 }
 
