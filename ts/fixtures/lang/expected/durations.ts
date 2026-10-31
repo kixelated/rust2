@@ -3,9 +3,9 @@
 import * as rt from "./rt.ts";
 import { copy$Window } from "./lib.ts";
 import { thenSome$1jqdi5p } from "./core/bool.ts";
-import type * as Twice from "./durations.Twice.ts";
-import * as Window from "./durations.Window.ts";
-import { put } from "./fmt.ts";
+import type * as durations_Twice from "./durations.Twice.ts";
+import * as durations_Window from "./durations.Window.ts";
+import { put as fmt_put } from "./fmt.ts";
 
 /** A `u64` and a `u32` from the front of `data`, big-endian and zero-padded. */
 export function take(data: rt.ByteSlice): [rt.u64, rt.u32, rt.ByteSlice] {
@@ -48,7 +48,7 @@ export function putOpt(out: rt.ByteVec, d: rt.Duration | undefined): void {
 	}
 }
 
-export function addAssign$AddAssign_Twice_Duration(self: rt.Place<rt.Duration>, by: Twice.Twice): void {
+export function addAssign$AddAssign_Twice_Duration(self: rt.Place<rt.Duration>, by: durations_Twice.Twice): void {
 	self.v = rt.durationAdd(self.v, by._0);
 	self.v = rt.durationAdd(self.v, by._0);
 }
@@ -154,11 +154,11 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		const c: rt.Duration = rt.durationNew(0, rt.durationSubsecNanos(b));
 		const d2: rt.Duration = rt.durationFromNanos(rt.u32Rem(n, 1000000) as rt.u64);
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.durationDebug(a, f), (f: rt.Formatter) => rt.durationDebug(c, f), (f: rt.Formatter) => rt.durationDebug(d2, f), (f: rt.Formatter) => rt.fmtOption(b, f, rt.durationDebug)];
-		put(out, rt.fmtFormat([args2[0], "|", args2[1], "|", args2[2], "|", rt.fmtSpec({ align: ">", width: 16 }, args2[1]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 14 }, args2[2]), "|", rt.fmtSpec({ align: "<", width: 12 }, args2[1]), "|", rt.fmtSpec({ zero: true, width: 8 }, args2[0]), "|", args2[3]]));
+		fmt_put(out, rt.fmtFormat([args2[0], "|", args2[1], "|", args2[2], "|", rt.fmtSpec({ align: ">", width: 16 }, args2[1]), "|", rt.fmtSpec({ fill: "*", align: "^", width: 14 }, args2[2]), "|", rt.fmtSpec({ align: "<", width: 12 }, args2[1]), "|", rt.fmtSpec({ zero: true, width: 8 }, args2[0]), "|", args2[3]]));
 		const _234: rt.Duration | undefined = b;
 		const p: rt.usize = rt.u32Rem(n, 13) as rt.usize;
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.durationDebug(a, f), (f: rt.Formatter) => rt.durationDebug(c, f), (f: rt.Formatter) => rt.durationDebug(d2, f), rt.fmtCount(p), (f: rt.Formatter) => rt.fmtOption(_234, f, rt.durationDebug)];
-		put(out, rt.fmtFormat([rt.fmtSpec({ precision: 0 }, args4[0]), "|", rt.fmtSpec({ precision: 3 }, args4[0]), "|", rt.fmtSpec({ precision: 1 }, args4[1]), "|", rt.fmtSpec({ precision: 12 }, args4[2]), "|", rt.fmtSpec({ plus: true }, args4[0]), "|", rt.fmtSpec({ plus: true, width: 12, precision: 2 }, args4[1]), "|", rt.fmtSpec({ align: "<", width: 10, precision: 1 }, args4[2]), "|", rt.fmtSpec({ precision: rt.fmtCountOf(args4[3]) }, args4[0]), "|", rt.fmtSpec({ precision: 1 }, args4[4])]));
+		fmt_put(out, rt.fmtFormat([rt.fmtSpec({ precision: 0 }, args4[0]), "|", rt.fmtSpec({ precision: 3 }, args4[0]), "|", rt.fmtSpec({ precision: 1 }, args4[1]), "|", rt.fmtSpec({ precision: 12 }, args4[2]), "|", rt.fmtSpec({ plus: true }, args4[0]), "|", rt.fmtSpec({ plus: true, width: 12, precision: 2 }, args4[1]), "|", rt.fmtSpec({ align: "<", width: 10, precision: 1 }, args4[2]), "|", rt.fmtSpec({ precision: rt.fmtCountOf(args4[3]) }, args4[0]), "|", rt.fmtSpec({ precision: 1 }, args4[4])]));
 		const iter4: rt.Iter<rt.u64> = rt.iterSlice([1500000000, 2500000000, 1250000, 1350000, 999500, 1999999999]);
 		while (true) {
 			const _250: rt.u64 | rt.Done = iter4.next();
@@ -167,13 +167,13 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			}
 			const part = rt.durationFromNanos(_250);
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.durationDebug(part, f)];
-			put(out, rt.fmtFormat([rt.fmtSpec({ precision: 0 }, args6[0]), " ", rt.fmtSpec({ precision: 1 }, args6[0]), " ", rt.fmtSpec({ precision: 2 }, args6[0])]));
+			fmt_put(out, rt.fmtFormat([rt.fmtSpec({ precision: 0 }, args6[0]), " ", rt.fmtSpec({ precision: 1 }, args6[0]), " ", rt.fmtSpec({ precision: 2 }, args6[0])]));
 		}
 	} else if (_24 === 10) {
 		let c2: rt.Duration = a;
 		c2 = rt.durationAdd(c2, b);
 		putDuration(out, c2);
-		const w: Window.Window = { start: c2, len: b };
+		const w: durations_Window.Window = { start: c2, len: b };
 		w.start = rt.durationSub(w.start, b);
 		putDuration(out, w.start);
 		if (w.len !== undefined) {
@@ -187,7 +187,7 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		shrink(rt.place(() => v[0], (value) => v[0] = value), b);
 		putDuration(out, v[0]);
 		let d5: rt.Duration = a;
-		const _306: Twice.Twice = { _0: b };
+		const _306: durations_Twice.Twice = { _0: b };
 		addAssign$AddAssign_Twice_Duration(rt.place(() => d5, (value2) => d5 = value2), _306);
 		putDuration(out, d5);
 	} else if (_24 === 11) {
@@ -227,16 +227,16 @@ export function durations(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		putDuration(out, { secs: 0, nanos: 0 });
 		putOpt(out, rt.durationCheckedAdd({ secs: { hi: 0xffffffff, lo: 0xffffffff } as rt.u64, nanos: 999999999 }, rt.durationFromNanos(1)));
 		const _379: rt.Duration | undefined = thenSome$1jqdi5p(rt.durationCmp(b, { secs: 1, nanos: 500000000 }) === 1, b);
-		const w2: Window.Window = { start: a, len: _379 };
-		const _388: Window.Window = Window.default$Default();
-		rt.byteVecPush(out, Window.eq$PartialEq(w2, _388) ? 1 : 0);
-		rt.byteVecPush(out, Window.cmp$Ord(w2, { start: b, len: undefined }) < 0 ? 1 : 0);
-		const _400: Window.Window = copy$Window(Window.default$Default());
-		const _398: rt.Iter<Window.Window> = rt.iterSlice([copy$Window(w2), copy$Window(w2), _400]);
-		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(Window.hash$Hash_DefaultHasher as (a0: Window.Window, a1: rt.Hasher) => undefined, Window.eq$PartialEq)) as rt.HashSet<Window.Window>, _398, undefined, undefined, 29360128)) & 0xff);
-		const _413: Window.Window = Window.default$Default();
-		const args8: rt.Fmt[] = [(f: rt.Formatter) => Window.fmt$Debug(w2, f), (f: rt.Formatter) => Window.fmt$Debug(_413, f)];
-		put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ alternate: true }, args8[1])]));
+		const w2: durations_Window.Window = { start: a, len: _379 };
+		const _388: durations_Window.Window = durations_Window.default$Default();
+		rt.byteVecPush(out, durations_Window.eq$PartialEq(w2, _388) ? 1 : 0);
+		rt.byteVecPush(out, durations_Window.cmp$Ord(w2, { start: b, len: undefined }) < 0 ? 1 : 0);
+		const _400: durations_Window.Window = copy$Window(durations_Window.default$Default());
+		const _398: rt.Iter<durations_Window.Window> = rt.iterSlice([copy$Window(w2), copy$Window(w2), _400]);
+		rt.byteVecPush(out, rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(durations_Window.hash$Hash_DefaultHasher as (a0: durations_Window.Window, a1: rt.Hasher) => undefined, durations_Window.eq$PartialEq)) as rt.HashSet<durations_Window.Window>, _398, undefined, undefined, 29360128)) & 0xff);
+		const _413: durations_Window.Window = durations_Window.default$Default();
+		const args8: rt.Fmt[] = [(f: rt.Formatter) => durations_Window.fmt$Debug(w2, f), (f: rt.Formatter) => durations_Window.fmt$Debug(_413, f)];
+		fmt_put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ alternate: true }, args8[1])]));
 	}
 }
 

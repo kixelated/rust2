@@ -654,6 +654,44 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 	let ty::InstanceKind::Item(did) = instance.def else {
 		return false;
 	};
+	if !may_from_mir(tcx, did) {
+		return false;
+	}
+	let Some(imp) = tcx.impl_of_assoc(did) else {
+		return true;
+	};
+	let name = tcx.item_name(did);
+	let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
+	if self_ty.is_str() {
+		let target = instance.args.type_at(0);
+		return int(tcx, target) || target.is_bool();
+	}
+	if let Some(tr) = tcx.trait_impl_of_assoc(did).map(|imp| tcx.impl_trait_id(imp))
+		&& tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
+	{
+		return t.self_ty(instance).is_none_or(|ty| !clone_copies(t, ty));
+	}
+	let std = match self_ty.kind() {
+		ty::Adt(adt, _) => Std::of(tcx, adt.did()),
+		_ => None,
+	};
+	// A `RefCell` key's `set` maps, as its body writes the cell in place.
+	let refcell_set = std == Some(Std::LocalKey)
+		&& name.as_str() == "set"
+		&& t.self_ty(instance).is_some_and(|key| {
+			matches!(key.kind(), ty::Adt(_, args)
+			if matches!(args.type_at(0).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::RefCell)))
+		});
+	// A lock's `unwrap_or_else` maps, to unwrap its guard in place.
+	let lock = std == Some(Std::Result)
+		&& name.as_str() == "unwrap_or_else"
+		&& matches!(instance.args.type_at(1).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::PoisonError));
+	!lock && !refcell_set
+}
+
+/// Whether some instance of std's `did` may lower from its MIR, as [`from_mir`] decides
+/// for each: what only the instance decides is left to it.
+pub fn may_from_mir(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	if !is_std(tcx, did) {
 		return false;
 	}
@@ -674,24 +712,16 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		return false;
 	};
 	let name = tcx.item_name(did);
-	// An integer or a `NonZero` of one, which parse alike.
-	let int = |ty: Ty<'tcx>| match ty.kind() {
-		ty::Int(_) | ty::Uint(_) => true,
-		ty::Adt(adt, _) => Std::of(tcx, adt.did()) == Some(Std::NonZero),
-		_ => false,
-	};
 	let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
 	let parses = match self_ty.kind() {
-		_ if int(self_ty) => {
+		_ if int(tcx, self_ty) => {
 			matches!(
 				name.as_str(),
 				"from_str" | "from_str_radix" | "from_ascii_bytes_radix_impl"
 			)
 		}
-		ty::Str if name.as_str() == "parse" => {
-			let target = instance.args.type_at(0);
-			int(target) || target.is_bool()
-		}
+		// Of an integer or a `bool`, which the instance says.
+		ty::Str => name.as_str() == "parse",
 		ty::Bool => name.as_str() == "from_str",
 		ty::Char => name.as_str() == "to_digit",
 		_ => false,
@@ -716,7 +746,7 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 		_ => return false,
 	};
 	let sig = tcx.fn_sig(did).instantiate_identity().skip_norm_wip().skip_binder();
-	let writes = |ty: Ty<'tcx>| {
+	let writes = |ty: Ty<'_>| {
 		ty.walk()
 			.filter_map(|arg| arg.as_type())
 			.any(|t| matches!(t.kind(), ty::Ref(_, _, ty::Mutability::Mut) | ty::RawPtr(..)))
@@ -738,22 +768,9 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 				return name == rustc_span::sym::cmp;
 			}
 		}
-		// A `Clone` that only copies is the copy.
-		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone)
-			&& name == rustc_span::sym::clone
-			&& t.self_ty(instance).is_none_or(|ty| !clone_copies(t, ty));
+		// A `Clone` that only copies is the copy, which the instance says.
+		return tcx.is_lang_item(tr, rustc_attr_ir::LangItem::Clone) && name == rustc_span::sym::clone;
 	}
-	// A `RefCell` key's `set` maps, as its body writes the cell in place.
-	let refcell_set = std == Some(Std::LocalKey)
-		&& name.as_str() == "set"
-		&& t.self_ty(instance).is_some_and(|key| {
-			matches!(key.kind(), ty::Adt(_, args)
-			if matches!(args.type_at(0).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::RefCell)))
-		});
-	// A lock's `unwrap_or_else` maps, to unwrap its guard in place.
-	let lock = std == Some(Std::Result)
-		&& name.as_str() == "unwrap_or_else"
-		&& matches!(instance.args.type_at(1).kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::PoisonError));
 	!matches!(
 		(std, name.as_str()),
 		(
@@ -766,8 +783,16 @@ pub fn from_mir<'tcx>(t: &Translator<'_, 'tcx>, instance: Instance<'tcx>) -> boo
 			Some(Std::LocalKey),
 			"with" | "try_with" | "initialize_with" | "with_borrow_mut"
 		)
-	) && !lock
-		&& !refcell_set
+	)
+}
+
+/// An integer or a `NonZero` of one, which parse alike.
+fn int<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	match ty.kind() {
+		ty::Int(_) | ty::Uint(_) => true,
+		ty::Adt(adt, _) => Std::of(tcx, adt.did()) == Some(Std::NonZero),
+		_ => false,
+	}
 }
 
 /// The key `def_id` makes the value of, if it is what `thread_local!` declares in a key's

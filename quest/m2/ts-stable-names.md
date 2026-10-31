@@ -32,7 +32,7 @@ It is the only rule that keeps a name a pure function of the instance, since cal
 these names; every name over a type outside the crate root renames once, and closures in
 impls need the impl's type and trait. Qualifying only names another definition shares was
 rejected here: defining a type of a taken name would rename the other's instances.
-Import bindings take the other rule ([ts-stable-imports](/quest/m2/ts-stable-imports.md)).
+Import bindings take the other rule.
 
 Either way, spell out `&`, `&mut`, and array lengths, and name fn-local items and
 coroutine classes by their enclosing items rather than a counter.

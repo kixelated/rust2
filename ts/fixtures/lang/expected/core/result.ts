@@ -2,17 +2,17 @@
 
 import * as rt from "../rt.ts";
 import { drop$Result_usize_u8_Arc_dyn_Any } from "../lib.ts";
-import { eq$09knsz6 } from "../alloc/string.ts";
+import { eq$09knsz6 as string_eq$09knsz6 } from "../alloc/string.ts";
 import * as ByRef from "../collections.ByRef.ts";
 import * as ByVal from "../collections.ByVal.ts";
 import type * as Any from "../core/any.Any.ts";
-import { eq$09vw48j } from "../core/char/convert.ts";
-import { eq$08q6k9m } from "../core/fmt.ts";
-import { eq$1nf2rde, eq$18sin5z } from "../core/num/error.ts";
-import { eq$1horntk } from "../core/num/float_parse.ts";
-import { eq$1v93ipo, eq$1f3e51k } from "../core/str/error.ts";
-import { cmp$175ka5q } from "../core/task/poll.ts";
-import { eq$0dhyfbb } from "../core/time.ts";
+import { eq$09vw48j as convert_eq$09vw48j } from "../core/char/convert.ts";
+import { eq$08q6k9m as fmt_eq$08q6k9m } from "../core/fmt.ts";
+import { eq$1nf2rde as num_error_eq$1nf2rde, eq$18sin5z as num_error_eq$18sin5z } from "../core/num/error.ts";
+import { eq$1horntk as float_parse_eq$1horntk } from "../core/num/float_parse.ts";
+import { eq$1v93ipo as str_error_eq$1v93ipo, eq$1f3e51k as str_error_eq$1f3e51k } from "../core/str/error.ts";
+import { cmp$175ka5q as poll_cmp$175ka5q } from "../core/task/poll.ts";
+import { eq$0dhyfbb as time_eq$0dhyfbb } from "../core/time.ts";
 import * as Part from "../orders.Part.ts";
 
 export function eq$07tp3i1(self: rt.Result<ByRef.ByRef, rt.u8>, other: rt.Result<ByRef.ByRef, rt.u8>): boolean {
@@ -42,7 +42,7 @@ export function eq$1hq3neq(self: rt.Result<rt.Duration, rt.TryFromFloatSecsError
 	if (self.ok) {
 		return rt.durationEq(self.value, (other as { ok: true; value: rt.Duration }).value);
 	}
-	return eq$0dhyfbb(self.error, (other as { ok: false; error: rt.TryFromFloatSecsError }).error);
+	return time_eq$0dhyfbb(self.error, (other as { ok: false; error: rt.TryFromFloatSecsError }).error);
 }
 
 export function eq$19kc15f(self: rt.Result<rt.u32, rt.ParseIntError>, other: rt.Result<rt.u32, rt.ParseIntError>): boolean {
@@ -52,7 +52,7 @@ export function eq$19kc15f(self: rt.Result<rt.u32, rt.ParseIntError>, other: rt.
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.u32 }).value;
 	}
-	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+	return num_error_eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
 export function eq$04qb8k3(self: rt.Result<rt.u8 | undefined, rt.ParseIntError>, other: rt.Result<rt.u8 | undefined, rt.ParseIntError>): boolean {
@@ -62,7 +62,7 @@ export function eq$04qb8k3(self: rt.Result<rt.u8 | undefined, rt.ParseIntError>,
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.u8 | undefined }).value;
 	}
-	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+	return num_error_eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
 export function eq$1h4guz2(self: rt.Result<Part.Part, Part.Part>, other: rt.Result<Part.Part, Part.Part>): boolean {
@@ -82,7 +82,7 @@ export function eq$10fppe8(self: rt.Result<rt.Result<rt.char, rt.ParseCharError>
 	if (self.ok) {
 		return eq$04iua4k(self.value, (other as { ok: true; value: rt.Result<rt.char, rt.ParseCharError> }).value);
 	}
-	return eq$1f3e51k(self.error, (other as { ok: false; error: rt.ParseBoolError }).error);
+	return str_error_eq$1f3e51k(self.error, (other as { ok: false; error: rt.ParseBoolError }).error);
 }
 
 export function eq$0ecfqx9(self: rt.Result<string, rt.FromUtf8Error>, other: rt.Result<string, rt.FromUtf8Error>): boolean {
@@ -92,7 +92,7 @@ export function eq$0ecfqx9(self: rt.Result<string, rt.FromUtf8Error>, other: rt.
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: string }).value;
 	}
-	return eq$09knsz6(self.error, (other as { ok: false; error: rt.FromUtf8Error }).error);
+	return string_eq$09knsz6(self.error, (other as { ok: false; error: rt.FromUtf8Error }).error);
 }
 
 export function eq$0nlhjpf(self: rt.Result<boolean, rt.ParseBoolError>, other: rt.Result<boolean, rt.ParseBoolError>): boolean {
@@ -102,7 +102,7 @@ export function eq$0nlhjpf(self: rt.Result<boolean, rt.ParseBoolError>, other: r
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: boolean }).value;
 	}
-	return eq$1f3e51k(self.error, (other as { ok: false; error: rt.ParseBoolError }).error);
+	return str_error_eq$1f3e51k(self.error, (other as { ok: false; error: rt.ParseBoolError }).error);
 }
 
 export function eq$04iua4k(self: rt.Result<rt.char, rt.ParseCharError>, other: rt.Result<rt.char, rt.ParseCharError>): boolean {
@@ -112,7 +112,7 @@ export function eq$04iua4k(self: rt.Result<rt.char, rt.ParseCharError>, other: r
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.char }).value;
 	}
-	return eq$09vw48j(self.error, (other as { ok: false; error: rt.ParseCharError }).error);
+	return convert_eq$09vw48j(self.error, (other as { ok: false; error: rt.ParseCharError }).error);
 }
 
 export function eq$1dhtbkj(self: rt.Result<rt.f64, rt.ParseFloatError>, other: rt.Result<rt.f64, rt.ParseFloatError>): boolean {
@@ -122,7 +122,7 @@ export function eq$1dhtbkj(self: rt.Result<rt.f64, rt.ParseFloatError>, other: r
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.f64 }).value;
 	}
-	return eq$1horntk(self.error, (other as { ok: false; error: rt.ParseFloatError }).error);
+	return float_parse_eq$1horntk(self.error, (other as { ok: false; error: rt.ParseFloatError }).error);
 }
 
 export function eq$15zrpyn(self: rt.Result<rt.f64, rt.f64>, other: rt.Result<rt.f64, rt.f64>): boolean {
@@ -142,7 +142,7 @@ export function eq$0pe0qmq(self: rt.Result<rt.i128, rt.ParseIntError>, other: rt
 	if (self.ok) {
 		return rt.i128Eq(self.value, (other as { ok: true; value: rt.i128 }).value);
 	}
-	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+	return num_error_eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
 export function eq$0pee78b(self: rt.Result<rt.i128, never>, other: rt.Result<rt.i128, never>): boolean {
@@ -192,7 +192,7 @@ export function eq$1mpp8xa(self: rt.Result<rt.i8, rt.ParseIntError>, other: rt.R
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.i8 }).value;
 	}
-	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+	return num_error_eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
 export function eq$0grmb7g(self: rt.Result<rt.i8, rt.TryFromIntError>, other: rt.Result<rt.i8, rt.TryFromIntError>): boolean {
@@ -202,7 +202,7 @@ export function eq$0grmb7g(self: rt.Result<rt.i8, rt.TryFromIntError>, other: rt
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.i8 }).value;
 	}
-	return eq$1nf2rde(self.error, (other as { ok: false; error: rt.TryFromIntError }).error);
+	return num_error_eq$1nf2rde(self.error, (other as { ok: false; error: rt.TryFromIntError }).error);
 }
 
 export function eq$1hd8lo9(self: rt.Result<rt.i8, never>, other: rt.Result<rt.i8, never>): boolean {
@@ -232,7 +232,7 @@ export function eq$0rj0czq(self: rt.Result<string, rt.Utf8Error>, other: rt.Resu
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: string }).value;
 	}
-	return eq$1v93ipo(self.error, (other as { ok: false; error: rt.Utf8Error }).error);
+	return str_error_eq$1v93ipo(self.error, (other as { ok: false; error: rt.Utf8Error }).error);
 }
 
 export function eq$06vyx9e(self: rt.Result<rt.u128, never>, other: rt.Result<rt.u128, never>): boolean {
@@ -272,7 +272,7 @@ export function eq$0bl30vt(self: rt.Result<rt.u64, rt.ParseIntError>, other: rt.
 	if (self.ok) {
 		return rt.u64Eq(self.value, (other as { ok: true; value: rt.u64 }).value);
 	}
-	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+	return num_error_eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
 export function eq$1gq81ib(self: rt.Result<rt.u64, never>, other: rt.Result<rt.u64, never>): boolean {
@@ -302,7 +302,7 @@ export function eq$0p1bb4y(self: rt.Result<rt.u8, rt.ParseIntError>, other: rt.R
 	if (self.ok) {
 		return self.value === (other as { ok: true; value: rt.u8 }).value;
 	}
-	return eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
+	return num_error_eq$18sin5z(self.error, (other as { ok: false; error: rt.ParseIntError }).error);
 }
 
 export function eq$12e5exx(self: rt.Result<rt.u8, never>, other: rt.Result<rt.u8, never>): boolean {
@@ -322,7 +322,7 @@ export function eq$03gbayb(self: rt.Result<undefined, rt.FmtError>, other: rt.Re
 	if (self.ok) {
 		return true;
 	}
-	return eq$08q6k9m(self.error, (other as { ok: false; error: rt.FmtError }).error);
+	return fmt_eq$08q6k9m(self.error, (other as { ok: false; error: rt.FmtError }).error);
 }
 
 export function eq$1xhgva4(self: rt.Result<rt.usize, never>, other: rt.Result<rt.usize, never>): boolean {
@@ -396,7 +396,7 @@ export function cmp$0nb553d(self: rt.Result<rt.VecDeque<rt.u8>, rt.Poll<rt.u8>>,
 			return rt.cmpDeque(rt.cmp)(self.value, other.value);
 		}
 	} else if (!other.ok) {
-		return cmp$175ka5q(self.error, other.error);
+		return poll_cmp$175ka5q(self.error, other.error);
 	}
 	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
 }

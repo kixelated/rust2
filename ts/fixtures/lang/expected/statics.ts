@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 import { drop$Lock_Rc_unit, drop$Lock_u8_Rc_unit } from "./lib.ts";
-import { LATER, read } from "./statics/elsewhere.ts";
+import { LATER, read as elsewhere_read } from "./statics/elsewhere.ts";
 import * as Collector from "./statics.Collector.ts";
 import type * as Counter from "./statics.Counter.ts";
-import * as Lock from "./statics.Lock.ts";
-import type * as Node from "./statics.Node.ts";
+import * as statics_Lock from "./statics.Lock.ts";
+import type * as statics_Node from "./statics.Node.ts";
 import type * as Raw from "./statics.Raw.ts";
 
 export const COUNT: rt.Atomic<rt.u64> = /* @__PURE__ */ new rt.Atomic({ hi: 0xffffffff, lo: 0xfffffffd } as rt.u64);
@@ -103,7 +103,7 @@ export const SHARED: rt.LazyCell<rt.Atomic<rt.u8>> = /* @__PURE__ */ new rt.Lazy
 	return LATER;
 });
 
-export const SLOT: rt.Atomic<Node.Node> = /* @__PURE__ */ new rt.Atomic(rt.NULL);
+export const SLOT: rt.Atomic<statics_Node.Node> = /* @__PURE__ */ new rt.Atomic(rt.NULL);
 
 export const ONCE: rt.OnceLock<[rt.u8, rt.u32]> = /* @__PURE__ */ new rt.OnceLock(undefined);
 
@@ -168,17 +168,17 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 			continue;
 		}
 		if (_68 === 4) {
-			const node: Node.Node = { value: n2 };
-			const old: Node.Node = rt.atomicSwap(SLOT, node, 3);
+			const node: statics_Node.Node = { value: n2 };
+			const old: statics_Node.Node = rt.atomicSwap(SLOT, node, 3);
 			rt.byteVecPush(out, old === rt.NULL ? 1 : 0);
 			rt.byteVecPush(out, rt.atomicLoad(SLOT, 2).value);
-			const _116: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, old, rt.NULL, 3, 2);
+			const _116: rt.Result<statics_Node.Node, statics_Node.Node> = rt.atomicCompareExchange(SLOT, old, rt.NULL, 3, 2);
 			if (_116.ok) {
 				rt.byteVecPush(out, 253);
 			} else {
 				rt.byteVecPush(out, _116.error === node ? 1 : 0);
 			}
-			const _125: rt.Result<Node.Node, Node.Node> = rt.atomicCompareExchange(SLOT, node, rt.NULL, 3, 2);
+			const _125: rt.Result<statics_Node.Node, statics_Node.Node> = rt.atomicCompareExchange(SLOT, node, rt.NULL, 3, 2);
 			if (_125.ok) {
 				rt.byteVecPush(out, _125.value.value);
 			} else {
@@ -208,7 +208,7 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		if (_68 === 7) {
 			if (rt.u8Rem(n2, 2) === 0) {
-				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED.force(), rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0), read())), undefined, true);
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.atomicFetch(SHARED.force(), rt.u8WrappingAdd, n2, 0), rt.atomicLoad(LATER, 0), elsewhere_read())), undefined, true);
 				rt.atomicStore(LATER, 40, 0);
 				continue;
 			}
@@ -233,8 +233,8 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.atomicStore(COUNTER.hits, 4294967295 - 1, 0);
 }
 
-export const COLLECTOR: rt.LazyCell<Lock.Lock<Collector.Collector>> = /* @__PURE__ */ new rt.LazyCell((): Lock.Lock<Collector.Collector> => {
-	return new Lock.Lock(new rt.OnceLock(undefined), new rt.Cell((new Collector.Collector((undefined as unknown) as rt.Arc<rt.u32>) as unknown) as Collector.Collector));
+export const COLLECTOR: rt.LazyCell<statics_Lock.Lock<Collector.Collector>> = /* @__PURE__ */ new rt.LazyCell((): statics_Lock.Lock<Collector.Collector> => {
+	return new statics_Lock.Lock(new rt.OnceLock(undefined), new rt.Cell((new Collector.Collector((undefined as unknown) as rt.Arc<rt.u32>) as unknown) as Collector.Collector));
 });
 
 export const STARTED: rt.Once = /* @__PURE__ */ new rt.OnceLock(undefined);
@@ -288,25 +288,25 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 				});
 			}
 		} else if (_13 === 4) {
-			const collector: Collector.Collector = Lock.getOrInit$Collector_onces_closure5(COLLECTOR.force(), (): Collector.Collector => {
+			const collector: Collector.Collector = statics_Lock.getOrInit$Collector_onces_closure5(COLLECTOR.force(), (): Collector.Collector => {
 				return new Collector.Collector(new rt.Arc(16909060));
 			});
 			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(collector.global.value).reverse()), undefined, true);
 			rt.byteVecPush(out, collector.global.strong & 0xff);
 		} else if (!(rt.u8Rem(n, 3) === 0)) {
 			if (!(rt.u8Rem(n, 3) === 1)) {
-				drop$Lock_Rc_unit(Lock.new$Rc_unit());
+				drop$Lock_Rc_unit(statics_Lock.new$Rc_unit());
 				rt.byteVecPush(out, owned.strong & 0xff);
 			} else {
-				const slot2: Lock.Lock<[rt.u8, rt.Arc<undefined>]> = Lock.new$u8_Rc_unit();
+				const slot2: statics_Lock.Lock<[rt.u8, rt.Arc<undefined>]> = statics_Lock.new$u8_Rc_unit();
 				const captured3 = rt.arcClone(owned);
-				rt.byteVecPush(out, Lock.getOrInit$u8_Rc_unit_onces_closure8(slot2, rt.closure((): [rt.u8, rt.Arc<undefined>] => {
+				rt.byteVecPush(out, statics_Lock.getOrInit$u8_Rc_unit_onces_closure8(slot2, rt.closure((): [rt.u8, rt.Arc<undefined>] => {
 					return [n, captured3] as [rt.u8, rt.Arc<undefined>];
 				}, (): void => {
 					captured3[Symbol.dispose]();
 				}))[0]);
 				const captured4 = rt.arcClone(owned);
-				rt.byteVecPush(out, Lock.getOrInit$u8_Rc_unit_onces_closure9(slot2, rt.closure((): [rt.u8, rt.Arc<undefined>] => {
+				rt.byteVecPush(out, statics_Lock.getOrInit$u8_Rc_unit_onces_closure9(slot2, rt.closure((): [rt.u8, rt.Arc<undefined>] => {
 					return [238, captured4] as [rt.u8, rt.Arc<undefined>];
 				}, (): void => {
 					captured4[Symbol.dispose]();
@@ -316,15 +316,15 @@ export function onces(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.byteVecPush(out, owned.strong & 0xff);
 			}
 		} else {
-			const slot: Lock.Lock<rt.Arc<undefined>> = Lock.new$Rc_unit();
+			const slot: statics_Lock.Lock<rt.Arc<undefined>> = statics_Lock.new$Rc_unit();
 			const captured = rt.arcClone(owned);
-			rt.byteVecPush(out, Lock.getOrInit$Rc_unit_onces_closure6(slot, rt.closure((): rt.Arc<undefined> => {
+			rt.byteVecPush(out, statics_Lock.getOrInit$Rc_unit_onces_closure6(slot, rt.closure((): rt.Arc<undefined> => {
 				return captured;
 			}, (): void => {
 				captured[Symbol.dispose]();
 			})).strong & 0xff);
 			const captured2 = rt.arcClone(owned);
-			rt.byteVecPush(out, Lock.getOrInit$Rc_unit_onces_closure7(slot, rt.closure((): rt.Arc<undefined> => {
+			rt.byteVecPush(out, statics_Lock.getOrInit$Rc_unit_onces_closure7(slot, rt.closure((): rt.Arc<undefined> => {
 				return captured2;
 			}, (): void => {
 				captured2[Symbol.dispose]();

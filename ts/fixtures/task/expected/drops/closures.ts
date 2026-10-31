@@ -2,8 +2,8 @@
 
 import * as rt from "../rt.ts";
 import { thenSome$0zvoczk, thenSome$1af3oea, then$1xpp3sz, then$1j9nint, then$0kxuq3f } from "../core/bool.ts";
-import { map$1raha9y, map$0lq7mno, map$0b0x7xy, map$1thjygq, mapOr$0nrpycp } from "../core/option.ts";
-import { map$1rk4yqp, mapErr$1c43xsx, inspectErr$0hrcm18, andThen$1so3lx6 } from "../core/result.ts";
+import { map$1raha9y as option_map$1raha9y, map$0lq7mno as option_map$0lq7mno, map$0b0x7xy as option_map$0b0x7xy, map$1thjygq as option_map$1thjygq, mapOr$0nrpycp as option_mapOr$0nrpycp } from "../core/option.ts";
+import { map$1rk4yqp as result_map$1rk4yqp, mapErr$1c43xsx as result_mapErr$1c43xsx, inspectErr$0hrcm18, andThen$1so3lx6 as result_andThen$1so3lx6 } from "../core/result.ts";
 import * as Holder from "../drops/closures.Holder.ts";
 import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
@@ -153,7 +153,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	const a: Guard.Guard = _9[0];
 	const b: Guard.Guard = _9[1];
 	const captured = a;
-	const mapped: rt.u32 | undefined = map$1thjygq(some, rt.closure((n3: rt.u32): rt.u32 => {
+	const mapped: rt.u32 | undefined = option_map$1thjygq(some, rt.closure((n3: rt.u32): rt.u32 => {
 		const _02: rt.u32 = rt.u32Add(n3, Guard.id(captured));
 		captured[Symbol.dispose]();
 		return _02;
@@ -161,7 +161,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured[Symbol.dispose]();
 	}));
 	const captured2 = b;
-	const unmapped: rt.u32 | undefined = map$1thjygq(none, rt.closure((n4: rt.u32): rt.u32 => {
+	const unmapped: rt.u32 | undefined = option_map$1thjygq(none, rt.closure((n4: rt.u32): rt.u32 => {
 		const _03: rt.u32 = rt.u32Add(n4, Guard.id(captured2));
 		captured2[Symbol.dispose]();
 		return _03;
@@ -178,7 +178,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	const e: Guard.Guard = _38[2];
 	f = _38[3];
 	const captured3 = c;
-	const _52: rt.Result<rt.u32, rt.u32> = map$1rk4yqp(ok, rt.closure((n5: rt.u32): rt.u32 => {
+	const _52: rt.Result<rt.u32, rt.u32> = result_map$1rk4yqp(ok, rt.closure((n5: rt.u32): rt.u32 => {
 		const _04: rt.u32 = rt.u32Add(n5, Guard.id(captured3));
 		captured3[Symbol.dispose]();
 		return _04;
@@ -186,7 +186,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured3[Symbol.dispose]();
 	}));
 	const captured4 = d;
-	const values: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_52, map$1rk4yqp(err, rt.closure((n6: rt.u32): rt.u32 => {
+	const values: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_52, result_map$1rk4yqp(err, rt.closure((n6: rt.u32): rt.u32 => {
 		const _05: rt.u32 = rt.u32Add(n6, Guard.id(captured4));
 		captured4[Symbol.dispose]();
 		return _05;
@@ -194,7 +194,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured4[Symbol.dispose]();
 	}))];
 	const captured5 = e;
-	const _57: rt.Result<rt.u32, rt.u32> = mapErr$1c43xsx(ok, rt.closure((n7: rt.u32): rt.u32 => {
+	const _57: rt.Result<rt.u32, rt.u32> = result_mapErr$1c43xsx(ok, rt.closure((n7: rt.u32): rt.u32 => {
 		const _06: rt.u32 = rt.u32Add(n7, Guard.id(captured5));
 		captured5[Symbol.dispose]();
 		return _06;
@@ -202,7 +202,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured5[Symbol.dispose]();
 	}));
 	const captured6 = f;
-	const errors: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_57, mapErr$1c43xsx(err, rt.closure((n8: rt.u32): rt.u32 => {
+	const errors: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_57, result_mapErr$1c43xsx(err, rt.closure((n8: rt.u32): rt.u32 => {
 		const _07: rt.u32 = rt.u32Add(n8, Guard.id(captured6));
 		captured6[Symbol.dispose]();
 		return _07;
@@ -215,7 +215,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	const g: Guard.Guard = _75[0];
 	const h: Guard.Guard = _75[1];
 	const captured7 = g;
-	const _83: rt.Result<rt.u32, rt.u32> = andThen$1so3lx6(ok, rt.closure((n9: rt.u32): rt.Result<rt.u32, rt.u32> => {
+	const _83: rt.Result<rt.u32, rt.u32> = result_andThen$1so3lx6(ok, rt.closure((n9: rt.u32): rt.Result<rt.u32, rt.u32> => {
 		const _08: rt.Result<rt.u32, rt.u32> = rt.Ok(rt.u32Add(n9, Guard.id(captured7)));
 		captured7[Symbol.dispose]();
 		return _08;
@@ -223,7 +223,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured7[Symbol.dispose]();
 	}));
 	const captured8 = h;
-	const chained: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_83, andThen$1so3lx6(err, rt.closure((n10: rt.u32): rt.Result<rt.u32, rt.u32> => {
+	const chained: [rt.Result<rt.u32, rt.u32>, rt.Result<rt.u32, rt.u32>] = [_83, result_andThen$1so3lx6(err, rt.closure((n10: rt.u32): rt.Result<rt.u32, rt.u32> => {
 		const _09: rt.Result<rt.u32, rt.u32> = rt.Ok(rt.u32Add(n10, Guard.id(captured8)));
 		captured8[Symbol.dispose]();
 		return _09;
@@ -257,7 +257,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	const k: Guard.Guard = _115[0];
 	const l: Guard.Guard = _115[1];
 	const captured11 = k;
-	const _123: rt.u32 = mapOr$0nrpycp(some, 0, rt.closure((n11: rt.u32): rt.u32 => {
+	const _123: rt.u32 = option_mapOr$0nrpycp(some, 0, rt.closure((n11: rt.u32): rt.u32 => {
 		const _010: rt.u32 = rt.u32Add(n11, Guard.id(captured11));
 		captured11[Symbol.dispose]();
 		return _010;
@@ -265,7 +265,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 		captured11[Symbol.dispose]();
 	}));
 	const captured12 = l;
-	const part3 = [_123, mapOr$0nrpycp(none, 0, rt.closure((n12: rt.u32): rt.u32 => {
+	const part3 = [_123, option_mapOr$0nrpycp(none, 0, rt.closure((n12: rt.u32): rt.u32 => {
 		const _011: rt.u32 = rt.u32Add(n12, Guard.id(captured12));
 		captured12[Symbol.dispose]();
 		return _011;
@@ -306,12 +306,12 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured16[Symbol.dispose]();
 	});
-	const _181: rt.u32 | undefined = map$0b0x7xy(some, rt.closure((n13: rt.u32): rt.u32 => {
+	const _181: rt.u32 | undefined = option_map$0b0x7xy(some, rt.closure((n13: rt.u32): rt.u32 => {
 		return rt.u32Add(n13, Guard.id(captured15));
 	}, (): void => {
 		captured15[Symbol.dispose]();
 	}));
-	const _183: rt.u32 | undefined = map$0b0x7xy(none, other);
+	const _183: rt.u32 | undefined = option_map$0b0x7xy(none, other);
 	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(_181, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtOption(_183, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["by ref ", args12[0], " ", args12[1]]));
 	const _191: [Guard.Guard, Guard.Guard] = [guard(18), guard(19)];
@@ -338,7 +338,7 @@ export function discarded(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured19[Symbol.dispose]();
 	});
-	const part5 = map$1thjygq(some, rt.closure((n16: rt.u32): rt.u32 => {
+	const part5 = option_map$1thjygq(some, rt.closure((n16: rt.u32): rt.u32 => {
 		const _019: rt.u32 = captured20(n16);
 		rt.drop(captured20);
 		return _019;
@@ -448,14 +448,14 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured5[Symbol.dispose]();
 	}));
-	const part2 = map$1raha9y(rt.iterToOption(chained.next()), (g8: Guard.Guard): rt.u32 => {
+	const part2 = option_map$1raha9y(rt.iterToOption(chained.next()), (g8: Guard.Guard): rt.u32 => {
 		const _06: rt.u32 = Guard.id(g8);
 		g8[Symbol.dispose]();
 		return _06;
 	});
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(part2, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["chained ", args6[0]]));
-	const part3 = map$1raha9y(rt.iterToOption(chained.next()), (g9: Guard.Guard): rt.u32 => {
+	const part3 = option_map$1raha9y(rt.iterToOption(chained.next()), (g9: Guard.Guard): rt.u32 => {
 		const _07: rt.u32 = Guard.id(g9);
 		g9[Symbol.dispose]();
 		return _07;
@@ -540,14 +540,14 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured12[Symbol.dispose]();
 	}), rt.drop);
-	const _267: rt.u32 | undefined = map$1raha9y(rt.iterToOption(chain.next()), (g11: Guard.Guard): rt.u32 => {
+	const _267: rt.u32 | undefined = option_map$1raha9y(rt.iterToOption(chain.next()), (g11: Guard.Guard): rt.u32 => {
 		const _016: rt.u32 = Guard.id(g11);
 		g11[Symbol.dispose]();
 		return _016;
 	});
 	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(made, f), (f: rt.Formatter) => rt.u32Display(walked, f), (f: rt.Formatter) => rt.fmtOption(_267, f, rt.u32Debug)];
 	Log.note(log, rt.fmtFormat(["lazy ", args14[0], " ", args14[1], " ", args14[2]]));
-	const part6 = map$1raha9y(rt.iterToOption(chain.next()), (g12: Guard.Guard): rt.u32 => {
+	const part6 = option_map$1raha9y(rt.iterToOption(chain.next()), (g12: Guard.Guard): rt.u32 => {
 		const _017: rt.u32 = Guard.id(g12);
 		g12[Symbol.dispose]();
 		return _017;
@@ -582,7 +582,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured14[Symbol.dispose]();
 	});
-	const found: rt.u32 | undefined = map$1raha9y(rt.dropAfter(_335, () => rt.iterFind(_332, _335)), (g15: Guard.Guard): rt.u32 => {
+	const found: rt.u32 | undefined = option_map$1raha9y(rt.dropAfter(_335, () => rt.iterFind(_332, _335)), (g15: Guard.Guard): rt.u32 => {
 		return Guard.id(g15);
 	});
 	const _338: rt.Iter<Guard.Guard> = rt.iterSlice(items);
@@ -652,7 +652,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured21[Symbol.dispose]();
 	});
-	const part9 = map$1raha9y(rt.dropAfter(_441, () => rt.iterMaxByKey(_435, _441, rt.lt, undefined, rt.drop)), (g18: Guard.Guard): rt.u32 => {
+	const part9 = option_map$1raha9y(rt.dropAfter(_441, () => rt.iterMaxByKey(_435, _441, rt.lt, undefined, rt.drop)), (g18: Guard.Guard): rt.u32 => {
 		const _028: rt.u32 = Guard.id(g18);
 		g18[Symbol.dispose]();
 		return _028;
@@ -707,7 +707,7 @@ export function iterated(log: Log.Log, id: rt.u32): void {
 	});
 	const kept: Array<Guard.Guard | undefined> = rt.dropAfter(_523, () => rt.arrayMap(_513, _523));
 	const part11 = rt.arrayMap(rt.arrayFrom(kept), (g21: Guard.Guard | undefined): rt.u32 | undefined => {
-		return map$0lq7mno(g21, Guard.id);
+		return option_map$0lq7mno(g21, Guard.id);
 	});
 	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part11, f, (value: rt.u32 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u32Debug))];
 	Log.note(log, rt.fmtFormat(["array mapped ", args28[0]]));

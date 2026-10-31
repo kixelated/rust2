@@ -3,18 +3,18 @@
 import * as rt from "./rt.ts";
 import { drop$Lock_Loud, drop$Lock_u32 } from "./lib.ts";
 import { thenSome$1j8foe9 } from "./core/bool.ts";
-import { unwrapOr$0r2bmpr, unwrapOr$1la41a6, unwrapOrDefault$1b97y1a, map$0po44cb, map$1ibcmaa, map$1qp1ym6, map$1iwwjee } from "./core/option.ts";
+import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1la41a6 as option_unwrapOr$1la41a6, unwrapOrDefault$1b97y1a as option_unwrapOrDefault$1b97y1a, map$0po44cb as option_map$0po44cb, map$1ibcmaa as option_map$1ibcmaa, map$1qp1ym6 as option_map$1qp1ym6, map$1iwwjee as option_map$1iwwjee } from "./core/option.ts";
 import * as Both from "./zeros.Both.ts";
 import * as Holds from "./zeros.Holds.ts";
-import * as Lock from "./zeros.Lock.ts";
+import * as zeros_Lock from "./zeros.Lock.ts";
 import * as Loud from "./zeros.Loud.ts";
 import * as Names from "./zeros.Names.ts";
 import * as One from "./zeros.One.ts";
-import * as Pair from "./zeros.Pair.ts";
+import * as zeros_Pair from "./zeros.Pair.ts";
 import * as Quiet from "./zeros.Quiet.ts";
 import * as Rest from "./zeros.Rest.ts";
-import * as Tagged from "./zeros.Tagged.ts";
-import * as Unit from "./zeros.Unit.ts";
+import * as zeros_Tagged from "./zeros.Tagged.ts";
+import * as zeros_Unit from "./zeros.Unit.ts";
 
 export const LOG: rt.Atomic<rt.u32> = /* @__PURE__ */ new rt.Atomic(0);
 
@@ -22,11 +22,11 @@ export function log(tag: rt.u32): void {
 	rt.atomicStore(LOG, (((rt.atomicLoad(LOG, 0) << 4) >>> 0) | tag) >>> 0, 0);
 }
 
-export function unit(): Unit.Unit {
+export function unit(): zeros_Unit.Unit {
 	return {};
 }
 
-export function pair(): Pair.Pair {
+export function pair(): zeros_Pair.Pair {
 	return { _0: {}, _1: undefined };
 }
 
@@ -34,7 +34,7 @@ export function none$String(): string[] {
 	return [];
 }
 
-export function units(): Unit.Unit[] {
+export function units(): zeros_Unit.Unit[] {
 	return [{}, {}, {}];
 }
 
@@ -42,8 +42,8 @@ export function one(): One.One {
 	return "Only" as One.One;
 }
 
-export function tuple(): [undefined, Unit.Unit, Uint8Array] {
-	return [undefined, {}, Uint8Array.of()] as [undefined, Unit.Unit, Uint8Array];
+export function tuple(): [undefined, zeros_Unit.Unit, Uint8Array] {
+	return [undefined, {}, Uint8Array.of()] as [undefined, zeros_Unit.Unit, Uint8Array];
 }
 
 export function phantom$u8(): undefined {
@@ -60,8 +60,8 @@ export function loud(): Loud.Loud {
 	return new Loud.Loud();
 }
 
-export function made$Unit(): Unit.Unit {
-	return Unit.default$Default();
+export function made$Unit(): zeros_Unit.Unit {
+	return zeros_Unit.default$Default();
 }
 
 /** The case `kind` picks, on `data`; each puts what it read. */
@@ -73,37 +73,37 @@ export function zeros(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n: rt.usize = data.length;
 	const _8: rt.u8 = rt.u8Rem(kind, 7);
 	if (_8 === 0) {
-		const _11: Unit.Unit = Unit.clone$Clone({});
-		const _13: Pair.Pair = Pair.clone$Clone(pair());
-		const _16: Unit.Unit = made$Unit();
+		const _11: zeros_Unit.Unit = zeros_Unit.clone$Clone({});
+		const _13: zeros_Pair.Pair = zeros_Pair.clone$Clone(pair());
+		const _16: zeros_Unit.Unit = made$Unit();
 		phantom$u8();
-		rt.byteVecPush(out, ((Unit.eq$PartialEq(_11, {}) ? 1 : 0)) | ((((Unit.eq$PartialEq(_13._0, _16) ? 1 : 0)) << 1) & 0xff));
+		rt.byteVecPush(out, ((zeros_Unit.eq$PartialEq(_11, {}) ? 1 : 0)) | ((((zeros_Unit.eq$PartialEq(_13._0, _16) ? 1 : 0)) << 1) & 0xff));
 		const _40: One.One = One.clone$Clone("Only" as One.One);
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => Unit.fmt$Debug(_11, f), (f: rt.Formatter) => One.fmt$Debug(_40, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => zeros_Unit.fmt$Debug(_11, f), (f: rt.Formatter) => One.fmt$Debug(_40, f)];
 		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1]])), undefined, true);
 	} else if (_8 === 1) {
 		rt.byteVecPush(out, rt.iterCount(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_213: rt.u8): Uint8Array => {
 			return Uint8Array.of();
 		})) & 0xff);
-		rt.byteVecPush(out, rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_214: rt.u8): Unit.Unit => {
+		rt.byteVecPush(out, rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_214: rt.u8): zeros_Unit.Unit => {
 			return {};
 		}), undefined, 0, true).length & 0xff);
-		rt.byteVecPush(out, rt.iterCount(rt.iterFlatten(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_215: rt.u8): Unit.Unit[] => {
+		rt.byteVecPush(out, rt.iterCount(rt.iterFlatten(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_215: rt.u8): zeros_Unit.Unit[] => {
 			return [{}, {}, {}];
-		}), (value: Unit.Unit[]) => rt.iterSlice(value), false, 3)) & 0xff);
-		rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): Pair.Pair => {
+		}), (value: zeros_Unit.Unit[]) => rt.iterSlice(value), false, 3)) & 0xff);
+		rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): zeros_Pair.Pair => {
 			return pair();
-		}), (p: Pair.Pair): boolean => {
-			return Unit.eq$PartialEq(p._0, { _0: {}, _1: undefined }._0);
+		}), (p: zeros_Pair.Pair): boolean => {
+			return zeros_Unit.eq$PartialEq(p._0, { _0: {}, _1: undefined }._0);
 		})) & 0xff);
 		rt.byteVecPush(out, One.eq$PartialEq(_72(1), one()) ? 1 : 0);
 	} else if (_8 === 2) {
-		const _87: Unit.Unit = unit();
+		const _87: zeros_Unit.Unit = unit();
 		const _89: string[] = none$String();
-		const _91: Unit.Unit[] = units();
+		const _91: zeros_Unit.Unit[] = units();
 		const _93: One.One = one();
-		const _95: [undefined, Unit.Unit, Uint8Array] = tuple();
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => Unit.fmt$Debug(_87, f), (f: rt.Formatter) => rt.fmtList(_89, f, rt.fmtStr), (f: rt.Formatter) => rt.fmtList(_91, f, (value: Unit.Unit, f: rt.Formatter) => Unit.fmt$Debug(value, f)), (f: rt.Formatter) => One.fmt$Debug(_93, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtUnit(_95[0], f), (f: rt.Formatter) => Unit.fmt$Debug(_95[1], f), (f: rt.Formatter) => rt.fmtList(_95[2], f, rt.u8Debug)], f)];
+		const _95: [undefined, zeros_Unit.Unit, Uint8Array] = tuple();
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => zeros_Unit.fmt$Debug(_87, f), (f: rt.Formatter) => rt.fmtList(_89, f, rt.fmtStr), (f: rt.Formatter) => rt.fmtList(_91, f, (value: zeros_Unit.Unit, f: rt.Formatter) => zeros_Unit.fmt$Debug(value, f)), (f: rt.Formatter) => One.fmt$Debug(_93, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtUnit(_95[0], f), (f: rt.Formatter) => zeros_Unit.fmt$Debug(_95[1], f), (f: rt.Formatter) => rt.fmtList(_95[2], f, rt.u8Debug)], f)];
 		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1], " ", args4[2], " ", args4[3], " ", args4[4]])), undefined, true);
 	} else if (_8 === 3) {
 		const _108: (a0: rt.u8) => rt.u8 = adder();
@@ -151,10 +151,10 @@ export function zeros(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rt.iterCount(rt.iterFromFn((): rt.u8 | undefined => {
 			return undefined;
 		})) & 0xff);
-		rt.iterFromFn((): Unit.Unit | undefined => {
+		rt.iterFromFn((): zeros_Unit.Unit | undefined => {
 			return {};
 		});
-		rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterFromFn((): Unit.Unit | undefined => {
+		rt.byteVecPush(out, rt.iterCount(rt.iterTake(rt.iterFromFn((): zeros_Unit.Unit | undefined => {
 			return {};
 		}), n)) & 0xff);
 		let captured = n;
@@ -214,9 +214,9 @@ export function hash$RangeFull(value: undefined): rt.u64 {
 }
 
 /** `DefaultHasher::new`'s hash of `value`. */
-export function hash$Tagged_String(value: Tagged.Tagged<string>): rt.u64 {
+export function hash$Tagged_String(value: zeros_Tagged.Tagged<string>): rt.u64 {
 	const h: rt.Hasher = rt.hasher();
-	Tagged.hash$Hash_String_DefaultHasher(value, h);
+	zeros_Tagged.hash$Hash_String_DefaultHasher(value, h);
 	return rt.hashFinish(h);
 }
 
@@ -255,7 +255,7 @@ export function digest$RangeFull(value: undefined, out: rt.ByteVec): void {
 }
 
 /** [`hash`] of `value`, little-endian. */
-export function digest$Tagged_String(value: Tagged.Tagged<string>, out: rt.ByteVec): void {
+export function digest$Tagged_String(value: zeros_Tagged.Tagged<string>, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(hash$Tagged_String(value)).reverse()));
 }
 
@@ -271,35 +271,35 @@ export function digest$unit(value: undefined, out: rt.ByteVec): void {
 
 /** The impls `#[derive]` calls on `PhantomData`, `PhantomPinned`, and `()` fields. */
 export function impls(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const tags: Tagged.Tagged<string>[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): Tagged.Tagged<string> => {
+	const tags: zeros_Tagged.Tagged<string>[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): zeros_Tagged.Tagged<string> => {
 		const n: rt.u8 = _2;
-		Tagged.default$Default_String();
+		zeros_Tagged.default$Default_String();
 		return { n, of: undefined, pin: undefined, unit: undefined };
 	}), undefined, 1, true);
 	const _7: rt.u8 = rt.u8Rem(kind, 4);
 	if (_7 === 0) {
-		const _11: Tagged.Tagged<string> | undefined = rt.sliceFirst(tags);
-		const t: Tagged.Tagged<string> = unwrapOrDefault$1b97y1a(_11 === undefined ? undefined : Tagged.clone$Clone_String(_11));
+		const _11: zeros_Tagged.Tagged<string> | undefined = rt.sliceFirst(tags);
+		const t: zeros_Tagged.Tagged<string> = option_unwrapOrDefault$1b97y1a(_11 === undefined ? undefined : zeros_Tagged.clone$Clone_String(_11));
 		const _15: rt.u8 = t.n;
-		Tagged.default$Default_u8();
-		const copied: Tagged.Tagged<rt.u8> = { n: _15, of: undefined, pin: undefined, unit: undefined };
-		const again: Tagged.Tagged<rt.u8> = copied;
+		zeros_Tagged.default$Default_u8();
+		const copied: zeros_Tagged.Tagged<rt.u8> = { n: _15, of: undefined, pin: undefined, unit: undefined };
+		const again: zeros_Tagged.Tagged<rt.u8> = copied;
 		const _27: Names.Names = Names.default$Default();
-		const args2: rt.Fmt[] = [(f: rt.Formatter) => Tagged.fmt$Debug_String(t, f), (f: rt.Formatter) => Tagged.fmt$Debug_u8(copied, f), (f: rt.Formatter) => Tagged.fmt$Debug_u8(again, f), (f: rt.Formatter) => Names.fmt$Debug(_27, f)];
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => zeros_Tagged.fmt$Debug_String(t, f), (f: rt.Formatter) => zeros_Tagged.fmt$Debug_u8(copied, f), (f: rt.Formatter) => zeros_Tagged.fmt$Debug_u8(again, f), (f: rt.Formatter) => Names.fmt$Debug(_27, f)];
 		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", rt.fmtSpec({ alternate: true }, args2[2]), " ", rt.fmtSpec({ alternate: true }, args2[3])])), undefined, true);
 		const _38: Rest.Rest = Rest.clone$Clone(Rest.default$Default());
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => Rest.fmt$Debug(_38, f), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomPinned"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<u8>")];
 		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", rt.fmtSpec({ alternate: true }, args4[0]), " ", rt.fmtSpec({ align: ">", width: 9 }, args4[1]), "|", rt.fmtSpec({ align: "<", width: 9 }, args4[2]), "|"])), undefined, true);
 		rt.byteVecPush(out, rt.iterCount(rt.iterEmpty() as rt.Iter<rt.u8>) & 0xff);
 	} else if (_7 === 1) {
-		const sorted: Tagged.Tagged<string>[] = tags.map(Tagged.clone$Clone_String);
-		rt.sliceSort(sorted, rt.cmpLt(Tagged.partialCmp$PartialOrd_String));
-		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(sorted), (t3: Tagged.Tagged<string>): rt.u8 => {
+		const sorted: zeros_Tagged.Tagged<string>[] = tags.map(zeros_Tagged.clone$Clone_String);
+		rt.sliceSort(sorted, rt.cmpLt(zeros_Tagged.partialCmp$PartialOrd_String));
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(sorted), (t3: zeros_Tagged.Tagged<string>): rt.u8 => {
 			return t3.n;
 		}), undefined, true);
-		const iter: rt.Iter<Tagged.Tagged<string>[]> = rt.sliceWindows(tags, 2);
+		const iter: rt.Iter<zeros_Tagged.Tagged<string>[]> = rt.sliceWindows(tags, 2);
 		while (true) {
-			const _76: Tagged.Tagged<string>[] | rt.Done = iter.next();
+			const _76: zeros_Tagged.Tagged<string>[] | rt.Done = iter.next();
 			if (_76 === rt.DONE) {
 				break;
 			}
@@ -307,10 +307,10 @@ export function impls(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.idx(_76, 1);
 			const part = _76[0];
 			const part2 = _76[1];
-			const a: Tagged.Tagged<string> = part;
-			const b: Tagged.Tagged<string> = part2;
-			rt.byteVecPush(out, (Tagged.cmp$Ord_String(a, b) & 0xff) | ((((Tagged.eq$PartialEq_String(a, b) ? 1 : 0)) << 2) & 0xff) | ((((Tagged.partialCmp$PartialOrd_String(a, b) === Tagged.cmp$Ord_String(a, b) as rt.Ordering | undefined ? 1 : 0)) << 3) & 0xff));
-			rt.byteVecPush(out, Tagged.cmp$Ord_String(a, b) === 0 === rt.u64Eq(hash$Tagged_String(a), hash$Tagged_String(b)) ? 1 : 0);
+			const a: zeros_Tagged.Tagged<string> = part;
+			const b: zeros_Tagged.Tagged<string> = part2;
+			rt.byteVecPush(out, (zeros_Tagged.cmp$Ord_String(a, b) & 0xff) | ((((zeros_Tagged.eq$PartialEq_String(a, b) ? 1 : 0)) << 2) & 0xff) | ((((zeros_Tagged.partialCmp$PartialOrd_String(a, b) === zeros_Tagged.cmp$Ord_String(a, b) as rt.Ordering | undefined ? 1 : 0)) << 3) & 0xff));
+			rt.byteVecPush(out, zeros_Tagged.cmp$Ord_String(a, b) === 0 === rt.u64Eq(hash$Tagged_String(a), hash$Tagged_String(b)) ? 1 : 0);
 		}
 		rt.byteVecPush(out, ((true ? 1 : 0)) | ((((true ? 1 : 0)) << 1) & 0xff));
 		rt.byteVecPush(out, rt.cmpNothing(undefined, undefined) & 0xff);
@@ -331,8 +331,8 @@ export function impls(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, Names.eq$PartialEq(_168, _176) ? 1 : 0);
 		const _183: Names.Names = Names.default$Default();
 		rt.byteVecPush(out, Names.cmp$Ord(_168, _183) === 0 ? 1 : 0);
-		rt.byteVecPush(out, rt.iterAll(rt.iterSlice(tags), (t2: Tagged.Tagged<string>): boolean => {
-			return Tagged.eq$PartialEq_String(Tagged.clone$Clone_String(t2), t2);
+		rt.byteVecPush(out, rt.iterAll(rt.iterSlice(tags), (t2: zeros_Tagged.Tagged<string>): boolean => {
+			return zeros_Tagged.eq$PartialEq_String(zeros_Tagged.clone$Clone_String(t2), t2);
 		}) ? 1 : 0);
 		Rest.default$Default();
 		rt.byteVecPush(out, true ? 1 : 0);
@@ -379,25 +379,25 @@ export function keys(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const tree2: rt.BTreeMap<undefined, rt.u8> = rt.btreeNew(rt.cmpNothing) as rt.BTreeMap<undefined, rt.u8>;
 		for (const b2 of rt.byteSliceView(data)) {
 			if (!((b2 & 3) === 3)) {
-				rt.iterExtendBytes(out, rt.iterSlice(unwrapOr$1la41a6(map$1iwwjee(rt.hashInsert(map, undefined, b2), (v4: rt.u8): Uint8Array => {
+				rt.iterExtendBytes(out, rt.iterSlice(option_unwrapOr$1la41a6(option_map$1iwwjee(rt.hashInsert(map, undefined, b2), (v4: rt.u8): Uint8Array => {
 					return Uint8Array.of(1, v4);
 				}), Uint8Array.of(0, 0))), undefined, true);
-				rt.iterExtendBytes(out, rt.iterSlice(unwrapOr$1la41a6(map$1iwwjee(rt.btreeInsert(tree2, undefined, b2), (v5: rt.u8): Uint8Array => {
+				rt.iterExtendBytes(out, rt.iterSlice(option_unwrapOr$1la41a6(option_map$1iwwjee(rt.btreeInsert(tree2, undefined, b2), (v5: rt.u8): Uint8Array => {
 					return Uint8Array.of(1, v5);
 				}), Uint8Array.of(0, 0))), undefined, true);
 			} else {
-				rt.iterExtendBytes(out, rt.iterSlice(unwrapOr$1la41a6(map$1iwwjee(rt.hashRemove(map, undefined), (v2: rt.u8): Uint8Array => {
+				rt.iterExtendBytes(out, rt.iterSlice(option_unwrapOr$1la41a6(option_map$1iwwjee(rt.hashRemove(map, undefined), (v2: rt.u8): Uint8Array => {
 					return Uint8Array.of(1, v2);
 				}), Uint8Array.of(0, 0))), undefined, true);
-				rt.iterExtendBytes(out, rt.iterSlice(unwrapOr$1la41a6(map$1iwwjee(rt.btreeRemove(tree2, undefined), (v3: rt.u8): Uint8Array => {
+				rt.iterExtendBytes(out, rt.iterSlice(option_unwrapOr$1la41a6(option_map$1iwwjee(rt.btreeRemove(tree2, undefined), (v3: rt.u8): Uint8Array => {
 					return Uint8Array.of(1, v3);
 				}), Uint8Array.of(0, 0))), undefined, true);
 			}
 			rt.byteVecPush(out, (rt.hashLen(map) & 0xff) | (((rt.btreeLen(tree2) & 0xff) << 4) & 0xff));
-			rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(map, undefined), 0));
+			rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.hashGet(map, undefined), 0));
 		}
 	} else {
-		rt.iterExtendBytes(out, rt.iterSlice(unwrapOr$1la41a6(map$0po44cb(rt.iterCollectOption(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): undefined | rt.None => {
+		rt.iterExtendBytes(out, rt.iterSlice(option_unwrapOr$1la41a6(option_map$0po44cb(rt.iterCollectOption(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): undefined | rt.None => {
 			return thenSome$1j8foe9(_2 !== 0, undefined);
 		}), (values: rt.Iter<undefined>) => rt.iterToArray(values, undefined, 0), undefined, rt.None), (v: undefined[]): Uint8Array => {
 			return Uint8Array.of(1, v.length & 0xff);
@@ -462,14 +462,14 @@ export function unread(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const n: rt.u8 = data.length & 0xff;
 	const _9: rt.u8 = rt.u8Rem(kind, 3);
 	if (_9 === 0) {
-		drop$Lock_u32(Lock.new$u32(map$1qp1ym6(rt.byteSliceFirst(data), (_210: rt.u8): rt.u32 => {
+		drop$Lock_u32(zeros_Lock.new$u32(option_map$1qp1ym6(rt.byteSliceFirst(data), (_210: rt.u8): rt.u32 => {
 			return _210 as rt.u32;
 		})));
-		drop$Lock_u32(Lock.new$u32(undefined));
-		drop$Lock_Loud(Lock.new$Loud(map$1ibcmaa(rt.byteSliceFirst(data), (_211: rt.u8): Loud.Loud => {
+		drop$Lock_u32(zeros_Lock.new$u32(undefined));
+		drop$Lock_Loud(zeros_Lock.new$Loud(option_map$1ibcmaa(rt.byteSliceFirst(data), (_211: rt.u8): Loud.Loud => {
 			return new Loud.Loud();
 		})));
-		drop$Lock_Loud(Lock.new$Loud(undefined));
+		drop$Lock_Loud(zeros_Lock.new$Loud(undefined));
 		rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(rt.atomicLoad(LOG, 0))), undefined, true);
 	} else if (_9 === 1) {
 		rt.byteVecPush(out, rt.iterCount(rt.iterFilter(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_25: rt.u8): undefined => {}), undefined, 0, true)), (_u: undefined): boolean => {
@@ -480,7 +480,7 @@ export function unread(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, rewritten(undefined, n));
 		rt.byteVecPush(out, flattened(undefined, [rt.byteSliceToByteVec(data), rt.byteSliceToByteVec(data)]));
 	} else {
-		const lock: Lock.Lock<rt.u32> = Lock.new$u32(map$1qp1ym6(rt.byteSliceFirst(data), (_2: rt.u8): rt.u32 => {
+		const lock: zeros_Lock.Lock<rt.u32> = zeros_Lock.new$u32(option_map$1qp1ym6(rt.byteSliceFirst(data), (_2: rt.u8): rt.u32 => {
 			return _2 as rt.u32;
 		}));
 		rt.byteVecPush(out, ((((_22: undefined): boolean => {
