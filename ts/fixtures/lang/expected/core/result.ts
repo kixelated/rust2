@@ -3,6 +3,8 @@
 import * as rt from "../rt.ts";
 import { drop$Result_usize_u8_Arc_dyn_Any } from "../lib.ts";
 import { eq$09knsz6 as string_eq$09knsz6 } from "../alloc/string.ts";
+import * as ByRef from "../collections.ByRef.ts";
+import * as ByVal from "../collections.ByVal.ts";
 import type * as Any from "../core/any.Any.ts";
 import { eq$09vw48j as convert_eq$09vw48j } from "../core/char/convert.ts";
 import { eq$08q6k9m as fmt_eq$08q6k9m } from "../core/fmt.ts";
@@ -10,6 +12,26 @@ import { eq$1nf2rde as num_error_eq$1nf2rde, eq$18sin5z as num_error_eq$18sin5z 
 import { eq$1horntk as float_parse_eq$1horntk } from "../core/num/float_parse.ts";
 import { eq$1v93ipo as str_error_eq$1v93ipo, eq$1f3e51k as str_error_eq$1f3e51k } from "../core/str/error.ts";
 import { eq$0dhyfbb as time_eq$0dhyfbb } from "../core/time.ts";
+
+export function eq$07tp3i1(self: rt.Result<ByRef.ByRef, rt.u8>, other: rt.Result<ByRef.ByRef, rt.u8>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return ByRef.eq$PartialEq(self.value, (other as { ok: true; value: ByRef.ByRef }).value);
+	}
+	return self.error === (other as { ok: false; error: rt.u8 }).error;
+}
+
+export function eq$1v6um7p(self: rt.Result<ByVal.ByVal, rt.u8>, other: rt.Result<ByVal.ByVal, rt.u8>): boolean {
+	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {
+		return false;
+	}
+	if (self.ok) {
+		return ByVal.eq$PartialEq(self.value, (other as { ok: true; value: ByVal.ByVal }).value);
+	}
+	return self.error === (other as { ok: false; error: rt.u8 }).error;
+}
 
 export function eq$1hq3neq(self: rt.Result<rt.Duration, rt.TryFromFloatSecsError>, other: rt.Result<rt.Duration, rt.TryFromFloatSecsError>): boolean {
 	if (!((self.ok ? 0 : 1) === (other.ok ? 0 : 1))) {

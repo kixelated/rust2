@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { unwrapOr$1iemzn8 as option_unwrapOr$1iemzn8, unwrapOr$1j4op5y as option_unwrapOr$1j4op5y, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, map$1uo1d4o as option_map$1uo1d4o } from "./core/option.ts";
 import * as cows_Named from "./cows.Named.ts";
-import * as Run from "./cows.Run.ts";
+import * as cows_Run from "./cows.Run.ts";
 import * as cows_Tally from "./cows.Tally.ts";
 import { put as fmt_put } from "./fmt.ts";
 import { text } from "./strs.ts";
@@ -258,10 +258,10 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _144 of cs) {
 			putWords(out, rt.cowSlice(_144));
 		}
-		const run: Run.Run = { words: cowOf(half, owned) };
-		const before: Run.Run = Run.clone$Clone(run);
-		Run.bump(run);
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => Run.fmt$Debug(run, f), (f: rt.Formatter) => Run.fmt$Debug(before, f)];
+		const run: cows_Run.Run = { words: cowOf(half, owned) };
+		const before: cows_Run.Run = cows_Run.clone$Clone(run);
+		cows_Run.bump(run);
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => cows_Run.fmt$Debug(run, f), (f: rt.Formatter) => cows_Run.fmt$Debug(before, f)];
 		fmt_put(out, rt.fmtFormat([args4[0], " ", args4[1]]));
 		putWords(out, half);
 		putWords(out, rt.cowIntoOwned(c2));
@@ -384,21 +384,21 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		const _411: rt.Cow<rt.u16> = cowOf(half, owned);
 		rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.btreeGet(counts, _411), 255));
-		const runs: rt.HashSet<Run.Run> = rt.hashNew(rt.hashing(Run.hash$Hash_DefaultHasher as (a0: Run.Run, a1: rt.Hasher) => undefined, Run.eq$PartialEq)) as rt.HashSet<Run.Run>;
+		const runs: rt.HashSet<cows_Run.Run> = rt.hashNew(rt.hashing(cows_Run.hash$Hash_DefaultHasher as (a0: cows_Run.Run, a1: rt.Hasher) => undefined, cows_Run.eq$PartialEq)) as rt.HashSet<cows_Run.Run>;
 		const iter6: rt.Iter<rt.u16[]> = rt.sliceChunks(v, 3);
 		while (true) {
 			const _418: rt.u16[] | rt.Done = iter6.next();
 			if (_418 === rt.DONE) {
 				break;
 			}
-			const _424: Run.Run = { words: cowOf(_418, owned) };
+			const _424: cows_Run.Run = { words: cowOf(_418, owned) };
 			rt.hashAdd(runs, _424);
 		}
 		rt.byteVecPush(out, rt.hashLen(runs) & 0xff);
-		const _435: Run.Run = { words: cowOf(rt.sliceRange(v, 0, rt.min(v.length, 3)), !owned) };
+		const _435: cows_Run.Run = { words: cowOf(rt.sliceRange(v, 0, rt.min(v.length, 3)), !owned) };
 		rt.byteVecPush(out, rt.hashContains(runs, _435) ? 1 : 0);
-		const part4 = Run.default$Default();
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => Run.fmt$Debug(part4, f)];
+		const part4 = cows_Run.default$Default();
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => cows_Run.fmt$Debug(part4, f)];
 		fmt_put(out, rt.fmtFormat([args6[0]]));
 	} else {
 		const log: rt.Cell<rt.u32> = new rt.Cell(0);

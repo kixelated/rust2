@@ -4,6 +4,9 @@ import * as rt from "../rt.ts";
 import type * as borrows_Noisy from "../borrows.Noisy.ts";
 import type * as bounds_Item from "../bounds.Item.ts";
 import * as clones_Logged from "../clones.Logged.ts";
+import type * as ByRef from "../collections.ByRef.ts";
+import type * as ByVal from "../collections.ByVal.ts";
+import type * as Mixed from "../collections.Mixed.ts";
 import type * as collections_Nibble from "../collections.Nibble.ts";
 import type * as collections_Picky from "../collections.Picky.ts";
 import type * as Rank from "../collections.Rank.ts";
@@ -267,6 +270,20 @@ export function map$0xa0bn7(self: edits_Named.Named | undefined, f: (a0: edits_N
 	return f(self);
 }
 
+export function map$0ltgf8p(self: ByRef.ByRef | undefined, f: (a0: ByRef.ByRef) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1ajptuf(self: ByVal.ByVal | undefined, f: (a0: ByVal.ByVal) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string): string | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -317,6 +334,13 @@ export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_I
 }
 
 export function map$1u07cey(self: cycles_Logged.Logged | undefined, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0i8kclf(self: Mixed.Mixed | undefined, f: (a0: Mixed.Mixed) => rt.u8): rt.u8 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}

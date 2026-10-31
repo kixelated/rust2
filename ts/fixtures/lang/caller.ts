@@ -589,6 +589,13 @@ const compares = [[], [5], [1, 2, 3], [250, 251, 252, 253, 254, 255], [0xff, 3, 
 );
 
 /**
+ * `collections::ref_orders` of no items, one, repeats, and runs whose remainders by 2, 3,
+ * 4, and 5 agree and disagree.
+ */
+const refOrdersOp = op("collections::ref_orders");
+const refOrders = [[], [5], [3, 3, 3], [1, 2], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [7, 2, 9, 4, 4, 11, 15, 6], [12, 6, 0, 30, 60]].map((data) => Uint8Array.of(refOrdersOp, 0, ...data));
+
+/**
  * `wraps::*` of every kind at every width, over operands at the edges of its range: 0, 1,
  * either end, the sign bit's neighbors, which make `MIN / -1`, and at 128 bits values past
  * 2^64. Shift amounts are at, past, and many times past the width, which std masks.
@@ -618,4 +625,4 @@ function wraps(): Uint8Array[] {
 	return cases;
 }
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods, ...wraps()];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods, ...wraps(), ...refOrders];
