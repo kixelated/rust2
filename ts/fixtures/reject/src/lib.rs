@@ -1265,6 +1265,28 @@ pub fn pushed_part_kept(n: u16) -> u16 {
 	unsafe { (*part).0 }
 }
 
+/// A collection of the crate's own, which std's tuple impls extend by its `extend_one`.
+#[derive(Default)]
+pub struct Tally(pub u8);
+
+impl Extend<u8> for Tally {
+	fn extend<I: IntoIterator<Item = u8>>(&mut self, iter: I) {
+		for b in iter {
+			self.0 = self.0.wrapping_add(b);
+		}
+	}
+}
+
+/// A tuple of collections, one of them the crate's own.
+pub fn tallied(data: &[u8]) -> (Vec<u8>, Tally) {
+	data.iter().map(|&b| (b, b)).collect()
+}
+
+/// A 1-tuple of the crate's own collection, which std's impl extends by its `extend`.
+pub fn tallied_alone(data: &[u8]) -> (Tally,) {
+	data.iter().map(|&b| (b,)).collect()
+}
+
 /// Structs JS keeps as objects, each holding an `rt.Cell`, one for each kind of whole
 /// write of a value that holds one, which gives it another cell, while a pointer to the
 /// cell, taken through a reference to the struct, may still be read.

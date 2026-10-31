@@ -244,7 +244,11 @@ an `rt.Iter` with `for ... of`. Each `rt.Iter`'s `sizeHint` is std's `size_hint`
 bound `undefined` for `None`, and a `collect` or `extend` into a `Vec`, `VecDeque`,
 `BinaryHeap`, B-tree, or hash collection reserves by it where std's does, panicking with
 std's capacity overflow past the most it holds. Capacity isn't modeled, so a collection
-an `extend` starts from is taken as full.
+an `extend` starts from is taken as full. A tuple of these, of `String`s, `()`, or such
+tuples, collects, unzips, and extends as std's tuple impls do: a 1-tuple's collection by
+its own `extend`, and a longer one's each reserving the lower bound, in field order, before
+each item's fields go into them in order, as `rt.tupleExtend(t, it, [rt.vecPart(2),
+rt.STRING_PART])`. Any other collection in one is refused.
 
 `clone` of one of std's iterators or adaptors is its `rt.Iter`'s `clone`, which reads on
 from where the original was, independently of it, as std's `Clone` does; one over a hash
@@ -723,7 +727,7 @@ that can be `undefined`, a collection's `capacity`, looking up a key by
 another type it borrows as through the crate's own `Borrow`, a `&mut` to a value JS
 copies that std makes, other than a map's, or hands a closure, as `iter_mut` and
 `and_modify` do, one into a `Result`'s payload passed on or kept, `Hasher::write` of bytes, the adaptors
-without a mapping in `src/lower/iter.rs` (such as `unzip` and `partition`), an
+without a mapping in `src/lower/iter.rs` (such as `partition`), an
 own `impl Iterator` with `next_back`, `len`, or another provided method of its own,
 a pointer's address (`{:p}`), `write!` with a placeholder into
 the crate's own `fmt::Write`, a `str` pattern other than a

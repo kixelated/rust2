@@ -39,6 +39,8 @@ import type * as Point from "./shapes.Point.ts";
 import type * as shapes_Shape from "./shapes.Shape.ts";
 import type * as slices_Pair from "./slices.Pair.ts";
 import * as statics_Lock from "./statics.Lock.ts";
+import type * as tuples_Logged from "./tuples.Logged.ts";
+import type * as Spot from "./tuples.Spot.ts";
 import * as Tick from "./wraps.Tick.ts";
 import * as zeros_Lock from "./zeros.Lock.ts";
 import type * as Loud from "./zeros.Loud.ts";
@@ -353,6 +355,10 @@ export function copy$tuple2_u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
 	return [v[0], v[1]];
 }
 
+export function copy$tuples_Spot(v: Spot.Spot): Spot.Spot {
+	return { x: v.x, y: v.y };
+}
+
 export function copy$wraps_Tick_i128(v: Tick.Tick<rt.i128>): Tick.Tick<rt.i128> {
 	return new Tick.Tick(v._0);
 }
@@ -511,6 +517,10 @@ export function drop$tuple2_sync_Arc_collections_Picky_u8(_1: [rt.Arc<collection
 	_1[0][Symbol.dispose]();
 }
 
+export function drop$tuple2_tuples_Logged_u8(_1: [tuples_Logged.Logged, rt.u8]): void {
+	_1[0][Symbol.dispose]();
+}
+
 export function drop$tuple2_u8_Rc_unit(_1: [rt.u8, rt.Arc<undefined>]): void {
 	_1[1][Symbol.dispose]();
 }
@@ -520,6 +530,10 @@ export function drop$tuple2_u8_cmp_Reverse_sync_Arc_keys_Lopsided(_1: [rt.u8, rt
 }
 
 export function drop$tuple2_u8_sync_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$tuple2_u8_tuples_Logged(_1: [rt.u8, tuples_Logged.Logged]): void {
 	_1[1][Symbol.dispose]();
 }
 

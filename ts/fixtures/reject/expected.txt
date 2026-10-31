@@ -126,6 +126,8 @@ a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Repeated`, which the cr
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Onced`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1248:46
 `std::iter::once` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:1250:22
 a raw pointer to `(u16, u16)` in `Pushed`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1263:22
+`Extend` of `(std::vec::Vec<u8>, Tally)` by `(u8, u8)`, whose `Tally` of `u8` is not supported yet at fixtures/reject/src/lib.rs:1282:31
+`Extend` of `(Tally,)` by `(u8,)`, whose `Tally` of `u8` is not supported yet at fixtures/reject/src/lib.rs:1287:29
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:132:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:152:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:180:2
@@ -134,10 +136,10 @@ an iterator of the crate implementing `FusedIterator`, which is not supported ye
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Escaped`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1087:43
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Called`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1101:28
 a raw pointer to `(u16, u16)` in `Copied`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1191:31
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InArray`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1290:9
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InTuple`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1294:9
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InNested`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1298:9
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InPayload`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1302:9
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InField`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1306:9
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InGeneric`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1310:9
-a raw pointer to `std::cell::UnsafeCell<u16>` in `InWritten`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1314:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InArray`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1312:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InTuple`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1316:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InNested`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1320:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InPayload`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1324:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InField`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1328:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InGeneric`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1332:9
+a raw pointer to `std::cell::UnsafeCell<u16>` in `InWritten`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1336:9
