@@ -959,6 +959,8 @@ fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<
 			"Iter" | "Windows" | "Chunks" | "ChunksExact" | "RChunks" | "RChunksExact",
 		]
 		| ["str", "iter", "Chars" | "Bytes"]
+		| ["ascii", "EscapeDefault"]
+		| ["slice", "ascii", "EscapeAscii"]
 		| ["option", "Iter"]
 		| ["ops", "range", "Range" | "RangeFrom" | "RangeInclusive"]
 		| ["collections", "vec_deque", "iter", "Iter"]

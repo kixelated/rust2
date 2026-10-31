@@ -33,4 +33,4 @@ generic std gap is planned here even when moq never calls it.
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [Slices split by a predicate](/quest/m3/ts-slice-split.md) - `[T]::split` and its forms by a predicate translate
 - [Boxed slices](/quest/m3/ts-boxed-slices.md) - `Box<[T]>` translates, made, read, and turned back into a `Vec`
-- [The ASCII methods of u8 and char](/quest/m3/ts-ascii-methods.md) - `u8`'s and `char`'s `is_ascii_*` tests, case maps, and `escape_ascii` translate
+- [A &mut str to any String](/quest/m3/ts-str-places.md) - `make_ascii_*` of a `String` a tuple, an array, or a `Vec` holds, and of a part of one, translate

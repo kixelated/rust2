@@ -186,6 +186,13 @@ export function unwrapOr$11c0we2(self: rt.u32 | undefined, default_: rt.u32): rt
 	return self;
 }
 
+export function unwrapOr$0l7j3f6(self: rt.usize | undefined, default_: rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOrElse$1badkpb(self: string | undefined, f: () => string): string {
 	if (self === undefined) {
 		return f();
@@ -1282,6 +1289,13 @@ export function mapOr$18ph0j9(self: undefined | rt.None, default_: rt.u8, f: (a0
 }
 
 export function mapOr$147z9gi(self: rt.usize | undefined, default_: string, f: (a0: rt.usize) => string): string {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0jad0p1(self: rt.usize | undefined, default_: rt.u32, f: (a0: rt.usize) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
