@@ -1588,6 +1588,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
 			held(inner)
 		}
+		ty::Adt(..) if let Some(bound) = range_of(b, ty) => held(bound),
 		// Whose derived `PartialEq` lowers from its MIR.
 		ty::Adt(_, args) if b.t.std_of(ty) == Some(Std::Result) => args.types().all(held),
 		ty::Adt(..) if b.t.std_of(ty).is_some_and(Std::error) => true,
@@ -1599,6 +1600,15 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 /// What `ty` holds if it is an `Option`.
 fn option_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Option)).then(|| arg(ty, 0))
+}
+
+/// What `ty`'s bounds are if it is one of std's ranges that holds any.
+fn range_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	let range = matches!(
+		b.t.std_of(ty),
+		Some(Std::Range | Std::RangeInclusive | Std::RangeFrom | Std::RangeTo | Std::RangeToInclusive)
+	);
+	range.then(|| arg(ty, 0))
 }
 
 /// What `ty` holds if it is a `Reverse`.
@@ -1804,6 +1814,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
+		ty::Adt(..) if let Some(bound) = range_of(b, ty) => Expr::rt("rangeEq", vec![eq_fn(b, bound, span)]),
 		// A slice compares its elements by `!=`.
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![not_ne_fn(b, elem, span)]),
 		_ if bytes(b, ty) => Expr::Rt("eqBytes".into()),
@@ -1981,6 +1992,9 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
+		ty::Adt(..) if let Some(bound) = range_of(b, ty) => {
+			Expr::rt("rangeHash", vec![hash_fn(b, bound, hasher, span)])
+		}
 		_ if let Some(elem) = elements_of(b, ty) => {
 			if own_hash_slice(b, elem, hasher) {
 				let msg =
