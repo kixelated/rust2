@@ -1898,6 +1898,414 @@ export const i128Clamp = (a: i128, min: i128, max: i128): i128 => clampWide(a, m
 /** `i128`'s `Step`, which ranges step by: `n` moved by `by`, and whether that overflowed. */
 export const i128Step: Step<i128> = (n, by) => stepped(sum128(n, Math.abs(by), by < 0 ? -1 : 1, true)) as [i128, boolean];
 
+// Every width's other inherent methods: one function each, which the call passes the
+// type's width and sign as literals, computing on the value's exact bigint. None is on a
+// hot path, so a type gets no number path of its own. Where std gives a value of another
+// type, as `checked_add_signed` takes, it is any integer.
+
+/** Any integer: a number, or a wide type's limbs. */
+type Int = number | Limbs;
+
+/** The type's least value. */
+function least(bits: number, signed: boolean): bigint {
+	return signed ? -(1n << BigInt(bits - 1)) : 0n;
+}
+
+/** The type's greatest value. */
+function greatest(bits: number, signed: boolean): bigint {
+	return (1n << BigInt(signed ? bits - 1 : bits)) - 1n;
+}
+
+/** The exact `v`, wrapped into the type's range. */
+function wrappingOf(v: bigint, bits: number, signed: boolean): Int {
+	return intFromBig(signed ? BigInt.asIntN(bits, v) : BigInt.asUintN(bits, v), bits, signed);
+}
+
+/** The exact `v`, or a panic naming `op` past the type's range. */
+function strictOf(v: bigint, bits: number, signed: boolean, op: string): Int {
+	if (!fitsBig(v, bits, signed)) panic(`attempt to ${op} with overflow`);
+	return intFromBig(v, bits, signed);
+}
+
+/** The exact `v`, or `undefined` past the type's range. */
+function checkedOf(v: bigint, bits: number, signed: boolean): Int | undefined {
+	return fitsBig(v, bits, signed) ? intFromBig(v, bits, signed) : undefined;
+}
+
+/** The exact `v`, clamped to the type's range. */
+function saturatingOf(v: bigint, bits: number, signed: boolean): Int {
+	const min = least(bits, signed);
+	const max = greatest(bits, signed);
+	return intFromBig(v < min ? min : v > max ? max : v, bits, signed);
+}
+
+/** The exact `v` wrapped into the type's range, and whether it was past it. */
+function overflowingOf(v: bigint, bits: number, signed: boolean): [Int, boolean] {
+	return [wrappingOf(v, bits, signed), !fitsBig(v, bits, signed)];
+}
+
+/**
+ * `a ** exp`: exact while it may be in the type's range, and past that, a value past the
+ * range on the side the exact one is, which wraps to the same bits. Past `bits`, an
+ * exponent leaves the range unless `a` is -1, 0, or 1.
+ */
+function power(a: Int, exp: number, bits: number): bigint {
+	const v = intToBig(a);
+	if (exp < bits || (v >= -1n && v <= 1n)) return v ** BigInt(exp);
+	let low = 1n;
+	let base = BigInt.asUintN(bits, v);
+	for (let e = exp; e > 0; e = Math.floor(e / 2)) {
+		if (e % 2 === 1) low = BigInt.asUintN(bits, low * base);
+		base = BigInt.asUintN(bits, base * base);
+	}
+	return v < 0n && exp % 2 === 1 ? low - (2n << BigInt(bits)) : low + (1n << BigInt(bits));
+}
+
+/** `a / b`, truncated, or for `euclid` rounded so the remainder is not negative, panicking on a zero divisor. */
+function quotientOf(a: Int, b: Int, euclid: boolean): bigint {
+	const x = intToBig(a);
+	const y = intToBig(b);
+	if (y === 0n) panic("attempt to divide by zero");
+	const q = x / y;
+	return euclid && x % y < 0n ? (y > 0n ? q - 1n : q + 1n) : q;
+}
+
+/**
+ * `a % b`, of `a`'s sign, or for `euclid` not negative, and whether it overflowed: only
+ * `MIN % -1` does, whose remainder is 0. Panics on a zero divisor.
+ */
+function remainderOf(a: Int, b: Int, bits: number, signed: boolean, euclid: boolean): [bigint, boolean] {
+	const x = intToBig(a);
+	const y = intToBig(b);
+	if (y === 0n) panic("attempt to calculate the remainder with a divisor of zero");
+	const r = x % y;
+	const over = y === -1n && x === least(bits, signed);
+	return [euclid && r < 0n ? r + (y < 0n ? -y : y) : r, over];
+}
+
+/** `|v|`. */
+function magnitude(v: bigint): bigint {
+	return v < 0n ? -v : v;
+}
+
+/** An integer's bits, as unsigned. */
+function bitsOf(a: Int, bits: number): bigint {
+	return BigInt.asUintN(bits, intToBig(a));
+}
+
+/** How many bits `v`, not negative, takes: 0 for 0. */
+function bitLength(v: bigint): number {
+	return v === 0n ? 0 : v.toString(2).length;
+}
+
+/** The index of `v`'s lowest one bit; `v` is not 0. */
+function lowestOne(v: bigint): number {
+	return bitLength(v & -v) - 1;
+}
+
+/** How many one bits `v`, not negative, has. */
+function popcount(v: bigint): number {
+	let n = 0;
+	for (; v !== 0n; v >>= 32n) {
+		let w = Number(v & 0xffffffffn);
+		w -= (w >>> 1) & 0x55555555;
+		w = (w & 0x33333333) + ((w >>> 2) & 0x33333333);
+		n += Math.imul((w + (w >>> 4)) & 0x0f0f0f0f, 0x01010101) >>> 24;
+	}
+	return n;
+}
+
+/** `v`'s integer square root; `v` is not negative. */
+function sqrt(v: bigint): bigint {
+	if (v < 2n) return v;
+	// Newton's method from a value at or above the root, which falls to it.
+	let x = 1n << BigInt(Math.ceil(bitLength(v) / 2));
+	for (;;) {
+		const y = (x + v / x) >> 1n;
+		if (y >= x) return x;
+		x = y;
+	}
+}
+
+/** `ilog`'s, `ilog2`'s, or `ilog10`'s panic unless `v` is positive. */
+function positive(v: bigint): bigint {
+	if (v <= 0n) panic("argument of integer logarithm must be positive");
+	return v;
+}
+
+/** The floor of `v`'s logarithm in `base`; `v` is positive and `base` at least 2. */
+function log(v: bigint, base: bigint): number {
+	let n = 0;
+	for (let r = base; r <= v; r *= base) n++;
+	return n;
+}
+
+/** The next power of two at or above the unsigned `a`, exactly. */
+function nextPower(a: Int): bigint {
+	const v = intToBig(a);
+	return v <= 1n ? 1n : 1n << BigInt(bitLength(v - 1n));
+}
+
+/** `pow`: `a ** exp`, panicking on overflow, as a debug build's `pow` does. */
+export const intPow = <T extends Int>(a: T, exp: number, bits: number, signed: boolean): T => strictOf(power(a, exp, bits), bits, signed, "exponentiate") as T;
+/** `checked_pow`: `a ** exp`, or `undefined` on overflow. */
+export const intCheckedPow = <T extends Int>(a: T, exp: number, bits: number, signed: boolean): T | undefined => checkedOf(power(a, exp, bits), bits, signed) as T | undefined;
+/** `wrapping_pow`: `a ** exp`, wrapped into the type's range. */
+export const intWrappingPow = <T extends Int>(a: T, exp: number, bits: number, signed: boolean): T => wrappingOf(power(a, exp, bits), bits, signed) as T;
+/** `saturating_pow`: `a ** exp`, clamped to the type's range. */
+export const intSaturatingPow = <T extends Int>(a: T, exp: number, bits: number, signed: boolean): T => saturatingOf(power(a, exp, bits), bits, signed) as T;
+/** `overflowing_pow`: `a ** exp` wrapped, and whether it overflowed. */
+export const intOverflowingPow = <T extends Int>(a: T, exp: number, bits: number, signed: boolean): [T, boolean] => overflowingOf(power(a, exp, bits), bits, signed) as [T, boolean];
+
+/** `strict_add_signed` and `strict_add_unsigned`: `a + b`, panicking on overflow. */
+export const intStrictAdd = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T => strictOf(intToBig(a) + intToBig(b), bits, signed, "add") as T;
+/** `checked_add_signed` and `checked_add_unsigned`: `a + b`, or `undefined` on overflow. */
+export const intCheckedAdd = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T | undefined => checkedOf(intToBig(a) + intToBig(b), bits, signed) as T | undefined;
+/** `wrapping_add_signed` and `wrapping_add_unsigned`: `a + b`, wrapped into the type's range. */
+export const intWrappingAdd = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T => wrappingOf(intToBig(a) + intToBig(b), bits, signed) as T;
+/** `saturating_add_signed` and `saturating_add_unsigned`: `a + b`, clamped to the type's range. */
+export const intSaturatingAdd = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T => saturatingOf(intToBig(a) + intToBig(b), bits, signed) as T;
+/** `overflowing_add` and its `_signed` and `_unsigned` forms: `a + b` wrapped, and whether it overflowed. */
+export const intOverflowingAdd = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): [T, boolean] => overflowingOf(intToBig(a) + intToBig(b), bits, signed) as [T, boolean];
+/** `strict_sub_signed` and `strict_sub_unsigned`: `a - b`, panicking on overflow. */
+export const intStrictSub = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T => strictOf(intToBig(a) - intToBig(b), bits, signed, "subtract") as T;
+/** `checked_sub_signed` and `checked_sub_unsigned`: `a - b`, or `undefined` on overflow. */
+export const intCheckedSub = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T | undefined => checkedOf(intToBig(a) - intToBig(b), bits, signed) as T | undefined;
+/** `wrapping_sub_signed` and `wrapping_sub_unsigned`: `a - b`, wrapped into the type's range. */
+export const intWrappingSub = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T => wrappingOf(intToBig(a) - intToBig(b), bits, signed) as T;
+/** `saturating_sub_signed` and `saturating_sub_unsigned`: `a - b`, clamped to the type's range. */
+export const intSaturatingSub = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): T => saturatingOf(intToBig(a) - intToBig(b), bits, signed) as T;
+/** `overflowing_sub` and its `_signed` and `_unsigned` forms: `a - b` wrapped, and whether it overflowed. */
+export const intOverflowingSub = <T extends Int>(a: T, b: Int, bits: number, signed: boolean): [T, boolean] => overflowingOf(intToBig(a) - intToBig(b), bits, signed) as [T, boolean];
+/** `overflowing_mul`: `a * b` wrapped, and whether it overflowed. */
+export const intOverflowingMul = <T extends Int>(a: T, b: T, bits: number, signed: boolean): [T, boolean] => overflowingOf(intToBig(a) * intToBig(b), bits, signed) as [T, boolean];
+/** `carrying_add`: `a + b + carry` wrapped, and whether it carried out. */
+export const intCarryingAdd = <T extends Int>(a: T, b: T, carry: boolean, bits: number, signed: boolean): [T, boolean] => overflowingOf(intToBig(a) + intToBig(b) + (carry ? 1n : 0n), bits, signed) as [T, boolean];
+/** `borrowing_sub`: `a - b - borrow` wrapped, and whether it borrowed. */
+export const intBorrowingSub = <T extends Int>(a: T, b: T, borrow: boolean, bits: number, signed: boolean): [T, boolean] => overflowingOf(intToBig(a) - intToBig(b) - (borrow ? 1n : 0n), bits, signed) as [T, boolean];
+/** `carrying_mul_add` of an unsigned type: `a * b + c + d`, as its low and high halves. */
+export const intCarryingMulAdd = <T extends Int>(a: T, b: T, c: T, d: T, bits: number, signed: boolean): [T, T] => {
+	const v = intToBig(a) * intToBig(b) + intToBig(c) + intToBig(d);
+	return [wrappingOf(v, bits, signed), intFromBig(v >> BigInt(bits), bits, signed)] as [T, T];
+};
+/** `carrying_mul` of an unsigned type: `a * b + c`, as its low and high halves. */
+export const intCarryingMul = <T extends Int>(a: T, b: T, c: T, bits: number, signed: boolean): [T, T] => intCarryingMulAdd(a, b, c, 0 as T, bits, signed);
+
+/** `checked_div`: `a / b`, truncated, or `undefined` on a zero divisor or overflow. */
+export const intCheckedDiv = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T | undefined => (b === 0 ? undefined : (checkedOf(quotientOf(a, b, false), bits, signed) as T | undefined));
+/** `overflowing_div`: `a / b` truncated and wrapped, and whether it overflowed, panicking on a zero divisor. */
+export const intOverflowingDiv = <T extends Int>(a: T, b: T, bits: number, signed: boolean): [T, boolean] => overflowingOf(quotientOf(a, b, false), bits, signed) as [T, boolean];
+/** `div_euclid`: the quotient whose remainder is not negative, panicking on a zero divisor or overflow. */
+export const intDivEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T => strictOf(quotientOf(a, b, true), bits, signed, "divide") as T;
+/** `checked_div_euclid`: `div_euclid`, or `undefined` on a zero divisor or overflow. */
+export const intCheckedDivEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T | undefined => (b === 0 ? undefined : (checkedOf(quotientOf(a, b, true), bits, signed) as T | undefined));
+/** `wrapping_div_euclid`: `div_euclid`, wrapped into the type's range, panicking on a zero divisor. */
+export const intWrappingDivEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T => wrappingOf(quotientOf(a, b, true), bits, signed) as T;
+/** `overflowing_div_euclid`: `div_euclid` wrapped, and whether it overflowed, panicking on a zero divisor. */
+export const intOverflowingDivEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): [T, boolean] => overflowingOf(quotientOf(a, b, true), bits, signed) as [T, boolean];
+/** `checked_rem`: `a % b`, or `undefined` on a zero divisor or overflow. */
+export const intCheckedRem = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T | undefined => {
+	if (b === 0) return undefined;
+	const [r, over] = remainderOf(a, b, bits, signed, false);
+	return over ? undefined : (intFromBig(r, bits, signed) as T);
+};
+/** `overflowing_rem`: `a % b`, 0 where it overflows, and whether it did, panicking on a zero divisor. */
+export const intOverflowingRem = <T extends Int>(a: T, b: T, bits: number, signed: boolean): [T, boolean] => {
+	const [r, over] = remainderOf(a, b, bits, signed, false);
+	return [intFromBig(r, bits, signed) as T, over];
+};
+/** `rem_euclid`: the remainder that is not negative, panicking on a zero divisor or overflow. */
+export const intRemEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T => {
+	const [r, over] = remainderOf(a, b, bits, signed, true);
+	if (over) panic("attempt to calculate the remainder with overflow");
+	return intFromBig(r, bits, signed) as T;
+};
+/** `checked_rem_euclid`: `rem_euclid`, or `undefined` on a zero divisor or overflow. */
+export const intCheckedRemEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T | undefined => {
+	if (b === 0) return undefined;
+	const [r, over] = remainderOf(a, b, bits, signed, true);
+	return over ? undefined : (intFromBig(r, bits, signed) as T);
+};
+/** `wrapping_rem_euclid`: `rem_euclid`, 0 where it overflows, panicking on a zero divisor. */
+export const intWrappingRemEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T => intFromBig(remainderOf(a, b, bits, signed, true)[0], bits, signed) as T;
+/** `overflowing_rem_euclid`: `rem_euclid`, 0 where it overflows, and whether it did, panicking on a zero divisor. */
+export const intOverflowingRemEuclid = <T extends Int>(a: T, b: T, bits: number, signed: boolean): [T, boolean] => {
+	const [r, over] = remainderOf(a, b, bits, signed, true);
+	return [intFromBig(r, bits, signed) as T, over];
+};
+/** `next_multiple_of` of an unsigned type: the least multiple of `b` at or above `a`, panicking on a zero `b` or overflow. */
+export const intNextMultipleOf = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T => {
+	const [r] = remainderOf(a, b, bits, signed, false);
+	return (r === 0n ? a : strictOf(intToBig(a) + intToBig(b) - r, bits, signed, "add")) as T;
+};
+/** `checked_next_multiple_of` of an unsigned type: `next_multiple_of`, or `undefined` on a zero `b` or overflow. */
+export const intCheckedNextMultipleOf = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T | undefined => {
+	if (b === 0) return undefined;
+	const [r] = remainderOf(a, b, bits, signed, false);
+	return (r === 0n ? a : checkedOf(intToBig(a) + intToBig(b) - r, bits, signed)) as T | undefined;
+};
+/** `midpoint`: `(a + b) / 2`, rounded toward zero, without overflow. */
+export const intMidpoint = <T extends Int>(a: T, b: T, bits: number, signed: boolean): T => intFromBig((intToBig(a) + intToBig(b)) / 2n, bits, signed) as T;
+/** `abs_diff`: `|a - b|`, in the unsigned type of the width. */
+export const intAbsDiff = (a: Int, b: Int, bits: number, _signed: boolean): Int => intFromBig(magnitude(intToBig(a) - intToBig(b)), bits, false);
+/** `checked_signed_diff` of an unsigned type: `a - b` in the signed type of the width, or `undefined` past its range. */
+export const intCheckedSignedDiff = (a: Int, b: Int, bits: number, _signed: boolean): Int | undefined => checkedOf(intToBig(a) - intToBig(b), bits, true);
+
+/** `strict_neg`: `-a`, panicking on overflow. */
+export const intStrictNeg = <T extends Int>(a: T, bits: number, signed: boolean): T => strictOf(-intToBig(a), bits, signed, "negate") as T;
+/** `checked_neg`: `-a`, or `undefined` on overflow. */
+export const intCheckedNeg = <T extends Int>(a: T, bits: number, signed: boolean): T | undefined => checkedOf(-intToBig(a), bits, signed) as T | undefined;
+/** `wrapping_neg`: `-a`, wrapped into the type's range. */
+export const intWrappingNeg = <T extends Int>(a: T, bits: number, signed: boolean): T => wrappingOf(-intToBig(a), bits, signed) as T;
+/** `overflowing_neg`: `-a` wrapped, and whether it overflowed. */
+export const intOverflowingNeg = <T extends Int>(a: T, bits: number, signed: boolean): [T, boolean] => overflowingOf(-intToBig(a), bits, signed) as [T, boolean];
+/** `abs`: `|a|`, panicking on overflow, as a debug build's `abs` does. */
+export const intAbs = <T extends Int>(a: T, bits: number, signed: boolean): T => strictOf(magnitude(intToBig(a)), bits, signed, "negate") as T;
+/** `checked_abs`: `|a|`, or `undefined` on overflow. */
+export const intCheckedAbs = <T extends Int>(a: T, bits: number, signed: boolean): T | undefined => checkedOf(magnitude(intToBig(a)), bits, signed) as T | undefined;
+/** `wrapping_abs`: `|a|`, wrapped into the type's range. */
+export const intWrappingAbs = <T extends Int>(a: T, bits: number, signed: boolean): T => wrappingOf(magnitude(intToBig(a)), bits, signed) as T;
+/** `saturating_abs`: `|a|`, clamped to the type's range. */
+export const intSaturatingAbs = <T extends Int>(a: T, bits: number, signed: boolean): T => saturatingOf(magnitude(intToBig(a)), bits, signed) as T;
+/** `overflowing_abs`: `|a|` wrapped, and whether it overflowed. */
+export const intOverflowingAbs = <T extends Int>(a: T, bits: number, signed: boolean): [T, boolean] => overflowingOf(magnitude(intToBig(a)), bits, signed) as [T, boolean];
+/** `unsigned_abs`: `|a|`, in the unsigned type of the width. */
+export const intUnsignedAbs = (a: Int, bits: number, _signed: boolean): Int => intFromBig(magnitude(intToBig(a)), bits, false);
+/** `signum`: -1, 0, or 1, as `a` is negative, zero, or positive. */
+export const intSignum = <T extends Int>(a: T, _bits: number, _signed: boolean): T => {
+	const v = intToBig(a);
+	return (v < 0n ? -1 : v > 0n ? 1 : 0) as T;
+};
+/** `isqrt`: the integer square root, panicking on a negative `a`. */
+export const intIsqrt = <T extends Int>(a: T, bits: number, signed: boolean): T => {
+	const v = intToBig(a);
+	if (v < 0n) panic("argument of integer square root cannot be negative");
+	return intFromBig(sqrt(v), bits, signed) as T;
+};
+/** `checked_isqrt`: the integer square root, or `undefined` for a negative `a`. */
+export const intCheckedIsqrt = <T extends Int>(a: T, bits: number, signed: boolean): T | undefined => {
+	const v = intToBig(a);
+	return v < 0n ? undefined : (intFromBig(sqrt(v), bits, signed) as T);
+};
+/** `ilog`: the floor of `a`'s logarithm in `base`, panicking unless `base` is at least 2 and `a` is positive. */
+export const intIlog = (a: Int, base: Int, _bits: number, _signed: boolean): number => {
+	const b = intToBig(base);
+	if (b < 2n) panic("base of integer logarithm must be at least 2");
+	return log(positive(intToBig(a)), b);
+};
+/** `ilog2`: the floor of `a`'s base-2 logarithm, panicking unless `a` is positive. */
+export const intIlog2 = (a: Int, _bits: number, _signed: boolean): number => bitLength(positive(intToBig(a))) - 1;
+/** `ilog10`: the floor of `a`'s base-10 logarithm, panicking unless `a` is positive. */
+export const intIlog10 = (a: Int, _bits: number, _signed: boolean): number => String(positive(intToBig(a))).length - 1;
+/** `checked_ilog`: `ilog`, or `undefined` unless `base` is at least 2 and `a` is positive. */
+export const intCheckedIlog = (a: Int, base: Int, _bits: number, _signed: boolean): number | undefined => {
+	const v = intToBig(a);
+	const b = intToBig(base);
+	return v <= 0n || b <= 1n ? undefined : log(v, b);
+};
+/** `checked_ilog2`: `ilog2`, or `undefined` unless `a` is positive. */
+export const intCheckedIlog2 = (a: Int, _bits: number, _signed: boolean): number | undefined => {
+	const v = intToBig(a);
+	return v <= 0n ? undefined : bitLength(v) - 1;
+};
+/** `checked_ilog10`: `ilog10`, or `undefined` unless `a` is positive. */
+export const intCheckedIlog10 = (a: Int, _bits: number, _signed: boolean): number | undefined => {
+	const v = intToBig(a);
+	return v <= 0n ? undefined : String(v).length - 1;
+};
+
+/** `checked_shl`: `a << n`, or `undefined` for a shift by the width or more. */
+export const intCheckedShl = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T | undefined => (n < bits ? (wrappingOf(intToBig(a) << BigInt(n), bits, signed) as T) : undefined);
+/** `checked_shr`: `a >> n`, or `undefined` for a shift by the width or more. */
+export const intCheckedShr = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T | undefined => (n < bits ? (intFromBig(intToBig(a) >> BigInt(n), bits, signed) as T) : undefined);
+/** `wrapping_shl`: `a << n`, by `n` masked to the width. */
+export const intWrappingShl = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T => wrappingOf(intToBig(a) << BigInt(n & (bits - 1)), bits, signed) as T;
+/** `wrapping_shr`: `a >> n`, by `n` masked to the width. */
+export const intWrappingShr = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T => intFromBig(intToBig(a) >> BigInt(n & (bits - 1)), bits, signed) as T;
+/** `overflowing_shl`: `wrapping_shl`, and whether `n` was the width or more. */
+export const intOverflowingShl = <T extends Int>(a: T, n: number, bits: number, signed: boolean): [T, boolean] => [intWrappingShl(a, n, bits, signed), n >= bits];
+/** `overflowing_shr`: `wrapping_shr`, and whether `n` was the width or more. */
+export const intOverflowingShr = <T extends Int>(a: T, n: number, bits: number, signed: boolean): [T, boolean] => [intWrappingShr(a, n, bits, signed), n >= bits];
+/** `unbounded_shl`: `a << n`, 0 for a shift by the width or more. */
+export const intUnboundedShl = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T => (n < bits ? (wrappingOf(intToBig(a) << BigInt(n), bits, signed) as T) : (0 as T));
+/** `unbounded_shr`: `a >> n`, past the width all sign bits: 0, or -1 for a negative `a`. */
+export const intUnboundedShr = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T => intFromBig(intToBig(a) >> BigInt(Math.min(n, bits)), bits, signed) as T;
+/** `funnel_shl` of an unsigned type: the high half of `a:b` shifted left by `n`, panicking unless `n` is below the width. */
+export const intFunnelShl = <T extends Int>(a: T, b: T, n: number, bits: number, signed: boolean): T => {
+	if (n >= bits) panic("attempt to funnel shift left with overflow");
+	return wrappingOf((((intToBig(a) << BigInt(bits)) | intToBig(b)) << BigInt(n)) >> BigInt(bits), bits, signed) as T;
+};
+/** `funnel_shr` of an unsigned type: the low half of `a:b` shifted right by `n`, panicking unless `n` is below the width. */
+export const intFunnelShr = <T extends Int>(a: T, b: T, n: number, bits: number, signed: boolean): T => {
+	if (n >= bits) panic("attempt to funnel shift right with overflow");
+	return wrappingOf(((intToBig(a) << BigInt(bits)) | intToBig(b)) >> BigInt(n), bits, signed) as T;
+};
+/** `rotate_left`: `a`'s bits rotated left by `n`, modulo the width. */
+export const intRotateLeft = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T => {
+	const v = bitsOf(a, bits);
+	const k = BigInt(n % bits);
+	return wrappingOf((v << k) | (v >> (BigInt(bits) - k)), bits, signed) as T;
+};
+/** `rotate_right`: `a`'s bits rotated right by `n`, modulo the width. */
+export const intRotateRight = <T extends Int>(a: T, n: number, bits: number, signed: boolean): T => {
+	const v = bitsOf(a, bits);
+	const k = BigInt(n % bits);
+	return wrappingOf((v >> k) | (v << (BigInt(bits) - k)), bits, signed) as T;
+};
+/** `swap_bytes`: `a`'s bytes in reverse order, as `to_be` and `from_be` are on wasm32. */
+export const intSwapBytes = <T extends Int>(a: T, bits: number, signed: boolean): T => {
+	let v = bitsOf(a, bits);
+	let r = 0n;
+	for (let i = 0; i < bits; i += 8, v >>= 8n) r = (r << 8n) | (v & 0xffn);
+	return wrappingOf(r, bits, signed) as T;
+};
+/** `reverse_bits`: `a`'s bits in reverse order. */
+export const intReverseBits = <T extends Int>(a: T, bits: number, signed: boolean): T => {
+	let v = bitsOf(a, bits);
+	let r = 0n;
+	for (let i = 0; i < bits; i++, v >>= 1n) r = (r << 1n) | (v & 1n);
+	return wrappingOf(r, bits, signed) as T;
+};
+/** `count_ones`: how many one bits `a` has. */
+export const intCountOnes = (a: Int, bits: number, _signed: boolean): number => popcount(bitsOf(a, bits));
+/** `count_zeros`: how many zero bits `a` has. */
+export const intCountZeros = (a: Int, bits: number, _signed: boolean): number => bits - popcount(bitsOf(a, bits));
+/** `trailing_ones`: how many one bits `a` ends in. */
+export const intTrailingOnes = (a: Int, bits: number, _signed: boolean): number => {
+	const v = BigInt.asUintN(bits, ~intToBig(a));
+	return v === 0n ? bits : lowestOne(v);
+};
+/** `bit_width`: how many bits `a` takes: the width less its leading zeros. */
+export const intBitWidth = (a: Int, bits: number, _signed: boolean): number => bitLength(bitsOf(a, bits));
+/** `highest_one`: the index of `a`'s highest one bit, or `undefined` for 0. */
+export const intHighestOne = (a: Int, bits: number, _signed: boolean): number | undefined => {
+	const v = bitsOf(a, bits);
+	return v === 0n ? undefined : bitLength(v) - 1;
+};
+/** `lowest_one`: the index of `a`'s lowest one bit, or `undefined` for 0. */
+export const intLowestOne = (a: Int, bits: number, _signed: boolean): number | undefined => {
+	const v = bitsOf(a, bits);
+	return v === 0n ? undefined : lowestOne(v);
+};
+/** `isolate_highest_one`: `a` with only its highest one bit kept. */
+export const intIsolateHighestOne = <T extends Int>(a: T, bits: number, signed: boolean): T => {
+	const v = bitsOf(a, bits);
+	return (v === 0n ? 0 : wrappingOf(1n << BigInt(bitLength(v) - 1), bits, signed)) as T;
+};
+/** `isolate_lowest_one`: `a` with only its lowest one bit kept. */
+export const intIsolateLowestOne = <T extends Int>(a: T, bits: number, signed: boolean): T => {
+	const v = bitsOf(a, bits);
+	return wrappingOf(v & -v, bits, signed) as T;
+};
+/** `is_power_of_two` of an unsigned type. */
+export const intIsPowerOfTwo = (a: Int, bits: number, _signed: boolean): boolean => popcount(bitsOf(a, bits)) === 1;
+/** `next_power_of_two` of an unsigned type: the least power of two at or above `a`, panicking past the type's range, as a debug build's does. */
+export const intNextPowerOfTwo = <T extends Int>(a: T, bits: number, signed: boolean): T => strictOf(nextPower(a), bits, signed, "add") as T;
+/** `checked_next_power_of_two` of an unsigned type: `next_power_of_two`, or `undefined` past the type's range. */
+export const intCheckedNextPowerOfTwo = <T extends Int>(a: T, bits: number, signed: boolean): T | undefined => checkedOf(nextPower(a), bits, signed) as T | undefined;
+/** `wrapping_next_power_of_two` of an unsigned type: `next_power_of_two`, or 0 past the type's range. */
+export const intWrappingNextPowerOfTwo = <T extends Int>(a: T, bits: number, signed: boolean): T => wrappingOf(nextPower(a), bits, signed) as T;
+
 // Casts between integers and floats. An integer of at most 32 bits is already its `f64`;
 // a wider one rounds to the nearest, ties to even, once, and so does one to an `f32`. A
 // float to an integer truncates toward zero, saturates at the type's bounds, and sends

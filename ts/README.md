@@ -161,6 +161,12 @@ comparisons are runtime calls, `rt.u64Add(a, b)` and `rt.u64Lt(a, b)`, and `x as
 is `rt.u64Low(x)`. `((hi as u64) << 32) | lo as u64` of halves of at most 32 bits is
 one call, `rt.u64FromHalves(hi, lo)`.
 
+Each integer's inherent methods are std's, and a `NonZero`'s, a `Wrapping`'s, and a
+`Saturating`'s are its integer's, as std defines them: a `Wrapping`'s `pow` is
+`wrapping_pow`. `pow` and `abs` panic on overflow as a debug build's do. Those the operators
+lack are one runtime function for every width, `rt.intCheckedPow(a, n, 64, false)`, given
+the width and sign, which computes on the value's `bigint`.
+
 An `f64` is a JS number, so its operators are JS's, which round as Rust's do. Where
 JS differs from std, the runtime has std's: `round` halves away from zero, `max` and
 `min` ignore a NaN, and a cast to an integer truncates, saturates at the type's bounds,
@@ -759,7 +765,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `bench::run` and then with it as the first root, which must keep every line in order.
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
-- `lang` covers every integer width's arithmetic and casts, `char`s next to each
+- `lang` covers every integer width's arithmetic, casts, and inherent methods, with
+  `NonZero`'s, `Wrapping`'s, and `Saturating`'s, at each width's edges, `char`s next to each
   encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Wrapping` and `Saturating` at every width, `Duration`s whose
   seconds pass 2^53 or reach `u64::MAX`, control flow,
   patterns, `Copy` aggregates, those a container stores included and those written into

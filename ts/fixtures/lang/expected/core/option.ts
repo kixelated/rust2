@@ -328,6 +328,90 @@ export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt
 	return f(self);
 }
 
+export function map$18pd8cy(self: rt.i128 | undefined, _: (a0: rt.i128) => rt.i128): rt.i128 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$0b7sac9(self: rt.i16 | undefined, _: (a0: rt.i16) => rt.i16): rt.i16 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$0x0f126(self: rt.i32 | undefined, _: (a0: rt.i32) => rt.i32): rt.i32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$02fxff7(self: rt.i64 | undefined, _: (a0: rt.i64) => rt.i64): rt.i64 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$1u19ipa(self: rt.i8 | undefined, _: (a0: rt.i8) => rt.i8): rt.i8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$1rlqf9d(self: rt.isize | undefined, _: (a0: rt.isize) => rt.isize): rt.isize | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$1fszu7p(self: rt.u128 | undefined, _: (a0: rt.u128) => rt.u128): rt.u128 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$12xrbxt(self: rt.u16 | undefined, _: (a0: rt.u16) => rt.u16): rt.u16 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$0xz4pvf(self: rt.u32 | undefined, _: (a0: rt.u32) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$1rxjg4m(self: rt.u64 | undefined, _: (a0: rt.u64) => rt.u64): rt.u64 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$03bv7br(self: rt.u8 | undefined, _: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$08v2q5m(self: rt.usize | undefined, _: (a0: rt.usize) => rt.usize): rt.usize | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
 export function map$1srhyy0(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => rt.Arc<counts_Noisy.Noisy>): rt.Arc<counts_Noisy.Noisy> | undefined {
 	if (self === undefined) {
 		return undefined;
