@@ -373,6 +373,21 @@ export function refMutRelease<T>(cell: RefCell<T>): void {
 	cell.borrows = 0;
 }
 
+/**
+ * `PartialEq`, `PartialOrd`, or `Ord` of `RefCell`s, by `f` of their values: each borrowed
+ * in turn, which panics while it is mutably borrowed, and released the other way.
+ */
+export function refCellBy<T, R>(f: (a: T, b: T) => R): (a: RefCell<T>, b: RefCell<T>) => R {
+	return (a, b) => {
+		refCellBorrow(a);
+		refCellBorrow(b);
+		const r = f(a.value, b.value);
+		refRelease(b);
+		refRelease(a);
+		return r;
+	};
+}
+
 /** `Cell<T>`: the place that holds its value. */
 export class Cell<T> implements Place<T>, Disposable {
 	v: T;
@@ -384,6 +399,14 @@ export class Cell<T> implements Place<T>, Disposable {
 	[Symbol.dispose](): void {
 		drop(this.v);
 	}
+}
+
+/**
+ * `PartialEq`, `PartialOrd`, or `Ord` of `Cell`s, or `PartialEq` of `OnceCell`s or
+ * `OnceLock`s, by `f` of what each holds.
+ */
+export function cellBy<T, R>(f: (a: T, b: T) => R): (a: { v: T }, b: { v: T }) => R {
+	return (a, b) => f(a.v, b.v);
 }
 
 /** `Cell::replace`: the value it held, `v` in its place. */

@@ -182,6 +182,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("fmt::iters", |_, data, out| fmt::iters(data, out)),
 		("zeros::unread", zeros::unread),
 		("iters::range_froms", iters::range_froms),
+		("collections::cell_eqs", collections::cell_eqs),
 	]
 }
 
