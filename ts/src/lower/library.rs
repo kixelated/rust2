@@ -409,8 +409,8 @@ pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 
 /// What a value of `ty` is in JS if `ty` wraps one value it is represented as: `Reverse<T>`'s,
 /// `NonZero<T>`'s, `Wrapping<T>`'s, and `Saturating<T>`'s `T`, which differ only in their
-/// order, range, and arithmetic, a pattern type's base, and the field of each of core's `niche_types`
-/// structs that hold one.
+/// order, range, and arithmetic, a pattern type's base, and the field of each of core's
+/// `niche_types` structs that hold one.
 pub fn wrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	match ty.kind() {
 		ty::Pat(base, _) => Some(*base),
