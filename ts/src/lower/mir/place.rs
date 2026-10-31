@@ -544,7 +544,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
 				Some(
-					Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero | Std::PoisonError,
+					Std::Option
+					| Std::Poll
+					| Std::Box
+					| Std::Pin
+					| Std::Reverse
+					| Std::NonZero
+					| Std::Wrapping
+					| Std::PoisonError,
 				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.
 				Some(Std::Bound | Std::TryLockError) => {
@@ -570,6 +577,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// The runtime's field of each of std's errors has its name.
 				Some(std) if std.error() => {
 					base.member(crate::lower::camel(adt.non_enum_variant().fields[field].name.as_str()))
+				}
+				// Cast to its variant's class: the slice an `rt.Borrowed` wraps, or the `Vec`.
+				Some(Std::Cow) if let Some(elem) = crate::lower::library::cow_slice(tcx, ty) => {
+					let bytes = matches!(elem.kind(), ty::Uint(ty::UintTy::U8));
+					let owned = variant.is_some_and(|v| v.index() == 1);
+					let class = match (bytes, owned) {
+						(true, false) => crate::ts::Type::Rt("ByteSlice", Vec::new()),
+						(true, true) => crate::ts::Type::Rt("ByteVec", Vec::new()),
+						(false, false) => crate::ts::Type::Rt("Borrowed", vec![self.b.t.ty(elem, span)]),
+						(false, true) => crate::ts::Type::Array(Box::new(self.b.t.ty(elem, span))),
+					};
+					let cast = Expr::As(Box::new(base), class);
+					match bytes || owned {
+						true => cast,
+						false => cast.member("slice"),
+					}
 				}
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
@@ -1081,6 +1104,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index),
 					Some(Std::Entry) => crate::lower::collections::entry_test(*adt, index, scrut.clone()),
+					Some(Std::Cow) if let Some(elem) = crate::lower::library::cow_slice(tcx, ty) => {
+						let borrows = crate::lower::library::cow_borrows(scrut.clone(), elem);
+						match index.index() {
+							0 => borrows,
+							_ => borrows.not(),
+						}
+					}
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 					Some(Std::Ordering) => scrut
 						.clone()

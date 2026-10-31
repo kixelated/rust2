@@ -81,6 +81,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `char` | `rt.char`: a `number` branded so, its Unicode scalar value |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
+| `Wrapping<T>` | the integer, whose operators wrap, and mask a shift's amount to the width, as std's do |
 | `f64` | `rt.f64`: a `number` branded so, which is the same IEEE 754 double |
 | `f32` | `rt.f32`: a `number` branded so, which a single holds exactly |
 | `()`, `PhantomData<T>`, `PhantomPinned`, `..` | `undefined`, every value equal and hashing nothing; a type parameter only a `PhantomData` holds is `_T` in its struct's interface |
@@ -91,6 +92,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
 | tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
+| `Cow<[T]>` | `rt.Cow<T>`: the `Vec` it owns, or an `rt.Borrowed` holding the slice it borrows; `rt.ByteCow` for bytes, an `rt.ByteVec` or an `rt.ByteSlice` |
 | `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, a `String`, or a reference, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
 | `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there; a read copies what the crate writes into in place |
 | `MaybeUninit<T>` | `T`: `undefined` until written, or an object whose parts kept as objects are there, holding `undefined` |
@@ -262,7 +264,9 @@ place and writes the string without the drained text as it drops, so one that
 `mem::forget` leaks leaves it as it was, as std's does. A `String` keeps no capacity:
 `with_capacity`, `reserve`, and `shrink_to_fit` do nothing, and `capacity` is refused. A `Cow<str>` is its text, borrowed or owned, so
 `to_mut` borrows the `Cow`'s own place, and code that tells its variants apart, a `match`
-on them or `Cow::is_borrowed`, is refused.
+on them or `Cow::is_borrowed`, is refused. A `Cow<[T]>` keeps its variant in its class,
+so a `match` reads it, and `to_mut` of a borrowed one stores a clone of its slice in the
+`Cow`'s place before lending it.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
 own function, suffixed after a `$` by its trait, then by its type's type arguments and
@@ -579,6 +583,10 @@ they need.
 - A `Cow<str>` is a JS string, as `str` and `String` are, rather than an object tagged by
   its variant: no `Cow<str>` in moq-net or kio tells its variants apart, and a tag would
   wrap every value and unwrap it at every read.
+- A `Cow<[T]>` is told apart by class, an owned one bare and a borrowed one in an
+  `rt.Borrowed`, so it clones and drops as std's does and only the borrowed side pays a
+  wrapper. Untagged, as `Cow<str>` is, `to_mut` would clone on every call and a `match`
+  would be refused; tagged, every `Cow` would be wrapped.
 - A `Duration` keeps std's fields, whole seconds and nanoseconds, rather than one count
   of nanoseconds, so its overflow, `checked_*`, and ordering are std's exactly, and a
   lowering of its methods from core's MIR would read the same fields.
@@ -667,7 +675,7 @@ hand-written TS ([bindings](#bindings)).
 These fail translation: `f16` and `f128`, async closures, a `Poll` of a `Poll` of a `Poll`, a future whose output can be pending, an instance of a generic type whose field is a `Poll` of a type parameter that can be pending, a closure that owns a value
 that drops given to a std function that drops it beside another value that drops, other
 than `for_each` and `fold`, as `reduce` of items that drop does, or keeps it other than in
-an iterator adaptor, and values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str`, a std
+an iterator adaptor, and values that drop in some iterators ([drop order](/quest/m3/ts-drop-order.md)), a `Cow` of other than `str` or a slice, a std
 function without a mapping of its own that makes or reads an `Option` whose `None` is
 `rt.None`, as `Iterator::scan` of `Option`s does, an `Option` of an `Option` of `()` or another
 `Option`, an instance of a generic type whose field is an `Option` of a type parameter
@@ -707,7 +715,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, `Cow<str>` borrowed and owned, `Duration`s whose
+  encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Wrapping` at every width, `Duration`s whose
   seconds pass 2^53 or reach `u64::MAX`, control flow,
   patterns, `Copy` aggregates, those a container stores included and those written into
   only in another module, behind a type parameter, or through a box, formatting, methods

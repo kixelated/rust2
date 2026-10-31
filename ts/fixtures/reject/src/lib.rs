@@ -356,9 +356,9 @@ pub fn cow_borrowed(c: &std::borrow::Cow<'_, str>) -> bool {
 	std::borrow::Cow::is_borrowed(c)
 }
 
-/// Only a `Cow<str>` has a JS value yet.
-pub fn cow_bytes(c: std::borrow::Cow<'_, [u8]>) -> usize {
-	c.len()
+/// A slice's tells its variants apart, but asking is unstable.
+pub fn cow_bytes(c: &std::borrow::Cow<'_, [u8]>) -> bool {
+	std::borrow::Cow::is_borrowed(c)
 }
 
 /// Made where its type goes unchecked, as a local's, it is refused where it is made.

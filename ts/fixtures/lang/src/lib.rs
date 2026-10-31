@@ -68,6 +68,7 @@ mod utf8;
 #[path = "../../wasm.rs"]
 mod wasm;
 mod wrappers;
+mod wraps;
 mod zeros;
 #[cfg(target_arch = "wasm32")]
 use harness::entry;

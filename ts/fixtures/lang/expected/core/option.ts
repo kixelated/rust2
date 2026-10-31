@@ -42,6 +42,13 @@ import type * as Short from "../splits.Short.ts";
 import type * as Loud from "../zeros.Loud.ts";
 import * as Tagged from "../zeros.Tagged.ts";
 
+export function isSomeAnd$08u1px1(self: rt.Ordering | undefined, f: (a0: rt.Ordering) => boolean): boolean {
+	if (self === undefined) {
+		return false;
+	}
+	return f(self);
+}
+
 export function isSomeAnd$09tpccf(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
 		return false;
