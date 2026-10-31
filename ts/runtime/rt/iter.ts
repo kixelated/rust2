@@ -2572,6 +2572,27 @@ class TrustedZipIter<A, B> extends ZipIter<A, B> {
 		return super.nextBack();
 	}
 
+	/** `advance_by`, by `next`, in one step where neither side has side effects. */
+	override advanceBy(n: number, drop?: Drop<[A, B]>): number {
+		if (this.effects[0] || this.effects[1]) return super.advanceBy(n, drop);
+		const skip = Math.min(n, this.len());
+		this.index += skip;
+		this.a.advanceBy(skip, this.dropA);
+		this.b.advanceBy(skip, this.dropB);
+		return n - skip;
+	}
+
+	/** `advance_back_by`, by `nextBack`, in one step where neither side has side effects. */
+	override advanceBackBy(n: number, drop?: Drop<[A, B]>): number {
+		if (this.effects[0] || this.effects[1]) return super.advanceBackBy(n, drop);
+		const skip = Math.min(n, this.len());
+		const left = this.len() - skip;
+		trim(this.a, this.a.len() - left, false, this.dropA);
+		trim(this.b, this.b.len() - left, false, this.dropB);
+		this.end -= skip;
+		return n - skip;
+	}
+
 	override len(): number {
 		return this.end - this.index;
 	}

@@ -1166,10 +1166,10 @@ pub fn zips(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	out.extend_from_slice(&log.borrow());
 }
 
-/// `next_back` of a zip of sides that each log what they make, or of ranges, slices, and
-/// their `chunks` and `enumerate`, either side longer, read from either end: std trims the
-/// longer side on the first pair it reads from the back, and a by-index zip reads no item
-/// it never yields from a side that does not log, nor through `nth` it skips.
+/// `next_back` of a zip of sides that each log what they make, or of ranges, slices, their
+/// `chunks` and `enumerate`, and zips of those, either side longer, read from either end:
+/// std trims the longer side on the first pair it reads from the back, and a by-index zip
+/// reads no item it never yields from a side that does not log, nor through `nth` it skips.
 pub fn zips_back(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let split = data.first().map_or(0, |&b| b as usize) % (data.len() + 1);
 	let (a, b) = data.split_at(split);
@@ -1209,11 +1209,17 @@ pub fn zips_back(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let len = |c: &[u8]| c.len() as u8;
 	match kind % 8 {
 		0 => back!(a.iter().map(seen!(1)).zip(b.iter().copied()), |(x, y)| x ^ y),
-		1 => back!(a.iter().copied().zip(b.iter().map(seen!(2))), |(x, y)| x ^ y),
+		1 => back!(
+			a.iter().copied().zip(b.iter().map(seen!(2)).zip(0..data.len())),
+			|(x, (y, i)): (u8, (u8, usize))| x ^ y ^ i as u8
+		),
 		2 => back!(a.iter().map(seen!(3)).zip(b.iter().map(seen!(4))), |(x, y)| x ^ y),
 		// `TrustedLen`, not by index: `next_back` trims either side.
 		3 => back!(a.iter().rev().map(seen!(5)).zip(b.iter().map(seen!(6))), |(x, y)| x ^ y),
-		4 => back!((0..a.len()).zip(b.iter()), |(i, &y): (usize, &u8)| i as u8 ^ y),
+		4 => back!(
+			(0..a.len()).zip(b.iter().zip(data.chunks(2))),
+			|(i, (&y, c)): (usize, (&u8, &[u8]))| i as u8 ^ y ^ len(c)
+		),
 		5 => back!(
 			a.chunks(2).zip(b.iter().enumerate()),
 			|(c, (i, &y)): (&[u8], (usize, &u8))| len(c) ^ i as u8 ^ y

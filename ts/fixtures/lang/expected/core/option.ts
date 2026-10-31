@@ -1332,6 +1332,13 @@ export function mapOr$1wxcg5q(self: [rt.u8, rt.Arc<rt.u8>] | undefined, default_
 	return f(self);
 }
 
+export function mapOr$1h04da8(self: [rt.u8, [rt.u8, rt.usize]] | undefined, default_: rt.u8, f: (a0: [rt.u8, [rt.u8, rt.usize]]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$0f73bb7(self: [rt.u8, [rt.usize, rt.ByteSlice]] | undefined, default_: rt.u8, f: (a0: [rt.u8, [rt.usize, rt.ByteSlice]]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -1347,6 +1354,13 @@ export function mapOr$16umieg(self: [rt.usize, string] | undefined, default_: rt
 }
 
 export function mapOr$06gg5x7(self: [rt.usize, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.usize, rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1dmz9kd(self: [rt.usize, [rt.u8, rt.ByteSlice]] | undefined, default_: rt.u8, f: (a0: [rt.usize, [rt.u8, rt.ByteSlice]]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
