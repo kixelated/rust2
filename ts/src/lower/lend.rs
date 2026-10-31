@@ -30,11 +30,22 @@ pub type Pair<'tcx> = (Ty<'tcx>, Ty<'tcx>);
 
 /// Where a call lends `&[u8; N]`s.
 pub struct Lent<'tcx> {
-	/// By the index of the closure among the inputs: what the closure is given, and whether
-	/// what the call returns holds it.
-	pub closures: Vec<(usize, Vec<Pair<'tcx>>, bool)>,
+	/// The closures it lends them to.
+	pub closures: Vec<Closure<'tcx>>,
 	/// What the call returns, if it lends one.
 	pub output: Option<Pair<'tcx>>,
+}
+
+/// A closure std lends a `&[u8; N]` to.
+pub struct Closure<'tcx> {
+	/// Its index among the call's inputs.
+	pub index: usize,
+	/// Its type.
+	pub ty: Ty<'tcx>,
+	/// What it is given.
+	pub params: Vec<Pair<'tcx>>,
+	/// Whether what the call returns holds it.
+	pub held: bool,
 }
 
 /// What a call of std's `def_id` lends.
@@ -95,8 +106,12 @@ pub fn plan<'tcx>(t: &Translator<'_, 'tcx>, def_id: DefId, args: GenericArgsRef<
 			if !returned || by_ref {
 				return Plan::Refused;
 			}
-			let holds = sig.generic.output().walk().any(|a| a.as_type() == Some(generic));
-			lent.closures.push((i, params, holds));
+			lent.closures.push(Closure {
+				index: i,
+				ty,
+				params,
+				held: sig.generic.output().walk().any(|a| a.as_type() == Some(generic)),
+			});
 			continue;
 		}
 		match lends(t, generic, ty) {
@@ -324,8 +339,9 @@ fn lend_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, generic: Ty<'tcx>, ty: Ty<'tcx>, sp
 }
 
 /// `f`, a closure std calls with `params`, each generic and instantiated, given each as
-/// [`lend`] makes it. One that what the call returns `holds` is `rt.lending`, which clones
-/// and drops as `f` does.
+/// [`lend`] makes it. One that what the call returns holds, or that drops, which the
+/// mapping may drop through what it is given, is `rt.lending`, `holds`, which clones and
+/// drops as `f` does.
 pub fn lend_closure<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	f: Expr,

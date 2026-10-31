@@ -1242,7 +1242,9 @@ fn extend_source<'tcx>(
 		_ => elems[0],
 	};
 	let borrowed = owner == "Extend" && library::targ(call.args, 1) != stored;
-	if !borrowed || !elems.iter().any(|&t| b.t.needs_copy(t)) {
+	// A `[u8; N]` is given as the `rt.ByteSlice` a `&[u8; N]` is, so it is made an array
+	// whether or not the crate writes into one.
+	if !borrowed || !elems.iter().any(|&t| b.t.needs_copy(t) || super::byte_array(t)) {
 		return Some((items, iter));
 	}
 	let items = match super::lend::copy_fn(b, stored, call.span) {

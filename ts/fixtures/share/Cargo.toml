@@ -11,9 +11,10 @@ publish = false
 crate-type = ["lib", "cdylib"]
 
 [features]
-# Each makes `harness::overwrite` another kind of write, for the fixture's only one.
+# Each makes `harness::overwrite` another kind of write, for the fixture's only one, or none.
 call = []
 pointer = []
+unwritten = []
 
 [lints]
 workspace = true

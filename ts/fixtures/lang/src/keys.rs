@@ -6,6 +6,7 @@
 //! Then arrays of each element type as keys, found by the slices they borrow as.
 
 use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -1111,6 +1112,28 @@ pub fn byte_refs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// Pushes its byte to the log it shares as it drops, and its clone another.
+struct Dropped<'a>(u8, &'a RefCell<Vec<u8>>);
+
+impl Dropped<'_> {
+	/// Whether it has a byte, read through the whole value, so a closure captures it whole.
+	fn live(&self) -> bool {
+		self.0 != 0
+	}
+}
+
+impl Clone for Dropped<'_> {
+	fn clone(&self) -> Self {
+		Dropped(self.0.wrapping_add(0x10), self.1)
+	}
+}
+
+impl Drop for Dropped<'_> {
+	fn drop(&mut self) {
+		self.1.borrow_mut().push(self.0);
+	}
+}
+
 /// `byte_refs` of the arrays `make` makes of each window of two bytes.
 fn taken<const N: usize>(data: &[u8], make: impl Fn(&[u8]) -> [u8; N], out: &mut Vec<u8>) {
 	let mut pairs: Vec<[u8; N]> = data.windows(2).map(make).collect();
@@ -1213,6 +1236,20 @@ fn taken<const N: usize>(data: &[u8], make: impl Fn(&[u8]) -> [u8; N], out: &mut
 	);
 	out.push(vec.iter().copied().is_sorted_by(|a, b| a <= b) as u8);
 	out.extend(deque.iter().copied().rfind(|p| p < &[0x50; N]).iter().flatten());
+	// A closure std lends arrays to drops where std drops it, and a held one's clone is its
+	// own, each logged as it drops.
+	let log = RefCell::new(Vec::new());
+	let first = Dropped(1, &log);
+	let sorted = vec.iter().copied().is_sorted_by(move |a, b| first.live() && a <= b);
+	log.borrow_mut().push(sorted as u8 | 0x80);
+	let second = Dropped(2, &log);
+	let filtered = (vec.clone().into_iter()).filter(move |p| second.live() && p.last() != Some(&0x21));
+	let again = filtered.clone();
+	let counted = again.count() as u8;
+	log.borrow_mut().push(counted);
+	let counted = filtered.count() as u8;
+	log.borrow_mut().push(counted);
+	out.extend(log.take());
 	// A map's references to the arrays it holds, mapped and collected.
 	let mut lent: Vec<(&[u8; N], &[u8; N])> = map.iter().map(|(k, v)| (k, v)).collect();
 	lent.sort();

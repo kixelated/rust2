@@ -1136,10 +1136,11 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 		super::lend::Plan::Lend(lent) => Some(lent),
 		_ => None,
 	};
-	for (i, params, holds) in lent.iter().flat_map(|lent| &lent.closures) {
-		if let Some(value) = args.get_mut(*i) {
+	for closure in lent.iter().flat_map(|lent| &lent.closures) {
+		let holds = closure.held || b.t.drops(closure.ty);
+		if let Some(value) = args.get_mut(closure.index) {
 			let f = std::mem::replace(value, Expr::undefined());
-			*value = super::lend::lend_closure(b, f, params, *holds, call.span, out);
+			*value = super::lend::lend_closure(b, f, &closure.params, holds, call.span, out);
 		}
 	}
 	let mut e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
