@@ -1880,7 +1880,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Why a raw pointer made of `place` here, read through no borrow of this body's, would
 	/// not see the object it points at given another, if it would not: the variable it is
-	/// in, or a part on its path, assigned again while it may point there.
+	/// in, or a part on its path, assigned again while it, or what is made of it, may still
+	/// be read.
 	fn reassigned(&self, place: Place<'tcx>, cells: bool) -> Option<String> {
 		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
 		(self.pointed_object(ty, cells) && self.assigned_after(place, past_pointers(place)))
@@ -1932,12 +1933,30 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Whether something on the path of `place` from its `start`, a part with no pointer
 	/// on its path after, may be assigned whole after the statement being lowered, before
-	/// its local's storage ends: by an assignment, directly or through an alias of it, or
-	/// by a std call whose lowering gives what its `&mut` argument borrows another value.
-	/// A whole value written through a reference that is no alias is written into the
-	/// object there, which gives only its parts other objects.
+	/// its local's storage ends, while what holds the pointer made there may still be read:
+	/// by an assignment, directly or through an alias of it, or by a std call whose
+	/// lowering gives what its `&mut` argument borrows another value. A whole value written
+	/// through a reference that is no alias is written into the object there, which gives
+	/// only its parts other objects.
 	fn assigned_after(&self, place: Place<'tcx>, start: usize) -> bool {
+		use rustc_mir_dataflow::Analysis;
 		let tcx = self.tcx;
+		// Optimized MIR has no storage markers, so in a loop the search reaches the next
+		// iteration's assignments, where the pointer made in this one may be dead.
+		let mut liveness = None;
+		let mut read_after = |at: mir::Location| {
+			let (holders, live) = liveness.get_or_insert_with(|| {
+				let live = rustc_mir_dataflow::impls::MaybeLiveLocals
+					.iterate_to_fixpoint(tcx, self.mir, None)
+					.into_results_cursor(self.mir);
+				(self.holders(), live)
+			});
+			let Some(holders) = holders else {
+				return true;
+			};
+			live.seek_before_primary_effect(at);
+			holders.iter().any(|h| live.get().contains(h))
+		};
 		let assigns = |written: Place<'tcx>| {
 			let written = self.through_borrows(written, true);
 			let len = written.projection.len();
@@ -1953,13 +1972,21 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		while let Some((bb, from)) = stack.pop() {
 			let data = &blocks[bb];
 			let mut ended = false;
-			for stmt in &data.statements[from.min(data.statements.len())..] {
+			for (i, stmt) in data.statements.iter().enumerate().skip(from) {
 				match &stmt.kind {
 					mir::StatementKind::StorageDead(l) | mir::StatementKind::StorageLive(l) if *l == place.local => {
 						ended = true;
 						break;
 					}
-					mir::StatementKind::Assign(assign) if assigns(assign.0) => return true,
+					mir::StatementKind::Assign(assign)
+						if assigns(assign.0)
+							&& read_after(mir::Location {
+								block: bb,
+								statement_index: i,
+							}) =>
+					{
+						return true;
+					}
 					_ => {}
 				}
 			}
@@ -1974,16 +2001,15 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				..
 			} = &term.kind
 			{
-				if assigns(*destination) {
-					return true;
-				}
 				let rebound = func
 					.const_fn_def()
 					.map_or(0, |(def_id, _)| crate::lower::pointer::rebinds(tcx, def_id));
-				if args[..rebound]
-					.iter()
-					.filter_map(|a| a.node.place())
-					.any(|r| assigns(tcx.mk_place_deref(r)))
+				if (assigns(*destination)
+					|| args[..rebound]
+						.iter()
+						.filter_map(|a| a.node.place())
+						.any(|r| assigns(tcx.mk_place_deref(r))))
+					&& read_after(self.mir.terminator_loc(bb))
 				{
 					return true;
 				}

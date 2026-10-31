@@ -547,13 +547,14 @@ pub fn cells(data: &[u8], out: &mut Vec<u8>) {
 				held.0.get_mut().n ^= 1;
 				out.push(held.with(|p| unsafe { (*p).n }));
 			}
-			// Each of a number and a string replaced whole through a `&mut` a helper takes,
-			// which writes into the `rt.Cell` there, its old value taken out. A cell of an
-			// object can't be, as a pointer `get` gave would keep the old object, nor a
-			// variable here, which the pointers `get` gave before would not see.
+			// Each of a number and a string replaced whole, its old value taken out, while
+			// the pointers `get` gave in other arms are dead. A cell of an object can't be,
+			// as a pointer `get` gave would keep the old object.
 			6 => {
-				out.extend(renew_num(&mut num, u32::from(n)).to_le_bytes());
-				out.extend(renew_text(&mut text, n.to_string()).as_bytes());
+				let old = std::mem::replace(&mut num, UnsafeCell::new(u32::from(n)));
+				out.extend(old.into_inner().to_le_bytes());
+				let old = std::mem::replace(&mut text, UnsafeCell::new(n.to_string()));
+				out.extend(old.into_inner().as_bytes());
 				*pair.get_mut() = Duo(n, !n);
 			}
 			// One made, written through `get`, and its value taken out and dropped.
@@ -583,17 +584,12 @@ fn renew_num(cell: &mut UnsafeCell<u32>, value: u32) -> u32 {
 	std::mem::replace(cell, UnsafeCell::new(value)).into_inner()
 }
 
-fn renew_text(cell: &mut UnsafeCell<String>, value: String) -> String {
-	std::mem::replace(cell, UnsafeCell::new(value)).into_inner()
-}
-
 /// Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
 /// `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
 /// parts are, ones a helper writes through a `&mut` into the object there, and one taken
 /// through two helpers and read while the variable is borrowed, which is assigned after;
 /// one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be;
 /// and one through a reference `mem::replace` pointed elsewhere first.
-/// Each is a function of its own, as a loop assigns its variables again.
 pub fn rebound(data: &[u8], out: &mut Vec<u8>) {
 	for &n in data {
 		match n % 7 {
@@ -710,6 +706,66 @@ fn flipped(d: &mut Duo) -> u8 {
 
 fn pointer_of(d: &mut Duo) -> *mut Duo {
 	&raw mut *d
+}
+
+/// A struct JS keeps as an object, holding bytes.
+struct Log {
+	bytes: Vec<u8>,
+}
+
+/// Pointers to variables JS keeps as objects, each dead before its variable is assigned
+/// again, so it reads the object the variable held while it was made: one made in each
+/// iteration of a loop that assigns the variable after, one an arm makes where another
+/// arm replaces its variable, and ones nested loops make.
+pub fn lapsed(data: &[u8], out: &mut Vec<u8>) {
+	let mut pair = Duo(0, 0xff);
+	let mut log = Log { bytes: Vec::new() };
+	let mut window = [0u8; 3];
+	for &n in data {
+		let p = &raw mut pair;
+		unsafe { (*p).0 = (*p).0.wrapping_add(n) };
+		out.extend(unsafe { [(*p).0, (*p).1] });
+		pair = Duo(pair.1 ^ n, pair.0);
+		match n % 4 {
+			0 => {
+				let q = &raw mut log;
+				unsafe { (*q).bytes.push(n) };
+				out.extend(unsafe { &(*q).bytes });
+			}
+			1 => {
+				let old = std::mem::replace(&mut log, Log { bytes: vec![n, !n] });
+				out.extend(old.bytes);
+				let old = std::mem::replace(&mut pair, Duo(n, n ^ 0x0f));
+				out.extend([old.0, old.1]);
+			}
+			// The outer loop's pointer, read in the inner one and after it, and the inner
+			// one's own, whose variable each inner iteration assigns.
+			2 => {
+				let mut duo = Duo(n, 0);
+				let outer = &raw mut duo;
+				for i in 0..n % 5 {
+					let inner = &raw mut window;
+					unsafe {
+						(*inner)[usize::from(i % 3)] ^= n;
+						(*outer).1 = (*outer).1.wrapping_add((*inner)[0]);
+					}
+					window = [window[2], window[0], window[1].wrapping_add(i)];
+				}
+				out.extend(unsafe { [(*outer).0, (*outer).1] });
+				duo = Duo(duo.1, duo.0);
+				out.extend([duo.0, duo.1]);
+			}
+			_ => {
+				let p = &raw mut window;
+				let copy = p;
+				out.push(unsafe { (*copy)[0] });
+				window = [n; 3];
+			}
+		}
+	}
+	out.extend([pair.0, pair.1]);
+	out.extend(log.bytes);
+	out.extend(window);
 }
 
 /// Structs JS keeps as objects, which Rust copies, and which only the generic bodies below

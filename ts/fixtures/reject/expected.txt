@@ -88,6 +88,12 @@ a raw pointer to `(u32, u32)` in a variable assigned again while it may point th
 a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:656:10
 a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:665:10
 a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:673:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:1026:26
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:1039:22
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:1049:12
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:1058:10
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:1068:17
+a raw pointer to `(u32, u32)` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:1073:10
 a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:684:2
 a raw pointer to `(u32, u32)` in an element, a payload, or a union field, which is not supported yet at fixtures/reject/src/lib.rs:694:10
 a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:702:15
