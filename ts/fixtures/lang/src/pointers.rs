@@ -1004,3 +1004,26 @@ pub fn uninit_runs(data: &[u8], out: &mut Vec<u8>) {
 	let last = unsafe { last.assume_init() };
 	out.extend([last.span.0, last.span.1, last.n]);
 }
+
+/// A struct JS keeps as an object, holding an `rt.Cell`.
+struct Stable(UnsafeCell<u8>);
+
+fn first_set<T>(pair: &mut (T, Stable), value: T) {
+	pair.0 = value;
+}
+
+fn stable_cell(stable: &Stable) -> *mut u8 {
+	stable.0.get()
+}
+
+/// A pointer to a cell beside a field a generic body writes whole, which leaves the cell's
+/// struct be.
+pub fn beside_written(data: &[u8], out: &mut Vec<u8>) {
+	let mut pair = (0u16, Stable(UnsafeCell::new(0)));
+	let cell = stable_cell(&pair.1);
+	for &byte in data {
+		first_set(&mut pair, u16::from(byte));
+		unsafe { *cell = (*cell).wrapping_add(byte) };
+		out.push(unsafe { *cell } ^ pair.0 as u8);
+	}
+}

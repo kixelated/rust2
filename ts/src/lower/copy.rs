@@ -64,8 +64,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// Whether the crate may give a part of a `ty` kept as a JS object another object: by
 	/// a write of the part, or of a whole value that is or holds a `ty`.
 	pub fn replaced(&self, ty: Ty<'tcx>) -> bool {
-		self.writes
-			.contains(&self.writes.replaced, true, self.tcx, ty, self.polymorphic())
+		let (writes, polymorphic) = (&self.writes, self.polymorphic());
+		writes.contains(&writes.replaced, true, self.tcx, ty, polymorphic)
+			|| writes.contains(&writes.holders, false, self.tcx, ty, polymorphic)
 	}
 
 	/// `value`, a `ty` read out of where it is kept, as a value of its own, as Rust's read
@@ -319,12 +320,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 #[derive(Default)]
 pub struct Writes<'tcx> {
 	into: Types<'tcx>,
-	/// The types a part of which, kept as a JS object, the code may give another object:
-	/// by a write of the part, as `p.x = Inner {..}`; by a write of a whole value, as
-	/// `*r = v` does to each part of `*r` and to each part those hold, at any depth; or by
-	/// a call of a std function, as a mutable reference to the type may do with any part
-	/// of it.
+	/// The types the code may write whole, each standing for every type it holds by value
+	/// too: a write of a whole value, as `*r = v`, or a call of a std function given a
+	/// mutable reference to it, gives each part of `*r` another object, and each part
+	/// those hold, at any depth.
 	replaced: Types<'tcx>,
+	/// The types a part of which, kept as a JS object, a write of that part alone gives
+	/// another object, as `p.x = Inner {..}` does to `p`'s.
+	holders: Types<'tcx>,
 	/// The bodies read.
 	read: FxHashSet<DefId>,
 	/// The arguments of each body's instances that translation reached, without type
@@ -405,7 +408,7 @@ impl<'tcx> Writes<'tcx> {
 		}
 		let writes = |types: &Types<'tcx>| types.generic.iter().any(|&(body, _)| body == def_id);
 		!instance.args.has_param()
-			&& (writes(&self.into) || writes(&self.replaced))
+			&& (writes(&self.into) || writes(&self.replaced) || writes(&self.holders))
 			&& !self
 				.reached
 				.get(&def_id)
@@ -696,16 +699,19 @@ impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 			return;
 		};
 		let ty = place.ty(self.body, self.tcx).ty;
-		let mut replaced = self.parts(ty);
-		if let ProjectionElem::Field(..) = elem
-			&& self.inline(ty)
-		{
-			let base = base.ty(self.body, self.tcx).ty;
-			replaced.extend((!base.is_union() && self.inline(base)).then_some(base));
-		}
-		if !replaced.is_empty() && !self.fresh(place, at, None) {
+		let replaced = self.parts(ty);
+		let holder = match elem {
+			ProjectionElem::Field(..) if self.inline(ty) => {
+				Some(base.ty(self.body, self.tcx).ty).filter(|&base| !base.is_union() && self.inline(base))
+			}
+			_ => None,
+		};
+		if (!replaced.is_empty() || holder.is_some()) && !self.fresh(place, at, None) {
 			for ty in replaced {
 				self.writes.replaced.insert(self.tcx, self.def_id, ty);
+			}
+			if let Some(holder) = holder {
+				self.writes.holders.insert(self.tcx, self.def_id, holder);
 			}
 		}
 	}

@@ -23,6 +23,7 @@ import * as Reset from "./pointers.Reset.ts";
 import type * as pointers_Run from "./pointers.Run.ts";
 import * as Segment from "./pointers.Segment.ts";
 import type * as Span from "./pointers.Span.ts";
+import type * as Stable from "./pointers.Stable.ts";
 import * as Wrapped from "./pointers.Wrapped.ts";
 
 /** Put `node` in the list just before `at`. */
@@ -840,6 +841,28 @@ export function uninitRuns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const last2: pointers_Run.Run = last;
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(last2.span[0], last2.span[1], last2.n)), undefined, true);
+}
+
+export function firstSet$u16(pair: [rt.u16, Stable.Stable], value: rt.u16): void {
+	pair[0] = value;
+}
+
+export function stableCell(stable: Stable.Stable): rt.Place<rt.u8> {
+	return stable._0;
+}
+
+/**
+ * A pointer to a cell beside a field a generic body writes whole, which leaves the cell's
+ * struct be.
+ */
+export function besideWritten(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const pair: [rt.u16, Stable.Stable] = [0, { _0: new rt.Cell(0) }];
+	const cell: rt.Place<rt.u8> = stableCell(pair[1]);
+	for (const byte of rt.byteSliceView(data)) {
+		firstSet$u16(pair, byte as rt.u16);
+		cell.v = rt.u8WrappingAdd(cell.v, byte);
+		rt.byteVecPush(out, cell.v ^ (pair[0] & 0xff));
+	}
 }
 
 //# sourceMappingURL=pointers.ts.map
