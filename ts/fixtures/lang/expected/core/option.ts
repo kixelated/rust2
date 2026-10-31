@@ -33,7 +33,7 @@ import type * as Way from "../keys.Way.ts";
 import type * as locals_Noisy from "../locals.Noisy.ts";
 import type * as orders_Item from "../orders.Item.ts";
 import type * as pointers_Pair from "../pointers.Pair.ts";
-import { from$From_Dir_u8 } from "../shapes.ts";
+import { from$convert_From_shapes_Dir_u8 } from "../shapes.ts";
 import type * as shapes_Dir from "../shapes.Dir.ts";
 import type * as Meters from "../shapes.Meters.ts";
 import type * as Point from "../shapes.Point.ts";
@@ -67,27 +67,6 @@ export function isNoneOr$1s1o3ss(self: rt.u8 | undefined, f: (a0: rt.u8) => bool
 	return f(self);
 }
 
-export function unwrapOr$1iemzn8(self: string | undefined, default_: string): string {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
-export function unwrapOr$039uout(self: edits_Named.Named[] | undefined, default_: edits_Named.Named[]): edits_Named.Named[] {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
-export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
 export function unwrapOr$1kxjsqb(self: rt.u8 | undefined | rt.None, default_: rt.u8 | undefined): rt.u8 | undefined {
 	if (self === rt.None) {
 		return default_;
@@ -95,7 +74,14 @@ export function unwrapOr$1kxjsqb(self: rt.u8 | undefined | rt.None, default_: rt
 	return self;
 }
 
-export function unwrapOr$0ujf6zi(self: counts_Twin.Twin | undefined, default_: counts_Twin.Twin): counts_Twin.Twin {
+export function unwrapOr$1la41a6(self: Uint8Array | undefined, default_: Uint8Array): Uint8Array {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$1iemzn8(self: string | undefined, default_: string): string {
 	if (self === undefined) {
 		return default_;
 	}
@@ -103,6 +89,13 @@ export function unwrapOr$0ujf6zi(self: counts_Twin.Twin | undefined, default_: c
 }
 
 export function unwrapOr$0k15iai(self: rt.char | undefined, default_: rt.char): rt.char {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$0ujf6zi(self: counts_Twin.Twin | undefined, default_: counts_Twin.Twin): counts_Twin.Twin {
 	if (self === undefined) {
 		return default_;
 	}
@@ -130,14 +123,21 @@ export function unwrapOr$00uis1j(self: rt.i64 | undefined, default_: rt.i64): rt
 	return self;
 }
 
-export function unwrapOr$1j4op5y(self: rt.u16 | undefined, default_: rt.u16): rt.u16 {
+export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
 	if (self === undefined) {
 		return default_;
 	}
 	return self;
 }
 
-export function unwrapOr$11c0we2(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
+export function unwrapOr$039uout(self: edits_Named.Named[] | undefined, default_: edits_Named.Named[]): edits_Named.Named[] {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.ByteSlice): rt.ByteSlice {
 	if (self === undefined) {
 		return default_;
 	}
@@ -158,21 +158,21 @@ export function unwrapOr$0x6fy3l(self: [rt.u8, rt.u8] | undefined, default_: [rt
 	return self;
 }
 
-export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.ByteSlice): rt.ByteSlice {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
-export function unwrapOr$1la41a6(self: Uint8Array | undefined, default_: Uint8Array): Uint8Array {
-	if (self === undefined) {
-		return default_;
-	}
-	return self;
-}
-
 export function unwrapOr$14m5xjm(self: [rt.usize, rt.u8] | undefined, default_: [rt.usize, rt.u8]): [rt.usize, rt.u8] {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$1j4op5y(self: rt.u16 | undefined, default_: rt.u16): rt.u16 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$11c0we2(self: rt.u32 | undefined, default_: rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -193,23 +193,9 @@ export function unwrapOrElse$13moxzl(self: rt.u8 | undefined, f: () => rt.u8): r
 	return self;
 }
 
-export function unwrapOrDefault$0k1p6nh(self: [rt.u64 | undefined, defaults_Made.Made] | undefined): [rt.u64 | undefined, defaults_Made.Made] {
-	if (self === undefined) {
-		return [undefined, defaults_Made.default$Default()];
-	}
-	return self;
-}
-
 export function unwrapOrDefault$165pyh5(self: string | undefined): string {
 	if (self === undefined) {
 		return "";
-	}
-	return self;
-}
-
-export function unwrapOrDefault$1b97y1a(self: zeros_Tagged.Tagged<string> | undefined): zeros_Tagged.Tagged<string> {
-	if (self === undefined) {
-		return zeros_Tagged.default$Default_String();
 	}
 	return self;
 }
@@ -221,6 +207,13 @@ export function unwrapOrDefault$0wx44sw(self: rt.ByteVec | undefined): rt.ByteVe
 	return self;
 }
 
+export function unwrapOrDefault$0k1p6nh(self: [rt.u64 | undefined, defaults_Made.Made] | undefined): [rt.u64 | undefined, defaults_Made.Made] {
+	if (self === undefined) {
+		return [undefined, defaults_Made.default$Default()];
+	}
+	return self;
+}
+
 export function unwrapOrDefault$1q0ps0j(self: rt.u8 | undefined): rt.u8 {
 	if (self === undefined) {
 		return 0;
@@ -228,137 +221,11 @@ export function unwrapOrDefault$1q0ps0j(self: rt.u8 | undefined): rt.u8 {
 	return self;
 }
 
-export function map$155qrdr(self: rt.Arc<defaults_Made.Made> | undefined, f: (a0: rt.Arc<defaults_Made.Made>) => rt.u64): rt.u64 | undefined {
+export function unwrapOrDefault$1b97y1a(self: zeros_Tagged.Tagged<string> | undefined): zeros_Tagged.Tagged<string> {
 	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1srhyy0(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => rt.Arc<counts_Noisy.Noisy>): rt.Arc<counts_Noisy.Noisy> | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return rt.arcClone(self);
-}
-
-export function map$13pnxtn(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => counts_Noisy.Noisy): counts_Noisy.Noisy | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return self.value;
-}
-
-export function map$1i542n2(self: rt.Arc<dyns_Shape.Shape> | undefined, f: (a0: rt.Arc<dyns_Shape.Shape>) => rt.u32): rt.u32 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$0ufgkyq(self: rt.Arc<rt.u8> | undefined, _: (a0: rt.Arc<rt.u8>) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return self.value;
-}
-
-export function map$0xa0bn7(self: edits_Named.Named | undefined, f: (a0: edits_Named.Named) => rt.u16): rt.u16 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$0ltgf8p(self: ByRef.ByRef | undefined, f: (a0: ByRef.ByRef) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1ajptuf(self: ByVal.ByVal | undefined, f: (a0: ByVal.ByVal) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string): string | undefined {
-	if (self === undefined) {
-		return undefined;
+		return zeros_Tagged.default$Default_String();
 	}
 	return self;
-}
-
-export function map$0600mq0(self: shapes_Dir.Dir | undefined, f: (a0: shapes_Dir.Dir) => shapes_Shape.Shape): shapes_Shape.Shape | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$076et51(self: shapes_Dir.Dir | undefined, _: (a0: shapes_Dir.Dir) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return from$From_Dir_u8(self);
-}
-
-export function map$120lney(self: Hop.Hop | undefined, f: (a0: Hop.Hop) => rt.u64): rt.u64 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$146awhd(self: Hop.Hop | undefined, f: (a0: Hop.Hop) => [rt.u64, rt.u64]): [rt.u64, rt.u64] | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1iekgsb(self: bounds_Item.Item | undefined, f: (a0: bounds_Item.Item) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_Item.Item) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1u07cey(self: cycles_Logged.Logged | undefined, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$0i8kclf(self: Mixed.Mixed | undefined, f: (a0: Mixed.Mixed) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1u8sh4f(self: edits_Named.Named | undefined, _: (a0: edits_Named.Named) => edits_Named.Named[]): edits_Named.Named[] | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return [self];
-}
-
-export function map$09ua5et(self: collections_Nibble.Nibble | undefined, f: (a0: collections_Nibble.Nibble) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
 }
 
 export function map$0pkankm(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
@@ -368,41 +235,12 @@ export function map$0pkankm(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | u
 	return f(self);
 }
 
-export function map$0jcaaxx(self: [rt.u8 | undefined, rt.u8] | undefined, f: (a0: [rt.u8 | undefined, rt.u8]) => Uint8Array): Uint8Array | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1diqi3e(self: rt.Place<rt.u8 | undefined> | undefined, f: (a0: rt.Place<rt.u8 | undefined>) => undefined): undefined | rt.None {
-	if (self === undefined) {
-		return rt.None;
-	}
-	f(self);
-	return undefined;
-}
-
 export function map$1j8xzu6(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8 | undefined) => undefined): undefined | rt.None {
 	if (self === rt.None) {
 		return rt.None;
 	}
 	f(self);
 	return undefined;
-}
-
-export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices_Pair.Pair[]) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1httady(self: string[] | undefined, f: (a0: string[]) => string): string | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
 }
 
 export function map$1mp7tga(self: rt.i64[] | undefined, f: (a0: rt.i64[]) => rt.usize): rt.usize | undefined {
@@ -426,11 +264,159 @@ export function map$0po44cb(self: undefined[] | undefined, f: (a0: undefined[]) 
 	return f(self);
 }
 
+export function map$1iekgsb(self: bounds_Item.Item | undefined, f: (a0: bounds_Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0xa0bn7(self: edits_Named.Named | undefined, f: (a0: edits_Named.Named) => rt.u16): rt.u16 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1u07cey(self: cycles_Logged.Logged | undefined, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$146awhd(self: Hop.Hop | undefined, f: (a0: Hop.Hop) => [rt.u64, rt.u64]): [rt.u64, rt.u64] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$120lney(self: Hop.Hop | undefined, f: (a0: Hop.Hop) => rt.u64): rt.u64 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0lcwx9x(self: Way.Way | undefined, f: (a0: Way.Way) => boolean): boolean | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
+}
+
+export function map$1diqi3e(self: rt.Place<rt.u8 | undefined> | undefined, f: (a0: rt.Place<rt.u8 | undefined>) => undefined): undefined | rt.None {
+	if (self === undefined) {
+		return rt.None;
+	}
+	f(self);
+	return undefined;
+}
+
+export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1srhyy0(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => rt.Arc<counts_Noisy.Noisy>): rt.Arc<counts_Noisy.Noisy> | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return rt.arcClone(self);
+}
+
+export function map$13pnxtn(self: rt.Arc<counts_Noisy.Noisy> | undefined, _: (a0: rt.Arc<counts_Noisy.Noisy>) => counts_Noisy.Noisy): counts_Noisy.Noisy | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self.value;
+}
+
+export function map$0ufgkyq(self: rt.Arc<rt.u8> | undefined, _: (a0: rt.Arc<rt.u8>) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self.value;
+}
+
+export function map$0isl2bb(self: rt.Result<rt.u8, rt.i8> | undefined, f: (a0: rt.Result<rt.u8, rt.i8>) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1uo1d4o(self: string | undefined, _: (a0: string) => string): string | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
+export function map$1httady(self: string[] | undefined, f: (a0: string[]) => string): string | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1wqzuhy(self: rt.u16[] | undefined, f: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0c2keyb(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$11y9s7r(self: slices_Pair.Pair[] | undefined, f: (a0: slices_Pair.Pair[]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0ltgf8p(self: ByRef.ByRef | undefined, f: (a0: ByRef.ByRef) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1ajptuf(self: ByVal.ByVal | undefined, f: (a0: ByVal.ByVal) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0i8kclf(self: Mixed.Mixed | undefined, f: (a0: Mixed.Mixed) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$09ua5et(self: collections_Nibble.Nibble | undefined, f: (a0: collections_Nibble.Nibble) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1u8sh4f(self: edits_Named.Named | undefined, _: (a0: edits_Named.Named) => edits_Named.Named[]): edits_Named.Named[] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return [self];
 }
 
 export function map$0qyyft9(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
@@ -440,7 +426,99 @@ export function map$0qyyft9(self: rt.u16[] | undefined, _: (a0: rt.u16[]) => rt.
 	return digestWords(self);
 }
 
-export function map$1wqzuhy(self: rt.u16[] | undefined, f: (a0: rt.u16[]) => rt.u8): rt.u8 | undefined {
+export function map$1xk4yz1(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return slices_digest(self);
+}
+
+export function map$0rbsrz6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
+	if (self === undefined) {
+		return rt.None;
+	}
+	return f(self);
+}
+
+export function map$1qp1ym6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0p22lts(self: rt.u8 | undefined, f: (a0: rt.u8) => undefined): undefined | rt.None {
+	if (self === undefined) {
+		return rt.None;
+	}
+	f(self);
+	return undefined;
+}
+
+export function map$1ibcmaa(self: rt.u8 | undefined, f: (a0: rt.u8) => Loud.Loud): Loud.Loud | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$05nbzug(self: rt.usize | undefined, f: (a0: rt.usize) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0600mq0(self: shapes_Dir.Dir | undefined, f: (a0: shapes_Dir.Dir) => shapes_Shape.Shape): shapes_Shape.Shape | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$18z3v8h(self: shapes_Dir.Dir | undefined, _: (a0: shapes_Dir.Dir) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return from$convert_From_shapes_Dir_u8(self);
+}
+
+export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_Item.Item) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$155qrdr(self: rt.Arc<defaults_Made.Made> | undefined, f: (a0: rt.Arc<defaults_Made.Made>) => rt.u64): rt.u64 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1i542n2(self: rt.Arc<dyns_Shape.Shape> | undefined, f: (a0: rt.Arc<dyns_Shape.Shape>) => rt.u32): rt.u32 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0jcaaxx(self: [rt.u8 | undefined, rt.u8] | undefined, f: (a0: [rt.u8 | undefined, rt.u8]) => Uint8Array): Uint8Array | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1hdkvwd(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0gl6wke(self: [rt.usize, string] | undefined, f: (a0: [rt.usize, string]) => string): string | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -452,34 +530,6 @@ export function map$0a57co2(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8):
 		return undefined;
 	}
 	return f(self);
-}
-
-export function map$0y3liwu(self: rt.u8 | undefined, f: (a0: rt.u8) => clones_Logged.Logged): clones_Logged.Logged | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1ibcmaa(self: rt.u8 | undefined, f: (a0: rt.u8) => Loud.Loud): Loud.Loud | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$0rbsrz6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
-	if (self === undefined) {
-		return rt.None;
-	}
-	return f(self);
-}
-
-export function map$0gn4nwv(self: rt.u8 | undefined, _: (a0: rt.u8) => Side.Side): Side.Side | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return side(self);
 }
 
 export function map$0oc32h1(self: rt.u8 | undefined, f: (a0: rt.u8) => string): string | undefined {
@@ -496,42 +546,7 @@ export function map$0ejznqm(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.ByteVe
 	return f(self);
 }
 
-export function map$1qp1ym6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32): rt.u32 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
 export function map$0jg2jop(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32[]): rt.u32[] | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$0cs071d(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1hdkvwd(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1fmzefe(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -545,26 +560,32 @@ export function map$1iwwjee(self: rt.u8 | undefined, f: (a0: rt.u8) => Uint8Arra
 	return f(self);
 }
 
-export function map$0p22lts(self: rt.u8 | undefined, f: (a0: rt.u8) => undefined): undefined | rt.None {
-	if (self === undefined) {
-		return rt.None;
-	}
-	f(self);
-	return undefined;
-}
-
-export function map$0c2keyb(self: rt.ByteSlice | undefined, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+export function map$0y3liwu(self: rt.u8 | undefined, f: (a0: rt.u8) => clones_Logged.Logged): clones_Logged.Logged | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
 }
 
-export function map$1xk4yz1(self: rt.ByteSlice | undefined, _: (a0: rt.ByteSlice) => rt.u8): rt.u8 | undefined {
+export function map$0gn4nwv(self: rt.u8 | undefined, _: (a0: rt.u8) => Side.Side): Side.Side | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
-	return slices_digest(self);
+	return side(self);
+}
+
+export function map$1fmzefe(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$0cs071d(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$0at3a41(self: undefined | rt.None, f: (a0: undefined) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
@@ -574,20 +595,6 @@ export function map$0at3a41(self: undefined | rt.None, f: (a0: undefined) => rt.
 	return f(undefined);
 }
 
-export function map$0gl6wke(self: [rt.usize, string] | undefined, f: (a0: [rt.usize, string]) => string): string | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function map$05nbzug(self: rt.usize | undefined, f: (a0: rt.usize) => rt.u8): rt.u8 | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
 export function inspect$0di0vx1(self: rt.u8 | undefined, f: (a0: rt.u8) => undefined): rt.u8 | undefined {
 	if (self !== undefined) {
 		f(self);
@@ -595,21 +602,21 @@ export function inspect$0di0vx1(self: rt.u8 | undefined, f: (a0: rt.u8) => undef
 	return self;
 }
 
-export function mapOr$1hh0iyl(self: ArcShared.ArcShared | undefined, default_: rt.u8, f: (a0: ArcShared.ArcShared) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0dgmbpi(self: rt.Arc<ArcNode.ArcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<ArcNode.ArcNode>) => rt.u8): rt.u8 {
-	if (self === undefined) {
+export function mapOr$1xztl8h(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
+	if (self === rt.None) {
 		return default_;
 	}
 	return f(self);
 }
 
 export function mapOr$036yrbw(self: rt.Arc<counts_Noisy.Noisy> | undefined, default_: rt.u8, f: (a0: rt.Arc<counts_Noisy.Noisy>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1ndy2gq(self: rt.Arc<RcNode.RcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<RcNode.RcNode>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -630,209 +637,6 @@ export function mapOr$1q3ff8g(self: rt.Arc<rt.u8> | undefined, default_: rt.u8, 
 	return f(self);
 }
 
-export function mapOr$1ailw2a(self: counts_Counted.Counted | undefined, default_: rt.u8, f: (a0: counts_Counted.Counted) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$04khdaj(self: Hop.Hop | undefined, default_: rt.u64, f: (a0: Hop.Hop) => rt.u64): rt.u64 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0rtxftk(self: Hop.Hop[] | undefined, default_: rt.u8, f: (a0: Hop.Hop[]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0spovx0(self: [Hop.Hop[], rt.u8] | undefined, default_: rt.u8, f: (a0: [Hop.Hop[], rt.u8]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$14aggam(self: orders_Item.Item | undefined, default_: rt.u8, f: (a0: orders_Item.Item) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1yabfom(self: clones_Logged.Logged | undefined, default_: rt.u8, _: (a0: clones_Logged.Logged) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return clones_Logged.id(self);
-}
-
-export function mapOr$0djjvgl(self: cycles_Logged.Logged | undefined, default_: rt.u8, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1ybqvup(self: Meters.Meters | undefined, default_: rt.u64, f: (a0: Meters.Meters) => rt.u64): rt.u64 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1hjjwvv(self: [rt.Mutex<rt.u8>, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.Mutex<rt.u8>, rt.u8]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$14njs1h(self: edits_Named.Named | undefined, default_: rt.u16, f: (a0: edits_Named.Named) => rt.u16): rt.u16 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0q0ymkh(self: collections_Nibble.Nibble | undefined, default_: rt.u8, f: (a0: collections_Nibble.Nibble) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1iuqai4(self: counts_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: counts_Noisy.Noisy) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0qqbaqw(self: borrows_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: borrows_Noisy.Noisy) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$189goit(self: slices_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: slices_Noisy.Noisy) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0cqaybi(self: locals_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: locals_Noisy.Noisy) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1xztl8h(self: rt.u8 | undefined | rt.None, default_: rt.u8, f: (a0: rt.u8 | undefined) => rt.u8): rt.u8 {
-	if (self === rt.None) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1bumeih(self: Array<rt.u8 | undefined> | undefined, default_: rt.u8, f: (a0: Array<rt.u8 | undefined>) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$187k0x1(self: [Array<rt.u8 | undefined>, rt.u8] | undefined, default_: rt.u8, f: (a0: [Array<rt.u8 | undefined>, rt.u8]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1e4a1e0(self: rt.Ordering | undefined, default_: rt.u8, f: (a0: rt.Ordering) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1dgdmlk(self: rt.Ordering | undefined, default_: rt.u8, _: (a0: rt.Ordering) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return keys_order(self);
-}
-
-export function mapOr$08xz81a(self: pointers_Pair.Pair | undefined, default_: rt.u8, f: (a0: pointers_Pair.Pair) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1w5qtj7(self: undefined | rt.None, default_: rt.u8, f: (a0: undefined) => rt.u8): rt.u8 {
-	if (self === rt.None) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0bnr5nu(self: collections_Picky.Picky | undefined, default_: rt.u16, f: (a0: collections_Picky.Picky) => rt.u16): rt.u16 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0rtdylj(self: Point.Point | undefined, default_: rt.u8, f: (a0: Point.Point) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1lznlgz(self: Quarter.Quarter | undefined, default_: rt.u8, f: (a0: Quarter.Quarter) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1to2ul4(self: [Rank.Rank, collections_Tally.Tally] | undefined, default_: rt.u8, f: (a0: [Rank.Rank, collections_Tally.Tally]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1kfudqo(self: RcShared.RcShared | undefined, default_: rt.u8, f: (a0: RcShared.RcShared) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1ndy2gq(self: rt.Arc<RcNode.RcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<RcNode.RcNode>) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0aserv9(self: shapes_Shape.Shape | undefined, default_: rt.u8, f: (a0: shapes_Shape.Shape) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
 export function mapOr$0lcrgk1(self: string | undefined, default_: rt.u8, f: (a0: string) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -840,21 +644,7 @@ export function mapOr$0lcrgk1(self: string | undefined, default_: rt.u8, f: (a0:
 	return f(self);
 }
 
-export function mapOr$1ht002r(self: collections_Tally.Tally | undefined, default_: rt.u8, f: (a0: collections_Tally.Tally) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0tmtgfi(self: Tilt.Tilt | undefined, default_: rt.u8, f: (a0: Tilt.Tilt) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1unqgn7(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, default_: rt.u8, f: (a0: rt.Arc<counts_Noisy.Noisy>[]) => rt.u8): rt.u8 {
+export function mapOr$0ow0wo0(self: rt.u32[][] | undefined, default_: rt.usize, f: (a0: rt.u32[][]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}
@@ -862,6 +652,20 @@ export function mapOr$1unqgn7(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, de
 }
 
 export function mapOr$0r2th8w(self: hints_Unit.Unit[] | undefined, default_: rt.usize, f: (a0: hints_Unit.Unit[]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0pdoq6p(self: [rt.u64, rt.u8][] | undefined, default_: rt.usize, f: (a0: [rt.u64, rt.u8][]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0amk6zv(self: [rt.u8, rt.u8, rt.u8][] | undefined, default_: rt.usize, f: (a0: [rt.u8, rt.u8, rt.u8][]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}
@@ -882,28 +686,7 @@ export function mapOr$1umcrqz(self: rt.u32[] | undefined, default_: rt.usize, f:
 	return f(self);
 }
 
-export function mapOr$0ow0wo0(self: rt.u32[][] | undefined, default_: rt.usize, f: (a0: rt.u32[][]) => rt.usize): rt.usize {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0pdoq6p(self: [rt.u64, rt.u8][] | undefined, default_: rt.usize, f: (a0: [rt.u64, rt.u8][]) => rt.usize): rt.usize {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
 export function mapOr$1a3irjf(self: rt.ByteVec | undefined, default_: rt.u8, f: (a0: rt.ByteVec) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0amk6zv(self: [rt.u8, rt.u8, rt.u8][] | undefined, default_: rt.usize, f: (a0: [rt.u8, rt.u8, rt.u8][]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}
@@ -917,6 +700,20 @@ export function mapOr$08xwngs(self: rt.ByteVec | undefined, default_: rt.usize, 
 	return f(self);
 }
 
+export function mapOr$1h1mlmc(self: rt.u32[] | undefined, default_: rt.u8, f: (a0: rt.u32[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1bumeih(self: Array<rt.u8 | undefined> | undefined, default_: rt.u8, f: (a0: Array<rt.u8 | undefined>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$0qqhf4e(self: boolean[] | undefined, default_: rt.u8, f: (a0: boolean[]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -924,7 +721,35 @@ export function mapOr$0qqhf4e(self: boolean[] | undefined, default_: rt.u8, f: (
 	return f(self);
 }
 
-export function mapOr$13q9j26(self: [boolean[], rt.u8] | undefined, default_: rt.u8, f: (a0: [boolean[], rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$141aobk(self: rt.char[] | undefined, default_: rt.u8, f: (a0: rt.char[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$17y4wkx(self: rt.i32[] | undefined, default_: rt.u8, f: (a0: rt.i32[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0rtxftk(self: Hop.Hop[] | undefined, default_: rt.u8, f: (a0: Hop.Hop[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0nlcxqx(self: rt.u64[] | undefined, default_: rt.u8, f: (a0: rt.u64[]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0sl5app(self: Uint8Array | undefined, default_: rt.u8, f: (a0: Uint8Array) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -945,50 +770,85 @@ export function mapOr$0okqj9y(self: rt.char | undefined, default_: rt.u8, f: (a0
 	return f(self);
 }
 
-export function mapOr$141aobk(self: rt.char[] | undefined, default_: rt.u8, f: (a0: rt.char[]) => rt.u8): rt.u8 {
+export function mapOr$1e4a1e0(self: rt.Ordering | undefined, default_: rt.u8, f: (a0: rt.Ordering) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$1afbbm4(self: [rt.char[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.char[], rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$1dgdmlk(self: rt.Ordering | undefined, default_: rt.u8, _: (a0: rt.Ordering) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return keys_order(self);
+}
+
+export function mapOr$0q0ymkh(self: collections_Nibble.Nibble | undefined, default_: rt.u8, f: (a0: collections_Nibble.Nibble) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$17y4wkx(self: rt.i32[] | undefined, default_: rt.u8, f: (a0: rt.i32[]) => rt.u8): rt.u8 {
+export function mapOr$1ht002r(self: collections_Tally.Tally | undefined, default_: rt.u8, f: (a0: collections_Tally.Tally) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$03mkmku(self: [rt.i32[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.i32[], rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$1ailw2a(self: counts_Counted.Counted | undefined, default_: rt.u8, f: (a0: counts_Counted.Counted) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$1llunel(self: rt.u16 | undefined, default_: rt.u16, f: (a0: rt.u16) => rt.u16): rt.u16 {
+export function mapOr$0djjvgl(self: cycles_Logged.Logged | undefined, default_: rt.u8, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$099335t(self: rt.u16 | undefined, default_: rt.u8, f: (a0: rt.u16) => rt.u8): rt.u8 {
+export function mapOr$14njs1h(self: edits_Named.Named | undefined, default_: rt.u16, f: (a0: edits_Named.Named) => rt.u16): rt.u16 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$0iyypgq(self: [rt.u16[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u16[], rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$1lznlgz(self: Quarter.Quarter | undefined, default_: rt.u8, f: (a0: Quarter.Quarter) => rt.u8): rt.u8 {
 	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0tmtgfi(self: Tilt.Tilt | undefined, default_: rt.u8, f: (a0: Tilt.Tilt) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$04khdaj(self: Hop.Hop | undefined, default_: rt.u64, f: (a0: Hop.Hop) => rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0cqaybi(self: locals_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: locals_Noisy.Noisy) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1w5qtj7(self: undefined | rt.None, default_: rt.u8, f: (a0: undefined) => rt.u8): rt.u8 {
+	if (self === rt.None) {
 		return default_;
 	}
 	return f(self);
@@ -1001,56 +861,112 @@ export function mapOr$1giiemz(self: rt.Place<rt.u32> | undefined, default_: rt.u
 	return f(self);
 }
 
-export function mapOr$1h1mlmc(self: rt.u32[] | undefined, default_: rt.u8, f: (a0: rt.u32[]) => rt.u8): rt.u8 {
+export function mapOr$0ev76sb(self: rt.Place<rt.u8> | undefined, default_: rt.u8, f: (a0: rt.Place<rt.u8>) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$1xwgm12(self: [rt.u32[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u32[], rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$14aggam(self: orders_Item.Item | undefined, default_: rt.u8, f: (a0: orders_Item.Item) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$0ucbp7g(self: [rt.u64, rt.u64] | undefined, default_: rt.u8, f: (a0: [rt.u64, rt.u64]) => rt.u8): rt.u8 {
+export function mapOr$08xz81a(self: pointers_Pair.Pair | undefined, default_: rt.u8, f: (a0: pointers_Pair.Pair) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$0nlcxqx(self: rt.u64[] | undefined, default_: rt.u8, f: (a0: rt.u64[]) => rt.u8): rt.u8 {
+export function mapOr$1unqgn7(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, default_: rt.u8, f: (a0: rt.Arc<counts_Noisy.Noisy>[]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$0vfd25u(self: [rt.u64[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u64[], rt.u8]) => rt.u8): rt.u8 {
+export function mapOr$0z7fb2w(self: rt.ByteSlice | undefined, default_: Uint8Array, f: (a0: rt.ByteSlice) => Uint8Array): Uint8Array {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$1wxcg5q(self: [rt.u8, rt.Arc<rt.u8>] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.Arc<rt.u8>]) => rt.u8): rt.u8 {
+export function mapOr$1w1gbwl(self: rt.ByteSlice | undefined, default_: rt.u8, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$06rr3sb(self: rt.u8 | undefined, default_: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
+export function mapOr$0qqbaqw(self: borrows_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: borrows_Noisy.Noisy) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$1m2xzon(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
+export function mapOr$1yabfom(self: clones_Logged.Logged | undefined, default_: rt.u8, _: (a0: clones_Logged.Logged) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return clones_Logged.id(self);
+}
+
+export function mapOr$0bnr5nu(self: collections_Picky.Picky | undefined, default_: rt.u16, f: (a0: collections_Picky.Picky) => rt.u16): rt.u16 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1hh0iyl(self: ArcShared.ArcShared | undefined, default_: rt.u8, f: (a0: ArcShared.ArcShared) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1iuqai4(self: counts_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: counts_Noisy.Noisy) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1kfudqo(self: RcShared.RcShared | undefined, default_: rt.u8, f: (a0: RcShared.RcShared) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1surhce(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$189goit(self: slices_Noisy.Noisy | undefined, default_: rt.u8, f: (a0: slices_Noisy.Noisy) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1nlkf9b(self: [rt.u8, rt.u8] | undefined, default_: Uint8Array, f: (a0: [rt.u8, rt.u8]) => Uint8Array): Uint8Array {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$099335t(self: rt.u16 | undefined, default_: rt.u8, f: (a0: rt.u16) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
@@ -1071,34 +987,6 @@ export function mapOr$15zxk73(self: rt.u8 | undefined, default_: rt.u64, f: (a0:
 	return f(self);
 }
 
-export function mapOr$1surhce(self: rt.u8 | undefined, default_: rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0ev76sb(self: rt.Place<rt.u8> | undefined, default_: rt.u8, f: (a0: rt.Place<rt.u8>) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$0mmpeqx(self: [rt.u8, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.u8]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1nlkf9b(self: [rt.u8, rt.u8] | undefined, default_: Uint8Array, f: (a0: [rt.u8, rt.u8]) => Uint8Array): Uint8Array {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
 export function mapOr$1t0muvr(self: rt.u8 | undefined, default_: rt.usize, f: (a0: rt.u8) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
@@ -1106,14 +994,105 @@ export function mapOr$1t0muvr(self: rt.u8 | undefined, default_: rt.usize, f: (a
 	return f(self);
 }
 
-export function mapOr$1w1gbwl(self: rt.ByteSlice | undefined, default_: rt.u8, f: (a0: rt.ByteSlice) => rt.u8): rt.u8 {
+export function mapOr$02k4ito(self: rt.usize | undefined, default_: rt.u8, f: (a0: rt.usize) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
 }
 
-export function mapOr$0sl5app(self: Uint8Array | undefined, default_: rt.u8, f: (a0: Uint8Array) => rt.u8): rt.u8 {
+export function mapOr$1ybqvup(self: Meters.Meters | undefined, default_: rt.u64, f: (a0: Meters.Meters) => rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0rtdylj(self: Point.Point | undefined, default_: rt.u8, f: (a0: Point.Point) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0aserv9(self: shapes_Shape.Shape | undefined, default_: rt.u8, f: (a0: shapes_Shape.Shape) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0dgmbpi(self: rt.Arc<ArcNode.ArcNode> | undefined, default_: rt.u8, f: (a0: rt.Arc<ArcNode.ArcNode>) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1xwgm12(self: [rt.u32[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u32[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$187k0x1(self: [Array<rt.u8 | undefined>, rt.u8] | undefined, default_: rt.u8, f: (a0: [Array<rt.u8 | undefined>, rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$13q9j26(self: [boolean[], rt.u8] | undefined, default_: rt.u8, f: (a0: [boolean[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1afbbm4(self: [rt.char[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.char[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$03mkmku(self: [rt.i32[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.i32[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0spovx0(self: [Hop.Hop[], rt.u8] | undefined, default_: rt.u8, f: (a0: [Hop.Hop[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0iyypgq(self: [rt.u16[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u16[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0vfd25u(self: [rt.u64[], rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u64[], rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1to2ul4(self: [Rank.Rank, collections_Tally.Tally] | undefined, default_: rt.u8, f: (a0: [Rank.Rank, collections_Tally.Tally]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1jgrjsu(self: [rt.ByteSlice, rt.ByteSlice] | undefined, default_: rt.ByteSlice, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.ByteSlice): rt.ByteSlice {
 	if (self === undefined) {
 		return default_;
 	}
@@ -1127,13 +1106,6 @@ export function mapOr$1be3nsj(self: [rt.ByteSlice, rt.u8] | undefined, default_:
 	return f(self);
 }
 
-export function mapOr$0z7fb2w(self: rt.ByteSlice | undefined, default_: Uint8Array, f: (a0: rt.ByteSlice) => Uint8Array): Uint8Array {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
 export function mapOr$11e0ggl(self: [rt.ByteSlice, rt.ByteSlice] | undefined, default_: rt.u8, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -1141,7 +1113,63 @@ export function mapOr$11e0ggl(self: [rt.ByteSlice, rt.ByteSlice] | undefined, de
 	return f(self);
 }
 
-export function mapOr$1jgrjsu(self: [rt.ByteSlice, rt.ByteSlice] | undefined, default_: rt.ByteSlice, f: (a0: [rt.ByteSlice, rt.ByteSlice]) => rt.ByteSlice): rt.ByteSlice {
+export function mapOr$1hjjwvv(self: [rt.Mutex<rt.u8>, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.Mutex<rt.u8>, rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0mmpeqx(self: [rt.u8, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0ucbp7g(self: [rt.u64, rt.u64] | undefined, default_: rt.u8, f: (a0: [rt.u64, rt.u64]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1wxcg5q(self: [rt.u8, rt.Arc<rt.u8>] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.Arc<rt.u8>]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$16umieg(self: [rt.usize, string] | undefined, default_: rt.usize, f: (a0: [rt.usize, string]) => rt.usize): rt.usize {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$06gg5x7(self: [rt.usize, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.usize, rt.u8]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1llunel(self: rt.u16 | undefined, default_: rt.u16, f: (a0: rt.u16) => rt.u16): rt.u16 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$06rr3sb(self: rt.u8 | undefined, default_: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1m2xzon(self: rt.u8 | undefined, default_: boolean, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
 		return default_;
 	}
@@ -1162,27 +1190,6 @@ export function mapOr$147z9gi(self: rt.usize | undefined, default_: string, f: (
 	return f(self);
 }
 
-export function mapOr$16umieg(self: [rt.usize, string] | undefined, default_: rt.usize, f: (a0: [rt.usize, string]) => rt.usize): rt.usize {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$02k4ito(self: rt.usize | undefined, default_: rt.u8, f: (a0: rt.usize) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$06gg5x7(self: [rt.usize, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.usize, rt.u8]) => rt.u8): rt.u8 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
 export function mapOrElse$1g6d36t(self: rt.u8 | undefined, default_: () => rt.u8, f: (a0: rt.u8) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_();
@@ -1191,6 +1198,27 @@ export function mapOrElse$1g6d36t(self: rt.u8 | undefined, default_: () => rt.u8
 }
 
 export function okOr$07zal2e(self: rt.u32[] | undefined, err: rt.u8): rt.Result<rt.u32[], rt.u8> {
+	if (self === undefined) {
+		return rt.Err(err);
+	}
+	return rt.Ok(self);
+}
+
+export function okOr$0jslmu4(self: [rt.ByteSlice, rt.ByteSlice] | undefined, err: rt.u8): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8> {
+	if (self === undefined) {
+		return rt.Err(err);
+	}
+	return rt.Ok(self);
+}
+
+export function okOr$0q0ogpn(self: [rt.ByteSlice, rt.ByteSlice] | undefined, err: rt.u8 | undefined): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
+	if (self === undefined) {
+		return rt.Err(err);
+	}
+	return rt.Ok(self);
+}
+
+export function okOr$1np0z7r(self: [rt.ByteSlice, rt.ByteSlice] | undefined, err: Short.Short): rt.Result<[rt.ByteSlice, rt.ByteSlice], Short.Short> {
 	if (self === undefined) {
 		return rt.Err(err);
 	}
@@ -1214,27 +1242,6 @@ export function okOr$1vxk0yk(self: rt.u8 | undefined, err: rt.u8): rt.Result<rt.
 export function okOr$0g9lvh7(self: rt.u8 | undefined, _: undefined): rt.Result<rt.u8, undefined> {
 	if (self === undefined) {
 		return rt.ERR;
-	}
-	return rt.Ok(self);
-}
-
-export function okOr$0q0ogpn(self: [rt.ByteSlice, rt.ByteSlice] | undefined, err: rt.u8 | undefined): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8 | undefined> {
-	if (self === undefined) {
-		return rt.Err(err);
-	}
-	return rt.Ok(self);
-}
-
-export function okOr$1np0z7r(self: [rt.ByteSlice, rt.ByteSlice] | undefined, err: Short.Short): rt.Result<[rt.ByteSlice, rt.ByteSlice], Short.Short> {
-	if (self === undefined) {
-		return rt.Err(err);
-	}
-	return rt.Ok(self);
-}
-
-export function okOr$0jslmu4(self: [rt.ByteSlice, rt.ByteSlice] | undefined, err: rt.u8): rt.Result<[rt.ByteSlice, rt.ByteSlice], rt.u8> {
-	if (self === undefined) {
-		return rt.Err(err);
 	}
 	return rt.Ok(self);
 }
@@ -1285,16 +1292,16 @@ export function andThen$0qni7te(self: rt.u8 | undefined | rt.None, f: (a0: rt.u8
 	return f(self);
 }
 
-export function andThen$0ocv8av(self: Array<rt.u8 | undefined> | undefined, f: (a0: Array<rt.u8 | undefined>) => rt.u8 | undefined | rt.None): rt.u8 | undefined | rt.None {
+export function andThen$101gy6h(self: rt.Place<rt.u32> | undefined, f: (a0: rt.Place<rt.u32>) => rt.Place<rt.u32> | undefined): rt.Place<rt.u32> | undefined {
 	if (self === undefined) {
-		return rt.None;
+		return undefined;
 	}
 	return f(self);
 }
 
-export function andThen$101gy6h(self: rt.Place<rt.u32> | undefined, f: (a0: rt.Place<rt.u32>) => rt.Place<rt.u32> | undefined): rt.Place<rt.u32> | undefined {
+export function andThen$0ocv8av(self: Array<rt.u8 | undefined> | undefined, f: (a0: Array<rt.u8 | undefined>) => rt.u8 | undefined | rt.None): rt.u8 | undefined | rt.None {
 	if (self === undefined) {
-		return undefined;
+		return rt.None;
 	}
 	return f(self);
 }
@@ -1313,52 +1320,6 @@ export function andThen$17ch833(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8
 	return f(self);
 }
 
-export function filter$1asvriw(self: ArcShared.ArcShared | undefined, predicate: (a0: ArcShared.ArcShared) => boolean): ArcShared.ArcShared | undefined {
-	if (self !== undefined) {
-		const x: ArcShared.ArcShared = self;
-		if (!predicate(x)) {
-			x[Symbol.dispose]();
-		} else {
-			return x;
-		}
-	}
-	return undefined;
-}
-
-export function filter$1qg98un(self: rt.Arc<counts_Noisy.Noisy> | undefined, predicate: (a0: rt.Arc<counts_Noisy.Noisy>) => boolean): rt.Arc<counts_Noisy.Noisy> | undefined {
-	if (self !== undefined) {
-		const x: rt.Arc<counts_Noisy.Noisy> = self;
-		if (!predicate(x)) {
-			x[Symbol.dispose]();
-		} else {
-			return x;
-		}
-	}
-	return undefined;
-}
-
-export function filter$184yuq2(self: edits_Named.Named | undefined, predicate: (a0: edits_Named.Named) => boolean): edits_Named.Named | undefined {
-	if (self !== undefined) {
-		const x: edits_Named.Named = self;
-		if (predicate(x)) {
-			return x;
-		}
-	}
-	return undefined;
-}
-
-export function filter$1gka6nq(self: counts_Noisy.Noisy | undefined, predicate: (a0: counts_Noisy.Noisy) => boolean): counts_Noisy.Noisy | undefined {
-	if (self !== undefined) {
-		const x: counts_Noisy.Noisy = self;
-		if (!predicate(x)) {
-			x[Symbol.dispose]();
-		} else {
-			return x;
-		}
-	}
-	return undefined;
-}
-
 export function filter$19gtvc4(self: rt.u8 | undefined | rt.None, predicate: (a0: rt.u8 | undefined) => boolean): rt.u8 | undefined | rt.None {
 	if (self !== rt.None) {
 		const x: rt.u8 | undefined = self;
@@ -1369,9 +1330,9 @@ export function filter$19gtvc4(self: rt.u8 | undefined | rt.None, predicate: (a0
 	return rt.None;
 }
 
-export function filter$14b5774(self: RcShared.RcShared | undefined, predicate: (a0: RcShared.RcShared) => boolean): RcShared.RcShared | undefined {
+export function filter$1qg98un(self: rt.Arc<counts_Noisy.Noisy> | undefined, predicate: (a0: rt.Arc<counts_Noisy.Noisy>) => boolean): rt.Arc<counts_Noisy.Noisy> | undefined {
 	if (self !== undefined) {
-		const x: RcShared.RcShared = self;
+		const x: rt.Arc<counts_Noisy.Noisy> = self;
 		if (!predicate(x)) {
 			x[Symbol.dispose]();
 		} else {
@@ -1403,9 +1364,55 @@ export function filter$16q8euf(self: rt.Arc<counts_Noisy.Noisy>[] | undefined, p
 	return undefined;
 }
 
-export function filter$0tnmmii(self: rt.u32 | undefined, predicate: (a0: rt.u32) => boolean): rt.u32 | undefined {
+export function filter$184yuq2(self: edits_Named.Named | undefined, predicate: (a0: edits_Named.Named) => boolean): edits_Named.Named | undefined {
 	if (self !== undefined) {
-		const x: rt.u32 = self;
+		const x: edits_Named.Named = self;
+		if (predicate(x)) {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$1asvriw(self: ArcShared.ArcShared | undefined, predicate: (a0: ArcShared.ArcShared) => boolean): ArcShared.ArcShared | undefined {
+	if (self !== undefined) {
+		const x: ArcShared.ArcShared = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$1gka6nq(self: counts_Noisy.Noisy | undefined, predicate: (a0: counts_Noisy.Noisy) => boolean): counts_Noisy.Noisy | undefined {
+	if (self !== undefined) {
+		const x: counts_Noisy.Noisy = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$14b5774(self: RcShared.RcShared | undefined, predicate: (a0: RcShared.RcShared) => boolean): RcShared.RcShared | undefined {
+	if (self !== undefined) {
+		const x: RcShared.RcShared = self;
+		if (!predicate(x)) {
+			x[Symbol.dispose]();
+		} else {
+			return x;
+		}
+	}
+	return undefined;
+}
+
+export function filter$033ccod(self: [rt.u8, rt.u8] | undefined, predicate: (a0: [rt.u8, rt.u8]) => boolean): [rt.u8, rt.u8] | undefined {
+	if (self !== undefined) {
+		const x: [rt.u8, rt.u8] = self;
 		if (predicate(x)) {
 			return x;
 		}
@@ -1423,9 +1430,9 @@ export function filter$0v80fk8(self: rt.u8 | undefined, predicate: (a0: rt.u8) =
 	return undefined;
 }
 
-export function filter$033ccod(self: [rt.u8, rt.u8] | undefined, predicate: (a0: [rt.u8, rt.u8]) => boolean): [rt.u8, rt.u8] | undefined {
+export function filter$0tnmmii(self: rt.u32 | undefined, predicate: (a0: rt.u32) => boolean): rt.u32 | undefined {
 	if (self !== undefined) {
-		const x: [rt.u8, rt.u8] = self;
+		const x: rt.u32 = self;
 		if (predicate(x)) {
 			return x;
 		}
@@ -1509,6 +1516,13 @@ export function zip$1deudzj(self: rt.u8 | undefined, other: rt.u8 | undefined): 
 	return _0;
 }
 
+export function clone$14nprly(self: string | undefined): string | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return self;
+}
+
 export function clone$0vcwlo5(self: edits_Named.Named | undefined): edits_Named.Named | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -1521,13 +1535,6 @@ export function clone$1omlcob(self: slices_Noisy.Noisy | undefined): slices_Nois
 		return undefined;
 	}
 	return slices_Noisy.clone$Clone(self);
-}
-
-export function clone$14nprly(self: string | undefined): string | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return self;
 }
 
 export function flatten$1nwzx42(self: rt.u8 | undefined | rt.None): rt.u8 | undefined {

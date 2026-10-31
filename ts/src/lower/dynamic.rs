@@ -134,12 +134,13 @@ impl<'tcx> Translator<'_, 'tcx> {
 		}
 		let name = tcx.item_name(principal).to_string();
 		let sym = self.program.sym(Symbol {
-			module: crate::program::type_module(&self.module_of(principal), &name),
+			module: self.type_module(principal),
 			base: name,
 			suffix: String::new(),
 			owner: None,
 			kind: SymKind::Union,
 			order: self.order(tcx.def_span(principal)),
+			span: tcx.def_span(principal),
 			instance: String::new(),
 			name: String::new(),
 			alias: None,
@@ -211,17 +212,19 @@ impl<'tcx> Translator<'_, 'tcx> {
 			return Some(class);
 		}
 		let trait_sym = &self.program.syms[object.sym];
-		let base = super::short_name(tcx, from);
+		// Named for the type it wraps after a `$`, `Shape.of$copy_Pair`, which no type's
+		// module the trait's imports is bound as.
 		let sym = self.program.sym(Symbol {
 			module: trait_sym.module.clone(),
-			base,
-			suffix: match held {
-				Held::Value => String::new(),
-				Held::Place => "Place".into(),
+			base: match held {
+				Held::Value => "of".into(),
+				Held::Place => "ofPlace".into(),
 			},
+			suffix: super::names::ty(tcx, from),
 			owner: None,
 			kind: SymKind::Struct,
 			order: trait_sym.order,
+			span,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,
@@ -315,6 +318,7 @@ impl<'tcx> Translator<'_, 'tcx> {
 			owner: Some(owner),
 			kind: SymKind::Method,
 			order: 0,
+			span: rustc_span::DUMMY_SP,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,

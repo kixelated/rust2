@@ -9,16 +9,16 @@ export interface Node<V> {
 	link: Link.Link<V>;
 }
 
-export function new$Arc_u8(): Node<rt.Arc<rt.u8>> {
-	const _1: [rt.u8, rt.Arc<rt.u8>] = ([undefined, undefined] as unknown) as [rt.u8, rt.Arc<rt.u8>];
-	const _3: Links.Links<rt.Arc<rt.u8>> = { next: rt.DANGLING, prev: rt.DANGLING };
-	return { entry: _1, link: ({ at0: _3.next, at4: _3.prev } as unknown) as Link.Link<rt.Arc<rt.u8>> };
-}
-
 export function new$String(): Node<string> {
 	const _1: [rt.u8, string] = ([undefined, undefined] as unknown) as [rt.u8, string];
 	const _3: Links.Links<string> = { next: rt.DANGLING, prev: rt.DANGLING };
 	return { entry: _1, link: ({ at0: _3.next, at4: _3.prev } as unknown) as Link.Link<string> };
+}
+
+export function new$sync_Arc_u8(): Node<rt.Arc<rt.u8>> {
+	const _1: [rt.u8, rt.Arc<rt.u8>] = ([undefined, undefined] as unknown) as [rt.u8, rt.Arc<rt.u8>];
+	const _3: Links.Links<rt.Arc<rt.u8>> = { next: rt.DANGLING, prev: rt.DANGLING };
+	return { entry: _1, link: ({ at0: _3.next, at4: _3.prev } as unknown) as Link.Link<rt.Arc<rt.u8>> };
 }
 
 //# sourceMappingURL=pointers.Node.ts.map

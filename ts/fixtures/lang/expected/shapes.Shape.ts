@@ -3,19 +3,19 @@
 import * as rt from "./rt.ts";
 import * as Point from "./shapes.Point.ts";
 
-export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Dot") {
 		return rt.fmtWriteStr(f, "Dot");
 	}
 	if (self.tag === "Line") {
 		const _7: string = "Line";
-		const _8: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self._0, f);
-		const _9: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self._1, f);
+		const _8: rt.Fmt = (f: rt.Formatter) => Point.fmt$fmt_Debug(self._0, f);
+		const _9: rt.Fmt = (f: rt.Formatter) => Point.fmt$fmt_Debug(self._1, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.debugTupleField(rt.fmtDebugTuple(f, _7), _8), _9));
 	}
 	const _14: string = "Rect";
 	const _15: string = "corner";
-	const _16: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self.corner, f);
+	const _16: rt.Fmt = (f: rt.Formatter) => Point.fmt$fmt_Debug(self.corner, f);
 	const _17: string = "width";
 	const _18: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self.width, f);
 	const _19: string = "height";
@@ -23,22 +23,22 @@ export function fmt$Debug(self: Shape, f: rt.Formatter): rt.Result<undefined, rt
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _14), _15, _16), _17, _18), _19, _20));
 }
 
-export function eq$PartialEq(self: Shape, other: Shape): boolean {
+export function eq$cmp_PartialEq(self: Shape, other: Shape): boolean {
 	if (!({ Dot: 0, Line: 1, Rect: 2 }[self.tag] === { Dot: 0, Line: 1, Rect: 2 }[other.tag])) {
 		return false;
 	}
 	if (self.tag === "Line") {
 		if (other.tag === "Line") {
-			if (!Point.eq$PartialEq(self._0, other._0)) {
+			if (!Point.eq$cmp_PartialEq(self._0, other._0)) {
 				return false;
 			}
-			return Point.eq$PartialEq(self._1, other._1);
+			return Point.eq$cmp_PartialEq(self._1, other._1);
 		}
 	} else if (self.tag === "Rect") {
 		if (other.tag === "Rect") {
 			if (self.width === other.width) {
 				if (self.height === other.height) {
-					return Point.eq$PartialEq(self.corner, other.corner);
+					return Point.eq$cmp_PartialEq(self.corner, other.corner);
 				}
 			}
 			return false;
@@ -54,12 +54,12 @@ export type Shape =
 	| { tag: "Rect"; corner: Point.Point; width: rt.u16; height: rt.u16 };
 
 /** A default method, monomorphized for each type. */
-export function describe$Area(self: Shape, out: rt.ByteVec): void {
+export function describe$shapes_Area(self: Shape, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 4);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$Area(self))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$shapes_Area(self))));
 }
 
-export function area$Area(self: Shape): rt.u64 {
+export function area$shapes_Area(self: Shape): rt.u64 {
 	if (self.tag === "Dot") {
 		return 0;
 	}

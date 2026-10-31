@@ -13,7 +13,7 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.log[Symbol.dispose]();
 	}
 }
@@ -22,22 +22,22 @@ function new_(id: rt.u8, log: rt.Arc<rt.Mutex<rt.ByteVec>>): Guard {
 	return new Guard(id, rt.arcClone(log));
 }
 
-export function drop$Drop(self: Guard): void {
+export function drop$ops_Drop(self: Guard): void {
 	const _5: rt.Mutex<rt.ByteVec> = rt.mutexLock(self.log.value);
 	rt.byteVecPush(_5.value, self.id);
 	rt.mutexUnlock(_5);
 }
 
-export function add$Tally(self: Guard, by: rt.u8): void {
+export function add$crates_dep_Tally(self: Guard, by: rt.u8): void {
 	self.id = rt.u8WrappingAdd(self.id, by);
 }
 
-export function count$Tally(self: Guard): rt.u32 {
+export function count$crates_dep_Tally(self: Guard): rt.u32 {
 	return self.id as rt.u32;
 }
 
 /** Provided, and overridden by one impl. */
-export function scale$Tally(_self: Guard): rt.u32 {
+export function scale$crates_dep_Tally(_self: Guard): rt.u32 {
 	return 2;
 }
 

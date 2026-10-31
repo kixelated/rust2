@@ -7,7 +7,7 @@ export interface Picky {
 	_0: rt.u8;
 }
 
-export function eq$PartialEq(self: Picky, other: Picky): boolean {
+export function eq$cmp_PartialEq(self: Picky, other: Picky): boolean {
 	return self._0 === other._0;
 }
 

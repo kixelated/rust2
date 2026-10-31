@@ -3,7 +3,9 @@
 import * as Bin from "./pointers.Bin.ts";
 import type * as ByObject from "./pointers.ByObject.ts";
 
-export class Bin_ByObject {
+export type Reset = { reset$Reset: () => void };
+
+export class of$pointers_Bin_pointers_ByObject {
 	v: Bin.Bin<ByObject.ByObject>;
 
 	constructor(v: Bin.Bin<ByObject.ByObject>) {
@@ -11,10 +13,8 @@ export class Bin_ByObject {
 	}
 
 	reset$Reset(): void {
-		return Bin.reset$Reset_ByObject(this.v);
+		return Bin.reset$pointers_Reset_pointers_ByObject(this.v);
 	}
 }
-
-export type Reset = { reset$Reset: () => void };
 
 //# sourceMappingURL=pointers.Reset.ts.map

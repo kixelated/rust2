@@ -3,9 +3,9 @@
 import * as rt from "../rt.ts";
 import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 import * as SessionError from "../lib.SessionError.ts";
-import { asDisplay$AsDisplay_usize } from "../thiserror/display.ts";
+import { asDisplay$thiserror___private21_AsDisplay_ref_usize } from "../thiserror/display.ts";
 
-export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: DecodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(__formatter, "short buffer");
 	}
@@ -36,8 +36,8 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 		return rt.fmtWriteStr(__formatter, "expected end");
 	}
 	if (self.tag === "MessageTooLarge") {
-		const _26: rt.usize = asDisplay$AsDisplay_usize(self.size);
-		const _28: rt.usize = asDisplay$AsDisplay_usize(self.max);
+		const _26: rt.usize = asDisplay$thiserror___private21_AsDisplay_ref_usize(self.size);
+		const _28: rt.usize = asDisplay$thiserror___private21_AsDisplay_ref_usize(self.max);
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_26, f), (f: rt.Formatter) => rt.usizeDisplay(_28, f)];
 		return rt.fmtWriteFmt(__formatter, ["message too large: ", args4[0], " bytes exceeds ", args4[1], " byte limit"]);
 	}
@@ -60,7 +60,7 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 		return rt.fmtWriteStr(__formatter, "unsupported version");
 	}
 	if (self.tag === "Session") {
-		return SessionError.fmt$Display(self._0, __formatter);
+		return SessionError.fmt$fmt_Display(self._0, __formatter);
 	}
 	if (self.tag === "MalformedAuthToken") {
 		return rt.fmtWriteStr(__formatter, "malformed authorization token");
@@ -68,11 +68,11 @@ export function fmt$Display(self: DecodeError, __formatter: rt.Formatter): rt.Re
 	return rt.fmtWriteStr(__formatter, "multiple authorization tokens");
 }
 
-export function from$From_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
+export function from$convert_From_string_FromUtf8Error(source: rt.FromUtf8Error): DecodeError {
 	return { tag: "InvalidString", _0: source } as DecodeError;
 }
 
-export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(f, "Short");
 	}
@@ -132,7 +132,7 @@ export function fmt$Debug(self: DecodeError, f: rt.Formatter): rt.Result<undefin
 	}
 	if (self.tag === "Session") {
 		const _34: string = "Session";
-		const _35: rt.Fmt = (f: rt.Formatter) => SessionError.fmt$Debug(self._0, f);
+		const _35: rt.Fmt = (f: rt.Formatter) => SessionError.fmt$fmt_Debug(self._0, f);
 		return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _34), _35));
 	}
 	if (self.tag === "MalformedAuthToken") {
@@ -171,7 +171,7 @@ export function complete(self: DecodeError): DecodeError {
 	return self;
 }
 
-export function from$From_BoundsExceeded(_1: BoundsExceeded.BoundsExceeded): DecodeError {
+export function from$convert_From_coding_varint_BoundsExceeded(_1: BoundsExceeded.BoundsExceeded): DecodeError {
 	return { tag: "BoundsExceeded" } as DecodeError;
 }
 

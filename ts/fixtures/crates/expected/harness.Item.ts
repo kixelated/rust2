@@ -7,20 +7,20 @@ export interface Item {
 	_0: rt.u8;
 }
 
-export function weight$Weigh(self: Item): rt.u32 {
+export function weight$crates_dep_Weigh(self: Item): rt.u32 {
 	return rt.u32Rem(self._0 as rt.u32, 7);
 }
 
-export function add$Tally(self: Item, by: rt.u8): void {
+export function add$crates_dep_Tally(self: Item, by: rt.u8): void {
 	self._0 = self._0 ^ by;
 }
 
-export function count$Tally(self: Item): rt.u32 {
+export function count$crates_dep_Tally(self: Item): rt.u32 {
 	return self._0 as rt.u32;
 }
 
 /** Provided, and overridden by one impl. */
-export function scale$Tally(_self: Item): rt.u32 {
+export function scale$crates_dep_Tally(_self: Item): rt.u32 {
 	return 1;
 }
 

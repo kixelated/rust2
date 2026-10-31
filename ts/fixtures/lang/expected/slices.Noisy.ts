@@ -15,7 +15,7 @@ export class Noisy {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
@@ -26,7 +26,7 @@ export function clone$Clone(self: Noisy): Noisy {
 	return new Noisy(rt.u8WrappingAdd(self.tag, 1));
 }
 
-export function drop$Drop(self: Noisy): void {
+export function drop$ops_Drop(self: Noisy): void {
 	rt.localKeyWithBorrowMut(slices_LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecPush(log, self.tag);
 	});

@@ -12,11 +12,11 @@ export class Item {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function drop$Drop(self: Item): void {
+export function drop$ops_Drop(self: Item): void {
 	rt.localKeyWithBorrowMut(slices_LOG, (log: rt.ByteVec): undefined => {
 		rt.byteVecPush(log, self.tag);
 	});

@@ -52,7 +52,7 @@ function new_(input: rt.ByteSlice, cut: rt.usize): Pieces {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf(self: Pieces): rt.usize {
+export function remaining$bytes_Buf(self: Pieces): rt.usize {
 	return rt.usizeSub(rt.iterSum(rt.iterMap(rt.iterSlice(self.parts), (a0: rt.ByteVec): rt.usize => {
 		return a0.length;
 	}), rt.usizeAdd, 0), self.at);
@@ -88,7 +88,7 @@ export function remaining$Buf(self: Pieces): rt.usize {
  * return 0 and `remaining()` returning 0 implies that `chunk()` will
  * return an empty slice.
  */
-export function chunk$Buf(self: Pieces): rt.ByteSlice {
+export function chunk$bytes_Buf(self: Pieces): rt.ByteSlice {
 	const _3: rt.ByteVec | undefined = rt.sliceFirst(self.parts);
 	if (_3 === undefined) {
 		return rt.byteSliceFrom(Uint8Array.of());
@@ -129,7 +129,7 @@ export function chunk$Buf(self: Pieces): rt.ByteSlice {
  *
  * A call with `cnt == 0` should never panic and be a no-op.
  */
-export function advance$Buf(self: Pieces, cnt: rt.usize): void {
+export function advance$bytes_Buf(self: Pieces, cnt: rt.usize): void {
 	while (cnt > 0) {
 		const left: rt.usize = rt.usizeSub(self.parts[rt.idx(self.parts, 0)].length, self.at);
 		if (!(cnt < left)) {
@@ -164,13 +164,13 @@ export function advance$Buf(self: Pieces, cnt: rt.usize): void {
  *
  * This function panics if `len > self.remaining()`.
  */
-export function copyToBytes$Buf(self: Pieces, len: rt.usize): rt.ByteSlice {
+export function copyToBytes$bytes_Buf(self: Pieces, len: rt.usize): rt.ByteSlice {
 	const out: rt.BytesMut = rt.bytesMutWithCapacity(len);
 	while (out.length < len) {
-		const take: rt.usize = rt.min(chunk$Buf$2(self).length, rt.usizeSub(len, out.length));
-		const _17: rt.ByteSlice = rt.byteSliceRange(chunk$Buf$2(self), 0, take);
+		const take: rt.usize = rt.min(chunk$bytes_Buf_mut(self).length, rt.usizeSub(len, out.length));
+		const _17: rt.ByteSlice = rt.byteSliceRange(chunk$bytes_Buf_mut(self), 0, take);
 		rt.bytesMutExtend(out, _17);
-		advance$Buf(self, take);
+		advance$bytes_Buf(self, take);
 	}
 	return rt.bytesMutFreeze(out);
 }
@@ -194,8 +194,8 @@ export function copyToBytes$Buf(self: Pieces, len: rt.usize): rt.ByteSlice {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf(self: Pieces): boolean {
-	return remaining$Buf(self) > 0;
+export function hasRemaining$bytes_Buf(self: Pieces): boolean {
+	return remaining$bytes_Buf(self) > 0;
 }
 
 /**
@@ -221,8 +221,8 @@ export function hasRemaining$Buf(self: Pieces): boolean {
  *
  * This function panics if `self.remaining() < dst.len()`.
  */
-export function copyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): void {
-	result_unwrapOrElse$0s2lrc9(tryCopyToSlice$Buf(self, dst), (error: TryGetError.TryGetError): undefined => {
+export function copyToSlice$bytes_Buf(self: Pieces, dst: rt.ByteSlice): void {
+	result_unwrapOrElse$0s2lrc9(tryCopyToSlice$bytes_Buf(self, dst), (error: TryGetError.TryGetError): undefined => {
 		panicAdvance(error);
 	});
 }
@@ -245,12 +245,12 @@ export function copyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): void {
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getU8$Buf(self: Pieces): rt.u8 {
-	if (!(remaining$Buf$3(self) < 1)) {
-		const _7: rt.ByteSlice = chunk$Buf$2(self);
+export function getU8$bytes_Buf(self: Pieces): rt.u8 {
+	if (!(remaining$bytes_Buf_mut(self) < 1)) {
+		const _7: rt.ByteSlice = chunk$bytes_Buf_mut(self);
 		rt.idx(_7, 0);
 		const ret: rt.u8 = _7.data[_7.start];
-		advance$Buf(self, 1);
+		advance$bytes_Buf(self, 1);
 		return ret;
 	}
 	panicAdvance({ requested: 1, available: 0 });
@@ -288,18 +288,18 @@ export function getU8$Buf(self: Pieces): rt.u8 {
  * assert_eq!(11, buf.remaining());
  * ```
  */
-export function tryCopyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): rt.Result<undefined, TryGetError.TryGetError> {
-	if (!(remaining$Buf$3(self) < dst.length)) {
+export function tryCopyToSlice$bytes_Buf(self: Pieces, dst: rt.ByteSlice): rt.Result<undefined, TryGetError.TryGetError> {
+	if (!(remaining$bytes_Buf_mut(self) < dst.length)) {
 		while (!(dst.length === 0)) {
-			const src: rt.ByteSlice = chunk$Buf$2(self);
+			const src: rt.ByteSlice = chunk$bytes_Buf_mut(self);
 			const cnt: rt.usize = rt.min(src.length, dst.length);
 			rt.byteSliceCopyFromSlice(rt.byteSliceRange(dst, 0, cnt), rt.byteSliceRange(src, 0, cnt));
 			dst = rt.byteSliceRange(dst, cnt);
-			advance$Buf(self, cnt);
+			advance$bytes_Buf(self, cnt);
 		}
 		return rt.OK;
 	}
-	return rt.Err({ requested: dst.length, available: remaining$Buf$3(self) });
+	return rt.Err({ requested: dst.length, available: remaining$bytes_Buf_mut(self) });
 }
 
 /**
@@ -334,8 +334,8 @@ export function tryCopyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): rt.Result<u
  *
  * A call with `cnt == 0` should never panic and be a no-op.
  */
-export function advance$Buf$2(self: rt.Place<Pieces>, cnt: rt.usize): void {
-	advance$Buf(self.v, cnt);
+export function advance$bytes_Buf_mut(self: rt.Place<Pieces>, cnt: rt.usize): void {
+	advance$bytes_Buf(self.v, cnt);
 }
 
 /**
@@ -368,8 +368,8 @@ export function advance$Buf$2(self: rt.Place<Pieces>, cnt: rt.usize): void {
  * return 0 and `remaining()` returning 0 implies that `chunk()` will
  * return an empty slice.
  */
-export function chunk$Buf$2(self: Pieces): rt.ByteSlice {
-	return chunk$Buf(self);
+export function chunk$bytes_Buf_mut(self: Pieces): rt.ByteSlice {
+	return chunk$bytes_Buf(self);
 }
 
 /**
@@ -393,8 +393,8 @@ export function chunk$Buf$2(self: Pieces): rt.ByteSlice {
  *
  * This function panics if `len > self.remaining()`.
  */
-export function copyToBytes$Buf$2(self: rt.Place<Pieces>, len: rt.usize): rt.ByteSlice {
-	return copyToBytes$Buf(self.v, len);
+export function copyToBytes$bytes_Buf_mut(self: rt.Place<Pieces>, len: rt.usize): rt.ByteSlice {
+	return copyToBytes$bytes_Buf(self.v, len);
 }
 
 /**
@@ -420,8 +420,8 @@ export function copyToBytes$Buf$2(self: rt.Place<Pieces>, len: rt.usize): rt.Byt
  *
  * This function panics if `self.remaining() < dst.len()`.
  */
-export function copyToSlice$Buf$2(self: rt.Place<Pieces>, dst: rt.ByteSlice): void {
-	copyToSlice$Buf(self.v, dst);
+export function copyToSlice$bytes_Buf_mut(self: rt.Place<Pieces>, dst: rt.ByteSlice): void {
+	copyToSlice$bytes_Buf(self.v, dst);
 }
 
 /**
@@ -442,8 +442,8 @@ export function copyToSlice$Buf$2(self: rt.Place<Pieces>, dst: rt.ByteSlice): vo
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getU8$Buf$2(self: rt.Place<Pieces>): rt.u8 {
-	return getU8$Buf(self.v);
+export function getU8$bytes_Buf_mut(self: rt.Place<Pieces>): rt.u8 {
+	return getU8$bytes_Buf(self.v);
 }
 
 /**
@@ -465,8 +465,8 @@ export function getU8$Buf$2(self: rt.Place<Pieces>): rt.u8 {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf$2(self: rt.Place<Pieces>): boolean {
-	return hasRemaining$Buf$3(self.v);
+export function hasRemaining$bytes_Buf_mut(self: Pieces): boolean {
+	return hasRemaining$bytes_Buf(self);
 }
 
 /**
@@ -488,8 +488,8 @@ export function hasRemaining$Buf$2(self: rt.Place<Pieces>): boolean {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf$3(self: Pieces): boolean {
-	return hasRemaining$Buf(self);
+export function hasRemaining$bytes_Buf_mut_mut(self: rt.Place<Pieces>): boolean {
+	return hasRemaining$bytes_Buf_mut(self.v);
 }
 
 /**
@@ -519,8 +519,8 @@ export function hasRemaining$Buf$3(self: Pieces): boolean {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf$2(self: rt.Place<Pieces>): rt.usize {
-	return remaining$Buf$3(self.v);
+export function remaining$bytes_Buf_mut(self: Pieces): rt.usize {
+	return remaining$bytes_Buf(self);
 }
 
 /**
@@ -550,8 +550,8 @@ export function remaining$Buf$2(self: rt.Place<Pieces>): rt.usize {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf$3(self: Pieces): rt.usize {
-	return remaining$Buf(self);
+export function remaining$bytes_Buf_mut_mut(self: rt.Place<Pieces>): rt.usize {
+	return remaining$bytes_Buf_mut(self.v);
 }
 
 export { new_ as new };

@@ -29,8 +29,8 @@ generic std gap is planned here even when moq never calls it.
 - [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
 - [mem::replace and mem::swap of ()](/quest/m3/ts-unit-replace.md) - swapping or replacing through a `&mut ()` type-checks and matches native Rust
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
+- [Saturating](/quest/m3/ts-saturating.md) - `Saturating<T>` and its std impls translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
-- [Orderings of Result and VecDeque](/quest/m3/ts-order-result-deque.md) - `PartialOrd` and `Ord` of a `Result` and a `VecDeque` translate
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [A tuple's cmp typed as total](/quest/m3/ts-cmp-tuple-total.md) - `rt.cmpTuple` of total fields types its result as `Ordering`
 - [Slices split by a predicate](/quest/m3/ts-slice-split.md) - `[T]::split` and its forms by a predicate translate

@@ -6,7 +6,7 @@ export function default$Default(): Listing {
 	return { source: undefined, listed: new rt.ByteVec(), stale: new rt.ByteVec() };
 }
 
-export function fmt$Debug(self: Listing, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Listing, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Listing";
 	const _4: string = "source";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(self.source, f, rt.u8Debug);

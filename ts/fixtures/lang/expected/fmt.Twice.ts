@@ -7,7 +7,7 @@ export interface Twice {
 	_0: string;
 }
 
-export function writeStr$Write(self: Twice, s: string): rt.Result<undefined, rt.FmtError> {
+export function writeStr$fmt_Write(self: Twice, s: string): rt.Result<undefined, rt.FmtError> {
 	const iter: rt.Iter<rt.char> = rt.strChars(s);
 	while (true) {
 		const _6: rt.char | rt.Done = iter.next();
@@ -19,7 +19,7 @@ export function writeStr$Write(self: Twice, s: string): rt.Result<undefined, rt.
 	return rt.OK;
 }
 
-export function writeChar$Write(self: Twice, c: rt.char): rt.Result<undefined, rt.FmtError> {
+export function writeChar$fmt_Write(self: Twice, c: rt.char): rt.Result<undefined, rt.FmtError> {
 	self._0 = self._0 + String.fromCodePoint(c);
 	self._0 = self._0 + String.fromCodePoint(c);
 	return rt.OK;

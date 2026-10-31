@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(_self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(_self: Void, _f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	rt.unreachable(undefined);
 }
 

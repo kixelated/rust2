@@ -17,17 +17,17 @@ export function log(self: Quirky, other: Quirky, by: rt.u16): void {
 	rt.cellSet(self._1, rt.u16WrappingAdd(rt.u16WrappingMul(self._1.v, 31), self._0 ^ ((other._0 << 4) & 0xffff) ^ by));
 }
 
-export function eq$PartialEq(self: Quirky, other: Quirky): boolean {
+export function eq$cmp_PartialEq(self: Quirky, other: Quirky): boolean {
 	log(self, other, 256);
 	return rt.u16Rem(self._0, 4) === rt.u16Rem(other._0, 4);
 }
 
-export function ne$PartialEq(self: Quirky, other: Quirky): boolean {
+export function ne$cmp_PartialEq(self: Quirky, other: Quirky): boolean {
 	log(self, other, 512);
 	return rt.u16Rem(self._0, 3) !== rt.u16Rem(other._0, 3);
 }
 
-export function partialCmp$PartialOrd(self: Quirky, other: Quirky): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Quirky, other: Quirky): rt.Ordering | undefined {
 	let _4!: boolean;
 	log(self, other, 768);
 	if (!(rt.u16Rem(self._0, 7) !== 0)) {
@@ -40,27 +40,27 @@ export function partialCmp$PartialOrd(self: Quirky, other: Quirky): rt.Ordering 
 	});
 }
 
-export function lt$PartialOrd(self: Quirky, other: Quirky): boolean {
+export function lt$cmp_PartialOrd(self: Quirky, other: Quirky): boolean {
 	log(self, other, 1024);
 	return rt.u16Rem(self._0, 6) < rt.u16Rem(other._0, 6);
 }
 
-export function le$PartialOrd(self: Quirky, other: Quirky): boolean {
+export function le$cmp_PartialOrd(self: Quirky, other: Quirky): boolean {
 	log(self, other, 1280);
 	return rt.u16Rem(self._0, 6) <= rt.u16Rem(other._0, 6);
 }
 
-export function gt$PartialOrd(self: Quirky, other: Quirky): boolean {
+export function gt$cmp_PartialOrd(self: Quirky, other: Quirky): boolean {
 	log(self, other, 1536);
 	return rt.u16Rem(self._0, 6) > rt.u16Rem(other._0, 6);
 }
 
-export function ge$PartialOrd(self: Quirky, other: Quirky): boolean {
+export function ge$cmp_PartialOrd(self: Quirky, other: Quirky): boolean {
 	log(self, other, 1792);
 	return rt.u16Rem(self._0, 6) >= rt.u16Rem(other._0, 6);
 }
 
-export function cmp$Ord(self: Quirky, other: Quirky): rt.Ordering {
+export function cmp$cmp_Ord(self: Quirky, other: Quirky): rt.Ordering {
 	log(self, other, 2048);
 	return rt.cmp(rt.u16Rem(self._0, 8), rt.u16Rem(other._0, 8));
 }

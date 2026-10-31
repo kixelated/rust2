@@ -3,16 +3,16 @@
 import * as rt from "../rt.ts";
 import * as orders_Item from "../orders.Item.ts";
 
-export function min$1lkq6fd(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
-	return rt.ordMin(v1, v2, orders_Item.lt$PartialOrd);
-}
-
-export function min$0a8gb2c(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
-	return rt.ordMin(v1, v2, orders_Item.lt$PartialOrd, rt.drop);
-}
-
 export function min$1ljcpv9(v1: string, v2: string): string {
 	return rt.ordMin(v1, v2, rt.cmpLt(rt.cmpStr));
+}
+
+export function min$1f8m2y1(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
+	return rt.ordMin(v1, v2, orders_Item.lt$cmp_PartialOrd, rt.drop);
+}
+
+export function min$0tn2vhs(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
+	return rt.ordMin(v1, v2, orders_Item.lt$cmp_PartialOrd);
 }
 
 export function min$1mtc1eg(v1: rt.u8, v2: rt.u8): rt.u8 {
@@ -67,28 +67,28 @@ export function minByKey$04nvnd5(v1: orders_Item.Item, v2: orders_Item.Item, f: 
 	return _0;
 }
 
-export function max$1q2fs9h(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
-	return rt.ordMax(v1, v2, orders_Item.lt$PartialOrd);
-}
-
-export function max$1liqgh8(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
-	return rt.ordMax(v1, v2, orders_Item.lt$PartialOrd, rt.drop);
-}
-
 export function max$17dwnpn(v1: string, v2: string): string {
 	return rt.ordMax(v1, v2, rt.cmpLt(rt.cmpStr));
+}
+
+export function max$1s8mlx0(v1: Uint8Array, v2: Uint8Array): Uint8Array {
+	return rt.ordMax(v1, v2, rt.cmpLt(rt.cmpBytes));
 }
 
 export function max$0i3ups8(v1: rt.i8, v2: rt.i8): rt.i8 {
 	return rt.max(v1, v2);
 }
 
-export function max$0g5g0ks(v1: rt.u8, v2: rt.u8): rt.u8 {
-	return rt.max(v1, v2);
+export function max$1tkcqvz(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
+	return rt.ordMax(v1, v2, orders_Item.lt$cmp_PartialOrd, rt.drop);
 }
 
-export function max$1s8mlx0(v1: Uint8Array, v2: Uint8Array): Uint8Array {
-	return rt.ordMax(v1, v2, rt.cmpLt(rt.cmpBytes));
+export function max$0bn3iky(v1: orders_Item.Item, v2: orders_Item.Item): orders_Item.Item {
+	return rt.ordMax(v1, v2, orders_Item.lt$cmp_PartialOrd);
+}
+
+export function max$0g5g0ks(v1: rt.u8, v2: rt.u8): rt.u8 {
+	return rt.max(v1, v2);
 }
 
 export function maxBy$04pyy5s(v1: orders_Item.Item, v2: orders_Item.Item, compare: (a0: orders_Item.Item, a1: orders_Item.Item) => rt.Ordering): orders_Item.Item {
@@ -114,7 +114,7 @@ export function maxBy$04pyy5s(v1: orders_Item.Item, v2: orders_Item.Item, compar
 	return _0;
 }
 
-export function maxByKey$0pbe6kl(v1: orders_Item.Item, v2: orders_Item.Item, f: (a0: orders_Item.Item) => orders_Item.Item): orders_Item.Item {
+export function maxByKey$1a9sf4b(v1: orders_Item.Item, v2: orders_Item.Item, f: (a0: orders_Item.Item) => orders_Item.Item): orders_Item.Item {
 	let _0!: orders_Item.Item;
 	let _16: boolean = false;
 	let _15: boolean = false;
@@ -122,7 +122,7 @@ export function maxByKey$0pbe6kl(v1: orders_Item.Item, v2: orders_Item.Item, f: 
 	_15 = true;
 	const _6: orders_Item.Item = f(v2);
 	const _11: orders_Item.Item = f(v1);
-	if (!orders_Item.lt$PartialOrd(_6, _11)) {
+	if (!orders_Item.lt$cmp_PartialOrd(_6, _11)) {
 		_11[Symbol.dispose]();
 		_6[Symbol.dispose]();
 		_15 = false;

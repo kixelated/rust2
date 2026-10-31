@@ -5,7 +5,7 @@ import type * as lite_version_Version from "../lite/version.Version.ts";
 /** How a protocol version lays out a varint on the wire. */
 export type Form = { tag: "Quic" } | { tag: "LeadingOnes"; seven: boolean };
 
-export function from$From_Version(version: lite_version_Version.Version): Form {
+export function from$convert_From_lite_version_Version(version: lite_version_Version.Version): Form {
 	if (version === "Lite01" || version === "Lite02" || version === "Lite03" || version === "Lite04" || version === "Lite05" || version === "Lite06") {
 		return { tag: "Quic" } as Form;
 	}

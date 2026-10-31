@@ -9,27 +9,27 @@ import * as Log from "../log.Log.ts";
 import * as Guard from "../model.Guard.ts";
 
 /** Call `f` once, which consumes it. */
-export function once$u32_scoped_closure3(f: () => rt.u32): rt.u32 {
+export function once$u32_drops_closures_scoped_closure3(f: () => rt.u32): rt.u32 {
 	return f();
 }
 
 /** Call `f` once, which consumes it. */
-export function once$u32_scoped_closure4(f: () => rt.u32): rt.u32 {
+export function once$u32_drops_closures_scoped_closure4(f: () => rt.u32): rt.u32 {
 	return f();
 }
 
 /** Call `f` once, which consumes it. */
-export function once$u32_scoped_closure5(f: () => rt.u32): rt.u32 {
+export function once$u32_drops_closures_scoped_closure5(f: () => rt.u32): rt.u32 {
 	return rt.callOnce(f);
 }
 
 /** Call `f` once, which consumes it. */
-export function once$u32_scoped_closure8(f: () => rt.u32): rt.u32 {
+export function once$u32_drops_closures_scoped_closure8(f: () => rt.u32): rt.u32 {
 	return rt.callOnce(f);
 }
 
 /** Call `f` with each of `n` and `n + 1`, which borrows it, and drop it. */
-export function twice$scoped_closure10(n: rt.u32, f: (a0: rt.u32) => rt.u32): rt.u32 {
+export function twice$drops_closures_scoped_closure10(n: rt.u32, f: (a0: rt.u32) => rt.u32): rt.u32 {
 	const _0: rt.u32 = rt.u32Add(f(n), f(rt.u32Add(n, 1)));
 	rt.drop(f);
 	return _0;
@@ -62,7 +62,7 @@ export function scoped(log: Log.Log, id: rt.u32): void {
 	Log.note(log, rt.fmtFormat(["read ", args2[0]]));
 	rt.drop(unused);
 	const captured4 = guard(4);
-	const part2 = once$u32_scoped_closure3(rt.closure((): rt.u32 => {
+	const part2 = once$u32_drops_closures_scoped_closure3(rt.closure((): rt.u32 => {
 		const n3: rt.u32 = Guard.id(captured4);
 		captured4[Symbol.dispose]();
 		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(n3, f)];
@@ -74,7 +74,7 @@ export function scoped(log: Log.Log, id: rt.u32): void {
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part2, f)];
 	Log.note(log, rt.fmtFormat(["moved ", args4[0]]));
 	const captured5 = guard(5);
-	const part3 = once$u32_scoped_closure4(rt.closure((): rt.u32 => {
+	const part3 = once$u32_drops_closures_scoped_closure4(rt.closure((): rt.u32 => {
 		const _04: rt.u32 = Guard.id(captured5);
 		captured5[Symbol.dispose]();
 		return _04;
@@ -84,7 +84,7 @@ export function scoped(log: Log.Log, id: rt.u32): void {
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part3, f)];
 	Log.note(log, rt.fmtFormat(["kept ", args6[0]]));
 	const captured6 = guard(6);
-	const part4 = once$u32_scoped_closure5(rt.closure((): rt.u32 => {
+	const part4 = once$u32_drops_closures_scoped_closure5(rt.closure((): rt.u32 => {
 		return Guard.id(captured6);
 	}, (): void => {
 		captured6[Symbol.dispose]();
@@ -92,7 +92,7 @@ export function scoped(log: Log.Log, id: rt.u32): void {
 	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part4, f)];
 	Log.note(log, rt.fmtFormat(["by ref ", args8[0]]));
 	const captured7 = guard(7);
-	const part5 = twice$scoped_closure10(1, rt.closure((n4: rt.u32): rt.u32 => {
+	const part5 = twice$drops_closures_scoped_closure10(1, rt.closure((n4: rt.u32): rt.u32 => {
 		return rt.u32Add(n4, Guard.id(captured7));
 	}, (): void => {
 		captured7[Symbol.dispose]();
@@ -114,7 +114,7 @@ export function scoped(log: Log.Log, id: rt.u32): void {
 	}, (): void => {
 		captured9[Symbol.dispose]();
 	});
-	const part7 = once$u32_scoped_closure8(rt.closure((): rt.u32 => {
+	const part7 = once$u32_drops_closures_scoped_closure8(rt.closure((): rt.u32 => {
 		return captured10(1);
 	}, (): void => {
 		rt.drop(captured10);

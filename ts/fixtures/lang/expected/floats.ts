@@ -258,7 +258,7 @@ export function floats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		putF64(out, g.level);
 		putF64(out, option_unwrapOr$1ayoj7n(g.peak, -1.0));
 		const _430: floats_Gauge.Gauge = floats_Gauge.default$Default();
-		rt.byteVecPush(out, floats_Gauge.eq$PartialEq(g, _430) ? 1 : 0);
+		rt.byteVecPush(out, floats_Gauge.eq$cmp_PartialEq(g, _430) ? 1 : 0);
 		rt.byteVecPush(out, g.peak === b ? 1 : 0);
 		let local: rt.f64 = a;
 		raise(rt.place(() => local, (value2) => local = value2), 1.0);
@@ -393,7 +393,7 @@ export function formats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 			const _78: rt.f64 | undefined = a * 0.5;
 			const _80: rt.f64[] = [a, -0.0, 1e-7, 1e16, NaN];
 			const part = { level: a, peak: _78, history: _80 };
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => floats_Reading.fmt$Debug(part, f)];
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => floats_Reading.fmt$fmt_Debug(part, f)];
 			fmt_put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ alternate: true }, args8[0]), "|", rt.fmtSpec({ precision: 2 }, args8[0]), "|", rt.fmtSpec({ plus: true, zero: true, width: 12 }, args8[0])]));
 		} else {
 			let state: rt.u64 = rt.u64Or(takeBits(data)[0], 1);

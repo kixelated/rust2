@@ -13,7 +13,7 @@ export class Tally {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
@@ -22,7 +22,7 @@ export function clone$Clone(self: Tally): Tally {
 	return new Tally(rt.u8WrappingAdd(self._0, 100), self._1);
 }
 
-export function drop$Drop(self: Tally): void {
+export function drop$ops_Drop(self: Tally): void {
 	rt.cellSet(self._1, rt.u32Add(rt.u32Mul(self._1.v, 3), self._0 as rt.u32));
 }
 

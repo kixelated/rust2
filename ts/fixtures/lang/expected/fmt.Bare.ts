@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(_self: Bare, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(_self: Bare, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.fmtWriteStr(f, "Bare");
 }
 
-export function eq$PartialEq(_self: Bare, _other: Bare): boolean {
+export function eq$cmp_PartialEq(_self: Bare, _other: Bare): boolean {
 	return true;
 }
 

@@ -2,7 +2,7 @@
 
 import type * as Timestamp from "./bench.Timestamp.ts";
 
-export function copy$Timestamp(v: Timestamp.Timestamp): Timestamp.Timestamp {
+export function copy$bench_Timestamp(v: Timestamp.Timestamp): Timestamp.Timestamp {
 	return { value: v.value, scale: v.scale };
 }
 

@@ -4,25 +4,25 @@ import * as rt from "./rt.ts";
 import * as Any from "./core/any.Any.ts";
 
 /** Provided, and overridden by one impl. */
-export function sides$Shape(_self: Square): rt.u8 {
+export function sides$dyns_Shape(_self: Square): rt.u8 {
 	return 4;
 }
 
-export function intoArea$Shape(self: Square): rt.u32 {
-	return rt.u32WrappingAdd(area$Shape(self), 1);
+export function intoArea$dyns_Shape(self: Square): rt.u32 {
+	return rt.u32WrappingAdd(area$dyns_Shape(self), 1);
 }
 
 /** Over early-bound lifetimes, which its signature takes as arguments too. */
-export function larger$Shape(self: Square, other: rt.u32): rt.u32 {
-	return rt.max(area$Shape(self), other);
+export function larger$dyns_Shape(self: Square, other: rt.u32): rt.u32 {
+	return rt.max(area$dyns_Shape(self), other);
 }
 
 /** Writes through a `&mut` to a number, which is an `rt.Place`. */
-export function tally$Shape(self: Square, sum: rt.Place<rt.u32>): void {
-	sum.v = rt.u32WrappingAdd(sum.v, area$Shape(self));
+export function tally$dyns_Shape(self: Square, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$dyns_Shape(self));
 }
 
-export function fmt$Debug(self: Square, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Square, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Square";
 	const _4: string = "side";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self.side, f);
@@ -33,26 +33,26 @@ export interface Square {
 	side: rt.u16;
 }
 
-export function area$Shape(self: Square): rt.u32 {
+export function area$dyns_Shape(self: Square): rt.u32 {
 	return rt.u32Mul(self.side as rt.u32, self.side as rt.u32);
 }
 
-export function grow$Shape(self: Square, by: rt.u8): void {
+export function grow$dyns_Shape(self: Square, by: rt.u8): void {
 	self.side = rt.u16WrappingAdd(self.side, by as rt.u16);
 }
 
-export function label$Named(self: Square): string {
+export function label$dyns_Named(self: Square): string {
 	const arg = self.side;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f)];
 	return rt.fmtFormat(["square ", args2[0]]);
 }
 
-export function asAny$Erased(self: Square): Any.Any {
-	return new Any.Square(self);
+export function asAny$dyns_Erased(self: Square): Any.Any {
+	return new Any.of$dyns_Square(self);
 }
 
-export function asAnyMut$Erased(self: Square): Any.Any {
-	return new Any.Square(self);
+export function asAnyMut$dyns_Erased(self: Square): Any.Any {
+	return new Any.of$dyns_Square(self);
 }
 
 //# sourceMappingURL=dyns.Square.ts.map

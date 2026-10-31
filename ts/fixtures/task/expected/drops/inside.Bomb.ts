@@ -13,11 +13,11 @@ export class Bomb {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function drop$Drop(self: Bomb): void {
+export function drop$ops_Drop(self: Bomb): void {
 	const arg = self._0;
 	const _8: rt.Fmt = (f: rt.Formatter) => rt.usizeDisplay(arg, f);
 	const arg2 = self._1;
@@ -25,11 +25,11 @@ export function drop$Drop(self: Bomb): void {
 	rt.panicFmt(["range ", args2[0], "..", args2[1], " dropped"]);
 }
 
-export function startBound$RangeBounds_usize(self: Bomb): rt.RangeBound<rt.usize> {
+export function startBound$ops_RangeBounds_usize(self: Bomb): rt.RangeBound<rt.usize> {
 	return { tag: "Included", _0: self._0 } as rt.RangeBound<rt.usize>;
 }
 
-export function endBound$RangeBounds_usize(self: Bomb): rt.RangeBound<rt.usize> {
+export function endBound$ops_RangeBounds_usize(self: Bomb): rt.RangeBound<rt.usize> {
 	return { tag: "Excluded", _0: self._1 } as rt.RangeBound<rt.usize>;
 }
 

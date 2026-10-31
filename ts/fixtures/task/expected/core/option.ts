@@ -37,9 +37,16 @@ export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt
 	return self;
 }
 
-export function map$06e51ml(self: rt.Arc<[Guard.Guard, Guard.Guard]> | undefined, f: (a0: rt.Arc<[Guard.Guard, Guard.Guard]>) => [rt.u32, rt.usize]): [rt.u32, rt.usize] | undefined {
-	if (self === undefined) {
-		return undefined;
+export function map$0hegtde(self: Key.Key | undefined | rt.None, f: (a0: Key.Key | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
+	}
+	return f(self);
+}
+
+export function map$0ccnsmq(self: Guard.Guard | undefined | rt.None, f: (a0: Guard.Guard | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
+	if (self === rt.None) {
+		return rt.None;
 	}
 	return f(self);
 }
@@ -58,7 +65,7 @@ export function map$0s8hob8(self: Part.Part | undefined, _: (a0: Part.Part) => r
 	return self.take$Part();
 }
 
-export function map$01pvlgn(self: [Guard.Guard, Guard.Guard] | undefined, f: (a0: [Guard.Guard, Guard.Guard]) => [rt.u32, rt.u32]): [rt.u32, rt.u32] | undefined {
+export function map$0782hf5(self: Key.Key | undefined, f: (a0: Key.Key) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -72,6 +79,13 @@ export function map$1raha9y(self: Guard.Guard | undefined, f: (a0: Guard.Guard) 
 	return f(self);
 }
 
+export function map$19e1ji3(self: rt.Result<Guard.Guard, Any.Any> | undefined, f: (a0: rt.Result<Guard.Guard, Any.Any>) => boolean): boolean | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0lq7mno(self: Guard.Guard | undefined, _: (a0: Guard.Guard) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -79,28 +93,21 @@ export function map$0lq7mno(self: Guard.Guard | undefined, _: (a0: Guard.Guard) 
 	return Guard.id(self);
 }
 
-export function map$0782hf5(self: Key.Key | undefined, f: (a0: Key.Key) => rt.u32): rt.u32 | undefined {
+export function map$06e51ml(self: rt.Arc<[Guard.Guard, Guard.Guard]> | undefined, f: (a0: rt.Arc<[Guard.Guard, Guard.Guard]>) => [rt.u32, rt.usize]): [rt.u32, rt.usize] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
 	return f(self);
 }
 
-export function map$0ccnsmq(self: Guard.Guard | undefined | rt.None, f: (a0: Guard.Guard | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
-	if (self === rt.None) {
-		return rt.None;
+export function map$01pvlgn(self: [Guard.Guard, Guard.Guard] | undefined, f: (a0: [Guard.Guard, Guard.Guard]) => [rt.u32, rt.u32]): [rt.u32, rt.u32] | undefined {
+	if (self === undefined) {
+		return undefined;
 	}
 	return f(self);
 }
 
-export function map$0hegtde(self: Key.Key | undefined | rt.None, f: (a0: Key.Key | undefined) => rt.u32 | undefined): rt.u32 | undefined | rt.None {
-	if (self === rt.None) {
-		return rt.None;
-	}
-	return f(self);
-}
-
-export function map$19e1ji3(self: rt.Result<Guard.Guard, Any.Any> | undefined, f: (a0: rt.Result<Guard.Guard, Any.Any>) => boolean): boolean | undefined {
+export function map$14zg54s(self: [rt.usize, Guard.Guard] | undefined, f: (a0: [rt.usize, Guard.Guard]) => [rt.usize, rt.u32]): [rt.usize, rt.u32] | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
@@ -150,35 +157,7 @@ export function map$0upmgd9(self: rt.u64 | undefined, f: (a0: rt.u64) => rt.Resu
 	return f(self);
 }
 
-export function map$14zg54s(self: [rt.usize, Guard.Guard] | undefined, f: (a0: [rt.usize, Guard.Guard]) => [rt.usize, rt.u32]): [rt.usize, rt.u32] | undefined {
-	if (self === undefined) {
-		return undefined;
-	}
-	return f(self);
-}
-
-export function mapOr$0lu2pr2(self: rt.Arc<Part.Part> | undefined, default_: rt.u32, f: (a0: rt.Arc<Part.Part>) => rt.u32): rt.u32 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1jn2pas(self: Part.Part | undefined, default_: rt.u32, f: (a0: Part.Part) => rt.u32): rt.u32 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$01ozsk3(self: Guard.Guard | undefined, default_: rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
-	if (self === undefined) {
-		return default_;
-	}
-	return f(self);
-}
-
-export function mapOr$1w10sgd(self: Key.Key | undefined, default_: rt.u32, f: (a0: Key.Key) => rt.u32): rt.u32 {
+export function mapOr$0vxyhav(self: Guard.Guard[] | undefined, default_: rt.usize, f: (a0: Guard.Guard[]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
 	}
@@ -192,7 +171,28 @@ export function mapOr$00i7kb3(self: rt.Ordering | undefined, default_: rt.i8, f:
 	return f(self);
 }
 
-export function mapOr$0vxyhav(self: Guard.Guard[] | undefined, default_: rt.usize, f: (a0: Guard.Guard[]) => rt.usize): rt.usize {
+export function mapOr$1w10sgd(self: Key.Key | undefined, default_: rt.u32, f: (a0: Key.Key) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$01ozsk3(self: Guard.Guard | undefined, default_: rt.u32, f: (a0: Guard.Guard) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$1jn2pas(self: Part.Part | undefined, default_: rt.u32, f: (a0: Part.Part) => rt.u32): rt.u32 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0lu2pr2(self: rt.Arc<Part.Part> | undefined, default_: rt.u32, f: (a0: rt.Arc<Part.Part>) => rt.u32): rt.u32 {
 	if (self === undefined) {
 		return default_;
 	}

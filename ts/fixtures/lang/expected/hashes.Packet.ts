@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function hash$Hash_DefaultHasher(self: Packet, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Packet, state: rt.Hasher): void {
 	rt.hash64(self.id, state);
 	rt.hash8(self.flags, state);
 	rt.hashStr(self.name, state);
