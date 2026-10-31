@@ -406,7 +406,7 @@ fn atomic<'tcx>(
 			name,
 			"compare_exchange" | "compare_exchange_weak" | "try_update" | "fetch_update" | "update"
 		)
-		&& (b.t.pointee(*pointee) == super::pointer::Pointee::Place || b.t.zero_sized(*pointee))
+		&& b.t.incomparable(*pointee).is_some()
 	{
 		return Ok(Some(b.err(
 			call.span,
