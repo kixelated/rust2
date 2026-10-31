@@ -11,19 +11,19 @@ export interface ByRef {
 	_0: rt.u16;
 }
 
-export function eq$PartialEq(self: ByRef, other: ByRef): boolean {
+export function eq$cmp_PartialEq_ref(self: ByRef, other: ByRef): boolean {
 	return rt.u16Rem(self._0, 2) === rt.u16Rem(other._0, 2);
 }
 
-export function partialCmp$PartialOrd(self: ByRef, other: ByRef): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd_ref(self: ByRef, other: ByRef): rt.Ordering | undefined {
 	return rt.cmp(rt.u16Rem(self._0, 3), rt.u16Rem(other._0, 3));
 }
 
-export function cmp$Ord(self: ByRef, other: ByRef): rt.Ordering {
+export function cmp$cmp_Ord_ref(self: ByRef, other: ByRef): rt.Ordering {
 	return rt.cmp(rt.u16Rem(other._0, 4), rt.u16Rem(self._0, 4));
 }
 
-export function hash$Hash_DefaultHasher(self: ByRef, state: rt.Hasher): void {
+export function hash$Hash_ref_hash_DefaultHasher(self: ByRef, state: rt.Hasher): void {
 	rt.hash16(rt.u16Rem(self._0, 2), state);
 }
 

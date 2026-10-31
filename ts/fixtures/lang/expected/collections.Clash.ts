@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Clash, other: Clash): boolean {
+export function eq$cmp_PartialEq(self: Clash, other: Clash): boolean {
 	return self._0 === other._0;
 }
 
@@ -11,7 +11,7 @@ export interface Clash {
 	_0: rt.u8;
 }
 
-export function hash$Hash_DefaultHasher(_self: Clash, _2: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(_self: Clash, _2: rt.Hasher): void {
 }
 
 //# sourceMappingURL=collections.Clash.ts.map

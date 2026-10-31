@@ -6,7 +6,7 @@ export interface Wakes {
 	_0: rt.Atomic<rt.u8>;
 }
 
-export function wake$Wake(self: rt.Arc<Wakes>): void {
+export function wake$task_Wake(self: rt.Arc<Wakes>): void {
 	rt.atomicFetch(self.value._0, rt.u8WrappingAdd, 1, 0);
 	self[Symbol.dispose]();
 }

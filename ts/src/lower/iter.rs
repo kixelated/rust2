@@ -5,7 +5,7 @@
 //! `rt.iterFrom`.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Instance, Ty, TypeVisitableExt};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
 use super::Translator;
@@ -120,6 +120,10 @@ pub fn next<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, iter: Expr) -> Expr 
 pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
 	let tcx = b.t.tcx;
 	let (ty, value) = peel_mut(ty, value);
+	let (ty, value) = match unbox_ref(tcx, ty) {
+		unboxed if unboxed != ty => (unboxed, b.t.pointee_value(ty, value)),
+		_ => (ty, value),
+	};
 	let owned = !ty.is_ref();
 	if b.t.iter_item(ty).is_some() {
 		not_bound(b, ty, span);
@@ -234,6 +238,20 @@ pub(super) fn iter_of<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty
 	let projection = Ty::new_projection(tcx, ty::IsRigid::No, item, [ty]);
 	tcx.try_normalize_erasing_regions(t.typing_env_pub(), ty::Unnormalized::new_wip(projection))
 		.ok()
+}
+
+/// `ty`, a reference to a box of a slice or an array, as one to what the box holds, which
+/// JS keeps as the box.
+pub fn unbox_ref<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
+	match *ty.kind() {
+		ty::Ref(region, inner, mutability)
+			if let Some(held) = inner.boxed_ty()
+				&& matches!(held.kind(), ty::Slice(_) | ty::Array(..)) =>
+		{
+			Ty::new_ref(tcx, region, held, mutability)
+		}
+		_ => ty,
+	}
 }
 
 /// Whether `ty` is a `&mut` to a `&mut`, which is an `rt.Place` of it, or a box of one,

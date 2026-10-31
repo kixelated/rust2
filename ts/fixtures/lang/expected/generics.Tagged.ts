@@ -4,14 +4,14 @@ import * as rt from "./rt.ts";
 import * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 
-export function fmt$Debug_Either_u8_u16_i16(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_generics_Either_u8_u16_i16(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Tagged";
 	const _4: string = "key";
-	const _5: rt.Fmt = (f: rt.Formatter) => Either.fmt$Debug_u8_u16(self.key, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => Either.fmt$fmt_Debug_u8_u16(self.key, f);
 	const _7: string = "inner";
-	const _8: rt.Fmt = (f: rt.Formatter) => Wrap.fmt$Debug_i16(self.inner, f);
+	const _8: rt.Fmt = (f: rt.Formatter) => Wrap.fmt$fmt_Debug_i16(self.inner, f);
 	const _10: string = "all";
-	const _11: rt.Fmt = (f: rt.Formatter) => rt.fmtList(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f));
+	const _11: rt.Fmt = (f: rt.Formatter) => rt.fmtList(self.all, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$fmt_Debug_i16(value, f));
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8), _10, _11));
 }
 
@@ -28,7 +28,7 @@ export class Tagged<K, V> {
 	}
 }
 
-export function first$Either_u8_u16_i16(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>): Wrap.Wrap<rt.i16> | undefined {
+export function first$generics_Either_u8_u16_i16(self: Tagged<Either.Either<rt.u8, rt.u16>, rt.i16>): Wrap.Wrap<rt.i16> | undefined {
 	return rt.sliceFirst(self.all);
 }
 

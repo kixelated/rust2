@@ -6,21 +6,14 @@ import type * as Hop from "../keys.Hop.ts";
 import type * as Way from "../keys.Way.ts";
 import type * as Void from "../shapes.Void.ts";
 
-export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | undefined {
+export function thenSome$0ztng9q(self: boolean, t: rt.Result<rt.u16, Void.Void>): rt.Result<rt.u16, Void.Void> | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$1d6toqn(self: boolean, t: undefined): undefined | rt.None {
-	if (!self) {
-		return rt.None;
-	}
-	return t;
-}
-
-export function thenSome$0ztng9q(self: boolean, t: rt.Result<rt.u16, Void.Void>): rt.Result<rt.u16, Void.Void> | undefined {
+export function thenSome$0rsp0eu(self: boolean, t: Uint8Array): Uint8Array | undefined {
 	if (!self) {
 		return undefined;
 	}
@@ -62,14 +55,28 @@ export function thenSome$0jkru5t(self: boolean, t: rt.isize): rt.isize | undefin
 	return t;
 }
 
-export function thenSome$0b23a33(self: boolean, t: rt.u16): rt.u16 | undefined {
+export function thenSome$1d6toqn(self: boolean, t: undefined): undefined | rt.None {
+	if (!self) {
+		return rt.None;
+	}
+	return t;
+}
+
+export function thenSome$0xksuo2(self: boolean, t: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function thenSome$0xksuo2(self: boolean, t: rt.Place<rt.u32>): rt.Place<rt.u32> | undefined {
+export function thenSome$1jqdi5p(self: boolean, t: rt.Duration): rt.Duration | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return t;
+}
+
+export function thenSome$0b23a33(self: boolean, t: rt.u16): rt.u16 | undefined {
 	if (!self) {
 		return undefined;
 	}
@@ -97,13 +104,6 @@ export function thenSome$0d5am30(self: boolean, t: rt.u8): rt.u8 | undefined {
 	return t;
 }
 
-export function thenSome$0rsp0eu(self: boolean, t: Uint8Array): Uint8Array | undefined {
-	if (!self) {
-		return undefined;
-	}
-	return t;
-}
-
 export function thenSome$1j8foe9(self: boolean, _: undefined): undefined | rt.None {
 	if (!self) {
 		return rt.None;
@@ -118,27 +118,6 @@ export function thenSome$07z8k4h(self: boolean, t: rt.usize): rt.usize | undefin
 	return t;
 }
 
-export function then$1j955kq(self: boolean, _: () => defaults_Made.Made): defaults_Made.Made | undefined {
-	if (!self) {
-		return undefined;
-	}
-	return defaults_Made.default$Default();
-}
-
-export function then$1c9ust9(self: boolean, f: () => Hop.Hop[]): Hop.Hop[] | undefined {
-	if (!self) {
-		return undefined;
-	}
-	return f();
-}
-
-export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, defaults_Made.Made]): [rt.u64 | undefined, defaults_Made.Made] | undefined {
-	if (!self) {
-		return undefined;
-	}
-	return f();
-}
-
 export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 | undefined | rt.None {
 	if (!self) {
 		return rt.None;
@@ -146,30 +125,9 @@ export function then$16ew6vr(self: boolean, f: () => rt.u8 | undefined): rt.u8 |
 	return f();
 }
 
-export function then$0b2eeh4(self: boolean, f: () => Array<rt.u8 | undefined>): Array<rt.u8 | undefined> | undefined {
-	if (!self) {
-		return undefined;
-	}
-	return f();
-}
-
-export function then$0wlzj76(self: boolean, f: () => rt.Ordering): rt.Ordering | undefined {
-	if (!self) {
-		return undefined;
-	}
-	return f();
-}
-
 export function then$0afp4no(self: boolean, f: () => rt.Result<rt.u8, rt.ParseIntError>): rt.Result<rt.u8, rt.ParseIntError> | undefined {
 	if (!self) {
 		return undefined;
-	}
-	return f();
-}
-
-export function then$18np55d(self: boolean, f: () => Way.Way | undefined): Way.Way | undefined | rt.None {
-	if (!self) {
-		return rt.None;
 	}
 	return f();
 }
@@ -182,6 +140,20 @@ export function then$1i9qaz4(self: boolean, _: () => rt.ByteVec): rt.ByteVec | u
 }
 
 export function then$0ozmvid(self: boolean, f: () => rt.ByteVec): rt.ByteVec | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$0l8o6jo(self: boolean, f: () => rt.u32[]): rt.u32[] | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$0b2eeh4(self: boolean, f: () => Array<rt.u8 | undefined>): Array<rt.u8 | undefined> | undefined {
 	if (!self) {
 		return undefined;
 	}
@@ -209,7 +181,7 @@ export function then$1nf265w(self: boolean, f: () => rt.i32[]): rt.i32[] | undef
 	return f();
 }
 
-export function then$0havnzo(self: boolean, f: () => string): string | undefined {
+export function then$1c9ust9(self: boolean, f: () => Hop.Hop[]): Hop.Hop[] | undefined {
 	if (!self) {
 		return undefined;
 	}
@@ -223,14 +195,42 @@ export function then$0l07w38(self: boolean, f: () => rt.u16[]): rt.u16[] | undef
 	return f();
 }
 
-export function then$0l8o6jo(self: boolean, f: () => rt.u32[]): rt.u32[] | undefined {
+export function then$0uovwq9(self: boolean, f: () => rt.u64[]): rt.u64[] | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return f();
 }
 
-export function then$0uovwq9(self: boolean, f: () => rt.u64[]): rt.u64[] | undefined {
+export function then$1j955kq(self: boolean, _: () => defaults_Made.Made): defaults_Made.Made | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return defaults_Made.default$Default();
+}
+
+export function then$0wlzj76(self: boolean, f: () => rt.Ordering): rt.Ordering | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$18np55d(self: boolean, f: () => Way.Way | undefined): Way.Way | undefined | rt.None {
+	if (!self) {
+		return rt.None;
+	}
+	return f();
+}
+
+export function then$0havnzo(self: boolean, f: () => string): string | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
+export function then$1t2ieki(self: boolean, f: () => [rt.u64 | undefined, defaults_Made.Made]): [rt.u64 | undefined, defaults_Made.Made] | undefined {
 	if (!self) {
 		return undefined;
 	}

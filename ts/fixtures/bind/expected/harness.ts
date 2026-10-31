@@ -6,7 +6,7 @@ import * as checksum from "./bind/checksum.ts";
 import * as Nibble from "./bind/nibble.ts";
 import * as skip from "./bind/skip.ts";
 import * as Tally from "./bind/tally.ts";
-import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, mapOr$174crag as option_mapOr$174crag } from "./core/option.ts";
+import { unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, mapOr$174crag as option_mapOr$174crag } from "./core/option.ts";
 
 /**
  * Split the input as `Blob`, compare and hash the parts, skip its leading zeros, and
@@ -26,17 +26,17 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	rt.byteVecPush(out, _20);
 	const _25: rt.u8 = Blob.len(inner) & 0xff;
 	rt.byteVecPush(out, _25);
-	const _30: rt.ByteSlice = Blob.deref$Deref(tail);
+	const _30: rt.ByteSlice = Blob.deref$ops_Deref(tail);
 	rt.byteVecExtendFromSlice(out, _30);
-	const _34: rt.u8 = Blob.eq$PartialEq(head, tail) ? 1 : 0;
+	const _34: rt.u8 = Blob.eq$cmp_PartialEq(head, tail) ? 1 : 0;
 	rt.byteVecPush(out, _34);
-	const _40: rt.u8 = Blob.eq$PartialEq(Blob.clone$Clone(head), head) ? 1 : 0;
+	const _40: rt.u8 = Blob.eq$cmp_PartialEq(Blob.clone$Clone(head), head) ? 1 : 0;
 	rt.byteVecPush(out, _40);
-	const _48: rt.u8 = Blob.eq$PartialEq(Blob.from$From_Vec_u8(rt.byteSliceToByteVec(input)), bytes) ? 1 : 0;
+	const _48: rt.u8 = Blob.eq$cmp_PartialEq(Blob.from$convert_From_Vec_u8(rt.byteSliceToByteVec(input)), bytes) ? 1 : 0;
 	rt.byteVecPush(out, _48);
 	const _56: rt.u8 = Blob.isEmpty(bytes) ? 1 : 0;
 	rt.byteVecPush(out, _56);
-	const sum: rt.u32 = checksum.checksum(Blob.deref$Deref(tail));
+	const sum: rt.u32 = checksum.checksum(Blob.deref$ops_Deref(tail));
 	const iter: rt.Iter<rt.i32> = rt.iterSlice([0, 8, 16, 24]);
 	while (true) {
 		const _65: rt.i32 | rt.Done = iter.next();
@@ -84,10 +84,10 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): void {
 	let _12!: rt.usize;
 	let _143!: rt.u8;
-	const seen: rt.HashSet<Blob.Blob> = rt.hashNew(rt.hashing(Blob.hash$Hash as (a0: Blob.Blob, a1: rt.Hasher) => undefined, Blob.eq$PartialEq, true)) as rt.HashSet<Blob.Blob>;
-	const counts: rt.HashMap<Blob.Blob, rt.u8> = rt.hashNew(rt.hashing(Blob.hash$Hash as (a0: Blob.Blob, a1: rt.Hasher) => undefined, Blob.eq$PartialEq, true)) as rt.HashMap<Blob.Blob, rt.u8>;
-	const sorted: rt.BTreeSet<Blob.Blob> = rt.btreeNew(Blob.cmp$Ord) as rt.BTreeSet<Blob.Blob>;
-	const firsts: rt.BTreeMap<Blob.Blob, rt.u8> = rt.btreeNew(Blob.cmp$Ord) as rt.BTreeMap<Blob.Blob, rt.u8>;
+	const seen: rt.HashSet<Blob.Blob> = rt.hashNew(rt.hashing(Blob.hash$Hash as (a0: Blob.Blob, a1: rt.Hasher) => undefined, Blob.eq$cmp_PartialEq, true)) as rt.HashSet<Blob.Blob>;
+	const counts: rt.HashMap<Blob.Blob, rt.u8> = rt.hashNew(rt.hashing(Blob.hash$Hash as (a0: Blob.Blob, a1: rt.Hasher) => undefined, Blob.eq$cmp_PartialEq, true)) as rt.HashMap<Blob.Blob, rt.u8>;
+	const sorted: rt.BTreeSet<Blob.Blob> = rt.btreeNew(Blob.cmp$cmp_Ord) as rt.BTreeSet<Blob.Blob>;
+	const firsts: rt.BTreeMap<Blob.Blob, rt.u8> = rt.btreeNew(Blob.cmp$cmp_Ord) as rt.BTreeMap<Blob.Blob, rt.u8>;
 	const _10: rt.usize = Blob.len(bytes);
 	let iterStart: rt.usize = 0;
 	const iterEnd: rt.usize = _10;
@@ -111,7 +111,7 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	rt.byteVecPush(out, rt.btreeContains(sorted, probe) ? 1 : 0);
 	rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.btreeGet(firsts, probe), 255));
 	const _81: rt.RangeFrom<Blob.Blob> = new rt.RangeFrom(Blob.clone$Clone(probe));
-	rt.byteVecPush(out, rt.iterCount(rt.btreeRangeKeys(sorted, _81, Blob.eq$PartialEq, rt.cmpGt(Blob.partialCmp$PartialOrd))) & 0xff);
+	rt.byteVecPush(out, rt.iterCount(rt.btreeRangeKeys(sorted, _81, Blob.eq$cmp_PartialEq, rt.cmpGt(Blob.partialCmp$cmp_PartialOrd))) & 0xff);
 	const iter2: rt.Iter<[Blob.Blob, rt.u8]> = rt.btreeIter(firsts);
 	while (true) {
 		const _87: [Blob.Blob, rt.u8] | rt.Done = iter2.next();
@@ -119,16 +119,16 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 			break;
 		}
 		rt.byteVecPush(out, Blob.len(_87[0]) & 0xff);
-		rt.byteVecExtendFromSlice(out, Blob.deref$Deref(_87[0]));
+		rt.byteVecExtendFromSlice(out, Blob.deref$ops_Deref(_87[0]));
 		rt.byteVecPush(out, _87[1]);
 	}
 	rt.byteVecPush(out, rt.hashDelete(seen, probe) ? 1 : 0);
 	rt.byteVecPush(out, rt.btreeDelete(sorted, probe) ? 1 : 0);
 	rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
-	const nibbles: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq, true)) as rt.HashSet<Nibble.Nibble>;
-	const lasts: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$PartialEq, true)) as rt.HashMap<Nibble.Nibble, rt.u8>;
-	const ordered: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeSet<Nibble.Nibble>;
-	const values: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
+	const nibbles: rt.HashSet<Nibble.Nibble> = rt.hashNew(rt.hashing(Nibble.hash$Hash as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$cmp_PartialEq, true)) as rt.HashSet<Nibble.Nibble>;
+	const lasts: rt.HashMap<Nibble.Nibble, rt.u8> = rt.hashNew(rt.hashing(Nibble.hash$Hash as (a0: Nibble.Nibble, a1: rt.Hasher) => undefined, Nibble.eq$cmp_PartialEq, true)) as rt.HashMap<Nibble.Nibble, rt.u8>;
+	const ordered: rt.BTreeSet<Nibble.Nibble> = rt.btreeNew(Nibble.cmp$cmp_Ord) as rt.BTreeSet<Nibble.Nibble>;
+	const values: rt.BTreeMap<Nibble.Nibble, rt.u8> = rt.btreeNew(Nibble.cmp$cmp_Ord) as rt.BTreeMap<Nibble.Nibble, rt.u8>;
 	for (const byte of rt.byteSliceView(input)) {
 		const key: Nibble.Nibble = Nibble.new(byte);
 		rt.byteVecPush(out, rt.hashAdd(nibbles, key) ? 1 : 0);

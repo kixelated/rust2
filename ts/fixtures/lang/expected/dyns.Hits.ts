@@ -3,22 +3,22 @@
 import * as rt from "./rt.ts";
 
 /** Provided, and overridden by one impl. */
-export function sides$Shape(_self: Hits): rt.u8 {
+export function sides$dyns_Shape(_self: Hits): rt.u8 {
 	return 4;
 }
 
-export function intoArea$Shape(self: Hits): rt.u32 {
-	return rt.u32WrappingAdd(area$Shape(self), 1);
+export function intoArea$dyns_Shape(self: Hits): rt.u32 {
+	return rt.u32WrappingAdd(area$dyns_Shape(self), 1);
 }
 
 /** Over early-bound lifetimes, which its signature takes as arguments too. */
-export function larger$Shape(self: Hits, other: rt.u32): rt.u32 {
-	return rt.max(area$Shape(self), other);
+export function larger$dyns_Shape(self: Hits, other: rt.u32): rt.u32 {
+	return rt.max(area$dyns_Shape(self), other);
 }
 
 /** Writes through a `&mut` to a number, which is an `rt.Place`. */
-export function tally$Shape(self: Hits, sum: rt.Place<rt.u32>): void {
-	sum.v = rt.u32WrappingAdd(sum.v, area$Shape(self));
+export function tally$dyns_Shape(self: Hits, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$dyns_Shape(self));
 }
 
 /** Counts its calls, which every `Arc` of it sees. */
@@ -26,11 +26,11 @@ export interface Hits {
 	_0: rt.Atomic<rt.u32>;
 }
 
-export function area$Shape(self: Hits): rt.u32 {
+export function area$dyns_Shape(self: Hits): rt.u32 {
 	return rt.atomicFetch(self._0, rt.u32WrappingAdd, 1, 0);
 }
 
-export function grow$Shape(self: Hits, by: rt.u8): void {
+export function grow$dyns_Shape(self: Hits, by: rt.u8): void {
 	const _3: rt.u32 = rt.u32WrappingAdd(self._0.v, by as rt.u32);
 	self._0.v = _3;
 }

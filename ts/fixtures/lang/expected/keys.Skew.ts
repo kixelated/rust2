@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Skew, other: Skew): boolean {
+export function eq$cmp_PartialEq(self: Skew, other: Skew): boolean {
 	return self._0 === other._0;
 }
 
@@ -14,11 +14,11 @@ export interface Skew {
 	_0: rt.u8;
 }
 
-export function cmp$Ord(self: Skew, other: Skew): rt.Ordering {
+export function cmp$cmp_Ord(self: Skew, other: Skew): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
 
-export function partialCmp$PartialOrd(self: Skew, other: Skew): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Skew, other: Skew): rt.Ordering | undefined {
 	let _3!: boolean;
 	if (!(rt.u8Rem(self._0, 2) === 1)) {
 		_3 = false;

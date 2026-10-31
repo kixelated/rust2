@@ -34,7 +34,7 @@ import * as rt from "../../rt.ts";
  *
  * A call with `cnt == 0` should never panic and be a no-op.
  */
-export function advance$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, cnt: rt.usize): void {
+export function advance$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, cnt: rt.usize): void {
 	rt.bytesAdvance(self.v, cnt);
 }
 
@@ -70,7 +70,7 @@ export function advance$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, cnt: r
  *
  * A call with `cnt == 0` should never panic and be a no-op.
  */
-export function advance$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, cnt: rt.usize): void {
+export function advance$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>, cnt: rt.usize): void {
 	rt.byteSliceAdvance(self.v, cnt);
 }
 
@@ -95,7 +95,7 @@ export function advance$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, cnt: rt.
  *
  * This function panics if `len > self.remaining()`.
  */
-export function copyToBytes$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, len: rt.usize): rt.ByteSlice {
+export function copyToBytes$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, len: rt.usize): rt.ByteSlice {
 	return rt.bytesSplitTo(self.v, len);
 }
 
@@ -120,7 +120,7 @@ export function copyToBytes$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, le
  *
  * This function panics if `len > self.remaining()`.
  */
-export function copyToBytes$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, len: rt.usize): rt.ByteSlice {
+export function copyToBytes$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>, len: rt.usize): rt.ByteSlice {
 	return rt.byteSliceCopyToBytes(self.v, len);
 }
 
@@ -147,7 +147,7 @@ export function copyToBytes$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, len:
  *
  * This function panics if `self.remaining() < dst.len()`.
  */
-export function copyToSlice$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, dst: rt.ByteSlice): void {
+export function copyToSlice$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, dst: rt.ByteSlice): void {
 	rt.bytesCopyToSlice(self.v, dst);
 }
 
@@ -174,7 +174,7 @@ export function copyToSlice$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, ds
  *
  * This function panics if `self.remaining() < dst.len()`.
  */
-export function copyToSlice$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, dst: rt.ByteSlice): void {
+export function copyToSlice$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>, dst: rt.ByteSlice): void {
 	rt.bytesCopyToSlice(self.v, dst);
 }
 
@@ -197,7 +197,7 @@ export function copyToSlice$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, dst:
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getF32Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32 {
+export function getF32Le$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32 {
 	return rt.f32FromBeBytes(rt.bytesRead(self.v, 4, true));
 }
 
@@ -220,7 +220,7 @@ export function getF32Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getF32Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32 {
+export function getF32Le$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32 {
 	return rt.f32FromBeBytes(rt.bytesRead(self.v, 4, true));
 }
 
@@ -243,7 +243,7 @@ export function getF32Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f32
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getF64$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f64 {
+export function getF64$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f64 {
 	return rt.f64FromBeBytes(rt.bytesRead(self.v, 8, false));
 }
 
@@ -266,7 +266,7 @@ export function getF64$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f64
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getF64$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f64 {
+export function getF64$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f64 {
 	return rt.f64FromBeBytes(rt.bytesRead(self.v, 8, false));
 }
 
@@ -288,7 +288,7 @@ export function getF64$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.f64 {
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI128$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i128 {
+export function getI128$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i128 {
 	return rt.i128FromBeBytes(rt.bytesRead(self.v, 16, false));
 }
 
@@ -310,7 +310,7 @@ export function getI128$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i1
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI128$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i128 {
+export function getI128$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i128 {
 	return rt.i128FromBeBytes(rt.bytesRead(self.v, 16, false));
 }
 
@@ -332,7 +332,7 @@ export function getI128$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i128
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI16Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i16 {
+export function getI16Le$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i16 {
 	return (rt.bytesReadWord(self.v, 2, true) << 16) >> 16 as rt.i16;
 }
 
@@ -354,7 +354,7 @@ export function getI16Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI16Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i16 {
+export function getI16Le$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i16 {
 	return (rt.bytesReadWord(self.v, 2, true) << 16) >> 16 as rt.i16;
 }
 
@@ -376,7 +376,7 @@ export function getI16Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i16
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI32$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i32 {
+export function getI32$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i32 {
 	return (rt.bytesReadWord(self.v, 4, false) | 0) as rt.i32;
 }
 
@@ -398,7 +398,7 @@ export function getI32$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i32
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI32$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i32 {
+export function getI32$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i32 {
 	return (rt.bytesReadWord(self.v, 4, false) | 0) as rt.i32;
 }
 
@@ -420,7 +420,7 @@ export function getI32$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i32 {
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI64Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i64 {
+export function getI64Le$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i64 {
 	return rt.i64FromBeBytes(rt.bytesRead(self.v, 8, true));
 }
 
@@ -442,7 +442,7 @@ export function getI64Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getI64Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i64 {
+export function getI64Le$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i64 {
 	return rt.i64FromBeBytes(rt.bytesRead(self.v, 8, true));
 }
 
@@ -464,7 +464,7 @@ export function getI64Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i64
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getI8$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i8 {
+export function getI8$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i8 {
 	return (rt.bytesReadWord(self.v, 1, false) << 24) >> 24 as rt.i8;
 }
 
@@ -486,7 +486,7 @@ export function getI8$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i8 {
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getI8$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i8 {
+export function getI8$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i8 {
 	return (rt.bytesReadWord(self.v, 1, false) << 24) >> 24 as rt.i8;
 }
 
@@ -509,7 +509,7 @@ export function getI8$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.i8 {
  * This function panics if there is not enough remaining data in `self`, or
  * if `nbytes` is greater than 8.
  */
-export function getIntLe$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.i64 {
+export function getIntLe$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.i64 {
 	return rt.i64FromBeBytes(rt.bytesReadInt(self.v, 8, nbytes, true, true));
 }
 
@@ -532,7 +532,7 @@ export function getIntLe$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, nbyte
  * This function panics if there is not enough remaining data in `self`, or
  * if `nbytes` is greater than 8.
  */
-export function getIntLe$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.i64 {
+export function getIntLe$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.i64 {
 	return rt.i64FromBeBytes(rt.bytesReadInt(self.v, 8, nbytes, true, true));
 }
 
@@ -554,7 +554,7 @@ export function getIntLe$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes:
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU128Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u128 {
+export function getU128Le$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u128 {
 	return rt.u128FromBeBytes(rt.bytesRead(self.v, 16, true));
 }
 
@@ -576,7 +576,7 @@ export function getU128Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU128Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u128 {
+export function getU128Le$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u128 {
 	return rt.u128FromBeBytes(rt.bytesRead(self.v, 16, true));
 }
 
@@ -598,7 +598,7 @@ export function getU128Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u1
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU16$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u16 {
+export function getU16$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u16 {
 	return rt.bytesReadWord(self.v, 2, false) as rt.u16;
 }
 
@@ -620,7 +620,7 @@ export function getU16$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u16
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU16$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u16 {
+export function getU16$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u16 {
 	return rt.bytesReadWord(self.v, 2, false) as rt.u16;
 }
 
@@ -642,7 +642,7 @@ export function getU16$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u16 {
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU32Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u32 {
+export function getU32Le$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u32 {
 	return rt.bytesReadWord(self.v, 4, true) as rt.u32;
 }
 
@@ -664,7 +664,7 @@ export function getU32Le$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU32Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u32 {
+export function getU32Le$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u32 {
 	return rt.bytesReadWord(self.v, 4, true) as rt.u32;
 }
 
@@ -686,7 +686,7 @@ export function getU32Le$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u32
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU64$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u64 {
+export function getU64$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u64 {
 	return rt.u64FromBeBytes(rt.bytesRead(self.v, 8, false));
 }
 
@@ -708,7 +708,7 @@ export function getU64$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u64
  *
  * This function panics if there is not enough remaining data in `self`.
  */
-export function getU64$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u64 {
+export function getU64$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u64 {
 	return rt.u64FromBeBytes(rt.bytesRead(self.v, 8, false));
 }
 
@@ -730,7 +730,7 @@ export function getU64$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u64 {
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getU8$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u8 {
+export function getU8$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u8 {
 	return rt.bytesReadWord(self.v, 1, false) as rt.u8;
 }
 
@@ -752,7 +752,7 @@ export function getU8$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u8 {
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getU8$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u8 {
+export function getU8$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u8 {
 	return rt.bytesReadWord(self.v, 1, false) as rt.u8;
 }
 
@@ -775,7 +775,7 @@ export function getU8$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.u8 {
  * This function panics if there is not enough remaining data in `self`, or
  * if `nbytes` is greater than 8.
  */
-export function getUint$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.u64 {
+export function getUint$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.u64 {
 	return rt.u64FromBeBytes(rt.bytesReadInt(self.v, 8, nbytes, false, false));
 }
 
@@ -798,7 +798,7 @@ export function getUint$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes
  * This function panics if there is not enough remaining data in `self`, or
  * if `nbytes` is greater than 8.
  */
-export function getUint$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.u64 {
+export function getUint$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: rt.usize): rt.u64 {
 	return rt.u64FromBeBytes(rt.bytesReadInt(self.v, 8, nbytes, false, false));
 }
 
@@ -821,30 +821,7 @@ export function getUint$Buf_u8s(self: rt.Place<rt.Place<rt.ByteSlice>>, nbytes: 
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): boolean {
-	return hasRemaining$Buf_Bytes$2(self.v);
-}
-
-/**
- * Returns true if there are any more bytes to consume
- *
- * This is equivalent to `self.remaining() != 0`.
- *
- * # Examples
- *
- * ```
- * use bytes::Buf;
- *
- * let mut buf = &b"a"[..];
- *
- * assert!(buf.has_remaining());
- *
- * buf.get_u8();
- *
- * assert!(!buf.has_remaining());
- * ```
- */
-export function hasRemaining$Buf_Bytes$2(self: rt.Place<rt.ByteSlice>): boolean {
+export function hasRemaining$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.ByteSlice>): boolean {
 	return self.v.length !== 0;
 }
 
@@ -867,7 +844,7 @@ export function hasRemaining$Buf_Bytes$2(self: rt.Place<rt.ByteSlice>): boolean 
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf_BytesMut(self: rt.BytesMut): boolean {
+export function hasRemaining$bytes_Buf_mut_bytes_BytesMut(self: rt.BytesMut): boolean {
 	return self.length !== 0;
 }
 
@@ -890,8 +867,8 @@ export function hasRemaining$Buf_BytesMut(self: rt.BytesMut): boolean {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf_u8s(self: rt.Place<rt.ByteSlice>): boolean {
-	return self.v.length !== 0;
+export function hasRemaining$bytes_Buf_mut_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): boolean {
+	return hasRemaining$bytes_Buf_mut_bytes_Bytes(self.v);
 }
 
 /**
@@ -913,8 +890,31 @@ export function hasRemaining$Buf_u8s(self: rt.Place<rt.ByteSlice>): boolean {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf_u8s$2(self: rt.Place<rt.Place<rt.ByteSlice>>): boolean {
-	return hasRemaining$Buf_u8s(self.v);
+export function hasRemaining$bytes_Buf_mut_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): boolean {
+	return hasRemaining$bytes_Buf_mut_ref_slice_u8(self.v);
+}
+
+/**
+ * Returns true if there are any more bytes to consume
+ *
+ * This is equivalent to `self.remaining() != 0`.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"a"[..];
+ *
+ * assert!(buf.has_remaining());
+ *
+ * buf.get_u8();
+ *
+ * assert!(!buf.has_remaining());
+ * ```
+ */
+export function hasRemaining$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.ByteSlice>): boolean {
+	return self.v.length !== 0;
 }
 
 /**
@@ -944,38 +944,7 @@ export function hasRemaining$Buf_u8s$2(self: rt.Place<rt.Place<rt.ByteSlice>>): 
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.usize {
-	return remaining$Buf_Bytes$2(self.v);
-}
-
-/**
- * Returns the number of bytes between the current position and the end of
- * the buffer.
- *
- * This value is greater than or equal to the length of the slice returned
- * by `chunk()`.
- *
- * # Examples
- *
- * ```
- * use bytes::Buf;
- *
- * let mut buf = &b"hello world"[..];
- *
- * assert_eq!(buf.remaining(), 11);
- *
- * buf.get_u8();
- *
- * assert_eq!(buf.remaining(), 10);
- * ```
- *
- * # Implementer notes
- *
- * Implementations of `remaining` should ensure that the return value does
- * not change unless a call is made to `advance` or any other function that
- * is documented to change the `Buf`'s current position.
- */
-export function remaining$Buf_Bytes$2(self: rt.Place<rt.ByteSlice>): rt.usize {
+export function remaining$bytes_Buf_mut_bytes_Bytes(self: rt.Place<rt.ByteSlice>): rt.usize {
 	return self.v.length;
 }
 
@@ -1006,7 +975,7 @@ export function remaining$Buf_Bytes$2(self: rt.Place<rt.ByteSlice>): rt.usize {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf_BytesMut(self: rt.BytesMut): rt.usize {
+export function remaining$bytes_Buf_mut_bytes_BytesMut(self: rt.BytesMut): rt.usize {
 	return self.length;
 }
 
@@ -1037,8 +1006,8 @@ export function remaining$Buf_BytesMut(self: rt.BytesMut): rt.usize {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf_u8s(self: rt.Place<rt.ByteSlice>): rt.usize {
-	return self.v.length;
+export function remaining$bytes_Buf_mut_mut_bytes_Bytes(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.usize {
+	return remaining$bytes_Buf_mut_bytes_Bytes(self.v);
 }
 
 /**
@@ -1068,8 +1037,39 @@ export function remaining$Buf_u8s(self: rt.Place<rt.ByteSlice>): rt.usize {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf_u8s$2(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.usize {
-	return remaining$Buf_u8s(self.v);
+export function remaining$bytes_Buf_mut_mut_ref_slice_u8(self: rt.Place<rt.Place<rt.ByteSlice>>): rt.usize {
+	return remaining$bytes_Buf_mut_ref_slice_u8(self.v);
+}
+
+/**
+ * Returns the number of bytes between the current position and the end of
+ * the buffer.
+ *
+ * This value is greater than or equal to the length of the slice returned
+ * by `chunk()`.
+ *
+ * # Examples
+ *
+ * ```
+ * use bytes::Buf;
+ *
+ * let mut buf = &b"hello world"[..];
+ *
+ * assert_eq!(buf.remaining(), 11);
+ *
+ * buf.get_u8();
+ *
+ * assert_eq!(buf.remaining(), 10);
+ * ```
+ *
+ * # Implementer notes
+ *
+ * Implementations of `remaining` should ensure that the return value does
+ * not change unless a call is made to `advance` or any other function that
+ * is documented to change the `Buf`'s current position.
+ */
+export function remaining$bytes_Buf_mut_ref_slice_u8(self: rt.Place<rt.ByteSlice>): rt.usize {
+	return self.v.length;
 }
 
 //# sourceMappingURL=buf_impl.ts.map

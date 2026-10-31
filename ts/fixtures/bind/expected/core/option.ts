@@ -3,14 +3,14 @@
 import * as rt from "../rt.ts";
 import type * as Nibble from "../bind/nibble.ts";
 
-export function unwrapOr$0r2bmpr(self: rt.u8 | undefined, default_: rt.u8): rt.u8 {
+export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.ByteSlice): rt.ByteSlice {
 	if (self === undefined) {
 		return default_;
 	}
 	return self;
 }
 
-export function unwrapOr$1rbuegs(self: rt.ByteSlice | undefined, default_: rt.ByteSlice): rt.ByteSlice {
+export function unwrapOr$0r2bmpr(self: rt.u8 | undefined, default_: rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}

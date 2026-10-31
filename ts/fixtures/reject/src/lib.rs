@@ -1165,6 +1165,106 @@ pub fn written_through_loaded(n: u16) -> u16 {
 	unsafe { (*part).0 }
 }
 
+/// Structs JS keeps as objects, each written whole into slots through std's iterators
+/// while a pointer into one may still be read, which gives what holds it another object.
+pub struct Mapped(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Repeated(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Onced(pub std::cell::UnsafeCell<(u16, u16)>);
+
+pub struct Pushed {
+	pub part: (u16, u16),
+}
+
+pub struct Copied {
+	pub span: (u16, u16),
+}
+
+std::thread_local! {
+	static COPIED: std::cell::Cell<*const (u16, u16)> = const { std::cell::Cell::new(std::ptr::null()) };
+}
+
+/// A clone that keeps a pointer into what it copies.
+impl Clone for Copied {
+	fn clone(&self) -> Self {
+		COPIED.with(|kept| kept.set(&raw const self.span));
+		Copied { span: self.span }
+	}
+}
+
+/// Slots written through an iterator whose closure keeps a pointer into each before it is
+/// written.
+pub fn mapped_kept(n: u16) -> u16 {
+	let mut slots = [const { std::mem::MaybeUninit::<Mapped>::uninit() }; 2];
+	let mut kept: *mut (u16, u16) = std::ptr::null_mut();
+	for slot in slots.iter_mut().map(|s| {
+		kept = unsafe { (*s.as_mut_ptr()).0.get() };
+		s
+	}) {
+		slot.write(Mapped(std::cell::UnsafeCell::new((n, n))));
+	}
+	unsafe { (*kept).0 }
+}
+
+/// A slot written whole again after `cloned` handed it to the crate's `Clone`, which kept
+/// a pointer into it.
+pub fn cloned_kept(n: u16) -> u16 {
+	let mut slots = [const { std::mem::MaybeUninit::<Copied>::uninit() }; 1];
+	for slot in &mut slots {
+		slot.write(Copied { span: (n, n) });
+	}
+	let copies: Vec<Copied> = std::iter::once(unsafe { slots[0].assume_init_ref() })
+		.cloned()
+		.collect();
+	slots[0].write(Copied { span: (0, 0) });
+	COPIED.with(|kept| unsafe { (*kept.get()).0 }) + copies.len() as u16
+}
+
+/// Slots written whole on each pass, read after through the pointer a write on the pass
+/// before took into the same slot.
+pub fn kept_across_iterations(data: &[u16]) -> u16 {
+	let mut slots = [const { std::mem::MaybeUninit::<Repeated>::uninit() }; 1];
+	let mut kept: *mut (u16, u16) = std::ptr::null_mut();
+	let mut sum = 0;
+	for &n in data {
+		for slot in slots.iter_mut() {
+			let made = slot.write(Repeated(std::cell::UnsafeCell::new((n, n))));
+			if !kept.is_null() {
+				sum += unsafe { (*kept).0 };
+			}
+			kept = made.0.get();
+		}
+	}
+	sum
+}
+
+/// A slot written whole through a borrow that std's `once` handed the crate a mutable
+/// borrow of, which pointed it at memory a pointer into may still be read.
+pub fn lent_kept(n: u16) -> u16 {
+	let mut slots = [const { std::mem::MaybeUninit::<Onced>::uninit() }; 1];
+	let mut old = std::mem::MaybeUninit::<Onced>::uninit();
+	old.write(Onced(std::cell::UnsafeCell::new((n, n))));
+	let part = unsafe { old.assume_init_ref().0.get() };
+	let mut slot: &mut std::mem::MaybeUninit<Onced> = &mut slots[0];
+	if let Some(lent) = std::iter::once(&mut slot).next() {
+		*lent = &mut old;
+	}
+	slot.write(Onced(std::cell::UnsafeCell::new((0, 0))));
+	unsafe { (*part).0 }
+}
+
+/// An element of memory `Vec::push` allocated, written whole while a pointer into it may
+/// still be read.
+pub fn pushed_part_kept(n: u16) -> u16 {
+	let mut v = Vec::new();
+	v.push(Pushed { part: (n, n) });
+	let p = &raw mut v[0];
+	let part = unsafe { &raw mut (*p).part };
+	unsafe { p.write(Pushed { part: (0, 0) }) };
+	unsafe { (*part).0 }
+}
+
 /// A collection of the crate's own, which std's tuple impls extend by its `extend_one`.
 #[derive(Default)]
 pub struct Tally(pub u8);

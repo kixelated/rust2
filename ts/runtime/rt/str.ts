@@ -423,6 +423,31 @@ export function strBytes(s: string): Iter<u8> {
 /** `isize::MAX` on wasm32, past which std refuses a capacity. */
 const ISIZE_MAX = 0x7fffffff;
 
+/**
+ * `concat` and `join` of strings by `sep`, which panic as std's do where the bytes they
+ * reserve pass `usize::MAX` or what a `String` may hold.
+ */
+export function strsJoin(parts: readonly string[], sep: string): string {
+	const seps = Math.max(parts.length - 1, 0);
+	let units = sep.length * seps;
+	for (const part of parts) units += part.length;
+	// A code unit is one to three bytes, so only a long result needs its bytes counted, each
+	// distinct part once, as such a result mostly repeats a few.
+	if (units * 3 > ISIZE_MAX) {
+		const counted = new Map<string, number>();
+		const count = (s: string): number => {
+			let n = counted.get(s);
+			if (n === undefined) counted.set(s, (n = stringLen(s)));
+			return n;
+		};
+		let len = count(sep) * seps;
+		for (const part of parts) len += count(part);
+		if (len > 0xffffffff) panic("attempt to join into collection with len > usize::MAX");
+		if (len > ISIZE_MAX) panic("capacity overflow");
+	}
+	return parts.join(sep);
+}
+
 /** `String::with_capacity`: the empty string, which keeps no capacity. */
 export function stringWithCapacity(capacity: usize): string {
 	if (capacity > ISIZE_MAX) panic("capacity overflow");

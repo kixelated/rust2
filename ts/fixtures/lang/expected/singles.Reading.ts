@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(self: Reading, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Reading, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Reading";
 	const _4: string = "level";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.f32Debug(self.level, f);

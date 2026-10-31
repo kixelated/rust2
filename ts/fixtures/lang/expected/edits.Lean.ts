@@ -10,7 +10,7 @@ export interface Lean {
 	_0: rt.u8;
 }
 
-export function partialCmp$PartialOrd(self: Lean, other: Lean): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Lean, other: Lean): rt.Ordering | undefined {
 	if (rt.u8Rem(self._0, 2) === 1) {
 		return -1;
 	}

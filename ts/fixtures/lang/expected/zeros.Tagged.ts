@@ -9,7 +9,7 @@ export function clone$Clone_String(self: Tagged<string>): Tagged<string> {
 	return { n: _2, of: undefined, pin: undefined, unit: undefined };
 }
 
-export function fmt$Debug_String(self: Tagged<string>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_String(self: Tagged<string>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Tagged";
 	const _4: string = "n";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.n, f);
@@ -22,7 +22,7 @@ export function fmt$Debug_String(self: Tagged<string>, f: rt.Formatter): rt.Resu
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8), _10, _11), _13, _14));
 }
 
-export function fmt$Debug_u8(self: Tagged<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_u8(self: Tagged<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Tagged";
 	const _4: string = "n";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.n, f);
@@ -51,7 +51,7 @@ export function default$Default_u8(): Tagged<rt.u8> {
 	return { n: _1, of: undefined, pin: undefined, unit: undefined };
 }
 
-export function eq$PartialEq_String(self: Tagged<string>, other: Tagged<string>): boolean {
+export function eq$cmp_PartialEq_String(self: Tagged<string>, other: Tagged<string>): boolean {
 	if (self.n === other.n) {
 		if (true) {
 			if (true) {
@@ -62,7 +62,7 @@ export function eq$PartialEq_String(self: Tagged<string>, other: Tagged<string>)
 	return false;
 }
 
-export function partialCmp$PartialOrd_String(self: Tagged<string>, other: Tagged<string>): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd_String(self: Tagged<string>, other: Tagged<string>): rt.Ordering | undefined {
 	const cmp: rt.Ordering | undefined = rt.cmp(self.n, other.n);
 	if (cmp !== undefined) {
 		if (cmp === 0) {
@@ -84,7 +84,7 @@ export function partialCmp$PartialOrd_String(self: Tagged<string>, other: Tagged
 	return cmp;
 }
 
-export function cmp$Ord_String(self: Tagged<string>, other: Tagged<string>): rt.Ordering {
+export function cmp$cmp_Ord_String(self: Tagged<string>, other: Tagged<string>): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmp(self.n, other.n);
 	if (cmp === 0) {
 		const cmp2: rt.Ordering = rt.cmpNothing(self.of, other.of);
@@ -100,7 +100,7 @@ export function cmp$Ord_String(self: Tagged<string>, other: Tagged<string>): rt.
 	return cmp;
 }
 
-export function hash$Hash_String_DefaultHasher(self: Tagged<string>, state: rt.Hasher): void {
+export function hash$Hash_String_hash_DefaultHasher(self: Tagged<string>, state: rt.Hasher): void {
 	rt.hash8(self.n, state);
 	rt.hashNothing(self.of, state);
 	rt.hashNothing(self.pin, state);

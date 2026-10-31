@@ -16,7 +16,7 @@ export class Logged {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.log[Symbol.dispose]();
 	}
 }
@@ -32,7 +32,7 @@ export function clone$Clone(self: Logged): Logged {
 	return new Logged(rt.u8WrappingAdd(self.id, 1), rt.arcClone(self.log));
 }
 
-export function drop$Drop(self: Logged): void {
+export function drop$ops_Drop(self: Logged): void {
 	const _5: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(self.log.value);
 	rt.byteVecPush(_5.value, self.id);
 	rt.refMutRelease(_5);

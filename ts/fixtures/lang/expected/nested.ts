@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { thenSome$0d5am30, thenSome$1j8foe9, then$16ew6vr } from "./core/bool.ts";
-import { isNoneOr$1s1o3ss, unwrapOr$1kxjsqb as option_unwrapOr$1kxjsqb, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1la41a6 as option_unwrapOr$1la41a6, map$0pkankm as option_map$0pkankm, map$0jcaaxx as option_map$0jcaaxx, map$1diqi3e as option_map$1diqi3e, map$0rbsrz6 as option_map$0rbsrz6, map$0cs071d as option_map$0cs071d, map$0p22lts as option_map$0p22lts, map$0at3a41 as option_map$0at3a41, mapOr$06rr3sb as option_mapOr$06rr3sb, mapOr$1surhce as option_mapOr$1surhce, mapOr$1t0muvr as option_mapOr$1t0muvr, mapOr$18ph0j9 as option_mapOr$18ph0j9, okOr$1vxk0yk as option_okOr$1vxk0yk, okOr$0g9lvh7 as option_okOr$0g9lvh7, andThen$0qni7te as option_andThen$0qni7te, andThen$0ocv8av as option_andThen$0ocv8av, andThen$1bd14ex as option_andThen$1bd14ex, filter$19gtvc4, filter$0v80fk8, or$0j02yk0 as option_or$0j02yk0, xor$0pemq84, xor$0kctyix, flatten$1nwzx42 as option_flatten$1nwzx42 } from "./core/option.ts";
+import { isNoneOr$1s1o3ss, unwrapOr$1kxjsqb as option_unwrapOr$1kxjsqb, unwrapOr$1la41a6 as option_unwrapOr$1la41a6, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, map$0pkankm as option_map$0pkankm, map$1diqi3e as option_map$1diqi3e, map$0rbsrz6 as option_map$0rbsrz6, map$0p22lts as option_map$0p22lts, map$0jcaaxx as option_map$0jcaaxx, map$0cs071d as option_map$0cs071d, map$0at3a41 as option_map$0at3a41, mapOr$1surhce as option_mapOr$1surhce, mapOr$1t0muvr as option_mapOr$1t0muvr, mapOr$06rr3sb as option_mapOr$06rr3sb, mapOr$18ph0j9 as option_mapOr$18ph0j9, okOr$1vxk0yk as option_okOr$1vxk0yk, okOr$0g9lvh7 as option_okOr$0g9lvh7, andThen$0qni7te as option_andThen$0qni7te, andThen$0ocv8av as option_andThen$0ocv8av, andThen$1bd14ex as option_andThen$1bd14ex, filter$19gtvc4, filter$0v80fk8, or$0j02yk0 as option_or$0j02yk0, xor$0pemq84, xor$0kctyix, flatten$1nwzx42 as option_flatten$1nwzx42 } from "./core/option.ts";
 import { map$03hz3l7 as result_map$03hz3l7, mapErr$1whfgss as result_mapErr$1whfgss } from "./core/result.ts";
 import * as nested_Halves from "./nested.Halves.ts";
 import type * as nested_Slot from "./nested.Slot.ts";
@@ -217,10 +217,10 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, option_unwrapOr$0r2bmpr(_46, 225));
 	}
 	const own: nested_Halves.Halves = { _0: rt.u8Rem(data.length & 0xff, 8) };
-	rt.byteVecPush(out, code(rt.iterToOption(nested_Halves.next$Iterator(own), rt.None)));
+	rt.byteVecPush(out, code(rt.iterToOption(nested_Halves.next$iter_Iterator(own), rt.None)));
 	const iter2: nested_Halves.Halves = own;
 	while (true) {
-		const _64: rt.u8 | undefined | rt.Done = nested_Halves.next$Iterator(iter2);
+		const _64: rt.u8 | undefined | rt.Done = nested_Halves.next$iter_Iterator(iter2);
 		if (_64 === rt.DONE) {
 			break;
 		}
@@ -705,17 +705,17 @@ export function half(b: rt.u8): rt.u8 {
 }
 
 /** Each of `data` through `f`, read from its parameter: a function item too. */
-export function each$u8_half(data: rt.ByteSlice, _: (a0: rt.u8) => rt.u8): rt.ByteVec {
+export function each$u8_nested_half(data: rt.ByteSlice, _: (a0: rt.u8) => rt.u8): rt.ByteVec {
 	return rt.iterToByteVec(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), half), undefined, true);
 }
 
 /** Each of `data` through `f`, read from its parameter: a function item too. */
-export function each$unit_ignore(data: rt.ByteSlice, _: (a0: rt.u8) => undefined): undefined[] {
+export function each$unit_nested_ignore(data: rt.ByteSlice, _: (a0: rt.u8) => undefined): undefined[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), ignore as (a0: rt.u8) => undefined), undefined, 0, true);
 }
 
 /** Each of `data` through `f`, read from its parameter: a function item too. */
-export function each$unit_units_closure3(data: rt.ByteSlice, f: (a0: rt.u8) => undefined): undefined[] {
+export function each$unit_nested_units_closure3(data: rt.ByteSlice, f: (a0: rt.u8) => undefined): undefined[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), f), undefined, 0, true);
 }
 
@@ -724,9 +724,9 @@ export function pointed(data: rt.ByteSlice, f: (a0: rt.u8) => undefined): undefi
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), f), undefined, 0, true);
 }
 
-export function madeAll$Unit(m: nested_Unit.Unit, data: rt.ByteSlice): undefined[] {
+export function madeAll$nested_Unit(m: nested_Unit.Unit, data: rt.ByteSlice): undefined[] {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_2: rt.u8): undefined => {
-		nested_Unit.made$Made(m, _2);
+		nested_Unit.made$nested_Made(m, _2);
 	}), undefined, 0, true);
 }
 
@@ -751,10 +751,10 @@ export function units(data: rt.ByteSlice, out: rt.ByteVec): void {
 		f = (_24: rt.u8): undefined => {};
 	}
 	const byPointer: undefined[] = pointed(data, f);
-	const generic: undefined[] = each$unit_units_closure3(data, (_25: rt.u8): undefined => {});
-	const byName: undefined[] = each$unit_ignore(data, ignore as (a0: rt.u8) => undefined);
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(each$u8_half(data, half))), undefined, true);
-	const methods: undefined[] = madeAll$Unit({}, data);
+	const generic: undefined[] = each$unit_nested_units_closure3(data, (_25: rt.u8): undefined => {});
+	const byName: undefined[] = each$unit_nested_ignore(data, ignore as (a0: rt.u8) => undefined);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(each$u8_nested_half(data, half))), undefined, true);
+	const methods: undefined[] = madeAll$nested_Unit({}, data);
 	const dynamic: undefined[] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), rt.lent(ignore as (a0: rt.u8) => undefined)), undefined, 0, true);
 	const iter: rt.Iter<undefined[]> = rt.iterSlice([units, named, byPointer, generic, byName, methods, dynamic]);
 	while (true) {

@@ -7,7 +7,7 @@ export interface Scaled {
 	_0: rt.u32;
 }
 
-export function from$From_u8(b: rt.u8): Scaled {
+export function from$convert_From_u8(b: rt.u8): Scaled {
 	return { _0: rt.u32Mul(b as rt.u32, 1000) };
 }
 

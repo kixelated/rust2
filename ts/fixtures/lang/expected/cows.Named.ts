@@ -6,7 +6,7 @@ export function clone$Clone(self: Named): Named {
 	return { name: self.name, id: self.id };
 }
 
-export function fmt$Debug(self: Named, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Named, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Named";
 	const _4: string = "name";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtStr(self.name, f);
@@ -19,23 +19,23 @@ export function default$Default(): Named {
 	return { name: "", id: 0 };
 }
 
-export function eq$PartialEq(self: Named, other: Named): boolean {
+export function eq$cmp_PartialEq(self: Named, other: Named): boolean {
 	if (!(self.id === other.id)) {
 		return false;
 	}
 	return self.name === other.name;
 }
 
-export function hash$Hash_DefaultHasher(self: Named, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Named, state: rt.Hasher): void {
 	rt.hashStr(self.name, state);
 	rt.hash8(self.id, state);
 }
 
-export function partialCmp$PartialOrd(self: Named, other: Named): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Named, other: Named): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Named, other: Named): rt.Ordering {
+export function cmp$cmp_Ord(self: Named, other: Named): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmpStr(self.name, other.name);
 	if (cmp === 0) {
 		return rt.cmp(self.id, other.id);

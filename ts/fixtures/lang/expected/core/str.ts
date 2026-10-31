@@ -5,6 +5,34 @@ import { fromStr$1ej7fl2 as num_fromStr$1ej7fl2, fromStr$076yg1t as num_fromStr$
 import { fromStr$1d7pnbk as nonzero_fromStr$1d7pnbk, fromStr$15isx69 as nonzero_fromStr$15isx69, fromStr$04uijf8 as nonzero_fromStr$04uijf8, fromStr$0l2zu9x as nonzero_fromStr$0l2zu9x, fromStr$0h0ptos as nonzero_fromStr$0h0ptos, fromStr$10svit2 as nonzero_fromStr$10svit2, fromStr$19kbj04 as nonzero_fromStr$19kbj04, fromStr$0br814e as nonzero_fromStr$0br814e, fromStr$1471qz1 as nonzero_fromStr$1471qz1, fromStr$0k8sfhf as nonzero_fromStr$0k8sfhf, fromStr$0b2xa80 as nonzero_fromStr$0b2xa80, fromStr$17dd66m as nonzero_fromStr$17dd66m } from "../core/num/nonzero.ts";
 import { fromStr$05d44vn as traits_fromStr$05d44vn } from "../core/str/traits.ts";
 
+export function parse$0vh4cry(self: string): rt.Result<boolean, rt.ParseBoolError> {
+	return traits_fromStr$05d44vn(self);
+}
+
+export function parse$0zwe7sh(self: string): rt.Result<rt.i128, rt.ParseIntError> {
+	return num_fromStr$1ej7fl2(self);
+}
+
+export function parse$1rrjn2d(self: string): rt.Result<rt.i16, rt.ParseIntError> {
+	return num_fromStr$076yg1t(self);
+}
+
+export function parse$12n9p35(self: string): rt.Result<rt.i32, rt.ParseIntError> {
+	return num_fromStr$1dxzqb4(self);
+}
+
+export function parse$1ilajpu(self: string): rt.Result<rt.i64, rt.ParseIntError> {
+	return num_fromStr$09oey6q(self);
+}
+
+export function parse$1fq462u(self: string): rt.Result<rt.i8, rt.ParseIntError> {
+	return num_fromStr$1m3wp28(self);
+}
+
+export function parse$1g5tknx(self: string): rt.Result<rt.isize, rt.ParseIntError> {
+	return num_fromStr$1gsa29j(self);
+}
+
 export function parse$0ub96so(self: string): rt.Result<rt.i128, rt.ParseIntError> {
 	return nonzero_fromStr$0b2xa80(self);
 }
@@ -51,34 +79,6 @@ export function parse$0zrdgp4(self: string): rt.Result<rt.u8, rt.ParseIntError> 
 
 export function parse$0s8xu45(self: string): rt.Result<rt.usize, rt.ParseIntError> {
 	return nonzero_fromStr$10svit2(self);
-}
-
-export function parse$0vh4cry(self: string): rt.Result<boolean, rt.ParseBoolError> {
-	return traits_fromStr$05d44vn(self);
-}
-
-export function parse$0zwe7sh(self: string): rt.Result<rt.i128, rt.ParseIntError> {
-	return num_fromStr$1ej7fl2(self);
-}
-
-export function parse$1rrjn2d(self: string): rt.Result<rt.i16, rt.ParseIntError> {
-	return num_fromStr$076yg1t(self);
-}
-
-export function parse$12n9p35(self: string): rt.Result<rt.i32, rt.ParseIntError> {
-	return num_fromStr$1dxzqb4(self);
-}
-
-export function parse$1ilajpu(self: string): rt.Result<rt.i64, rt.ParseIntError> {
-	return num_fromStr$09oey6q(self);
-}
-
-export function parse$1fq462u(self: string): rt.Result<rt.i8, rt.ParseIntError> {
-	return num_fromStr$1m3wp28(self);
-}
-
-export function parse$1g5tknx(self: string): rt.Result<rt.isize, rt.ParseIntError> {
-	return num_fromStr$1gsa29j(self);
 }
 
 export function parse$137ljop(self: string): rt.Result<rt.u128, rt.ParseIntError> {

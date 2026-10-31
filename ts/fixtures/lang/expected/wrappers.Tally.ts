@@ -11,11 +11,11 @@ export class Tally {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function drop$Drop(_self: Tally): void {
+export function drop$ops_Drop(_self: Tally): void {
 }
 
 //# sourceMappingURL=wrappers.Tally.ts.map

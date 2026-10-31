@@ -5,7 +5,7 @@ import type * as Tally from "./crates_dep.Tally.ts";
 import * as Item from "./harness.Item.ts";
 
 /** The heaviest of `items`, the first of equals. */
-export function heaviest$Item(items: Item.Item[]): Item.Item | undefined {
+export function heaviest$harness_Item(items: Item.Item[]): Item.Item | undefined {
 	let best = undefined as Item.Item | undefined;
 	const iterS: Item.Item[] = items;
 	let iterI: number = 0;
@@ -15,7 +15,7 @@ export function heaviest$Item(items: Item.Item[]): Item.Item | undefined {
 			return best;
 		}
 		if (best !== undefined) {
-			if (Item.weight$Weigh(best) >= Item.weight$Weigh(_5)) {
+			if (Item.weight$crates_dep_Weigh(best) >= Item.weight$crates_dep_Weigh(_5)) {
 				continue;
 			}
 		}
@@ -37,15 +37,15 @@ export function read(bytes: rt.ByteSlice): rt.u8 {
 }
 
 /** Provided, and overridden by one impl. */
-export function scale$Tally_u32(_self: rt.u32): rt.u32 {
+export function scale$crates_dep_Tally_u32(_self: rt.u32): rt.u32 {
 	return 1;
 }
 
-export function add$Tally_u32(self: rt.Place<rt.u32>, by: rt.u8): void {
+export function add$crates_dep_Tally_u32(self: rt.Place<rt.u32>, by: rt.u8): void {
 	self.v = rt.u32WrappingAdd(self.v, by as rt.u32);
 }
 
-export function count$Tally_u32(self: rt.u32): rt.u32 {
+export function count$crates_dep_Tally_u32(self: rt.u32): rt.u32 {
 	return self;
 }
 

@@ -7,7 +7,7 @@ export interface Padded {
 	_0: string;
 }
 
-export function fmt$Display(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: Padded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: rt.usize | undefined = rt.fmtWidth(f);
 	if (_3 !== undefined) {
 		if (_3 > 20) {

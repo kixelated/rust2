@@ -7,7 +7,7 @@ export interface Fails {
 	_0: rt.u8;
 }
 
-export function fmt$Display(self: Fails, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: Fails, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (!(rt.u8Rem(self._0, 2) === 0)) {
 		const arg = self._0;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];

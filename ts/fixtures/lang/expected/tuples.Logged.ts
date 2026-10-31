@@ -18,24 +18,24 @@ export class Logged {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.log[Symbol.dispose]();
 	}
 }
 
-export function eq$PartialEq(self: Logged, other: Logged): boolean {
+export function eq$cmp_PartialEq(self: Logged, other: Logged): boolean {
 	return self.key === other.key;
 }
 
-export function hash$Hash_DefaultHasher(self: Logged, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Logged, state: rt.Hasher): void {
 	rt.hash8(self.key, state);
 }
 
-export function cmp$Ord(self: Logged, other: Logged): rt.Ordering {
+export function cmp$cmp_Ord(self: Logged, other: Logged): rt.Ordering {
 	return rt.cmp(self.key, other.key);
 }
 
-export function drop$Drop(self: Logged): void {
+export function drop$ops_Drop(self: Logged): void {
 	const _5: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(self.log.value);
 	rt.byteVecPush(_5.value, self.id);
 	rt.refMutRelease(_5);

@@ -1,0 +1,3 @@
+# Two instances whose suffixes are alike: `alike.txt` holds the error.
+package = "crates-fixture"
+roots = ["alike"]

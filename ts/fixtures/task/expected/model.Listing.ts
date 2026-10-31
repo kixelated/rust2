@@ -8,7 +8,7 @@ export function default$Default(): Listing {
 	return { last: _1, listed: _2 };
 }
 
-export function fmt$Debug(self: Listing, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Listing, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Listing";
 	const _4: string = "last";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(self.last, f, rt.u64Debug);
