@@ -102,5 +102,11 @@ roots = [
     "uninit_part_replaced",
     "byte_extended",
     "ranked_cells",
+    "escaped_into_struct",
+    "escaped_into_call",
+    "kept_across_writes",
+    "written_through_alias",
+    "uninit_rewritten",
+    "written_through_loaded",
 ]
 printable = ["Meters"]

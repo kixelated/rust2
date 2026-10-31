@@ -205,6 +205,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("wraps::i128s", wraps::i128s),
 		("wraps::isizes", wraps::isizes),
 		("fmt::enums", |_, data, out| fmt::enums(data, out)),
+		("pointers::segments", |_, data, out| pointers::segments(data, out)),
+		("pointers::uninit_runs", |_, data, out| pointers::uninit_runs(data, out)),
 	]
 }
 
