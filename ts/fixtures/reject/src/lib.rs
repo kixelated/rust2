@@ -1156,3 +1156,16 @@ pub fn uninit_rewritten(n: u16) -> u16 {
 	slot.write(Rewritten(std::cell::UnsafeCell::new((0, 0))));
 	unsafe { (*part).0 }
 }
+
+pub struct Loaded(pub std::cell::UnsafeCell<(u16, u16)>);
+
+/// A fresh allocation written whole again through a pointer to it read out of another
+/// allocation, while a pointer into it may still be read.
+pub fn written_through_loaded(n: u16) -> u16 {
+	let p = Box::into_raw(Box::new(std::mem::MaybeUninit::<Loaded>::uninit())).cast::<Loaded>();
+	unsafe { p.write(Loaded(std::cell::UnsafeCell::new((n, n)))) };
+	let part = unsafe { (*p).0.get() };
+	let container = Box::into_raw(Box::new(p.cast_const()));
+	unsafe { container.read().cast_mut().write(Loaded(std::cell::UnsafeCell::new((0, 0)))) };
+	unsafe { (*part).0 }
+}

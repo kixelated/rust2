@@ -511,7 +511,10 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 						};
 						if pointer::allocates(tcx, def_id) {
 							sources.insert(Source::Fresh(local));
-						} else if pointer::derives(tcx, def_id).is_some() {
+						} else if let Some(derives) = pointer::derives(tcx, def_id) {
+							if derives == Derives::Loaded {
+								return None;
+							}
 							for arg in args {
 								if self.carries(arg.node.ty(&self.mir.local_decls, tcx)) {
 									stack.push(direct(arg.node.place()?)?);

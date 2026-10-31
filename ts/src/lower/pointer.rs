@@ -204,6 +204,8 @@ pub enum Derives {
 	Same,
 	/// Anywhere its arguments reach, if anywhere.
 	Other,
+	/// Wherever what it reads where its first argument points does.
+	Loaded,
 }
 
 /// How std's `def_id` derives what it returns, if [`Derives`] describes it.
@@ -220,13 +222,15 @@ pub fn derives(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Option<
 		(
 			"ptr",
 			"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "eq" | "add" | "sub" | "offset"
-			| "wrapping_add" | "wrapping_sub" | "wrapping_offset" | "read" | "read_unaligned" | "read_volatile"
-			| "write" | "write_unaligned" | "write_volatile",
+			| "wrapping_add" | "wrapping_sub" | "wrapping_offset" | "write" | "write_unaligned" | "write_volatile",
 		)
-		| ("NonNull", "dangling" | "add" | "sub" | "offset" | "read" | "write")
-		| ("MaybeUninit", "new" | "uninit" | "assume_init" | "assume_init_read")
+		| ("NonNull", "dangling" | "add" | "sub" | "offset" | "write")
+		| ("MaybeUninit", "new" | "uninit" | "assume_init")
 		| ("UnsafeCell", "new" | "get" | "raw_get" | "get_mut" | "into_inner")
 		| ("Box", "new") => Some(Derives::Other),
+		("ptr", "read" | "read_unaligned" | "read_volatile")
+		| ("NonNull", "read")
+		| ("MaybeUninit", "assume_init_read") => Some(Derives::Loaded),
 		_ => None,
 	}
 }
