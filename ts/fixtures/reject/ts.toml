@@ -24,6 +24,7 @@ roots = [
     "backs",
     "keyed",
     "keyed_across",
+    "place_bounds",
     "hinted",
     "fused",
     "skipped_zip",

@@ -1013,3 +1013,8 @@ impl PartialOrd<u8> for Key {
 pub fn keyed_across(n: u8) -> bool {
 	(..10u8).contains(&Key(n)) || std::ops::RangeBounds::contains(&(1u8..), &Key(n))
 }
+
+/// Bounds behind `&mut`s, which JS may keep as places rather than the integers.
+pub fn place_bounds(a: &mut u8, b: &mut u8) -> bool {
+	(a..b).is_empty()
+}

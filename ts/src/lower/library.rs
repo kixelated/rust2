@@ -1438,14 +1438,13 @@ fn mapping<'tcx>(
 		// Of bounds JS compares as Rust does, by `<` and `<=`, against an item of their type.
 		("Range" | "RangeInclusive", "is_empty") | (_, "contains")
 			if let Some(of) = inherent_std(tcx, call.def_id).and_then(range_of)
-				&& primitive(unwrapped(tcx, targ(gargs, 0)))
-				&& (name == "is_empty" || unwrapped(tcx, targ(gargs, 0)) == unwrapped(tcx, targ(gargs, 1))) =>
+				&& let Some(bound) = compared(tcx, targ(gargs, 0))
+				&& (name == "is_empty" || compared(tcx, targ(gargs, 1)) == Some(bound)) =>
 		{
 			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
 		("RangeBounds", "contains")
-			if primitive(unwrapped(tcx, targ(gargs, 1)))
-				&& unwrapped(tcx, targ(gargs, 1)) == unwrapped(tcx, targ(gargs, 2)) =>
+			if compared(tcx, targ(gargs, 1)).is_some_and(|bound| compared(tcx, targ(gargs, 2)) == Some(bound)) =>
 		{
 			let range = targ(gargs, 0).peel_refs();
 			match b.t.std_of(range) {
@@ -2305,6 +2304,16 @@ fn unwrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::NonZero) => args.type_at(0),
 		_ => ty,
 	}
+}
+
+/// The primitive JS compares a range's bounds of type `ty` as, through shared references
+/// and a `NonZero`: not through a `&mut`, which may be an `rt.Place`.
+fn compared<'tcx>(tcx: TyCtxt<'tcx>, mut ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	while let ty::Ref(_, inner, ty::Mutability::Not) = ty.kind() {
+		ty = *inner;
+	}
+	let ty = (!ty.is_ref()).then(|| unwrapped(tcx, ty))?;
+	primitive(ty).then_some(ty)
 }
 
 fn primitive(ty: Ty<'_>) -> bool {
