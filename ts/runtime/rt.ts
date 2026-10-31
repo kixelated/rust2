@@ -1806,6 +1806,34 @@ export function fmtRangeFull(_: undefined, f: Formatter): FmtResult {
 	return f.out.writeStr("..");
 }
 
+/** `Debug` of a `Bound`: its variant, around what it holds. */
+export function fmtBound<T>(b: RangeBound<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	if (b.tag === "Unbounded") return f.out.writeStr("Unbounded");
+	return fmtDebugTupleFields(f, b.tag, [(f) => debug(b._0, f)]);
+}
+
+/** `Debug` of an `Ordering`, unpadded. */
+export function fmtOrdering(o: Ordering, f: Formatter): FmtResult {
+	return f.out.writeStr(o < 0 ? "Less" : o > 0 ? "Greater" : "Equal");
+}
+
+/** `Debug` of a `ControlFlow` held as a `Result`, `Ok` to continue: `stop` writes what it breaks with, the `Err` itself with `residual`, as `?` breaks with it. */
+export function fmtControlFlow<C, B>(r: Result<C, B>, f: Formatter, go: Debug<C>, stop: Debug<B>): FmtResult;
+export function fmtControlFlow<C, E>(r: Result<C, E>, f: Formatter, go: Debug<C>, stop: Debug<Result<never, E>>, residual: true): FmtResult;
+export function fmtControlFlow<C, B>(r: Result<C, B>, f: Formatter, go: Debug<C>, stop: Debug<B> | Debug<Result<never, B>>, residual = false): FmtResult {
+	if (r.ok) return fmtDebugTupleFields(f, "Continue", [(f) => go(r.value, f)]);
+	const held: Fmt = residual ? (f) => (stop as Debug<Result<never, B>>)(r, f) : (f) => (stop as Debug<B>)(r.error, f);
+	return fmtDebugTupleFields(f, "Break", [held]);
+}
+
+/** `Debug` of a `ControlFlow` held as the `Option` `?` was applied to, which breaks with `None`. */
+export function fmtControlFlowOption<C>(o: C | undefined, f: Formatter, go: Debug<C>, stop: Debug<undefined>): FmtResult;
+export function fmtControlFlowOption<C>(o: C | None, f: Formatter, go: Debug<C>, stop: Debug<undefined>, none: None): FmtResult;
+export function fmtControlFlowOption<C>(o: C | undefined | None, f: Formatter, go: Debug<C>, stop: Debug<undefined>, none?: None): FmtResult {
+	if (o === none) return fmtDebugTupleFields(f, "Break", [(f) => stop(undefined, f)]);
+	return fmtDebugTupleFields(f, "Continue", [(f) => go(o as C, f)]);
+}
+
 /** `Debug` of a tuple, given each element's. */
 export function fmtTuple(fields: readonly Fmt[], f: Formatter): FmtResult {
 	const builder = fmtDebugTuple(f, "");

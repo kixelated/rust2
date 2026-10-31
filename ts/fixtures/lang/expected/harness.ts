@@ -21,7 +21,7 @@ import { dyns, shared, anys, fns } from "./dyns.ts";
 import { edits, bytes } from "./edits.ts";
 import { eqs } from "./errors.ts";
 import { floats, mulAdds, formats, parses } from "./floats.ts";
-import { ints, strings, derived, written, counts, rounding, panics, wrapped, collections, iters as fmt_iters, writes } from "./fmt.ts";
+import { ints, strings, derived, written, counts, rounding, panics, wrapped, collections, enums, iters as fmt_iters, writes } from "./fmt.ts";
 import { folds } from "./folds.ts";
 import { methods } from "./generics.ts";
 import { values, random, bytes as hashes_bytes } from "./hashes.ts";
@@ -200,6 +200,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		fmt_iters(data72, out73);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["zeros::unread", unread as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::range_froms", rangeFroms as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::range_methods", rangeMethods as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["clones::iters", iters as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::cell_eqs", cellEqs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::compares", compares as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::unlike_compares", unlikeCompares as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["cycles::cycles", cycles as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::lapsed", (_2173: rt.u8, data73: rt.ByteSlice, out74: rt.ByteVec): undefined => {
 		lapsed(data73, out74);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["fmt::enums", (_2174: rt.u8, data74: rt.ByteSlice, out75: rt.ByteVec): undefined => {
+		enums(data74, out75);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
 }
 
