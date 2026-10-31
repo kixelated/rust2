@@ -445,8 +445,9 @@ export function iterBorrow<T>(it: Iter<T>): Iter<T> {
 // How std's `Vec` and `VecDeque` reserve for an iterator they collect or extend by, of
 // elements `size` bytes each, which panics past what they may hold: a `TrustedLen` one's
 // upper bound first, and else, after each item that finds them full, the lower bound and
-// one more; as a tuple's part, the lower bound first. Their capacity is not modeled, so one they extend is taken as full, as one
-// holding nothing is, and grows as std's would from there.
+// one more; as a tuple's part, the lower bound first. Their capacity is not modeled, so
+// one they extend is taken as full, as one holding nothing is, and grows as std's would
+// from there.
 
 /** wasm32's `isize::MAX`, the most bytes std's `Layout` describes. */
 const ISIZE_MAX = 0x7fffffff;

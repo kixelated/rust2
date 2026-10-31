@@ -1397,7 +1397,7 @@ pub fn tuple_extend<'tcx>(
 			format!("`Extend` of `{tuple}` by `{item}`, whose `{coll}` of `{field}` is not supported yet"),
 		)
 	};
-	let extended = match (colls.as_slice(), fields.as_slice()) {
+	let (f, rest) = match (colls.as_slice(), fields.as_slice()) {
 		([coll], [field]) => {
 			let (c, each) = (b.fresh("c"), b.fresh("items"));
 			let mut each_items = Expr::ident(&each);
@@ -1408,8 +1408,7 @@ pub fn tuple_extend<'tcx>(
 				return Some(unsupported(b, *coll, *field));
 			};
 			let params = [c, each].map(|name| Param { name, ty: None });
-			let f = Expr::Lambda(params.into(), Box::new(extended));
-			Expr::rt("tupleExtendOne", vec![Expr::undefined(), items, f])
+			("tupleExtendOne", vec![items, Expr::Lambda(params.into(), Box::new(extended))])
 		}
 		_ => {
 			let mut parts = Vec::new();
@@ -1421,10 +1420,7 @@ pub fn tuple_extend<'tcx>(
 			}
 			// By `for_each`.
 			let take = super::iter::iter_take(b, iter, true, span);
-			Expr::rt(
-				"tupleExtend",
-				super::iter::tail(vec![Expr::undefined(), items, Expr::Array(parts)], vec![take]),
-			)
+			("tupleExtend", super::iter::tail(vec![items, Expr::Array(parts)], vec![take]))
 		}
 	};
 	let target = match target {
@@ -1434,11 +1430,7 @@ pub fn tuple_extend<'tcx>(
 			empty(b, defaults, tuple, span)
 		}
 	};
-	let Expr::Call(f, mut args) = extended else {
-		unreachable!("a runtime call")
-	};
-	args[0] = target;
-	Some(Expr::Call(f, args))
+	Some(Expr::rt(f, [vec![target], rest].concat()))
 }
 
 /// The `rt.Part` a tuple's `Extend` adds `item`s to a collection of type `coll` by, or to a
