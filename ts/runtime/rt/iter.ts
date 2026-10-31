@@ -535,10 +535,17 @@ function grow(cap: number, required: number, size: number): number {
 	return grown;
 }
 
-/** `reserve` of `additional` more in a `Vec` or `VecDeque` holding `len` of `size`-byte elements, which grows it as `vecGrow` does. */
-export function vecReserve(len: number, additional: number, size: number): void {
-	const cap = vecCapacity(len, size);
-	if (additional > cap - len) grow(cap, len + additional, size);
+/**
+ * The capacity of a `Vec` or `VecDeque` of capacity `cap`, or else full, holding `len` of
+ * `size`-byte elements, once it reserved `additional` more, growing as `vecGrow` does.
+ */
+export function vecReserve(len: number, additional: number, size: number, cap = vecCapacity(len, size)): number {
+	return additional > cap - len ? grow(cap, len + additional, size) : cap;
+}
+
+/** The capacity of one as `vecReserve` takes it once it pushed an item, growing by one as std's `grow_one` does once full. */
+export function vecPush(len: number, size: number, cap = vecCapacity(len, size)): number {
+	return len === cap ? grow(cap, len + 1, size) : cap;
 }
 
 /**

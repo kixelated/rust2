@@ -37,6 +37,7 @@ import {
 	dequeReserve,
 	vecCapacity,
 	vecGrow,
+	vecPush,
 	vecReserve,
 	vecReserveExact,
 } from "./iter.ts";
@@ -3124,46 +3125,54 @@ export function copiedPart<C, T>(part: Part<C, T>, copy: (item: T) => T): Part<C
 	return { reserve: part.reserve, one: (c, item) => part.one(c, copy(item)) };
 }
 
-/** A `Vec` of `size`-byte elements, which pushes each. */
-export function vecPart<T>(size?: number): Part<T[], T> {
+/**
+ * A collection kept in a vector, which holds `length(c)` of `size`-byte elements and
+ * `push` adds to: it reserves as `vecReserve`, and from what it reserved, grows by one as
+ * `vecPush` does, panicking past what it may hold.
+ */
+function vectorPart<C, T>(length: (c: C) => number, push: (c: C, item: T) => void, size?: number): Part<C, T> {
+	let cap: number | undefined;
 	return {
-		reserve: size === undefined ? undefined : (v, additional) => vecReserve(v.length, additional, size),
-		one: (v, item) => {
-			v.push(item);
-			return v;
+		reserve:
+			size === undefined
+				? undefined
+				: (c, additional) => {
+						cap = vecReserve(length(c), additional, size, cap);
+					},
+		one: (c, item) => {
+			if (size !== undefined) cap = vecPush(length(c), size, cap);
+			push(c, item);
+			return c;
 		},
 	};
 }
 
+/** A `Vec` of `size`-byte elements, which pushes each. */
+export function vecPart<T>(size?: number): Part<T[], T> {
+	return vectorPart(
+		(v) => v.length,
+		(v, item) => v.push(item),
+		size,
+	);
+}
+
 /** A `Vec<u8>`, as `vecPart`. */
-export const BYTE_VEC_PART: Part<ByteVec, number> = {
-	reserve: (v, additional) => vecReserve(v.length, additional, 1),
-	one: (v, item) => {
-		byteVecPush(v, item);
-		return v;
-	},
-};
+export function byteVecPart(): Part<ByteVec, number> {
+	return vectorPart((v) => v.length, byteVecPush, 1);
+}
 
 /** A `VecDeque` of `size`-byte elements, which pushes each at the back. */
 export function dequePart<T>(size?: number): Part<VecDeque<T>, T> {
-	return {
-		reserve: size === undefined ? undefined : (q, additional) => vecReserve(q.n, additional, size),
-		one: (q, item) => {
-			dequePushBack(q, item);
-			return q;
-		},
-	};
+	return vectorPart((q) => q.n, dequePushBack, size);
 }
 
 /** A `BinaryHeap` of `size`-byte elements, which pushes each, sifting it up by `le`. */
 export function heapPart<T>(le: Test<T>, size?: number): Part<BinaryHeap<T>, T> {
-	return {
-		reserve: size === undefined ? undefined : (h, additional) => vecReserve(h.d.length, additional, size),
-		one: (h, item) => {
-			heapPush(h, item, le);
-			return h;
-		},
-	};
+	return vectorPart(
+		(h) => h.d.length,
+		(h, item) => heapPush(h, item, le),
+		size,
+	);
 }
 
 /** A `HashMap`, which inserts each entry as `hashExtend` does, and reserves as `hashReserve`. */

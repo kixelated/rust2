@@ -1300,9 +1300,9 @@ fn extend_source<'tcx>(
 	Some((items, iter))
 }
 
-/// `extend` of `target`, a collection of type `coll`, by `items`, an iterator of type `iter`
-/// of `item`s, copied already where they are borrowed, as its own `Extend` reads and
-/// reserves for it, giving the collection back.
+/// `extend` of `target`, a collection of type `coll`, `()`, or a tuple of them, by `items`,
+/// an iterator of type `iter` of `item`s, copied already where they are borrowed, as its
+/// own `Extend` reads and reserves for it, giving the collection back.
 pub fn extend<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	coll: Ty<'tcx>,
@@ -1312,6 +1312,18 @@ pub fn extend<'tcx>(
 	iter: Ty<'tcx>,
 	span: Span,
 ) -> Option<Expr> {
+	// `()`'s reads each item by `for_each`, and a tuple's is its own.
+	if coll.is_unit() {
+		let drops = super::iter::iter_drops(b, iter, span);
+		let each = Expr::Lambda(Vec::new(), Box::new(Expr::undefined()));
+		return Some(Expr::rt(
+			"iterFold",
+			super::iter::tail(vec![items, Expr::undefined(), each], vec![drops]),
+		));
+	}
+	if let ty::Tuple(_) = coll.kind() {
+		return tuple_extend(b, coll, item, Some(target), items, iter, span);
+	}
 	let std = b.t.std_of(coll)?;
 	if std == Std::String {
 		return super::iter::string_extend(b, target, items, item, iter, span);
@@ -1452,7 +1464,7 @@ fn part<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, item: Ty<'tcx>, span: 
 	}
 	let size = |b: &mut Body<'_, '_, 'tcx>| vec![super::iter::size_of(b, arg(coll, 0), span)];
 	let part = match std {
-		Std::Vec if matches!(arg(coll, 0).kind(), ty::Uint(ty::UintTy::U8)) => Expr::Rt("BYTE_VEC_PART".into()),
+		Std::Vec if matches!(arg(coll, 0).kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt("byteVecPart", Vec::new()),
 		Std::Vec => Expr::rt("vecPart", super::iter::tail(Vec::new(), size(b))),
 		Std::VecDeque => Expr::rt("dequePart", super::iter::tail(Vec::new(), size(b))),
 		Std::BinaryHeap => {

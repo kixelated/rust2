@@ -113,6 +113,11 @@ fn ones(data: &[u8], out: &mut Vec<u8>) {
 	let mut t = (String::from("ab"),);
 	t.extend(data.iter().map(|&b| (["x", "", "yz"][usize::from(b % 3)],)));
 	out.extend(t.0.bytes());
+	// A tuple's own `extend`, of `()` too.
+	let ((v, heap),): ((Vec<u8>, BinaryHeap<u8>),) = data.iter().map(|&b| ((b, b),)).collect();
+	out.extend(v);
+	out.extend(heap.into_vec());
+	let ((),) = data.iter().map(|_| ((),)).collect();
 }
 
 /// Pairs, by `collect` and `unzip`, of `()` too.
@@ -128,6 +133,10 @@ fn pairs(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(q.iter().flat_map(|n| n.to_le_bytes()));
 	let ((), v): ((), Vec<u8>) = data.iter().map(|&b| ((), b)).collect();
 	out.extend(v);
+	// A size hint whose lower bound is less than the items, from which each grows.
+	let (v, q): (Vec<u16>, VecDeque<u8>) = data.iter().filter(|&&b| b > 0x40).map(|&b| (u16::from(b), b)).unzip();
+	out.extend(v.iter().flat_map(|n| n.to_le_bytes()));
+	out.extend(q);
 }
 
 /// Triples, of mixed collections, and tuples of collections within one.

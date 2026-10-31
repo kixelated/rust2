@@ -107,6 +107,18 @@ export function ones(data: rt.ByteSlice, out: rt.ByteVec): void {
 	});
 	rt.tupleExtendOne(t2, _56, (c9, items8) => rt.stringExtend(c9, items8));
 	rt.iterExtendBytes(out, rt.strBytes(t2[0]), undefined, true);
+	const _65: rt.Iter<[[rt.u8, rt.u8]]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_215: rt.u8): [[rt.u8, rt.u8]] => {
+		const b9: rt.u8 = _215;
+		return [[b9, b9] as [rt.u8, rt.u8]] as [[rt.u8, rt.u8]];
+	});
+	const _64: [[rt.ByteVec, rt.BinaryHeap<rt.u8>]] = rt.tupleExtendOne([[new rt.ByteVec(), rt.heapNew() as rt.BinaryHeap<rt.u8>]] as [[rt.ByteVec, rt.BinaryHeap<rt.u8>]], _65, (c10, items9) => rt.tupleExtend(c10, items9, [rt.byteVecPart(), rt.heapPart(rt.le, 1)]));
+	const v2: rt.ByteVec = _64[0][0];
+	const heap2: rt.BinaryHeap<rt.u8> = _64[0][1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(v2)), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.byteVecFrom(Uint8Array.from(heap2.d)))), undefined, true);
+	rt.tupleExtendOne([undefined] as [undefined], rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): [undefined] => {
+		return [undefined] as [undefined];
+	}), (_c11, items10) => rt.iterFold(items10, undefined, () => undefined));
 }
 
 /** Pairs, by `collect` and `unzip`, of `()` too. */
@@ -115,7 +127,7 @@ export function pairs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b: rt.u8 = _2;
 		return [b ^ 90, b as rt.char] as [rt.u8, rt.char];
 	});
-	const _5: [rt.ByteVec, string] = rt.tupleExtend([new rt.ByteVec(), ""] as [rt.ByteVec, string], _6, [rt.BYTE_VEC_PART, rt.STRING_CHARS_PART]);
+	const _5: [rt.ByteVec, string] = rt.tupleExtend([new rt.ByteVec(), ""] as [rt.ByteVec, string], _6, [rt.byteVecPart(), rt.STRING_CHARS_PART]);
 	const v: rt.ByteVec = _5[0];
 	const s: string = _5[1];
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(v)), undefined, true);
@@ -124,7 +136,7 @@ export function pairs(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b2: rt.u8 = _25;
 		return [b2, rt.u8Rem(b2, 8)] as [rt.u8, rt.u8];
 	});
-	const _15: [rt.ByteVec, rt.BTreeSet<rt.u8>] = rt.tupleExtend([new rt.ByteVec(), rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>] as [rt.ByteVec, rt.BTreeSet<rt.u8>], _16, [rt.BYTE_VEC_PART, rt.btreeKeysPart()]);
+	const _15: [rt.ByteVec, rt.BTreeSet<rt.u8>] = rt.tupleExtend([new rt.ByteVec(), rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>] as [rt.ByteVec, rt.BTreeSet<rt.u8>], _16, [rt.byteVecPart(), rt.btreeKeysPart()]);
 	const v2: rt.ByteVec = _15[0];
 	const tree: rt.BTreeSet<rt.u8> = _15[1];
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(v2)), undefined, true);
@@ -143,7 +155,20 @@ export function pairs(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _33: rt.Iter<[undefined, rt.u8]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_210: rt.u8): [undefined, rt.u8] => {
 		return [undefined, _210] as [undefined, rt.u8];
 	});
-	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.tupleExtend([undefined, new rt.ByteVec()] as [undefined, rt.ByteVec], _33, [rt.UNIT_PART, rt.BYTE_VEC_PART])[1])), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.tupleExtend([undefined, new rt.ByteVec()] as [undefined, rt.ByteVec], _33, [rt.UNIT_PART, rt.byteVecPart()])[1])), undefined, true);
+	const _39: rt.Iter<[rt.u16, rt.u8]> = rt.iterMap(rt.iterFilter(rt.iterSlice(rt.byteSliceView(data)), (_211: rt.u8): boolean => {
+		return _211 > 64;
+	}), (_212: rt.u8): [rt.u16, rt.u8] => {
+		const b6: rt.u8 = _212;
+		return [b6 as rt.u16, b6] as [rt.u16, rt.u8];
+	});
+	const _38: [rt.u16[], rt.VecDeque<rt.u8>] = rt.tupleExtend([[], rt.dequeNew() as rt.VecDeque<rt.u8>] as [rt.u16[], rt.VecDeque<rt.u8>], _39, [rt.vecPart(2), rt.dequePart(1)]);
+	const v4: rt.u16[] = _38[0];
+	const q2: rt.VecDeque<rt.u8> = _38[1];
+	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(v4), (n2: rt.u16): Uint8Array => {
+		return rt.u16ToBeBytes(n2).reverse();
+	}, (value: Uint8Array) => rt.iterSlice(value), false, 2), undefined, true);
+	rt.iterExtendBytes(out, rt.dequeIter(q2), undefined, true);
 }
 
 /** Triples, of mixed collections, and tuples of collections within one. */
@@ -152,7 +177,7 @@ export function triples(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b: rt.u8 = _2;
 		return [b, (((b as rt.u16)) << 8) & 0xffff, rt.u8Add(97, rt.u8Rem(b, 26)) as rt.char] as [rt.u8, rt.u16, rt.char];
 	});
-	const _6: [rt.ByteVec, rt.VecDeque<rt.u16>, string] = rt.tupleExtend([new rt.ByteVec(), rt.dequeNew() as rt.VecDeque<rt.u16>, ""] as [rt.ByteVec, rt.VecDeque<rt.u16>, string], _7, [rt.BYTE_VEC_PART, rt.dequePart(2), rt.STRING_CHARS_PART]);
+	const _6: [rt.ByteVec, rt.VecDeque<rt.u16>, string] = rt.tupleExtend([new rt.ByteVec(), rt.dequeNew() as rt.VecDeque<rt.u16>, ""] as [rt.ByteVec, rt.VecDeque<rt.u16>, string], _7, [rt.byteVecPart(), rt.dequePart(2), rt.STRING_CHARS_PART]);
 	const v: rt.ByteVec = _6[0];
 	const q: rt.VecDeque<rt.u16> = _6[1];
 	const s: string = _6[2];
@@ -178,7 +203,7 @@ export function triples(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b3: rt.u8 = _26;
 		return [b3, [b3 as rt.char, rt.u16Add(b3 as rt.u16, 1)] as [rt.char, rt.u16]] as [rt.u8, [rt.char, rt.u16]];
 	});
-	const _34: [rt.ByteVec, [string, rt.u16[]]] = rt.tupleExtend([new rt.ByteVec(), ["", []]] as [rt.ByteVec, [string, rt.u16[]]], _35, [rt.BYTE_VEC_PART, rt.tuplePart([rt.STRING_CHARS_PART, rt.vecPart(2)])]);
+	const _34: [rt.ByteVec, [string, rt.u16[]]] = rt.tupleExtend([new rt.ByteVec(), ["", []]] as [rt.ByteVec, [string, rt.u16[]]], _35, [rt.byteVecPart(), rt.tuplePart([rt.STRING_CHARS_PART, rt.vecPart(2)])]);
 	const v2: rt.ByteVec = _34[0];
 	const s2: string = _34[1][0];
 	const w: rt.u16[] = _34[1][1];
@@ -191,7 +216,7 @@ export function triples(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b4: rt.u8 = _29;
 		return [b4, [rt.u8Div(b4, 32)] as [rt.u8]] as [rt.u8, [rt.u8]];
 	});
-	const _49: [rt.ByteVec, [rt.BTreeSet<rt.u8>]] = rt.tupleExtend([new rt.ByteVec(), [rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>]] as [rt.ByteVec, [rt.BTreeSet<rt.u8>]], _50, [rt.BYTE_VEC_PART, rt.tuplePart([rt.btreeKeysPart()])]);
+	const _49: [rt.ByteVec, [rt.BTreeSet<rt.u8>]] = rt.tupleExtend([new rt.ByteVec(), [rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>]] as [rt.ByteVec, [rt.BTreeSet<rt.u8>]], _50, [rt.byteVecPart(), rt.tuplePart([rt.btreeKeysPart()])]);
 	const v3: rt.ByteVec = _49[0];
 	const tree2: rt.BTreeSet<rt.u8> = _49[1][0];
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(v3)), undefined, true);
@@ -217,7 +242,7 @@ export function twelves(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _28: [rt.u8, [rt.char]] = [b ^ 51, [rt.u8Add(65, rt.u8Rem(b, 26)) as rt.char] as [rt.char]];
 		return [b, _12, _152, _5[_8], _162, b, _172, _202, _222, _262, undefined, _28] as [rt.u8, rt.u16, rt.char, string, rt.u8, rt.u8, [rt.u8, rt.u8], rt.u8, [rt.u8, rt.u16], rt.u8, undefined, [rt.u8, [rt.char]]];
 	});
-	const _15: [rt.ByteVec, rt.u16[], string, string, rt.VecDeque<rt.u8>, rt.BinaryHeap<rt.u8>, rt.HashMap<rt.u8, rt.u8>, rt.HashSet<rt.u8>, rt.BTreeMap<rt.u8, rt.u16>, rt.BTreeSet<rt.u8>, undefined, [rt.ByteVec, [string]]] = rt.tupleExtend([new rt.ByteVec(), [], "", "", rt.dequeNew() as rt.VecDeque<rt.u8>, rt.heapNew() as rt.BinaryHeap<rt.u8>, rt.hashNew() as rt.HashMap<rt.u8, rt.u8>, rt.hashNew() as rt.HashSet<rt.u8>, rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, undefined, [new rt.ByteVec(), [""]]] as [rt.ByteVec, rt.u16[], string, string, rt.VecDeque<rt.u8>, rt.BinaryHeap<rt.u8>, rt.HashMap<rt.u8, rt.u8>, rt.HashSet<rt.u8>, rt.BTreeMap<rt.u8, rt.u16>, rt.BTreeSet<rt.u8>, undefined, [rt.ByteVec, [string]]], _16, [rt.BYTE_VEC_PART, rt.vecPart(2), rt.STRING_CHARS_PART, rt.STRING_PART, rt.dequePart(1), rt.heapPart(rt.le, 1), rt.hashPart(undefined, undefined, 469762048), rt.hashKeysPart(undefined, 469762048), rt.btreePart(), rt.btreeKeysPart(), rt.UNIT_PART, rt.tuplePart([rt.BYTE_VEC_PART, rt.tuplePart([rt.STRING_CHARS_PART])])]);
+	const _15: [rt.ByteVec, rt.u16[], string, string, rt.VecDeque<rt.u8>, rt.BinaryHeap<rt.u8>, rt.HashMap<rt.u8, rt.u8>, rt.HashSet<rt.u8>, rt.BTreeMap<rt.u8, rt.u16>, rt.BTreeSet<rt.u8>, undefined, [rt.ByteVec, [string]]] = rt.tupleExtend([new rt.ByteVec(), [], "", "", rt.dequeNew() as rt.VecDeque<rt.u8>, rt.heapNew() as rt.BinaryHeap<rt.u8>, rt.hashNew() as rt.HashMap<rt.u8, rt.u8>, rt.hashNew() as rt.HashSet<rt.u8>, rt.btreeNew(rt.cmp) as rt.BTreeMap<rt.u8, rt.u16>, rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, undefined, [new rt.ByteVec(), [""]]] as [rt.ByteVec, rt.u16[], string, string, rt.VecDeque<rt.u8>, rt.BinaryHeap<rt.u8>, rt.HashMap<rt.u8, rt.u8>, rt.HashSet<rt.u8>, rt.BTreeMap<rt.u8, rt.u16>, rt.BTreeSet<rt.u8>, undefined, [rt.ByteVec, [string]]], _16, [rt.byteVecPart(), rt.vecPart(2), rt.STRING_CHARS_PART, rt.STRING_PART, rt.dequePart(1), rt.heapPart(rt.le, 1), rt.hashPart(undefined, undefined, 469762048), rt.hashKeysPart(undefined, 469762048), rt.btreePart(), rt.btreeKeysPart(), rt.UNIT_PART, rt.tuplePart([rt.byteVecPart(), rt.tuplePart([rt.STRING_CHARS_PART])])]);
 	const bytes: rt.ByteVec = _15[0];
 	const wide: rt.u16[] = _15[1];
 	const chars: string = _15[2];
@@ -261,7 +286,7 @@ export function extended(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b: rt.u8 = _2;
 		return [b, b as rt.char, [rt.u8Rem(b, 8), b as rt.u16] as [rt.u8, rt.u16], b as rt.u16, rt.u8Rem(b, 16)] as [rt.u8, rt.char, [rt.u8, rt.u16], rt.u16, rt.u8];
 	});
-	rt.tupleExtend(t, _16, [rt.BYTE_VEC_PART, rt.STRING_CHARS_PART, rt.btreePart(), rt.dequePart(2), rt.hashKeysPart(undefined, 469762048)]);
+	rt.tupleExtend(t, _16, [rt.byteVecPart(), rt.STRING_CHARS_PART, rt.btreePart(), rt.dequePart(2), rt.hashKeysPart(undefined, 469762048)]);
 	const v: rt.ByteVec = t[0];
 	const s: string = t[1];
 	const tree: rt.BTreeMap<rt.u8, rt.u16> = t[2];
@@ -302,7 +327,7 @@ export function borrowed(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 		return [_23[0], _23[1], _54, marks[_72]] as [rt.u8, Spot.Spot, [rt.u8, rt.u8], rt.char];
 	});
-	rt.tupleExtend(t, _10, [rt.BYTE_VEC_PART, rt.copiedPart(rt.vecPart(4), copy$tuples_Spot), rt.copiedPart(rt.hashPart(undefined, undefined, 469762048), copy$tuple2_u8_u8), rt.STRING_CHARS_PART]);
+	rt.tupleExtend(t, _10, [rt.byteVecPart(), rt.copiedPart(rt.vecPart(4), copy$tuples_Spot), rt.copiedPart(rt.hashPart(undefined, undefined, 469762048), copy$tuple2_u8_u8), rt.STRING_CHARS_PART]);
 	const _17: Spot.Spot[] = [];
 	const ones: [Spot.Spot[]] = [_17];
 	const _20: rt.Iter<[Spot.Spot]> = rt.iterMap(rt.iterSlice(points), (p: Spot.Spot): [Spot.Spot] => {
@@ -390,7 +415,7 @@ export function dropped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}), undefined, 12, true);
 	const n: rt.usize = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 8) as rt.usize;
 	const _87: rt.Iter<[tuples_Logged.Logged, rt.u8]> = rt.iterTake(rt.iterSlice(source, drop$tuple2_tuples_Logged_u8), n, drop$tuple2_tuples_Logged_u8);
-	const _86: [tuples_Logged.Logged[], rt.ByteVec] = rt.tupleExtend([[], new rt.ByteVec()] as [tuples_Logged.Logged[], rt.ByteVec], _87, [rt.vecPart(8), rt.BYTE_VEC_PART], "fold");
+	const _86: [tuples_Logged.Logged[], rt.ByteVec] = rt.tupleExtend([[], new rt.ByteVec()] as [tuples_Logged.Logged[], rt.ByteVec], _87, [rt.vecPart(8), rt.byteVecPart()], "fold");
 	const taken: tuples_Logged.Logged[] = _86[0];
 	const bytes: rt.ByteVec = _86[1];
 	flush(log.value, out);
@@ -418,7 +443,7 @@ export function panicked(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return [b, b as rt.char, b as rt.u16] as [rt.u8, rt.char, rt.u16];
 		}
 	});
-	const _12: [rt.ByteVec, string, rt.u16[]] = rt.tupleExtend([new rt.ByteVec(), "", []] as [rt.ByteVec, string, rt.u16[]], _13, [rt.BYTE_VEC_PART, rt.STRING_CHARS_PART, rt.vecPart(2)]);
+	const _12: [rt.ByteVec, string, rt.u16[]] = rt.tupleExtend([new rt.ByteVec(), "", []] as [rt.ByteVec, string, rt.u16[]], _13, [rt.byteVecPart(), rt.STRING_CHARS_PART, rt.vecPart(2)]);
 	const v: rt.ByteVec = _12[0];
 	const s: string = _12[1];
 	const w: rt.u16[] = _12[2];
@@ -444,7 +469,7 @@ export function reserved(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _19: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(items, (i4: rt.u32): [rt.u8, rt.u8] => {
 			return [i4 & 0xff, i4 & 0xff] as [rt.u8, rt.u8];
 		});
-		const _18: [rt.HashSet<rt.u8>, rt.ByteVec] = rt.tupleExtend([rt.hashNew() as rt.HashSet<rt.u8>, new rt.ByteVec()] as [rt.HashSet<rt.u8>, rt.ByteVec], _19, [rt.hashKeysPart(undefined, 469762048), rt.BYTE_VEC_PART]);
+		const _18: [rt.HashSet<rt.u8>, rt.ByteVec] = rt.tupleExtend([rt.hashNew() as rt.HashSet<rt.u8>, new rt.ByteVec()] as [rt.HashSet<rt.u8>, rt.ByteVec], _19, [rt.hashKeysPart(undefined, 469762048), rt.byteVecPart()]);
 		const set: rt.HashSet<rt.u8> = _18[0];
 		const v2: rt.ByteVec = _18[1];
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashLen(set) & 0xff, v2.length & 0xff)), undefined, true);
@@ -452,7 +477,7 @@ export function reserved(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _31: rt.Iter<[rt.u8, rt.u8]> = rt.iterMap(items, (i3: rt.u32): [rt.u8, rt.u8] => {
 			return [i3 & 0xff, i3 & 0xff] as [rt.u8, rt.u8];
 		});
-		const _30: [rt.ByteVec, rt.HashSet<rt.u8>] = rt.tupleExtend([new rt.ByteVec(), rt.hashNew() as rt.HashSet<rt.u8>] as [rt.ByteVec, rt.HashSet<rt.u8>], _31, [rt.BYTE_VEC_PART, rt.hashKeysPart(undefined, 469762048)]);
+		const _30: [rt.ByteVec, rt.HashSet<rt.u8>] = rt.tupleExtend([new rt.ByteVec(), rt.hashNew() as rt.HashSet<rt.u8>] as [rt.ByteVec, rt.HashSet<rt.u8>], _31, [rt.byteVecPart(), rt.hashKeysPart(undefined, 469762048)]);
 		const v3: rt.ByteVec = _30[0];
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashLen(_30[1]) & 0xff, v3.length & 0xff)), undefined, true);
 	} else if (_4 === 3) {
@@ -484,7 +509,7 @@ export function shunted(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return rt.Ok([b, b as rt.char] as [rt.u8, rt.char]);
 		}
 		return rt.Err(b);
-	}), (values: rt.Iter<[rt.u8, rt.char]>) => rt.tupleExtend([new rt.ByteVec(), ""] as [rt.ByteVec, string], values, [rt.BYTE_VEC_PART, rt.STRING_CHARS_PART]));
+	}), (values: rt.Iter<[rt.u8, rt.char]>) => rt.tupleExtend([new rt.ByteVec(), ""] as [rt.ByteVec, string], values, [rt.byteVecPart(), rt.STRING_CHARS_PART]));
 	if (parsed.ok) {
 		const v: rt.ByteVec = parsed.value[0];
 		const s: string = parsed.value[1];
