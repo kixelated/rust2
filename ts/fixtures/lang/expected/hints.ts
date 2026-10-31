@@ -1821,12 +1821,12 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_37 === 8) {
 		const _190: rt.u8 = rt.u8Rem(arm, 6);
 		if (_190 === 0) {
-			walk$Filter_Range_u64_hints_closure1(rt.iterFilter(new rt.Range(0, n, rt.u64Step), (i20: rt.u64): boolean => {
-				return rt.u64Rem(i20, 2) === 0;
+			walk$Filter_Range_u64_hints_closure1(rt.iterFilter(new rt.Range(0, n, rt.u64Step), (i21: rt.u64): boolean => {
+				return rt.u64Rem(i21, 2) === 0;
 			}), steps, out);
 		} else if (_190 === 1) {
-			walk$FilterMap_Range_u64_hints_closure2(rt.iterFilterMap(new rt.Range(0, n, rt.u64Step), (i19: rt.u64): rt.u64 | undefined => {
-				return rt.u64CheckedSub(i19, 1);
+			walk$FilterMap_Range_u64_hints_closure2(rt.iterFilterMap(new rt.Range(0, n, rt.u64Step), (i20: rt.u64): rt.u64 | undefined => {
+				return rt.u64CheckedSub(i20, 1);
 			}), steps, out);
 		} else if (_190 === 2) {
 			walkFront$SkipWhile_Range_u64_hints_closure3(rt.iterSkipWhile(new rt.Range(0, n, rt.u64Step), (_253: rt.u64): boolean => {
@@ -1837,8 +1837,8 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u64Lt(_252, 1);
 			}), steps, out);
 		} else if (_190 === 4) {
-			walkFront$MapWhile_Range_u64_hints_closure5(rt.iterMapWhile(new rt.Range(0, n, rt.u64Step), (i16: rt.u64): rt.u64 | undefined => {
-				return rt.u64CheckedSub(i16, 1);
+			walkFront$MapWhile_Range_u64_hints_closure5(rt.iterMapWhile(new rt.Range(0, n, rt.u64Step), (i17: rt.u64): rt.u64 | undefined => {
+				return rt.u64CheckedSub(i17, 1);
 			}), steps, out);
 		} else {
 			walkFront$Filter_Endless_hints_closure6(rt.iterFilter(rt.iterFrom({ _0: n }, (it: Endless.Endless) => Endless.next$Iterator(it)), (_250: rt.u64): boolean => {
@@ -1848,8 +1848,8 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_37 === 9) {
 		const _204: rt.u8 = rt.u8Rem(arm, 6);
 		if (_204 === 0) {
-			walk$Map_Range_u64_hints_closure7(rt.iterMap(new rt.Range(0, n, rt.u64Step), (i15: rt.u64): rt.u64 => {
-				return rt.u64Add(i15, 1);
+			walk$Map_Range_u64_hints_closure7(rt.iterMap(new rt.Range(0, n, rt.u64Step), (i16: rt.u64): rt.u64 => {
+				return rt.u64Add(i16, 1);
 			}), steps, out);
 		} else if (_204 === 1) {
 			walk$Inspect_Range_u64_hints_closure8(rt.iterInspect(new rt.Range(0, n, rt.u64Step), (_248: rt.u64): undefined => {}), steps, out);
@@ -1893,27 +1893,27 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_37 === 12) {
 		const _267: rt.u8 = rt.u8Rem(arm, 7);
 		if (_267 === 0) {
-			walk$Flatten_Map_Range_u64_hints_closure9(rt.iterFlatten(rt.iterMap(new rt.Range(0, n, rt.u64Step), (i14: rt.u64): rt.u64[] => {
+			walk$Flatten_Map_Range_u64_hints_closure9(rt.iterFlatten(rt.iterMap(new rt.Range(0, n, rt.u64Step), (i15: rt.u64): rt.u64[] => {
 				return Array.from({ length: 3 }, (): rt.u64 => {
-					return i14;
+					return i15;
 				});
 			}), (value: rt.u64[]) => rt.iterSlice(value), false, 3), steps, out);
 		} else if (_267 === 1) {
-			walk$FlatMap_Range_u64_u64s_hints_closure10(rt.iterFlatMap(new rt.Range(0, n, rt.u64Step), (i13: rt.u64): rt.u64[] => {
-				return [i13];
+			walk$FlatMap_Range_u64_u64s_hints_closure10(rt.iterFlatMap(new rt.Range(0, n, rt.u64Step), (i14: rt.u64): rt.u64[] => {
+				return [i14];
 			}, (value: rt.u64[]) => rt.iterSlice(value), false, 1, true), steps, out);
 		} else if (_267 === 2) {
 			walk$Flatten_Chunks_u8(rt.iterFlatten(rt.byteSliceChunks(bytes, 2), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value))), steps, out);
 		} else if (_267 === 3) {
-			walk$Flatten_Map_Range_u64_hints_closure11(rt.iterFlatten(rt.iterMap(new rt.Range(0, rt.u64Min(n, 9), rt.u64Step), (i12: rt.u64): rt.Range<rt.u64> => {
-				return new rt.Range(0, i12, rt.u64Step);
+			walk$Flatten_Map_Range_u64_hints_closure11(rt.iterFlatten(rt.iterMap(new rt.Range(0, rt.u64Min(n, 9), rt.u64Step), (i13: rt.u64): rt.Range<rt.u64> => {
+				return new rt.Range(0, i13, rt.u64Step);
 			})), steps, out);
 		} else if (_267 === 5) {
 			walk$Flatten_Map_Range_u64_hints_closure12(rt.iterFlatten(rt.iterMap(new rt.Range(0, rt.u64Min(n, 9), rt.u64Step), (_247: rt.u64): Uint8Array => {
 				return Uint8Array.of();
 			}), (value: Uint8Array) => rt.iterSlice(value), false, 0, true), steps, out);
 		} else if (_267 === 6) {
-			put(out, rt.iterFlatMap(new rt.Range(0, n, rt.u64Step), (_i: rt.u64): rt.u64[] => {
+			put(out, rt.iterFlatMap(new rt.Range(0, n, rt.u64Step), (_i12: rt.u64): rt.u64[] => {
 				return [];
 			}, (value: rt.u64[]) => rt.iterSlice(value), false, 0, true).sizeHint());
 		} else {
