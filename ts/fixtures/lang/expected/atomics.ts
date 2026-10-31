@@ -4,7 +4,7 @@ import * as rt from "./rt.ts";
 import * as Stats from "./atomics.Stats.ts";
 import { thenSome$0kwiij6, thenSome$0n2gkz4, thenSome$0tjggir, thenSome$1s4itlz, thenSome$0jkru5t, thenSome$0b23a33, thenSome$1af3oea, thenSome$1ugl8af, thenSome$0d5am30, thenSome$07z8k4h } from "./core/bool.ts";
 import { isSomeAnd$09tpccf } from "./core/option.ts";
-import { unwrapOr$1pnwyus, unwrapOr$0xokg9f, unwrapOr$1imvcmw, unwrapOr$06fxvgg, unwrapOr$0gr9tn5, unwrapOr$0hnup9g, unwrapOr$1dnnsw8, unwrapOr$1k2j44a, unwrapOr$0jmm2jy, unwrapOr$1czbd6g } from "./core/result.ts";
+import { unwrapOr$1pnwyus as result_unwrapOr$1pnwyus, unwrapOr$0xokg9f as result_unwrapOr$0xokg9f, unwrapOr$1imvcmw as result_unwrapOr$1imvcmw, unwrapOr$06fxvgg as result_unwrapOr$06fxvgg, unwrapOr$0gr9tn5 as result_unwrapOr$0gr9tn5, unwrapOr$0hnup9g as result_unwrapOr$0hnup9g, unwrapOr$1dnnsw8 as result_unwrapOr$1dnnsw8, unwrapOr$1k2j44a as result_unwrapOr$1k2j44a, unwrapOr$0jmm2jy as result_unwrapOr$0jmm2jy, unwrapOr$1czbd6g as result_unwrapOr$1czbd6g } from "./core/result.ts";
 
 /** An ordering from `b`: one of `valid`, or from 0xf0 on any, which may panic. */
 export function order(b: rt.u8, valid: rt.AtomicOrdering[]): rt.AtomicOrdering {
@@ -120,7 +120,7 @@ export function i16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.i16WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$1pnwyus(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i16): rt.i16 | undefined => {
+			old = result_unwrapOr$1pnwyus(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i16): rt.i16 | undefined => {
 				return thenSome$0kwiij6(x4 !== v, v);
 			}), v);
 		} else {
@@ -233,7 +233,7 @@ export function i32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.i32WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$0xokg9f(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i32): rt.i32 | undefined => {
+			old = result_unwrapOr$0xokg9f(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i32): rt.i32 | undefined => {
 				return thenSome$0n2gkz4(x4 !== v, v);
 			}), v);
 		} else {
@@ -346,7 +346,7 @@ export function i64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.i64Xor(rt.i64WrappingSub(x5, v), 1);
 			}, rt.i64Eq);
 		} else if (_60 === 14) {
-			old = unwrapOr$1imvcmw(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i64): rt.i64 | undefined => {
+			old = result_unwrapOr$1imvcmw(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i64): rt.i64 | undefined => {
 				return thenSome$0tjggir(rt.i64Ne(x4, v), v);
 			}, rt.i64Eq), v);
 		} else {
@@ -459,7 +459,7 @@ export function i8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.i8WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$06fxvgg(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i8): rt.i8 | undefined => {
+			old = result_unwrapOr$06fxvgg(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i8): rt.i8 | undefined => {
 				return thenSome$1s4itlz(x4 !== v, v);
 			}), v);
 		} else {
@@ -572,7 +572,7 @@ export function isizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.isizeWrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$0gr9tn5(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.isize): rt.isize | undefined => {
+			old = result_unwrapOr$0gr9tn5(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.isize): rt.isize | undefined => {
 				return thenSome$0jkru5t(x4 !== v, v);
 			}), v);
 		} else {
@@ -685,7 +685,7 @@ export function u16s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u16WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$0hnup9g(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u16): rt.u16 | undefined => {
+			old = result_unwrapOr$0hnup9g(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u16): rt.u16 | undefined => {
 				return thenSome$0b23a33(x4 !== v, v);
 			}), v);
 		} else {
@@ -798,7 +798,7 @@ export function u32s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return (rt.u32WrappingSub(x5, v) ^ 1) >>> 0;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$1dnnsw8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u32): rt.u32 | undefined => {
+			old = result_unwrapOr$1dnnsw8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u32): rt.u32 | undefined => {
 				return thenSome$1af3oea(x4 !== v, v);
 			}), v);
 		} else {
@@ -911,7 +911,7 @@ export function u64s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u64Xor(rt.u64WrappingSub(x5, v), 1);
 			}, rt.u64Eq);
 		} else if (_60 === 14) {
-			old = unwrapOr$1k2j44a(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u64): rt.u64 | undefined => {
+			old = result_unwrapOr$1k2j44a(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u64): rt.u64 | undefined => {
 				return thenSome$1ugl8af(rt.u64Ne(x4, v), v);
 			}, rt.u64Eq), v);
 		} else {
@@ -1024,7 +1024,7 @@ export function u8s(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return rt.u8WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$0jmm2jy(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u8): rt.u8 | undefined => {
+			old = result_unwrapOr$0jmm2jy(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u8): rt.u8 | undefined => {
 				return thenSome$0d5am30(x4 !== v, v);
 			}), v);
 		} else {
@@ -1137,7 +1137,7 @@ export function usizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return (rt.usizeWrappingSub(x5, v) ^ 1) >>> 0;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$1czbd6g(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.usize): rt.usize | undefined => {
+			old = result_unwrapOr$1czbd6g(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.usize): rt.usize | undefined => {
 				return thenSome$07z8k4h(x4 !== v, v);
 			}), v);
 		} else {

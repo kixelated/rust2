@@ -5,16 +5,16 @@ import { copy$u8_Arc_u8, copy$u8_String, drop$u8_Arc_u8 } from "./lib.ts";
 import { attachBefore$Arc_u8, attachBefore$String, detach$Arc_u8, detach$String } from "./pointers.ts";
 import type * as Free from "./pointers.Free.ts";
 import type * as Links from "./pointers.Links.ts";
-import * as Node from "./pointers.Node.ts";
+import * as pointers_Node from "./pointers.Node.ts";
 
 /** Entries in the order they were pushed, but for those moved to the front. */
 export class List<V> {
 	/** The guard: `next` is the first entry and `prev` the last, or itself if none. */
-	guard: Node.Node<V> | undefined;
-	free: Node.Node<V> | undefined;
+	guard: pointers_Node.Node<V> | undefined;
+	free: pointers_Node.Node<V> | undefined;
 	len: rt.usize;
 
-	constructor(guard: Node.Node<V> | undefined, free: Node.Node<V> | undefined, len: rt.usize) {
+	constructor(guard: pointers_Node.Node<V> | undefined, free: pointers_Node.Node<V> | undefined, len: rt.usize) {
 		this.guard = guard;
 		this.free = free;
 		this.len = len;
@@ -29,74 +29,74 @@ export function new$String(): List<string> {
 	return new List(undefined, undefined, 0);
 }
 
-export function guard$Arc_u8(self: List<rt.Arc<rt.u8>>): Node.Node<rt.Arc<rt.u8>> {
+export function guard$Arc_u8(self: List<rt.Arc<rt.u8>>): pointers_Node.Node<rt.Arc<rt.u8>> {
 	if (self.guard !== undefined) {
 		return self.guard;
 	}
-	const guard2: Node.Node<rt.Arc<rt.u8>> = Node.new$Arc_u8();
+	const guard2: pointers_Node.Node<rt.Arc<rt.u8>> = pointers_Node.new$Arc_u8();
 	const _8: Links.Links<rt.Arc<rt.u8>> = { next: guard2, prev: guard2 };
-	const _11: Node.Node<rt.Arc<rt.u8>> = guard2;
+	const _11: pointers_Node.Node<rt.Arc<rt.u8>> = guard2;
 	_11.link.at0 = _8.next;
 	_11.link.at4 = _8.prev;
 	self.guard = guard2;
 	return guard2;
 }
 
-export function guard$String(self: List<string>): Node.Node<string> {
+export function guard$String(self: List<string>): pointers_Node.Node<string> {
 	if (self.guard !== undefined) {
 		return self.guard;
 	}
-	const guard2: Node.Node<string> = Node.new$String();
+	const guard2: pointers_Node.Node<string> = pointers_Node.new$String();
 	const _8: Links.Links<string> = { next: guard2, prev: guard2 };
-	const _11: Node.Node<string> = guard2;
+	const _11: pointers_Node.Node<string> = guard2;
 	_11.link.at0 = _8.next;
 	_11.link.at4 = _8.prev;
 	self.guard = guard2;
 	return guard2;
 }
 
-export function alloc$Arc_u8(self: List<rt.Arc<rt.u8>>): Node.Node<rt.Arc<rt.u8>> {
+export function alloc$Arc_u8(self: List<rt.Arc<rt.u8>>): pointers_Node.Node<rt.Arc<rt.u8>> {
 	if (self.free === undefined) {
-		return Node.new$Arc_u8();
+		return pointers_Node.new$Arc_u8();
 	}
-	const free: Node.Node<rt.Arc<rt.u8>> = self.free;
+	const free: pointers_Node.Node<rt.Arc<rt.u8>> = self.free;
 	self.free = free.link.at0;
 	return free;
 }
 
-export function alloc$String(self: List<string>): Node.Node<string> {
+export function alloc$String(self: List<string>): pointers_Node.Node<string> {
 	if (self.free === undefined) {
-		return Node.new$String();
+		return pointers_Node.new$String();
 	}
-	const free: Node.Node<string> = self.free;
+	const free: pointers_Node.Node<string> = self.free;
 	self.free = free.link.at0;
 	return free;
 }
 
 export function pushBack$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8, value: rt.Arc<rt.u8>): void {
-	const guard: Node.Node<rt.Arc<rt.u8>> = guard$Arc_u8(self);
-	const node: Node.Node<rt.Arc<rt.u8>> = alloc$Arc_u8(self);
+	const guard: pointers_Node.Node<rt.Arc<rt.u8>> = guard$Arc_u8(self);
+	const node: pointers_Node.Node<rt.Arc<rt.u8>> = alloc$Arc_u8(self);
 	rt.ptrWrite(node.entry, [key, value] as [rt.u8, rt.Arc<rt.u8>]);
 	attachBefore$Arc_u8(node, guard);
 	self.len = rt.usizeAdd(self.len, 1);
 }
 
 export function pushBack$String(self: List<string>, key: rt.u8, value: string): void {
-	const guard: Node.Node<string> = guard$String(self);
-	const node: Node.Node<string> = alloc$String(self);
+	const guard: pointers_Node.Node<string> = guard$String(self);
+	const node: pointers_Node.Node<string> = alloc$String(self);
 	rt.ptrWrite(node.entry, [key, value] as [rt.u8, string]);
 	attachBefore$String(node, guard);
 	self.len = rt.usizeAdd(self.len, 1);
 }
 
-export function find$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): Node.Node<rt.Arc<rt.u8>> | undefined {
-	const _4: Node.Node<rt.Arc<rt.u8>> | undefined = self.guard;
+export function find$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): pointers_Node.Node<rt.Arc<rt.u8>> | undefined {
+	const _4: pointers_Node.Node<rt.Arc<rt.u8>> | undefined = self.guard;
 	if (_4 !== undefined) {
-		const guard: Node.Node<rt.Arc<rt.u8>> = _4;
-		let at: Node.Node<rt.Arc<rt.u8>> = guard.link.at0 as Node.Node<rt.Arc<rt.u8>>;
+		const guard: pointers_Node.Node<rt.Arc<rt.u8>> = _4;
+		let at: pointers_Node.Node<rt.Arc<rt.u8>> = guard.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>;
 		while (at !== guard) {
 			if (!(at.entry[0] === key)) {
-				at = at.link.at0 as Node.Node<rt.Arc<rt.u8>>;
+				at = at.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>;
 			} else {
 				return at;
 			}
@@ -106,14 +106,14 @@ export function find$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): Node.Node<rt
 	return undefined;
 }
 
-export function find$String(self: List<string>, key: rt.u8): Node.Node<string> | undefined {
-	const _4: Node.Node<string> | undefined = self.guard;
+export function find$String(self: List<string>, key: rt.u8): pointers_Node.Node<string> | undefined {
+	const _4: pointers_Node.Node<string> | undefined = self.guard;
 	if (_4 !== undefined) {
-		const guard: Node.Node<string> = _4;
-		let at: Node.Node<string> = guard.link.at0 as Node.Node<string>;
+		const guard: pointers_Node.Node<string> = _4;
+		let at: pointers_Node.Node<string> = guard.link.at0 as pointers_Node.Node<string>;
 		while (at !== guard) {
 			if (!(at.entry[0] === key)) {
-				at = at.link.at0 as Node.Node<string>;
+				at = at.link.at0 as pointers_Node.Node<string>;
 			} else {
 				return at;
 			}
@@ -124,9 +124,9 @@ export function find$String(self: List<string>, key: rt.u8): Node.Node<string> |
 }
 
 export function remove$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): [rt.u8, rt.Arc<rt.u8>] | undefined {
-	const _4: Node.Node<rt.Arc<rt.u8>> | undefined = find$Arc_u8(self, key);
+	const _4: pointers_Node.Node<rt.Arc<rt.u8>> | undefined = find$Arc_u8(self, key);
 	if (_4 !== undefined) {
-		const node: Node.Node<rt.Arc<rt.u8>> = _4;
+		const node: pointers_Node.Node<rt.Arc<rt.u8>> = _4;
 		detach$Arc_u8(node);
 		const entry: [rt.u8, rt.Arc<rt.u8>] = copy$u8_Arc_u8(node.entry);
 		const _16: Free.Free<rt.Arc<rt.u8>> = { next: self.free };
@@ -139,9 +139,9 @@ export function remove$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): [rt.u8, rt
 }
 
 export function remove$String(self: List<string>, key: rt.u8): [rt.u8, string] | undefined {
-	const _4: Node.Node<string> | undefined = find$String(self, key);
+	const _4: pointers_Node.Node<string> | undefined = find$String(self, key);
 	if (_4 !== undefined) {
-		const node: Node.Node<string> = _4;
+		const node: pointers_Node.Node<string> = _4;
 		detach$String(node);
 		const entry: [rt.u8, string] = copy$u8_String(node.entry);
 		const _16: Free.Free<string> = { next: self.free };
@@ -154,13 +154,13 @@ export function remove$String(self: List<string>, key: rt.u8): [rt.u8, string] |
 }
 
 export function toFront$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): boolean {
-	const _4: Node.Node<rt.Arc<rt.u8>> | undefined = find$Arc_u8(self, key);
+	const _4: pointers_Node.Node<rt.Arc<rt.u8>> | undefined = find$Arc_u8(self, key);
 	if (_4 !== undefined) {
-		const node: Node.Node<rt.Arc<rt.u8>> = _4;
+		const node: pointers_Node.Node<rt.Arc<rt.u8>> = _4;
 		if (self.guard !== undefined) {
-			const guard: Node.Node<rt.Arc<rt.u8>> = self.guard;
+			const guard: pointers_Node.Node<rt.Arc<rt.u8>> = self.guard;
 			detach$Arc_u8(node);
-			attachBefore$Arc_u8(node, guard.link.at0 as Node.Node<rt.Arc<rt.u8>>);
+			attachBefore$Arc_u8(node, guard.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>);
 			return true;
 		}
 		return false;
@@ -169,13 +169,13 @@ export function toFront$Arc_u8(self: List<rt.Arc<rt.u8>>, key: rt.u8): boolean {
 }
 
 export function toFront$String(self: List<string>, key: rt.u8): boolean {
-	const _4: Node.Node<string> | undefined = find$String(self, key);
+	const _4: pointers_Node.Node<string> | undefined = find$String(self, key);
 	if (_4 !== undefined) {
-		const node: Node.Node<string> = _4;
+		const node: pointers_Node.Node<string> = _4;
 		if (self.guard !== undefined) {
-			const guard: Node.Node<string> = self.guard;
+			const guard: pointers_Node.Node<string> = self.guard;
 			detach$String(node);
-			attachBefore$String(node, guard.link.at0 as Node.Node<string>);
+			attachBefore$String(node, guard.link.at0 as pointers_Node.Node<string>);
 			return true;
 		}
 		return false;
@@ -184,7 +184,7 @@ export function toFront$String(self: List<string>, key: rt.u8): boolean {
 }
 
 export function getMut$String(self: List<string>, key: rt.u8): rt.Place<string> | undefined {
-	const _3: Node.Node<string> | undefined = find$String(self, key);
+	const _3: pointers_Node.Node<string> | undefined = find$String(self, key);
 	if (_3 !== undefined) {
 		const _9: [rt.u8, string] = _3.entry;
 		return rt.place(() => _9[1], (value) => _9[1] = value);
@@ -195,8 +195,8 @@ export function getMut$String(self: List<string>, key: rt.u8): rt.Place<string> 
 export function each$String(self: List<string>, out: rt.ByteVec): void {
 	b0: {
 		if (self.guard !== undefined) {
-			const guard: Node.Node<string> = self.guard;
-			let at: Node.Node<string> = guard.link.at0 as Node.Node<string>;
+			const guard: pointers_Node.Node<string> = self.guard;
+			let at: pointers_Node.Node<string> = guard.link.at0 as pointers_Node.Node<string>;
 			while (true) {
 				if (!((at !== guard))) {
 					break b0;
@@ -204,7 +204,7 @@ export function each$String(self: List<string>, out: rt.ByteVec): void {
 				const _13: [rt.u8, string] = at.entry;
 				rt.byteVecPush(out, _13[0]);
 				rt.byteVecExtendFromSlice(out, rt.stringAsBytes(_13[1]));
-				at = at.link.at0 as Node.Node<string>;
+				at = at.link.at0 as pointers_Node.Node<string>;
 			}
 		}
 	}
@@ -212,10 +212,10 @@ export function each$String(self: List<string>, out: rt.ByteVec): void {
 
 export function drop$Drop_Arc_u8(self: List<rt.Arc<rt.u8>>): void {
 	if (self.guard !== undefined) {
-		const guard: Node.Node<rt.Arc<rt.u8>> = self.guard;
-		let at: Node.Node<rt.Arc<rt.u8>> = guard.link.at0 as Node.Node<rt.Arc<rt.u8>>;
+		const guard: pointers_Node.Node<rt.Arc<rt.u8>> = self.guard;
+		let at: pointers_Node.Node<rt.Arc<rt.u8>> = guard.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>;
 		while (at !== guard) {
-			const next: Node.Node<rt.Arc<rt.u8>> = at.link.at0 as Node.Node<rt.Arc<rt.u8>>;
+			const next: pointers_Node.Node<rt.Arc<rt.u8>> = at.link.at0 as pointers_Node.Node<rt.Arc<rt.u8>>;
 			drop$u8_Arc_u8(at.entry);
 			at = next;
 		}
@@ -227,10 +227,10 @@ export function drop$Drop_Arc_u8(self: List<rt.Arc<rt.u8>>): void {
 
 export function drop$Drop_String(self: List<string>): void {
 	if (self.guard !== undefined) {
-		const guard: Node.Node<string> = self.guard;
-		let at: Node.Node<string> = guard.link.at0 as Node.Node<string>;
+		const guard: pointers_Node.Node<string> = self.guard;
+		let at: pointers_Node.Node<string> = guard.link.at0 as pointers_Node.Node<string>;
 		while (at !== guard) {
-			at = at.link.at0 as Node.Node<string>;
+			at = at.link.at0 as pointers_Node.Node<string>;
 		}
 	}
 	while (self.free !== undefined) {

@@ -3,26 +3,26 @@
 import * as rt from "./rt.ts";
 import { drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally, drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32, drop$Result_RwLockReadGuard_Tally_TryLockError_RwLockReadGuard_Tally, drop$Result_RwLockWriteGuard_Tally_TryLockError_RwLockWriteGuard_Tally } from "./lib.ts";
 import { isSomeAnd$09tpccf } from "./core/option.ts";
-import * as Lock from "./locks.Lock.ts";
-import * as Tally from "./locks.Tally.ts";
+import * as locks_Lock from "./locks.Lock.ts";
+import * as locks_Tally from "./locks.Tally.ts";
 
 /** Each byte an operation on the mutexes, its value the operand; each puts what it read. */
 export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _71!: boolean;
-	const shared: rt.Arc<rt.Mutex<Tally.Tally>> = new rt.Arc(new rt.Mutex(Tally.default$Default()));
-	const other: rt.Arc<rt.Mutex<Tally.Tally>> = rt.arcClone(shared);
+	const shared: rt.Arc<rt.Mutex<locks_Tally.Tally>> = new rt.Arc(new rt.Mutex(locks_Tally.default$Default()));
+	const other: rt.Arc<rt.Mutex<locks_Tally.Tally>> = rt.arcClone(shared);
 	const own: rt.Mutex<rt.ByteVec> = new rt.Mutex(new rt.ByteVec());
 	const number: rt.Mutex<rt.u32> = new rt.Mutex(0);
-	const lock: Lock.Lock = { _0: new rt.Mutex(7) };
+	const lock: locks_Lock.Lock = { _0: new rt.Mutex(7) };
 	for (const op of rt.byteSliceView(data)) {
 		const _17: rt.u8 = rt.u8Rem(op, 8);
 		if (_17 === 0) {
-			const tally: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
+			const tally: rt.Mutex<locks_Tally.Tally> = rt.mutexLock(shared.value);
 			tally.value.n = rt.u64Add(tally.value.n, op as rt.u64);
 			rt.byteVecPush(tally.value.seen, op);
 			rt.mutexUnlock(tally);
 		} else if (_17 === 1) {
-			const tally2: rt.Mutex<Tally.Tally> = rt.mutexLock(other.value);
+			const tally2: rt.Mutex<locks_Tally.Tally> = rt.mutexLock(other.value);
 			rt.byteVecPush(out, rt.u64Low(tally2.value.n) & 0xff);
 			rt.byteVecPush(out, tally2.value.seen.length & 0xff);
 			rt.mutexUnlock(tally2);
@@ -37,8 +37,8 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _62.value & 0xff);
 			rt.mutexUnlock(_62);
 		} else if (_17 === 4) {
-			const held: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
-			const _72: rt.Result<rt.Mutex<Tally.Tally>, rt.TryLockError<rt.Mutex<Tally.Tally>>> = rt.mutexTryLock(other.value);
+			const held: rt.Mutex<locks_Tally.Tally> = rt.mutexLock(shared.value);
+			const _72: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>> = rt.mutexTryLock(other.value);
 			if (!_72.ok) {
 				_71 = true;
 			} else {
@@ -47,9 +47,9 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _71 ? 1 : 0);
 			drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_72);
 			rt.mutexUnlock(held);
-			const _78: rt.Result<rt.Mutex<Tally.Tally>, rt.TryLockError<rt.Mutex<Tally.Tally>>> = rt.mutexTryLock(other.value);
+			const _78: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>> = rt.mutexTryLock(other.value);
 			if (_78.ok) {
-				const tally3: rt.Mutex<Tally.Tally> = _78.value;
+				const tally3: rt.Mutex<locks_Tally.Tally> = _78.value;
 				rt.byteVecPush(out, tally3.value.seen.length & 0xff);
 				rt.mutexUnlock(tally3);
 			} else {
@@ -60,10 +60,10 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _93: rt.Mutex<rt.u32> = rt.mutexLock(lock._0);
 			_93.value = rt.u32Add(_93.value, _90);
 			rt.mutexUnlock(_93);
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => Lock.fmt$Debug(lock, f)];
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => locks_Lock.fmt$Debug(lock, f)];
 			const free: string = rt.fmtFormat([args2[0]]);
 			const guard: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>> = rt.mutexTryLock(lock._0);
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => Lock.fmt$Debug(lock, f)];
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => locks_Lock.fmt$Debug(lock, f)];
 			const held2: string = rt.fmtFormat([args4[0]]);
 			const _125: boolean = guard.ok;
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, free), (f: rt.Formatter) => rt.fmtPad(f, held2), (f: rt.Formatter) => rt.fmtBool(_125, f)];
@@ -72,7 +72,7 @@ export function locks(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_17 === 6) {
 			rt.byteVecPush(out, false ? 1 : 0);
 		} else {
-			const tally4: rt.Mutex<Tally.Tally> = rt.mutexLock(shared.value);
+			const tally4: rt.Mutex<locks_Tally.Tally> = rt.mutexLock(shared.value);
 			rt.byteVecPush(out, tally4.value.seen.length & 0xff);
 			rt.mutexUnlock(tally4);
 		}
@@ -108,18 +108,18 @@ export function relock(data: rt.ByteSlice, out: rt.ByteVec): void {
 export function rwlocks(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _74!: boolean;
 	let _90!: boolean;
-	const lock: rt.Arc<rt.RefCell<Tally.Tally>> = new rt.Arc(new rt.RefCell(Tally.default$Default()));
+	const lock: rt.Arc<rt.RefCell<locks_Tally.Tally>> = new rt.Arc(new rt.RefCell(locks_Tally.default$Default()));
 	const number: rt.RefCell<rt.u32> = new rt.RefCell(0);
 	for (const op of rt.byteSliceView(data)) {
 		const _12: rt.u8 = rt.u8Rem(op, 6);
 		if (_12 === 0) {
-			const tally: rt.RefCell<Tally.Tally> = rt.rwLockWrite(lock.value);
+			const tally: rt.RefCell<locks_Tally.Tally> = rt.rwLockWrite(lock.value);
 			tally.value.n = rt.u64Add(tally.value.n, op as rt.u64);
 			rt.byteVecPush(tally.value.seen, op);
 			rt.refMutRelease(tally);
 		} else if (_12 === 1) {
-			const a: rt.RefCell<Tally.Tally> = rt.rwLockRead(lock.value);
-			const b: rt.RefCell<Tally.Tally> = rt.rwLockRead(lock.value);
+			const a: rt.RefCell<locks_Tally.Tally> = rt.rwLockRead(lock.value);
+			const b: rt.RefCell<locks_Tally.Tally> = rt.rwLockRead(lock.value);
 			rt.byteVecPush(out, a.value.seen.length & 0xff);
 			rt.byteVecPush(out, rt.u64Low(b.value.n) & 0xff);
 			rt.refRelease(b);
@@ -133,11 +133,11 @@ export function rwlocks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _58.value & 0xff);
 			rt.refRelease(_58);
 		} else if (_12 === 3) {
-			const read: rt.RefCell<Tally.Tally> = rt.rwLockRead(lock.value);
-			const _69: rt.Result<rt.RefCell<Tally.Tally>, rt.TryLockError<rt.RefCell<Tally.Tally>>> = rt.rwLockTryRead(lock.value);
+			const read: rt.RefCell<locks_Tally.Tally> = rt.rwLockRead(lock.value);
+			const _69: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>> = rt.rwLockTryRead(lock.value);
 			rt.byteVecPush(out, _69.ok ? 1 : 0);
 			drop$Result_RwLockReadGuard_Tally_TryLockError_RwLockReadGuard_Tally(_69);
-			const _75: rt.Result<rt.RefCell<Tally.Tally>, rt.TryLockError<rt.RefCell<Tally.Tally>>> = rt.rwLockTryWrite(lock.value);
+			const _75: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>> = rt.rwLockTryWrite(lock.value);
 			if (!_75.ok) {
 				_74 = true;
 			} else {
@@ -146,9 +146,9 @@ export function rwlocks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _74 ? 1 : 0);
 			drop$Result_RwLockWriteGuard_Tally_TryLockError_RwLockWriteGuard_Tally(_75);
 			rt.refRelease(read);
-			const write: rt.Result<rt.RefCell<Tally.Tally>, rt.TryLockError<rt.RefCell<Tally.Tally>>> = rt.rwLockTryWrite(lock.value);
+			const write: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>> = rt.rwLockTryWrite(lock.value);
 			rt.byteVecPush(out, write.ok ? 1 : 0);
-			const _91: rt.Result<rt.RefCell<Tally.Tally>, rt.TryLockError<rt.RefCell<Tally.Tally>>> = rt.rwLockTryRead(lock.value);
+			const _91: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>> = rt.rwLockTryRead(lock.value);
 			if (!_91.ok) {
 				_90 = true;
 			} else {
@@ -158,9 +158,9 @@ export function rwlocks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			drop$Result_RwLockReadGuard_Tally_TryLockError_RwLockReadGuard_Tally(_91);
 			drop$Result_RwLockWriteGuard_Tally_TryLockError_RwLockWriteGuard_Tally(write);
 		} else if (_12 === 4) {
-			const _96: rt.Result<rt.RefCell<Tally.Tally>, rt.TryLockError<rt.RefCell<Tally.Tally>>> = rt.rwLockTryWrite(lock.value);
+			const _96: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>> = rt.rwLockTryWrite(lock.value);
 			if (_96.ok) {
-				const tally2: rt.RefCell<Tally.Tally> = _96.value;
+				const tally2: rt.RefCell<locks_Tally.Tally> = _96.value;
 				rt.byteVecPush(out, tally2.value.seen.length & 0xff);
 				rt.refMutRelease(tally2);
 			} else {
@@ -176,7 +176,7 @@ export function rwlocks(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.refRelease(_119);
 		}
 	}
-	const _127: rt.RefCell<Tally.Tally> = rt.rwLockRead(lock.value);
+	const _127: rt.RefCell<locks_Tally.Tally> = rt.rwLockRead(lock.value);
 	rt.byteVecPush(out, rt.u64Low(_127.value.n) & 0xff);
 	rt.refRelease(_127);
 	lock[Symbol.dispose]();

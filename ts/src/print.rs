@@ -17,7 +17,7 @@ pub struct Printed {
 
 /// Print one module's items to the file at `path`.
 pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path) -> Result<Printed, String> {
-	let bindings = Bindings::new(program, module, items);
+	let bindings = Bindings::new(program, module, items)?;
 	let mut p = Printer {
 		program,
 		bindings: &bindings,
@@ -136,7 +136,6 @@ impl Texts {
 		Self {
 			bindings: Bindings {
 				names,
-				bound: HashSet::new(),
 				imports: BTreeMap::new(),
 				namespaces: BTreeMap::new(),
 			},
@@ -189,8 +188,6 @@ struct Bindings {
 	/// How the module names each top-level symbol it refers to: by a binding of its own,
 	/// or as a member of a type's module it imports whole, `Decoder.slice`.
 	names: HashMap<SymId, String>,
-	/// Every name the module binds, which a local must not shadow.
-	bound: HashSet<String>,
 	/// For each module imported from by name: each symbol, in that module's order, its
 	/// binding, and whether it is used as a value rather than only as a type.
 	imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>>,
@@ -200,13 +197,14 @@ struct Bindings {
 }
 
 impl Bindings {
-	fn new(program: &Program, module: &ModPath, items: &[&Item]) -> Self {
+	fn new(program: &Program, module: &ModPath, items: &[&Item]) -> Result<Self, String> {
 		let mut refs = Refs::default();
 		for item in items {
 			refs.item(program, item);
 		}
 
 		let mut names = HashMap::new();
+		// What the module declares, with the runtime's binding.
 		let mut taken: HashSet<String> = HashSet::from(["rt".to_string()]);
 		for (id, sym) in program.syms.iter().enumerate() {
 			if sym.owner.is_none() && &sym.module == module {
@@ -214,6 +212,28 @@ impl Bindings {
 				taken.insert(sym.name.clone());
 			}
 		}
+		let declared = taken.clone();
+		let mut bind = |name: &str, from: &ModPath| -> Result<String, String> {
+			let qualify = |always| -> Result<String, String> {
+				Ok(match program.names.qualifier(name, from, always)? {
+					Some(qualifier) => format!("{qualifier}_{name}"),
+					None => name.to_string(),
+				})
+			};
+			let mut binding = qualify(false)?;
+			// A name the module declares that no other could, as a trait object's class is
+			// named for the type it wraps.
+			if declared.contains(&binding) {
+				binding = qualify(true)?;
+			}
+			match taken.insert(binding.clone()) {
+				true => Ok(binding),
+				false => Err(format!(
+					"{} would bind two items as `{binding}`",
+					module_file(module).display()
+				)),
+			}
+		};
 
 		let mut imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>> = BTreeMap::new();
 		let mut namespaces: BTreeMap<ModPath, (String, bool)> = BTreeMap::new();
@@ -226,48 +246,28 @@ impl Bindings {
 		foreign.sort_by(|a, b| key(a.0).cmp(&key(b.0)));
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
-			if let Some((module, ty)) = program.namespace(&sym.module) {
-				let (binding, used) = namespaces.entry(sym.module.clone()).or_insert_with(|| {
-					let mut binding = ty.to_string();
-					let mut n = 2;
-					while taken.contains(&binding) {
-						binding = match n {
-							2 => format!("{module}_{ty}"),
-							_ => format!("{module}_{ty}{n}"),
-						};
-						n += 1;
-					}
-					taken.insert(binding.clone());
-					(binding, false)
-				});
+			if let Some((_, ty)) = program.namespace(&sym.module) {
+				let (binding, used) = match namespaces.entry(sym.module.clone()) {
+					std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+					std::collections::btree_map::Entry::Vacant(entry) => entry.insert((bind(ty, &sym.module)?, false)),
+				};
 				*used |= value;
 				let member = sym.alias.as_ref().unwrap_or(&sym.name);
 				names.insert(id, format!("{binding}.{member}"));
 				continue;
 			}
-			let mut binding = sym.name.clone();
-			if taken.contains(&binding) {
-				let prefix = sym.module.last().map_or("lib", String::as_str);
-				binding = format!("{prefix}_{}", sym.name);
-				let mut n = 2;
-				while taken.contains(&binding) {
-					binding = format!("{prefix}_{}{n}", sym.name);
-					n += 1;
-				}
-			}
-			taken.insert(binding.clone());
+			let binding = bind(&sym.name, &sym.module)?;
 			names.insert(id, binding.clone());
 			imports
 				.entry(sym.module.clone())
 				.or_default()
 				.push((id, binding, value));
 		}
-		Self {
+		Ok(Self {
 			names,
-			bound: taken,
 			imports,
 			namespaces,
-		}
+		})
 	}
 }
 
@@ -650,18 +650,25 @@ impl Printer<'_> {
 		self.write("}\n");
 	}
 
-	/// Renames for the locals of `f` that a module binding would shadow.
+	/// Renames for the locals of `f` that would shadow a binding it refers to.
 	fn renames_for(&self, f: &Function) -> HashMap<String, String> {
 		let mut locals = Vec::new();
 		for param in &f.params {
 			locals.push(param.name.clone());
 		}
 		collect_locals(&f.body, &mut locals);
+		let mut refs = Refs::default();
+		refs.function(self.program, f);
+		// The runtime's too, which printing may call anywhere.
+		let referred: HashSet<&str> = (refs.used.keys())
+			.map(|id| self.bindings.names[id].split('.').next().unwrap())
+			.chain(["rt"])
+			.collect();
 		let mut taken: HashSet<String> = locals.iter().cloned().collect();
-		taken.extend(self.bindings.bound.iter().cloned());
+		taken.extend(referred.iter().map(|name| name.to_string()));
 		let mut renames = HashMap::new();
 		for local in locals {
-			if self.bindings.bound.contains(&local) {
+			if referred.contains(local.as_str()) {
 				let mut name = format!("{local}_");
 				while taken.contains(&name) {
 					name.push('_');

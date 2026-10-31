@@ -2,35 +2,35 @@
 
 import * as rt from "./rt.ts";
 import { copy$Either_u8_Points, copy$Gauge, copy$Wrap_Point, copy$Wrap_u8 } from "./lib.ts";
-import { unwrapOr$0r2bmpr } from "./core/option.ts";
-import { put } from "./fmt.ts";
-import type * as Pair from "./fmt.Pair.ts";
+import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr } from "./core/option.ts";
+import { put as fmt_put } from "./fmt.ts";
+import type * as fmt_Pair from "./fmt.Pair.ts";
 import * as Either from "./generics.Either.ts";
-import * as Tagged from "./generics.Tagged.ts";
+import * as generics_Tagged from "./generics.Tagged.ts";
 import * as Wrap from "./generics.Wrap.ts";
-import * as Gauge from "./shapes.Gauge.ts";
+import * as shapes_Gauge from "./shapes.Gauge.ts";
 import type * as Meters from "./shapes.Meters.ts";
 import * as Point from "./shapes.Point.ts";
-import type * as Shape from "./shapes.Shape.ts";
+import type * as shapes_Shape from "./shapes.Shape.ts";
 import type * as Track from "./shapes.Track.ts";
 
 /** Each method once per instance: `Wrap` of a struct, an enum, a number, and itself. */
 export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const point: Wrap.Wrap<Point.Point> = copy$Wrap_Point(Wrap.new$Point({ x: at(0) as rt.i32, y: -2 }));
 	Wrap.bump$Point(point);
 	const byte: Wrap.Wrap<rt.u8> = copy$Wrap_u8(Wrap.new$u8(at(1)));
 	Wrap.bump$u8(byte);
 	Wrap.bump$u8(byte);
-	const nested: Wrap.Wrap<Wrap.Wrap<Pair.Pair>> = Wrap.new$Wrap_Pair(Wrap.new$Pair({ _0: at(2), _1: -3 }));
+	const nested: Wrap.Wrap<Wrap.Wrap<fmt_Pair.Pair>> = Wrap.new$Wrap_Pair(Wrap.new$Pair({ _0: at(2), _1: -3 }));
 	const meters: Wrap.Wrap<Meters.Meters> = new Wrap.Wrap({ _0: at(3) as rt.u64 }, at(4));
-	const shape: Wrap.Wrap<Shape.Shape> = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner$Point(point), width: at(5) as rt.u16, height: 3 } as Shape.Shape);
+	const shape: Wrap.Wrap<shapes_Shape.Shape> = Wrap.new$Shape({ tag: "Rect", corner: Wrap.intoInner$Point(point), width: at(5) as rt.u16, height: 3 } as shapes_Shape.Shape);
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Point(point, f), (f: rt.Formatter) => Wrap.fmt$Debug_u8(byte, f), (f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f), (f: rt.Formatter) => Wrap.fmt$Debug_Shape(shape, f)];
-	put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3]]));
+	fmt_put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3]]));
 	const args4: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Wrap_Pair(nested, f)];
-	put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]));
+	fmt_put(out, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args4[0])]));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(Wrap.double$u8(byte))));
 	rt.byteVecPush(out, Wrap.get$u8(byte));
 	rt.byteVecPush(out, Wrap.get$Pair(Wrap.get$Wrap_Pair(nested))._0);
@@ -38,13 +38,13 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(Wrap.scaled$Shape(shape))));
 	Wrap.describe$Area_Meters(meters, out);
 	Wrap.describe$Area_Shape(shape, out);
-	const mapped: Wrap.Wrap<Pair.Pair> = Wrap.map$u8_Pair_methods_closure1(byte, (b: rt.u8): Pair.Pair => {
+	const mapped: Wrap.Wrap<fmt_Pair.Pair> = Wrap.map$u8_Pair_methods_closure1(byte, (b: rt.u8): fmt_Pair.Pair => {
 		return { _0: b, _1: at(6) as rt.i64 };
 	});
-	const _119: Wrap.Wrap<Pair.Pair> = Wrap.new$Pair({ _0: at(1), _1: 0 });
+	const _119: Wrap.Wrap<fmt_Pair.Pair> = Wrap.new$Pair({ _0: at(1), _1: 0 });
 	const _116: boolean = Wrap.eq$PartialEq_Pair(mapped, _119);
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Pair(mapped, f), (f: rt.Formatter) => rt.fmtBool(_116, f)];
-	put(out, rt.fmtFormat([args6[0], " ", args6[1]]));
+	fmt_put(out, rt.fmtFormat([args6[0], " ", args6[1]]));
 	const iter: rt.Iter<Either.Either<rt.u8, Point.Point>> = rt.iterSlice(copy$Either_u8_Points([{ tag: "Left", _0: at(7) } as Either.Either<rt.u8, Point.Point>, { tag: "Right", value: Point.new(1, -1) } as Either.Either<rt.u8, Point.Point>, { tag: "Neither" } as Either.Either<rt.u8, Point.Point>]));
 	while (true) {
 		const _140: Either.Either<rt.u8, Point.Point> | rt.Done = iter.next();
@@ -56,7 +56,7 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _153: rt.u8 | undefined = Either.left$u8_Point(either);
 		const _156: Point.Point | undefined = Either.left$Point_u8(flipped);
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => Either.fmt$Debug_u8_Point(either, f), (f: rt.Formatter) => Either.fmt$Debug_Point_u8(flipped, f), (f: rt.Formatter) => rt.fmtOption(_153, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtOption(_156, f, (value: Point.Point, f: rt.Formatter) => Point.fmt$Debug(value, f))];
-		put(out, rt.fmtFormat([args8[0], " ", rt.fmtSpec({ alternate: true }, args8[1]), " ", args8[2], " ", args8[3]]));
+		fmt_put(out, rt.fmtFormat([args8[0], " ", rt.fmtSpec({ alternate: true }, args8[1]), " ", args8[2], " ", args8[3]]));
 	}
 	const _168: rt.u16[] = [];
 	const list: Wrap.Wrap<rt.u16[]> = new Wrap.Wrap(_168, 1);
@@ -65,16 +65,16 @@ export function methods(data: rt.ByteSlice, out: rt.ByteVec): void {
 	Wrap.bump$Vec_u16(list);
 	const none: Wrap.Wrap<rt.u8 | undefined> = new Wrap.Wrap(undefined, 0);
 	const some: Wrap.Wrap<rt.u8 | undefined> = Wrap.new$Option_u8(rt.byteSliceGet(data, 11));
-	const err: Wrap.Wrap<rt.Result<rt.u8, Shape.Shape>> = new Wrap.Wrap(rt.Err({ tag: "Dot" } as Shape.Shape), 2);
-	const _193: rt.u8 = unwrapOr$0r2bmpr(Wrap.get$Option_u8(none), some.count);
+	const err: Wrap.Wrap<rt.Result<rt.u8, shapes_Shape.Shape>> = new Wrap.Wrap(rt.Err({ tag: "Dot" } as shapes_Shape.Shape), 2);
+	const _193: rt.u8 = option_unwrapOr$0r2bmpr(Wrap.get$Option_u8(none), some.count);
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => Wrap.fmt$Debug_Vec_u16(list, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(none, f), (f: rt.Formatter) => Wrap.fmt$Debug_Option_u8(some, f), (f: rt.Formatter) => Wrap.fmt$Debug_Result_u8_Shape(err, f), (f: rt.Formatter) => rt.u8Debug(_193, f)];
-	put(out, rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " ", args10[3], " ", args10[4]]));
-	const tagged: Tagged.Tagged<Either.Either<rt.u8, rt.u16>, rt.i16> = new Tagged.Tagged({ tag: "Right", value: 500 } as Either.Either<rt.u8, rt.u16>, Wrap.new$i16(rt.i16Sub(at(8) as rt.i16, 100)), [Wrap.new$i16(-1), Wrap.new$i16(at(9) as rt.i16)].slice());
-	const _237: Wrap.Wrap<rt.i16> | undefined = Tagged.first$Either_u8_u16_i16(tagged);
-	const args12: rt.Fmt[] = [(f: rt.Formatter) => Tagged.fmt$Debug_Either_u8_u16_i16(tagged, f), (f: rt.Formatter) => rt.fmtOption(_237, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f))];
-	put(out, rt.fmtFormat([args12[0], " ", args12[1]]));
+	fmt_put(out, rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " ", args10[3], " ", args10[4]]));
+	const tagged: generics_Tagged.Tagged<Either.Either<rt.u8, rt.u16>, rt.i16> = new generics_Tagged.Tagged({ tag: "Right", value: 500 } as Either.Either<rt.u8, rt.u16>, Wrap.new$i16(rt.i16Sub(at(8) as rt.i16, 100)), [Wrap.new$i16(-1), Wrap.new$i16(at(9) as rt.i16)].slice());
+	const _237: Wrap.Wrap<rt.i16> | undefined = generics_Tagged.first$Either_u8_u16_i16(tagged);
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => generics_Tagged.fmt$Debug_Either_u8_u16_i16(tagged, f), (f: rt.Formatter) => rt.fmtOption(_237, f, (value: Wrap.Wrap<rt.i16>, f: rt.Formatter) => Wrap.fmt$Debug_i16(value, f))];
+	fmt_put(out, rt.fmtFormat([args12[0], " ", args12[1]]));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(tagged.inner.value)));
-	rt.byteVecPush(out, unwrapOr$0r2bmpr(Either.left$u8_u16(tagged.key), 0));
+	rt.byteVecPush(out, option_unwrapOr$0r2bmpr(Either.left$u8_u16(tagged.key), 0));
 }
 
 /**
@@ -90,14 +90,14 @@ export function advance(track: Track.Track): void {
  * Resets each of `xs`, writing into each one in place, which only an instance knows the
  * type of.
  */
-export function reset$Gauge(xs: Gauge.Gauge[]): void {
-	const iter: rt.Iter<Gauge.Gauge> = rt.iterSlice(xs);
+export function reset$Gauge(xs: shapes_Gauge.Gauge[]): void {
+	const iter: rt.Iter<shapes_Gauge.Gauge> = rt.iterSlice(xs);
 	while (true) {
-		const _5: Gauge.Gauge | rt.Done = iter.next();
+		const _5: shapes_Gauge.Gauge | rt.Done = iter.next();
 		if (_5 === rt.DONE) {
 			break;
 		}
-		Object.assign(_5, copy$Gauge(Gauge.default$Default()));
+		Object.assign(_5, copy$Gauge(shapes_Gauge.default$Default()));
 	}
 }
 

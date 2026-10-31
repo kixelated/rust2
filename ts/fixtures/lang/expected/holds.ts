@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$u8s } from "./lib.ts";
-import { unwrapOr$0r2bmpr, mapOr$02k4ito } from "./core/option.ts";
+import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, mapOr$02k4ito as option_mapOr$02k4ito } from "./core/option.ts";
 import type * as Row from "./holds.Row.ts";
 
 export function set(x: rt.Place<rt.u8>, v: rt.u8): void {
@@ -14,8 +14,8 @@ export function whole(p: [string, Row.Row, rt.u8]): rt.u8 {
 }
 
 export function holds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
-	const a: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
-	const b: rt.u8 = unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0);
+	const a: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0);
+	const b: rt.u8 = option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 0);
 	const _10: rt.u8 = rt.u8Rem(kind, 7);
 	if (_10 === 0) {
 		places(a, b, data, out);
@@ -169,7 +169,7 @@ export function copies(a: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const copied: rt.usize | undefined = cur;
 	cur = range.start < range.end ? range.start++ : undefined;
 	rt.byteVecPush(out, some ? 1 : 0);
-	rt.byteVecPush(out, mapOr$02k4ito(copied, 255, (c: rt.usize): rt.u8 => {
+	rt.byteVecPush(out, option_mapOr$02k4ito(copied, 255, (c: rt.usize): rt.u8 => {
 		return c & 0xff;
 	}));
 	while (true) {
@@ -177,7 +177,7 @@ export function copies(a: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		cur = range.start < range.end ? range.start++ : undefined;
 		if (was !== undefined) {
 			rt.byteVecPush(out, was & 0xff);
-			rt.byteVecPush(out, mapOr$02k4ito(cur, 255, (c2: rt.usize): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$02k4ito(cur, 255, (c2: rt.usize): rt.u8 => {
 				return c2 & 0xff;
 			}));
 		} else {
@@ -304,7 +304,7 @@ export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const before: rt.usize = range.start;
 	const first: rt.usize | undefined = range.start < range.end ? range.start++ : undefined;
 	rt.byteVecPush(out, before & 0xff);
-	rt.byteVecPush(out, mapOr$02k4ito(first, 255, (f: rt.usize): rt.u8 => {
+	rt.byteVecPush(out, option_mapOr$02k4ito(first, 255, (f: rt.usize): rt.u8 => {
 		return f & 0xff;
 	}));
 	const range2: rt.Range<rt.usize> = new rt.Range(0, data.length);

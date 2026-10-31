@@ -2,9 +2,9 @@
 
 import * as rt from "./rt.ts";
 import { copy$Option_u64_u64, copy$u64_u64 } from "./lib.ts";
-import * as Noisy from "./borrows.Noisy.ts";
-import * as Polling from "./borrows.Polling.ts";
-import { mapOr$0qqbaqw, mapOr$0ucbp7g } from "./core/option.ts";
+import * as borrows_Noisy from "./borrows.Noisy.ts";
+import * as borrows_Polling from "./borrows.Polling.ts";
+import { mapOr$0qqbaqw as option_mapOr$0qqbaqw, mapOr$0ucbp7g as option_mapOr$0ucbp7g } from "./core/option.ts";
 
 /**
  * Each byte an operation on the cells, its value the operand; each puts what it read and
@@ -14,10 +14,10 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const log: rt.Arc<rt.Mutex<rt.ByteVec>> = new rt.Arc(new rt.Mutex(new rt.ByteVec()));
 	const count: rt.Cell<rt.u32> = new rt.Cell(0);
 	const pair: rt.Cell<[rt.u64, rt.u64]> = new rt.Cell([0, 0] as [rt.u64, rt.u64]);
-	const noisy: rt.Cell<Noisy.Noisy | undefined> = new rt.Cell(undefined as Noisy.Noisy | undefined);
-	const polling: Polling.Polling = Polling.default$Default();
+	const noisy: rt.Cell<borrows_Noisy.Noisy | undefined> = new rt.Cell(undefined as borrows_Noisy.Noisy | undefined);
+	const polling: borrows_Polling.Polling = borrows_Polling.default$Default();
 	const shared: rt.RefCell<rt.ByteVec> = new rt.RefCell(new rt.ByteVec());
-	const owned: rt.RefCell<Noisy.Noisy> = new rt.RefCell(new Noisy.Noisy(170, rt.arcClone(log)));
+	const owned: rt.RefCell<borrows_Noisy.Noisy> = new rt.RefCell(new borrows_Noisy.Noisy(170, rt.arcClone(log)));
 	for (const op of rt.byteSliceView(data)) {
 		const _25: rt.u8 = rt.u8Rem(op, 10);
 		if (_25 === 0) {
@@ -32,11 +32,11 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		} else if (_25 === 2) {
 			rt.byteVecPush(out, rt.cellReplace(count, op as rt.u32) & 0xff);
 		} else if (_25 === 3) {
-			const _56: Noisy.Noisy | undefined = new Noisy.Noisy(op, rt.arcClone(log));
+			const _56: borrows_Noisy.Noisy | undefined = new borrows_Noisy.Noisy(op, rt.arcClone(log));
 			rt.cellSet(noisy, _56, rt.drop);
 		} else if (_25 === 4) {
-			const taken: Noisy.Noisy | undefined = rt.cellReplace(noisy, undefined);
-			rt.byteVecPush(out, mapOr$0qqbaqw(taken, 253, (n: Noisy.Noisy): rt.u8 => {
+			const taken: borrows_Noisy.Noisy | undefined = rt.cellReplace(noisy, undefined);
+			rt.byteVecPush(out, option_mapOr$0qqbaqw(taken, 253, (n: borrows_Noisy.Noisy): rt.u8 => {
 				return n.id;
 			}));
 			rt.drop(taken);
@@ -46,7 +46,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _74: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(polling.held);
 			rt.byteVecPush(_74.value, op);
 			rt.refMutRelease(_74);
-			rt.byteVecPush(out, mapOr$0ucbp7g(outer, 253, (_2: [rt.u64, rt.u64]): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$0ucbp7g(outer, 253, (_2: [rt.u64, rt.u64]): rt.u8 => {
 				return rt.u64Low(_2[0]) & 0xff;
 			}));
 			const _83: rt.RefCell<rt.ByteVec> = rt.refCellBorrow(polling.held);
@@ -67,12 +67,12 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.byteVecPush(out, _116.value.length & 0xff);
 			rt.refRelease(_116);
 		} else if (_25 === 8) {
-			const _118: Noisy.Noisy = new Noisy.Noisy(op, rt.arcClone(log));
-			const _123: rt.RefCell<Noisy.Noisy> = rt.refCellBorrowMut(owned);
+			const _118: borrows_Noisy.Noisy = new borrows_Noisy.Noisy(op, rt.arcClone(log));
+			const _123: rt.RefCell<borrows_Noisy.Noisy> = rt.refCellBorrowMut(owned);
 			_123.value[Symbol.dispose]();
 			_123.value = _118;
 			rt.refMutRelease(_123);
-			const _129: rt.RefCell<Noisy.Noisy> = rt.refCellBorrow(owned);
+			const _129: rt.RefCell<borrows_Noisy.Noisy> = rt.refCellBorrow(owned);
 			rt.byteVecPush(out, _129.value.id);
 			rt.refRelease(_129);
 		} else {
@@ -99,7 +99,7 @@ export function borrows(data: rt.ByteSlice, out: rt.ByteVec): void {
 		flush(log.value, out);
 	}
 	rt.byteVecPush(out, count.v & 0xff);
-	rt.byteVecPush(out, mapOr$0ucbp7g(copy$Option_u64_u64(polling.current.v), 253, (_22: [rt.u64, rt.u64]): rt.u8 => {
+	rt.byteVecPush(out, option_mapOr$0ucbp7g(copy$Option_u64_u64(polling.current.v), 253, (_22: [rt.u64, rt.u64]): rt.u8 => {
 		return rt.u64Low(rt.u64Add(_22[0], _22[1])) & 0xff;
 	}));
 	noisy[Symbol.dispose]();

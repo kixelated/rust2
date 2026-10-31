@@ -22,10 +22,10 @@ export class Channel {
 
 export function open(): Channel {
 	const producer: Producer.Producer = Producer.new();
-	const consumer_: Consumer.Consumer = Producer.consume(producer);
+	const consumer: Consumer.Consumer = Producer.consume(producer);
 	const producers: Producer.Producer[] = [];
 	producers.push(producer);
-	return new Channel(producers, consumer_);
+	return new Channel(producers, consumer);
 }
 
 /** A consumer that reads every value from the first. */

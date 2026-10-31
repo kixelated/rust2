@@ -2,10 +2,10 @@
 
 import * as rt from "./rt.ts";
 import { drop$Vec_Logged } from "./lib.ts";
-import * as Countdown from "./clones.Countdown.ts";
-import * as Logged from "./clones.Logged.ts";
+import * as clones_Countdown from "./clones.Countdown.ts";
+import * as clones_Logged from "./clones.Logged.ts";
 import * as Plan from "./clones.Plan.ts";
-import { unwrapOr$0r2bmpr, map$0y3liwu, mapOr$1yabfom, mapOr$1surhce, mapOr$02k4ito } from "./core/option.ts";
+import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, map$0y3liwu as option_map$0y3liwu, mapOr$1yabfom as option_mapOr$1yabfom, mapOr$1surhce as option_mapOr$1surhce, mapOr$02k4ito as option_mapOr$02k4ito } from "./core/option.ts";
 
 /** Puts what was logged since the last flush, after a marker. */
 export function flush(log: rt.RefCell<rt.ByteVec>, out: rt.ByteVec): void {
@@ -25,7 +25,7 @@ export function turns$Bytes_iters_closure55_iters_closure56(it: rt.Iter<rt.u8>, 
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -105,7 +105,7 @@ export function turns$Chain_Iter_u8_Skip_Rev_Iter_u8_iters_closure85_iters_closu
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -180,12 +180,12 @@ export function turns$Chain_Iter_u8_Skip_Rev_Iter_u8_iters_closure85_iters_closu
  * then the original and the clone read in turns, each from either end, as `plan` picks,
  * until both end: each item as `put` makes it, and each end as 0xff and which ended.
  */
-export function turns$Chain_Once_Logged_IntoIter_Logged_owned_closure10_owned_closure11(it: rt.Iter<Logged.Logged>, back: (a0: rt.Iter<Logged.Logged>) => Logged.Logged | undefined, plan: Plan.Plan, put: (a0: Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function turns$Chain_Once_Logged_IntoIter_Logged_owned_closure10_owned_closure11(it: rt.Iter<clones_Logged.Logged>, back: (a0: rt.Iter<clones_Logged.Logged>) => clones_Logged.Logged | undefined, plan: Plan.Plan, put: (a0: clones_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let first!: boolean;
-	let item3!: Logged.Logged | undefined;
-	const _44: (a0: rt.Iter<Logged.Logged>) => Uint8Array = (it2: rt.Iter<Logged.Logged>): Uint8Array => {
+	let item3!: clones_Logged.Logged | undefined;
+	const _44: (a0: rt.Iter<clones_Logged.Logged>) => Uint8Array = (it2: rt.Iter<clones_Logged.Logged>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -193,7 +193,7 @@ export function turns$Chain_Once_Logged_IntoIter_Logged_owned_closure10_owned_cl
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = _8;
 	while (iterStart++ < iterEnd) {
-		const _15: Logged.Logged | rt.Done = it.next();
+		const _15: clones_Logged.Logged | rt.Done = it.next();
 		if (_15 !== rt.DONE) {
 			rt.byteVecPush(out, put(_15));
 		}
@@ -202,12 +202,12 @@ export function turns$Chain_Once_Logged_IntoIter_Logged_owned_closure10_owned_cl
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = _25;
 	while (iterStart2++ < iterEnd2) {
-		const _32: Logged.Logged | undefined = back(it);
+		const _32: clones_Logged.Logged | undefined = back(it);
 		if (_32 !== undefined) {
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<Logged.Logged> = it.clone({ i: { v: Logged.clone$Clone }, o: { v: Logged.clone$Clone } });
+	const other: rt.Iter<clones_Logged.Logged> = it.clone({ i: { v: clones_Logged.clone$Clone }, o: { v: clones_Logged.clone$Clone } });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -267,7 +267,7 @@ export function turns$Chars_iters_closure53_iters_closure54(it: rt.Iter<rt.char>
 	let item3!: rt.char | undefined;
 	const _44: (a0: rt.Iter<rt.char>) => Uint8Array = (it2: rt.Iter<rt.char>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -347,7 +347,7 @@ export function turns$ChunksExact_u8_iters_closure26_iters_closure27(it: rt.Iter
 	let item!: rt.ByteSlice | undefined;
 	const _44: (a0: rt.Iter<rt.ByteSlice>) => Uint8Array = (it2: rt.Iter<rt.ByteSlice>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -427,7 +427,7 @@ export function turns$Chunks_u8_iters_closure24_iters_closure25(it: rt.Iter<rt.B
 	let item!: rt.ByteSlice | undefined;
 	const _44: (a0: rt.Iter<rt.ByteSlice>) => Uint8Array = (it2: rt.Iter<rt.ByteSlice>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -507,7 +507,7 @@ export function turns$Cloned_Iter_u8_iters_closure82_iters_closure83(it: rt.Iter
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -587,7 +587,7 @@ export function turns$Copied_Iter_u8_iters_closure80_iters_closure81(it: rt.Iter
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -667,7 +667,7 @@ export function turns$Difference_u8_iters_closure135_iters_closure0(it: rt.Iter<
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -747,7 +747,7 @@ export function turns$Difference_u8_iters_closure136_iters_closure0(it: rt.Iter<
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -827,7 +827,7 @@ export function turns$Empty_u8_iters_closure51_iters_closure52(it: rt.Iter<rt.u8
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -907,7 +907,7 @@ export function turns$Enumerate_Iter_u8_iters_closure74_iters_closure75(it: rt.I
 	let item3!: [rt.usize, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.usize, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.usize, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -987,7 +987,7 @@ export function turns$FilterMap_Iter_u8_iters_closure71_iters_closure72_iters_cl
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1067,7 +1067,7 @@ export function turns$Filter_Iter_u8_iters_closure147_iters_closure148_iters_clo
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1147,7 +1147,7 @@ export function turns$Filter_Iter_u8_iters_closure69_iters_closure70_iters_closu
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1227,7 +1227,7 @@ export function turns$Filter_Map_Iter_u8_closures_closure1_closures_closure2_clo
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1309,7 +1309,7 @@ export function turns$FlatMap_Chunks_u8_Iter_u8_iters_closure87_iters_closure88_
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1389,7 +1389,7 @@ export function turns$FlatMap_Chunks_u8_Map_Iter_u8_iters_closure153_closure0_it
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1469,7 +1469,7 @@ export function turns$Flatten_Chunks_u8_iters_closure92_iters_closure0(it: rt.It
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1544,12 +1544,12 @@ export function turns$Flatten_Chunks_u8_iters_closure92_iters_closure0(it: rt.It
  * then the original and the clone read in turns, each from either end, as `plan` picks,
  * until both end: each item as `put` makes it, and each end as 0xff and which ended.
  */
-export function turns$Flatten_IntoIter_Vec_Logged_owned_closure13_owned_closure14(it: rt.Iter<Logged.Logged>, back: (a0: rt.Iter<Logged.Logged>) => Logged.Logged | undefined, plan: Plan.Plan, put: (a0: Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function turns$Flatten_IntoIter_Vec_Logged_owned_closure13_owned_closure14(it: rt.Iter<clones_Logged.Logged>, back: (a0: rt.Iter<clones_Logged.Logged>) => clones_Logged.Logged | undefined, plan: Plan.Plan, put: (a0: clones_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let first!: boolean;
-	let item3!: Logged.Logged | undefined;
-	const _44: (a0: rt.Iter<Logged.Logged>) => Uint8Array = (it2: rt.Iter<Logged.Logged>): Uint8Array => {
+	let item3!: clones_Logged.Logged | undefined;
+	const _44: (a0: rt.Iter<clones_Logged.Logged>) => Uint8Array = (it2: rt.Iter<clones_Logged.Logged>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1557,7 +1557,7 @@ export function turns$Flatten_IntoIter_Vec_Logged_owned_closure13_owned_closure1
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = _8;
 	while (iterStart++ < iterEnd) {
-		const _15: Logged.Logged | rt.Done = it.next();
+		const _15: clones_Logged.Logged | rt.Done = it.next();
 		if (_15 !== rt.DONE) {
 			rt.byteVecPush(out, put(_15));
 		}
@@ -1566,14 +1566,14 @@ export function turns$Flatten_IntoIter_Vec_Logged_owned_closure13_owned_closure1
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = _25;
 	while (iterStart2++ < iterEnd2) {
-		const _32: Logged.Logged | undefined = back(it);
+		const _32: clones_Logged.Logged | undefined = back(it);
 		if (_32 !== undefined) {
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<Logged.Logged> = it.clone({ i: { v: (a0: Logged.Logged[]): Logged.Logged[] => {
-		return a0.map(Logged.clone$Clone);
-	} }, o: { v: Logged.clone$Clone } });
+	const other: rt.Iter<clones_Logged.Logged> = it.clone({ i: { v: (a0: clones_Logged.Logged[]): clones_Logged.Logged[] => {
+		return a0.map(clones_Logged.clone$Clone);
+	} }, o: { v: clones_Logged.clone$Clone } });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -1633,7 +1633,7 @@ export function turns$Flatten_Map_Chunks_u8_iters_closure89_iters_closure90_iter
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1713,7 +1713,7 @@ export function turns$FromFn_iters_closure105_iters_closure106_iters_closure107(
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1793,7 +1793,7 @@ export function turns$Fuse_Iter_u8_iters_closure84_iters_closure0(it: rt.Iter<rt
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1873,7 +1873,7 @@ export function turns$Intersection_u8_iters_closure133_iters_closure0(it: rt.Ite
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -1953,7 +1953,7 @@ export function turns$Intersection_u8_iters_closure134_iters_closure0(it: rt.Ite
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2028,12 +2028,12 @@ export function turns$Intersection_u8_iters_closure134_iters_closure0(it: rt.Ite
  * then the original and the clone read in turns, each from either end, as `plan` picks,
  * until both end: each item as `put` makes it, and each end as 0xff and which ended.
  */
-export function turns$IntoIter_Logged_owned_closure2_owned_closure3(it: rt.Iter<Logged.Logged>, back: (a0: rt.Iter<Logged.Logged>) => Logged.Logged | undefined, plan: Plan.Plan, put: (a0: Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function turns$IntoIter_Logged_owned_closure2_owned_closure3(it: rt.Iter<clones_Logged.Logged>, back: (a0: rt.Iter<clones_Logged.Logged>) => clones_Logged.Logged | undefined, plan: Plan.Plan, put: (a0: clones_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let first!: boolean;
-	let item3!: Logged.Logged | undefined;
-	const _44: (a0: rt.Iter<Logged.Logged>) => Uint8Array = (it2: rt.Iter<Logged.Logged>): Uint8Array => {
+	let item3!: clones_Logged.Logged | undefined;
+	const _44: (a0: rt.Iter<clones_Logged.Logged>) => Uint8Array = (it2: rt.Iter<clones_Logged.Logged>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2041,7 +2041,7 @@ export function turns$IntoIter_Logged_owned_closure2_owned_closure3(it: rt.Iter<
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = _8;
 	while (iterStart++ < iterEnd) {
-		const _15: Logged.Logged | rt.Done = it.next();
+		const _15: clones_Logged.Logged | rt.Done = it.next();
 		if (_15 !== rt.DONE) {
 			rt.byteVecPush(out, put(_15));
 		}
@@ -2050,12 +2050,12 @@ export function turns$IntoIter_Logged_owned_closure2_owned_closure3(it: rt.Iter<
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = _25;
 	while (iterStart2++ < iterEnd2) {
-		const _32: Logged.Logged | undefined = back(it);
+		const _32: clones_Logged.Logged | undefined = back(it);
 		if (_32 !== undefined) {
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<Logged.Logged> = it.clone({ v: Logged.clone$Clone });
+	const other: rt.Iter<clones_Logged.Logged> = it.clone({ v: clones_Logged.clone$Clone });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -2110,12 +2110,12 @@ export function turns$IntoIter_Logged_owned_closure2_owned_closure3(it: rt.Iter<
  * then the original and the clone read in turns, each from either end, as `plan` picks,
  * until both end: each item as `put` makes it, and each end as 0xff and which ended.
  */
-export function turns$IntoIter_Logged_owned_closure5_owned_closure6(it: rt.Iter<Logged.Logged>, back: (a0: rt.Iter<Logged.Logged>) => Logged.Logged | undefined, plan: Plan.Plan, put: (a0: Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function turns$IntoIter_Logged_owned_closure5_owned_closure6(it: rt.Iter<clones_Logged.Logged>, back: (a0: rt.Iter<clones_Logged.Logged>) => clones_Logged.Logged | undefined, plan: Plan.Plan, put: (a0: clones_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let first!: boolean;
-	let item3!: Logged.Logged | undefined;
-	const _44: (a0: rt.Iter<Logged.Logged>) => Uint8Array = (it2: rt.Iter<Logged.Logged>): Uint8Array => {
+	let item3!: clones_Logged.Logged | undefined;
+	const _44: (a0: rt.Iter<clones_Logged.Logged>) => Uint8Array = (it2: rt.Iter<clones_Logged.Logged>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2123,7 +2123,7 @@ export function turns$IntoIter_Logged_owned_closure5_owned_closure6(it: rt.Iter<
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = _8;
 	while (iterStart++ < iterEnd) {
-		const _15: Logged.Logged | rt.Done = it.next();
+		const _15: clones_Logged.Logged | rt.Done = it.next();
 		if (_15 !== rt.DONE) {
 			rt.byteVecPush(out, put(_15));
 		}
@@ -2132,12 +2132,12 @@ export function turns$IntoIter_Logged_owned_closure5_owned_closure6(it: rt.Iter<
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = _25;
 	while (iterStart2++ < iterEnd2) {
-		const _32: Logged.Logged | undefined = back(it);
+		const _32: clones_Logged.Logged | undefined = back(it);
 		if (_32 !== undefined) {
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<Logged.Logged> = it.clone({ v: Logged.clone$Clone });
+	const other: rt.Iter<clones_Logged.Logged> = it.clone({ v: clones_Logged.clone$Clone });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -2197,7 +2197,7 @@ export function turns$IntoIter_u8_iters_closure139_iters_closure140(it: rt.Iter<
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2277,7 +2277,7 @@ export function turns$IntoIter_u8_iters_closure142_iters_closure143(it: rt.Iter<
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2357,7 +2357,7 @@ export function turns$IntoIter_u8_iters_closure18_iters_closure19(it: rt.Iter<rt
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2437,7 +2437,7 @@ export function turns$IntoIter_u8_iters_closure20_iters_closure21(it: rt.Iter<rt
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2517,7 +2517,7 @@ export function turns$IntoIter_u8_iters_closure46_iters_closure0(it: rt.Iter<rt.
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2597,7 +2597,7 @@ export function turns$IntoIter_u8_iters_closure47_iters_closure48(it: rt.Iter<rt
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2677,7 +2677,7 @@ export function turns$Iter_u8_iters_closure130_iters_closure0(it: rt.Iter<rt.u8>
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2757,7 +2757,7 @@ export function turns$Iter_u8_iters_closure138_iters_closure0(it: rt.Iter<rt.u8>
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2837,7 +2837,7 @@ export function turns$Iter_u8_iters_closure141_iters_closure0(it: rt.Iter<rt.u8>
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2917,7 +2917,7 @@ export function turns$Iter_u8_iters_closure17_iters_closure0(it: rt.Iter<rt.u8>,
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -2997,7 +2997,7 @@ export function turns$Iter_u8_u8_iters_closure122_iters_closure123(it: rt.Iter<[
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3077,7 +3077,7 @@ export function turns$Iter_u8s_iters_closure32_iters_closure33(it: rt.Iter<rt.By
 	let item!: rt.ByteSlice | undefined;
 	const _44: (a0: rt.Iter<rt.ByteSlice>) => Uint8Array = (it2: rt.Iter<rt.ByteSlice>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3157,7 +3157,7 @@ export function turns$Keys_u8_u8_iters_closure124_iters_closure0(it: rt.Iter<rt.
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3237,7 +3237,7 @@ export function turns$MapWhile_Iter_u8_iters_closure97_iters_closure98_iters_clo
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3317,7 +3317,7 @@ export function turns$Map_Countdown_iters_closure100_iters_closure101_iters_clos
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3339,7 +3339,7 @@ export function turns$Map_Countdown_iters_closure100_iters_closure101_iters_clos
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<rt.u8> = it.clone({ i: { v: Countdown.clone$Clone } });
+	const other: rt.Iter<rt.u8> = it.clone({ i: { v: clones_Countdown.clone$Clone } });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -3397,7 +3397,7 @@ export function turns$Map_Inspect_Iter_u8_iters_closure149_iters_closure150_iter
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3477,7 +3477,7 @@ export function turns$Map_Iter_u8_iters_closure144_iters_closure145_iters_closur
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3557,7 +3557,7 @@ export function turns$Map_Iter_u8_iters_closure66_iters_closure67_iters_closure6
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3637,7 +3637,7 @@ export function turns$MatchIndices_chars_iters_closure64_iters_closure65(it: rt.
 	let item3!: [rt.usize, string] | undefined;
 	const _44: (a0: rt.Iter<[rt.usize, string]>) => Uint8Array = (it2: rt.Iter<[rt.usize, string]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3717,7 +3717,7 @@ export function turns$Once_u8_iters_closure49_iters_closure50(it: rt.Iter<rt.u8>
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3797,7 +3797,7 @@ export function turns$Peekable_Copied_Iter_u8_iters_closure120_iters_closure121(
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Peekable<rt.u8>) => Uint8Array = (it2: rt.Peekable<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3872,12 +3872,12 @@ export function turns$Peekable_Copied_Iter_u8_iters_closure120_iters_closure121(
  * then the original and the clone read in turns, each from either end, as `plan` picks,
  * until both end: each item as `put` makes it, and each end as 0xff and which ended.
  */
-export function turns$Peekable_IntoIter_Logged_owned_closure8_owned_closure9(it: rt.Peekable<Logged.Logged>, back: (a0: rt.Peekable<Logged.Logged>) => Logged.Logged | undefined, plan: Plan.Plan, put: (a0: Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function turns$Peekable_IntoIter_Logged_owned_closure8_owned_closure9(it: rt.Peekable<clones_Logged.Logged>, back: (a0: rt.Peekable<clones_Logged.Logged>) => clones_Logged.Logged | undefined, plan: Plan.Plan, put: (a0: clones_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let first!: boolean;
-	let item3!: Logged.Logged | undefined;
-	const _44: (a0: rt.Peekable<Logged.Logged>) => Uint8Array = (it2: rt.Peekable<Logged.Logged>): Uint8Array => {
+	let item3!: clones_Logged.Logged | undefined;
+	const _44: (a0: rt.Peekable<clones_Logged.Logged>) => Uint8Array = (it2: rt.Peekable<clones_Logged.Logged>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -3885,7 +3885,7 @@ export function turns$Peekable_IntoIter_Logged_owned_closure8_owned_closure9(it:
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = _8;
 	while (iterStart++ < iterEnd) {
-		const _15: Logged.Logged | rt.Done = it.next();
+		const _15: clones_Logged.Logged | rt.Done = it.next();
 		if (_15 !== rt.DONE) {
 			rt.byteVecPush(out, put(_15));
 		}
@@ -3894,12 +3894,12 @@ export function turns$Peekable_IntoIter_Logged_owned_closure8_owned_closure9(it:
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = _25;
 	while (iterStart2++ < iterEnd2) {
-		const _32: Logged.Logged | undefined = back(it);
+		const _32: clones_Logged.Logged | undefined = back(it);
 		if (_32 !== undefined) {
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Peekable<Logged.Logged> = it.clone({ i: { v: Logged.clone$Clone }, v: Logged.clone$Clone });
+	const other: rt.Peekable<clones_Logged.Logged> = it.clone({ i: { v: clones_Logged.clone$Clone }, v: clones_Logged.clone$Clone });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -3959,7 +3959,7 @@ export function turns$Peekable_Iter_u8_iters_closure119_iters_closure0(it: rt.Pe
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Peekable<rt.u8>) => Uint8Array = (it2: rt.Peekable<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4039,7 +4039,7 @@ export function turns$Peekable_Iter_u8_iters_closure86_iters_closure0(it: rt.Pee
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Peekable<rt.u8>) => Uint8Array = (it2: rt.Peekable<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4119,7 +4119,7 @@ export function turns$RChunksExact_u8_iters_closure30_iters_closure31(it: rt.Ite
 	let item!: rt.ByteSlice | undefined;
 	const _44: (a0: rt.Iter<rt.ByteSlice>) => Uint8Array = (it2: rt.Iter<rt.ByteSlice>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4199,7 +4199,7 @@ export function turns$RChunks_u8_iters_closure28_iters_closure29(it: rt.Iter<rt.
 	let item!: rt.ByteSlice | undefined;
 	const _44: (a0: rt.Iter<rt.ByteSlice>) => Uint8Array = (it2: rt.Iter<rt.ByteSlice>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4279,7 +4279,7 @@ export function turns$RangeFrom_char_iters_closure44_iters_closure45(it: rt.Rang
 	let item3!: rt.char | undefined;
 	const _44: (a0: rt.RangeFrom<rt.char>) => Uint8Array = (it2: rt.RangeFrom<rt.char>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4359,7 +4359,7 @@ export function turns$RangeFrom_u64_iters_closure42_iters_closure43(it: rt.Range
 	let item3!: rt.u64 | undefined;
 	const _44: (a0: rt.RangeFrom<rt.u64>) => Uint8Array = (it2: rt.RangeFrom<rt.u64>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4439,7 +4439,7 @@ export function turns$RangeFrom_u8_iters_closure40_iters_closure41(it: rt.RangeF
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.RangeFrom<rt.u8>) => Uint8Array = (it2: rt.RangeFrom<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4519,7 +4519,7 @@ export function turns$RangeInclusive_u8_iters_closure36_iters_closure37(it: rt.R
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.RangeInclusive<rt.u8>) => Uint8Array = (it2: rt.RangeInclusive<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4599,7 +4599,7 @@ export function turns$Range_u64_iters_closure38_iters_closure39(it: rt.Range<rt.
 	let item3!: rt.u64 | undefined;
 	const _44: (a0: rt.Range<rt.u64>) => Uint8Array = (it2: rt.Range<rt.u64>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4679,7 +4679,7 @@ export function turns$Range_u8_iters_closure131_iters_closure0(it: rt.Iter<rt.u8
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4760,7 +4760,7 @@ export function turns$Range_u8_iters_closure34_iters_closure35(it: rt.Range<rt.u
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Range<rt.u8>) => Uint8Array = (it2: rt.Range<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4843,7 +4843,7 @@ export function turns$Range_u8_u8_iters_closure126_iters_closure127(it: rt.Iter<
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -4923,7 +4923,7 @@ export function turns$Range_u8_u8_iters_closure128_iters_closure129(it: rt.Iter<
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5003,7 +5003,7 @@ export function turns$Rev_Iter_u8_iters_closure76_iters_closure0(it: rt.Iter<rt.
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5083,7 +5083,7 @@ export function turns$SkipWhile_Iter_u8_iters_closure93_iters_closure94_iters_cl
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5163,7 +5163,7 @@ export function turns$Skip_Iter_u8_iters_closure77_iters_closure0(it: rt.Iter<rt
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5243,7 +5243,7 @@ export function turns$Split_char_iters_closure57_iters_closure58(it: rt.Iter<str
 	let item!: string | undefined;
 	const _44: (a0: rt.Iter<string>) => Uint8Array = (it2: rt.Iter<string>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5323,7 +5323,7 @@ export function turns$Split_iters_closure61_iters_closure62_iters_closure63(it: 
 	let item!: string | undefined;
 	const _44: (a0: rt.Iter<string>) => Uint8Array = (it2: rt.Iter<string>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5403,7 +5403,7 @@ export function turns$Split_str_iters_closure59_iters_closure60(it: rt.Iter<stri
 	let item!: string | undefined;
 	const _44: (a0: rt.Iter<string>) => Uint8Array = (it2: rt.Iter<string>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5483,7 +5483,7 @@ export function turns$StepBy_Iter_u8_iters_closure79_iters_closure0(it: rt.Iter<
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5558,12 +5558,12 @@ export function turns$StepBy_Iter_u8_iters_closure79_iters_closure0(it: rt.Iter<
  * then the original and the clone read in turns, each from either end, as `plan` picks,
  * until both end: each item as `put` makes it, and each end as 0xff and which ended.
  */
-export function turns$Successors_Logged_owned_closure15_owned_closure16_owned_closure17(it: rt.Iter<Logged.Logged>, back: (a0: rt.Iter<Logged.Logged>) => Logged.Logged | undefined, plan: Plan.Plan, put: (a0: Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function turns$Successors_Logged_owned_closure15_owned_closure16_owned_closure17(it: rt.Iter<clones_Logged.Logged>, back: (a0: rt.Iter<clones_Logged.Logged>) => clones_Logged.Logged | undefined, plan: Plan.Plan, put: (a0: clones_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let first!: boolean;
-	let item3!: Logged.Logged | undefined;
-	const _44: (a0: rt.Iter<Logged.Logged>) => Uint8Array = (it2: rt.Iter<Logged.Logged>): Uint8Array => {
+	let item3!: clones_Logged.Logged | undefined;
+	const _44: (a0: rt.Iter<clones_Logged.Logged>) => Uint8Array = (it2: rt.Iter<clones_Logged.Logged>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5571,7 +5571,7 @@ export function turns$Successors_Logged_owned_closure15_owned_closure16_owned_cl
 	let iterStart: rt.u8 = 0;
 	const iterEnd: rt.u8 = _8;
 	while (iterStart++ < iterEnd) {
-		const _15: Logged.Logged | rt.Done = it.next();
+		const _15: clones_Logged.Logged | rt.Done = it.next();
 		if (_15 !== rt.DONE) {
 			rt.byteVecPush(out, put(_15));
 		}
@@ -5580,12 +5580,12 @@ export function turns$Successors_Logged_owned_closure15_owned_closure16_owned_cl
 	let iterStart2: rt.u8 = 0;
 	const iterEnd2: rt.u8 = _25;
 	while (iterStart2++ < iterEnd2) {
-		const _32: Logged.Logged | undefined = back(it);
+		const _32: clones_Logged.Logged | undefined = back(it);
 		if (_32 !== undefined) {
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<Logged.Logged> = it.clone({ v: Logged.clone$Clone });
+	const other: rt.Iter<clones_Logged.Logged> = it.clone({ v: clones_Logged.clone$Clone });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -5645,7 +5645,7 @@ export function turns$Successors_u8_iters_closure108_iters_closure109_iters_clos
 	let item3!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5725,7 +5725,7 @@ export function turns$SymmetricDifference_u8_iters_closure137_iters_closure0(it:
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5805,7 +5805,7 @@ export function turns$TakeWhile_Iter_u8_iters_closure95_iters_closure96_iters_cl
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5885,7 +5885,7 @@ export function turns$Take_Iter_u8_iters_closure78_iters_closure0(it: rt.Iter<rt
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -5965,7 +5965,7 @@ export function turns$Union_u8_iters_closure132_iters_closure0(it: rt.Iter<rt.u8
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6045,7 +6045,7 @@ export function turns$Values_u8_u8_iters_closure125_iters_closure0(it: rt.Iter<r
 	let item!: rt.u8 | undefined;
 	const _44: (a0: rt.Iter<rt.u8>) => Uint8Array = (it2: rt.Iter<rt.u8>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6125,7 +6125,7 @@ export function turns$Windows_u8_iters_closure22_iters_closure23(it: rt.Iter<rt.
 	let item!: rt.ByteSlice | undefined;
 	const _44: (a0: rt.Iter<rt.ByteSlice>) => Uint8Array = (it2: rt.Iter<rt.ByteSlice>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6205,7 +6205,7 @@ export function turns$Zip_Countdown_Iter_u8_iters_closure103_iters_closure104(it
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6227,7 +6227,7 @@ export function turns$Zip_Countdown_Iter_u8_iters_closure103_iters_closure104(it
 			rt.byteVecPush(out, put(_32));
 		}
 	}
-	const other: rt.Iter<[rt.u8, rt.u8]> = it.clone({ i: { v: Countdown.clone$Clone } });
+	const other: rt.Iter<[rt.u8, rt.u8]> = it.clone({ i: { v: clones_Countdown.clone$Clone } });
 	rt.iterExtendBytes(out, rt.iterSlice(_44(it)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(_44(other)), undefined, true);
 	let ended: boolean = false;
@@ -6285,7 +6285,7 @@ export function turns$Zip_Filter_Iter_u8_iters_closure4_Filter_Iter_u8_iters_clo
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6365,7 +6365,7 @@ export function turns$Zip_Iter_u8_Iter_u8_iters_closure111_iters_closure112(it: 
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6445,7 +6445,7 @@ export function turns$Zip_Iter_u8_Iter_u8_iters_closure115_iters_closure116(it: 
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6525,7 +6525,7 @@ export function turns$Zip_Iter_u8_RangeInclusive_u8_iters_closure117_iters_closu
 	let item3!: [rt.u8, rt.u8] | undefined;
 	const _44: (a0: rt.Iter<[rt.u8, rt.u8]>) => Uint8Array = (it2: rt.Iter<[rt.u8, rt.u8]>): Uint8Array => {
 		const _5: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-		return Uint8Array.of(_5[0] & 0xff, mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
+		return Uint8Array.of(_5[0] & 0xff, option_mapOr$02k4ito(_5[1], 254, (n: rt.usize): rt.u8 => {
 			return n & 0xff;
 		}));
 	};
@@ -6604,7 +6604,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _269!: rt.usize;
 	let it!: rt.Peekable<rt.u8>;
 	const plan: Plan.Plan = { data, at: kind as rt.usize };
-	const n: rt.usize = mapOr$1surhce(rt.byteSliceFirst(data), 1, (_2: rt.u8): rt.u8 => {
+	const n: rt.usize = option_mapOr$1surhce(rt.byteSliceFirst(data), 1, (_2: rt.u8): rt.u8 => {
 		return rt.u8Add(rt.u8Rem(_2, 4), 1);
 	}) as rt.usize;
 	const _9: rt.u8 = rt.u8Rem(kind, 16);
@@ -6678,8 +6678,8 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			return a6.data[a6.start] ^ a6.data[a6.start + 1];
 		}, out);
 	} else if (_9 === 2) {
-		const lo: rt.u8 = rt.u8Rem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 8);
-		const hi: rt.u8 = rt.u8Rem(unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 9), 16);
+		const lo: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 8);
+		const hi: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 9), 16);
 		turns$Range_u8_iters_closure34_iters_closure35(new rt.Range(lo, hi), (it59: rt.Range<rt.u8>): rt.u8 | undefined => {
 			return rt.iterToOption(it59.nextBack());
 		}, plan, (x59: rt.u8): rt.u8 => {
@@ -6893,16 +6893,16 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		}, plan, (x35: rt.u8): rt.u8 => {
 			return x35;
 		}, out);
-		turns$Map_Countdown_iters_closure100_iters_closure101_iters_closure102(rt.iterMap(rt.iterFrom({ _0: rt.u8Mul(n & 0xff, 3) }, (it: Countdown.Countdown) => Countdown.next$Iterator(it)), (x36: rt.u8): rt.u8 => {
+		turns$Map_Countdown_iters_closure100_iters_closure101_iters_closure102(rt.iterMap(rt.iterFrom({ _0: rt.u8Mul(n & 0xff, 3) }, (it: clones_Countdown.Countdown) => clones_Countdown.next$Iterator(it)), (x36: rt.u8): rt.u8 => {
 			return x36 ^ 7;
 		}), (it33: rt.Iter<rt.u8>): rt.u8 | undefined => {
 			return rt.iterToOption(it33.next());
 		}, plan, (x37: rt.u8): rt.u8 => {
 			return x37;
 		}, out);
-		const _236: Countdown.Countdown = { _0: rt.u8Mul(n & 0xff, 3) };
+		const _236: clones_Countdown.Countdown = { _0: rt.u8Mul(n & 0xff, 3) };
 		const _240: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-		turns$Zip_Countdown_Iter_u8_iters_closure103_iters_closure104(rt.iterZip(rt.iterFrom(_236, (it: Countdown.Countdown) => Countdown.next$Iterator(it)), _240), (it34: rt.Iter<[rt.u8, rt.u8]>): [rt.u8, rt.u8] | undefined => {
+		turns$Zip_Countdown_Iter_u8_iters_closure103_iters_closure104(rt.iterZip(rt.iterFrom(_236, (it: clones_Countdown.Countdown) => clones_Countdown.next$Iterator(it)), _240), (it34: rt.Iter<[rt.u8, rt.u8]>): [rt.u8, rt.u8] | undefined => {
 			return rt.iterToOption(it34.next());
 		}, plan, (_261: [rt.u8, rt.u8]): rt.u8 => {
 			return _261[0] ^ _261[1];
@@ -7011,12 +7011,12 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		let iterStart5: rt.usize = 0;
 		const iterEnd5: rt.usize = n;
 		while (iterStart5++ < iterEnd5) {
-			rt.byteVecPush(out, mapOr$1surhce(rt.peekablePeek(it), 238, (_227: rt.u8): rt.u8 => {
+			rt.byteVecPush(out, option_mapOr$1surhce(rt.peekablePeek(it), 238, (_227: rt.u8): rt.u8 => {
 				return _227;
 			}));
 			it.next();
 		}
-		rt.byteVecPush(out, mapOr$1surhce(rt.peekablePeek(it), 238, (_233: rt.u8): rt.u8 => {
+		rt.byteVecPush(out, option_mapOr$1surhce(rt.peekablePeek(it), 238, (_233: rt.u8): rt.u8 => {
 			return _233;
 		}));
 		turns$Peekable_Iter_u8_iters_closure119_iters_closure0(it, (it24: rt.Peekable<rt.u8>): rt.u8 | undefined => {
@@ -7044,7 +7044,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			return rt.u8Rem(_219, 32);
 		});
 		const set: rt.BTreeSet<rt.u8> = rt.btreeExtendKeys(rt.btreeNew(rt.cmp) as rt.BTreeSet<rt.u8>, _406, true, undefined, undefined, 1, true);
-		const lo2: rt.u8 = rt.u8Rem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 32);
+		const lo2: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 32);
 		turns$Iter_u8_u8_iters_closure122_iters_closure123(rt.btreeIter(map), (it17: rt.Iter<[rt.u8, rt.u8]>): [rt.u8, rt.u8] | undefined => {
 			return rt.iterToOption(it17.nextBack());
 		}, plan, (_222: [rt.u8, rt.u8]): rt.u8 => {
@@ -7097,7 +7097,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		unordered$Copied_Values_u8_u8(rt.hashValues(map2), plan, out);
 		unordered$Copied_Iter_u8(rt.hashKeys(set2), plan, out);
 	} else if (_9 === 11) {
-		const split2: rt.usize = rt.usizeRem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0) as rt.usize, rt.usizeAdd(data.length, 1));
+		const split2: rt.usize = rt.usizeRem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0) as rt.usize, rt.usizeAdd(data.length, 1));
 		const _480: rt.Iter<rt.u8> = rt.iterMap(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, split2))), (_29: rt.u8): rt.u8 => {
 			return rt.u8Rem(_29, 64);
 		});
@@ -7389,98 +7389,98 @@ export function unordered$Map_Iter_u8_u8_iters_closure14(it: rt.Iter<rt.u8>, pla
  */
 export function owned(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): void {
 	const log: rt.Arc<rt.RefCell<rt.ByteVec>> = new rt.Arc(new rt.RefCell(new rt.ByteVec()));
-	const logged: (a0: rt.u8) => Logged.Logged = (id: rt.u8): Logged.Logged => {
-		return new Logged.Logged(id, rt.arcClone(log));
+	const logged: (a0: rt.u8) => clones_Logged.Logged = (id: rt.u8): clones_Logged.Logged => {
+		return new clones_Logged.Logged(id, rt.arcClone(log));
 	};
-	const it: rt.Iter<Logged.Logged> = rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 6), (_2: rt.u8): Logged.Logged => {
+	const it: rt.Iter<clones_Logged.Logged> = rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 6), (_2: rt.u8): clones_Logged.Logged => {
 		return logged(_2 & 112);
 	}), undefined, 8, true), rt.drop);
 	rt.drop(rt.iterToOption(it.next()));
 	rt.drop(rt.iterToOption(it.nextBack()));
-	const clone: rt.Iter<Logged.Logged> = it.clone({ v: Logged.clone$Clone });
+	const clone: rt.Iter<clones_Logged.Logged> = it.clone({ v: clones_Logged.clone$Clone });
 	flush(log.value, out);
 	rt.drop(it);
 	flush(log.value, out);
-	turns$IntoIter_Logged_owned_closure2_owned_closure3(clone, (it6: rt.Iter<Logged.Logged>): Logged.Logged | undefined => {
+	turns$IntoIter_Logged_owned_closure2_owned_closure3(clone, (it6: rt.Iter<clones_Logged.Logged>): clones_Logged.Logged | undefined => {
 		return rt.iterToOption(it6.nextBack());
-	}, plan, (x: Logged.Logged): rt.u8 => {
-		const _04: rt.u8 = Logged.id(x);
+	}, plan, (x: clones_Logged.Logged): rt.u8 => {
+		const _04: rt.u8 = clones_Logged.id(x);
 		x[Symbol.dispose]();
 		return _04;
 	}, out);
 	flush(log.value, out);
-	const _35: rt.Iter<Logged.Logged> = rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 4), (_22: rt.u8): Logged.Logged => {
+	const _35: rt.Iter<clones_Logged.Logged> = rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 4), (_22: rt.u8): clones_Logged.Logged => {
 		return logged(_22 & 112);
 	});
-	turns$IntoIter_Logged_owned_closure5_owned_closure6(rt.dequeIter(rt.dequeExtend(rt.dequeNew() as rt.VecDeque<Logged.Logged>, rt.iterSlice(rt.iterToArray(_35, undefined, 8, true))), rt.drop), (it7: rt.Iter<Logged.Logged>): Logged.Logged | undefined => {
+	turns$IntoIter_Logged_owned_closure5_owned_closure6(rt.dequeIter(rt.dequeExtend(rt.dequeNew() as rt.VecDeque<clones_Logged.Logged>, rt.iterSlice(rt.iterToArray(_35, undefined, 8, true))), rt.drop), (it7: rt.Iter<clones_Logged.Logged>): clones_Logged.Logged | undefined => {
 		return rt.iterToOption(it7.nextBack());
-	}, plan, (x2: Logged.Logged): rt.u8 => {
-		const _07: rt.u8 = Logged.id(x2);
+	}, plan, (x2: clones_Logged.Logged): rt.u8 => {
+		const _07: rt.u8 = clones_Logged.id(x2);
 		x2[Symbol.dispose]();
 		return _07;
 	}, out);
 	flush(log.value, out);
-	const it2: rt.Peekable<Logged.Logged> = rt.iterPeekable(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 4), (_24: rt.u8): Logged.Logged => {
+	const it2: rt.Peekable<clones_Logged.Logged> = rt.iterPeekable(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 4), (_24: rt.u8): clones_Logged.Logged => {
 		return logged(_24 & 112);
 	}), undefined, 8, true), rt.drop), rt.drop);
-	rt.byteVecPush(out, mapOr$1yabfom(rt.peekablePeek(it2), 238, Logged.id));
-	const clone2: rt.Peekable<Logged.Logged> = it2.clone({ i: { v: Logged.clone$Clone }, v: Logged.clone$Clone });
+	rt.byteVecPush(out, option_mapOr$1yabfom(rt.peekablePeek(it2), 238, clones_Logged.id));
+	const clone2: rt.Peekable<clones_Logged.Logged> = it2.clone({ i: { v: clones_Logged.clone$Clone }, v: clones_Logged.clone$Clone });
 	flush(log.value, out);
 	rt.drop(clone2);
 	flush(log.value, out);
-	turns$Peekable_IntoIter_Logged_owned_closure8_owned_closure9(it2, (it8: rt.Peekable<Logged.Logged>): Logged.Logged | undefined => {
+	turns$Peekable_IntoIter_Logged_owned_closure8_owned_closure9(it2, (it8: rt.Peekable<clones_Logged.Logged>): clones_Logged.Logged | undefined => {
 		return rt.iterToOption(it8.nextBack());
-	}, plan, (x3: Logged.Logged): rt.u8 => {
-		const _010: rt.u8 = Logged.id(x3);
+	}, plan, (x3: clones_Logged.Logged): rt.u8 => {
+		const _010: rt.u8 = clones_Logged.id(x3);
 		x3[Symbol.dispose]();
 		return _010;
 	}, out);
 	flush(log.value, out);
-	const it3: rt.Iter<Logged.Logged> = rt.iterChain(rt.iterOnce(logged(1), rt.drop), rt.iterOption(logged(2), rt.drop));
-	const clone3: rt.Iter<Logged.Logged> = it3.clone({ i: { v: Logged.clone$Clone }, o: { v: Logged.clone$Clone } });
+	const it3: rt.Iter<clones_Logged.Logged> = rt.iterChain(rt.iterOnce(logged(1), rt.drop), rt.iterOption(logged(2), rt.drop));
+	const clone3: rt.Iter<clones_Logged.Logged> = it3.clone({ i: { v: clones_Logged.clone$Clone }, o: { v: clones_Logged.clone$Clone } });
 	flush(log.value, out);
 	rt.drop(it3);
-	turns$Chain_Once_Logged_IntoIter_Logged_owned_closure10_owned_closure11(clone3, (it9: rt.Iter<Logged.Logged>): Logged.Logged | undefined => {
+	turns$Chain_Once_Logged_IntoIter_Logged_owned_closure10_owned_closure11(clone3, (it9: rt.Iter<clones_Logged.Logged>): clones_Logged.Logged | undefined => {
 		return rt.iterToOption(it9.nextBack());
-	}, plan, (x4: Logged.Logged): rt.u8 => {
-		const _012: rt.u8 = Logged.id(x4);
+	}, plan, (x4: clones_Logged.Logged): rt.u8 => {
+		const _012: rt.u8 = clones_Logged.id(x4);
 		x4[Symbol.dispose]();
 		return _012;
 	}, out);
 	flush(log.value, out);
-	const it4: rt.Iter<Logged.Logged> = rt.iterFlatten(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterTake(rt.byteSliceChunks(data, 3), 3), (c: rt.ByteSlice): Logged.Logged[] => {
-		return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(c)), (_25: rt.u8): Logged.Logged => {
+	const it4: rt.Iter<clones_Logged.Logged> = rt.iterFlatten(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterTake(rt.byteSliceChunks(data, 3), 3), (c: rt.ByteSlice): clones_Logged.Logged[] => {
+		return rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(c)), (_25: rt.u8): clones_Logged.Logged => {
 			return logged(_25 & 112);
 		}), undefined, 8, true);
-	}), undefined, 12, true), drop$Vec_Logged), (value: Logged.Logged[]) => rt.iterSlice(value, rt.drop), true);
+	}), undefined, 12, true), drop$Vec_Logged), (value: clones_Logged.Logged[]) => rt.iterSlice(value, rt.drop), true);
 	rt.drop(rt.iterToOption(it4.next()));
 	rt.drop(rt.iterToOption(it4.nextBack()));
-	const clone4: rt.Iter<Logged.Logged> = it4.clone({ i: { v: (a07: Logged.Logged[]): Logged.Logged[] => {
-		return a07.map(Logged.clone$Clone);
-	} }, o: { v: Logged.clone$Clone } });
+	const clone4: rt.Iter<clones_Logged.Logged> = it4.clone({ i: { v: (a07: clones_Logged.Logged[]): clones_Logged.Logged[] => {
+		return a07.map(clones_Logged.clone$Clone);
+	} }, o: { v: clones_Logged.clone$Clone } });
 	flush(log.value, out);
 	rt.drop(it4);
 	flush(log.value, out);
-	turns$Flatten_IntoIter_Vec_Logged_owned_closure13_owned_closure14(clone4, (it10: rt.Iter<Logged.Logged>): Logged.Logged | undefined => {
+	turns$Flatten_IntoIter_Vec_Logged_owned_closure13_owned_closure14(clone4, (it10: rt.Iter<clones_Logged.Logged>): clones_Logged.Logged | undefined => {
 		return rt.iterToOption(it10.nextBack());
-	}, plan, (x5: Logged.Logged): rt.u8 => {
-		const _016: rt.u8 = Logged.id(x5);
+	}, plan, (x5: clones_Logged.Logged): rt.u8 => {
+		const _016: rt.u8 = clones_Logged.id(x5);
 		x5[Symbol.dispose]();
 		return _016;
 	}, out);
 	flush(log.value, out);
-	const it5: rt.Iter<Logged.Logged> = rt.iterSuccessors(logged(40), (x6: Logged.Logged): Logged.Logged | undefined => {
-		return map$0y3liwu(rt.u8CheckedSub(Logged.id(x6), 13), (id2: rt.u8): Logged.Logged => {
+	const it5: rt.Iter<clones_Logged.Logged> = rt.iterSuccessors(logged(40), (x6: clones_Logged.Logged): clones_Logged.Logged | undefined => {
+		return option_map$0y3liwu(rt.u8CheckedSub(clones_Logged.id(x6), 13), (id2: rt.u8): clones_Logged.Logged => {
 			return logged(id2);
 		});
 	}, rt.drop);
 	rt.drop(rt.iterToOption(it5.next()));
-	const clone5: rt.Iter<Logged.Logged> = it5.clone({ v: Logged.clone$Clone });
+	const clone5: rt.Iter<clones_Logged.Logged> = it5.clone({ v: clones_Logged.clone$Clone });
 	flush(log.value, out);
-	turns$Successors_Logged_owned_closure15_owned_closure16_owned_closure17(clone5, (it11: rt.Iter<Logged.Logged>): Logged.Logged | undefined => {
+	turns$Successors_Logged_owned_closure15_owned_closure16_owned_closure17(clone5, (it11: rt.Iter<clones_Logged.Logged>): clones_Logged.Logged | undefined => {
 		return rt.iterToOption(it11.next());
-	}, plan, (x7: Logged.Logged): rt.u8 => {
-		const _020: rt.u8 = Logged.id(x7);
+	}, plan, (x7: clones_Logged.Logged): rt.u8 => {
+		const _020: rt.u8 = clones_Logged.id(x7);
 		x7[Symbol.dispose]();
 		return _020;
 	}, out);
@@ -7495,25 +7495,25 @@ export function owned(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): voi
  */
 export function closures(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): void {
 	const log: rt.Arc<rt.RefCell<rt.ByteVec>> = new rt.Arc(new rt.RefCell(new rt.ByteVec()));
-	const logged: (a0: rt.u8) => Logged.Logged = (id: rt.u8): Logged.Logged => {
-		return new Logged.Logged(id, rt.arcClone(log));
+	const logged: (a0: rt.u8) => clones_Logged.Logged = (id: rt.u8): clones_Logged.Logged => {
+		return new clones_Logged.Logged(id, rt.arcClone(log));
 	};
-	const _11: [Logged.Logged, Logged.Logged] = [logged(1), logged(2)];
-	const a: Logged.Logged = _11[0];
-	const b: Logged.Logged = _11[1];
+	const _11: [clones_Logged.Logged, clones_Logged.Logged] = [logged(1), logged(2)];
+	const a: clones_Logged.Logged = _11[0];
+	const b: clones_Logged.Logged = _11[1];
 	const _20: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-	const make = (captured: Logged.Logged): (a0: rt.u8) => rt.u8 => {
+	const make = (captured: clones_Logged.Logged): (a0: rt.u8) => rt.u8 => {
 		return rt.closure(rt.cloning((_2: rt.u8): rt.u8 => {
-			return _2 ^ Logged.id(captured);
-		}, () => make(Logged.clone$Clone(captured))), (): void => {
+			return _2 ^ clones_Logged.id(captured);
+		}, () => make(clones_Logged.clone$Clone(captured))), (): void => {
 			captured[Symbol.dispose]();
 		});
 	};
 	const _19: rt.Iter<rt.u8> = rt.iterMap(_20, make(a));
-	const make2 = (captured2: Logged.Logged): (a0: rt.u8) => boolean => {
+	const make2 = (captured2: clones_Logged.Logged): (a0: rt.u8) => boolean => {
 		return rt.closure(rt.cloning((_23: rt.u8): boolean => {
-			return _23 !== Logged.id(captured2);
-		}, () => make2(Logged.clone$Clone(captured2))), (): void => {
+			return _23 !== clones_Logged.id(captured2);
+		}, () => make2(clones_Logged.clone$Clone(captured2))), (): void => {
 			captured2[Symbol.dispose]();
 		});
 	};
@@ -7528,16 +7528,16 @@ export function closures(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): 
 		return x3;
 	}, out);
 	flush(log.value, out);
-	const _38: [Logged.Logged, rt.u8] = [logged(3), 0];
-	const tag: Logged.Logged = _38[0];
+	const _38: [clones_Logged.Logged, rt.u8] = [logged(3), 0];
+	const tag: clones_Logged.Logged = _38[0];
 	const count: rt.u8 = 0;
 	const _43: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
-	const make3 = (captured3: rt.u8, captured4: Logged.Logged): (a0: rt.u8) => rt.u8 => {
+	const make3 = (captured3: rt.u8, captured4: clones_Logged.Logged): (a0: rt.u8) => rt.u8 => {
 		return rt.closure(rt.cloning((_24: rt.u8): rt.u8 => {
 			const x4: rt.u8 = _24;
-			captured3 = rt.u8WrappingAdd(captured3, Logged.id(captured4));
+			captured3 = rt.u8WrappingAdd(captured3, clones_Logged.id(captured4));
 			return x4 ^ captured3;
-		}, () => make3(captured3, Logged.clone$Clone(captured4))), (): void => {
+		}, () => make3(captured3, clones_Logged.clone$Clone(captured4))), (): void => {
 			captured4[Symbol.dispose]();
 		});
 	};
@@ -7553,22 +7553,22 @@ export function closures(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): 
 	flush(log.value, out);
 	rt.drop(it2);
 	flush(log.value, out);
-	const inner: Logged.Logged = logged(5);
-	const make4 = (captured5: rt.u8, captured6: Logged.Logged): (a0: rt.u8) => rt.u8 => {
+	const inner: clones_Logged.Logged = logged(5);
+	const make4 = (captured5: rt.u8, captured6: clones_Logged.Logged): (a0: rt.u8) => rt.u8 => {
 		return rt.closure(rt.cloning((x5: rt.u8): rt.u8 => {
-			captured5 = rt.u8WrappingAdd(captured5, x5 ^ Logged.id(captured6));
+			captured5 = rt.u8WrappingAdd(captured5, x5 ^ clones_Logged.id(captured6));
 			return captured5;
-		}, () => make4(captured5, Logged.clone$Clone(captured6))), (): void => {
+		}, () => make4(captured5, clones_Logged.clone$Clone(captured6))), (): void => {
 			captured6[Symbol.dispose]();
 		});
 	};
 	const add: (a0: rt.u8) => rt.u8 = make4(0, inner);
 	rt.byteVecPush(out, add(1));
-	const held: Logged.Logged = logged(6);
-	const make5 = (captured7: (a0: rt.u8) => rt.u8, captured8: Logged.Logged): (a0: rt.u8) => rt.u8 => {
+	const held: clones_Logged.Logged = logged(6);
+	const make5 = (captured7: (a0: rt.u8) => rt.u8, captured8: clones_Logged.Logged): (a0: rt.u8) => rt.u8 => {
 		return rt.closure(rt.cloning((x6: rt.u8): rt.u8 => {
-			return captured7(x6) ^ Logged.id(captured8);
-		}, () => make5(rt.closureClone(captured7), Logged.clone$Clone(captured8))), (): void => {
+			return captured7(x6) ^ clones_Logged.id(captured8);
+		}, () => make5(rt.closureClone(captured7), clones_Logged.clone$Clone(captured8))), (): void => {
 			rt.drop(captured7);
 			captured8[Symbol.dispose]();
 		});
@@ -7582,27 +7582,27 @@ export function closures(data: rt.ByteSlice, plan: Plan.Plan, out: rt.ByteVec): 
 	rt.drop(copy);
 	flush(log.value, out);
 	const text: string = "ab";
-	const tag2: Logged.Logged = logged(7);
-	const make6 = (captured9: string, captured10: Logged.Logged): () => [string, Logged.Logged] => {
-		return rt.closure(rt.cloning((): [string, Logged.Logged] => {
+	const tag2: clones_Logged.Logged = logged(7);
+	const make6 = (captured9: string, captured10: clones_Logged.Logged): () => [string, clones_Logged.Logged] => {
+		return rt.closure(rt.cloning((): [string, clones_Logged.Logged] => {
 			captured9 = captured9 + "c";
-			return [captured9, captured10] as [string, Logged.Logged];
-		}, () => make6(captured9, Logged.clone$Clone(captured10))), (): void => {
+			return [captured9, captured10] as [string, clones_Logged.Logged];
+		}, () => make6(captured9, clones_Logged.clone$Clone(captured10))), (): void => {
 			captured10[Symbol.dispose]();
 		});
 	};
-	const once: () => [string, Logged.Logged] = make6(text, tag2);
-	const twice: () => [string, Logged.Logged] = rt.closureClone(once);
+	const once: () => [string, clones_Logged.Logged] = make6(text, tag2);
+	const twice: () => [string, clones_Logged.Logged] = rt.closureClone(once);
 	flush(log.value, out);
-	const _127: [string, Logged.Logged] = once();
+	const _127: [string, clones_Logged.Logged] = once();
 	const text2: string = _127[0];
-	const tag3: Logged.Logged = _127[1];
-	rt.iterExtendBytes(out, rt.iterChain(rt.strBytes(text2), rt.iterSlice(Uint8Array.of(Logged.id(tag3)))), undefined, true);
+	const tag3: clones_Logged.Logged = _127[1];
+	rt.iterExtendBytes(out, rt.iterChain(rt.strBytes(text2), rt.iterSlice(Uint8Array.of(clones_Logged.id(tag3)))), undefined, true);
 	tag3[Symbol.dispose]();
-	const _139: [string, Logged.Logged] = twice();
+	const _139: [string, clones_Logged.Logged] = twice();
 	const text3: string = _139[0];
-	const tag4: Logged.Logged = _139[1];
-	rt.iterExtendBytes(out, rt.iterChain(rt.strBytes(text3), rt.iterSlice(Uint8Array.of(Logged.id(tag4)))), undefined, true);
+	const tag4: clones_Logged.Logged = _139[1];
+	rt.iterExtendBytes(out, rt.iterChain(rt.strBytes(text3), rt.iterSlice(Uint8Array.of(clones_Logged.id(tag4)))), undefined, true);
 	tag4[Symbol.dispose]();
 	flush(log.value, out);
 	const captured11 = data.length & 0xff;
