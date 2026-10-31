@@ -72,7 +72,7 @@ impl Translator<'_, '_> {
 		let module = || self.module_of(def_id);
 		match tcx.def_kind(def_id) {
 			DefKind::Fn => importable(names, &escape(&fn_base(tcx, def_id)), module()),
-			DefKind::Const | DefKind::Static { .. } | DefKind::AssocConst { .. } => {
+			DefKind::Const | DefKind::Static { .. } | DefKind::AssocConst => {
 				importable(names, &escape(tcx.item_name(def_id).as_str()), module())
 			}
 			DefKind::Struct | DefKind::Enum | DefKind::Union | DefKind::Trait => self.namespace(def_id, names),
