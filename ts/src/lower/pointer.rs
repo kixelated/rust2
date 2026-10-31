@@ -498,6 +498,13 @@ pub fn call<'tcx>(
 			let (p, value) = (arg(), arg());
 			write(b, p, value, pointee(), span)
 		}
+		// A place of no bytes has nothing to read or write, and every value of its type is
+		// the one it holds.
+		("ptr", "replace") if b.t.zero_sized(pointee()) => {
+			let _ = arg();
+			arg()
+		}
+		("ptr", "swap") if b.t.zero_sized(pointee()) => Expr::undefined(),
 		("ptr", "replace") => {
 			let p = b.spill(arg(), "pointer", out);
 			let value = arg();

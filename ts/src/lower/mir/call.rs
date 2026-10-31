@@ -394,15 +394,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		))
 	}
 
-	/// What `Default::default` makes of `ty`: a std type's value, or the call of the crate's impl.
-	fn default_of(&mut self, ty: Ty<'tcx>, span: Span, out: &mut Vec<Stmt>) -> Expr {
+	/// What `Default::default` makes of `ty`: a std type's value, or the call of the crate's
+	/// impl, made here if `held`.
+	fn default_of(&mut self, ty: Ty<'tcx>, held: bool, span: Span, out: &mut Vec<Stmt>) -> Expr {
 		if let Some(default) = library::default_value(self.b, ty, span, out) {
 			return default;
 		}
 		let tcx = self.tcx;
 		let f = crate::lower::collections::trait_fn(tcx, "Default", "default");
 		let default = self.b.call_def(f, tcx.mk_args(&[ty.into()]), Vec::new(), span, out);
-		self.path(default, "default", out)
+		match held {
+			true => self.path(default, "default", out),
+			false => default,
+		}
 	}
 
 	/// A std call MIR needs lowered here: `Some(Some((value, effect)))`, or `Some(None)`
@@ -439,25 +443,35 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let targ = |n: usize| gargs.types().nth(n);
 		let done = |e: Expr, effect: bool| Some(Some((e, effect)));
 		match (owner.as_str(), name.as_str()) {
+			// A place of no bytes has nothing to read or write, and every value of its type
+			// is the one it holds. What made the `&mut` still runs, as its unread temporary.
+			("mem", "take" | "replace" | "swap") if self.b.t.zero_sized(targ(0)?) => match name.as_str() {
+				"take" => done(self.default_of(targ(0)?, false, span, out), true),
+				"replace" => done(self.operand(&args[1].node, span, out), false),
+				_ => done(Expr::undefined(), false),
+			},
 			// Replacing what a `&mut` borrows.
 			// What `Default::default` makes before the swap.
 			("mem", "take") => {
 				let ty = targ(0)?;
 				let place = self.borrowed_place(&args[0].node, span, out)?;
-				let default = self.default_of(ty, span, out);
-				done(self.swap_out(place, ty, default, "taken", span, out), true)
+				let default = self.default_of(ty, true, span, out);
+				let base = self.read_as(dest, "taken");
+				done(self.swap_out(place, ty, default, base, span, out), base.is_some())
 			}
 			("mem", "replace") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let value = self.operand(&args[1].node, span, out);
-				done(self.swap_out(place, targ(0)?, value, "old", span, out), true)
+				let base = self.read_as(dest, "old");
+				done(self.swap_out(place, targ(0)?, value, base, span, out), base.is_some())
 			}
 			// `mem::replace(self, Some(value))`, and `Some(value)` is `value`.
 			("Option", "replace") => {
 				let ty = args[0].node.ty(&self.mir.local_decls, tcx).builtin_deref(true)?;
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let value = self.operand(&args[1].node, span, out);
-				done(self.swap_out(place, ty, value, "old", span, out), true)
+				let base = self.read_as(dest, "old");
+				done(self.swap_out(place, ty, value, base, span, out), base.is_some())
 			}
 			("mem", "swap") => {
 				let a = self.borrowed_place(&args[0].node, span, out)?;
@@ -468,7 +482,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					true => (c, a),
 					false => (a, c),
 				};
-				let old = self.swap_out(a, targ(0)?, c.0.clone(), "swapped", span, out);
+				let old = self.swap_out(a, targ(0)?, c.0.clone(), Some("swapped"), span, out);
 				self.set_borrowed(&c, old, span, out);
 				done(Expr::undefined(), false)
 			}
@@ -660,7 +674,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let none = self.b.t.none(targ(0)?);
 				let option = dest.ty(&self.mir.local_decls, tcx).ty;
-				done(self.swap_out(place, option, none, "taken", span, out), true)
+				let base = self.read_as(dest, "taken");
+				done(self.swap_out(place, option, none, base, span, out), base.is_some())
 			}
 			// The place of the payload, if any: `as_mut`'s, or what `iter_mut` yields.
 			("Option", "as_mut" | "iter_mut") if self.b.t.needs_place(targ(0)?) => {
@@ -1206,7 +1221,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					value
 				}
-				"get_or_insert_default" => self.default_of(payload_ty, span, &mut then),
+				"get_or_insert_default" => self.default_of(payload_ty, true, span, &mut then),
 				_ => {
 					let f_ty = args[1].node.ty(&self.mir.local_decls, tcx);
 					if let ty::FnDef(f, f_args) = *f_ty.kind() {
@@ -1301,28 +1316,45 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		None
 	}
 
-	/// The value at `place`, after setting `place` to `value`.
+	/// The value at `place`, named for `base`, after setting `place` to `value`; or nothing
+	/// without a `base`, when nothing reads it.
 	fn swap_out(
 		&mut self,
 		place: Borrowed<'tcx>,
 		ty: Ty<'tcx>,
 		value: Expr,
-		base: &str,
+		base: Option<&str>,
 		span: Span,
 		out: &mut Vec<Stmt>,
 	) -> Expr {
-		let name = self.b.fresh(base);
 		// The object written in place gives what it held as an object of its own.
 		if place.1.is_some_and(|p| self.in_object(p)) {
 			let old = Expr::rt("replaceIn", vec![place.0, value]);
+			let Some(base) = base else {
+				out.push(StmtKind::Expr(old).at(None));
+				return Expr::undefined();
+			};
+			let name = self.b.fresh(base);
 			out.push(StmtKind::decl(false, name.clone(), None, Some(old)).at(None));
 			return Expr::ident(name);
 		}
+		let Some(base) = base else {
+			self.set_borrowed(&place, value, span, out);
+			return Expr::undefined();
+		};
+		let name = self.b.fresh(base);
 		// TypeScript widens `rt.None` read from a place narrowed to it into a `symbol`.
 		let declared = self.b.t.erases_to(ty).none.then(|| self.b.t.ty(ty, span));
 		out.push(StmtKind::decl(false, name.clone(), declared, Some(place.0.clone())).at(None));
 		self.set_borrowed(&place, value, span, out);
 		Expr::ident(name)
+	}
+
+	/// `base` if anything reads what a call leaves in `dest`.
+	fn read_as(&self, dest: Place<'tcx>, base: &'static str) -> Option<&'static str> {
+		dest.as_local()
+			.is_none_or(|local| self.uses[local] != 0)
+			.then_some(base)
 	}
 
 	/// Set what a `&mut` borrows to `value`.

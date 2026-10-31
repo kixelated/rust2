@@ -3269,24 +3269,26 @@ fn widen_reads(test: Expr, key: &str, ty: &Type) -> Expr {
 }
 
 /// Drop the declarations of variables nothing reads, keeping the effects of what was
-/// assigned to them.
+/// assigned to them, until what those dropped read is read elsewhere.
 fn prune_unread(stmts: &mut Vec<Stmt>) {
-	let mut declared = Vec::new();
-	for stmt in stmts.iter() {
-		if let StmtKind::Declare { name, .. } = &stmt.kind {
-			declared.push(name.clone());
+	loop {
+		let mut declared = Vec::new();
+		for stmt in stmts.iter() {
+			if let StmtKind::Declare { name, .. } = &stmt.kind {
+				declared.push(name.clone());
+			}
 		}
+		let mut reads = Vec::new();
+		for stmt in stmts.iter() {
+			scan_reads(stmt, &mut reads);
+		}
+		let read: FxHashSet<&str> = reads.iter().map(String::as_str).collect();
+		let unread: FxHashSet<String> = declared.into_iter().filter(|n| !read.contains(n.as_str())).collect();
+		if unread.is_empty() {
+			return;
+		}
+		strip_assignments(stmts, &unread);
 	}
-	let mut reads = Vec::new();
-	for stmt in stmts.iter() {
-		scan_reads(stmt, &mut reads);
-	}
-	let read: FxHashSet<&str> = reads.iter().map(String::as_str).collect();
-	let unread: FxHashSet<String> = declared.into_iter().filter(|n| !read.contains(n.as_str())).collect();
-	if unread.is_empty() {
-		return;
-	}
-	strip_assignments(stmts, &unread);
 }
 
 /// Every name `stmt` reads, but not as the target of an assignment to it.
