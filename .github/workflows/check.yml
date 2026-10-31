@@ -3,20 +3,12 @@ name: Check
 permissions:
   contents: read
 
-# Main PRs report Check as skipped; the merge queue runs it once on the combined
-# tree, so a push to main never needs it.
+# PRs land through the host land gate (`quest land serve` on the maintainer's
+# host), which runs `just ci` once over each batch. This workflow stays for a
+# manual run on a hosted runner.
 on:
-  pull_request:
-  merge_group:
-    # `destroyed` only cancels the dead group's in-flight run. GitHub keeps that
-    # run queued when the group is rebuilt behind a departed entry, where it
-    # holds the queue runner ahead of the live groups until they time out.
-    # Actions delivers this type although its docs omit it.
-    types: [checks_requested, destroyed]
   workflow_dispatch:
 
-# Cancel in-flight runs when a new commit lands on the same ref. Each merge
-# group has its own queue ref, shared by its `destroyed` event.
 concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
@@ -24,11 +16,7 @@ concurrency:
 jobs:
   check:
     name: Check
-    # A destroyed-group run exists only to cancel the superseded in-flight build
-    # via the concurrency group above.
-    if: github.event_name != 'pull_request' && github.event.action != 'destroyed'
-    # Leave the variable unset until the self-hosted runner is verified.
-    runs-on: ${{ github.event_name == 'merge_group' && vars.RUST2_QUEUE_RUNNER || 'ubuntu-24.04-arm' }}
+    runs-on: ubuntu-24.04-arm
     # Backstop a hang instead of holding the runner for the 6-hour default.
     timeout-minutes: 30
 
@@ -39,7 +27,6 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/nix
-        if: runner.environment != 'self-hosted'
 
       - name: Check
         run: nix develop --command just ci
