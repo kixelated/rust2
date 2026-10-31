@@ -129,15 +129,11 @@ pub fn call<'tcx>(
 				{
 					return Err(args);
 				}
-				// A tuple's and an `Arc`'s `ne` call what they hold's, which `!eq` stands for
-				// only while that is the default.
-				if name == "ne" && own_ne(b, t) {
-					return Ok(Some(b.err(
-						span,
-						format!("`<{t} as PartialEq>::ne` through a held type's own, which is not supported yet"),
-					)));
-				}
-				let eq = match (eq_fn(b, t, span), <[Expr; 2]>::try_from(args)) {
+				let eq = match name {
+					"eq" => eq_fn(b, t, span),
+					_ => not_ne_fn(b, t, span),
+				};
+				let eq = match (eq, <[Expr; 2]>::try_from(args)) {
 					(Expr::Rt(same), Ok([l, r])) if same == "same" => l.binary("===", r),
 					(eq, Ok(args)) => eq.call(args.into()),
 					(_, Err(args)) => return Err(args),
@@ -846,16 +842,14 @@ fn local<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	matches!(ty.kind(), ty::Adt(adt, _) if b.t.own(adt.did()) || b.t.bound_drops(adt.did()).is_some())
 }
 
-/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples,
-/// `Arc`s, `Reverse`s, and the elements of slices, but not an `Option`, whose `ne` is
-/// `!eq`.
+/// Whether `ty`'s `ne` reaches the crate's own `ne` of a type it holds: through tuples and
+/// `Arc`s, but not slices, `Option`s, or `Reverse`s, whose `ne` is `!eq`.
 fn own_ne<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = b.t.tcx;
 	let ty = peel(b, ty);
 	match ty.kind() {
 		ty::Tuple(tys) => tys.iter().any(|t| own_ne(b, t)),
-		_ if let Some(elem) = elements_of(b, ty) => own_ne(b, elem),
-		ty::Adt(..) if let Some(inner) = arc_of(b, ty).or_else(|| reverse_of(b, ty)) => own_ne(b, inner),
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => own_ne(b, inner),
 		_ if local(b, ty) => {
 			let ne = trait_fn(tcx, "PartialEq", "ne");
 			Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[ty.into(), ty.into()]))
@@ -1807,27 +1801,12 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
-		// A slice compares its elements by `!=`, which `!eq` stands for only while that is
-		// the default.
-		_ if let Some(elem) = elements_of(b, ty)
-			&& own_ne(b, elem) =>
-		{
-			b.err(
-				span,
-				format!(
-					"comparing `{ty}` by `<{elem} as PartialEq>::ne` through a held type's own, which is not supported yet"
-				),
-			)
-		}
-		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![eq_fn(b, elem, span)]),
+		// A slice compares its elements by `!=`.
+		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![not_ne_fn(b, elem, span)]),
 		_ if bytes(b, ty) => Expr::Rt("eqBytes".into()),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
-			let mut values = vec![eq_fn(b, inner, span)];
-			// std's `Arc` finds itself equal before comparing a value that is `Eq`.
-			if super::iter::implements(b.t, inner, "Eq") {
-				values.push(Expr::lit("true"));
-			}
-			Expr::rt("eqArc", values)
+			let eq = eq_fn(b, inner, span);
+			arc_eq(b, inner, eq)
 		}
 		ty::Adt(..) if local(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
@@ -1836,6 +1815,36 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 		_ if b.t.deferred(ty) => Expr::undefined(),
 		_ => b.err(span, format!("comparing `{ty}` as a key, which is not supported yet")),
 	}
+}
+
+/// `!<ty as PartialEq>::ne`, as a function: `eq_fn`'s, but through the crate's own `ne` of
+/// `ty` or of what a tuple or an `Arc` holds, which std's `ne` of each calls.
+fn not_ne_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr {
+	let ty = peel(b, ty);
+	match ty.kind() {
+		_ if !own_ne(b, ty) => eq_fn(b, ty, span),
+		// `!(a.0 != b.0 || ...)`: each field's `!ne` in turn.
+		ty::Tuple(tys) => {
+			let fns = tys.iter().map(|t| not_ne_fn(b, t, span)).collect();
+			Expr::rt("eqTuple", vec![Expr::Array(fns)])
+		}
+		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
+			let eq = not_ne_fn(b, inner, span);
+			arc_eq(b, inner, eq)
+		}
+		_ => impl_eq(b, "ne", ty, ty, [ty, ty], span),
+	}
+}
+
+/// `PartialEq::eq` of `Arc`s of `inner`, as a function, which compares what they hold by
+/// `eq`.
+fn arc_eq<'tcx>(b: &Body<'_, '_, 'tcx>, inner: Ty<'tcx>, eq: Expr) -> Expr {
+	let mut values = vec![eq];
+	// std's `Arc` finds itself equal before comparing a value that is `Eq`.
+	if super::iter::implements(b.t, inner, "Eq") {
+		values.push(Expr::lit("true"));
+	}
+	Expr::rt("eqArc", values)
 }
 
 /// `PartialEq::eq` of sequences of types `t` and `u`, as a function, where the runtime's of
@@ -1850,7 +1859,7 @@ fn seq_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span
 	if !deque && alike(b, t, u) && std_key(b, t) {
 		return None;
 	}
-	Some(Expr::rt("eqSeq", vec![item_eq(b, t, ti, ui, span)]))
+	Some(Expr::rt("eqSeq", vec![item_eq(b, ti, ui, span)]))
 }
 
 /// What a slice, an array, a `Vec`, or a `VecDeque` of type `ty` holds, bytes included.
@@ -1862,9 +1871,9 @@ fn seq_item<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	}
 }
 
-/// What std's `!=` of a `t` and a `u` that sequence `seq` holds finds equal, as a function:
-/// `<t as PartialEq<u>>::ne`, which `!eq` stands for unless the crate overrides it.
-fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span) -> Expr {
+/// What std's `!=` of a `t` and a `u` that a sequence holds finds equal, as a function:
+/// `!<t as PartialEq<u>>::ne`, which `eq` stands for unless the crate overrides it.
+fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span) -> Expr {
 	let tcx = b.t.tcx;
 	if let Some(eq) = seq_eq(b, t, u, span) {
 		return eq;
@@ -1874,15 +1883,7 @@ fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'
 		return Expr::undefined();
 	}
 	if alike(b, t, u) {
-		if own_ne(b, pt) {
-			return b.err(
-				span,
-				format!(
-					"comparing `{seq}` by `<{pt} as PartialEq>::ne` through a held type's own, which is not supported yet"
-				),
-			);
-		}
-		return eq_fn(b, pt, span);
+		return not_ne_fn(b, pt, span);
 	}
 	let (pt, pu) = peel_pair(b, t, u);
 	let ne = trait_fn(tcx, "PartialEq", "ne");
