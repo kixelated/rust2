@@ -31,11 +31,6 @@ pub fn generic_unit(value: Option<()>) -> bool {
 	Maybe { value }.value.is_some()
 }
 
-/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
-pub fn collected(v: &[u8]) -> Option<Vec<()>> {
-	v.iter().map(|&b| (b > 1).then_some(())).collect()
-}
-
 /// `scan` of items that can be `undefined`: its closure's `None` and `Some(None)` would both be.
 pub fn scanned(v: &[u8]) -> usize {
 	v.iter()
@@ -47,15 +42,6 @@ pub struct Noisy(pub u8);
 
 impl Drop for Noisy {
 	fn drop(&mut self) {}
-}
-
-/// std's `fold` of `into_keys` drops each value after its key, where `next` drops it first.
-pub fn keys(m: std::collections::HashMap<u8, Noisy>) -> u8 {
-	let mut sum = 0;
-	for k in m.into_keys() {
-		sum += k;
-	}
-	sum
 }
 
 /// An async closure is a coroutine closure, not an async body.
@@ -133,11 +119,6 @@ pub fn swap_guards<'a>(a: &mut std::sync::MutexGuard<'a, u8>, b: &mut std::sync:
 	std::mem::swap(a, b);
 }
 
-/// An adaptor without a mapping.
-pub fn cycled(v: &[u8]) -> usize {
-	v.iter().cycle().take(3).count()
-}
-
 /// An iterator whose `fold` std's adaptors would call in place of its `next`.
 pub struct Folds;
 
@@ -176,12 +157,6 @@ impl DoubleEndedIterator for Backs {
 
 pub fn backs() -> usize {
 	Backs.rev().count()
-}
-
-/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
-/// through `next`, which calls the first side's closure once more.
-pub fn zipped(a: &[u8], b: &[u8]) -> usize {
-	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
 }
 
 /// JS compares objects by identity, not by `PartialOrd`.
@@ -228,9 +203,17 @@ pub fn fused() -> usize {
 	Fused.fuse().count()
 }
 
-/// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
-pub fn zip_dropped(v: &[u8]) -> usize {
-	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
+/// A `skip` of a zip std reads by index, which a zip by index drops a pair at a time.
+pub fn skipped_zip(v: &[u8]) -> usize {
+	let pairs = v.iter().map(|&n| Noisy(n)).zip(v.iter().map(|&n| Noisy(!n)));
+	pairs.skip(1).zip(0..2).count()
+}
+
+/// A zip collected in place, which std reads by index and drops with what its closure owns.
+pub fn zip_in_place(v: Vec<u8>) -> Vec<u8> {
+	let n = Noisy(1);
+	let owned = v.into_iter().map(move |x| x ^ (&n).0);
+	owned.zip(0..2u8).map(|(x, y)| x ^ y).collect()
 }
 
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
@@ -298,23 +281,6 @@ pub fn raw_keys() -> usize {
 	map.len()
 }
 
-pub struct Picky(pub u8);
-
-impl PartialEq for Picky {
-	fn eq(&self, other: &Self) -> bool {
-		self.0 == other.0
-	}
-
-	fn ne(&self, other: &Self) -> bool {
-		self.0 > other.0
-	}
-}
-
-/// An `Arc`'s `!=` calls `Picky`'s own `ne`, which `!eq` would not.
-pub fn picky(a: &std::sync::Arc<Picky>, b: &std::sync::Arc<Picky>) -> bool {
-	a != b
-}
-
 /// `max` drops the operand it doesn't return, which the runtime's leaves undropped.
 pub fn widest(a: std::sync::Arc<str>, b: std::sync::Arc<str>) -> std::sync::Arc<str> {
 	a.max(b)
@@ -359,12 +325,11 @@ pub fn batched(v: Vec<Batched>) -> usize {
 	set.len()
 }
 
-/// Closures that own a value that drops, which `or_insert_with` would call but never drop
-/// if the key is there, and which `for_each` drops before the items it doesn't reach.
-pub fn called_closure(v: Vec<Noisy>, m: &mut std::collections::HashMap<u8, Noisy>) {
-	let (a, b) = (Noisy(1), Noisy(2));
+/// A closure that owns a value that drops, which `or_insert_with` would call but never drop
+/// if the key is there.
+pub fn called_closure(m: &mut std::collections::HashMap<u8, Noisy>) {
+	let b = Noisy(2);
 	m.entry(1).or_insert_with(move || b);
-	v.into_iter().for_each(move |x| assert!(x.0 != (&a).0));
 }
 
 /// A closure that owns a value that drops, given as a `Pattern`, which `contains` would
@@ -386,9 +351,9 @@ pub fn cow_borrowed(c: &std::borrow::Cow<'_, str>) -> bool {
 	std::borrow::Cow::is_borrowed(c)
 }
 
-/// Only a `Cow<str>` has a JS value yet.
-pub fn cow_bytes(c: std::borrow::Cow<'_, [u8]>) -> usize {
-	c.len()
+/// A slice's tells its variants apart, but asking is unstable.
+pub fn cow_bytes(c: &std::borrow::Cow<'_, [u8]>) -> bool {
+	std::borrow::Cow::is_borrowed(c)
 }
 
 /// Made where its type goes unchecked, as a local's, it is refused where it is made.
@@ -475,11 +440,6 @@ impl std::iter::Sum<Part> for u64 {
 /// A `Sum` of the crate's into a std type, which std's `Sum` mapping would bypass.
 pub fn parts_summed(a: Vec<Part>, b: Vec<Part>) -> (std::time::Duration, u64) {
 	(a.into_iter().sum(), b.into_iter().sum())
-}
-
-/// One rounding, which JS has no cheap form of.
-pub fn fma(a: f64) -> f64 {
-	a.mul_add(2.0, 1.0)
 }
 
 /// Parsing an address is not translated yet.
@@ -833,31 +793,6 @@ pub fn pointer_statics(p: *mut u32) -> u32 {
 	*NAMED
 }
 
-/// A range that drops, which std drops once it has read the range's bounds.
-pub struct Spent;
-
-impl Drop for Spent {
-	fn drop(&mut self) {}
-}
-
-impl std::ops::RangeBounds<usize> for Spent {
-	fn start_bound(&self) -> std::ops::Bound<&usize> {
-		std::ops::Bound::Unbounded
-	}
-
-	fn end_bound(&self) -> std::ops::Bound<&usize> {
-		std::ops::Bound::Unbounded
-	}
-}
-
-pub fn spent_range(
-	v: &mut Vec<u8>,
-	q: &mut std::collections::VecDeque<u8>,
-	map: &std::collections::BTreeMap<usize, u8>,
-) -> usize {
-	v.drain(Spent).count() + q.drain(Spent).count() + map.range(Spent).count()
-}
-
 /// A closure that owns a value that drops, which `String::retain` would call but never drop.
 pub fn string_retained(s: &mut String) {
 	let n = Noisy(1);
@@ -894,26 +829,6 @@ impl std::fmt::Write for Sink {
 /// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
 pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
 	map.into_keys().next().map_or(0, |k| k[0])
-}
-
-/// `next_if_eq` compares by the item's `PartialEq<Vec<u8>>`, which is refused as `==` is.
-pub fn peeked_deque(v: Vec<std::collections::VecDeque<u8>>) -> bool {
-	v.into_iter().peekable().next_if_eq(&vec![1]).is_some()
-}
-
-pub struct Left(pub u16);
-
-pub struct Right(pub u16);
-
-impl PartialEq<Right> for Left {
-	fn eq(&self, other: &Right) -> bool {
-		self.0 % 4 == other.0 % 4
-	}
-}
-
-/// `Vec`s compare by their elements' `PartialEq<Right>`, not by `Left`'s own.
-pub fn unlike_elements(v: Vec<Vec<Left>>, w: &[Right]) -> bool {
-	v.into_iter().peekable().next_if_eq(&w).is_some()
 }
 
 pub struct Plain {
@@ -1033,4 +948,129 @@ pub fn uninit_part_replaced(n: u32) -> u32 {
 /// A set of `[u8; 2]` extended by references to arrays, which it would keep as slices.
 pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
 	set.extend(pairs);
+}
+
+/// A key ordered by its own `Ord`.
+#[derive(Clone, Copy)]
+pub struct Ranked(pub u8);
+
+impl PartialEq for Ranked {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+impl Eq for Ranked {}
+
+impl PartialOrd for Ranked {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Ranked {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		(self.0 % 4).cmp(&(other.0 % 4))
+	}
+}
+
+/// Entries that drop, sorted by what a cell holds, whose own `Ord` the runtime's sort
+/// calls where std's does not.
+pub fn ranked_cells(entries: Vec<(std::cell::Cell<Ranked>, Noisy)>) -> usize {
+	entries.into_iter().collect::<std::collections::BTreeMap<_, _>>().len()
+}
+
+impl PartialEq<Key> for u8 {
+	fn eq(&self, other: &Key) -> bool {
+		*self == other.0
+	}
+}
+
+impl PartialEq<u8> for Key {
+	fn eq(&self, other: &u8) -> bool {
+		self.0 == *other
+	}
+}
+
+impl PartialOrd<Key> for u8 {
+	fn partial_cmp(&self, other: &Key) -> Option<std::cmp::Ordering> {
+		self.partial_cmp(&other.0)
+	}
+}
+
+impl PartialOrd<u8> for Key {
+	fn partial_cmp(&self, other: &u8) -> Option<std::cmp::Ordering> {
+		self.0.partial_cmp(other)
+	}
+}
+
+/// Integer bounds against the crate's item, which compares by its own `PartialOrd`.
+pub fn keyed_across(n: u8) -> bool {
+	(..10u8).contains(&Key(n)) || std::ops::RangeBounds::contains(&(1u8..), &Key(n))
+}
+
+/// Bounds behind `&mut`s, which JS may keep as places rather than the integers.
+pub fn place_bounds(a: &mut u8, b: &mut u8) -> bool {
+	(a..b).is_empty()
+}
+
+/// A struct holding a pointer.
+pub struct Aimed {
+	pub at: *mut (u32, u32),
+}
+
+/// A pointer to a variable's object, copied into a struct read after an assignment of
+/// the whole variable replaces the object.
+pub fn pointer_in_struct(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let aimed = Aimed { at: &raw mut pair };
+	pair = (0, 0);
+	unsafe { (*aimed.at).0 + pair.1 }
+}
+
+fn handed_back<T>(p: *mut T) -> *mut T {
+	p
+}
+
+/// A pointer to a variable's object, which a call returns, read after an assignment of
+/// the whole variable replaces the object.
+pub fn pointer_returned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = handed_back(&raw mut pair);
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+/// A pointer to a variable's object, kept in a `Vec` and read after an assignment of the
+/// whole variable replaces the object.
+pub fn pointer_pushed(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let mut kept = Vec::new();
+	kept.push(&raw mut pair);
+	pair = (0, 0);
+	unsafe { (*kept[0]).0 + pair.1 }
+}
+
+/// A pointer to a variable's object, which a closure captures and reads after an
+/// assignment of the whole variable replaces the object.
+pub fn pointer_captured(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let read = move || unsafe { (*p).0 };
+	pair = (0, 0);
+	read() + pair.1
+}
+
+/// A pointer an earlier iteration made to a variable's object, read after the next
+/// iteration's assignment of the whole variable replaces the object.
+pub fn pointer_kept_across(data: &[u32]) -> u32 {
+	let mut pair = (0, 0);
+	let mut last = &raw mut pair;
+	let mut sum = 0;
+	for &n in data {
+		pair = (n, n);
+		sum += unsafe { (*last).0 };
+		last = &raw mut pair;
+	}
+	sum
 }

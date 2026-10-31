@@ -57,6 +57,7 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	if t.failed {
 		return None;
 	}
+	t.program.mark_unread();
 	t.program.merge();
 	if let Err(msg) = t.program.name() {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
@@ -217,6 +218,11 @@ pub struct Translator<'a, 'tcx> {
 	read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
 	/// The instances whose bodies lowered from MIR, a closure's included.
 	lowered: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+	/// The closures whose clones can't share them that the runs before reached, each made
+	/// by a function of its captures, which makes its clone too.
+	cloned: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// Those this run reached.
+	cloning: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// The trait of each trait object, by its principal trait.
 	objects: rustc_data_structures::fx::FxHashMap<DefId, dynamic::Object>,
 	/// The class wrapping each type as each trait object.
@@ -342,7 +348,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// translation reaches runs, and of a generic body, only the instances it reaches, which
 	/// it knows once it has reached them. So it runs again while it reaches a body whose
 	/// writes it didn't read, or an instance of one writing a type parameter that it didn't
-	/// judge by.
+	/// judge by. A closure's clone may come before or after the closure is made, which
+	/// makes it as its clones need, so it runs again too when it reaches a new one.
 	fn settle<R>(
 		tcx: TyCtxt<'tcx>,
 		config: &'a Config,
@@ -350,8 +357,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		mut reach: impl FnMut(&mut Self) -> R,
 	) -> Option<(Self, R)> {
 		let mut read = rustc_data_structures::fx::FxHashSet::default();
+		let mut cloned = rustc_data_structures::fx::FxHashSet::default();
 		loop {
-			let mut t = Self::new(tcx, config, census, read)?;
+			let mut t = Self::new(tcx, config, census, read, cloned)?;
 			t.bind();
 			let out = reach(&mut t);
 			let reached: Vec<Instance<'tcx>> = t
@@ -361,12 +369,25 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				.copied()
 				.filter(|&instance| t.crates.translates(instance.def_id()) && t.writes.unread(instance))
 				.collect();
-			if reached.is_empty() {
+			if reached.is_empty() && t.cloning.is_subset(&t.cloned) {
 				return Some((t, out));
 			}
 			read = std::mem::take(&mut t.read);
 			read.extend(reached);
+			cloned = std::mem::take(&mut t.cloned);
+			cloned.extend(t.cloning.drain());
 		}
+	}
+
+	/// Note a clone of the closure `def_id` that can't share it.
+	pub fn clone_closure(&mut self, def_id: DefId) {
+		self.cloning.insert(def_id);
+	}
+
+	/// Whether a clone of the closure `def_id` that can't share it was reached, so it is
+	/// made by a function of its captures.
+	pub fn clones_closure(&self, def_id: DefId) -> bool {
+		self.cloned.contains(&def_id)
 	}
 
 	fn new(
@@ -374,6 +395,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		config: &'a Config,
 		census: bool,
 		read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+		cloned: rustc_data_structures::fx::FxHashSet<DefId>,
 	) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
@@ -410,6 +432,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			writes: Default::default(),
 			read,
 			lowered: Default::default(),
+			cloned,
+			cloning: Default::default(),
 			held: false,
 			sites: Default::default(),
 			site: None,
@@ -1107,7 +1131,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				}
 			}
 		};
-		self.program.items.push(item);
+		self.program.items.push(unnamed_params(item));
 		self.drop_glue(adt, &info, span);
 		info
 	}
@@ -1175,6 +1199,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Pending
 					| library::Std::Range
 					| library::Std::RangeInclusive
+					| library::Std::RangeFrom
 					| library::Std::Peekable
 					| library::Std::HashMap
 					| library::Std::HashSet
@@ -1430,13 +1455,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 				library::Std::String => Type::Builtin("string"),
 				library::Std::Cow if library::string(tcx, Ty::new_adt(tcx, adt, args)) => Type::Builtin("string"),
+				library::Std::Cow if let Some(elem) = library::cow_slice(tcx, Ty::new_adt(tcx, adt, args)) => {
+					match elem.kind() {
+						ty::Uint(ty::UintTy::U8) => Type::Rt("ByteCow", vec![]),
+						_ => Type::Rt("Cow", vec![self.ty(elem, span)]),
+					}
+				}
 				library::Std::Cow => {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box | library::Std::Reverse | library::Std::NonZero | library::Std::PoisonError => {
-					self.ty(args.type_at(0), span)
-				}
+				library::Std::Box
+				| library::Std::Reverse
+				| library::Std::NonZero
+				| library::Std::Wrapping
+				| library::Std::PoisonError => self.ty(args.type_at(0), span),
 				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::TryLockError => Type::Rt("TryLockError", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
@@ -1513,7 +1546,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					("end".into(), self.ty(args.type_at(0), span)),
 					("inclusive".into(), Type::Builtin("true")),
 				]),
-				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFrom => Type::Rt("RangeFrom", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
 				library::Std::NonNull => self.pointer_ty(args.type_at(0), span),
@@ -1574,7 +1607,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return self.ty(inner, span);
 		}
 		// Nothing, as its value is.
-		if adt.is_phantom_data() {
+		if library::nothing(tcx, Ty::new_adt(tcx, adt, args)) {
 			return Type::Builtin("undefined");
 		}
 		// Every other iterator std has is an `rt.Iter` of its items.
@@ -1716,7 +1749,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// seen through the wrappers that erase to their contents.
 	pub fn erases_to(&self, ty: Ty<'tcx>) -> Erased {
 		match ty.kind() {
-			ty::Tuple(tys) if tys.is_empty() => Erased {
+			_ if library::nothing(self.tcx, ty) => Erased {
 				undefined: true,
 				..Erased::default()
 			},
@@ -1727,17 +1760,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			// An `rt.Place`, which is an object.
 			ty::Ref(..) if self.place_pointee(ty).is_some() => Erased::default(),
 			ty::Ref(_, inner, _) => self.erases_to(*inner),
-			// Nothing, as `()` is.
-			ty::Adt(adt, _) if adt.is_phantom_data() => Erased {
-				undefined: true,
-				..Erased::default()
-			},
 			ty::Adt(adt, args) => match library::Std::of(self.tcx, adt.did()) {
 				Some(
 					library::Std::Box
 					| library::Std::Pin
 					| library::Std::Reverse
 					| library::Std::NonZero
+					| library::Std::Wrapping
 					| library::Std::PoisonError,
 				) => self.erases_to(args.type_at(0)),
 				// `undefined` while it holds nothing.
@@ -1750,10 +1779,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(library::Std::ControlFlow) if library::Flow::of(self.tcx, args) == library::Flow::Option => {
 					self.erases_to(args.type_at(1)).option()
 				}
-				Some(library::Std::RangeFull) => Erased {
-					undefined: true,
-					..Erased::default()
-				},
 				_ => Erased::default(),
 			},
 			_ => Erased::default(),
@@ -1922,6 +1947,22 @@ pub fn camel(name: &str) -> String {
 		out.push('_');
 	}
 	out
+}
+
+/// `item` with each type parameter its type never names marked unused, as TS wants of
+/// one only a `PhantomData` held.
+fn unnamed_params(mut item: Item) -> Item {
+	let (params, types): (&mut Vec<String>, Vec<&Type>) = match &mut item {
+		Item::Struct { params, fields, .. } => (params, fields.iter().map(|f| &f.ty).collect()),
+		Item::Union { params, ty, .. } => (params, vec![&*ty]),
+		_ => return item,
+	};
+	for param in params.iter_mut() {
+		if !types.iter().any(|t| t.names(param)) {
+			*param = format!("_{param}");
+		}
+	}
+	item
 }
 
 /// A field's property name: `camelCase`, or `_0` for a tuple field.

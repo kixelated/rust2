@@ -3,8 +3,8 @@
 //! number a single holds exactly: each arithmetic result is rounded to one by
 //! `Math.fround`, which gives the single nearest the exact value, since a double holds
 //! the sum, product, quotient, or square root of singles closely enough. Where JS differs
-//! from std, as in rounding half away from zero, `max` and `min` around NaN, and casts
-//! that saturate, the runtime has std's. The functions std leaves to the platform's libm
+//! from std, as in rounding half away from zero, `max` and `min` around NaN, casts that
+//! saturate, and `mul_add`'s one rounding, the runtime has std's. The functions std leaves to the platform's libm
 //! are `Math`'s.
 
 use rustc_middle::mir::{BinOp, UnOp};
@@ -177,7 +177,7 @@ pub fn cast<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Operand, from: Ty<'tcx>, to
 }
 
 /// A call of the float type's own `name`, or `None` if it is not mapped.
-pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, float: Float, name: &str, args: Vec<Expr>, span: Span) -> Option<Expr> {
+pub fn method(float: Float, name: &str, args: Vec<Expr>) -> Option<Expr> {
 	let math = |f: &str, args: Vec<Expr>| float.round(Expr::ident("Math").member(f).call(args));
 	let rt = |f: &str, args: Vec<Expr>| float.func(f).call(args);
 	let one = |args: Vec<Expr>| <[Expr; 1]>::try_from(args).ok().map(|[x]| x);
@@ -219,19 +219,12 @@ pub fn method<'tcx>(b: &mut Body<'_, '_, 'tcx>, float: Float, name: &str, args: 
 		"round" | "round_ties_even" | "fract" | "signum" | "copysign" | "is_infinite" | "is_normal"
 		| "is_subnormal" | "is_sign_positive" | "is_sign_negative" | "next_up" | "next_down" | "max" | "min"
 		| "midpoint" | "to_bits" | "from_bits" | "to_be_bytes" | "to_le_bytes" | "from_be_bytes" | "from_le_bytes"
-		| "total_cmp" | "powi" | "powf" | "sin_cos" | "atanh" | "div_euclid" | "rem_euclid" | "clamp" => {
+		| "total_cmp" | "powi" | "powf" | "sin_cos" | "atanh" | "div_euclid" | "rem_euclid" | "clamp" | "mul_add" => {
 			rt(&super::camel(name), args)
 		}
 		// wasm32 is little-endian.
 		"to_ne_bytes" => rt("toLeBytes", args),
 		"from_ne_bytes" => rt("fromLeBytes", args),
-		"mul_add" => b.err(
-			span,
-			format!(
-				"`{}::mul_add`, which rounds once, where JS would round twice",
-				float.name()
-			),
-		),
 		_ => return None,
 	})
 }

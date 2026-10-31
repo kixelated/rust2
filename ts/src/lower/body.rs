@@ -179,8 +179,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
+				(library::Std::Cow, _) if let Some(elem) = library::cow_slice(tcx, Ty::new_adt(tcx, adt, gargs)) => {
+					library::cow_made(elem, variant, values.pop().unwrap())
+				}
 				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
-				(library::Std::Reverse, _) => values.pop().unwrap(),
+				(library::Std::Reverse | library::Std::Wrapping, _) => values.pop().unwrap(),
 				(library::Std::Bound | library::Std::TryLockError, _) => {
 					let ts_ty = self.t.ty(Ty::new_adt(tcx, adt, gargs), span);
 					library::tagged(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
@@ -220,6 +223,32 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Expr::As(Box::new(Expr::Object(props)), ts_ty)
 			}
 		}
+	}
+
+	/// A value of one of std's types made of zero-sized `values`, which MIR reads as a
+	/// constant rather than from what made it, or `values` back for another type.
+	pub fn zero_sized_std(&mut self, ty: Ty<'tcx>, values: Vec<Expr>, span: Span) -> Result<Expr, Vec<Expr>> {
+		let tcx = self.t.tcx;
+		let ty::Adt(adt, _) = ty.kind() else {
+			return Err(values);
+		};
+		if library::nothing(tcx, ty) {
+			return Ok(Expr::undefined());
+		}
+		// Typed, as what reads it may infer nothing of it.
+		if library::empty_iter(tcx, adt.did()) {
+			let ts_ty = self.t.ty(ty, span);
+			return Ok(Expr::As(Box::new(Expr::rt("iterEmpty", Vec::new())), ts_ty));
+		}
+		let Some((make, gargs)) = super::iter::maker(self.t, ty) else {
+			return Err(values);
+		};
+		let mut pre = Vec::new();
+		let made = self.call_def(make, gargs, values, span, &mut pre);
+		Ok(match pre.is_empty() {
+			true => made,
+			false => self.err(span, format!("a constant of type `{ty}` whose making takes statements")),
+		})
 	}
 
 	/// A function item as a value, typed as one: a declared function's `()` result is `void`,

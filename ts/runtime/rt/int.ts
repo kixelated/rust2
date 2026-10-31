@@ -69,6 +69,18 @@ export type i128 = Num<"i128"> | I128Limbs;
  */
 export type Step<T> = (n: T, by: number) => [T, boolean];
 
+/**
+ * `NonZero<T>`'s `Step` of an unsigned `T`'s, `int`: within 1 and `max`, past which it
+ * stops at that end where `T`'s wraps.
+ */
+export function nonZeroStep<T>(int: Step<T>, max: T): Step<T> {
+	return (n, by) => {
+		const [v, over] = int(n, by);
+		if (over || v === 0) return [by > 0 ? max : (1 as T), true];
+		return [v, false];
+	};
+}
+
 /** `core::num::TryFromIntError`: which way the value was out of range. */
 export type TryFromIntError = { readonly kind: "PosOverflow" | "NegOverflow" };
 
@@ -77,6 +89,19 @@ export type IntErrorKind = "Empty" | "InvalidDigit" | "PosOverflow" | "NegOverfl
 
 /** `core::num::ParseIntError`: why an integer didn't parse. */
 export type ParseIntError = { readonly kind: IntErrorKind };
+
+/**
+ * `char`'s `Step`: `n` moved by `by` past the surrogates, which no `char` is, and whether
+ * that left the chars, past which it stays at the last or first, as std's does.
+ */
+export const charStep: Step<char> = (n, by) => {
+	let v = n + by;
+	if (by > 0 && n < 0xd800 && v >= 0xd800) v += 0x800;
+	else if (by < 0 && n >= 0xe000 && v < 0xe000) v -= 0x800;
+	if (v > 0x10ffff) return [0x10ffff as char, true];
+	if (v < 0) return [0 as char, true];
+	return [v as char, false];
+};
 
 /** `core::char::CharErrorKind`: why a `char` didn't parse, by variant name. */
 export type CharErrorKind = "EmptyString" | "TooManyChars";
@@ -517,6 +542,10 @@ export const i8WrappingSub = (a: i8, b: i8): i8 => ((a - b) << 24) >> 24;
 export const i8SaturatingMul = (a: i8, b: i8): i8 => saturate(a * b, -0x80, 0x7f);
 /** `i8`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i8WrappingMul = (a: i8, b: i8): i8 => (Math.imul(a, b) << 24) >> 24;
+/** `i8`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i8WrappingDiv = (a: i8, b: i8): i8 => (b === -1 ? i8WrappingSub(0, a) : i8Div(a, b));
+/** `i8`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i8WrappingRem = (a: i8, b: i8): i8 => (b === -1 ? 0 : i8Rem(a, b));
 /** `i8`'s `leading_ones`: the count of leading one bits. */
 export const i8LeadingOnes = (a: i8): number => Math.clz32(~(a << 24));
 /** `i8`'s `leading_zeros`: the count of leading zero bits. */
@@ -580,6 +609,10 @@ export const i16WrappingSub = (a: i16, b: i16): i16 => ((a - b) << 16) >> 16;
 export const i16SaturatingMul = (a: i16, b: i16): i16 => saturate(a * b, -0x8000, 0x7fff);
 /** `i16`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i16WrappingMul = (a: i16, b: i16): i16 => (Math.imul(a, b) << 16) >> 16;
+/** `i16`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i16WrappingDiv = (a: i16, b: i16): i16 => (b === -1 ? i16WrappingSub(0, a) : i16Div(a, b));
+/** `i16`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i16WrappingRem = (a: i16, b: i16): i16 => (b === -1 ? 0 : i16Rem(a, b));
 /** `i16`'s `leading_ones`: the count of leading one bits. */
 export const i16LeadingOnes = (a: i16): number => Math.clz32(~(a << 16));
 /** `i16`'s `leading_zeros`: the count of leading zero bits. */
@@ -643,6 +676,10 @@ export const i32WrappingSub = (a: i32, b: i32): i32 => (a - b) | 0;
 export const i32SaturatingMul = (a: i32, b: i32): i32 => saturate(a * b, -0x80000000, 0x7fffffff);
 /** `i32`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i32WrappingMul = (a: i32, b: i32): i32 => Math.imul(a, b);
+/** `i32`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i32WrappingDiv = (a: i32, b: i32): i32 => (b === -1 ? i32WrappingSub(0, a) : i32Div(a, b));
+/** `i32`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i32WrappingRem = (a: i32, b: i32): i32 => (b === -1 ? 0 : i32Rem(a, b));
 /** `i32`'s `leading_ones`: the count of leading one bits. */
 export const i32LeadingOnes = (a: i32): number => Math.clz32(~a);
 /** `i32`'s `leading_zeros`: the count of leading zero bits. */
@@ -781,6 +818,10 @@ export const isizeWrappingSub: (a: isize, b: isize) => isize = i32WrappingSub as
 export const isizeSaturatingMul: (a: isize, b: isize) => isize = i32SaturatingMul as never;
 /** `isize`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const isizeWrappingMul: (a: isize, b: isize) => isize = i32WrappingMul as never;
+/** `isize`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const isizeWrappingDiv: (a: isize, b: isize) => isize = i32WrappingDiv as never;
+/** `isize`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const isizeWrappingRem: (a: isize, b: isize) => isize = i32WrappingRem as never;
 /** `isize`'s `leading_ones`: the count of leading one bits. */
 export const isizeLeadingOnes: (a: isize) => number = i32LeadingOnes as never;
 /** `isize`'s `leading_zeros`: the count of leading zero bits. */
@@ -1568,6 +1609,10 @@ export const i64WrappingSub = (a: i64, b: i64): i64 => (typeof a === "number" &&
 export const i64SaturatingMul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 64, true)) as i64;
 /** `i64`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i64WrappingMul = (a: i64, b: i64): i64 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 64, true)) as i64;
+/** `i64`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i64WrappingDiv = (a: i64, b: i64): i64 => (b === -1 ? i64WrappingSub(0, a) : i64Div(a, b));
+/** `i64`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i64WrappingRem = (a: i64, b: i64): i64 => (b === -1 ? 0 : i64Rem(a, b));
 /** `i64`'s `leading_ones`: the count of leading one bits. */
 export const i64LeadingOnes = (a: i64): number => leadingOnes64(a, true);
 /** `i64`'s `leading_zeros`: the count of leading zero bits. */
@@ -1782,6 +1827,10 @@ export const i128WrappingSub = (a: i128, b: i128): i128 => (typeof a === "number
 export const i128SaturatingMul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : saturatingProduct(a, b, 128, true)) as i128;
 /** `i128`'s `wrapping_mul`: `a * b`, wrapped into the type's range. */
 export const i128WrappingMul = (a: i128, b: i128): i128 => (typeof a === "number" && typeof b === "number" && safe(a * b) ? a * b + 0 : wrappingProduct(a, b, 128, true)) as i128;
+/** `i128`'s `wrapping_div`: `a / b`, truncated and wrapped into the type's range, panicking on a zero divisor. */
+export const i128WrappingDiv = (a: i128, b: i128): i128 => (b === -1 ? i128WrappingSub(0, a) : i128Div(a, b));
+/** `i128`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
+export const i128WrappingRem = (a: i128, b: i128): i128 => (b === -1 ? 0 : i128Rem(a, b));
 /** `i128`'s `leading_ones`: the count of leading one bits. */
 export const i128LeadingOnes = (a: i128): number => leadingOnes128(a, true);
 /** `i128`'s `leading_zeros`: the count of leading zero bits. */

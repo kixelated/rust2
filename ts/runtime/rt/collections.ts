@@ -14,10 +14,11 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { ByteSlice, type ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
+import { ByteSlice, ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
 import {
+	type Clones,
 	DONE,
 	type Done,
 	exactHint,
@@ -25,7 +26,6 @@ import {
 	iterChain,
 	iterEmpty,
 	iterFilter,
-	iterMap,
 	iterOnce,
 	iterSlice,
 	type RangeInclusive,
@@ -33,6 +33,7 @@ import {
 	rangeInclusiveStartBound,
 	type SizeHint,
 	type Take,
+	dequeReserve,
 	vecCapacity,
 	vecGrow,
 	vecReserveExact,
@@ -71,10 +72,18 @@ export function cmpStr(a: string, b: string): Ordering {
 	return a.length < b.length ? -1 : 1;
 }
 
+/** `Ord::cmp` of what holds nothing, as `()` and `PhantomData`: always `Equal`. */
+export function cmpNothing(_a: undefined, _b: undefined): Ordering {
+	return 0;
+}
+
 /**
  * `Ord::cmp` of tuples, or `PartialOrd::partial_cmp`, from each field's: the first that
- * is not `Equal`, as `None` is not.
+ * is not `Equal`, as `None` is not. A tuple type the call is asserted to compare types
+ * each field's function, which a generic one such as a slice's of `rt.cmp` needs.
  */
+export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: { readonly [I in keyof T]: (a: T[I], b: T[I]) => O }): (a: T, b: T) => O;
+export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: readonly ((a: never, b: never) => O)[]): (a: T, b: T) => O;
 export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: readonly ((a: never, b: never) => O)[]): (a: T, b: T) => O {
 	return (a, b) => {
 		for (let i = 0; i < fields.length; i++) {
@@ -274,6 +283,31 @@ export function eqSlice<T>(eq: (a: T, b: T) => boolean): (a: ArrayLike<T>, b: Ar
 	};
 }
 
+/** A slice, an array, or a `Vec`, of bytes in any form, or a `VecDeque`. */
+type Seq<T> = ArrayLike<T> | ByteSlice | ByteVec | VecDeque<T>;
+
+/** The length of `s` and what reads its element at an index. */
+function seqItems<T>(s: Seq<T>): [number, (i: number) => T] {
+	if (s instanceof ByteSlice) return [s.length, (i) => s.data[s.start + i] as T];
+	if (s instanceof ByteVec) return [s.length, (i) => s.data[i] as T];
+	if (!("length" in s)) return [s.n, (i) => s.b[at(s, i)] as T];
+	return [s.length, (i) => s[i] as T];
+}
+
+/**
+ * `PartialEq::eq` of sequences of any form against each other, as std's of slices, arrays,
+ * `Vec`s, and `VecDeque`s are: their lengths, then each pair in order by `eq`.
+ */
+export function eqSeq<T, U>(eq: (a: T, b: U) => boolean): (a: Seq<T>, b: Seq<U>) => boolean {
+	return (a, b) => {
+		const [n, x] = seqItems(a);
+		const [m, y] = seqItems(b);
+		if (n !== m) return false;
+		for (let i = 0; i < n; i++) if (!eq(x(i), y(i))) return false;
+		return true;
+	};
+}
+
 /** `PartialEq::eq` of `Option`s, from their values'. */
 export function eqOption<T>(eq: (a: T, b: T) => boolean): (a: T | undefined, b: T | undefined) => boolean;
 export function eqOption<T>(eq: (a: T, b: T) => boolean, none: None): (a: T | None, b: T | None) => boolean;
@@ -363,8 +397,11 @@ export interface HashMap<K, V> {
 /** `HashSet<K>`. */
 export type HashSet<K> = HashMap<K, undefined>;
 
-/** `HashMap::new` and `HashSet::new`, with how to find a key that is an object. */
-export function hashNew<K, V>(h?: Hashing<K>): HashMap<K, V> {
+/**
+ * `HashMap::new` and `HashSet::new`, with how to find a key that is an object. The type
+ * `K` is asserted, not inferred from `h`: a slice's hashing takes any `ArrayLike`.
+ */
+export function hashNew<K, V>(h?: Hashing<NoInfer<K>>): HashMap<K, V> {
 	return { p: new Map(), o: undefined, n: 0, h };
 }
 
@@ -632,14 +669,20 @@ function retainHash<K, V>(m: HashMap<K, V>, f: (key: K, value: V | Place<V>) => 
 }
 
 /**
- * What a collection's iterator yields: its entries as `[key, value]`, keys, values, or
- * `[key, place]`, the place of a value JS copies.
+ * What a collection's iterator yields: its entries as `[key, value]`, keys, values,
+ * `[key, place]`, the place of a value JS copies, or that place alone.
  */
-type Pick = 0 | 1 | 2 | 3;
+type Pick = 0 | 1 | 2 | 3 | 4;
 const ENTRIES = 0;
 const KEYS = 1;
 const VALUES = 2;
 const PLACES = 3;
+const VALUE_PLACES = 4;
+
+/** What `pick` yields by value: each place its value. */
+function byValue(pick: Pick): Pick {
+	return pick === PLACES ? ENTRIES : pick === VALUE_PLACES ? VALUES : pick;
+}
 
 /**
  * An iterator of a hash collection: `iter`, `keys`, `values`, `drain`, and the rest.
@@ -647,6 +690,7 @@ const PLACES = 3;
  * and drops each entry it still holds as it drops.
  */
 export class HashIter<K, V, T> extends Iter<T> implements Disposable {
+	private readonly h: HashMap<K, V>;
 	private readonly m: Map<K, V>;
 	private readonly p: Iterator<[K, V]>;
 	private readonly o: Iterator<Slot<K, V>> | undefined;
@@ -660,6 +704,7 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 
 	constructor(m: HashMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, drain = false) {
 		super();
+		this.h = m;
 		this.m = m.p;
 		this.p = m.p.entries();
 		this.o = m.o?.values();
@@ -694,13 +739,61 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		return s;
 	}
 
+	/**
+	 * The next item, `into_keys`' and `into_values`' with the other half dropped before it
+	 * is returned, as std's `next` drops it.
+	 */
 	next(): T | Done {
 		if (this.left === 0) return DONE;
 		this.left--;
 		if (this.pick === PLACES) return this.place() as T;
+		if (this.pick === VALUE_PLACES) return this.place()[1] as T;
 		const entry = this.entry();
 		if (this.pick === ENTRIES) return entry as T;
-		return (this.pick === KEYS ? entry[0] : entry[1]) as unknown as T;
+		if (this.pick === KEYS) {
+			this.v?.(entry[1]);
+			return entry[0] as unknown as T;
+		}
+		this.k?.(entry[0]);
+		return entry[1] as unknown as T;
+	}
+
+	/** std's `fold` of `into_keys` and `into_values`: the other half drops after `f` has its item. */
+	override fold<A>(acc: A, f: (acc: A, item: T) => A, release?: () => void): A {
+		if (this.pick !== KEYS && this.pick !== VALUES) return super.fold(acc, f, release);
+		const keys = this.pick === KEYS;
+		while (this.left > 0) {
+			this.left--;
+			const [key, value] = this.entry();
+			if (keys) {
+				acc = f(acc, key as unknown as T);
+				this.v?.(value);
+			} else {
+				acc = f(acc, value as unknown as T);
+				this.k?.(key);
+			}
+		}
+		release?.();
+		return acc;
+	}
+
+	override remaining(): Iterable<unknown> {
+		return this.from(byValue(this.pick));
+	}
+
+	/** std's, of an iterator that borrows the map: where it is, independently of it. */
+	override clone(): Iter<T> {
+		return this.from(this.pick);
+	}
+
+	/**
+	 * A fresh iterator of the same map yielding `pick`, past what this one took: the map is
+	 * unchanged while it is held, and JS can't copy where its own iterator is.
+	 */
+	private from<U>(pick: Pick): HashIter<K, V, U> {
+		const it = new HashIter<K, V, U>(this.h, pick);
+		while (it.left > this.left) it.next();
+		return it;
 	}
 
 	override len(): number {
@@ -730,14 +823,14 @@ export function hashIter<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (valu
 	return new HashIter<K, V, [K, V]>(m, ENTRIES, k, v);
 }
 
-/** `keys` of a map and `iter` of a set, and with what drops each key, `into_keys` of values that don't drop and `into_iter`. */
-export function hashKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void): Iter<K> {
-	return new HashIter<K, V, K>(m, KEYS, k);
+/** `keys` of a map and `iter` of a set, and with what drops each key and value, `into_keys` and `into_iter`. */
+export function hashKeys<K, V>(m: HashMap<K, V>, k?: (key: K) => void, v?: (value: V) => void): Iter<K> {
+	return new HashIter<K, V, K>(m, KEYS, k, v);
 }
 
-/** `values` and `values_mut`, and with what drops each value, `into_values` of keys that don't drop. */
-export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void): Iter<V> {
-	return new HashIter<K, V, V>(m, VALUES, undefined, v);
+/** `values` and `values_mut`, and with what drops each value and key, `into_values`. */
+export function hashValues<K, V>(m: HashMap<K, V>, v?: (value: V) => void, k?: (key: K) => void): Iter<V> {
+	return new HashIter<K, V, V>(m, VALUES, k, v);
 }
 
 /** `iter_mut` of values JS copies: each key and the place of its value, in `hashIter`'s order. */
@@ -747,7 +840,7 @@ export function hashIterMut<K, V>(m: HashMap<K, V>): Iter<[K, Place<V>]> {
 
 /** `values_mut` of values JS copies: the place of each. */
 export function hashValuesMut<K, V>(m: HashMap<K, V>): Iter<Place<V>> {
-	return iterMap(hashIterMut(m), (entry) => entry[1]);
+	return new HashIter<K, V, Place<V>>(m, VALUE_PLACES);
 }
 
 /** `drain` of a map: every entry, taken out at once, which drops as `hashIter`'s. */
@@ -772,8 +865,8 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
 function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Take): C {
 	if (take === "fold") items.fold<void>(undefined, (_, item) => add(item));
 	else {
-		// By `next` where std's reads by it, and else as its `try_fold` steps.
-		const read = take === "next" ? items : items.folded();
+		// By `next` where std's reads by it, and else as its `for_each` folds.
+		const read = take === "next" ? items : items.folded(true);
 		for (let item = read.next(); item !== DONE; item = read.next()) add(item);
 	}
 	if (take === "next") dispose(items);
@@ -782,15 +875,18 @@ function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Ta
 
 /**
  * `extending` a `Vec` or `VecDeque` holding `len`, which with elements `size` bytes each
- * reserves as `iterExtend` does: a `trusted` iterator up front, and any other by `next`.
+ * reserves as `iterExtend` does: a `trusted` iterator up front, and any other by `next`,
+ * a `deque`'s at its first item too.
  */
-function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) => void, take?: Take, size?: number, trusted = false): C {
+function vecExtending<C, T>(c: C, len: number, items: Iter<T>, add: (item: T) => void, take?: Take, size?: number, trusted = false, deque = false): C {
 	if (size === undefined || trusted) {
 		if (size !== undefined) vecReserveExact(items, len, size);
 		return extending(c, items, add, take);
 	}
 	let cap = vecCapacity(len, size);
 	for (let item = items.next(); item !== DONE; item = items.next()) {
+		if (deque) dequeReserve(items, len);
+		deque = false;
 		if (len === cap) cap = vecGrow(items, cap, size);
 		add(item);
 		len++;
@@ -935,8 +1031,11 @@ function leaf<K, V>(k: K[] = [], v: V[] = []): Leaf<K, V> {
 	return { k, v, prev: undefined, next: undefined };
 }
 
-/** `BTreeMap::new` and `BTreeSet::new`, ordered by `cmp`. */
-export function btreeNew<K, V>(cmp: (a: K, b: K) => Ordering): BTreeMap<K, V> {
+/**
+ * `BTreeMap::new` and `BTreeSet::new`, ordered by `cmp`. The type `K` is asserted, not
+ * inferred from `cmp`: a slice's order takes any `ArrayLike`.
+ */
+export function btreeNew<K, V>(cmp: (a: NoInfer<K>, b: NoInfer<K>) => Ordering): BTreeMap<K, V> {
 	return { t: leaf(), h: 0, n: 0, c: cmp, r: false };
 }
 
@@ -1477,12 +1576,22 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 	private picked(l: Leaf<K, V>, i: number): T {
 		if (this.pick === ENTRIES) return [l.k[i], l.v[i]] as T;
 		if (this.pick === PLACES) return [l.k[i], new AtIndex(l.v, i)] as T;
+		if (this.pick === VALUE_PLACES) return new AtIndex(l.v, i) as T;
 		if (this.pick === KEYS) {
 			this.v?.(l.v[i]);
 			return l.k[i] as unknown as T;
 		}
 		this.k?.(l.k[i]);
 		return l.v[i] as unknown as T;
+	}
+
+	override remaining(): Iterable<unknown> {
+		return new BTreeIter<K, V, unknown>(byValue(this.pick), this.fl, this.fi, this.bl, this.bi);
+	}
+
+	/** std's, of an iterator that borrows the map. */
+	override clone(): Iter<T> {
+		return new BTreeIter<K, V, T>(this.pick, this.fl, this.fi, this.bl, this.bi, this.n);
 	}
 
 	override len(): number {
@@ -1546,7 +1655,7 @@ export function btreeIterMut<K, V>(m: BTreeMap<K, V>): Iter<[K, Place<V>]> {
 
 /** `values_mut` of values JS copies: the place of each. */
 export function btreeValuesMut<K, V>(m: BTreeMap<K, V>): Iter<Place<V>> {
-	return iterMap(btreeIterMut(m), (entry) => entry[1]);
+	return whole(m, VALUE_PLACES);
 }
 
 /** `values` and `values_mut`, and with droppers as `btreeIter`'s, `into_values`. */
@@ -1753,11 +1862,20 @@ abstract class Merge<K> extends Iter<K> {
 	private held: K | Done = DONE;
 	private heldA = false;
 
-	constructor(a: BTreeSet<K>, b: BTreeSet<K>) {
+	constructor(a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) {
 		super();
-		this.a = btreeKeys(a);
-		this.b = btreeKeys(b);
-		this.c = a.c;
+		this.a = a;
+		this.b = b;
+		this.c = c;
+	}
+
+	/** std's: each of its iterators, and the key it holds back. */
+	override clone(): Iter<K> {
+		const kind = this.constructor as new (a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) => Merge<K>;
+		const it = new kind(this.a.clone(), this.b.clone(), this.c);
+		it.held = this.held;
+		it.heldA = this.heldA;
+		return it;
 	}
 
 	/** The next key of each, or `DONE` for one that ended or is held back. */
@@ -1809,12 +1927,12 @@ class SymmetricDifference<K> extends Merge<K> {
 
 /** `BTreeSet::union`: each key of either in order, `a`'s of two equal ones. */
 export function btreeUnion<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
-	return new Union(a, b);
+	return new Union(btreeKeys(a), btreeKeys(b), a.c);
 }
 
 /** `BTreeSet::symmetric_difference`: each key of one that the other lacks, in order. */
 export function btreeSymmetricDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
-	return new SymmetricDifference(a, b);
+	return new SymmetricDifference(btreeKeys(a), btreeKeys(b), a.c);
 }
 
 /**
@@ -1830,12 +1948,20 @@ class Difference<K> extends Iter<K> {
 	private peek: K | Done = DONE;
 	private peeked = false;
 
-	constructor(a: Iter<K>, other: BTreeSet<K>, search: boolean) {
+	constructor(a: Iter<K>, set: BTreeSet<K> | undefined, b: Iter<K>, c: (a: K, b: K) => Ordering) {
 		super();
 		this.a = a;
-		this.set = search ? other : undefined;
-		this.b = search ? iterEmpty() : btreeKeys(other);
-		this.c = other.c;
+		this.set = set;
+		this.b = b;
+		this.c = c;
+	}
+
+	/** std's: each of its iterators, and the key it peeked. */
+	override clone(): Iter<K> {
+		const it = new Difference(this.a.clone(), this.set, this.b.clone(), this.c);
+		it.peek = this.peek;
+		it.peeked = this.peeked;
+		return it;
 	}
 
 	next(): K | Done {
@@ -1881,7 +2007,8 @@ export function btreeDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
 	if (low > 0 || high < 0) return keys;
 	if (low === 0) keys.next();
 	else if (high === 0) keys.nextBack();
-	else return new Difference(keys, b, a.n <= Math.floor(b.n / TIPPING));
+	else if (a.n <= Math.floor(b.n / TIPPING)) return new Difference(keys, b, iterEmpty(), b.c);
+	else return new Difference(keys, undefined, btreeKeys(b), b.c);
 	return keys;
 }
 
@@ -1891,11 +2018,15 @@ class Intersection<K> extends Iter<K> {
 	private readonly b: Iter<K>;
 	private readonly c: (a: K, b: K) => Ordering;
 
-	constructor(a: BTreeSet<K>, b: BTreeSet<K>) {
+	constructor(a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) {
 		super();
-		this.a = btreeKeys(a);
-		this.b = btreeKeys(b);
-		this.c = a.c;
+		this.a = a;
+		this.b = b;
+		this.c = c;
+	}
+
+	override clone(): Iter<K> {
+		return new Intersection(this.a.clone(), this.b.clone(), this.c);
 	}
 
 	next(): K | Done {
@@ -1932,7 +2063,7 @@ export function btreeIntersection<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
 	if (high === 0) return iterOnce(aMax);
 	if (a.n <= Math.floor(b.n / TIPPING)) return iterFilter(btreeKeys(a), (key) => btreeContains(b, key));
 	if (b.n <= Math.floor(a.n / TIPPING)) return iterFilter(btreeKeys(b), (key) => btreeContains(a, key));
-	return new Intersection(a, b);
+	return new Intersection(btreeKeys(a), btreeKeys(b), a.c);
 }
 
 /** `BTreeSet::is_subset`: whether `b` holds each key of `a`. */
@@ -2377,6 +2508,19 @@ class DequeIter<T> extends Iter<T> implements Disposable {
 		return this.front < this.back ? (this.q.b[at(this.q, this.front++)] as T) : DONE;
 	}
 
+	override remaining(): Iterable<T> {
+		return new DequeIter(this.q, this.front, this.back);
+	}
+
+	/** std's: where it is, or of `into_iter`, what it has left, each cloned in order by `h.v`. */
+	override clone(h?: Clones): Iter<T> {
+		if (h?.v === undefined) return new DequeIter(this.q, this.front, this.back, this.drop);
+		const clone = h.v as (item: T) => T;
+		const items: T[] = [];
+		for (let i = this.front; i < this.back; i++) items.push(clone(this.q.b[at(this.q, i)] as T));
+		return iterSlice(items, this.drop);
+	}
+
 	override nextBack(): T | Done {
 		return this.front < this.back ? (this.q.b[at(this.q, --this.back)] as T) : DONE;
 	}
@@ -2470,6 +2614,12 @@ export function boundsRange(r: Bounds<number>, n: number): [number, number] {
 	return [start, end];
 }
 
+/** `slice::range` itself: `r` within `n` elements, as `{ start, end }`, panicking as std's does. */
+export function boundsChecked(r: Bounds<number>, n: number): { start: number; end: number } {
+	const [start, end] = boundsRange(r, n);
+	return { start, end };
+}
+
 /**
  * A slice's index `r` other than `a..b`, `a..`, `..b`, and `..`, as the start and end of
  * the part it reads within `n` elements, panicking as std's `index` does.
@@ -2543,6 +2693,10 @@ class VecDrain<T> extends Iter<T> implements Disposable {
 		return this.front < this.back ? this.rest[this.front++] : DONE;
 	}
 
+	override remaining(): Iterable<T> {
+		return this.rest.slice(this.front, this.back);
+	}
+
 	override nextBack(): T | Done {
 		return this.front < this.back ? this.rest[--this.back] : DONE;
 	}
@@ -2596,6 +2750,10 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 		return this.front < this.back ? this.v.data[this.front++] : DONE;
 	}
 
+	override remaining(): Iterable<number> {
+		return this.v.data.slice(this.front, this.back);
+	}
+
 	override nextBack(): number | Done {
 		return this.front < this.back ? this.v.data[--this.back] : DONE;
 	}
@@ -2621,7 +2779,7 @@ class ByteVecDrain extends Iter<number> implements Disposable {
  * says and reserves as `iterExtend` does.
  */
 export function dequeExtend<T>(q: VecDeque<T>, items: Iter<T>, take?: Take, size?: number, trusted = false): VecDeque<T> {
-	return vecExtending(q, q.n, items, (item) => dequePushBack(q, item), take, size, trusted);
+	return vecExtending(q, q.n, items, (item) => dequePushBack(q, item), take, size, trusted, true);
 }
 
 /** `clone`, with each item through its `Clone`, or as itself without one. */

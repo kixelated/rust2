@@ -175,7 +175,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
 				// The runtime compares and hashes bytes in whichever form it is given them.
 				("PartialOrd" | "Ord" | "PartialEq", _) | ("Hash", "hash") => true,
-				("slice", "iter" | "iter_mut") => true,
+				("slice", "iter" | "iter_mut") | ("array", "each_ref" | "each_mut") => true,
 				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
 				_ => false,
 			};
@@ -385,6 +385,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let lends = match library::key(tcx, def_id) {
 			Some((owner, name)) => match (owner.as_str(), name.as_str()) {
 				("slice", "get_mut" | "first_mut" | "last_mut" | "iter_mut" | "split_first_mut" | "split_last_mut")
+				| ("array", "each_mut")
 				| ("dyn Any", "downcast_mut")
 				| ("Peekable", "peek_mut")
 				| ("LocalKey", "with_borrow_mut")
@@ -601,7 +602,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						span,
 					};
 					let range = std::mem::replace(&mut values[1], Expr::undefined());
-					values[1] = crate::lower::collections::bounds(self.b, &call, range);
+					let len = Expr::rt("stringLen", vec![values[0].clone()]);
+					values[1] = crate::lower::collections::bounds(self.b, &call, range).within(len);
 				}
 				let edited = match name.as_str() {
 					"clear" => Expr::Str(String::new()),
@@ -676,6 +678,35 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					None => done(place, true),
 				}
+			}
+			// A `Wrapping` is its integer, so what the `&mut` borrows gets the wrapped result.
+			(_, _)
+				if let Some(op) = owner.strip_suffix("Assign").and_then(library::operator)
+					&& let Some(int) = targ(0).and_then(|t| library::wrapping_of(tcx, t)) =>
+			{
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let by = self.operand(&args[1].node, span, out);
+				let l = crate::lower::num::Operand {
+					expr: place.0.clone(),
+					value: None,
+				};
+				let r = crate::lower::num::Operand {
+					expr: by,
+					value: self.const_int(&args[1].node),
+				};
+				let value = crate::lower::num::wrapping(self.b, op, l, r, int, span);
+				self.set_borrowed(&place, value, span, out);
+				done(Expr::undefined(), false)
+			}
+			// A `Cow<[T]>` that borrows takes a clone of its slice, whose `Vec` the `&mut` lends.
+			("Cow", "to_mut") if let ty::Slice(elem) = targ(0)?.kind() => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				// Read twice, by the clone and by the store.
+				self.materialize(&place.0, out);
+				let owned = library::cow_cloned(self.b, "IntoOwned", place.0.clone(), *elem, span);
+				let owned = self.path(owned, "owned", out);
+				self.set_borrowed(&place, owned.clone(), span, out);
+				done(owned, true)
 			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
@@ -791,8 +822,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							args: gargs,
 							span,
 						};
-						let range = crate::lower::collections::bounds(self.b, &call, range);
-						let checked = Expr::rt("boundsRange", vec![range, s.clone().member("length")]);
+						let ranged = crate::lower::collections::bounds(self.b, &call, range);
+						let checked = Expr::rt("boundsRange", vec![ranged.bounds.clone(), s.clone().member("length")]);
+						let checked = ranged.after(checked);
 						let pair = self.path(checked, "bounds", out);
 						(pair.clone().index(Expr::lit("0")), pair.index(Expr::lit("1")))
 					}
@@ -1009,11 +1041,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			("DebugList", "entries") => {
 				let list = self.operand(&args[0].node, span, out);
-				let iter_ty = targ(1)?;
+				let (item_ty, iter_ty) = (targ(0)?, targ(1)?);
 				let items = self.operand(&args[1].node, span, out);
 				let items = self.items(items, iter_ty, span)?;
-				let debug = self.b.fmt_fn(fmt::Trait::Debug, targ(0)?, span);
-				done(Expr::rt("debugListEntries", vec![list, items, debug]), true)
+				let debug = self.b.fmt_fn(fmt::Trait::Debug, item_ty, span);
+				let mut values = vec![list, items, debug];
+				values.extend(self.b.t.drop_fn(item_ty, span));
+				done(Expr::rt("debugListEntries", values), true)
 			}
 			_ => None,
 		}
@@ -1511,15 +1545,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.collect()
 	}
 
-	/// What a `DebugList` iterates, as an iterable JS value, which drops nothing it reads.
+	/// What a `DebugList` iterates, as an iterable JS value: an array or `Vec`'s elements,
+	/// whose items the runtime drops if it owns them, or else an `rt.Iter`, which it drops
+	/// once done.
 	fn items(&mut self, value: Expr, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
 		let tcx = self.tcx;
-		if self.b.t.drops(ty) {
-			return Some(self.err(
-				span,
-				format!("`DebugList::entries` of `{ty}`, which drops, which is not supported yet"),
-			));
-		}
 		match ty.peel_refs().kind() {
 			ty::Slice(_) | ty::Array(..) => Some(library::elements(value, ty)),
 			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::elements(value, ty)),

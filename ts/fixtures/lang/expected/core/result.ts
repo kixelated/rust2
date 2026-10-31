@@ -368,11 +368,25 @@ export function map$0zzqmaz(self: rt.Result<rt.Arc<[rt.u8, rt.u8]>, rt.Arc<Any.A
 	return rt.Err(self.error);
 }
 
+export function map$0d4vpmj(self: rt.Result<rt.i64[], undefined>, op: (a0: rt.i64[]) => rt.usize): rt.Result<rt.usize, undefined> {
+	if (self.ok) {
+		return rt.Ok(op(self.value));
+	}
+	return rt.ERR;
+}
+
 export function map$1qqg34g(self: rt.Result<rt.ByteVec, string>, op: (a0: rt.ByteVec) => rt.ByteVec): rt.Result<rt.ByteVec, string> {
 	if (self.ok) {
 		return rt.Ok(op(self.value));
 	}
 	return self;
+}
+
+export function map$1w3j91w(self: rt.Result<rt.ByteVec, undefined>, op: (a0: rt.ByteVec) => rt.usize): rt.Result<rt.usize, undefined> {
+	if (self.ok) {
+		return rt.Ok(op(self.value));
+	}
+	return rt.ERR;
 }
 
 export function map$0fm1w6u(self: rt.Result<boolean, rt.ParseBoolError>, op: (a0: boolean) => rt.Result<rt.char, rt.ParseCharError>): rt.Result<rt.Result<rt.char, rt.ParseCharError>, rt.ParseBoolError> {

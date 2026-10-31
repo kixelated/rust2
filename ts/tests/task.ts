@@ -56,6 +56,8 @@ export interface Fixture<V> {
 		cells(log: Log, id: number, arg: number): void;
 		folded(log: Log, id: number, arg: number): void;
 		rfolded(log: Log, id: number, arg: number): void;
+		inside(log: Log, id: number, arg: number): void;
+		compared(log: Log, id: number, arg: number): void;
 	};
 	futures: {
 		helpers(rx: Consumer, guard: Guard): Future<V>;
@@ -309,6 +311,8 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 			if (c !== undefined) r.exec.spawn(r.f.front(r.f.Channel.consumer(r.channels[c]), guard(r)));
 		},
 	],
+	["inside", (r, arg) => r.f.drops.inside(r.log, 1000 * r.exec.tasks.length, arg)],
+	["compared", (r, arg) => r.f.drops.compared(r.log, 1000 * r.exec.tasks.length, arg)],
 ];
 
 /** The script runner, as `harness.rs` runs it natively. */
@@ -393,6 +397,10 @@ export const cases: Uint8Array[] = [
 	// What one-time cells drop.
 	...Array.from({ length: 6 }, (_, arg) => script(["cells", arg])),
 	// Each scenario of adaptors' closures that drop, folded either way.
-	...Array.from({ length: 34 }, (_, arg) => script(["folded", arg])),
+	...Array.from({ length: 42 }, (_, arg) => script(["folded", arg])),
 	...Array.from({ length: 9 }, (_, arg) => script(["rfolded", arg])),
+	// Where std drops values inside its iterators and formatting.
+	...[...Array.from({ length: 10 }, (_, arg) => arg), 19, 29].map((arg) => script(["inside", arg])),
+	// What std's comparisons of iterators drop.
+	...Array.from({ length: 9 }, (_, arg) => script(["compared", arg])),
 ];

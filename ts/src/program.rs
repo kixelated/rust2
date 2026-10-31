@@ -151,6 +151,27 @@ impl Program {
 		self.fields.len() - 1
 	}
 
+	/// Mark each parameter of every function that nothing reads, as [`ts::mark_unread`] does.
+	pub fn mark_unread(&mut self) {
+		for item in &mut self.items {
+			match item {
+				Item::Function(f) => ts::mark_unread(&mut f.params, &mut f.body),
+				Item::Struct { fields, .. } => {
+					for field in fields {
+						if let ts::FieldInit::Value(e) = &mut field.init {
+							e.mark_unread();
+						}
+					}
+				}
+				Item::Value { value, .. } => value.mark_unread(),
+				Item::Union { .. } => {}
+			}
+		}
+		for f in self.methods.values_mut().flatten() {
+			ts::mark_unread(&mut f.params, &mut f.body);
+		}
+	}
+
 	/// Make one function of the instances of a std function whose output is the same, as
 	/// those over closures of one signature are: the first in order, which the others'
 	/// callers then call. Each merge can make their callers the same too.

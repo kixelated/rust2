@@ -248,6 +248,8 @@ pub fn std_impl<'tcx>(
 			};
 			Expr::rt_of(float.name(), method).call(vec![value, f])
 		}
+		// `!`, and `Infallible`, which is it: never written, as none exists.
+		ty::Never if text => Expr::rt("unreachable", vec![value]),
 		ty::Bool if text => rt("bool", vec![value, f]),
 		ty::Char if tr == Trait::Display => rt("charDisplay", vec![value, f]),
 		ty::Char if tr == Trait::Debug => rt("charDebug", vec![value, f]),
@@ -275,11 +277,32 @@ pub fn std_impl<'tcx>(
 		ty::Dynamic(preds, ..) if preds.principal_def_id().and_then(|did| Trait::of(tcx, did)) == Some(tr) => {
 			value.call(vec![f])
 		}
+		// Unpadded, naming its type as `type_name` does.
+		ty::Adt(adt, args) if tr == Trait::Debug && adt.is_phantom_data() => {
+			let name = rustc_const_eval::util::type_name(tcx, args.type_at(0));
+			rt("writeStr", vec![f, Expr::Str(format!("PhantomData<{name}>"))])
+		}
+		// Each its name alone, unpadded.
+		ty::Adt(adt, _)
+			if tr == Trait::Debug && (library::pinned(tcx, adt.did()) || library::empty_iter(tcx, adt.did())) =>
+		{
+			rt("writeStr", vec![f, Expr::Str(tcx.item_name(adt.did()).to_string())])
+		}
+		ty::Adt(adt, args)
+			if tr == Trait::Debug
+				&& let Some(e) = iter_debug(b, adt.did(), args, &value, &f, span) =>
+		{
+			e
+		}
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
-			// A `NonZero` writes its integer, by each trait.
-			(Std::Box | Std::NonZero, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `NonZero` and a `Wrapping` write their integer, by each trait.
+			(Std::Box | Std::NonZero | Std::Wrapping, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `Cow<[T]>` writes its slice.
+			(Std::Cow, Trait::Debug) if let Some(elem) = library::cow_slice(tcx, ty) => {
+				b.fmt_call(tr, Ty::new_slice(tcx, elem), library::cow_deref(value, elem), f, span)
+			}
 			(Std::Arc, Trait::Display | Trait::Debug) => {
 				b.fmt_call(tr, args.type_at(0), value.member("value"), f, span)
 			}
@@ -299,6 +322,34 @@ pub fn std_impl<'tcx>(
 				rt(of, vec![value, f, bound])
 			}
 			(Std::RangeFull, Trait::Debug) => rt("rangeFull", vec![value, f]),
+			(Std::Bound, Trait::Debug) => {
+				let held = b.fmt_fn(tr, args.type_at(0), span);
+				rt("bound", vec![value, f, held])
+			}
+			(Std::Ordering, Trait::Debug) => rt("ordering", vec![value, f]),
+			// Erased to what it holds.
+			(Std::Reverse, Trait::Debug) => {
+				let held = b.fmt_value(tr, args.type_at(0), value, span, out);
+				rt(
+					"debugTupleFields",
+					vec![f, Expr::Str("Reverse".into()), Expr::Array(vec![held])],
+				)
+			}
+			(Std::ControlFlow, Trait::Debug) => {
+				let go = b.fmt_fn(tr, args.type_at(1), span);
+				let stop = b.fmt_fn(tr, args.type_at(0), span);
+				match library::Flow::of(tcx, args) {
+					library::Flow::Other => rt("controlFlow", vec![value, f, go, stop]),
+					library::Flow::Result => rt("controlFlow", vec![value, f, go, stop, Expr::lit("true")]),
+					library::Flow::Option => {
+						let none = b.t.none_arg(args.type_at(1));
+						rt(
+							"controlFlowOption",
+							[vec![value, f, go, stop], none.into_iter().collect()].concat(),
+						)
+					}
+				}
+			}
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![library::elements(value, ty), f, item])
@@ -306,6 +357,22 @@ pub fn std_impl<'tcx>(
 			(Std::BinaryHeap, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![value.member("d"), f, item])
+			}
+			// Each writes its items as its iterator reads them: a deque from its head.
+			(Std::VecDeque, Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				rt("list", vec![Expr::rt("dequeIter", vec![value]), f, item])
+			}
+			(std @ (Std::HashSet | Std::BTreeSet), Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				let keys = if std == Std::HashSet { "hashKeys" } else { "btreeKeys" };
+				rt("set", vec![Expr::rt(keys, vec![value]), f, item])
+			}
+			(std @ (Std::HashMap | Std::BTreeMap), Trait::Debug) => {
+				let key = b.fmt_fn(tr, args.type_at(0), span);
+				let val = b.fmt_fn(tr, args.type_at(1), span);
+				let entries = if std == Std::HashMap { "hashIter" } else { "btreeIter" };
+				rt("map", vec![Expr::rt(entries, vec![value]), f, key, val])
 			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);
@@ -346,6 +413,86 @@ pub fn std_impl<'tcx>(
 		},
 		_ => return None,
 	})
+}
+
+/// `Debug` of one of std's iterators that lists the items it has left, as std writes
+/// them, or `None` for another type. A deque's `Iter` and `IterMut` write the two halves of
+/// its ring buffer, which the runtime's deque splits elsewhere than std's, and its `Drain`
+/// its indices, so they stay refused.
+fn iter_debug<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	did: DefId,
+	args: ty::GenericArgsRef<'tcx>,
+	value: &Expr,
+	f: &Expr,
+	span: Span,
+) -> Option<Expr> {
+	/// What std writes around the list: a tuple struct's name, or a struct's and its field's.
+	enum Wrap {
+		Tuple(&'static str),
+		Struct(&'static str, &'static str),
+	}
+	/// What it lists: a type argument, the map entry of the first two, or a `BTreeSet`'s
+	/// entry of its key and `SetValZST`.
+	enum Item {
+		Arg(usize),
+		Entry,
+		SetVal,
+		Byte,
+	}
+	use {Item::*, Wrap::*};
+	let tcx = b.t.tcx;
+	let path = library::std_path(tcx, did);
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+	let (item, wraps): (Item, &[Wrap]) = match path.as_slice() {
+		["str", "iter", "Chars"] => return Some(Expr::rt("fmtChars", vec![value.clone(), f.clone()])),
+		["str", "iter", "Bytes"] => (Byte, &[Tuple("Bytes"), Struct("Copied", "it"), Tuple("Iter")]),
+		["slice", "iter", "Iter"]
+		| ["collections", "binary_heap", "Iter"]
+		| ["collections", "btree", "set", "Iter"] => (Arg(0), &[Tuple("Iter")]),
+		["slice", "iter", "IterMut"] => (Arg(0), &[Tuple("IterMut")]),
+		["vec", "into_iter", "IntoIter"]
+		| ["collections", "binary_heap", "IntoIter"]
+		| ["collections", "vec_deque", "into_iter", "IntoIter"] => (Arg(0), &[Tuple("IntoIter")]),
+		["vec", "drain", "Drain"] => (Arg(0), &[Tuple("Drain")]),
+		["collections", "binary_heap", "Drain"] => (Arg(0), &[Struct("Drain", "iter"), Tuple("Drain")]),
+		["collections", "btree", "set", "Range"] => (SetVal, &[Struct("Range", "iter")]),
+		["collections", "btree", "set", "IntoIter"] => (SetVal, &[Struct("IntoIter", "iter")]),
+		[
+			"collections",
+			"btree",
+			"map",
+			"Iter" | "IterMut" | "Range" | "RangeMut" | "IntoIter",
+		]
+		| ["collections", "hash", "map", "Iter" | "IterMut" | "IntoIter" | "Drain"] => (Entry, &[]),
+		["collections", "btree" | "hash", "map", "Keys" | "IntoKeys"]
+		| ["collections", "hash", "set", "Iter" | "IntoIter" | "Drain"] => (Arg(0), &[]),
+		[
+			"collections",
+			"btree" | "hash",
+			"map",
+			"Values" | "ValuesMut" | "IntoValues",
+		] => (Arg(1), &[]),
+		_ => return None,
+	};
+	let arg = |n: usize| args.types().nth(n);
+	let debug = match item {
+		Arg(n) => b.fmt_fn(Trait::Debug, arg(n)?, span),
+		Entry => b.fmt_fn(Trait::Debug, Ty::new_tup(tcx, &[arg(0)?, arg(1)?]), span),
+		SetVal => Expr::rt("fmtSetVal", vec![b.fmt_fn(Trait::Debug, arg(0)?, span)]),
+		Byte => b.fmt_fn(Trait::Debug, tcx.types.u8, span),
+	};
+	let wraps: Vec<Expr> = (wraps.iter())
+		.map(|wrap| match *wrap {
+			Tuple(name) => Expr::Str(name.into()),
+			Struct(name, field) => Expr::Array(vec![Expr::Str(name.into()), Expr::Str(field.into())]),
+		})
+		.collect();
+	let mut call = vec![value.clone(), f.clone(), debug];
+	if !wraps.is_empty() {
+		call.push(Expr::Array(wraps));
+	}
+	Some(Expr::rt("fmtIter", call))
 }
 
 /// One part of a `format_args!` template.

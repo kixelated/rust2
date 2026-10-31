@@ -15,6 +15,7 @@ mod cfg;
 pub mod coroutine;
 mod decided;
 pub mod glue;
+mod holders;
 mod inline;
 mod memory;
 mod place;
@@ -31,7 +32,7 @@ use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
-pub use self::place::slice_member;
+pub use self::place::{slice_member, writes_captures};
 use super::Translator;
 use super::body::Body;
 
@@ -596,11 +597,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					Some(name) => super::camel(name.as_str()),
 					None => format!("_{}", local.as_u32()),
 				};
-				let base = match self.uses[local] == 0 && local.as_usize() <= mir.arg_count {
-					// A parameter nothing reads, which `noUnusedParameters` wants marked.
-					true if !base.starts_with('_') => format!("_{base}"),
-					_ => base,
-				};
 				let name = self.b.fresh(&base);
 				if self.borrowed[local] {
 					self.shared.insert(name.clone());
@@ -828,40 +824,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
-	/// unassigned since it holds nothing: JS needs it made, as the crate's or as std's
-	/// `fmt::Error` and `ParseBoolError` are.
+	/// A zero-sized value that nothing assigns, the result included, which MIR leaves
+	/// unassigned since it holds nothing: JS needs it made, as a constant of it is. A
+	/// closure's is declared once instead, in [`Self::lower`].
 	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
-		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
+		if self.defs[local] != 0 || self.is_arg(local) || self.uses[local] == 0 || ty.is_closure() {
 			return None;
 		}
-		if let ty::Array(elem, len) = ty.kind()
-			&& len.try_to_target_usize(self.tcx) == Some(0)
-		{
-			return Some(match elem.kind() {
-				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
-				_ => Expr::As(
-					Box::new(Expr::Array(Vec::new())),
-					self.b.t.ty(ty, self.local_span(local)),
-				),
-			});
-		}
-		let ty::Adt(adt, args) = ty.kind() else {
-			return None;
-		};
-		if !adt.is_struct() || adt.all_fields().next().is_some() {
+		let env = self.b.t.typing_env_pub();
+		let layout = self.tcx.layout_of(env.as_query_input(ty)).ok()?;
+		if !layout.is_zst() || layout.is_uninhabited() {
 			return None;
 		}
-		use crate::lower::library::Std;
-		if matches!(Std::of(self.tcx, adt.did()), Some(Std::FmtError | Std::ParseBoolError)) {
-			let span = self.local_span(local);
-			return Some(self.adt(adt.did(), rustc_abi::FIRST_VARIANT, args, Vec::new(), ty, span));
-		}
-		if !self.b.t.own(adt.did()) {
-			return None;
-		}
-		let info = self.b.t.adt(*adt, self.local_span(local));
-		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
+		let span = self.local_span(local);
+		Some(self.const_value(mir::ConstValue::ZeroSized, ty, span))
 	}
 
 	/// Whether `local` is a box's pointer, as a box's dereference reads it.
@@ -3340,16 +3316,16 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 	}
 }
 
-/// The names `stmts` assign, anywhere in them.
+/// The names `stmts` assign, anywhere in them, as themselves or cast to a variant's type.
 fn assigned(stmts: &[Stmt]) -> FxHashSet<String> {
 	let mut names = FxHashSet::default();
 	for stmt in stmts {
 		visit_stmt(stmt, &mut |e| {
 			visit_expr(e, &mut |e| {
 				if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-					&& let Expr::Ident(name) = &**target
+					&& let Some(name) = assigned_name(target)
 				{
-					names.insert(name.clone());
+					names.insert(name.to_string());
 				}
 			})
 		});
@@ -3516,12 +3492,24 @@ fn writes_of(e: &Expr, name: &str) -> usize {
 	let mut n = 0;
 	visit_expr(e, &mut |e| {
 		if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-			&& matches!(&**target, Expr::Ident(i) if i == name)
+			&& assigned_name(target) == Some(name)
 		{
 			n += 1;
 		}
 	});
 	n
+}
+
+/// The name an assignment to `target` writes whole: itself, or cast to the type of a
+/// variant it holds, as a `Cow`'s payload is.
+fn assigned_name(mut target: &Expr) -> Option<&str> {
+	while let Expr::As(inner, _) = target {
+		target = inner;
+	}
+	match target {
+		Expr::Ident(name) => Some(name),
+		_ => None,
+	}
 }
 
 /// Call `f` on each expression the statement holds directly, and in its blocks.
@@ -3594,7 +3582,9 @@ fn parts_of(value: &Expr) -> Option<Vec<Expr>> {
 			Some(items.clone())
 		}
 		Expr::Object(props) => Some(props.iter().map(|(_, v)| v.clone()).collect()),
-		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range") => Some(items.clone()),
+		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range" || name == "RangeFrom") => {
+			Some(items.clone())
+		}
 		_ => None,
 	}
 }

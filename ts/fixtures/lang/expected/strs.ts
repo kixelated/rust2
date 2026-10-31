@@ -197,7 +197,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					} else {
 						for (const _190 of rt.iterToArray(rt.iterMap(rt.strMatchIndices(s, "/"), (_2: [rt.usize, string]): rt.usize => {
 							return _2[0];
-						}), undefined, 4)) {
+						}), "next", 4)) {
 							putOffset(out, _190);
 						}
 						break b0;
@@ -356,7 +356,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					});
 					put(out, rt.strSlice(s, part5));
 				} else if (_8 === 5) {
-					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), undefined, 8);
+					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
 					put(out, parts.join(p));
 					put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
 						return part3;
@@ -574,7 +574,7 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 			const _69: rt.Range<rt.usize> = new rt.Range(i, j);
 			s.v = rt.stringReplaceRange(s.v, _69, piece);
 		} else if (_67 === 1) {
-			const _72: { start: rt.usize } = { start: i };
+			const _72: rt.RangeFrom<rt.usize> = new rt.RangeFrom(i, rt.usizeStep);
 			s.v = rt.stringReplaceRange(s.v, _72, piece);
 		} else if (_67 === 2) {
 			const _75: { end: rt.usize } = { end: j };
@@ -596,7 +596,7 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 		if (_91 === 0) {
 			s.v = rt.stringExtendFromWithin(s.v, new rt.Range(i, j));
 		} else if (_91 === 1) {
-			s.v = rt.stringExtendFromWithin(s.v, { start: i });
+			s.v = rt.stringExtendFromWithin(s.v, new rt.RangeFrom(i, rt.usizeStep));
 		} else if (_91 === 2) {
 			s.v = rt.stringExtendFromWithin(s.v, { end: j, inclusive: true });
 		} else if (_91 === 3) {
@@ -1184,8 +1184,8 @@ export function parses(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const s: string = text(data);
-	const chars: rt.char[] = rt.iterToArray(rt.strChars(s), undefined, 4);
-	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), undefined, 8);
+	const chars: rt.char[] = rt.iterToArray(rt.strChars(s), "next", 4);
+	const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
 	const nexts: rt.Cell<rt.u8> = new rt.Cell(0);
 	const named: Named.Named = { name: text(rt.byteSliceRange(data, 0, rt.usizeDiv(data.length, 2))) };
 	const _21: rt.u8 = rt.u8Rem(kind, 4);
@@ -1197,7 +1197,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		put(out, rt.stringExtendChars("", rt.iterSlice(chars)));
 		put(out, rt.stringExtendChars("", rt.iterSkip(rt.iterSlice(chars), 1)));
 		rt.iterEmpty();
-		put(out, rt.stringExtendChars("", rt.iterEmpty()));
+		put(out, rt.stringExtendChars("", rt.iterEmpty() as rt.Iter<rt.char>));
 		put(out, rt.stringExtendChars("", rt.iterOption(rt.charFromU32(kind as rt.u32))));
 		put(out, rt.stringExtendChars("", rt.iterFrom({ items: chars, nexts }, (it: Counted.Counted<rt.char>) => Counted.next$Iterator_char(it))));
 	} else if (_21 === 1) {
@@ -1213,7 +1213,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			return !((p5.length === 0));
 		})));
 		rt.iterEmpty();
-		put(out, rt.stringFromStrings(rt.iterEmpty()));
+		put(out, rt.stringFromStrings(rt.iterEmpty() as rt.Iter<string>));
 		put(out, rt.stringExtendChars("", rt.iterRev(rt.strChars(s))));
 		put(out, rt.stringExtend("", rt.iterSlice(parts)));
 		const owned: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (p6: string): string => {
@@ -1231,7 +1231,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		t = rt.stringExtendChars(t, _157);
 		named.name = rt.stringExtendChars(named.name, rt.iterSlice(chars));
 		rt.iterEmpty();
-		named.name = rt.stringExtendChars(named.name, rt.iterEmpty());
+		named.name = rt.stringExtendChars(named.name, rt.iterEmpty() as rt.Iter<rt.char>);
 		const counted3: Counted.Counted<rt.char> = { items: chars, nexts };
 		t = rt.stringExtendChars(t, rt.iterFrom(counted3, (it: Counted.Counted<rt.char>) => Counted.next$Iterator_char(it)));
 		put(out, t);
@@ -1251,7 +1251,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		});
 		named.name = rt.stringExtend(named.name, _197);
 		rt.iterEmpty();
-		named.name = rt.stringExtend(named.name, rt.iterEmpty());
+		named.name = rt.stringExtend(named.name, rt.iterEmpty() as rt.Iter<string>);
 		const counted4: Counted.Counted<string> = { items: parts, nexts };
 		t2 = rt.stringExtend(t2, rt.iterFrom(counted4, (it: Counted.Counted<string>) => Counted.next$Iterator_str(it)));
 		put(out, t2);
@@ -1292,7 +1292,7 @@ export function drainBy(s: rt.Place<string>, form: rt.u8, a: rt.u8, b: rt.u8, st
 		drain = rt.stringDrain(s, new rt.Range(i, j));
 		_71 = true;
 	} else if (_17 === 1) {
-		drain = rt.stringDrain(s, { start: i });
+		drain = rt.stringDrain(s, new rt.RangeFrom(i, rt.usizeStep));
 		_71 = true;
 	} else if (_17 === 2) {
 		drain = rt.stringDrain(s, { end: j });
@@ -1385,7 +1385,7 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				const _56: { end: rt.usize } = { end: offset(s, a) };
 				put(out, rt.stringExtendChars("", rt.stringDrain(rt.place(() => s, (value5) => s = value5), _56), true));
 			} else if (_49 === 1) {
-				const _64: { start: rt.usize } = { start: offset(s, a) };
+				const _64: rt.RangeFrom<rt.usize> = new rt.RangeFrom(offset(s, a), rt.usizeStep);
 				rt.byteVecPush(out, rt.ownedCount(rt.stringDrain(rt.place(() => s, (value4) => s = value4), _64)) & 0xff);
 			} else if (_49 === 2) {
 				putChar(out, rt.ownedLast(rt.stringDrain(rt.place(() => s, (value3) => s = value3), undefined)));
@@ -1471,7 +1471,7 @@ export function hinted(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			_78.v = rt.stringExtendChars(_78.v, _79);
 		} else {
 			const _84: rt.Place<string> = rt.place(() => t, (value8) => t = value8);
-			const _85: rt.Iter<rt.char> = rt.iterMap(rt.iterZip(new rt.Range(0, n), new rt.Range(0, m), true), (_211: [rt.u32, rt.u32]): rt.char => {
+			const _85: rt.Iter<rt.char> = rt.iterMap(rt.iterZip(new rt.Range(0, n), new rt.Range(0, m), "index"), (_211: [rt.u32, rt.u32]): rt.char => {
 				return f(_211[0]);
 			});
 			_84.v = rt.stringExtendChars(_84.v, _85);

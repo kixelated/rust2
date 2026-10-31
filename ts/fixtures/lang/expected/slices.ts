@@ -965,7 +965,7 @@ export function subslices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		const array: rt.u32[] = Array.from({ length: 5 }, (): rt.u32 => {
 			return 0;
 		});
-		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), true);
+		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), "index");
 		while (true) {
 			const _37: [rt.Place<rt.u32>, rt.u8] | rt.Done = iter.next();
 			if (_37 === rt.DONE) {
@@ -1211,7 +1211,7 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.byteVecDrain(bytes, { end: b }), "fold", true))), undefined, true);
 			rt.drop(rt.vecDrain(words, { end: b }));
 		} else if (_31 === 3) {
-			const drain4: rt.Iter<Item.Item> = rt.vecDrain(items, { start: a }, rt.drop);
+			const drain4: rt.Iter<Item.Item> = rt.vecDrain(items, new rt.RangeFrom(a, rt.usizeStep), rt.drop);
 			rt.iterExtendBytes(out, rt.iterOption(map$003seos(rt.iterNth(drain4, 1, rt.drop), (x6: Item.Item): rt.u8 => {
 				const _07: rt.u8 = x6.tag;
 				x6[Symbol.dispose]();
@@ -1226,10 +1226,10 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			flush(out);
 			rt.byteVecPush(out, drain4.len() & 0xff);
 			rt.drop(drain4);
-			const _127: rt.Iter<rt.u8> = rt.byteVecDrain(bytes, { start: a });
+			const _127: rt.Iter<rt.u8> = rt.byteVecDrain(bytes, new rt.RangeFrom(a, rt.usizeStep));
 			rt.iterExtendBytes(out, rt.iterOption(rt.iterNth(_127, 2)), undefined, true);
 			rt.drop(_127);
-			rt.iterExtendBytes(out, rt.iterMap(rt.iterRev(rt.vecDrain(words, { start: a })), (w: rt.u32): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterRev(rt.vecDrain(words, new rt.RangeFrom(a, rt.usizeStep))), (w: rt.u32): rt.u8 => {
 				return w & 0xff;
 			}), "fold", true);
 		} else if (_31 === 4) {
@@ -1345,7 +1345,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const array: rt.u32[] = Array.from({ length: 5 }, (): rt.u32 => {
 			return 0;
 		});
-		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), true);
+		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 2))), "index");
 		while (true) {
 			const _39: [rt.Place<rt.u32>, rt.u8] | rt.Done = iter.next();
 			if (_39 === rt.DONE) {
@@ -1547,7 +1547,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.iterSum(rt.iterBorrow(folded), rt.usizeAdd, 0);
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.rangeInclusiveIsEmpty(stepped) ? 1 : 0, rt.rangeInclusiveIsEmpty(folded) ? 1 : 0)), undefined, true);
 			const _289: rt.u16[] = words;
-			const bounds6 = rt.sliceGetBounds(rt.rangeInclusiveClone(stepped), _289.length);
+			const bounds6 = rt.sliceGetBounds(stepped.clone(), _289.length);
 			const _288: rt.u16[] | undefined = rt.sliceGetRange(_289, bounds6[0], bounds6[1]);
 			if (_288 === undefined) {
 				_287 = 238;
@@ -1556,7 +1556,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			rt.byteVecPush(out, _287);
 			const _298: rt.ByteSlice = rt.byteVecSlice(bytes);
-			const bounds7 = rt.sliceGetBounds(rt.rangeInclusiveClone(folded), _298.length);
+			const bounds7 = rt.sliceGetBounds(folded.clone(), _298.length);
 			const _297: rt.ByteSlice | undefined = rt.byteSliceGetRange(_298, bounds7[0], bounds7[1]);
 			if (_297 === undefined) {
 				_296 = 238;
@@ -1565,7 +1565,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			rt.byteVecPush(out, _296);
 			const _307: Pair.Pair[] = pairs;
-			const bounds8 = rt.sliceGetBounds(rt.rangeInclusiveClone(folded), _307.length);
+			const bounds8 = rt.sliceGetBounds(folded.clone(), _307.length);
 			const _306: Pair.Pair[] | undefined = rt.sliceGetRangeMut(_307, bounds8[0], bounds8[1]);
 			if (_306 === undefined) {
 				_305 = 238;
@@ -1575,7 +1575,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				})(_306);
 			}
 			rt.byteVecPush(out, _305);
-			const bounds9 = rt.sliceIndexBounds(rt.rangeInclusiveClone(folded), words.length);
+			const bounds9 = rt.sliceIndexBounds(folded.clone(), words.length);
 			pokeWords(7, rt.sliceRangeMut(words, bounds9[0], bounds9[1]));
 			const _324: rt.RangeInclusive<rt.usize> = stepped;
 			const slice3 = rt.byteVecSlice(bytes);
@@ -1761,7 +1761,7 @@ export function edits(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const array: rt.u32[] = Array.from({ length: 5 }, (): rt.u32 => {
 			return 0;
 		});
-		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 3))), true);
+		const iter: rt.Iter<[rt.Place<rt.u32>, rt.u8]> = rt.iterZip(rt.iterSliceMut(array), rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 3))), "index");
 		while (true) {
 			const _53: [rt.Place<rt.u32>, rt.u8] | rt.Done = iter.next();
 			if (_53 === rt.DONE) {

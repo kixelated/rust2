@@ -24,6 +24,7 @@ macro_rules! list {
 
 mod closures;
 mod folds;
+mod inside;
 mod iters;
 mod objects;
 mod once;
@@ -713,8 +714,8 @@ fn arcs(log: &Log, id: u32) {
 	count("dropped", &other);
 }
 
-/// Run scenario `arg % 33` of what std's by-value consumers drop of adaptors that hold
-/// closures that drop.
+/// Run scenario `arg % 42` of what std's by-value consumers drop of adaptors that hold
+/// closures that drop, and of zips of items that drop.
 pub fn folded(log: &Log, id: u32, arg: u8) {
 	folds::folded(log, id, arg);
 }
@@ -723,6 +724,18 @@ pub fn folded(log: &Log, id: u32, arg: u8) {
 /// beside another.
 pub fn rfolded(log: &Log, id: u32, arg: u8) {
 	folds::rfolded(log, id, arg);
+}
+
+/// Run scenario `arg % 10` of where std drops values inside its iterators and formatting.
+/// Three panic, each with std's message: in a `for_each`, a drain past the end, and a
+/// range that panics as `String`'s drop it.
+pub fn inside(log: &Log, id: u32, arg: u8) {
+	inside::inside(log, id, arg);
+}
+
+/// Run scenario `arg % 9` of what std's comparisons of iterators drop.
+pub fn compared(log: &Log, id: u32, arg: u8) {
+	iters::compared(log, id, arg);
 }
 
 /// Run scenario `arg % 9` of what a `Vec`'s edits, its, a tuple's, and a box's `clone`,

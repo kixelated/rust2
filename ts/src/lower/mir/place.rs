@@ -544,7 +544,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			ty::Adt(adt, _) => match Std::of(tcx, adt.did()) {
 				Some(
-					Std::Option | Std::Poll | Std::Box | Std::Pin | Std::Reverse | Std::NonZero | Std::PoisonError,
+					Std::Option
+					| Std::Poll
+					| Std::Box
+					| Std::Pin
+					| Std::Reverse
+					| Std::NonZero
+					| Std::Wrapping
+					| Std::PoisonError,
 				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.
 				Some(Std::Bound | Std::TryLockError) => {
@@ -570,6 +577,22 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				// The runtime's field of each of std's errors has its name.
 				Some(std) if std.error() => {
 					base.member(crate::lower::camel(adt.non_enum_variant().fields[field].name.as_str()))
+				}
+				// Cast to its variant's class: the slice an `rt.Borrowed` wraps, or the `Vec`.
+				Some(Std::Cow) if let Some(elem) = crate::lower::library::cow_slice(tcx, ty) => {
+					let bytes = matches!(elem.kind(), ty::Uint(ty::UintTy::U8));
+					let owned = variant.is_some_and(|v| v.index() == 1);
+					let class = match (bytes, owned) {
+						(true, false) => crate::ts::Type::Rt("ByteSlice", Vec::new()),
+						(true, true) => crate::ts::Type::Rt("ByteVec", Vec::new()),
+						(false, false) => crate::ts::Type::Rt("Borrowed", vec![self.b.t.ty(elem, span)]),
+						(false, true) => crate::ts::Type::Array(Box::new(self.b.t.ty(elem, span))),
+					};
+					let cast = Expr::As(Box::new(base), class);
+					match bytes || owned {
+						true => cast,
+						false => cast.member("slice"),
+					}
 				}
 				Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 				Some(Std::ControlFlow) => super::call::control_flow_field(self, base, ty, variant),
@@ -1081,6 +1104,13 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					Some(Std::ControlFlow) => super::call::control_flow_test(self, scrut, ty, index),
 					Some(Std::Entry) => crate::lower::collections::entry_test(*adt, index, scrut.clone()),
+					Some(Std::Cow) if let Some(elem) = crate::lower::library::cow_slice(tcx, ty) => {
+						let borrows = crate::lower::library::cow_borrows(scrut.clone(), elem);
+						match index.index() {
+							0 => borrows,
+							_ => borrows.not(),
+						}
+					}
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 					Some(Std::Ordering) => scrut
 						.clone()
@@ -1698,21 +1728,29 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 /// nothing when written.
 fn changes_captures<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
-		ty::Closure(def_id, args) => {
+		ty::Closure(_, args) => {
 			let closure = args.as_closure();
-			let upvars = closure.upvar_tys();
-			let writes = closure.kind() == ty::ClosureKind::FnMut
-				&& (!tcx.is_mir_available(*def_id)
-					|| written_captures(tcx.optimized_mir(*def_id))
-						.into_iter()
-						.any(|field| upvars.get(field.index()).is_none_or(|t| !stateless(*t))));
-			writes || upvars.iter().any(|t| changes_captures(tcx, t))
+			let writes = closure.kind() == ty::ClosureKind::FnMut && writes_captures(tcx, ty);
+			writes || closure.upvar_tys().iter().any(|t| changes_captures(tcx, t))
 		}
 		ty::Tuple(tys) => tys.iter().any(|t| changes_captures(tcx, t)),
 		ty::Array(t, _) => changes_captures(tcx, *t),
 		ty::Adt(_, args) => args.types().any(|t| changes_captures(tcx, t)),
 		_ => false,
 	}
+}
+
+/// Whether the body of `ty`, a closure, writes a capture that holds state, which a JS
+/// closure sharing its variables would write for each copy of it.
+pub fn writes_captures<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	let ty::Closure(def_id, args) = ty.kind() else {
+		return false;
+	};
+	let upvars = args.as_closure().upvar_tys();
+	!tcx.is_mir_available(*def_id)
+		|| written_captures(tcx.optimized_mir(*def_id))
+			.into_iter()
+			.any(|field| upvars.get(field.index()).is_none_or(|t| !stateless(*t)))
 }
 
 /// Whether every value of `ty` is the same, so writing one changes nothing.
@@ -1842,7 +1880,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Why a raw pointer made of `place` here, read through no borrow of this body's, would
 	/// not see the object it points at given another, if it would not: the variable it is
-	/// in, or a part on its path, assigned again while it may point there.
+	/// in, or a part on its path, assigned again while it, or what is made of it, may still
+	/// be read.
 	fn reassigned(&self, place: Place<'tcx>, cells: bool) -> Option<String> {
 		let ty = place.ty(&self.mir.local_decls, self.tcx).ty;
 		(self.pointed_object(ty, cells) && self.assigned_after(place, past_pointers(place)))
@@ -1894,12 +1933,30 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Whether something on the path of `place` from its `start`, a part with no pointer
 	/// on its path after, may be assigned whole after the statement being lowered, before
-	/// its local's storage ends: by an assignment, directly or through an alias of it, or
-	/// by a std call whose lowering gives what its `&mut` argument borrows another value.
-	/// A whole value written through a reference that is no alias is written into the
-	/// object there, which gives only its parts other objects.
+	/// its local's storage ends, while what holds the pointer made there may still be read:
+	/// by an assignment, directly or through an alias of it, or by a std call whose
+	/// lowering gives what its `&mut` argument borrows another value. A whole value written
+	/// through a reference that is no alias is written into the object there, which gives
+	/// only its parts other objects.
 	fn assigned_after(&self, place: Place<'tcx>, start: usize) -> bool {
+		use rustc_mir_dataflow::Analysis;
 		let tcx = self.tcx;
+		// Optimized MIR has no storage markers, so in a loop the search reaches the next
+		// iteration's assignments, where the pointer made in this one may be dead.
+		let mut liveness = None;
+		let mut read_after = |at: mir::Location| {
+			let (holders, live) = liveness.get_or_insert_with(|| {
+				let live = rustc_mir_dataflow::impls::MaybeLiveLocals
+					.iterate_to_fixpoint(tcx, self.mir, None)
+					.into_results_cursor(self.mir);
+				(self.holders(), live)
+			});
+			let Some(holders) = holders else {
+				return true;
+			};
+			live.seek_before_primary_effect(at);
+			holders.iter().any(|h| live.get().contains(h))
+		};
 		let assigns = |written: Place<'tcx>| {
 			let written = self.through_borrows(written, true);
 			let len = written.projection.len();
@@ -1915,13 +1972,21 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		while let Some((bb, from)) = stack.pop() {
 			let data = &blocks[bb];
 			let mut ended = false;
-			for stmt in &data.statements[from.min(data.statements.len())..] {
+			for (i, stmt) in data.statements.iter().enumerate().skip(from) {
 				match &stmt.kind {
 					mir::StatementKind::StorageDead(l) | mir::StatementKind::StorageLive(l) if *l == place.local => {
 						ended = true;
 						break;
 					}
-					mir::StatementKind::Assign(assign) if assigns(assign.0) => return true,
+					mir::StatementKind::Assign(assign)
+						if assigns(assign.0)
+							&& read_after(mir::Location {
+								block: bb,
+								statement_index: i,
+							}) =>
+					{
+						return true;
+					}
 					_ => {}
 				}
 			}
@@ -1936,16 +2001,15 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				..
 			} = &term.kind
 			{
-				if assigns(*destination) {
-					return true;
-				}
 				let rebound = func
 					.const_fn_def()
 					.map_or(0, |(def_id, _)| crate::lower::pointer::rebinds(tcx, def_id));
-				if args[..rebound]
-					.iter()
-					.filter_map(|a| a.node.place())
-					.any(|r| assigns(tcx.mk_place_deref(r)))
+				if (assigns(*destination)
+					|| args[..rebound]
+						.iter()
+						.filter_map(|a| a.node.place())
+						.any(|r| assigns(tcx.mk_place_deref(r))))
+					&& read_after(self.mir.terminator_loc(bb))
 				{
 					return true;
 				}

@@ -24,11 +24,11 @@ guard's drop unlocks it, `try_lock` while held gives `WouldBlock`, and a re-entr
 upgrades once the function returns. `rt.Atomic` holds a `bool` or an integer, and its
 operations check their orderings as std does. `rt.OnceCell` and `rt.OnceLock` hold
 their `Option<T>`, and a `OnceLock` initialized from within its own initialization panics as wasm32's does;
-their `Clone`, `Debug`, `PartialEq`, `get_mut`, and `get_or_try_init` are still refused.
+their `Clone`, `Debug`, `get_mut`, and `get_or_try_init` are still refused.
 `rt.Cell` is the place that holds its value. `rt.RefCell`, a `RefCell` or an `RwLock`,
 is its own guard and counts its borrows: a conflicting borrow panics, and a conflicting
-lock aborts, each with wasm32's message. Their `get_mut`, `into_inner`, `try_borrow`,
-`Ref::map`, and `Ref::clone` are still refused.
+lock aborts, each with wasm32's message. Their `Clone`, `get_mut`, `into_inner`,
+`try_borrow`, `Ref::map`, and `Ref::clone` are still refused.
 A `thread_local!` key is an `rt.LocalKey`, a module's value that makes its value on
 first use, as wasm32's `LazyStorage` does, and never drops it. A `static` atomic is a
 module's value too, an `rt.Atomic` of the value the static's memory starts with.

@@ -7,7 +7,8 @@ import { isSomeAnd$17cacqw, unwrapOr$0v6ziq2, unwrapOr$1tvry1i, map$0lq7mno, map
 import { ok$0whpnxs, err$0fnxqh3, asRef$01pd5k9, mapOr$1hlk3iq, mapOrElse$196aho3, andThen$0r804hk, unwrapOr$13024tg } from "./core/result.ts";
 import { scoped, discarded, iterated } from "./drops/closures.ts";
 import { folded as folds_folded, rfolded as folds_rfolded } from "./drops/folds.ts";
-import { looped, collected, drained, extended } from "./drops/iters.ts";
+import { inside as inside_inside } from "./drops/inside.ts";
+import { looped, collected, drained, extended, compared as iters_compared } from "./drops/iters.ts";
 import { boxed, shared, anys, fns } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Held from "./drops.Held.ts";
@@ -1247,8 +1248,8 @@ export function arcs(log: Log.Log, id: rt.u32): void {
 }
 
 /**
- * Run scenario `arg % 33` of what std's by-value consumers drop of adaptors that hold
- * closures that drop.
+ * Run scenario `arg % 42` of what std's by-value consumers drop of adaptors that hold
+ * closures that drop, and of zips of items that drop.
  */
 export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	folds_folded(log, id, arg);
@@ -1260,6 +1261,20 @@ export function folded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
  */
 export function rfolded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	folds_rfolded(log, id, arg);
+}
+
+/**
+ * Run scenario `arg % 10` of where std drops values inside its iterators and formatting.
+ * Three panic, each with std's message: in a `for_each`, a drain past the end, and a
+ * range that panics as `String`'s drop it.
+ */
+export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
+	inside_inside(log, id, arg);
+}
+
+/** Run scenario `arg % 9` of what std's comparisons of iterators drop. */
+export function compared(log: Log.Log, id: rt.u32, arg: rt.u8): void {
+	iters_compared(log, id, arg);
 }
 
 /**

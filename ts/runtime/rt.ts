@@ -8,8 +8,8 @@
 import type { Ordering } from "./rt/collections.ts";
 import type { ParseFloatError } from "./rt/float.ts";
 import { type char, type ParseCharError, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
-import type { Range, RangeInclusive } from "./rt/iter.ts";
-import { dropAll, type Pending } from "./rt/task.ts";
+import type { Iter, Range, RangeInclusive } from "./rt/iter.ts";
+import { drop as dispose, dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
 import { UNPRINTABLE } from "./rt/unicode.ts";
@@ -986,6 +986,32 @@ export function bytesFromFn(n: number, f: (i: number) => number): Uint8Array {
 	return out;
 }
 
+/** `<[T; N]>::map`: `f` of each element, called in order. */
+export function arrayMap<T, U>(a: ArrayLike<T>, f: (x: T) => U): U[] {
+	const out: U[] = [];
+	for (let i = 0; i < a.length; i++) out.push(f(a[i]));
+	return out;
+}
+
+/** `<[T; N]>::map` to bytes. */
+export function bytesMap<T>(a: ArrayLike<T>, f: (x: T) => number): Uint8Array {
+	const out = bytes(a.length);
+	for (let i = 0; i < a.length; i++) out[i] = f(a[i]);
+	return out;
+}
+
+/** `<[T; N]>::each_ref` and `each_mut` of elements lent as themselves. */
+export function arrayFrom<T>(a: ArrayLike<T>): T[] {
+	return Array.from(a);
+}
+
+/** `<[T; N]>::each_mut` of elements JS copies: the place of each. */
+export function arrayPlaces<T>(a: { [i: number]: T; length: number }): Place<T>[] {
+	const out: Place<T>[] = [];
+	for (let i = 0; i < a.length; i++) out.push(new AtIndex(a, i));
+	return out;
+}
+
 /** `Vec<u8>`: a growable byte buffer. */
 export class ByteVec {
 	/** The storage; only the first `length` bytes are the vector. */
@@ -1123,6 +1149,74 @@ export function byteVecDedupByMut(v: ByteVec, same: (a: Place<number>, b: Place<
 /** `Vec::dedup_by_key`, whose places `key` takes. */
 export function byteVecDedupByKeyMut<K>(v: ByteVec, key: (byte: Place<number>) => K, eq: (a: K, b: K) => boolean): void {
 	byteVecDedupByMut(v, (a, b) => eq(key(a), key(b)));
+}
+
+// Cows of slices. An owned one is its `Vec` and a borrowed one its slice, told apart by
+// class: a `Cow<[u8]>` is an `rt.ByteVec` or an `rt.ByteSlice`, and any other is an array
+// or the `rt.Borrowed` wrapping the array it borrows.
+
+/**
+ * The slice a `Cow<[T]>` borrows, which it clones before it changes. A `&mut` to the
+ * borrow writes `slice`, so no two `Cow`s share one.
+ */
+export class Borrowed<T> {
+	slice: T[];
+
+	constructor(slice: T[]) {
+		this.slice = slice;
+	}
+}
+
+/** `Cow<[T]>`: the `Vec` it owns, or the slice it borrows. */
+export type Cow<T> = T[] | Borrowed<T>;
+/** `Cow<[u8]>`: the `Vec<u8>` it owns, or the bytes it borrows. */
+export type ByteCow = ByteVec | ByteSlice;
+
+/** `Deref` of a `Cow<[T]>`: its slice. */
+export function cowSlice<T>(c: Cow<T>): T[] {
+	return c instanceof Borrowed ? c.slice : c;
+}
+
+/** `Deref` of a `Cow<[u8]>`: its bytes. */
+export function byteCowSlice(c: ByteCow): ByteSlice {
+	return c instanceof ByteVec ? byteVecSlice(c) : c;
+}
+
+/** `Cow::into_owned` of a `Cow<[T]>`: its `Vec`, or a clone of what it borrows, each item by `clone` if given. */
+export function cowIntoOwned<T>(c: Cow<T>, clone?: (item: T) => T): T[] {
+	if (!(c instanceof Borrowed)) return c;
+	return clone === undefined ? c.slice.slice() : c.slice.map(clone);
+}
+
+/** `Cow::into_owned` of a `Cow<[u8]>`. */
+export function byteCowIntoOwned(c: ByteCow): ByteVec {
+	return c instanceof ByteVec ? c : byteSliceToByteVec(c);
+}
+
+/** `Clone` of a `Cow<[T]>`: a borrow of the same slice, or a clone of its `Vec`. */
+export function cowClone<T>(c: Cow<T>, clone?: (item: T) => T): Cow<T> {
+	if (c instanceof Borrowed) return new Borrowed(c.slice);
+	return clone === undefined ? c.slice() : c.map(clone);
+}
+
+/** `Clone` of a `Cow<[u8]>`. */
+export function byteCowClone(c: ByteCow): ByteCow {
+	return c instanceof ByteVec ? byteSliceToByteVec(byteVecSlice(c)) : c;
+}
+
+/** Drop a `Cow<[T]>`: the items it owns, by `f` if given. */
+export function cowDrop<T>(c: Cow<T>, f?: (item: T) => void): void {
+	if (!(c instanceof Borrowed)) dropAll(c, f);
+}
+
+/** `f` of the slices two `Cow<[T]>`s deref to, as their `PartialEq` and `Ord` compare them. */
+export function cowBy<T, R>(f: (a: T[], b: T[]) => R): (a: Cow<T>, b: Cow<T>) => R {
+	return (a, b) => f(cowSlice(a), cowSlice(b));
+}
+
+/** `Hash::hash` of a `Cow<[T]>`: its slice's. */
+export function hashCow<T, S>(hash: (value: T[], s: S) => void): (value: Cow<T>, s: S) => void {
+	return (value, s) => hash(cowSlice(value), s);
 }
 
 // Strings
@@ -1545,9 +1639,13 @@ export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	return b;
 }
 
-/** `DebugList::entries`. */
-export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>): DebugList {
-	for (const item of items) debugListEntry(b, (f) => debug(item, f));
+/** `DebugList::entries`: each item written and then dropped by `drop`, and then `items` dropped, as std's `for` does. */
+export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>, drop?: (value: T) => void): DebugList {
+	for (const item of items) {
+		debugListEntry(b, (f) => debug(item, f));
+		drop?.(item);
+	}
+	dispose(items);
 	return b;
 }
 
@@ -1686,9 +1784,53 @@ export function fmtResult<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, r.ok ? "Ok" : "Err"), field));
 }
 
-/** `Debug` of a slice, array, or `Vec`. */
+/** `Debug` of a slice, array, `Vec`, `VecDeque`, or `BinaryHeap`. */
 export function fmtList<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
 	return debugListFinish(debugListEntries(fmtDebugList(f), items, debug));
+}
+
+/** `Debug` of a set: std's `DebugSet` is its `DebugList` in braces. */
+export function fmtSet<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	const b = debugListEntries({ fmt: f, result: f.out.writeStr("{"), hasFields: false }, items, debug);
+	if (b.result.ok) b.result = f.out.writeStr("}");
+	return b.result;
+}
+
+/** `Debug` of a map: a set of entries, each its key and value apart by `": "` in one indented field. */
+export function fmtMap<K, V>(entries: Iterable<[K, V]>, f: Formatter, key: Debug<K>, value: Debug<V>): FmtResult {
+	return fmtSet(entries, f, ([k, v], f) => {
+		let r = key(k, f);
+		if (r.ok) r = f.out.writeStr(": ");
+		return r.ok ? value(v, f) : r;
+	});
+}
+
+/** What one of std's iterators writes around its list: a tuple struct's name, or a struct's name and its one field's. */
+export type IterWrap = string | readonly [name: string, field: string];
+
+/** `Debug` of one of std's iterators: the items `it` has left, as a list inside `wraps`, outermost first. */
+export function fmtIter<T>(it: Iter<unknown>, f: Formatter, debug: Debug<T>, wraps: readonly IterWrap[] = []): FmtResult {
+	return wrapIn(f, wraps, (f) => fmtList(it.remaining() as Iterable<T>, f, debug));
+}
+
+function wrapIn(f: Formatter, wraps: readonly IterWrap[], inner: Fmt): FmtResult {
+	if (wraps.length === 0) return inner(f);
+	const [wrap, ...rest] = wraps;
+	const field: Fmt = (f) => wrapIn(f, rest, inner);
+	if (typeof wrap === "string") return fmtDebugTupleFields(f, wrap, [field]);
+	return fmtDebugStructFields(f, wrap[0], [wrap[1]], [field]);
+}
+
+/** `Debug` of `str::Chars`: its name around the list of chars it has left, which a field's indent would not be. */
+export function fmtChars(it: Iter<char>, f: Formatter): FmtResult {
+	let r = f.out.writeStr("Chars(");
+	if (r.ok) r = fmtList(it.remaining() as Iterable<char>, f, fmtCharDebug);
+	return r.ok ? f.out.writeStr(")") : r;
+}
+
+/** `Debug` of a key as a `BTreeSet`'s `range` and `into_iter` list it: its map's entry, the key and a `SetValZST`. */
+export function fmtSetVal<K>(debug: Debug<K>): Debug<K> {
+	return (key, f) => fmtTuple([(f) => debug(key, f), (f) => f.out.writeStr("SetValZST")], f);
 }
 
 /** `Debug` of a range: each bound present, written with the formatter's options, around `dots`, which none pads. */
@@ -1730,6 +1872,34 @@ export function fmtRangeToInclusive<T>(r: { end: T }, f: Formatter, debug: Debug
 /** `Debug` of `..`. */
 export function fmtRangeFull(_: undefined, f: Formatter): FmtResult {
 	return f.out.writeStr("..");
+}
+
+/** `Debug` of a `Bound`: its variant, around what it holds. */
+export function fmtBound<T>(b: RangeBound<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	if (b.tag === "Unbounded") return f.out.writeStr("Unbounded");
+	return fmtDebugTupleFields(f, b.tag, [(f) => debug(b._0, f)]);
+}
+
+/** `Debug` of an `Ordering`, unpadded. */
+export function fmtOrdering(o: Ordering, f: Formatter): FmtResult {
+	return f.out.writeStr(o < 0 ? "Less" : o > 0 ? "Greater" : "Equal");
+}
+
+/** `Debug` of a `ControlFlow` held as a `Result`, `Ok` to continue: `stop` writes what it breaks with, the `Err` itself with `residual`, as `?` breaks with it. */
+export function fmtControlFlow<C, B>(r: Result<C, B>, f: Formatter, go: Debug<C>, stop: Debug<B>): FmtResult;
+export function fmtControlFlow<C, E>(r: Result<C, E>, f: Formatter, go: Debug<C>, stop: Debug<Result<never, E>>, residual: true): FmtResult;
+export function fmtControlFlow<C, B>(r: Result<C, B>, f: Formatter, go: Debug<C>, stop: Debug<B> | Debug<Result<never, B>>, residual = false): FmtResult {
+	if (r.ok) return fmtDebugTupleFields(f, "Continue", [(f) => go(r.value, f)]);
+	const held: Fmt = residual ? (f) => (stop as Debug<Result<never, B>>)(r, f) : (f) => (stop as Debug<B>)(r.error, f);
+	return fmtDebugTupleFields(f, "Break", [held]);
+}
+
+/** `Debug` of a `ControlFlow` held as the `Option` `?` was applied to, which breaks with `None`. */
+export function fmtControlFlowOption<C>(o: C | undefined, f: Formatter, go: Debug<C>, stop: Debug<undefined>): FmtResult;
+export function fmtControlFlowOption<C>(o: C | None, f: Formatter, go: Debug<C>, stop: Debug<undefined>, none: None): FmtResult;
+export function fmtControlFlowOption<C>(o: C | undefined | None, f: Formatter, go: Debug<C>, stop: Debug<undefined>, none?: None): FmtResult {
+	if (o === none) return fmtDebugTupleFields(f, "Break", [(f) => stop(undefined, f)]);
+	return fmtDebugTupleFields(f, "Continue", [(f) => go(o as C, f)]);
 }
 
 /** `Debug` of a tuple, given each element's. */

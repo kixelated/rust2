@@ -199,6 +199,29 @@ const singlesParsed = [
 	`1${"0".repeat(60)}e-60`, `0.${"0".repeat(60)}1e61`, "1e65535", "1e-65536",
 ].map((text) => Uint8Array.of(singlesParsesOp, 0, ...new TextEncoder().encode(text)));
 
+/**
+ * `mul_adds`' operands at each width: signed zeros, a product that underflows to either
+ * zero, infinities and NaN, a product past the type's range whose sum is in it, subnormal
+ * sums and ties, products whose error alone survives, which rounding twice loses, and a
+ * product of half `c`'s last place, which only its error moves off a tie; then
+ * seeds for its sweeps.
+ */
+const mulAdds = (max: number, tiny: number, eps: number, op: number, bytes: (x: number) => number[]) => [
+	...[
+		[0, 1, -0], [-0, 1, -0], [0, -1, 0], [-0, -0, -0], [-0, 0, -0], [1, -1, 1], [-1, 1, 1],
+		[tiny, -(2 ** -30), 0], [tiny, 2 ** -30, -0], [-tiny, 2 ** -30, -0], [tiny, 0.5, 0], [tiny, 0.5, -0], [-tiny, 0.5, 0],
+		[tiny, 1.5, 0], [tiny, 0.5, tiny], [tiny, -0.5, tiny], [tiny, 2 ** 52, tiny],
+		[Infinity, 0, 1], [0, -Infinity, 1], [Infinity, 1, -Infinity], [Infinity, -1, -Infinity], [1, 1, Infinity], [max, 2, -Infinity], [max, -2, Infinity],
+		[NaN, 1, 1], [1, NaN, 1], [1, 1, NaN], [Infinity, 1, NaN],
+		[max, 2, -max], [max, -2, max], [max, 1 + eps, -max], [max, 1 + eps, 0], [max * 0.5, 2, max * eps * 0.25],
+		[1 + 2 ** -27, 1 - 2 ** -27, -1], [1 + eps, 1 + eps, -1], [1 + eps, 1 - eps, -1], [0.1, 10, -1], [3, 1 / 3, -1], [1 + eps, 1 + eps, -(1 + 2 * eps)],
+		[1 + 2 ** -12, 1 + 2 ** -12, tiny], [1 + 2 ** -12, 1 + 2 ** -12, -tiny], [1 + eps, 1 + eps / 2, 0], [eps / 2 + eps * eps / 2, 1 - eps / 2, 1], [eps / 2 + eps * eps / 2, 1 - eps / 2, -1],
+	].map((xs) => Uint8Array.of(op, 0, ...xs.flatMap(bytes))),
+	...Array.from({ length: 400 }, (_, i) => Uint8Array.of(op, 1, ...double(BigInt(i + 1) * 0x9e3779b97f4a7c15n & 0xffff_ffff_ffff_ffffn))),
+];
+const floatsMulAdds = mulAdds(Number.MAX_VALUE, 5e-324, 2 ** -52, op("floats::mul_adds"), double);
+const singlesMulAdds = mulAdds(3.4028234663852886e38, 2 ** -149, 2 ** -23, op("singles::mul_adds"), single);
+
 /** How many ULPs from native Rust's each float of `floats`' and `singles`' kind 7 may be, which Rust leaves to libm. */
 const ULPS = 2n;
 
@@ -497,8 +520,8 @@ const hints = Array.from({ length: 24 * 8 * 8 * 8 * 2 }, (_, i) => {
 
 /** `hints::reserves` of each collection and element type, each shape, length, and limit on what it reads. */
 const reservesOp = op("hints::reserves");
-const reserves = Array.from({ length: 13 * 5 * 5 * 4 * 5 }, (_, i) =>
-	Uint8Array.of(reservesOp, i % 65, Math.floor(i / 65) % 5, Math.floor(i / 325) % 4, Math.floor(i / 1300)),
+const reserves = Array.from({ length: 13 * 6 * 5 * 4 * 5 }, (_, i) =>
+	Uint8Array.of(reservesOp, i % 78, Math.floor(i / 78) % 5, Math.floor(i / 390) % 4, Math.floor(i / 1560)),
 );
 
 /**
@@ -517,4 +540,82 @@ const setOps = [
 	].map((data) => Uint8Array.of(setOpsOp, 3, ...data)),
 ];
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps];
+/** `zeros::zeros` of each case, on up to three bytes. */
+const zerosOp = op("zeros::zeros");
+const zeros = Array.from({ length: 7 * 4 }, (_, i) => Uint8Array.of(zerosOp, i % 7, ...Array.from({ length: Math.floor(i / 7) }, (_, b) => b)));
+
+/**
+ * `collections::unlike_eqs` of every pair of positions where `eq` and `ne` disagree and each
+ * length the right side may lose, over no items, one, two, a wrapped deque's four, and nine,
+ * whose positions are all within it.
+ */
+const unlikeEqsOp = op("collections::unlike_eqs");
+const unlikeEqs = [[], [5], [1, 2], [0, 7, 2, 9], [3, 3, 3, 3, 3, 3, 3, 3, 3]].flatMap((bytes) =>
+	Array.from({ length: 128 }, (_, kind) => Uint8Array.of(unlikeEqsOp, kind, ...bytes)),
+);
+
+/** `collections::own_nes` of the same positions, lengths, and items as `unlike_eqs`. */
+const ownNesOp = op("collections::own_nes");
+const ownNes = unlikeEqs.map((input) => Uint8Array.of(ownNesOp, ...input.subarray(1)));
+
+/** `collections::unlike_compares` of the same positions, lengths, and items as `unlike_eqs`. */
+const unlikeComparesOp = op("collections::unlike_compares");
+const unlikeCompares = unlikeEqs.map((input) => Uint8Array.of(unlikeComparesOp, ...input.subarray(1)));
+
+/**
+ * `iters::range_froms` of each case, each way its zips read the range, from each distance
+ * below its type's last value and from 250, on up to nine bytes: each length its zips
+ * panic at.
+ */
+const rangeFromsOp = op("iters::range_froms");
+const rangeFroms = Array.from({ length: 16 * 4 * 4 * 10 }, (_, i) => {
+	const kind = (i % 16) | ((Math.floor(i / 16) % 4) << 6);
+	const a = [0, 1, 3, 250][Math.floor(i / 64) % 4];
+	const data = Array.from({ length: Math.floor(i / 256) }, (_, j) => (j === 0 ? a : (j * 37) & 0xff));
+	return Uint8Array.of(rangeFromsOp, kind, ...data);
+});
+
+/** `iters::range_methods` of each type's table, at each pair of its first eight values. */
+const rangeMethodsOp = op("iters::range_methods");
+const rangeMethods = Array.from({ length: 19 * 64 }, (_, i) => Uint8Array.of(rangeMethodsOp, i % 19, Math.floor(i / 19) % 8, Math.floor(i / 152)));
+
+/**
+ * `iters::compares` of each comparison, shape, and pair, over no items, one, a run up to
+ * 255, which `start..` panics past and a sum overflows at, NaNs, and repeats.
+ */
+const comparesOp = op("iters::compares");
+const compares = [[], [5], [1, 2, 3], [250, 251, 252, 253, 254, 255], [0xff, 3, 0xff], [0, 1, 2, 3, 4, 5], [7, 7, 7, 7, 7, 7, 7, 7, 7]].flatMap((data) =>
+	Array.from({ length: 256 }, (_, kind) => Uint8Array.of(comparesOp, kind, ...data)),
+);
+
+/**
+ * `wraps::*` of every kind at every width, over operands at the edges of its range: 0, 1,
+ * either end, the sign bit's neighbors, which make `MIN / -1`, and at 128 bits values past
+ * 2^64. Shift amounts are at, past, and many times past the width, which std masks.
+ */
+function wraps(): Uint8Array[] {
+	const widths: [string, number][] = [["u8s", 8], ["u16s", 16], ["u32s", 32], ["u64s", 64], ["u128s", 128], ["usizes", 32], ["i8s", 8], ["i16s", 16], ["i32s", 32], ["i64s", 64], ["i128s", 128], ["isizes", 32]];
+	const cases: Uint8Array[] = [];
+	for (const [name, bits] of widths) {
+		const o = op(`wraps::${name}`);
+		const width = BigInt(bits);
+		const mask = (1n << width) - 1n;
+		const sign = 1n << (width - 1n);
+		const edges = [0n, 1n, 3n, mask, mask - 1n, sign, sign - 1n, sign + 1n];
+		if (bits === 128) edges.push(1n << 64n, (1n << 64n) + 3n, 0x9e3779b97f4a7c150123456789abcdefn);
+		const be = (v: bigint) => Array.from({ length: bits / 8 }, (_, i) => Number((v >> BigInt(bits - 8 - 8 * i)) & 0xffn));
+		// The amount's low byte and its high byte, which reads as `high << 24`.
+		const shifts = [[0, 0], [1, 0], [bits - 1, 0], [bits, 0], [bits + 1, 0], [2 * bits + 3, 0], [5, 1]];
+		let i = 0;
+		for (const a of edges) {
+			for (const b of edges) {
+				const c = edges[(i * 5 + 3) % edges.length];
+				const [low, high] = shifts[i++ % shifts.length];
+				for (let kind = 0; kind < 24; kind++) cases.push(Uint8Array.of(o, kind, ...be(a), ...be(b), ...be(c), low, high));
+			}
+		}
+	}
+	return cases;
+}
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods, ...wraps()];

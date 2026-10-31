@@ -3,9 +3,11 @@
 //! found through their translated `Hash` and `Eq` or ordered by their `Ord`. A hash
 //! map's iteration order is unspecified, so only what does not depend on it is written.
 
+use std::borrow::Cow;
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::num::Wrapping;
 use std::ops::Bound;
 
 use crate::generics::Wrap;
@@ -1171,4 +1173,618 @@ fn put_hints<'a, T: 'a>(mut items: impl Iterator<Item = &'a T>, read: usize, out
 fn put_sorted<T: Ord>(mut items: Vec<&T>, put: fn(&T) -> u8, out: &mut Vec<u8>) {
 	items.sort();
 	put_all(items.into_iter(), put, out);
+}
+
+/// An item that equals a `Right` of the same remainder by 4, but whose `ne` sees the
+/// remainder by 3, so what `!=` finds tells which std calls. Each call adds to the log,
+/// in order.
+struct Left<'a>(u16, &'a std::cell::Cell<u16>);
+
+struct Right(u16);
+
+impl Left<'_> {
+	fn log(&self, by: u16) {
+		self.1.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ by));
+	}
+}
+
+impl PartialEq<Right> for Left<'_> {
+	fn eq(&self, other: &Right) -> bool {
+		self.log(0x100);
+		self.0 % 4 == other.0 % 4
+	}
+
+	fn ne(&self, other: &Right) -> bool {
+		self.log(0x200);
+		self.0 % 3 != other.0 % 3
+	}
+}
+
+/// Against a reference, by the remainder by 5, which no reference's impl forwards to.
+impl PartialEq<&Right> for Left<'_> {
+	fn eq(&self, other: &&Right) -> bool {
+		self.log(0x800);
+		self.0 % 5 == other.0 % 5
+	}
+}
+
+/// Against a reference to another, by the remainder by 2.
+impl<'a> PartialEq<&Left<'a>> for Left<'_> {
+	fn eq(&self, other: &&Left<'a>) -> bool {
+		self.log(0x1000);
+		self.0 % 2 == other.0 % 2
+	}
+}
+
+/// An item only a reference to compares, by the crate's impl of two references, which
+/// std's of references would otherwise forward from.
+#[derive(PartialEq)]
+struct Odd(u16);
+
+/// Ordered only through references, by the remainder by 3, though `Odd`s are equal by
+/// value.
+impl PartialOrd for &Odd {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		(self.0 % 3).partial_cmp(&(other.0 % 3))
+	}
+}
+
+impl PartialEq<&Right> for &Odd {
+	fn eq(&self, other: &&Right) -> bool {
+		self.0 % 2 == other.0 % 2
+	}
+}
+
+/// The other way, by the remainder by 4, with `ne`'s default.
+impl<'a> PartialEq<Left<'a>> for Right {
+	fn eq(&self, other: &Left<'a>) -> bool {
+		other.log(0x400);
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+/// A byte against a `Right`, read from a typed array.
+impl PartialEq<Right> for u8 {
+	fn eq(&self, other: &Right) -> bool {
+		u16::from(*self) % 4 == other.0 % 4
+	}
+}
+
+/// A pair against a `Right` by its sum, which reads the array through the reference `eq`
+/// takes.
+impl PartialEq<Right> for [u8; 2] {
+	fn eq(&self, other: &Right) -> bool {
+		(u16::from(self[0]) + u16::from(self[1])) % 4 == other.0 % 4
+	}
+}
+
+/// A `Left` against a `Right` by the remainder by 4, as its `eq` finds them.
+impl PartialOrd<Right> for Left<'_> {
+	fn partial_cmp(&self, other: &Right) -> Option<std::cmp::Ordering> {
+		self.log(0x2000);
+		(self.0 % 4).partial_cmp(&(other.0 % 4))
+	}
+}
+
+/// A pair against a `Right` by its sum, as its `eq` finds them.
+impl PartialOrd<Right> for [u8; 2] {
+	fn partial_cmp(&self, other: &Right) -> Option<std::cmp::Ordering> {
+		((u16::from(self[0]) + u16::from(self[1])) % 4).partial_cmp(&(other.0 % 4))
+	}
+}
+
+/// A `Right` against each of `data`, with the same remainders by 3 and 4 but at the
+/// positions `kind` picks, where only `ne`'s or only `eq`'s is, and one fewer for bit 6.
+fn rights(kind: u8, data: &[u8]) -> Vec<Right> {
+	let (by_ne, by_eq) = (usize::from(kind & 7), usize::from(kind >> 3 & 7));
+	let step = |i: usize| match i {
+		_ if i == by_eq => 3,
+		_ if i == by_ne => 4,
+		_ => 12,
+	};
+	let mut rights: Vec<Right> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &b)| Right(u16::from(b) + step(i)))
+		.collect();
+	if kind & 0x40 != 0 {
+		rights.pop();
+	}
+	rights
+}
+
+/// Whether a comparison found its sides equal, then the log of the calls it made.
+fn put_eq(eq: bool, log: &std::cell::Cell<u16>, out: &mut Vec<u8>) {
+	out.push(eq as u8);
+	out.extend(log.replace(0).to_le_bytes());
+}
+
+/// `==` and `!=` of sequences whose items compare by their own `PartialEq<U>`, and of a
+/// `VecDeque` against each other sequence: of unequal lengths, empty, with items `eq` and
+/// `ne` disagree on at the positions `kind` picks, and a deque wrapped around its buffer.
+/// Then `next_if_eq` of such sequences, matching and missing.
+pub fn unlike_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let log = std::cell::Cell::new(0);
+	let lefts = || data.iter().map(|&b| Left(b.into(), &log)).collect::<Vec<_>>();
+	// Of the same remainders by 3 and 4 but where only `ne`'s or only `eq`'s is.
+	let mut rights = rights(kind, data);
+	let by_eq = usize::from(kind >> 3 & 7);
+	let at = |i: usize| u16::from(data.get(i).copied().unwrap_or(0));
+	let pair = || [Right(at(0) + 12), Right(at(1) + 12)];
+
+	let mut mine = lefts();
+	put_eq(mine == rights.as_slice(), &log, out);
+	put_eq(mine != rights, &log, out);
+	put_eq(mine[..] == rights[..], &log, out);
+	put_eq(rights == mine, &log, out);
+	put_eq(&mut mine[..] == rights, &log, out);
+	put_eq(mine == pair(), &log, out);
+	put_eq(mine == &pair(), &log, out);
+	put_eq(mine.as_slice() == pair(), &log, out);
+	let two = [Left(at(0), &log), Left(at(1), &log)];
+	put_eq(two == pair(), &log, out);
+	put_eq(two != pair(), &log, out);
+	put_eq(two == rights[..], &log, out);
+	put_eq(two == rights.as_slice(), &log, out);
+	put_eq(Vec::<Left>::new() == Vec::<Right>::new(), &log, out);
+	put_eq(Vec::<Left>::new() == rights, &log, out);
+	put_eq(mine == [] as [Right; 0], &log, out);
+	put_eq(data.to_vec() == rights, &log, out);
+	put_eq(data == rights.as_slice(), &log, out);
+	let pairs: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+	put_eq(pairs[..] == rights[..pairs.len().min(rights.len())], &log, out);
+	put_eq(vec![lefts(), lefts()] == [rights.as_slice(), &rights[..]], &log, out);
+	// By the impls against references, and through references of both, by `Right`'s.
+	let refs: Vec<&Right> = rights.iter().collect();
+	put_eq(mine == refs, &log, out);
+	put_eq(mine.iter().collect::<Vec<_>>() == refs, &log, out);
+	let others = lefts();
+	put_eq(mine == others.iter().collect::<Vec<_>>(), &log, out);
+	let odds: Vec<Odd> = data.iter().map(|&b| Odd(b.into())).collect();
+	put_eq(odds.iter().collect::<Vec<_>>() == refs, &log, out);
+
+	// Wrapped around: the first half pushed to the front backwards, the rest to the back.
+	let half = data.len() / 2;
+	let mut q = std::collections::VecDeque::new();
+	for &b in data[..half].iter().rev() {
+		q.push_front(Left(b.into(), &log));
+	}
+	for &b in &data[half..] {
+		q.push_back(Left(b.into(), &log));
+	}
+	put_eq(q == rights.as_slice(), &log, out);
+	put_eq(q == rights, &log, out);
+	put_eq(q != rights.as_slice(), &log, out);
+	put_eq(q == &mut rights[..], &log, out);
+	put_eq(q == pair(), &log, out);
+	put_eq(q == &pair(), &log, out);
+	put_eq(q == &mut pair(), &log, out);
+	let mut bytes = std::collections::VecDeque::new();
+	for &b in data[..half].iter().rev() {
+		bytes.push_front(b);
+	}
+	bytes.extend(&data[half..]);
+	let stepped: Vec<u8> = data.iter().enumerate().map(|(i, &b)| b ^ (i == by_eq) as u8).collect();
+	put_eq(bytes == stepped, &log, out);
+	put_eq(bytes == data, &log, out);
+	put_eq(bytes == [data.first().copied().unwrap_or(0), 0], &log, out);
+	let wide: std::collections::VecDeque<u16> = bytes.iter().map(|&b| u16::from(b)).collect();
+	let mut wrapped = std::collections::VecDeque::new();
+	for &b in stepped.iter().rev() {
+		wrapped.push_front(u16::from(b));
+	}
+	put_eq(wide == wrapped, &log, out);
+	put_eq(vec![wide.clone()] == [wrapped], &log, out);
+
+	let mut it = vec![lefts(), lefts(), lefts()].into_iter().peekable();
+	let exact: Vec<Right> = data.iter().map(|&b| Right(b.into())).collect();
+	put_eq(it.next_if_eq(exact.as_slice()).is_some(), &log, out);
+	put_eq(it.next_if_eq(&rights.as_slice()).is_some(), &log, out);
+	put_eq(it.next_if_eq(&exact[..half]).is_some(), &log, out);
+	out.push(it.count() as u8);
+	let mut it = vec![bytes.clone(), bytes].into_iter().peekable();
+	put_eq(it.next_if_eq(&data.to_vec()).is_some(), &log, out);
+	put_eq(it.next_if_eq(&stepped).is_some(), &log, out);
+	out.push(it.count() as u8);
+}
+
+/// `v` in a deque wrapped around its buffer: the first half pushed to the front backwards,
+/// the rest to the back.
+fn wrapped<T: Clone>(v: &[T]) -> VecDeque<T> {
+	let half = v.len() / 2;
+	let mut q = VecDeque::new();
+	for item in v[..half].iter().rev() {
+		q.push_front(item.clone());
+	}
+	q.extend(v[half..].iter().cloned());
+	q
+}
+
+/// `f` of each of `v`.
+fn each<T, U>(v: &[T], f: impl Fn(&T) -> U) -> Vec<U> {
+	v.iter().map(f).collect()
+}
+
+/// An item whose `ne` sees the remainder by 3 where its `eq` sees it by 4, so what `==` and
+/// `!=` find tells which std calls. Each call adds to the log, in order.
+#[derive(Clone)]
+struct Picky<'a>(u16, &'a std::cell::Cell<u16>);
+
+impl Picky<'_> {
+	fn log(&self, other: &Self, by: u16) {
+		self.1
+			.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ other.0 << 4 ^ by));
+	}
+}
+
+impl PartialEq for Picky<'_> {
+	fn eq(&self, other: &Self) -> bool {
+		self.log(other, 0x100);
+		self.0 % 4 == other.0 % 4
+	}
+
+	fn ne(&self, other: &Self) -> bool {
+		self.log(other, 0x200);
+		self.0 % 3 != other.0 % 3
+	}
+}
+
+/// Which an `Arc` or an `Rc` of one finds equal to itself before comparing.
+impl Eq for Picky<'_> {}
+
+/// `==` and `!=` of what holds a `Picky`, whose `ne` std's of tuples, `Arc`s, `Rc`s, and
+/// `Box`es call, and std's `==` of slices and `Cow`s of them calls of each item, but which
+/// an `Option`'s, a `Reverse`'s, and a `Wrapping`'s `ne`, as `!eq`, does not: of unequal
+/// lengths, empty, nested, and with items `eq` and `ne` disagree on at the positions
+/// `kind` picks.
+pub fn own_nes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::rc::Rc;
+	use std::sync::Arc;
+
+	let log = std::cell::Cell::new(0);
+	let (by_ne, by_eq) = (usize::from(kind & 7), usize::from(kind >> 3 & 7));
+	let step = |i: usize| match i {
+		_ if i == by_eq => 3,
+		_ if i == by_ne => 4,
+		_ => 12,
+	};
+	let a: Vec<Picky> = data.iter().map(|&x| Picky(x.into(), &log)).collect();
+	let mut b: Vec<Picky> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &x)| Picky(u16::from(x) + step(i), &log))
+		.collect();
+	if kind & 0x40 != 0 {
+		b.pop();
+	}
+	let at = |v: &[Picky<'_>], i: usize| v.get(i).map_or(0, |p| p.0);
+	let one = |v: &[Picky<'_>], i: usize| Picky(at(v, i), &log);
+
+	put_eq(a == b, &log, out);
+	put_eq(a != b, &log, out);
+	put_eq(a[..] == b[..], &log, out);
+	put_eq(&a[..] != &b[..], &log, out);
+	put_eq(Vec::<Picky>::new() == Vec::new(), &log, out);
+	put_eq(Vec::<Picky>::new() != b, &log, out);
+	let (pa, pb) = ([one(&a, 0), one(&a, 1)], [one(&b, 0), one(&b, 1)]);
+	put_eq(pa == pb, &log, out);
+	put_eq(pa != pb, &log, out);
+	put_eq(pa == b[..], &log, out);
+	put_eq(vec![a.clone(), a.clone()] == [a.clone(), b.clone()], &log, out);
+	put_eq(vec![a.clone(), b.clone()] != [a.clone(), a.clone()], &log, out);
+
+	// A tuple's `!=` stops at the first field whose `ne` finds it unequal.
+	let tuple = |v: &[Picky<'_>]| (one(v, 0), at(v, 2) as u8, one(v, 1));
+	put_eq(tuple(&a) != tuple(&b), &log, out);
+	put_eq(tuple(&a) == tuple(&b), &log, out);
+	put_eq((tuple(&a), 1u8) != (tuple(&b), 1u8), &log, out);
+	put_eq(
+		each(&a, |p| (p.clone(), p.0 as u8)) == each(&b, |p| (p.clone(), p.0 as u8)),
+		&log,
+		out,
+	);
+	put_eq(
+		&each(&a, |p| (p.clone(), p.0 as u8))[..] != &each(&b, |p| (p.clone(), p.0 as u8))[..],
+		&log,
+		out,
+	);
+	put_eq((Some(one(&a, 0)),) != (Some(one(&b, 0)),), &log, out);
+	put_eq((Reverse(one(&a, 0)),) != (Reverse(one(&b, 0)),), &log, out);
+	put_eq((Box::new(one(&a, 0)),) != (Box::new(one(&b, 0)),), &log, out);
+	put_eq((&one(&a, 0),) != (&one(&b, 0),), &log, out);
+	put_eq(
+		each(&a, |p| Some(p.clone())) == each(&b, |p| Some(p.clone())),
+		&log,
+		out,
+	);
+	put_eq(
+		each(&a, |p| Reverse(p.clone())) == each(&b, |p| Reverse(p.clone())),
+		&log,
+		out,
+	);
+	put_eq(
+		each(&a, |p| Box::new(p.clone())) == each(&b, |p| Box::new(p.clone())),
+		&log,
+		out,
+	);
+
+	// An `Arc` of an `Eq` finds itself equal without comparing; of a tuple with a float,
+	// which is no `Eq`, it compares even itself.
+	let arc = Arc::new(one(&a, 0));
+	put_eq(arc != arc.clone(), &log, out);
+	put_eq(arc == arc.clone(), &log, out);
+	put_eq(Arc::new(one(&a, 0)) != Arc::new(one(&b, 0)), &log, out);
+	let floated = Arc::new((one(&a, 0), 0.5f32));
+	put_eq(floated != floated.clone(), &log, out);
+	put_eq(floated != Arc::new((one(&b, 0), 0.5)), &log, out);
+	put_eq(Rc::new(one(&a, 1)) != Rc::new(one(&b, 1)), &log, out);
+	let shared = each(&a, |p| Arc::new(p.clone()));
+	put_eq(shared == shared.clone(), &log, out);
+	put_eq(shared == each(&b, |p| Arc::new(p.clone())), &log, out);
+	put_eq((arc.clone(), 0u8) != (Arc::new(one(&b, 0)), 0u8), &log, out);
+
+	put_eq(wrapped(&a) == wrapped(&b), &log, out);
+	put_eq(wrapped(&a) != wrapped(&b), &log, out);
+	put_eq(wrapped(&a) == b, &log, out);
+	put_eq(wrapped(&a) == &b[..], &log, out);
+
+	// A `Wrapping`'s `ne` is `!eq`, and a `Cow<[T]>`, borrowed or owned, compares as its
+	// slice, whose `==` and `!=` call each item's `ne`, against a `Cow`, a slice, a `Vec`,
+	// and an array.
+	put_eq((Wrapping(one(&a, 0)),) != (Wrapping(one(&b, 0)),), &log, out);
+	put_eq(Wrapping(one(&a, 1)) == Wrapping(one(&b, 1)), &log, out);
+	let (ca, cb) = (Cow::Borrowed(&a[..]), Cow::<[Picky]>::Owned(b.clone()));
+	put_eq(ca == cb, &log, out);
+	put_eq(ca != cb, &log, out);
+	put_eq(ca == &b[..], &log, out);
+	put_eq(cb != a, &log, out);
+	put_eq(b == ca, &log, out);
+	put_eq(&a[..] != cb, &log, out);
+	put_eq(*cb == pa, &log, out);
+	let owned: Vec<Cow<'_, [Picky]>> = each(&a, |p| Cow::Owned(vec![p.clone()]));
+	let borrowed: Vec<Cow<'_, [Picky]>> = b.chunks(1).map(Cow::Borrowed).collect();
+	put_eq(owned != borrowed, &log, out);
+}
+
+/// An item whose `ne` and `PartialOrd`'s tests see other remainders than its `eq` and
+/// `partial_cmp`, and whose `cmp` yet another, so what each comparison finds tells which
+/// std calls. Each call adds to the log, in order.
+#[derive(Clone, Copy)]
+struct Quirky<'a>(u16, &'a std::cell::Cell<u16>);
+
+impl Quirky<'_> {
+	fn log(&self, other: &Self, by: u16) {
+		self.1
+			.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ other.0 << 4 ^ by));
+	}
+}
+
+impl PartialEq for Quirky<'_> {
+	fn eq(&self, other: &Self) -> bool {
+		self.log(other, 0x100);
+		self.0 % 4 == other.0 % 4
+	}
+
+	fn ne(&self, other: &Self) -> bool {
+		self.log(other, 0x200);
+		self.0 % 3 != other.0 % 3
+	}
+}
+
+impl Eq for Quirky<'_> {}
+
+/// Unordered where either is a multiple of 7.
+impl PartialOrd for Quirky<'_> {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		self.log(other, 0x300);
+		(self.0 % 7 != 0 && other.0 % 7 != 0).then(|| (self.0 % 5).cmp(&(other.0 % 5)))
+	}
+
+	fn lt(&self, other: &Self) -> bool {
+		self.log(other, 0x400);
+		self.0 % 6 < other.0 % 6
+	}
+
+	fn le(&self, other: &Self) -> bool {
+		self.log(other, 0x500);
+		self.0 % 6 <= other.0 % 6
+	}
+
+	fn gt(&self, other: &Self) -> bool {
+		self.log(other, 0x600);
+		self.0 % 6 > other.0 % 6
+	}
+
+	fn ge(&self, other: &Self) -> bool {
+		self.log(other, 0x700);
+		self.0 % 6 >= other.0 % 6
+	}
+}
+
+impl Ord for Quirky<'_> {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.log(other, 0x800);
+		(self.0 % 8).cmp(&(other.0 % 8))
+	}
+}
+
+fn put_order(order: Option<Ordering>, log: &std::cell::Cell<u16>, out: &mut Vec<u8>) {
+	out.push(order.map_or(9, |o| o as i8 as u8));
+	out.extend(log.replace(0).to_le_bytes());
+}
+
+/// Each of `PartialEq`'s, `PartialOrd`'s, and `Ord`'s comparisons of `$a` and `$b`.
+macro_rules! compared {
+	($a:expr, $b:expr, $log:expr, $out:expr) => {{
+		put_eq($a == $b, $log, $out);
+		put_eq($a != $b, $log, $out);
+		put_eq($a < $b, $log, $out);
+		put_eq($a <= $b, $log, $out);
+		put_eq($a > $b, $log, $out);
+		put_eq($a >= $b, $log, $out);
+		put_order($a.partial_cmp(&$b), $log, $out);
+		put_order(Some($a.cmp(&$b)), $log, $out);
+	}};
+}
+
+/// Comparisons of `Cell`s and `RefCell`s, which compare what they hold by its `eq`, its
+/// tests, its `partial_cmp`, and its `cmp`, and whose `ne` is `!eq`, and `==` of one-time
+/// cells: of a `Quirky`, numbers, and `Option`s, nested, held by what compares by `ne`, as
+/// B-tree keys, and a `RefCell` against itself. Then, as `kind` picks, a `RefCell` compared
+/// while mutably borrowed, which panics, or held by an `Arc` that finds itself equal first.
+pub fn cell_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::cell::{Cell, OnceCell, RefCell};
+	use std::sync::{Arc, OnceLock};
+
+	let log = Cell::new(0);
+	let at = |i: usize| u16::from(data.get(i).copied().unwrap_or(0));
+	let (x, y) = (Quirky(at(0), &log), Quirky(at(1), &log));
+	let maybe = |i: usize| (at(i) % 3 != 0).then_some(at(i) as u8);
+
+	let (ca, cb) = (Cell::new(x), Cell::new(y));
+	compared!(ca, cb, &log, out);
+	let (ra, rb) = (RefCell::new(x), RefCell::new(y));
+	compared!(ra, rb, &log, out);
+	compared!(ra, ra, &log, out);
+	let (na, nb) = (Cell::new(at(0) as u8), Cell::new(at(1) as u8));
+	compared!(na, nb, &log, out);
+	let (oa, ob) = (Cell::new(maybe(0)), Cell::new(maybe(1)));
+	compared!(oa, ob, &log, out);
+	let (sa, sb) = (RefCell::new(at(0).to_string()), RefCell::new(at(1).to_string()));
+	compared!(sa, sb, &log, out);
+
+	// Nested, and against itself while a shared borrow is held.
+	let (rra, rrb) = (RefCell::new(RefCell::new(x)), RefCell::new(RefCell::new(y)));
+	{
+		let held = rra.borrow();
+		let _inner = held.borrow();
+		compared!(rra, rrb, &log, out);
+		compared!(rra, rra, &log, out);
+	}
+	let (rca, rcb) = (RefCell::new(Cell::new(x)), RefCell::new(Cell::new(y)));
+	compared!(rca, rcb, &log, out);
+	compared!(Some(Cell::new(x)), Some(Cell::new(y)), &log, out);
+	compared!((RefCell::new(x), x), (RefCell::new(y), y), &log, out);
+
+	// A slice compares its items by `!=`, which a cell's is `!eq` of, but which a slice's
+	// within a cell is still the items' own `ne`.
+	let (va, vb) = (vec![x, y, x], vec![y, y, x]);
+	put_eq(RefCell::new(va.clone()) == RefCell::new(vb.clone()), &log, out);
+	put_eq(Cell::new(&va[..]) != Cell::new(&vb[..]), &log, out);
+	put_eq(each(&va, |&p| Cell::new(p)) == each(&vb, |&p| Cell::new(p)), &log, out);
+	put_eq(
+		each(&va, |&p| RefCell::new(p)) != each(&vb, |&p| RefCell::new(p)),
+		&log,
+		out,
+	);
+	put_eq(
+		(Cell::new(x), RefCell::new(y)) != (Cell::new(y), RefCell::new(x)),
+		&log,
+		out,
+	);
+	put_eq(Arc::new(RefCell::new(x)) != Arc::new(RefCell::new(y)), &log, out);
+
+	// `Ord`'s defaults, by the cells' `lt` and `le`.
+	put_eq(Cell::new(x).max(Cell::new(y)).get().0 == x.0, &log, out);
+	put_eq(RefCell::new(x).min(RefCell::new(y)).borrow().0 == x.0, &log, out);
+	// Within bounds that `le` finds in order, which `clamp` asserts.
+	let (lo, hi) = if x.0 % 6 <= y.0 % 6 { (x, y) } else { (y, x) };
+	let clamped = Cell::new(Quirky(at(2), &log)).clamp(Cell::new(lo), Cell::new(hi));
+	out.push(clamped.get().0 as u8);
+	out.extend(log.replace(0).to_le_bytes());
+
+	// One-time cells, empty or set, by their `Option`'s `eq`, whose `ne` is `!eq`.
+	let once = |i: usize, v| {
+		let cell = OnceCell::new();
+		if at(i) % 4 != 0 {
+			_ = cell.set(v);
+		}
+		cell
+	};
+	put_eq(once(2, x) == once(3, y), &log, out);
+	put_eq(once(2, x) != once(3, y), &log, out);
+	put_eq(OnceCell::from(maybe(0)) == OnceCell::from(maybe(1)), &log, out);
+	let lock = |i: usize, v| {
+		let lock = OnceLock::new();
+		if at(i) % 4 != 1 {
+			_ = lock.set(v);
+		}
+		lock
+	};
+	put_eq(lock(2, x) != lock(3, y), &log, out);
+	put_eq(
+		OnceCell::from(RefCell::new(x)) != OnceCell::from(RefCell::new(y)),
+		&log,
+		out,
+	);
+
+	// As keys, ordered by what they hold.
+	let set: BTreeSet<Cell<u8>> = data.iter().map(|&v| Cell::new(v % 8)).collect();
+	out.push(set.len() as u8);
+	out.push(set.contains(&Cell::new(at(0) as u8 % 8)) as u8);
+	out.extend(set.iter().map(|c| c.get()));
+	let map: BTreeMap<RefCell<u8>, usize> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &v)| (RefCell::new(v % 8), i))
+		.collect();
+	out.push(map.get(&RefCell::new(at(1) as u8 % 8)).map_or(0xff, |&i| i as u8));
+
+	// What each compared left borrowed is released.
+	*ra.borrow_mut() = y;
+	*rra.borrow_mut().borrow_mut() = x;
+	compared!(ra, *rra.borrow(), &log, out);
+
+	let shared = Arc::new(RefCell::new(x));
+	let _mutable = match kind % 6 {
+		0 => return,
+		1 => ra.borrow_mut(),
+		2 => rb.borrow_mut(),
+		_ => shared.borrow_mut(),
+	};
+	match kind % 6 {
+		1 => put_eq(ra == rb, &log, out),
+		2 => put_eq(ra < rb, &log, out),
+		3 => put_eq(shared == shared.clone(), &log, out),
+		4 => put_eq(shared != Arc::new(RefCell::new(y)), &log, out),
+		_ => put_order(shared.partial_cmp(&shared.clone()), &log, out),
+	}
+	// Nested, with only the inner mutably borrowed.
+	let held = rra.borrow();
+	let _inner = held.borrow_mut();
+	put_eq(rra == rrb, &log, out);
+}
+
+/// std's comparisons of iterators of items that compare by their own `PartialEq<U>` and
+/// `PartialOrd<U>`: `eq` by `eq`, never `ne`, and `ne` as `!eq`, through references by
+/// what they point at, against a reference by the impl against it, and of byte arrays,
+/// both by value and through references.
+pub fn unlike_compares(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let log = std::cell::Cell::new(0);
+	let lefts = || data.iter().map(|&b| Left(b.into(), &log)).collect::<Vec<_>>();
+	let rights = || rights(kind, data);
+	let order = |o: Option<std::cmp::Ordering>, log: &std::cell::Cell<u16>, out: &mut Vec<u8>| {
+		out.push(o.map_or(9, |o| o as u8));
+		out.extend(log.replace(0).to_le_bytes());
+	};
+	let (mine, theirs) = (lefts(), rights());
+	let refs: Vec<&Right> = theirs.iter().collect();
+	put_eq(mine.iter().eq(&theirs), &log, out);
+	put_eq(mine.iter().ne(theirs.iter()), &log, out);
+	put_eq(lefts().into_iter().eq(rights()), &log, out);
+	put_eq(lefts().into_iter().eq(refs.iter().copied()), &log, out);
+	put_eq(lefts().into_iter().ne(mine.iter()), &log, out);
+	let odds: Vec<Odd> = data.iter().map(|&b| Odd(b.into())).collect();
+	put_eq(odds.iter().eq(refs.iter().copied()), &log, out);
+	order(odds.iter().partial_cmp(odds.iter().rev()), &log, out);
+	put_eq(data.iter().copied().eq(rights()), &log, out);
+	let pairs: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+	put_eq(pairs.iter().copied().eq(rights()), &log, out);
+	put_eq(pairs.iter().eq(&theirs), &log, out);
+	order(mine.iter().partial_cmp(&theirs), &log, out);
+	order(lefts().into_iter().partial_cmp(rights()), &log, out);
+	put_eq(lefts().into_iter().lt(rights()), &log, out);
+	put_eq(mine.iter().ge(theirs.iter()), &log, out);
+	order(pairs.iter().copied().partial_cmp(rights()), &log, out);
+	order(pairs.iter().partial_cmp(theirs.iter()), &log, out);
 }
