@@ -301,9 +301,10 @@ number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` do
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
 `Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
-so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
-bytes and then their length, and compare and hash alike whatever their form, so a map of
-`Vec<u8>` finds a `&[u8]`. Slices, arrays, `Vec`s, and `VecDeque`s compare against each
+so a map of `Arc<str>` finds a `&str`, and arrays, slices, and vectors, of bytes or of
+other elements, order by their elements and then their length, and compare and hash alike
+whatever their form, so a map of `Vec<u8>` finds a `&[u8]` and one of `[u16; 2]` a `&[u16]`.
+Slices, arrays, `Vec`s, and `VecDeque`s compare against each
 other as std's do, by their lengths and then each pair of items in order, through the
 items' own `PartialEq<U>`, and its `ne` where the crate overrides it. A collection's reference to a byte array it holds, as `keys`,
 `HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a

@@ -181,14 +181,17 @@ pub fn call<'tcx>(
 			*at = Expr::rt("byteSliceView", vec![std::mem::replace(at, Expr::undefined())]);
 		}
 	}
-	// Bytes of any form hash and compare alike, so each finds the others.
-	let alike = |key: Ty<'tcx>, by: Ty<'tcx>| same_key(b, key, by) || (bytes(b, peel(b, key)) && bytes(b, peel(b, by)));
+	// Elements of any form, an array, a slice, or a `Vec`, hash and compare alike, so each
+	// finds the others. A reference key finds what it points at by that value's own impls,
+	// whatever `alike` makes of its `PartialEq` against a reference.
 	if let Some(by) = by
-		&& !alike(arg(coll, 0), by)
+		&& let key = arg(coll, 0)
+		&& !same_key(b, key, by)
+		&& !alike(b, key, by)
 	{
 		// An `Arc`'s `Hash`, `Eq`, and `Ord` are its value's, so the value it is looked up by
 		// stands in as an `Arc` of it, which the collection only compares.
-		let arc = arc_of(b, peel(b, arg(coll, 0))).is_some_and(|inner| same_key(b, inner, by));
+		let arc = arc_of(b, peel(b, key)).is_some_and(|inner| same_key(b, inner, by));
 		match args.get_mut(1) {
 			Some(key) if arc && !matches!(name, "range" | "range_mut") => {
 				let value = std::mem::replace(key, Expr::undefined());

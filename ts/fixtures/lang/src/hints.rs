@@ -400,10 +400,11 @@ pub fn reserves(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			},
 			out,
 		),
+		// Over 1024 bytes, which a `Vec` grows by as few as one of.
 		_ => typed(
 			kind,
 			data,
-			|i| Big([i; 275]),
+			|i| [i; 275],
 			Most {
 				vec: 1_952_257,
 				pairs: 1_945_184,
@@ -414,10 +415,6 @@ pub fn reserves(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		),
 	}
 }
-
-/// Over 1024 bytes, which a `Vec` grows by as few as one of.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct Big([u32; 275]);
 
 /// Zero-sized, whose derived `clone` assigns nothing.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
