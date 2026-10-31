@@ -149,6 +149,7 @@ const VERBATIM: &[&str] = &[
 	"Debug",
 	"Display",
 	"Drop",
+	"Extend",
 	"From",
 	"From::from",
 	"Hash::hash_slice",
