@@ -3,6 +3,8 @@
 //! Translated items and class fields are referenced by id, and named once every item
 //! is known, since a later item can force a rename.
 
+use std::collections::HashSet;
+
 /// A translated item: a function, struct, or type alias.
 pub type SymId = usize;
 
@@ -378,6 +380,120 @@ impl Expr {
 				c.syms_mut(f);
 			}
 			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		}
+	}
+}
+
+/// Mark `_name` each parameter that `body` never names, as `noUnusedParameters` wants,
+/// and those of each function `body` makes: decided from the output, whatever reads
+/// lowering left out.
+pub fn mark_unread(params: &mut [Param], body: &mut [Stmt]) {
+	let mut names = HashSet::new();
+	stmts_names(body, &mut names);
+	mark_params(params, &names);
+}
+
+/// Mark the parameters of `params` that no name in `names` is, with a name no other is.
+fn mark_params(params: &mut [Param], names: &HashSet<String>) {
+	let mut taken: HashSet<String> = names.iter().chain(params.iter().map(|p| &p.name)).cloned().collect();
+	for param in params {
+		if !param.name.starts_with('_') && !names.contains(&param.name) {
+			param.name = crate::program::unique(&mut taken, &format!("_{}", param.name));
+		}
+	}
+}
+
+/// Mark the parameters of a function whose body names `inner`, adding its names to
+/// `names`, those of what holds it.
+fn mark_inner(params: &mut [Param], inner: HashSet<String>, names: &mut HashSet<String>) {
+	mark_params(params, &inner);
+	names.extend(inner.into_iter().chain(params.iter().map(|p| p.name.clone())));
+}
+
+/// Every name `stmts` bind or read, marking the parameters of each function they make.
+fn stmts_names(stmts: &mut [Stmt], names: &mut HashSet<String>) {
+	for stmt in stmts {
+		match &mut stmt.kind {
+			StmtKind::Expr(e) | StmtKind::Return(Some(e)) => e.names(names),
+			StmtKind::Decl { name, init, .. } => {
+				names.insert(name.clone());
+				init.iter_mut().for_each(|e| e.names(names));
+			}
+			StmtKind::Declare { name, .. } => {
+				names.insert(name.clone());
+			}
+			StmtKind::If { cond, then, els } => {
+				cond.names(names);
+				stmts_names(then, names);
+				stmts_names(els, names);
+			}
+			StmtKind::While { cond: e, body, .. } => {
+				e.names(names);
+				stmts_names(body, names);
+			}
+			StmtKind::ForOf { name, iter, body, .. } => {
+				names.insert(name.clone());
+				iter.names(names);
+				stmts_names(body, names);
+			}
+			StmtKind::Block { body, .. } => stmts_names(body, names),
+			StmtKind::Switch {
+				disc, cases, default, ..
+			} => {
+				disc.names(names);
+				for (case, body) in cases {
+					case.names(names);
+					stmts_names(body, names);
+				}
+				stmts_names(default, names);
+			}
+			StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
+		}
+	}
+}
+
+impl Expr {
+	/// Mark the unread parameters of each function this makes, as [`mark_unread`] does.
+	pub fn mark_unread(&mut self) {
+		self.names(&mut HashSet::new());
+	}
+
+	/// Every name the expression binds or reads, marking the parameters of each function
+	/// it makes.
+	fn names(&mut self, names: &mut HashSet<String>) {
+		match self {
+			Expr::Ident(name) => {
+				names.insert(name.clone());
+			}
+			Expr::Arrow(params, _, body) => {
+				let mut inner = HashSet::new();
+				stmts_names(body, &mut inner);
+				mark_inner(params, inner, names);
+			}
+			Expr::Lambda(params, body) => {
+				let mut inner = HashSet::new();
+				body.names(&mut inner);
+				mark_inner(params, inner, names);
+			}
+			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Postfix(e, _) | Expr::As(e, _) | Expr::Located(_, e) => {
+				e.names(names)
+			}
+			Expr::Array(es) => es.iter_mut().for_each(|e| e.names(names)),
+			Expr::Object(props) => props.iter_mut().for_each(|(_, e)| e.names(names)),
+			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
+				a.names(names);
+				b.names(names);
+			}
+			Expr::Call(callee, args) | Expr::New(callee, args) => {
+				callee.names(names);
+				args.iter_mut().for_each(|e| e.names(names));
+			}
+			Expr::Cond(a, b, c) => {
+				a.names(names);
+				b.names(names);
+				c.names(names);
+			}
+			Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		}
 	}
 }

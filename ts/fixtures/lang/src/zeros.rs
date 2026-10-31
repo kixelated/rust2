@@ -2,12 +2,15 @@
 //! arrays and arrays of zero-sized elements, structs of zero-sized fields, enums of one
 //! variant, `PhantomData`, closures that capture nothing, and std's iterators made of
 //! them, as results, as values, in collections, and as they drop; and std's impls of its
-//! own, as `#[derive]` calls them on a field, and of `()` as a key and a collected item.
+//! own, as `#[derive]` calls them on a field, and of `()` as a key and a collected item;
+//! and parameters whose every read lowers to nothing.
 
+use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::iter::Empty;
 use std::marker::{PhantomData, PhantomPinned};
+use std::mem::MaybeUninit;
 use std::ops::RangeFull;
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
 
@@ -347,6 +350,85 @@ pub fn keys(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				Ok(()) => 0,
 				Err(b) => b,
 			});
+		}
+	}
+}
+
+/// A one-time cell as crossbeam-epoch's is, whose drop drops its value only once set:
+/// nothing, of a value that drops nothing.
+struct Lock<T> {
+	set: bool,
+	value: UnsafeCell<MaybeUninit<T>>,
+}
+
+impl<T> Lock<T> {
+	fn new(value: Option<T>) -> Self {
+		let set = value.is_some();
+		let value = match value {
+			Some(v) => MaybeUninit::new(v),
+			None => MaybeUninit::uninit(),
+		};
+		Lock {
+			set,
+			value: UnsafeCell::new(value),
+		}
+	}
+}
+
+impl<T> Drop for Lock<T> {
+	fn drop(&mut self) {
+		if self.set {
+			unsafe { (*self.value.get()).assume_init_drop() }
+		}
+	}
+}
+
+/// Whether `p` equals another `PhantomData`, which it always does.
+fn phantom_eq<T>(p: PhantomData<T>, n: u8) -> u8 {
+	if p == PhantomData { n } else { 0 }
+}
+
+/// Whether `u` is `()`, which it always is.
+fn unit_eq(u: &(), n: u8) -> u8 {
+	if *u == () { n } else { 0 }
+}
+
+/// `n` if `p`, reassigned, equals another `PhantomData`, which it always does.
+#[allow(unused_assignments)]
+fn rewritten(mut p: PhantomData<u8>, n: u8) -> u8 {
+	p = PhantomData;
+	if p == PhantomData { n } else { 0 }
+}
+
+/// Functions, closures, and locals whose every read lowers to nothing: a drop of what
+/// drops nothing, and a comparison of what holds nothing.
+pub fn unread(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	LOG.store(0, Relaxed);
+	let n = data.len() as u8;
+	match kind % 3 {
+		0 => {
+			drop(Lock::new(data.first().map(|&b| u32::from(b))));
+			drop(Lock::<u32>::new(None));
+			drop(Lock::new(data.first().map(|_| Loud)));
+			drop(Lock::<Loud>::new(None));
+			out.extend(LOG.load(Relaxed).to_be_bytes());
+		}
+		1 => {
+			let units: Vec<()> = data.iter().map(|_| ()).collect();
+			out.push(units.iter().filter(|u| **u == ()).count() as u8);
+			out.push(phantom_eq(PhantomData::<String>, n));
+			out.push(unit_eq(&(), n));
+			out.push(rewritten(PhantomData, n));
+		}
+		_ => {
+			let lock = Lock::new(data.first().map(|&b| u32::from(b)));
+			let p = PhantomData::<u8>;
+			let mut q = PhantomData::<u8>;
+			q = if n > 1 { q } else { PhantomData };
+			let same = |r: PhantomData<u8>| r == p;
+			out.push(u8::from(same(q)) | u8::from(p == q) << 1);
+			drop(lock);
+			out.extend(LOG.load(Relaxed).to_be_bytes());
 		}
 	}
 }
