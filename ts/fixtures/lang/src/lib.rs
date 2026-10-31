@@ -33,6 +33,7 @@ mod clones;
 mod collections;
 mod combinators;
 mod counts;
+mod cycles;
 mod cows;
 mod defaults;
 mod durations;

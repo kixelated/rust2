@@ -16,6 +16,7 @@ import type * as counts_Noisy from "../counts.Noisy.ts";
 import type * as RcNode from "../counts.RcNode.ts";
 import type * as RcShared from "../counts.RcShared.ts";
 import type * as Twin from "../counts.Twin.ts";
+import type * as cycles_Logged from "../cycles.Logged.ts";
 import * as Made from "../defaults.Made.ts";
 import type * as Shape from "../dyns.Shape.ts";
 import * as Named from "../edits.Named.ts";
@@ -308,6 +309,13 @@ export function map$003seos(self: slices_Item.Item | undefined, f: (a0: slices_I
 	return f(self);
 }
 
+export function map$1u07cey(self: cycles_Logged.Logged | undefined, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$1u8sh4f(self: Named.Named | undefined, _: (a0: Named.Named) => Named.Named[]): Named.Named[] | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -542,6 +550,13 @@ export function map$0gl6wke(self: [rt.usize, string] | undefined, f: (a0: [rt.us
 	return f(self);
 }
 
+export function map$05nbzug(self: rt.usize | undefined, f: (a0: rt.usize) => rt.u8): rt.u8 | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function inspect$0di0vx1(self: rt.u8 | undefined, f: (a0: rt.u8) => undefined): rt.u8 | undefined {
 	if (self !== undefined) {
 		f(self);
@@ -624,6 +639,13 @@ export function mapOr$1yabfom(self: Logged.Logged | undefined, default_: rt.u8, 
 		return default_;
 	}
 	return Logged.id(self);
+}
+
+export function mapOr$0djjvgl(self: cycles_Logged.Logged | undefined, default_: rt.u8, f: (a0: cycles_Logged.Logged) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
 }
 
 export function mapOr$1ybqvup(self: Meters.Meters | undefined, default_: rt.u64, f: (a0: Meters.Meters) => rt.u64): rt.u64 {

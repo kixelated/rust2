@@ -628,6 +628,14 @@ export function iterStepBy<T>(it: Iter<T>, step: number, drop?: Drop<T>): Iter<T
 }
 
 /**
+ * `Iterator::cycle`: `it`, and then clones of it as it was, by `h`, as std's `Clone` of
+ * it clones each part. It holds the first clone as it is made.
+ */
+export function iterCycle<T>(it: Iter<T>, h?: Clones): Iter<T> {
+	return new CycleIter(it.clone(h), it, h);
+}
+
+/**
  * `Iterator::copied` of items JS copies by `copy`, which std's skips through: its `nth`
  * and `advance_by` are its iterator's.
  */
@@ -2692,6 +2700,92 @@ class StepByIter<T> extends Adaptor<T, T> {
 		acc = foldBy(steps, false, acc, f, release);
 		dispose(this.inner);
 		return acc;
+	}
+}
+
+/**
+ * std's `Cycle`: `iter`, read, and `orig`, the iterator as it was, which it clones by `h`
+ * in place of `iter` each time that ends. It drops `orig` and then `iter`, as std's fields
+ * order them.
+ */
+class CycleIter<T> extends Iter<T> implements Disposable {
+	readonly orig: Iter<T>;
+	iter: Iter<T>;
+	private readonly h: Clones | undefined;
+
+	constructor(orig: Iter<T>, iter: Iter<T>, h: Clones | undefined) {
+		super();
+		this.orig = orig;
+		this.iter = iter;
+		this.h = h;
+	}
+
+	/** A clone of `orig` in place of `iter`, which drops once the clone is made. */
+	private restart(): void {
+		const ended = this.iter;
+		this.iter = this.orig.clone(this.h);
+		dispose(ended);
+	}
+
+	next(): T | Done {
+		const item = this.iter.next();
+		if (item !== DONE) return item;
+		this.restart();
+		return this.iter.next();
+	}
+
+	/** std's: by `orig`'s, either empty or endless. */
+	override sizeHint(): SizeHint {
+		const [lower, upper] = this.orig.sizeHint();
+		if (lower > 0) return [USIZE_MAX, undefined];
+		return upper === 0 ? [0, 0] : [0, undefined];
+	}
+
+	/** std's: `orig` by `h.i`, then `iter`. */
+	override clone(h?: Clones): Iter<T> {
+		return new CycleIter(this.orig.clone(h?.i), this.iter.clone(h?.i), this.h);
+	}
+
+	/** std's: `iter` advanced, then clones, until one advances no further than it had left. */
+	override advanceBy(n: number, drop?: Drop<T>): number {
+		n = this.iter.advanceBy(n, drop);
+		while (n > 0) {
+			this.restart();
+			const left = this.iter.advanceBy(n, drop);
+			if (left === n) return n;
+			n = left;
+		}
+		return 0;
+	}
+
+	/**
+	 * std's `try_fold`: the rest of `iter` folded, then a clone, which ends it if that was
+	 * empty, and then clones without end. `fold` is std's default, by `next`.
+	 */
+	override folded(fold = false): Iter<T> {
+		if (fold) return this;
+		let reading = this.iter.folded();
+		// Which clone it reads: 0 for none yet, 1 for the first, and 2 for one after.
+		let clones = 0;
+		let empty = true;
+		return new FromNext(this, (cycle) => {
+			for (;;) {
+				const item = reading.next();
+				if (item !== DONE) {
+					if (clones === 1) empty = false;
+					return item;
+				}
+				if (clones === 1 && empty) return DONE;
+				clones = Math.min(clones + 1, 2);
+				cycle.restart();
+				reading = cycle.iter.folded();
+			}
+		});
+	}
+
+	[Symbol.dispose](): void {
+		dispose(this.orig);
+		dispose(this.iter);
 	}
 }
 
