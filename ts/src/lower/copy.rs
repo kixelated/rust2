@@ -725,8 +725,23 @@ pub fn retargeted<'tcx>(
 	local: Local,
 	at: Location,
 ) -> Option<Vec<Place<'tcx>>> {
+	retargeted_in(tcx, body, local, at, &mut FxHashSet::default())
+}
+
+/// [`retargeted`], past the references and locations `visiting` already follows, which
+/// a `mem::swap` in a loop leads back to: each adds no borrow the first doesn't find.
+fn retargeted_in<'tcx>(
+	tcx: TyCtxt<'tcx>,
+	body: &mir::Body<'tcx>,
+	local: Local,
+	at: Location,
+	visiting: &mut FxHashSet<(Local, Location)>,
+) -> Option<Vec<Place<'tcx>>> {
 	if !body.local_decls[local].ty.is_ref() {
 		return None;
+	}
+	if !visiting.insert((local, at)) {
+		return Some(Vec::new());
 	}
 	// Each `&mut local`, which only such a call may take.
 	let mut lent = FxHashSet::default();
@@ -820,7 +835,7 @@ pub fn retargeted<'tcx>(
 						}
 						Some((i, Some(name), _)) if name == "swap" => {
 							let other = borrowed(&args[1 - i].node)?.as_local()?;
-							found.extend(retargeted(tcx, body, other, body.terminator_loc(bb))?);
+							found.extend(retargeted_in(tcx, body, other, body.terminator_loc(bb), visiting)?);
 							continue;
 						}
 						Some(_) => return None,

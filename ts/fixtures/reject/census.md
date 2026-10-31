@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 177
-- Function instances: 232
+- Refusals: 178
+- Function instances: 233
 - Generic functions no instance reached, lowered over their type parameters: 11
 
 ## By construct
@@ -10,7 +10,7 @@
 | ---: | --- | --- |
 | 45 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:623:10 |
 | 18 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
-| 16 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
+| 17 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
 | 12 | a reference to `_`, through which a raw pointer may be made, in a variable assigned again while that pointer may point there | fixtures/reject/src/lib.rs:1352:33 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:344:2 |
 | 3 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:529:12 |
@@ -81,7 +81,7 @@ The type or module each refused type or path belongs to.
 | Count | API | First |
 | ---: | --- | --- |
 | 31 | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:702:15 |
-| 23 | `(u32, u32)` | fixtures/reject/src/lib.rs:623:10 |
+| 24 | `(u32, u32)` | fixtures/reject/src/lib.rs:623:10 |
 | 6 | `f16` | fixtures/reject/src/lib.rs:7:14 |
 | 6 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:344:2 |
 | 5 | `Gap` | fixtures/reject/src/lib.rs:923:10 |
@@ -216,7 +216,7 @@ The type or module each refused type or path belongs to.
 
 | Count | Construct | Type or path | First |
 | ---: | --- | --- | --- |
-| 13 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:631:10 |
+| 14 | a raw pointer to `_` in a variable assigned again while it may point there | `(u32, u32)` | fixtures/reject/src/lib.rs:631:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | `std::borrow::Cow` | fixtures/reject/src/lib.rs:344:2 |
 | 3 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Gap` | fixtures/reject/src/lib.rs:923:10 |
 | 3 | unsupported type `_` | `f16` | fixtures/reject/src/lib.rs:7:14 |
@@ -431,7 +431,7 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>a raw pointer to `_` in a variable assigned again while it may point there (16)</summary>
+<details><summary>a raw pointer to `_` in a variable assigned again while it may point there (17)</summary>
 
 - fixtures/reject/src/lib.rs:631:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
 - fixtures/reject/src/lib.rs:639:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
@@ -449,6 +449,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:1063:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
 - fixtures/reject/src/lib.rs:1775:10: a raw pointer to `Target` in a variable assigned again while it may point there
 - fixtures/reject/src/lib.rs:1788:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
+- fixtures/reject/src/lib.rs:1819:10: a raw pointer to `(u32, u32)` in a variable assigned again while it may point there
 
 </details>
 

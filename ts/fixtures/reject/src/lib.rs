@@ -1805,3 +1805,18 @@ pub fn picked_rebound(n: u32) -> u32 {
 	a = Picked(0);
 	unsafe { (*p).0 + a.0 + b.0 }
 }
+
+/// A pointer through a reference a loop's `mem::swap`s may point at either variable, one
+/// of which an assignment then replaces.
+pub fn swapped_in_loop(n: u32) -> u32 {
+	let mut a = (n, n);
+	let mut b = (n, 1);
+	let mut r = &mut a;
+	let mut s = &mut b;
+	for _ in 0..n {
+		std::mem::swap(&mut r, &mut s);
+	}
+	let p = &raw mut *r;
+	a = (0, 0);
+	unsafe { (*p).0 + a.0 }
+}
