@@ -3,7 +3,7 @@
 
 #![allow(dead_code, reason = "fields only `Debug` reads")]
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::ops::{Range, RangeToInclusive};
 use std::rc::Rc;
@@ -722,6 +722,143 @@ pub fn collections(data: &[u8], out: &mut Vec<u8>) {
 		set.insert(b);
 	}
 	put(out, &format!("{one:?}|{one:#?}|{one:>3?}|{set:?}|{set:#?}|{set:#04x?}"));
+}
+
+/// std's iterators' `Debug`, each the items it has left in its own wrapper, through each
+/// element's `Debug` with the formatter's options: consumed from either end, empty, and
+/// pretty. A hash iterator holds at most one entry, since std leaves their order unspecified.
+pub fn iters(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let (front, back) = (usize::from(at(0) % 3), usize::from(at(1) % 3));
+	// Taken from the front by `nth`, and from the back by `next_back`.
+	fn skip<I: Iterator>(mut it: I, n: usize) -> I {
+		if n > 0 {
+			it.nth(n - 1);
+		}
+		it
+	}
+	fn ends<I: DoubleEndedIterator>(it: I, front: usize, back: usize) -> I {
+		let mut it = skip(it, front);
+		for _ in 0..back {
+			it.next_back();
+		}
+		it
+	}
+
+	let it = ends(data.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}|{it:>3?}"));
+	let mut v: Vec<u8> = data.iter().take(5).copied().collect();
+	let it = ends(v.iter_mut(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let pairs: Vec<Pair> = data.iter().take(4).map(|&b| Pair(b, -i64::from(b))).collect();
+	let it = ends(pairs.into_iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	put(out, &format!("{:x?}", ends(data.to_vec().into_iter(), front, back)));
+	let mut hexes: Vec<Hex> = data.iter().take(5).map(|&b| Hex(u32::from(b) * 0x101)).collect();
+	let it = ends(hexes.drain(1..), front, back);
+	put(out, &format!("{it:?}|{it:#x?}"));
+	drop(it);
+	let mut bytes = data.to_vec();
+	let it = ends(bytes.drain(..data.len() / 2), front, back);
+	put(out, &format!("{it:?}|{it:02X?}"));
+	drop(it);
+	// Arrays of bytes, which a borrow lends as slices of them.
+	let arrays: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+	let it = ends(arrays.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let mut arrays = arrays;
+	put(out, &format!("{:?}", ends(arrays.iter_mut(), back, front)));
+	let empty: &[Option<u8>] = &[];
+	put(out, &format!("{:?}|{:#?}", empty.iter(), Vec::<u8>::new().into_iter()));
+
+	let heap: BinaryHeap<u8> = data.iter().copied().collect();
+	let it = ends(heap.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	put(out, &format!("{:?}", ends(heap.clone().into_iter(), front, back)));
+	let mut drained = heap.clone();
+	let it = ends(drained.drain(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	drop(it);
+	let q: VecDeque<Option<u8>> = data.iter().map(|&b| (b % 3 != 0).then_some(b)).collect();
+	let it = ends(q.into_iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+
+	// Text of one-, two-, three-, and four-byte chars, and chars `Debug` escapes.
+	let text: String = data
+		.iter()
+		.map(|&b| ['a', 'é', '中', '🦀', '\n', '\''][usize::from(b % 6)])
+		.collect();
+	let it = ends(text.chars(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:>3?}"));
+	let it = ends(text.bytes(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}"));
+	put(out, &format!("{:?}|{:#?}|{:?}", "".chars(), "".chars(), "".bytes()));
+
+	let mut map: BTreeMap<u8, Option<u8>> = data.iter().map(|&b| (b % 16, (b % 3 != 0).then_some(b))).collect();
+	let it = ends(map.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}"));
+	put(
+		out,
+		&format!(
+			"{:?}|{:?}",
+			ends(map.keys(), front, back),
+			ends(map.values(), front, back)
+		),
+	);
+	let lo = at(2) % 16;
+	put(
+		out,
+		&format!(
+			"{:?}|{:?}",
+			ends(map.range(lo..), front, back),
+			ends(map.range(..=lo), front, back)
+		),
+	);
+	put(out, &format!("{:?}", ends(map.iter_mut(), front, back)));
+	put(out, &format!("{:?}", ends(map.values_mut(), front, back)));
+	put(out, &format!("{:?}", ends(map.range_mut(lo..), front, back)));
+	put(out, &format!("{:?}", ends(map.clone().into_iter(), front, back)));
+	put(out, &format!("{:?}", ends(map.clone().into_keys(), front, back)));
+	put(out, &format!("{:?}", ends(map.into_values(), front, back)));
+	let keyed: BTreeMap<[u8; 2], Hex> = data.chunks_exact(2).map(|c| ([c[0], c[1]], Hex(c[0].into()))).collect();
+	let it = ends(keyed.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#x?}|{:?}", ends(keyed.keys(), back, front)));
+	let set: BTreeSet<u8> = data.iter().map(|&b| b % 16).collect();
+	let it = ends(set.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let it = ends(set.range(lo..), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}"));
+	let it = ends(set.into_iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let empty = BTreeMap::<u8, u8>::new();
+	put(out, &format!("{:?}|{:#?}", empty.iter(), BTreeSet::<u8>::new().iter()));
+	put(out, &format!("{:?}", empty.into_keys()));
+
+	let (mut one, mut keys) = (HashMap::new(), HashSet::new());
+	if let Some(&b) = data.first() {
+		one.insert((b % 2 == 0).then_some(b), u16::from(b) * 0x101);
+		keys.insert([b, at(1)]);
+	}
+	// Past its one entry, or not.
+	let n = usize::from(at(1) % 2);
+	put(out, &format!("{:?}|{:#?}", one.iter(), skip(one.iter(), n)));
+	put(out, &format!("{:?}|{:?}", skip(one.keys(), n), skip(one.values(), n)));
+	put(out, &format!("{:?}", skip(one.iter_mut(), n)));
+	put(out, &format!("{:x?}", skip(one.values_mut(), 1 - n)));
+	put(out, &format!("{:?}", skip(one.clone().into_iter(), n)));
+	put(
+		out,
+		&format!("{:?}|{:?}", one.clone().into_keys(), skip(one.clone().into_values(), n)),
+	);
+	let it = skip(one.drain(), n);
+	put(out, &format!("{it:?}|{it:#?}"));
+	drop(it);
+	put(
+		out,
+		&format!("{:?}|{:#?}", skip(keys.iter(), n), keys.clone().into_iter()),
+	);
+	let it = skip(keys.drain(), 1 - n);
+	put(out, &format!("{it:?}"));
 }
 
 /// An error only a TypeScript caller prints, as moq's callers print its errors: nothing
