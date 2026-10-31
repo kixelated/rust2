@@ -554,4 +554,8 @@ const unlikeEqs = [[], [5], [1, 2], [0, 7, 2, 9], [3, 3, 3, 3, 3, 3, 3, 3, 3]].f
 	Array.from({ length: 128 }, (_, kind) => Uint8Array.of(unlikeEqsOp, kind, ...bytes)),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs];
+/** `collections::own_nes` of the same positions, lengths, and items as `unlike_eqs`. */
+const ownNesOp = op("collections::own_nes");
+const ownNes = unlikeEqs.map((input) => Uint8Array.of(ownNesOp, ...input.subarray(1)));
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes];

@@ -4,6 +4,7 @@ import * as rt from "../rt.ts";
 import type * as Noisy from "../borrows.Noisy.ts";
 import type * as Item from "../bounds.Item.ts";
 import type * as Nibble from "../collections.Nibble.ts";
+import type * as Picky from "../collections.Picky.ts";
 import type * as Rank from "../collections.Rank.ts";
 import type * as Tally from "../collections.Tally.ts";
 import type * as ArcNode from "../counts.ArcNode.ts";
@@ -710,6 +711,13 @@ export function mapOr$08xz81a(self: Pair.Pair | undefined, default_: rt.u8, f: (
 
 export function mapOr$1w5qtj7(self: undefined | rt.None, default_: rt.u8, f: (a0: undefined) => rt.u8): rt.u8 {
 	if (self === rt.None) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0bnr5nu(self: Picky.Picky | undefined, default_: rt.u16, f: (a0: Picky.Picky) => rt.u16): rt.u16 {
+	if (self === undefined) {
 		return default_;
 	}
 	return f(self);
