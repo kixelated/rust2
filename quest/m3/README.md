@@ -33,3 +33,4 @@ generic std gap is planned here even when moq never calls it.
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [Cycling std's iterators](/quest/m3/ts-iter-cycle.md) - `Iterator::cycle` translates, cloning its iterator each time it ends
+- [Orderings by a crate's impl on references](/quest/m3/ts-ord-ref-impls.md) - a tuple, `Option`, or slice of `&T` orders by the crate's `PartialOrd` for `&T`
