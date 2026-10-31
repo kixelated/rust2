@@ -328,7 +328,9 @@ whatever their form, so a map of `Vec<u8>` finds a `&[u8]` and one of `[u16; 2]`
 Slices, arrays, `Vec`s, and `VecDeque`s compare against each
 other as std's do, by their lengths and then each pair of items in order, through the
 items' own `PartialEq<U>`, and its `ne` where the crate overrides it, which a tuple's and
-an `Arc`'s `!=` call as well. A collection's reference to a byte array it holds, as `keys`,
+an `Arc`'s `!=` call as well. What a composite holds compares, orders, and hashes through a
+reference or a `Box` as std's impls forward it, by what it points at, or by the crate's
+own impl on the reference or `Box` itself. A collection's reference to a byte array it holds, as `keys`,
 `HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a
 `&[u8; N]` is elsewhere; a `&mut` writes where the collection holds them. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and

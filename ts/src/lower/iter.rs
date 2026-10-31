@@ -580,7 +580,7 @@ pub fn call<'tcx>(
 				};
 				return Some(Expr::rt("iterToOption", [end].into_iter().chain(none).collect()));
 			}
-			if !by_key && own_ord(b.t, key.peel_refs(), name) {
+			if !by_key && own_ord(b, key, name) {
 				return Some(b.err(
 					span,
 					format!("`{name}` of `{key}` through its own `Ord::{name}`, which is not supported yet"),
@@ -1360,18 +1360,17 @@ fn in_place<'tcx>(t: &Translator<'_, 'tcx>, iter: Ty<'tcx>, elem: Ty<'tcx>) -> b
 		&& u128::from(from.size.bytes()) * merge >= u128::from(to.size.bytes()) * expand
 }
 
-/// Whether `ty`, the crate's own type, has its own `Ord::max` or `min`, by `name`, which
-/// `Iterator::max` or `min` calls.
-fn own_ord<'tcx>(t: &Translator<'_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
-	let tcx = t.tcx;
-	if !matches!(ty.kind(), ty::Adt(adt, _) if t.own(adt.did())) {
-		return false;
-	}
+/// Whether the crate's own `Ord` of `ty` has its own `max` or `min`, by `name`, which
+/// `Iterator::max` or `min` calls. A reference's that std's forwards through is the
+/// default, which tests `<`.
+fn own_ord<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, name: &str) -> bool {
+	let tcx = b.t.tcx;
 	let f = super::collections::trait_fn(tcx, "Ord", name);
-	Instance::try_resolve(tcx, t.typing_env_pub(), f, tcx.mk_args(&[ty.into()]))
-		.ok()
-		.flatten()
-		.is_some_and(|instance| instance.def_id() != f)
+	super::collections::by_own(b, super::collections::peel_ord(b, ty, false))
+		&& Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[ty.into()]))
+			.ok()
+			.flatten()
+			.is_some_and(|instance| instance.def_id() != f)
 }
 
 /// Whether std's iterator `ty` has its own `min` or `max`, by `name`, which reads its first
