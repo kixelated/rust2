@@ -199,7 +199,7 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 /// a slice of each array of bytes.
 pub(super) fn by_ref(iter: Expr, elem: Ty<'_>) -> Expr {
 	match super::byte_array(elem) {
-		true => Expr::rt("iterMap", vec![iter, Expr::Rt("byteSliceFrom".into())]),
+		true => Expr::rt("iterLend", vec![iter, Expr::Rt("byteSliceFrom".into())]),
 		false => iter,
 	}
 }
