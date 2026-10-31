@@ -300,7 +300,9 @@ finds any other key, a 64-bit one past 2^53 included, through its translated `Ha
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
 so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
 bytes and then their length, and compare and hash alike whatever their form, so a map of
-`Vec<u8>` finds a `&[u8]`. A collection's reference to a byte array it holds, as `keys`,
+`Vec<u8>` finds a `&[u8]`. Slices, arrays, `Vec`s, and `VecDeque`s compare against each
+other as std's do, by their lengths and then each pair of items in order, through the
+items' own `PartialEq<U>`, and its `ne` where the crate overrides it. A collection's reference to a byte array it holds, as `keys`,
 `HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a
 `&[u8; N]` is elsewhere; a `&mut` writes where the collection holds them. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
@@ -697,7 +699,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   closures that log what each
   adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
   and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
+  disagree with JS's, sequences compared across forms and item types by an `eq` and `ne`
+  that disagree, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
   that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw

@@ -115,6 +115,11 @@ pub fn call<'tcx>(
 					let eq = Expr::rt("eqBytes", args);
 					return Ok(Some(if name == "eq" { eq } else { eq.not() }));
 				}
+				// Sequences of other forms or items, whose `ne` is `!eq`.
+				if let Some(eq) = seq_eq(b, t, rhs, span) {
+					let eq = eq.call(args);
+					return Ok(Some(if name == "eq" { eq } else { eq.not() }));
+				}
 				let kind = b.t.std_of(t) == Some(Std::ErrorKind);
 				if matches!(t.kind(), ty::Bool | ty::Int(_) | ty::Uint(_))
 					|| library::nothing(tcx, t)
@@ -494,6 +499,12 @@ fn same_key<'tcx>(b: &Body<'_, '_, 'tcx>, key: Ty<'tcx>, by: Ty<'tcx>) -> bool {
 /// Whether a `ty` compares to an `other` as to another `ty`: as keys do, as bytes do, or
 /// by elements that do. Else the impl of `PartialEq<other>` is its own.
 fn alike<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, other: Ty<'tcx>) -> bool {
+	// A crate's type against a reference compares by an impl of the crate's own, which no
+	// reference's forwards to.
+	let (ty, other) = peel_pair(b, ty, other);
+	if (ty.is_ref() || other.is_ref()) && (local(b, peel(b, ty)) || local(b, peel(b, other))) {
+		return false;
+	}
 	let (ty, other) = (peel(b, ty), peel(b, other));
 	same_key(b, ty, other)
 		|| (bytes(b, ty) && bytes(b, other))
@@ -1825,6 +1836,119 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 		_ if b.t.deferred(ty) => Expr::undefined(),
 		_ => b.err(span, format!("comparing `{ty}` as a key, which is not supported yet")),
 	}
+}
+
+/// `PartialEq::eq` of sequences of types `t` and `u`, as a function, where the runtime's of
+/// keys does not compare them: a `VecDeque` against another sequence, or items that are no
+/// key or compare by their own `PartialEq<U>`. Else `None`.
+fn seq_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span) -> Option<Expr> {
+	let (t, u) = (peel(b, t), peel(b, u));
+	let (Some(ti), Some(ui)) = (seq_item(b, t), seq_item(b, u)) else {
+		return None;
+	};
+	let deque = [t, u].into_iter().any(|t| b.t.std_of(t) == Some(Std::VecDeque));
+	if !deque && alike(b, t, u) && std_key(b, t) {
+		return None;
+	}
+	Some(Expr::rt("eqSeq", vec![item_eq(b, t, ti, ui, span)]))
+}
+
+/// What a slice, an array, a `Vec`, or a `VecDeque` of type `ty` holds, bytes included.
+fn seq_item<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match ty.kind() {
+		ty::Slice(item) | ty::Array(item, _) => Some(*item),
+		ty::Adt(..) if matches!(b.t.std_of(ty), Some(Std::Vec | Std::VecDeque)) => Some(arg(ty, 0)),
+		_ => None,
+	}
+}
+
+/// What std's `!=` of a `t` and a `u` that sequence `seq` holds finds equal, as a function:
+/// `<t as PartialEq<u>>::ne`, which `!eq` stands for unless the crate overrides it.
+fn item_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, seq: Ty<'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span) -> Expr {
+	let tcx = b.t.tcx;
+	if let Some(eq) = seq_eq(b, t, u, span) {
+		return eq;
+	}
+	let (pt, pu) = (peel(b, t), peel(b, u));
+	if b.t.deferred(pt) || b.t.deferred(pu) {
+		return Expr::undefined();
+	}
+	if alike(b, t, u) {
+		if own_ne(b, pt) {
+			return b.err(
+				span,
+				format!(
+					"comparing `{seq}` by `<{pt} as PartialEq>::ne` through a held type's own, which is not supported yet"
+				),
+			);
+		}
+		return eq_fn(b, pt, span);
+	}
+	let (pt, pu) = peel_pair(b, t, u);
+	let ne = trait_fn(tcx, "PartialEq", "ne");
+	let own = Instance::try_resolve(tcx, b.t.typing_env_pub(), ne, tcx.mk_args(&[pt.into(), pu.into()]))
+		.ok()
+		.flatten()
+		.is_some_and(|instance| instance.def_id() != ne);
+	impl_eq(b, if own { "ne" } else { "eq" }, pt, pu, [t, u], span)
+}
+
+/// `t` and `u` through the references std's `PartialEq` of two references forwards
+/// through, one of each at a time, while JS holds both as what they point at. A crate's
+/// own impl of two references is where they stop.
+fn peel_pair<'tcx>(b: &Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>) -> (Ty<'tcx>, Ty<'tcx>) {
+	let tcx = b.t.tcx;
+	let forwards = || {
+		let eq = trait_fn(tcx, "PartialEq", "eq");
+		Instance::try_resolve(tcx, b.t.typing_env_pub(), eq, tcx.mk_args(&[t.into(), u.into()]))
+			.ok()
+			.flatten()
+			.is_some_and(|instance| library::is_std(tcx, instance.def_id()))
+	};
+	match (t.kind(), u.kind()) {
+		(ty::Ref(_, t_in, _), ty::Ref(_, u_in, _))
+			if b.t.place_pointee(t).is_none() && b.t.place_pointee(u).is_none() && forwards() =>
+		{
+			peel_pair(b, *t_in, *u_in)
+		}
+		_ => (t, u),
+	}
+}
+
+/// `<t as PartialEq<u>>::{name}`, `eq` or `ne`, as a function of what JS holds of types
+/// `held`, references to `t` and `u` or they themselves: a `[u8; N]` held is a typed array,
+/// lent as the `rt.ByteSlice` the impl's `&[u8; N]` is. A `ne` returns what `eq` would.
+pub fn impl_eq<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	name: &str,
+	t: Ty<'tcx>,
+	u: Ty<'tcx>,
+	held: [Ty<'tcx>; 2],
+	span: Span,
+) -> Expr {
+	let tcx = b.t.tcx;
+	let f = trait_fn(tcx, "PartialEq", name);
+	let f = b.fn_value(f, tcx.mk_args(&[t.into(), u.into()]), span);
+	let ne = name == "ne";
+	if !ne && !held.iter().any(|&ty| super::byte_array(ty)) {
+		return f;
+	}
+	let names = [b.fresh("a"), b.fresh("b")];
+	let args = std::iter::zip(&names, held)
+		.map(|(name, ty)| match super::byte_array(ty) {
+			true => Expr::rt("byteSliceFrom", vec![Expr::ident(name)]),
+			false => Expr::ident(name),
+		})
+		.collect();
+	let call = f.call(args);
+	let params = std::iter::zip(names, held)
+		.map(|(name, ty)| Param {
+			name,
+			ty: Some(b.t.ty(ty, span)),
+		})
+		.collect();
+	let ret = StmtKind::Return(Some(if ne { call.not() } else { call })).at(None);
+	Expr::Arrow(params, crate::ts::Type::Builtin("boolean"), vec![ret])
 }
 
 /// `Hash::hash` of `ty` into a `hasher`, as a function: the runtime's for a std type, or

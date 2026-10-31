@@ -14,7 +14,7 @@
 // A function that may drop a key, value, or item std's would, rather than return or keep
 // it, takes what drops each that does, as `k`, `v`, or `f`, and drops it where std's does.
 
-import { ByteSlice, type ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
+import { ByteSlice, ByteVec, type None, type Place, panic, type RangeBound, rangeCheck } from "../rt.ts";
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
 import {
@@ -276,6 +276,31 @@ export function eqSlice<T>(eq: (a: T, b: T) => boolean): (a: ArrayLike<T>, b: Ar
 	return (a, b) => {
 		if (a.length !== b.length) return false;
 		for (let i = 0; i < a.length; i++) if (!eq(a[i], b[i])) return false;
+		return true;
+	};
+}
+
+/** A slice, an array, or a `Vec`, of bytes in any form, or a `VecDeque`. */
+type Seq<T> = ArrayLike<T> | ByteSlice | ByteVec | VecDeque<T>;
+
+/** The length of `s` and what reads its element at an index. */
+function seqItems<T>(s: Seq<T>): [number, (i: number) => T] {
+	if (s instanceof ByteSlice) return [s.length, (i) => s.data[s.start + i] as T];
+	if (s instanceof ByteVec) return [s.length, (i) => s.data[i] as T];
+	if (!("length" in s)) return [s.n, (i) => s.b[at(s, i)] as T];
+	return [s.length, (i) => s[i] as T];
+}
+
+/**
+ * `PartialEq::eq` of sequences of any form against each other, as std's of slices, arrays,
+ * `Vec`s, and `VecDeque`s are: their lengths, then each pair in order by `eq`.
+ */
+export function eqSeq<T, U>(eq: (a: T, b: U) => boolean): (a: Seq<T>, b: Seq<U>) => boolean {
+	return (a, b) => {
+		const [n, x] = seqItems(a);
+		const [m, y] = seqItems(b);
+		if (n !== m) return false;
+		for (let i = 0; i < n; i++) if (!eq(x(i), y(i))) return false;
 		return true;
 	};
 }

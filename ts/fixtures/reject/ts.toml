@@ -89,8 +89,6 @@ roots = [
     "bound_ranges",
     "string_retained",
     "byte_key",
-    "peeked_deque",
-    "unlike_elements",
     "put_replaced",
     "object_replaced",
     "closure_replaced",
