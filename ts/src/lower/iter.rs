@@ -703,6 +703,7 @@ fn compare<'tcx>(
 	let mut rest = rest.into_iter();
 	let other = into_iter(b, other_ty, rest.next()?, span)?;
 	let test = name.trim_end_matches("_by");
+	let drops = [b.t.dropper(item, span), b.t.dropper(other_item, span)];
 	let (f, owns) = match rest.next() {
 		Some(f) => (f, b.t.drops(call.args.types().nth(2)?)),
 		None => {
@@ -711,7 +712,6 @@ fn compare<'tcx>(
 				"cmp" => super::collections::cmp_fn(b, item, false, span),
 				_ => super::collections::pair_partial_cmp(b, item, other_item, span),
 			};
-			let drops = [b.t.dropper(item, span), b.t.dropper(other_item, span)];
 			let f = match drops.iter().all(undefined) {
 				true => f,
 				false => Expr::rt("consuming", [vec![f], drops.to_vec()].concat()),
@@ -719,12 +719,13 @@ fn compare<'tcx>(
 			(f, false)
 		}
 	};
+	let [drop_x, drop_y] = drops;
 	let compared = vec![
 		iter_drops(b, self_ty, span),
 		iter_drops(b, other_iter, span),
 		if owns { Expr::lit("true") } else { Expr::undefined() },
-		b.t.dropper(item, span),
-		b.t.dropper(other_item, span),
+		drop_x,
+		drop_y,
 	];
 	Some(match test {
 		// std's `eq` of two `TrustedLen` iterators reads neither unless their size hints agree.
