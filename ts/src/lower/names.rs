@@ -165,7 +165,8 @@ impl<'tcx> Translator<'_, 'tcx> {
 	/// The slot of `Ok` parts beside the function `def_id`, if it returns a `Result`.
 	fn slot_names(&self, def_id: DefId, names: &mut Names) {
 		let output = self.tcx.fn_sig(def_id).skip_binder().output().skip_binder();
-		if matches!(output.kind(), ty::Adt(adt, _) if library::Std::of(self.tcx, adt.did()) == Some(library::Std::Result)) {
+		if matches!(output.kind(), ty::Adt(adt, _) if library::Std::of(self.tcx, adt.did()) == Some(library::Std::Result))
+		{
 			importable(names, &slot_base(self.tcx, def_id), self.module_of(def_id));
 		}
 	}

@@ -355,8 +355,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Some(sym) => Some(sym),
 				// One that takes byte slices as their parts, or hands back its `Ok`'s, is wrapped
 				// to take and return them whole.
-				None => (self.t.lowers(instance) && self.t.parted(instance).is_empty() && self.t.slotted(instance).is_none())
-					.then(|| self.t.callee(instance, span)),
+				None => (self.t.lowers(instance)
+					&& self.t.parted(instance).is_empty()
+					&& self.t.slotted(instance).is_none())
+				.then(|| self.t.callee(instance, span)),
 			};
 			if let Some(sym) = sym {
 				return match sig.output().is_unit() {
