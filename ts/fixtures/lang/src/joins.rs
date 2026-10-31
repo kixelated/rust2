@@ -33,6 +33,15 @@ impl Drop for Logged {
 	}
 }
 
+/// Panics as it is cloned, which shows whether std clones one.
+struct Sentinel(u8);
+
+impl Clone for Sentinel {
+	fn clone(&self) -> Self {
+		panic!("clone sentinel {}", self.0)
+	}
+}
+
 /// Puts what was logged since the last flush, after a marker.
 fn flush(log: &RefCell<Vec<u8>>, out: &mut Vec<u8>) {
 	out.push(0xfd);
@@ -220,13 +229,13 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			put(out, &texts.join("--"));
 		}
 		// Totals past what a `Vec` or a `String` may hold, of one part repeated, which panic
-		// before anything is cloned.
+		// before anything is cloned, but where std's count wraps.
 		_ => {
 			let big = vec![1u8; 1 << 16];
 			let wide = vec![1u16; 1 << 16];
 			let text = text(&big);
 			let refs = |n: usize| vec![&big[..]; n];
-			match data.first().copied().unwrap_or(0) % 6 {
+			match data.first().copied().unwrap_or(0) % 7 {
 				// Bytes past `isize::MAX`.
 				0 => bytes(refs((1 << 15) + 1).concat(), out),
 				// Their count past `usize::MAX`.
@@ -236,7 +245,14 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				// `u16`s past what a `Vec` of them may hold, half as many as bytes.
 				3 => wides(vec![&wide[..]; (1 << 14) + 1].concat(), out),
 				4 => put(out, &vec![text.as_str(); (1 << 15) + 1].concat()),
-				_ => put(out, &vec![text.as_str(); (1 << 16) + 1].join("")),
+				5 => put(out, &vec![text.as_str(); (1 << 16) + 1].join("")),
+				// A count of separators that wraps, as std's does, to what it reserves, so it
+				// clones the first.
+				_ => {
+					let sep: Vec<Sentinel> = (0..1 << 16).map(|i| Sentinel(i as u8 ^ 0x5a)).collect();
+					let none: &[Sentinel] = &[];
+					drop(vec![none; (1 << 16) + 1].join(&sep[..]));
+				}
 			}
 		}
 	}

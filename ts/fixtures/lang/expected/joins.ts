@@ -5,6 +5,7 @@ import { drop$Vec_Vec_Logged_Loggedss_Logged_Vec_Logged } from "./lib.ts";
 import { unwrapOr$1j4op5y, unwrapOr$0r2bmpr } from "./core/option.ts";
 import { put } from "./fmt.ts";
 import * as Logged from "./joins.Logged.ts";
+import * as Sentinel from "./joins.Sentinel.ts";
 import { text } from "./strs.ts";
 
 /** Puts what was logged since the last flush, after a marker. */
@@ -82,20 +83,20 @@ export function joins(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _86: rt.ByteSlice[] = [];
 		bytes(rt.byteSlicesJoin(_86, seps), out);
 	} else if (_45 === 1) {
-		const at: (a0: rt.usize) => rt.u8 = (i5: rt.usize): rt.u8 => {
-			return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i5), i5 & 0xff);
+		const at: (a0: rt.usize) => rt.u8 = (i6: rt.usize): rt.u8 => {
+			return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i6), i6 & 0xff);
 		};
 		const hashA: Uint8Array = rt.bytesFromFn(8, at);
-		const hashB: Uint8Array = rt.bytesFromFn(8, (i6: rt.usize): rt.u8 => {
-			return at(rt.usizeAdd(i6, 8));
+		const hashB: Uint8Array = rt.bytesFromFn(8, (i7: rt.usize): rt.u8 => {
+			return at(rt.usizeAdd(i7, 8));
 		});
 		bytes(rt.byteSlicesJoin([hashA, hashB], undefined, rt.byteSliceFrom), out);
 		bytes(rt.byteSlicesJoin([hashA, hashB], rt.byteSliceFrom(Uint8Array.of(sep)), rt.byteSliceFrom), out);
 		bytes(rt.byteSlicesJoin([hashA, hashB], seps, rt.byteSliceFrom), out);
 		const quads: Uint8Array[] = rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (p6: rt.ByteSlice): Uint8Array => {
-			const _424: rt.ByteSlice = p6;
-			return rt.bytesFromFn(4, (i7: rt.usize): rt.u8 => {
-				return unwrapOr$0r2bmpr(rt.byteSliceGet(_424, i7), 0);
+			const _429: rt.ByteSlice = p6;
+			return rt.bytesFromFn(4, (i8: rt.usize): rt.u8 => {
+				return unwrapOr$0r2bmpr(rt.byteSliceGet(_429, i8), 0);
 			});
 		}), undefined, 4, true);
 		bytes(rt.byteSlicesJoin(quads, undefined, rt.byteSliceFrom), out);
@@ -172,7 +173,6 @@ export function joins(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		ids(rt.slicesJoin(pairs2, 8, undefined, undefined, Logged.clone$Clone), log.value, out);
 		ids(rt.slicesJoin(pairs2, 8, [sep3], undefined, Logged.clone$Clone), log.value, out);
 		ids(rt.slicesJoin(pairs2, 8, rt.sliceRange(seps2, 0), undefined, Logged.clone$Clone), log.value, out);
-		undefined;
 		drop$Vec_Vec_Logged_Loggedss_Logged_Vec_Logged([vecs, pairs2, sep3, seps2] as [Logged.Logged[][], Logged.Logged[][], Logged.Logged, Logged.Logged[]]);
 		flush(log.value, out);
 		log[Symbol.dispose]();
@@ -183,8 +183,8 @@ export function joins(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const sep4: string = text(seps);
 		put(out, rt.strsJoin(owned2, ""));
 		put(out, rt.strsJoin(owned2, sep4));
-		const borrowed: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(owned2), (a0: string): string => {
-			return a0;
+		const borrowed: string[] = rt.iterToArray(rt.iterMap(rt.iterSlice(owned2), (a02: string): string => {
+			return a02;
 		}), undefined, 8, true);
 		put(out, rt.strsJoin(borrowed, ""));
 		put(out, rt.strsJoin(borrowed, sep4));
@@ -194,9 +194,9 @@ export function joins(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		put(out, rt.strsJoin(_400, sep4));
 	} else if (_45 === 5) {
 		const cows: rt.ByteCow[] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(parts)), (_22: [rt.usize, rt.ByteSlice]): rt.ByteCow => {
-			const i2: rt.usize = _22[0];
+			const i3: rt.usize = _22[0];
 			const p: rt.ByteSlice = _22[1];
-			if (rt.usizeRem(i2, 2) === 0) {
+			if (rt.usizeRem(i3, 2) === 0) {
 				return p;
 			}
 			return rt.byteSliceToByteVec(p);
@@ -231,7 +231,7 @@ export function joins(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		const refs: (a0: rt.usize) => rt.ByteSlice[] = (n: rt.usize): rt.ByteSlice[] => {
 			return rt.vecFromElem(rt.byteSliceRange(rt.byteVecSlice(big), 0), n, undefined);
 		};
-		const _469: rt.u8 = rt.u8Rem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 6);
+		const _469: rt.u8 = rt.u8Rem(unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 7);
 		if (_469 === 0) {
 			bytes(rt.byteSlicesJoin(refs(rt.usizeAdd(1 << 15, 1))), out);
 		} else if (_469 === 1) {
@@ -242,8 +242,14 @@ export function joins(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			wides(rt.slicesJoin(rt.vecFromElem(rt.sliceRange(wide4, 0), rt.usizeAdd(1 << 14, 1), undefined), 2), out);
 		} else if (_469 === 4) {
 			put(out, rt.strsJoin(rt.vecFromElem(text_, rt.usizeAdd(1 << 15, 1), undefined), ""));
-		} else {
+		} else if (_469 === 5) {
 			put(out, rt.strsJoin(rt.vecFromElem(text_, rt.usizeAdd(1 << 16, 1), undefined), ""));
+		} else {
+			const sep5: Sentinel.Sentinel[] = rt.iterToArray(rt.iterMap(new rt.Range(0, 1 << 16), (i2: rt.i32): Sentinel.Sentinel => {
+				return { _0: (i2 & 0xff) ^ 90 };
+			}), undefined, 1, true);
+			const _554: Sentinel.Sentinel[] = [];
+			rt.slicesJoin(rt.vecFromElem(_554, rt.usizeAdd(1 << 16, 1), undefined), 1, rt.sliceRange(sep5, 0), undefined, Sentinel.clone$Clone);
 		}
 	}
 }

@@ -503,16 +503,17 @@ export function byteSlicesJoin<V>(items: readonly V[], sep?: ByteSlice, slice?: 
 }
 
 /**
- * The length `concat` or `join` by `sep` of `parts`, of `size`-byte elements, makes, which
- * std reserves before it clones any: its sum of the parts' lengths panics past
- * `usize::MAX`, and its `Vec::with_capacity` past what the `Vec` may hold, or where the
- * separators wrap that count, its `Vec` alike once full.
+ * What `concat` or `join` by `sep` of `parts`, of `size`-byte elements, reserves before it
+ * clones any, as std's does: its sum of the parts' lengths panics past `usize::MAX`, the
+ * separators' count wraps, and `Vec::with_capacity` of that panics past what the `Vec` may
+ * hold. Where the count wraps, the `Vec` grows as it fills, which memory bounds first.
  */
 function joinedLength(parts: readonly { length: number }[], sep: { length: number } | undefined, size: number): number {
 	let sum = 0;
 	for (const part of parts) sum += part.length;
 	if (sum > USIZE_MAX) panic("attempt to add with overflow");
-	const length = sep === undefined || parts.length === 0 ? sum : sum + sep.length * (parts.length - 1);
+	const seps = sep === undefined || parts.length === 0 ? 0 : Math.imul(sep.length, parts.length - 1) >>> 0;
+	const length = (sum + seps) % (USIZE_MAX + 1);
 	if (length > vecMax(size)) panic("capacity overflow");
 	return length;
 }
