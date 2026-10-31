@@ -78,13 +78,11 @@ export function cmpNothing(_a: undefined, _b: undefined): Ordering {
 }
 
 /**
- * `Ord::cmp` of tuples, or `PartialOrd::partial_cmp`, from each field's: the first that
- * is not `Equal`, as `None` is not. A tuple type the call is asserted to compare types
- * each field's function, which a generic one such as a slice's of `rt.cmp` needs.
+ * `Ord::cmp` of tuples of type `T`, or `PartialOrd::partial_cmp`, from each field's: the
+ * first that is not `Equal`, as `None` is not. A caller passes `T` and `O`, which `tsc`
+ * infers from neither a generic field, such as a slice's of `rt.cmp`, nor only total ones.
  */
-export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: { readonly [I in keyof T]: (a: T[I], b: T[I]) => O }): (a: T, b: T) => O;
-export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: readonly ((a: never, b: never) => O)[]): (a: T, b: T) => O;
-export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: readonly ((a: never, b: never) => O)[]): (a: T, b: T) => O {
+export function cmpTuple<T extends readonly unknown[], O extends Ordering | undefined>(fields: { readonly [I in keyof T]: (a: T[I], b: T[I]) => O }): (a: T, b: T) => O {
 	return (a, b) => {
 		for (let i = 0; i < fields.length; i++) {
 			const c = (fields[i] as (a: unknown, b: unknown) => O)(a[i], b[i]);

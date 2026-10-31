@@ -1007,7 +1007,7 @@ export function elements(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return k6[1] === 0;
 	});
 	const _541: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.hashIter(paired);
-	const iter33: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u32>, _541, true, undefined, undefined, "next", 8));
+	const iter33: rt.Iter<[[rt.u8, rt.u8], rt.u32]> = rt.btreeIter(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8], rt.u32>, _541, true, undefined, undefined, "next", 8));
 	while (true) {
 		const _545: [[rt.u8, rt.u8], rt.u32] | rt.Done = iter33.next();
 		if (_545 === rt.DONE) {

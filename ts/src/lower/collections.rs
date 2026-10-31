@@ -15,7 +15,7 @@ use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Param, Stmt, StmtKind};
+use crate::ts::{Expr, Param, Stmt, StmtKind, Type};
 
 /// A call of a standard library function on these types, or its arguments back if it is
 /// none of theirs.
@@ -1741,7 +1741,15 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		_ if library::nothing(tcx, ty) => Expr::Rt("cmpNothing".into()),
 		ty::Tuple(tys) => {
 			let fns = tys.iter().map(|t| cmp_fn(b, t, partial, span)).collect();
-			Expr::rt("cmpTuple", vec![Expr::Array(fns)])
+			// What the tuple holds and what it orders as, which `tsc` cannot infer from
+			// fields of which some are generic.
+			let ordering = Type::Rt("Ordering", vec![]);
+			let order = match partial {
+				true => Type::Union(vec![ordering, Type::Builtin("undefined")]),
+				false => ordering,
+			};
+			let cmp = Expr::Instantiate(Box::new(Expr::Rt("cmpTuple".into())), vec![b.t.ty(ty, span), order]);
+			Expr::Call(Box::new(cmp), vec![Expr::Array(fns)])
 		}
 		ty::Adt(..) if let Some(inner) = option_of(b, ty) => {
 			let cmp = cmp_fn(b, inner, partial, span);

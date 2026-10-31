@@ -3095,7 +3095,7 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 				_ => Read::Effect,
 			});
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => scan(e, reads, lazy),
+		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Instantiate(e, _) => scan(e, reads, lazy),
 		Expr::Postfix(e, _) => {
 			scan(e, reads, lazy);
 			reads.push(Read::Effect);
@@ -3244,7 +3244,9 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 			}
 			true
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
+		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Instantiate(e, _) | Expr::Postfix(e, _) => {
+			subst(e, name, value)
+		}
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),
 		Expr::Cond(c, a, b) => subst(c, name, value) || subst(a, name, value) || subst(b, name, value),
 		Expr::Arrow(..) | Expr::Lambda(..) => false,
@@ -3352,9 +3354,12 @@ fn reads_of(e: &Expr, out: &mut Vec<String>) {
 			reads_of(f, out);
 			args.iter().for_each(|e| reads_of(e, out));
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Lambda(_, e) | Expr::Postfix(e, _) => {
-			reads_of(e, out)
-		}
+		Expr::Unary(_, e)
+		| Expr::Located(_, e)
+		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
+		| Expr::Lambda(_, e)
+		| Expr::Postfix(e, _) => reads_of(e, out),
 		Expr::Binary(l, _, r) => {
 			reads_of(l, out);
 			reads_of(r, out);
@@ -3558,6 +3563,7 @@ fn visit_expr(e: &Expr, f: &mut dyn FnMut(&Expr)) {
 		| Expr::Unary(_, e)
 		| Expr::Located(_, e)
 		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
 		| Expr::Lambda(_, e)
 		| Expr::Postfix(e, _) => visit_expr(e, f),
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
@@ -3878,7 +3884,7 @@ fn inert(e: &Expr) -> bool {
 	match e {
 		Expr::Array(items) => items.iter().all(inert),
 		Expr::Object(props) => props.iter().all(|(_, v)| inert(v)),
-		Expr::As(e, _) | Expr::Located(_, e) => inert(e),
+		Expr::As(e, _) | Expr::Instantiate(e, _) | Expr::Located(_, e) => inert(e),
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
 	}

@@ -42,6 +42,13 @@ export function minBy$0f4msyz(v1: orders_Item.Item, v2: orders_Item.Item, compar
 	return _0;
 }
 
+export function minBy$0wmhcb1(v1: [rt.f64, rt.u8], v2: [rt.f64, rt.u8], compare: (a0: [rt.f64, rt.u8], a1: [rt.f64, rt.u8]) => rt.Ordering): [rt.f64, rt.u8] {
+	if (!(compare(v1, v2) <= 0)) {
+		return v2;
+	}
+	return v1;
+}
+
 export function minByKey$04nvnd5(v1: orders_Item.Item, v2: orders_Item.Item, f: (a0: orders_Item.Item) => rt.u8): orders_Item.Item {
 	let _0!: orders_Item.Item;
 	let _16: boolean = false;
@@ -112,6 +119,13 @@ export function maxBy$04pyy5s(v1: orders_Item.Item, v2: orders_Item.Item, compar
 		return _0;
 	}
 	return _0;
+}
+
+export function maxBy$0yuzdd4(v1: [rt.f64, rt.u8], v2: [rt.f64, rt.u8], compare: (a0: [rt.f64, rt.u8], a1: [rt.f64, rt.u8]) => rt.Ordering): [rt.f64, rt.u8] {
+	if (!(compare(v1, v2) > 0)) {
+		return v2;
+	}
+	return v1;
 }
 
 export function maxByKey$1a9sf4b(v1: orders_Item.Item, v2: orders_Item.Item, f: (a0: orders_Item.Item) => orders_Item.Item): orders_Item.Item {

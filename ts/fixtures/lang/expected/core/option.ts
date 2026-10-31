@@ -95,6 +95,13 @@ export function unwrapOr$0k15iai(self: rt.char | undefined, default_: rt.char): 
 	return self;
 }
 
+export function unwrapOr$0l1fs14(self: rt.Ordering | undefined, default_: rt.Ordering): rt.Ordering {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
 export function unwrapOr$0ujf6zi(self: counts_Twin.Twin | undefined, default_: counts_Twin.Twin): counts_Twin.Twin {
 	if (self === undefined) {
 		return default_;
