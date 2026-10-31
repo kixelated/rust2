@@ -8,7 +8,7 @@
 //! stores is its own copy, as in Rust.
 
 use rustc_hir::def_id::DefId;
-use rustc_middle::ty::{self, Instance, Ty};
+use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty};
 use rustc_span::Span;
 
 use super::Translator;
