@@ -825,18 +825,31 @@ export function pollOptionBranch<T, E, P extends typeof Pending | OuterPending, 
 	return pollBranch(poll, pending);
 }
 
-/** `Waker`: what an executor hands a future to wake its task. */
+/**
+ * `Waker`: what an executor hands a future to wake its task. `data` and `vtable` are its
+ * identity, std's `Waker::data` and `Waker::vtable`, which each of its clones shares.
+ */
 export interface Waker extends Disposable {
+	readonly data: unknown;
+	readonly vtable: WakerVTable;
 	wake(): void;
 	wakeByRef(): void;
 	clone(): Waker;
-	willWake(other: Waker): boolean;
+}
+
+/** A waker's `&'static RawWakerVTable`, of which only its identity is read. */
+export type WakerVTable = object;
+
+/** `a.will_wake(b)`: whether their identities are the same, as std compares them. */
+export function willWake(a: Waker, b: Waker): boolean {
+	return a.data === b.data && a.vtable === b.vtable;
 }
 
 /**
  * `Waker::from(arc)`: a waker that holds a count of `arc` and wakes through its `Wake`
  * impl, `wake` taking that count. Without a `wakeByRef` of its own, one wakes a clone, as
- * `Wake`'s default does.
+ * `Wake`'s default does. Its data is `arc`, which every clone of `arc` is, and its vtable
+ * `wake`, one per `Wake` impl as std's vtable is.
  */
 export class ArcWaker<W> implements Waker {
 	readonly #arc: Arc<W>;
@@ -865,12 +878,16 @@ export class ArcWaker<W> implements Waker {
 		else this.#wakeByRef(this.#arc);
 	}
 
-	clone(): Waker {
-		return new ArcWaker(arcClone(this.#arc), this.#wake, this.#drop, this.#wakeByRef);
+	get data(): unknown {
+		return this.#arc;
 	}
 
-	willWake(other: Waker): boolean {
-		return other instanceof ArcWaker && other.#arc === this.#arc;
+	get vtable(): WakerVTable {
+		return this.#wake;
+	}
+
+	clone(): Waker {
+		return new ArcWaker(arcClone(this.#arc), this.#wake, this.#drop, this.#wakeByRef);
 	}
 
 	[Symbol.dispose](): void {
@@ -878,18 +895,17 @@ export class ArcWaker<W> implements Waker {
 	}
 }
 
-/** `Waker::noop()`'s waker, which does nothing. */
+/** `Waker::noop()`'s waker, which does nothing: null data, as std's is. */
 class NoopWaker implements Waker {
+	readonly data = null;
+	readonly vtable: WakerVTable = Object.freeze({});
+
 	wake(): void {}
 
 	wakeByRef(): void {}
 
 	clone(): Waker {
 		return this;
-	}
-
-	willWake(other: Waker): boolean {
-		return other === this;
 	}
 
 	[Symbol.dispose](): void {}
@@ -1007,7 +1023,10 @@ function run(): void {
 	}
 }
 
-/** A spawned future, which is also the waker of every poll it gets. */
+/** The vtable of every spawned task's waker. */
+const TASK_VTABLE: WakerVTable = /* @__PURE__ */ Object.freeze({});
+
+/** A spawned future, which is also the waker of every poll it gets: its data. */
 class Task<T> implements Waker {
 	#future: Future<T> | undefined;
 	#resolve: (value: T) => void;
@@ -1057,12 +1076,16 @@ class Task<T> implements Waker {
 		this.schedule();
 	}
 
-	clone(): Waker {
+	get data(): unknown {
 		return this;
 	}
 
-	willWake(other: Waker): boolean {
-		return other === this;
+	get vtable(): WakerVTable {
+		return TASK_VTABLE;
+	}
+
+	clone(): Waker {
+		return this;
 	}
 
 	[Symbol.dispose](): void {}

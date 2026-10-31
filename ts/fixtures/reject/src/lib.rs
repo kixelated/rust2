@@ -737,10 +737,10 @@ pub fn cell_field_replaced(n: u32) -> u32 {
 	unsafe { *p + *hits.count.get_mut() }
 }
 
-/// Two pointers to values of no bytes, which Rust may put anywhere.
+/// Pointers to places of no bytes, which Rust may put anywhere, `()`'s refused as made.
 pub fn units_compared() -> bool {
-	let unit = || std::ptr::NonNull::<()>::dangling().as_ptr();
-	std::ptr::eq(unit(), unit())
+	let (a, b, c, d) = ((), (), Fused, Fused);
+	std::ptr::eq(&raw const a, &raw const b) && std::ptr::eq(&raw const c, &raw const d)
 }
 
 pub enum Only {

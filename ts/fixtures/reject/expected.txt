@@ -100,7 +100,9 @@ a raw pointer to `(u32, u32)` in `std::cell::UnsafeCell<(u32, u32)>`, which the 
 a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:711:15
 a raw pointer to `std::cell::UnsafeCell<u32>` in a variable assigned again while it may point there at fixtures/reject/src/lib.rs:724:15
 a raw pointer to `std::cell::UnsafeCell<u32>` in `Hits`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:735:21
-comparing pointers to `()`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:743:2
+a raw pointer to a place of `()`, which has no address of its own at fixtures/reject/src/lib.rs:743:15
+a raw pointer to a place of `()`, which has no address of its own at fixtures/reject/src/lib.rs:743:29
+comparing pointers to `Fused`, which has no bytes and so no address of its own at fixtures/reject/src/lib.rs:743:46
 a dangling pointer to `Only`, a value of no bytes made of more than structs and tuples at fixtures/reject/src/lib.rs:752:11
 `Buf::copy_to_bytes` of `Blank`, a value JS copies, which is not supported at fixtures/reject/src/lib.rs:776:2
 unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted` at fixtures/reject/src/lib.rs:781:15

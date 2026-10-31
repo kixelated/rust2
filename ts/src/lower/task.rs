@@ -308,10 +308,13 @@ pub fn call<'tcx>(
 		}
 		("Waker", "wake_by_ref") => first(args).member("wakeByRef").call(vec![]),
 		("Waker", "wake") => first(args).member("wake").call(vec![]),
-		("Waker", "will_wake") => {
-			let [l, r] = two(args);
-			l.member("willWake").call(vec![r])
+		("Waker", "will_wake") => Expr::rt("willWake", args),
+		// Its identity: what a pointer to `()` stands for, whatever the waker's JS type.
+		("Waker", "data") => {
+			let ty = b.t.sig(call.def_id, call.args).output();
+			Expr::As(Box::new(first(args).member("data")), b.t.ty(ty, call.span))
 		}
+		("Waker", "vtable") => first(args).member("vtable"),
 		// With what drops its function, unless that is borrowed.
 		("poll_fn", "poll_fn") => {
 			let dropper = b.t.drop_fn(call.args.type_at(1), call.span);

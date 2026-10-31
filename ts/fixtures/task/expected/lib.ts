@@ -211,6 +211,13 @@ export function drop$Vec_Guard(value: Guard.Guard[]): void {
 	rt.dropAll(value);
 }
 
+export function drop$Waker_Waker_Waker_Waker(_1: [rt.Waker, rt.Waker, rt.Waker, rt.Waker]): void {
+	_1[0][Symbol.dispose]();
+	_1[1][Symbol.dispose]();
+	_1[2][Symbol.dispose]();
+	_1[3][Symbol.dispose]();
+}
+
 export function drop$Wrap_Arc_Held(_1: Wrap.Wrap<rt.Arc<Held.Held>>): void {
 	Wrap.drop$Drop_Arc_Held(_1);
 	_1.log[Symbol.dispose]();
