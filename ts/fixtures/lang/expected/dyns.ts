@@ -157,31 +157,31 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 export function counts$dyn_dyns_Named(arcs: rt.Arc<dyns_Named.Named>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Named.Named>): string => {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Named.Named>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
 export function counts$dyn_dyns_Shape(arcs: rt.Arc<dyns_Shape.Shape>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Shape.Shape>): string => {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Shape.Shape>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
 export function counts$dyns_Hits(arcs: rt.Arc<Hits.Hits>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Hits.Hits>): string => {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Hits.Hits>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
 export function counts$dyns_Square(arcs: rt.Arc<Square.Square>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Square.Square>): string => {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Square.Square>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
 export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {

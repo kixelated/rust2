@@ -15,6 +15,7 @@ import type * as durations_Window from "./durations.Window.ts";
 import type * as Either from "./generics.Either.ts";
 import * as Wrap from "./generics.Wrap.ts";
 import type * as Bumped from "./iters.Bumped.ts";
+import type * as joins_Logged from "./joins.Logged.ts";
 import type * as Hop from "./keys.Hop.ts";
 import type * as Horizon from "./keys.Horizon.ts";
 import type * as Lopsided from "./keys.Lopsided.ts";
@@ -446,7 +447,15 @@ export function drop$Vec_clones_Logged(value: clones_Logged.Logged[]): void {
 	rt.dropAll(value);
 }
 
+export function drop$Vec_joins_Logged(value: joins_Logged.Logged[]): void {
+	rt.dropAll(value);
+}
+
 export function drop$Vec_sync_Arc_counts_Noisy(value: rt.Arc<counts_Noisy.Noisy>[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$array2_joins_Logged(value: joins_Logged.Logged[]): void {
 	rt.dropAll(value);
 }
 
@@ -512,6 +521,13 @@ export function drop$tuple2_u8_cmp_Reverse_sync_Arc_keys_Lopsided(_1: [rt.u8, rt
 
 export function drop$tuple2_u8_sync_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
 	_1[1][Symbol.dispose]();
+}
+
+export function drop$tuple4_Vec_Vec_joins_Logged_array2_array2_joins_Logged_joins_Logged_Vec_joins_Logged(_1: [joins_Logged.Logged[][], joins_Logged.Logged[][], joins_Logged.Logged, joins_Logged.Logged[]]): void {
+	rt.dropAll(_1[0], drop$Vec_joins_Logged);
+	rt.dropAll(_1[1], drop$array2_joins_Logged);
+	_1[2][Symbol.dispose]();
+	rt.dropAll(_1[3]);
 }
 
 export function drop$tuple5_Vec_Rc_counts_Noisy_Vec_Rc_counts_Noisy_Vec_counts_RcShared_Vec_counts_Noisy_Vec_Vec_Rc_counts_Noisy(_1: [rt.Arc<counts_Noisy.Noisy>[], rt.Arc<counts_Noisy.Noisy>[], RcShared.RcShared[], counts_Noisy.Noisy[], rt.Arc<counts_Noisy.Noisy>[][]]): void {

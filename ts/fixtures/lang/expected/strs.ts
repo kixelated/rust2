@@ -357,11 +357,11 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					fmt_put(out, rt.strSlice(s, part5));
 				} else if (_8 === 5) {
 					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
-					fmt_put(out, parts.join(p));
-					fmt_put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
+					fmt_put(out, rt.strsJoin(parts, p));
+					fmt_put(out, rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
 						return part3;
-					}), undefined, 12, true).join(p));
-					fmt_put(out, ["a", "", s].join("/"));
+					}), undefined, 12, true), p));
+					fmt_put(out, rt.strsJoin(["a", "", s], "/"));
 				} else {
 					const at2: (a0: rt.u8) => rt.usize = (b2: rt.u8): rt.usize => {
 						if ((kind & 32) === 0) {

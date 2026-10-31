@@ -22,7 +22,7 @@
 // `owned` functions follow it, dispatching on the kind, so a bundle that never drops an
 // item carries none of it.
 
-import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
+import { ByteSlice, ByteVec, byteVecExtendFromSlice, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView, vecExtendFromSlice } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
 import { type Hasher, hash8 } from "./hash.ts";
 import { charStep, intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
@@ -469,6 +469,53 @@ export function vecReserveExact(it: Iter<unknown>, len: number, size: number): v
 /** The capacity of a `Vec` or `VecDeque` holding `len` of `size`-byte elements: full, but for zero-sized ones. */
 export function vecCapacity(len: number, size: number): number {
 	return size === 0 ? USIZE_MAX : len;
+}
+
+/**
+ * `join` of slices of `size`-byte elements by the slice `sep`, or `concat` without one:
+ * each item's elements, read from it by `slice` unless it is the slice, with `sep`'s
+ * between them, each cloned in order by `clone` if given.
+ */
+export function slicesJoin<V, T>(items: readonly V[], size: number, sep?: ArrayLike<T>, slice?: (item: V) => ArrayLike<T>, clone?: (item: T) => T): T[] {
+	const parts = slice === undefined ? (items as unknown as readonly ArrayLike<T>[]) : items.map(slice);
+	joinedLength(parts, sep, size);
+	const v: T[] = [];
+	for (let i = 0; i < parts.length; i++) {
+		if (i > 0 && sep !== undefined) vecExtendFromSlice(v, sep, clone);
+		vecExtendFromSlice(v, parts[i], clone);
+	}
+	return v;
+}
+
+/**
+ * `join` of byte slices by the bytes `sep`, or `concat` without them: each item's bytes,
+ * read from it by `slice` unless it is the slice, with `sep` between them, into a
+ * `Vec<u8>` of the capacity std's has, their exact length.
+ */
+export function byteSlicesJoin<V>(items: readonly V[], sep?: ByteSlice, slice?: (item: V) => ByteSlice): ByteVec {
+	const parts = slice === undefined ? (items as unknown as readonly ByteSlice[]) : items.map(slice);
+	const v = new ByteVec(joinedLength(parts, sep, 1));
+	for (let i = 0; i < parts.length; i++) {
+		if (i > 0 && sep !== undefined) byteVecExtendFromSlice(v, sep);
+		byteVecExtendFromSlice(v, parts[i]);
+	}
+	return v;
+}
+
+/**
+ * What `concat` or `join` by `sep` of `parts`, of `size`-byte elements, reserves before it
+ * clones any, as std's does: its sum of the parts' lengths panics past `usize::MAX`, the
+ * separators' count wraps, and `Vec::with_capacity` of that panics past what the `Vec` may
+ * hold. Where the count wraps, the `Vec` grows as it fills, which memory bounds first.
+ */
+function joinedLength(parts: readonly { length: number }[], sep: { length: number } | undefined, size: number): number {
+	let sum = 0;
+	for (const part of parts) sum += part.length;
+	if (sum > USIZE_MAX) panic("attempt to add with overflow");
+	const seps = sep === undefined || parts.length === 0 ? 0 : Math.imul(sep.length, parts.length - 1) >>> 0;
+	const length = (sum + seps) % (USIZE_MAX + 1);
+	if (length > vecMax(size)) panic("capacity overflow");
+	return length;
 }
 
 /**

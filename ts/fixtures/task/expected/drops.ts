@@ -1287,10 +1287,10 @@ export function edited(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 		return Key.new(rt.u32Add(id, n), Log.clone$Clone(log));
 	};
 	const ids: (a0: Key.Key[]) => string = (v13: Key.Key[]): string => {
-		return rt.iterToArray(rt.iterMap(rt.iterSlice(v13), (k: Key.Key): string => {
+		return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(v13), (k: Key.Key): string => {
 			const _43: rt.u32 = rt.u32Sub(k.id, id);
 			return rt.fmtToString((f: rt.Formatter) => rt.u32Display(_43, f));
-		}), undefined, 12, true).join(",");
+		}), undefined, 12, true), ",");
 	};
 	const _8: rt.u8 = rt.u8Rem(arg, 9);
 	if (_8 === 0) {
