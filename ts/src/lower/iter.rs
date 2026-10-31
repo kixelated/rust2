@@ -12,7 +12,7 @@ use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Param, Type};
+use crate::ts::{Expr, Key, Param, Type};
 
 /// `Iterator::next`, and the trait's `Item`.
 fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
@@ -831,6 +831,111 @@ fn bind_params<'tcx>(pattern: Ty<'tcx>, ty: Ty<'tcx>, found: &mut Vec<(u32, Ty<'
 			}
 		}
 		_ => {}
+	}
+}
+
+/// `Clone::clone` of `value`, one of std's iterators of type `ty`: its `clone`, given what
+/// clones what the runtime can't clone itself, or `None` for one std's has no mapping of.
+pub(super) fn clone<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span) -> Option<Expr> {
+	let clones = clones(b, ty, span)?;
+	Some(value.member("clone").call(tail(Vec::new(), vec![clones])))
+}
+
+/// The `rt.Clones` an iterator of type `ty` is cloned by, as std's `Clone` of it clones
+/// each part, or `undefined` where each part clones as itself: `i` and `o` for the
+/// iterators it wraps, `f` for its closure, and `v` for an item or another value it holds.
+/// The crate's own iterator, which `into_iter` wraps, is that value, by its `Clone`.
+fn clones<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	let value = |b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>| super::collections::clone_fn(b, ty, span);
+	if own_next(b, ty).is_some() {
+		return Some(parts(vec![("v", value(b, ty))]));
+	}
+	let ty::Adt(adt, args) = ty.kind() else {
+		return None;
+	};
+	let arg = |n: usize| args.types().nth(n);
+	let path = library::std_path(tcx, adt.did());
+	let path: Vec<&str> = path.iter().map(String::as_str).collect();
+	Some(match path.as_slice() {
+		// Those that borrow what they read, as their clones do too.
+		[
+			"slice",
+			"iter",
+			"Iter" | "Windows" | "Chunks" | "ChunksExact" | "RChunks" | "RChunksExact",
+		]
+		| ["str", "iter", "Chars" | "Bytes"]
+		| ["option", "Iter"]
+		| ["ops", "range", "Range" | "RangeInclusive"]
+		| ["collections", "vec_deque", "iter", "Iter"]
+		| ["collections", "binary_heap", "Iter"]
+		| ["collections", "btree", "map", "Iter" | "Keys" | "Values" | "Range"]
+		| ["collections", "hash", "map", "Iter" | "Keys" | "Values"]
+		| [
+			"collections",
+			"btree" | "hash",
+			"set",
+			"Iter" | "Range" | "Difference" | "Intersection" | "Union" | "SymmetricDifference",
+		] => Expr::undefined(),
+		// Those that own their items, each cloned.
+		["vec", "into_iter", "IntoIter"]
+		| ["array", "iter", "IntoIter"]
+		| ["option", "IntoIter"]
+		| ["iter", "sources", "once", "Once"]
+		| ["collections", "vec_deque", "into_iter", "IntoIter"]
+		| ["collections", "binary_heap", "IntoIter"] => parts(vec![("v", value(b, arg(0)?))]),
+		// A closure's searcher clones the closure; another holds what it searches for.
+		["str", "iter", "Split" | "MatchIndices"] => match arg(0)?.kind() {
+			ty::Closure(..) => parts(vec![("f", value(b, arg(0)?))]),
+			_ => Expr::undefined(),
+		},
+		// Its closure is what `rt.iterFrom` reads by.
+		["iter", "sources", "from_fn", "FromFn"] => parts(vec![("v", value(b, arg(0)?))]),
+		["iter", "sources", "successors", "Successors"] => {
+			parts(vec![("v", value(b, arg(0)?)), ("f", value(b, arg(1)?))])
+		}
+		[
+			"iter",
+			"adapters",
+			_,
+			"Map" | "Filter" | "FilterMap" | "SkipWhile" | "TakeWhile" | "MapWhile" | "Inspect",
+		] => parts(vec![("i", clones(b, arg(0)?, span)?), ("f", value(b, arg(1)?))]),
+		[
+			"iter",
+			"adapters",
+			_,
+			"Enumerate" | "Skip" | "Take" | "StepBy" | "Fuse" | "Rev" | "Copied" | "Cloned",
+		] => parts(vec![("i", clones(b, arg(0)?, span)?)]),
+		["iter", "adapters", _, "Chain" | "Zip"] => {
+			parts(vec![("i", clones(b, arg(0)?, span)?), ("o", clones(b, arg(1)?, span)?)])
+		}
+		["iter", "adapters", "peekable", "Peekable"] => {
+			let item = b.t.iter_item(arg(0)?)?;
+			parts(vec![("i", clones(b, arg(0)?, span)?), ("v", value(b, item))])
+		}
+		// Its source, as `map` makes it, and the iterators of what that yields.
+		["iter", "adapters", "flatten", "FlatMap"] => {
+			let source = parts(vec![("i", clones(b, arg(0)?, span)?), ("f", value(b, arg(2)?))]);
+			let inner = iter_of(b.t, arg(1)?)?;
+			parts(vec![("i", source), ("o", clones(b, inner, span)?)])
+		}
+		["iter", "adapters", "flatten", "Flatten"] => {
+			let inner = iter_of(b.t, b.t.iter_item(arg(0)?)?)?;
+			parts(vec![("i", clones(b, arg(0)?, span)?), ("o", clones(b, inner, span)?)])
+		}
+		_ => return None,
+	})
+}
+
+/// An `rt.Clones` of `parts` but those that clone as themselves, or `undefined` if all do.
+fn parts(parts: Vec<(&str, Expr)>) -> Expr {
+	let parts: Vec<(Key, Expr)> = (parts.into_iter())
+		.filter(|(_, e)| !undefined(e))
+		.map(|(name, e)| (Key::Name(name.into()), e))
+		.collect();
+	match parts.is_empty() {
+		true => Expr::undefined(),
+		false => Expr::Object(parts),
 	}
 }
 

@@ -297,7 +297,7 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, rt.iterAll(rejected, (x4: rt.u64): boolean => {
 			return rt.u64Lt(x4, hi);
 		}) ? 1 : 0);
-		bounds$RangeInclusive_u64(out, rt.rangeInclusiveClone(rejected));
+		bounds$RangeInclusive_u64(out, rejected.clone());
 		rt.byteVecPush(out, rt.iterFind(rejected, (_27: rt.u64): boolean => {
 			return true;
 		}) !== undefined ? 1 : 0);

@@ -3,6 +3,7 @@
 import * as rt from "../rt.ts";
 import type * as Noisy from "../borrows.Noisy.ts";
 import type * as Item from "../bounds.Item.ts";
+import * as Logged from "../clones.Logged.ts";
 import type * as Nibble from "../collections.Nibble.ts";
 import type * as Picky from "../collections.Picky.ts";
 import type * as Rank from "../collections.Rank.ts";
@@ -413,6 +414,13 @@ export function map$0a57co2(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8):
 	return f(self);
 }
 
+export function map$0y3liwu(self: rt.u8 | undefined, f: (a0: rt.u8) => Logged.Logged): Logged.Logged | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0rbsrz6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
 	if (self === undefined) {
 		return rt.None;
@@ -594,6 +602,13 @@ export function mapOr$14aggam(self: orders_Item.Item | undefined, default_: rt.u
 		return default_;
 	}
 	return f(self);
+}
+
+export function mapOr$1yabfom(self: Logged.Logged | undefined, default_: rt.u8, _: (a0: Logged.Logged) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return Logged.id(self);
 }
 
 export function mapOr$1ybqvup(self: Meters.Meters | undefined, default_: rt.u64, f: (a0: Meters.Meters) => rt.u64): rt.u64 {
