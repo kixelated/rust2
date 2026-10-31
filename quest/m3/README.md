@@ -32,5 +32,5 @@ generic std gap is planned here even when moq never calls it.
 - [Equality through a held type's own ne](/quest/m3/ts-eq-own-ne.md) - `==` of slices of a type whose `ne` the crate overrides, and `!=` of a tuple or `Arc` of one, translate
 - [std iterators' Debug](/quest/m3/ts-iter-debug.md) - `{:?}` of std's iterators translates, writing std's text, a deque's two slices included
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
-- [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
+- [Unbounded ranges as iterators adaptors take](/quest/m3/ts-range-from-iter.md) - `iter.zip(0..)` and other adaptors taking a `start..` type-check

@@ -96,6 +96,10 @@ export function copy$Hop(v: Hop.Hop): Hop.Hop {
 	return { _0: v._0 };
 }
 
+export function copy$Hops(v: Hop.Hop[]): Hop.Hop[] {
+	return v.map(copy$Hop);
+}
+
 export function copy$Horizon(v: Horizon.Horizon): Horizon.Horizon {
 	return { exclude: copy$Option_Hop(v.exclude), local: v.local };
 }
@@ -142,8 +146,16 @@ export function copy$Option_Hop(v: Hop.Hop | undefined): Hop.Hop | undefined {
 	return v === undefined ? v : copy$Hop(v);
 }
 
+export function copy$Option_Hops(v: Hop.Hop[] | undefined): Hop.Hop[] | undefined {
+	return v === undefined ? v : copy$Hops(v);
+}
+
 export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined): [rt.Mutex<rt.u8>, rt.u8] | undefined {
 	return v === undefined ? v : copy$Mutex_u8_u8(v);
+}
+
+export function copy$Option_Option_u8s(v: Array<rt.u8 | undefined> | undefined): Array<rt.u8 | undefined> | undefined {
+	return v === undefined ? v : copy$Option_u8s(v);
 }
 
 export function copy$Option_Pair(v: Pair.Pair | undefined): Pair.Pair | undefined {
@@ -158,15 +170,35 @@ export function copy$Option_Tally(v: Tally.Tally | undefined): Tally.Tally | und
 	return v === undefined ? v : copy$Tally(v);
 }
 
+export function copy$Option_u16s(v: rt.u16[] | undefined): rt.u16[] | undefined {
+	return v === undefined ? v : copy$u16s(v);
+}
+
+export function copy$Option_u32s(v: rt.u32[] | undefined): rt.u32[] | undefined {
+	return v === undefined ? v : copy$u32s(v);
+}
+
+export function copy$Option_u32s$2(v: rt.u32[] | undefined): rt.u32[] | undefined {
+	return v === undefined ? v : copy$u32s(v);
+}
+
 export function copy$Option_u64_u64(v: [rt.u64, rt.u64] | undefined): [rt.u64, rt.u64] | undefined {
 	return v === undefined ? v : copy$u64_u64(v);
+}
+
+export function copy$Option_u64s(v: rt.u64[] | undefined): rt.u64[] | undefined {
+	return v === undefined ? v : copy$u64s(v);
 }
 
 export function copy$Option_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8] | undefined {
 	return v === undefined ? v : copy$u8_u8(v);
 }
 
-export function copy$Option_u8s(v: Uint8Array | undefined): Uint8Array | undefined {
+export function copy$Option_u8s(v: Array<rt.u8 | undefined>): Array<rt.u8 | undefined> {
+	return v.slice();
+}
+
+export function copy$Option_u8s$2(v: Uint8Array | undefined): Uint8Array | undefined {
 	return v === undefined ? v : copy$u8s(v);
 }
 
@@ -238,6 +270,10 @@ export function copy$Wrap_Point(v: Wrap.Wrap<Point.Point>): Wrap.Wrap<Point.Poin
 
 export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap(v.value, v.count);
+}
+
+export function copy$u16s(v: rt.u16[]): rt.u16[] {
+	return v.slice();
 }
 
 export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
