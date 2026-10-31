@@ -42,6 +42,11 @@ none of its own `unsafe`.
   this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
   range, and `chunks_vectored` needs `std::io::IoSlice`: the rest of moq-net's refusals
   in `bytes`.
+- The integers' `unchecked_add`, `unchecked_sub`, `unchecked_mul`, `unchecked_neg`,
+  `unchecked_shl`, `unchecked_shr`, `unchecked_funnel_shl`, and `unchecked_funnel_shr`, and
+  `NonZero::new_unchecked`, refused with their span: each is its checked form where Rust
+  defines it, but a debug build aborts on a violated precondition where the checked form
+  panics with another message.
 - `BinaryHeap` and `PeekMut` translate from std's MIR, whose `Hole` moves elements
   through raw pointers into the `Vec`'s storage, replacing `rt.BinaryHeap` and
   `rt.PeekMut`, the hand-written port of std's sifts that

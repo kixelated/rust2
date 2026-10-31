@@ -32,4 +32,4 @@ generic std gap is planned here even when moq never calls it.
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [Boxed slices](/quest/m3/ts-boxed-slices.md) - `Box<[T]>` translates, made, read, and turned back into a `Vec`
-- [Integers' inherent methods](/quest/m3/ts-int-methods.md) - `pow`, `abs`, and the other inherent methods of integers, `NonZero`, `Wrapping`, and `Saturating` translate
+- [The ASCII methods of u8 and char](/quest/m3/ts-ascii-methods.md) - `u8`'s and `char`'s `is_ascii_*` tests, case maps, and `escape_ascii` translate

@@ -1,5 +1,5 @@
 //! The language the driver translates, exercised against native Rust: every integer
-//! width's arithmetic and casts, `f64`, `char`s and the `str` methods over them,
+//! width's arithmetic, casts, and inherent methods, `f64`, `char`s and the `str` methods over them,
 //! `Cow<str>`, `Duration`, control flow, patterns, byte slices split apart, `Copy`
 //! aggregates, closures and what they write of what they captured, traits, generic
 //! types, formatting, collections, UTF-8 decoding, `&mut` to values JS copies, whole
@@ -23,8 +23,7 @@
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
 
-#![feature(iter_order_by)]
-#![feature(split_as_slice)]
+#![feature(iter_order_by, split_as_slice, wrapping_int_impl, wrapping_next_power_of_two)]
 
 mod arrays;
 mod atomics;
@@ -59,6 +58,7 @@ mod joins;
 mod keys;
 mod locals;
 mod locks;
+mod methods;
 mod nested;
 mod objects;
 mod orders;

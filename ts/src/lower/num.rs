@@ -350,6 +350,14 @@ pub enum Overflow {
 }
 
 impl Overflow {
+	/// The prefix of the integer methods that overflow so: `wrapping` for `wrapping_pow`.
+	pub fn prefix(self) -> &'static str {
+		match self {
+			Self::Wrap => "wrapping",
+			Self::Saturate => "saturating",
+		}
+	}
+
 	/// The runtime's name for the integer method that overflows so: `wrappingAdd` for `Add`.
 	pub fn method(self, op: &str) -> String {
 		match self {
