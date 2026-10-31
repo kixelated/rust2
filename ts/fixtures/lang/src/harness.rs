@@ -176,6 +176,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("zeros::impls", zeros::impls),
 		("zeros::keys", zeros::keys),
 		("keys::arrays", keys::arrays),
+		("iters::zips", iters::zips),
+		("iters::zips_back", iters::zips_back),
 	]
 }
 
