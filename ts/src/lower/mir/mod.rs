@@ -15,7 +15,7 @@ mod cfg;
 pub mod coroutine;
 mod decided;
 pub mod glue;
-mod holders;
+pub(super) mod holders;
 mod inline;
 mod memory;
 mod place;
@@ -499,7 +499,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 								.any(|op| self.changes(op.ty(&mir.local_decls, self.tcx), part));
 							self.arg_use[local] = true;
 							self.arg_alone[local] = alone;
-							self.arg_kept[local] = kept || self.holds(result, part);
+							self.arg_kept[local] = kept || self.b.t.holds(result, part);
 						}
 					}
 					self.def(*destination);
@@ -2825,8 +2825,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	fn changes(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		use rustc_middle::ty::TypeVisitableExt;
 		let env = self.b.t.typing_env_pub();
-		let overlaps = |t: Ty<'tcx>| self.holds(t, part) || self.holds(part, t);
-		self.reaches(ty, |t| match t.kind() {
+		let overlaps = |t: Ty<'tcx>| self.b.t.holds(t, part) || self.b.t.holds(part, t);
+		self.b.t.reaches(ty, |t| match t.kind() {
 			ty::RawPtr(..) => true,
 			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => overlaps(*inner),
 			// Inside a binder, as a function pointer's signature, only its kind tells.
@@ -2855,20 +2855,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				self.holds_behind(result, t)
 					|| args
 						.iter()
-						.any(|a| self.stores(a.node.ty(&self.mir.local_decls, self.tcx), t))
+						.any(|a| self.b.t.stores(a.node.ty(&self.mir.local_decls, self.tcx), t))
 			})
-	}
-
-	/// Whether a value of `ty` reaches somewhere that could take a `part` in: a raw
-	/// pointer, or a mutable reference to or interior mutability around what could hold one.
-	fn stores(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
-		use rustc_middle::ty::TypeVisitableExt;
-		let env = self.b.t.typing_env_pub();
-		self.reaches(ty, |t| match t.kind() {
-			ty::RawPtr(..) => true,
-			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => self.holds(*inner, part),
-			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && self.holds(t, part),
-		})
 	}
 
 	/// The local whose own value `op` moves out, which nothing reads after, if it holds a
@@ -2950,12 +2938,40 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				adt.all_fields()
 					.any(|field| self.holds_behind(self.b.t.field_ty(field.did, args), part))
 			}
-			_ => self.holds(ty, part),
+			_ => self.b.t.holds(ty, part),
 		}
+	}
+}
+
+/// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
+/// which TypeScript types as the whole union already.
+pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
+	let mut inner = &value;
+	while let Expr::Located(_, e) = inner {
+		inner = e;
+	}
+	match inner {
+		Expr::As(_, t) if *t == ty => Ok(value),
+		Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => Err(value),
+		_ => Ok(Expr::As(Box::new(value.typed()), ty)),
+	}
+}
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// Whether a value of `ty` reaches somewhere that could take a `part` in: a raw
+	/// pointer, or a mutable reference to or interior mutability around what could hold one.
+	pub(crate) fn stores(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+		use rustc_middle::ty::TypeVisitableExt;
+		let env = self.typing_env_pub();
+		self.reaches(ty, |t| match t.kind() {
+			ty::RawPtr(..) => true,
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => self.holds(*inner, part),
+			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && self.holds(t, part),
+		})
 	}
 
 	/// Whether a value of `ty` could hold a `part`: holds its type, or hides what it holds.
-	fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+	pub(crate) fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		// An array and a slice of its element share storage through an unsizing coercion.
 		let storage = |t: Ty<'tcx>| match t.kind() {
 			ty::Array(elem, _) => Ty::new_slice(self.tcx, *elem),
@@ -2973,7 +2989,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Whether `f` holds for any type a value of `ty` holds: its type arguments, which are
 	/// what std's types hold, and the fields of the crate's own types.
-	fn reaches(&self, ty: Ty<'tcx>, mut f: impl FnMut(Ty<'tcx>) -> bool) -> bool {
+	pub(crate) fn reaches(&self, ty: Ty<'tcx>, mut f: impl FnMut(Ty<'tcx>) -> bool) -> bool {
 		let mut seen = FxHashSet::default();
 		let mut stack = vec![ty];
 		while let Some(ty) = stack.pop() {
@@ -2982,28 +2998,14 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					return true;
 				}
 				if let ty::Adt(adt, args) = t.kind()
-					&& self.b.t.own(adt.did())
+					&& self.own(adt.did())
 					&& seen.insert(t)
 				{
-					stack.extend(adt.all_fields().map(|field| self.b.t.field_ty(field.did, args)));
+					stack.extend(adt.all_fields().map(|field| self.field_ty(field.did, args)));
 				}
 			}
 		}
 		false
-	}
-}
-
-/// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
-/// which TypeScript types as the whole union already.
-pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
-	let mut inner = &value;
-	while let Expr::Located(_, e) = inner {
-		inner = e;
-	}
-	match inner {
-		Expr::As(_, t) if *t == ty => Ok(value),
-		Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => Err(value),
-		_ => Ok(Expr::As(Box::new(value.typed()), ty)),
 	}
 }
 

@@ -195,6 +195,54 @@ pub fn from_reference<'tcx>(
 	}
 }
 
+/// What the value std's `def_id` returns points at, if it is a raw pointer, `NonNull`,
+/// `MaybeUninit`, `UnsafeCell`, or `Box` function that runs none of the crate's code and
+/// keeps what it is given nowhere but in what it returns.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Derives {
+	/// Where its first argument points, as a whole.
+	Same,
+	/// Anywhere its arguments reach, if anywhere.
+	Other,
+}
+
+/// How std's `def_id` derives what it returns, if [`Derives`] describes it.
+pub fn derives(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Option<Derives> {
+	if !super::library::is_std(tcx, def_id) {
+		return None;
+	}
+	let (owner, name) = super::library::key(tcx, def_id)?;
+	match (owner.as_str(), name.as_str()) {
+		("ptr", "cast" | "cast_const" | "cast_mut" | "as_ref" | "as_mut")
+		| ("NonNull", "new" | "new_unchecked" | "as_ptr" | "as_ref" | "as_mut" | "cast" | "cast_const" | "cast_mut")
+		| ("MaybeUninit", "as_ptr" | "as_mut_ptr" | "assume_init_ref" | "assume_init_mut" | "write")
+		| ("Box", "into_raw" | "leak" | "from_raw") => Some(Derives::Same),
+		(
+			"ptr",
+			"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "eq" | "add" | "sub" | "offset"
+			| "wrapping_add" | "wrapping_sub" | "wrapping_offset" | "read" | "read_unaligned" | "read_volatile" | "write"
+			| "write_unaligned" | "write_volatile",
+		)
+		| ("NonNull", "dangling" | "add" | "sub" | "offset" | "read" | "write")
+		| ("MaybeUninit", "new" | "uninit" | "assume_init" | "assume_init_read")
+		| ("UnsafeCell", "new" | "get" | "raw_get" | "get_mut" | "into_inner")
+		| ("Box", "new") => Some(Derives::Other),
+		_ => None,
+	}
+}
+
+/// Whether std's `def_id` returns memory nothing points into yet.
+pub fn allocates(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	super::library::is_std(tcx, def_id)
+		&& matches!(
+			super::library::key(tcx, def_id),
+			Some((owner, name)) if matches!(
+				(owner.as_str(), name.as_str()),
+				("alloc", "alloc" | "alloc_zeroed") | ("Box", "new" | "new_uninit" | "new_zeroed")
+			)
+		)
+}
+
 /// How many of std's `def_id`'s first arguments are `&mut`s whose lowering gives what
 /// they borrow another value, rather than writing into it, where one is an alias of a
 /// borrowed place: the place is assigned again. `mem::replace`'s value is no such one.
