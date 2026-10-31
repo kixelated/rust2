@@ -44,7 +44,7 @@ export function iterated(): Segment {
 			break;
 		}
 		const uninit = _8;
-		rt.ptrWrite(uninit, Lent.new$MaybeUninit_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]));
+		rt.ptrWrite(uninit, Lent.new$mem_MaybeUninit_tuple2_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]));
 		uninit;
 	}
 	return { filled: 0, slots };

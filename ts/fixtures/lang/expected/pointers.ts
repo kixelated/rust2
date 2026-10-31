@@ -760,7 +760,12 @@ export function segments(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const byte of rt.byteSliceView(data)) {
 		const _12: rt.u8 = rt.u8Rem(byte, 4);
 		if (_12 === 0) {
-			if (rt.usizeRem(len, 4) === 0) {
+			if (!(rt.usizeRem(len, 8) === 0)) {
+				if (rt.usizeRem(len, 4) === 0) {
+					const _27: Segment.Segment = Segment.iterated();
+					log.push(_27);
+				}
+			} else {
 				const _20: Segment.Segment = Segment.new();
 				log.push(_20);
 			}
@@ -777,10 +782,10 @@ export function segments(data: rt.ByteSlice, out: rt.ByteVec): void {
 		if (_12 === 1) {
 			if (len > 0) {
 				const at: rt.usize = rt.usizeRem(byte as rt.usize, len);
-				const _42: [rt.u8, rt.u8] = Lent.with$mem_MaybeUninit_tuple2_u8_u8_tuple2_u8_u8_pointers_segments_closure1(Segment.slot(log[rt.idx(log, rt.usizeDiv(at, 4))], rt.usizeRem(at, 4)), (p2: [rt.u8, rt.u8]): [rt.u8, rt.u8] => {
+				const _49: [rt.u8, rt.u8] = Lent.with$mem_MaybeUninit_tuple2_u8_u8_tuple2_u8_u8_pointers_segments_closure1(Segment.slot(log[rt.idx(log, rt.usizeDiv(at, 4))], rt.usizeRem(at, 4)), (p2: [rt.u8, rt.u8]): [rt.u8, rt.u8] => {
 					return copy$tuple2_u8_u8(p2);
 				});
-				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_42[0], _42[1])), undefined, true);
+				rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_49[0], _49[1])), undefined, true);
 				continue;
 			}
 		} else if (_12 === 2) {
@@ -840,6 +845,99 @@ export function uninitRuns(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 	const last2: pointers_Run.Run = last;
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(last2.span[0], last2.span[1], last2.n)), undefined, true);
+}
+
+/**
+ * `MaybeUninit` slots each written whole through std's iterators over them before any
+ * pointer into them is taken: an array's `iter_mut`, a boxed slice's `&mut`, its
+ * `chunks_exact_mut`, and a `zip` with an index range; then changed through pointers to
+ * a part of each and read back.
+ */
+export function iteratedRuns(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const byte: (a0: rt.usize) => rt.u8 = (at3: rt.usize): rt.u8 => {
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, at3), 0);
+	};
+	const runs: pointers_Run.Run[] = Array.from({ length: 3 }, (): pointers_Run.Run => {
+		return ({ span: [undefined, undefined], n: undefined } as unknown) as pointers_Run.Run;
+	});
+	const iter: rt.Iter<pointers_Run.Run> = rt.iterSlice(runs);
+	while (true) {
+		const _10: pointers_Run.Run | rt.Done = iter.next();
+		if (_10 === rt.DONE) {
+			break;
+		}
+		const uninit = _10;
+		rt.ptrWrite(uninit, { span: [byte(0), ~byte(0) & 0xff] as [rt.u8, rt.u8], n: 0 });
+		uninit;
+	}
+	const boxed: pointers_Run.Run[] = Array.from({ length: 4 }, (): pointers_Run.Run => {
+		return ({ span: [undefined, undefined], n: undefined } as unknown) as pointers_Run.Run;
+	});
+	const iter2: rt.Iter<pointers_Run.Run> = rt.iterSlice(boxed);
+	while (true) {
+		const _30: pointers_Run.Run | rt.Done = iter2.next();
+		if (_30 === rt.DONE) {
+			break;
+		}
+		const uninit2 = _30;
+		rt.ptrWrite(uninit2, { span: [byte(1), 1] as [rt.u8, rt.u8], n: 1 });
+		uninit2;
+	}
+	const iter3: rt.Iter<[pointers_Run.Run[], rt.u8]> = rt.iterZip(rt.sliceChunksExactMut(boxed, 2), new rt.RangeFrom(0, rt.u8Step), "len");
+	l5: while (true) {
+		const _46: [pointers_Run.Run[], rt.u8] | rt.Done = iter3.next();
+		if (_46 === rt.DONE) {
+			break;
+		}
+		const at: rt.u8 = _46[1];
+		const iterS: pointers_Run.Run[] = _46[0];
+		let iterI: number = 0;
+		while (true) {
+			const _53: pointers_Run.Run | rt.Done = iterI < iterS.length ? iterS[iterI++] : rt.DONE;
+			if (_53 === rt.DONE) {
+				continue l5;
+			}
+			const uninit3 = _53;
+			rt.ptrWrite(uninit3, { span: [byte(2), at] as [rt.u8, rt.u8], n: rt.u8WrappingAdd(at, byte(3)) });
+			uninit3;
+		}
+	}
+	const iter5: rt.Iter<[pointers_Run.Run, rt.usize]> = rt.iterZip(rt.iterSlice(runs), new rt.RangeFrom(0, rt.usizeStep), "len");
+	while (true) {
+		const _74: [pointers_Run.Run, rt.usize] | rt.Done = iter5.next();
+		if (_74 === rt.DONE) {
+			break;
+		}
+		const at2: rt.usize = _74[1];
+		const uninit4 = _74[0];
+		rt.ptrWrite(uninit4, { span: [byte(at2), at2 & 0xff] as [rt.u8, rt.u8], n: at2 & 0xff });
+		uninit4;
+	}
+	for (const byte2 of rt.byteSliceView(data)) {
+		const _95: rt.usize = rt.usizeRem(byte2 as rt.usize, 3);
+		if (!(_95 < 3)) {
+			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _95);
+		}
+		const run: pointers_Run.Run = runs[_95];
+		const span: [rt.u8, rt.u8] = run.span;
+		span[0] = span[0] ^ byte2;
+		span[1] = rt.u8WrappingAdd(span[1], run.n);
+		rt.byteVecPush(out, span[0]);
+		const _107: rt.usize = rt.usizeRem(byte2 as rt.usize, 4);
+		rt.idx(boxed, _107);
+		const span2: [rt.u8, rt.u8] = boxed[_107].span;
+		span2[1] = span2[1] ^ byte2;
+		rt.byteVecPush(out, span2[1]);
+	}
+	const iter7: rt.Iter<pointers_Run.Run> = rt.iterChain(rt.iterSlice(runs), rt.iterSlice(boxed));
+	while (true) {
+		const _123: pointers_Run.Run | rt.Done = iter7.next();
+		if (_123 === rt.DONE) {
+			break;
+		}
+		const run3: pointers_Run.Run = _123;
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(run3.span[0], run3.span[1], run3.n)), undefined, true);
+	}
 }
 
 //# sourceMappingURL=pointers.ts.map
