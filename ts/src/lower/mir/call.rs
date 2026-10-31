@@ -679,6 +679,35 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					None => done(place, true),
 				}
 			}
+			// A `Wrapping` is its integer, so what the `&mut` borrows gets the wrapped result.
+			(_, _)
+				if let Some(op) = owner.strip_suffix("Assign").and_then(library::operator)
+					&& let Some(int) = targ(0).and_then(|t| library::wrapping_of(tcx, t)) =>
+			{
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let by = self.operand(&args[1].node, span, out);
+				let l = crate::lower::num::Operand {
+					expr: place.0.clone(),
+					value: None,
+				};
+				let r = crate::lower::num::Operand {
+					expr: by,
+					value: self.const_int(&args[1].node),
+				};
+				let value = crate::lower::num::wrapping(self.b, op, l, r, int, span);
+				self.set_borrowed(&place, value, span, out);
+				done(Expr::undefined(), false)
+			}
+			// A `Cow<[T]>` that borrows takes a clone of its slice, whose `Vec` the `&mut` lends.
+			("Cow", "to_mut") if let ty::Slice(elem) = targ(0)?.kind() => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				// Read twice, by the clone and by the store.
+				self.materialize(&place.0, out);
+				let owned = library::cow_cloned(self.b, "IntoOwned", place.0.clone(), *elem, span);
+				let owned = self.path(owned, "owned", out);
+				self.set_borrowed(&place, owned.clone(), span, out);
+				done(owned, true)
+			}
 			("Option", "take") => {
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let none = self.b.t.none(targ(0)?);

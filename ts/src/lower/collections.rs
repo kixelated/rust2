@@ -105,6 +105,9 @@ pub fn call<'tcx>(
 			("PartialEq", "eq" | "ne", ..) if let Some(t) = self_ty => {
 				// The library maps the integers', `bool`'s, and byte slices'.
 				let rhs = library::targ(call.args, 1);
+				// A `Cow<[T]>` compares as the slice it derefs to: its `ne` is `!eq`, or the
+				// slice's, which is too.
+				let (t, rhs) = (cow_deref(b, t, &mut args, 0), cow_deref(b, rhs, &mut args, 1));
 				let slice = |t: Ty<'tcx>| matches!(t.kind(), ty::Slice(_)) && bytes(b, t);
 				if slice(t) && slice(rhs) {
 					return Err(args);
@@ -824,9 +827,12 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
 	// A fieldless enum is a JS string, and a bound value may be any primitive, which its
 	// own `Eq` may tell apart where JS can't, as is the `Some` of an `Option` of one, and a
-	// `Reverse` of one.
+	// `Reverse` or a `Wrapping` of one.
 	let mut held = key;
-	while let Some(inner) = option_of(b, held).or_else(|| reverse_of(b, held)) {
+	while let Some(inner) = option_of(b, held)
+		.or_else(|| reverse_of(b, held))
+		.or_else(|| wrapping_of(b, held))
+	{
 		held = peel(b, inner);
 	}
 	if matches!(held.kind(), ty::Adt(adt, _) if fieldless(*adt) || b.t.bound_drops(adt.did()).is_some()) {
@@ -1588,7 +1594,13 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		ty::Tuple(tys) => tys.iter().all(held),
 		_ if let Some(elem) = elements_of(b, ty) => held(elem),
 		_ if bytes(b, ty) => true,
-		ty::Adt(..) if let Some(inner) = option_of(b, ty).or_else(|| arc_of(b, ty)).or_else(|| reverse_of(b, ty)) => {
+		ty::Adt(..)
+			if let Some(inner) = option_of(b, ty)
+				.or_else(|| arc_of(b, ty))
+				.or_else(|| reverse_of(b, ty))
+				.or_else(|| wrapping_of(b, ty))
+				.or_else(|| cow_of(b, ty)) =>
+		{
 			held(inner)
 		}
 		ty::Adt(..) if let Some(bound) = range_of(b, ty) => held(bound),
@@ -1620,6 +1632,30 @@ fn reverse_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Reverse)).then(|| arg(ty, 0))
 }
 
+/// What `ty` holds if it is a `Wrapping`, which compares, orders, and hashes as it, but for
+/// its `ne`, which is `!eq`.
+fn wrapping_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	(b.t.std_of(ty) == Some(Std::Wrapping)).then(|| arg(ty, 0))
+}
+
+/// What `ty` holds if it is a `Cow<[T]>` other than of bytes, `T`, which compares, orders,
+/// and hashes as its slice. A `Cow<[u8]>` is bytes already.
+fn cow_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	library::cow_slice(b.t.tcx, ty).filter(|elem| !matches!(elem.kind(), ty::Uint(ty::UintTy::U8)))
+}
+
+/// `ty`, the type of `args[n]`, as the slice it derefs to if it is a `Cow<[T]>` other than
+/// of bytes, whose value in `args` becomes that slice.
+fn cow_deref<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>, args: &mut [Expr], n: usize) -> Ty<'tcx> {
+	let Some(elem) = cow_of(b, peel(b, ty)) else {
+		return ty;
+	};
+	if let Some(at) = args.get_mut(n) {
+		*at = library::cow_deref(std::mem::replace(at, Expr::undefined()), elem);
+	}
+	Ty::new_slice(b.t.tcx, elem)
+}
+
 /// The elements of `ty` if it is a `Vec`, a slice, or an array that is a JS array: of any
 /// type but `u8`, whose bytes are typed arrays.
 fn elements_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
@@ -1631,12 +1667,13 @@ fn elements_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(!matches!(elem.kind(), ty::Uint(ty::UintTy::U8))).then_some(elem)
 }
 
-/// Whether `ty` is a `Vec`, a slice, or an array of bytes: a typed array, an `rt.ByteSlice`
-/// behind a reference, or an `rt.ByteVec`.
+/// Whether `ty` is a `Vec`, a slice, an array, or a `Cow` of bytes: a typed array, an
+/// `rt.ByteSlice` behind a reference, or an `rt.ByteVec`, or either of the last two.
 fn bytes<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let elem = match ty.kind() {
 		ty::Slice(elem) | ty::Array(elem, _) => *elem,
 		ty::Adt(..) if b.t.std_of(ty) == Some(Std::Vec) => arg(ty, 0),
+		_ if let Some(elem) = library::cow_slice(b.t.tcx, ty) => elem,
 		_ => return false,
 	};
 	matches!(elem.kind(), ty::Uint(ty::UintTy::U8))
@@ -1793,6 +1830,10 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
 			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
 		}
+		ty::Adt(..) if let Some(inner) = wrapping_of(b, ty) => cmp_fn(b, inner, partial, span),
+		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
+			Expr::rt("cowBy", vec![cmp_fn(b, Ty::new_slice(tcx, elem), partial, span)])
+		}
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
 		// Whichever form it has, as the key it is or the operand a reference passes.
 		_ if bytes(b, ty) => Expr::Rt("cmpBytes".into()),
@@ -1836,7 +1877,10 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
 			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
-		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => eq_fn(b, inner, span),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| wrapping_of(b, ty)) => eq_fn(b, inner, span),
+		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
+			Expr::rt("cowBy", vec![eq_fn(b, Ty::new_slice(tcx, elem), span)])
+		}
 		ty::Adt(..) if let Some(bound) = range_of(b, ty) => Expr::rt("rangeEq", vec![eq_fn(b, bound, span)]),
 		// A slice compares its elements by `!=`.
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![not_ne_fn(b, elem, span)]),
@@ -2063,7 +2107,12 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashOption", [hash].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
-		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => hash_fn(b, inner, hasher, span),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| wrapping_of(b, ty)) => {
+			hash_fn(b, inner, hasher, span)
+		}
+		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
+			Expr::rt("hashCow", vec![hash_fn(b, Ty::new_slice(tcx, elem), hasher, span)])
+		}
 		ty::Adt(..) if let Some(bound) = range_of(b, ty) => {
 			Expr::rt("rangeHash", vec![hash_fn(b, bound, hasher, span)])
 		}

@@ -3,9 +3,11 @@
 //! found through their translated `Hash` and `Eq` or ordered by their `Ord`. A hash
 //! map's iteration order is unspecified, so only what does not depend on it is written.
 
+use std::borrow::Cow;
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque, btree_map, hash_map};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::num::Wrapping;
 use std::ops::Bound;
 
 use crate::generics::Wrap;
@@ -1431,9 +1433,10 @@ impl PartialEq for Picky<'_> {
 impl Eq for Picky<'_> {}
 
 /// `==` and `!=` of what holds a `Picky`, whose `ne` std's of tuples, `Arc`s, `Rc`s, and
-/// `Box`es call, and std's `==` of slices calls of each item, but which an `Option`'s and
-/// a `Reverse`'s `ne`, as `!eq`, does not: of unequal lengths, empty, nested, and with
-/// items `eq` and `ne` disagree on at the positions `kind` picks.
+/// `Box`es call, and std's `==` of slices and `Cow`s of them calls of each item, but which
+/// an `Option`'s, a `Reverse`'s, and a `Wrapping`'s `ne`, as `!eq`, does not: of unequal
+/// lengths, empty, nested, and with items `eq` and `ne` disagree on at the positions
+/// `kind` picks.
 pub fn own_nes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	use std::rc::Rc;
 	use std::sync::Arc;
@@ -1524,6 +1527,23 @@ pub fn own_nes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	put_eq(wrapped(&a) != wrapped(&b), &log, out);
 	put_eq(wrapped(&a) == b, &log, out);
 	put_eq(wrapped(&a) == &b[..], &log, out);
+
+	// A `Wrapping`'s `ne` is `!eq`, and a `Cow<[T]>`, borrowed or owned, compares as its
+	// slice, whose `==` and `!=` call each item's `ne`, against a `Cow`, a slice, a `Vec`,
+	// and an array.
+	put_eq((Wrapping(one(&a, 0)),) != (Wrapping(one(&b, 0)),), &log, out);
+	put_eq(Wrapping(one(&a, 1)) == Wrapping(one(&b, 1)), &log, out);
+	let (ca, cb) = (Cow::Borrowed(&a[..]), Cow::<[Picky]>::Owned(b.clone()));
+	put_eq(ca == cb, &log, out);
+	put_eq(ca != cb, &log, out);
+	put_eq(ca == &b[..], &log, out);
+	put_eq(cb != a, &log, out);
+	put_eq(b == ca, &log, out);
+	put_eq(&a[..] != cb, &log, out);
+	put_eq(*cb == pa, &log, out);
+	let owned: Vec<Cow<'_, [Picky]>> = each(&a, |p| Cow::Owned(vec![p.clone()]));
+	let borrowed: Vec<Cow<'_, [Picky]>> = b.chunks(1).map(Cow::Borrowed).collect();
+	put_eq(owned != borrowed, &log, out);
 }
 
 /// An item whose `ne` and `PartialOrd`'s tests see other remainders than its `eq` and
