@@ -1408,7 +1408,8 @@ pub fn tuple_extend<'tcx>(
 				return Some(unsupported(b, *coll, *field));
 			};
 			let params = [c, each].map(|name| Param { name, ty: None });
-			("tupleExtendOne", vec![items, Expr::Lambda(params.into(), Box::new(extended))])
+			let f = Expr::Lambda(params.into(), Box::new(extended));
+			("tupleExtendOne", vec![items, f])
 		}
 		_ => {
 			let mut parts = Vec::new();
@@ -1420,7 +1421,8 @@ pub fn tuple_extend<'tcx>(
 			}
 			// By `for_each`.
 			let take = super::iter::iter_take(b, iter, true, span);
-			("tupleExtend", super::iter::tail(vec![items, Expr::Array(parts)], vec![take]))
+			let args = super::iter::tail(vec![items, Expr::Array(parts)], vec![take]);
+			("tupleExtend", args)
 		}
 	};
 	let target = match target {
