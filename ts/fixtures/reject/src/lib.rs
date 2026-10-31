@@ -1820,3 +1820,34 @@ pub fn swapped_in_loop(n: u32) -> u32 {
 	a = (0, 0);
 	unsafe { (*p).0 + a.0 }
 }
+
+pub struct Behind(pub u32);
+
+fn read_behind(b: &mut Behind) -> *mut Behind {
+	let p = &raw mut *b;
+	let held = (p,);
+	unsafe { std::ptr::read(&raw const held).0 }
+}
+
+/// A pointer a callee reads back through a pointer to where it put it, which the read
+/// holds, and returns.
+pub fn read_behind_rebound(n: u32) -> u32 {
+	let mut b = Behind(n);
+	let p = read_behind(&mut b);
+	b = Behind(0);
+	unsafe { (*p).0 + b.0 }
+}
+
+pub struct Unboxed(pub u32);
+
+fn unbox(u: &mut Unboxed) -> *mut Unboxed {
+	*Box::leak(Box::new(&raw mut *u))
+}
+
+/// A pointer a callee reads back out of a box it put it in, and returns.
+pub fn unboxed_rebound(n: u32) -> u32 {
+	let mut u = Unboxed(n);
+	let p = unbox(&mut u);
+	u = Unboxed(0);
+	unsafe { (*p).0 + u.0 }
+}
