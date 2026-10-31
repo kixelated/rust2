@@ -546,6 +546,8 @@ export const i8WrappingMul = (a: i8, b: i8): i8 => (Math.imul(a, b) << 24) >> 24
 export const i8WrappingDiv = (a: i8, b: i8): i8 => (b === -1 ? i8WrappingSub(0, a) : i8Div(a, b));
 /** `i8`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
 export const i8WrappingRem = (a: i8, b: i8): i8 => (b === -1 ? 0 : i8Rem(a, b));
+/** `i8`'s `saturating_div`: `a / b`, truncated and clamped to the type's range, panicking on a zero divisor. */
+export const i8SaturatingDiv = (a: i8, b: i8): i8 => (b === -1 ? i8SaturatingSub(0, a) : i8Div(a, b));
 /** `i8`'s `leading_ones`: the count of leading one bits. */
 export const i8LeadingOnes = (a: i8): number => Math.clz32(~(a << 24));
 /** `i8`'s `leading_zeros`: the count of leading zero bits. */
@@ -613,6 +615,8 @@ export const i16WrappingMul = (a: i16, b: i16): i16 => (Math.imul(a, b) << 16) >
 export const i16WrappingDiv = (a: i16, b: i16): i16 => (b === -1 ? i16WrappingSub(0, a) : i16Div(a, b));
 /** `i16`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
 export const i16WrappingRem = (a: i16, b: i16): i16 => (b === -1 ? 0 : i16Rem(a, b));
+/** `i16`'s `saturating_div`: `a / b`, truncated and clamped to the type's range, panicking on a zero divisor. */
+export const i16SaturatingDiv = (a: i16, b: i16): i16 => (b === -1 ? i16SaturatingSub(0, a) : i16Div(a, b));
 /** `i16`'s `leading_ones`: the count of leading one bits. */
 export const i16LeadingOnes = (a: i16): number => Math.clz32(~(a << 16));
 /** `i16`'s `leading_zeros`: the count of leading zero bits. */
@@ -680,6 +684,8 @@ export const i32WrappingMul = (a: i32, b: i32): i32 => Math.imul(a, b);
 export const i32WrappingDiv = (a: i32, b: i32): i32 => (b === -1 ? i32WrappingSub(0, a) : i32Div(a, b));
 /** `i32`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
 export const i32WrappingRem = (a: i32, b: i32): i32 => (b === -1 ? 0 : i32Rem(a, b));
+/** `i32`'s `saturating_div`: `a / b`, truncated and clamped to the type's range, panicking on a zero divisor. */
+export const i32SaturatingDiv = (a: i32, b: i32): i32 => (b === -1 ? i32SaturatingSub(0, a) : i32Div(a, b));
 /** `i32`'s `leading_ones`: the count of leading one bits. */
 export const i32LeadingOnes = (a: i32): number => Math.clz32(~a);
 /** `i32`'s `leading_zeros`: the count of leading zero bits. */
@@ -822,6 +828,8 @@ export const isizeWrappingMul: (a: isize, b: isize) => isize = i32WrappingMul as
 export const isizeWrappingDiv: (a: isize, b: isize) => isize = i32WrappingDiv as never;
 /** `isize`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
 export const isizeWrappingRem: (a: isize, b: isize) => isize = i32WrappingRem as never;
+/** `isize`'s `saturating_div`: `a / b`, truncated and clamped to the type's range, panicking on a zero divisor. */
+export const isizeSaturatingDiv: (a: isize, b: isize) => isize = i32SaturatingDiv as never;
 /** `isize`'s `leading_ones`: the count of leading one bits. */
 export const isizeLeadingOnes: (a: isize) => number = i32LeadingOnes as never;
 /** `isize`'s `leading_zeros`: the count of leading zero bits. */
@@ -1613,6 +1621,8 @@ export const i64WrappingMul = (a: i64, b: i64): i64 => (typeof a === "number" &&
 export const i64WrappingDiv = (a: i64, b: i64): i64 => (b === -1 ? i64WrappingSub(0, a) : i64Div(a, b));
 /** `i64`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
 export const i64WrappingRem = (a: i64, b: i64): i64 => (b === -1 ? 0 : i64Rem(a, b));
+/** `i64`'s `saturating_div`: `a / b`, truncated and clamped to the type's range, panicking on a zero divisor. */
+export const i64SaturatingDiv = (a: i64, b: i64): i64 => (b === -1 ? i64SaturatingSub(0, a) : i64Div(a, b));
 /** `i64`'s `leading_ones`: the count of leading one bits. */
 export const i64LeadingOnes = (a: i64): number => leadingOnes64(a, true);
 /** `i64`'s `leading_zeros`: the count of leading zero bits. */
@@ -1831,6 +1841,8 @@ export const i128WrappingMul = (a: i128, b: i128): i128 => (typeof a === "number
 export const i128WrappingDiv = (a: i128, b: i128): i128 => (b === -1 ? i128WrappingSub(0, a) : i128Div(a, b));
 /** `i128`'s `wrapping_rem`: `a % b`, 0 where it would overflow, panicking on a zero divisor. */
 export const i128WrappingRem = (a: i128, b: i128): i128 => (b === -1 ? 0 : i128Rem(a, b));
+/** `i128`'s `saturating_div`: `a / b`, truncated and clamped to the type's range, panicking on a zero divisor. */
+export const i128SaturatingDiv = (a: i128, b: i128): i128 => (b === -1 ? i128SaturatingSub(0, a) : i128Div(a, b));
 /** `i128`'s `leading_ones`: the count of leading one bits. */
 export const i128LeadingOnes = (a: i128): number => leadingOnes128(a, true);
 /** `i128`'s `leading_zeros`: the count of leading zero bits. */

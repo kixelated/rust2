@@ -113,5 +113,6 @@ roots = [
     "pushed_part_kept",
     "tallied",
     "tallied_alone",
+    "saturating_pow",
 ]
 printable = ["Meters"]

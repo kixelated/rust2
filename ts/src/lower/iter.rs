@@ -509,18 +509,20 @@ pub fn call<'tcx>(
 				tail(vec![Expr::rt_of(float.name(), op), float.lit(unit)], vec![drops]),
 			)
 		}
-		// A `Wrapping`'s wraps, as its `+` and `*` do.
+		// A `Wrapping`'s wraps and a `Saturating`'s saturates, as its `+` and `*` do.
 		"sum" | "product" => {
-			let wrapping = super::library::wrapping_of(b.t.tcx, targ(1)?);
-			let int = Int::of(wrapping.unwrap_or(targ(1)?))?;
-			let (op, unit) = match (name, wrapping.is_some()) {
-				("sum", false) => ("add", 0),
-				("sum", true) => ("wrappingAdd", 0),
-				(_, false) => ("mul", 1),
-				(_, true) => ("wrappingMul", 1),
+			let overflowing = super::library::overflowing(b.t.tcx, targ(1)?);
+			let int = Int::of(overflowing.map_or(targ(1)?, |(_, int)| int))?;
+			let (op, unit) = match name {
+				"sum" => ("Add", 0),
+				_ => ("Mul", 1),
+			};
+			let op = match overflowing {
+				Some((overflow, _)) => overflow.method(op),
+				None => op.to_lowercase(),
 			};
 			let drops = iter_drops(b, self_ty, span);
-			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
+			method(name, tail(vec![int.func(&op), int.lit(unit)], vec![drops]))
 		}
 		// `ExactSizeIterator::len` and `size_hint` are each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),

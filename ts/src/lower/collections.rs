@@ -733,11 +733,11 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
 	// A fieldless enum is a JS string, and a bound value may be any primitive, which its
 	// own `Eq` may tell apart where JS can't, as is the `Some` of an `Option` of one, and a
-	// `Reverse` or a `Wrapping` of one.
+	// `Reverse`, a `Wrapping`, or a `Saturating` of one.
 	let mut held = peeled;
 	while let Some(inner) = option_of(b, held)
 		.or_else(|| reverse_of(b, held))
-		.or_else(|| wrapping_of(b, held))
+		.or_else(|| overflowing_of(b, held))
 	{
 		held = peel(b, inner);
 	}
@@ -1707,7 +1707,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 			if let Some(inner) = option_of(b, ty)
 				.or_else(|| arc_of(b, ty))
 				.or_else(|| reverse_of(b, ty))
-				.or_else(|| wrapping_of(b, ty))
+				.or_else(|| overflowing_of(b, ty))
 				.or_else(|| cow_of(b, ty))
 				.or_else(|| deque_of(b, ty)) =>
 		{
@@ -1752,10 +1752,10 @@ fn reverse_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Reverse)).then(|| arg(ty, 0))
 }
 
-/// What `ty` holds if it is a `Wrapping`, which compares, orders, and hashes as it, but for
-/// its `ne`, which is `!eq`.
-fn wrapping_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	(b.t.std_of(ty) == Some(Std::Wrapping)).then(|| arg(ty, 0))
+/// What `ty` holds if it is a `Wrapping` or a `Saturating`, which compares, orders, and
+/// hashes as it, but for its `ne`, which is `!eq`.
+fn overflowing_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	b.t.std_of(ty).and_then(Std::overflow).map(|_| arg(ty, 0))
 }
 
 /// What `ty` holds if it is a `Cow<[T]>` other than of bytes, `T`, which compares, orders,
@@ -1959,7 +1959,7 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
 			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
 		}
-		ty::Adt(..) if let Some(inner) = wrapping_of(b, ty) => cmp_fn(b, inner, partial, span),
+		ty::Adt(..) if let Some(inner) = overflowing_of(b, ty) => cmp_fn(b, inner, partial, span),
 		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
 			Expr::rt("cowBy", vec![cmp_fn(b, Ty::new_slice(tcx, elem), partial, span)])
 		}
@@ -2019,7 +2019,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
 			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
-		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| wrapping_of(b, ty)) => eq_fn(b, inner, span),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| overflowing_of(b, ty)) => eq_fn(b, inner, span),
 		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
 			Expr::rt("cowBy", vec![eq_fn(b, Ty::new_slice(tcx, elem), span)])
 		}
@@ -2236,7 +2236,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashOption", [hash].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
-		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| wrapping_of(b, ty)) => {
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| overflowing_of(b, ty)) => {
 			hash_fn(b, inner, hasher, span)
 		}
 		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {

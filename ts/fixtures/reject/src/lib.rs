@@ -1286,3 +1286,8 @@ pub fn tallied(data: &[u8]) -> (Vec<u8>, Tally) {
 pub fn tallied_alone(data: &[u8]) -> (Tally,) {
 	data.iter().map(|&b| (b,)).collect()
 }
+
+/// A `Saturating`'s own methods, which are its integer's, are not translated yet.
+pub fn saturating_pow(a: u8) -> u8 {
+	std::num::Saturating(a).pow(2).0
+}
