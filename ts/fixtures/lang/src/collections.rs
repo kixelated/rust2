@@ -1788,3 +1788,276 @@ pub fn unlike_compares(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	order(pairs.iter().copied().partial_cmp(rights()), &log, out);
 	order(pairs.iter().partial_cmp(theirs.iter()), &log, out);
 }
+
+/// Compared, ordered, and hashed only through references: equal and hashed by the
+/// remainder by 2, ordered by `PartialOrd` by the remainder by 3, and by `Ord` by the
+/// remainder by 4, descending, so each composite shows which std calls.
+struct ByRef(u16);
+
+impl PartialEq for &ByRef {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 2 == other.0 % 2
+	}
+}
+
+impl Eq for &ByRef {}
+
+impl PartialOrd for &ByRef {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		(self.0 % 3).partial_cmp(&(other.0 % 3))
+	}
+}
+
+impl Ord for &ByRef {
+	fn cmp(&self, other: &Self) -> Ordering {
+		(other.0 % 4).cmp(&(self.0 % 4))
+	}
+}
+
+impl Hash for &ByRef {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		(self.0 % 2).hash(state);
+	}
+}
+
+/// `ByRef`'s impls on the value itself, which std's of references forward to.
+struct ByVal(u16);
+
+impl PartialEq for ByVal {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 2 == other.0 % 2
+	}
+}
+
+impl Eq for ByVal {}
+
+impl PartialOrd for ByVal {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		(self.0 % 3).partial_cmp(&(other.0 % 3))
+	}
+}
+
+/// With a `max` and `min` of its own, which std's `Ord` of a reference never calls.
+impl Ord for ByVal {
+	fn cmp(&self, other: &Self) -> Ordering {
+		(other.0 % 4).cmp(&(self.0 % 4))
+	}
+
+	fn max(self, _: Self) -> Self {
+		self
+	}
+
+	fn min(self, other: Self) -> Self {
+		other
+	}
+}
+
+/// With a `hash_slice` of its own, which std's `Hash` of a reference never calls.
+impl Hash for ByVal {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		(self.0 % 2).hash(state);
+	}
+
+	fn hash_slice<H: Hasher>(data: &[Self], state: &mut H) {
+		state.write_usize(data.len() * 7);
+	}
+}
+
+/// Equal and ordered by `PartialOrd` by value, by the remainder by 5, which std's of a
+/// reference forwards to, but ordered by `Ord` and hashed by a reference's own impls, by
+/// the remainders by 3 and 5.
+struct Mixed(u16);
+
+impl PartialEq for Mixed {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 5 == other.0 % 5
+	}
+}
+
+impl PartialOrd for Mixed {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		(self.0 % 5).partial_cmp(&(other.0 % 5))
+	}
+}
+
+impl Eq for &Mixed {}
+
+impl Ord for &Mixed {
+	fn cmp(&self, other: &Self) -> Ordering {
+		(self.0 % 3).cmp(&(other.0 % 3))
+	}
+}
+
+impl Hash for &Mixed {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		(self.0 % 5).hash(state);
+	}
+}
+
+/// Equal by the remainder by 2 and ordered by the remainder by 3 only as a `Box`.
+struct Boxed(u16);
+
+impl PartialEq for Box<Boxed> {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 2 == other.0 % 2
+	}
+}
+
+impl PartialOrd for Box<Boxed> {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		(self.0 % 3).partial_cmp(&(other.0 % 3))
+	}
+}
+
+/// std's comparisons, orderings, and hashes of composites holding a `T`, by each one's own
+/// impls: `&ByRef`'s, `ByVal`'s through `&ByVal`, `Mixed`'s and `&Mixed`'s, and each
+/// through `&&T`. Then `Box<Boxed>`'s.
+pub fn ref_orders(_kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::cell::{Cell, RefCell};
+
+	fn hashed(value: impl Hash) -> [u8; 8] {
+		let mut h = DefaultHasher::new();
+		value.hash(&mut h);
+		h.finish().to_le_bytes()
+	}
+	fn order_byte(o: Option<Ordering>) -> u8 {
+		o.map_or(9, |o| o as i8 as u8)
+	}
+	macro_rules! composites {
+		($a:expr, $b:expr, $out:expr) => {{
+			let (a, b, out): (_, _, &mut Vec<u8>) = ($a, $b, $out);
+			out.extend([(a,) == (b,), (a,) != (b,), (a,) < (b,), (7u8, a) >= (7, b)].map(u8::from));
+			out.extend(
+				[
+					(a,).partial_cmp(&(b,)),
+					Some((a,).cmp(&(b,))),
+					Some((7u8, a).cmp(&(7, b))),
+				]
+				.map(order_byte),
+			);
+			out.extend([Some(a).partial_cmp(&Some(b)), Some(Some(a).cmp(&Some(b)))].map(order_byte));
+			out.extend([Some(a) == Some(b), Some(a) < Some(b)].map(u8::from));
+			out.push(u8::from(Ok::<_, u8>(a) == Ok(b)));
+			out.extend(
+				[
+					[a, b][..].partial_cmp(&[b, a][..]),
+					Some([a, b].cmp(&[b, a])),
+					Some(vec![a].cmp(&vec![b])),
+				]
+				.map(order_byte),
+			);
+			out.extend([[a, b] == [b, a], [a][..] < [b][..], vec![a, b] != vec![b, a]].map(u8::from));
+			out.push(u8::from(VecDeque::from([a, b]) == VecDeque::from([b, a])));
+			out.extend([Reverse(a).partial_cmp(&Reverse(b)), Some(Reverse(a).cmp(&Reverse(b)))].map(order_byte));
+			out.extend(
+				[
+					Cell::new(a).partial_cmp(&Cell::new(b)),
+					Some(RefCell::new(a).cmp(&RefCell::new(b))),
+				]
+				.map(order_byte),
+			);
+			out.extend([Cell::new(a) == Cell::new(b), RefCell::new(a) < RefCell::new(b)].map(u8::from));
+			out.extend([[a, b].iter().partial_cmp([b, a].iter()), Some([a].into_iter().cmp([b]))].map(order_byte));
+			out.extend(
+				[
+					[a, b].into_iter().eq([b, a]),
+					[a].into_iter().lt([b]),
+					[a].iter().ge([b].iter()),
+				]
+				.map(u8::from),
+			);
+			out.extend([a == b, a != b, a < b, a >= b, &a == &b, &a > &b].map(u8::from));
+			out.extend(
+				[
+					a.partial_cmp(&b),
+					Some(a.cmp(&b)),
+					(&a).partial_cmp(&&b),
+					Some((&a).cmp(&&b)),
+				]
+				.map(order_byte),
+			);
+			out.extend([a.max(b).0, a.min(b).0, (&a).max(&b).0, a.clamp(b, b).0].map(|v| v as u8));
+			out.extend(hashed(a));
+			out.extend(hashed(&a));
+			for hash in [
+				hashed((a,)),
+				hashed(Some(a)),
+				hashed([a, b]),
+				hashed(&[a][..]),
+				hashed(vec![b]),
+			] {
+				out.extend(hash);
+			}
+		}};
+	}
+	macro_rules! keys {
+		($xs:expr, $out:expr) => {{
+			let (xs, out): (Vec<_>, &mut Vec<u8>) = ($xs, $out);
+			let mut sorted = xs.clone();
+			sorted.sort();
+			out.extend(sorted.iter().map(|x| x.0 as u8));
+			// By `insert`, which compares only by `Ord`, as `collect` does not.
+			let mut set = BTreeSet::new();
+			let mut map = BTreeMap::new();
+			for (i, &x) in xs.iter().enumerate() {
+				out.push(u8::from(set.insert(x)));
+				out.extend(map.insert((x,), i).map(|i| i as u8));
+			}
+			out.extend(set.iter().map(|x| x.0 as u8));
+			out.extend(map.iter().map(|(k, &i)| [k.0.0 as u8, i as u8]).flatten());
+			out.extend(set.get(&xs[0]).map(|x| x.0 as u8));
+			let hashes: HashSet<_> = xs.iter().copied().collect();
+			out.push(hashes.len() as u8);
+			let tuples: HashSet<_> = xs.iter().map(|&x| (x, Some(x))).collect();
+			out.push(tuples.len() as u8);
+			out.extend(xs.iter().max().map(|x| x.0 as u8));
+			out.extend(xs.iter().copied().min().map(|x| x.0 as u8));
+			out.extend(xs.first().map(|first| u8::from(xs[1..].contains(first))));
+			out.push(u8::from(xs.is_sorted()));
+			out.push(u8::from(VecDeque::from(xs.clone()).contains(&xs[xs.len() / 2])));
+		}};
+	}
+	let data = if data.is_empty() { &[0][..] } else { data };
+	let by_ref: Vec<_> = data.iter().map(|&v| ByRef(v.into())).collect();
+	let by_val: Vec<_> = data.iter().map(|&v| ByVal(v.into())).collect();
+	let mixed: Vec<_> = data.iter().map(|&v| Mixed(v.into())).collect();
+	for (i, j) in (0..data.len()).zip((0..data.len()).rev()) {
+		composites!(&by_ref[i], &by_ref[j], out);
+		composites!(&&by_ref[i], &&by_ref[j], out);
+		composites!(&by_val[i], &by_val[j], out);
+		composites!(&&by_val[i], &&by_val[j], out);
+		let (a, b) = (&mixed[i], &mixed[j]);
+		out.extend([(a,) < (b,), Some(a) <= Some(b), [a] == [b], vec![a] < vec![b]].map(u8::from));
+		let orders = [
+			Some((a,).cmp(&(b,))),
+			Some(Some(a).cmp(&Some(b))),
+			Some([a].cmp(&[b])),
+			Some(Reverse(a).cmp(&Reverse(b))),
+		];
+		out.extend(orders.map(order_byte));
+		out.extend(
+			[
+				Some((&a,).cmp(&(&b,))),
+				Some([a].into_iter().cmp([b])),
+				Some([a].iter().cmp([b].iter())),
+			]
+			.map(order_byte),
+		);
+		out.extend(hashed((a,)));
+		out.extend(hashed([&a]));
+		let (a, b) = (Box::new(Boxed(data[i].into())), Box::new(Boxed(data[j].into())));
+		out.extend([(&a,) == (&b,), (&a,) < (&b,), Some(&a) >= Some(&b), [&a] != [&b]].map(u8::from));
+		out.extend(
+			[
+				[&a].into_iter().eq([&b]),
+				[&a].iter().ne([&b].iter()),
+				[&a].into_iter().lt([&b]),
+			]
+			.map(u8::from),
+		);
+		out.push(order_byte([&a].iter().partial_cmp([&b].iter())));
+	}
+	keys!(by_ref.iter().collect(), out);
+	keys!(by_val.iter().collect(), out);
+	keys!(mixed.iter().collect(), out);
+}
