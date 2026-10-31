@@ -330,9 +330,12 @@ other as std's do, by their lengths and then each pair of items in order, throug
 items' own `PartialEq<U>`, and its `ne` where the crate overrides it, which a tuple's and
 an `Arc`'s `!=` call as well. What a composite holds compares, orders, and hashes through a
 reference or a `Box` as std's impls forward it, by what it points at, or by the crate's
-own impl on the reference or `Box` itself. A collection's reference to a byte array it holds, as `keys`,
-`HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a
-`&[u8; N]` is elsewhere; a `&mut` writes where the collection holds them. A `&mut` to a value a map holds that JS copies,
+own impl on the reference or `Box` itself. A reference std makes to a byte array it holds, as a
+collection's `keys`, `HashSet::get`, and `retain`'s closure, `Option::iter`,
+`slice::first`, and `filter`'s closure over `[u8; N]` items get one, is an `rt.ByteSlice`
+of its bytes, as a `&[u8; N]` is elsewhere; a `&mut` writes where std holds them. A
+`&[u8; N]` std was given and holds, as a `HashMap<&[u8; N], V>`'s keys, stays the slice it
+was, and `extend` by references to arrays copies each into its own `Uint8Array`. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
 writes the map's slot. A hash map iterates in an order
 of the runtime's, mostly insertion order, which std leaves unspecified, and hashes a key

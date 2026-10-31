@@ -382,7 +382,7 @@ fn share() {
 	typecheck(&out);
 	differential("share-fixture", &[], &out, "harness.ts", 1_000);
 	let config = fixture("share").join("ts.toml");
-	for feature in ["call", "pointer"] {
+	for feature in ["call", "pointer", "unwritten"] {
 		let out = scratch().join("share").join(feature);
 		let args: [&std::ffi::OsStr; 5] = [
 			"--out".as_ref(),

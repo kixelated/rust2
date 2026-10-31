@@ -23,7 +23,7 @@ generic std gap is planned here even when moq never calls it.
 - [Placeholders written to a crate's own fmt::Write](/quest/m3/ts-fmt-calls.md) - `write!` with placeholders into a crate's own writer translates, its `write_str` seeing each call std makes
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
 - [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's consumers, flattens, and collects drop as std's do
-- [References to byte arrays std takes](/quest/m3/ts-byte-refs-taken.md) - `extend` by references to arrays, adaptors' closures over held arrays, and a collection of both forms translate
+- [References to byte arrays std is given](/quest/m3/ts-byte-refs-given.md) - `Option<&[u8; N]>::copied`, `mem::swap` through a `&mut [u8; N]`, and std's other functions given a reference to an array they take as `&T` translate
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
