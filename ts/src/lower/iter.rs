@@ -368,19 +368,15 @@ pub fn call<'tcx>(
 		return collect(b, targ(0)?, targ(1)?, items, iter, trusted, span);
 	}
 
-	// `Vec::extend` with an iterator, which it drops once done, and a tuple's of collections.
+	// `Vec::extend` with an iterator, which it drops once done, `()`'s, and a tuple's of collections.
 	if (owner, name) == ("Extend", "extend") {
 		let (coll, item, source) = (targ(0)?, targ(1)?, targ(2)?);
-		let tuple = matches!(coll.kind(), ty::Tuple(_));
-		if !tuple && b.t.std_of(coll) != Some(Std::Vec) {
+		if !matches!(coll.kind(), ty::Tuple(_)) && b.t.std_of(coll) != Some(Std::Vec) {
 			return None;
 		}
 		let [target, items] = <[Expr; 2]>::try_from(args).ok()?;
 		let iter = iter_of(b.t, source)?;
 		let mut items = into_iter(b, source, items, span)?;
-		if tuple {
-			return super::collections::tuple_extend(b, coll, item, Some(target), items, iter, span);
-		}
 		// `Extend<&T>` copies each element.
 		if let Some(copy) = super::collections::copy_borrowed(b, coll, item, span) {
 			items = Expr::rt("iterMap", vec![items, copy]);

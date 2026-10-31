@@ -118,6 +118,9 @@ fn ones(data: &[u8], out: &mut Vec<u8>) {
 	out.extend(v);
 	out.extend(heap.into_vec());
 	let ((),) = data.iter().map(|_| ((),)).collect();
+	let mut seen = 0_u8;
+	Extend::extend(&mut (), data.iter().map(|_| seen += 1));
+	out.push(seen);
 }
 
 /// Pairs, by `collect` and `unzip`, of `()` too.

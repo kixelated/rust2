@@ -99,11 +99,11 @@ export function ones(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(t[0])), undefined, true);
 	const t2: [string] = ["ab"];
 	const _56: rt.Iter<[string]> = rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_214: rt.u8): [string] => {
-		const _82: rt.usize = rt.u8Rem(_214, 3) as rt.usize;
-		if (!(_82 < 3)) {
-			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _82);
+		const _84: rt.usize = rt.u8Rem(_214, 3) as rt.usize;
+		if (!(_84 < 3)) {
+			rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _84);
 		}
-		return [["x", "", "yz"][_82]] as [string];
+		return [["x", "", "yz"][_84]] as [string];
 	});
 	rt.tupleExtendOne(t2, _56, (c9, items8) => rt.stringExtend(c9, items8));
 	rt.iterExtendBytes(out, rt.strBytes(t2[0]), undefined, true);
@@ -119,6 +119,11 @@ export function ones(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.tupleExtendOne([undefined] as [undefined], rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_216: rt.u8): [undefined] => {
 		return [undefined] as [undefined];
 	}), (_c11, items10) => rt.iterFold(items10, undefined, () => undefined));
+	let seen: rt.u8 = 0;
+	rt.iterFold(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_217: rt.u8): undefined => {
+		seen = rt.u8Add(seen, 1);
+	}), undefined, () => undefined);
+	rt.byteVecPush(out, seen);
 }
 
 /** Pairs, by `collect` and `unzip`, of `()` too. */
