@@ -26,6 +26,9 @@ replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<std::fu
 an assignment through a reference to `std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output = u8>>>` at fixtures/reject/src/lib.rs:114:2
 replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<[u8; 2]>>` at fixtures/reject/src/lib.rs:106:2
 unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:167:8
+unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>` at fixtures/reject/src/lib.rs:1009:11
+unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>` at fixtures/reject/src/lib.rs:1009:32
+unsupported call to `std::ops::Range::<&mut u8>::is_empty` at fixtures/reject/src/lib.rs:1014:9
 a `skip` of `std::iter::Zip<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:208:27: 208:31}>, std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:208:59: 208:63}>>`, a zip std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:209:8
 a `collect` in place of `std::iter::Map<std::iter::Zip<std::iter::Map<std::vec::IntoIter<u8>, {closure@fixtures/reject/src/lib.rs:215:32: 215:40}>, std::ops::Range<u8>>, {closure@fixtures/reject/src/lib.rs:216:24: 216:32}>`, a zip std reads by index, holding values that drop, which is not supported yet at fixtures/reject/src/lib.rs:216:40
 an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:221:2

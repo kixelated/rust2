@@ -4253,6 +4253,3866 @@ export function overflowed(a: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 }
 
 /**
+ * The methods of each of std's range types over bounds `a` and `b` of the table `kind`
+ * picks, at `data`'s first two bytes, against each of its values: integers of each
+ * width at their ends and past 2^53 and 2^64, `char`s at either side of the surrogates,
+ * floats with NaN and the zeros, and unsigned `NonZero`s.
+ */
+export function rangeMethods(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
+	const at: rt.usize[] = rt.arrayMap([0, 1], (i: rt.usize): rt.usize => {
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0) as rt.usize;
+	});
+	const past53: rt.u64 = rt.u64Add({ hi: 0x200000, lo: 0 } as rt.u64, 1);
+	const past64: rt.u128 = rt.u128Add(rt.u128Shl(1, 64), 1);
+	const _17: rt.u8 = rt.u8Rem(kind, 19);
+	if (_17 === 0) {
+		stepped$u8(rt.byteSliceFrom(Uint8Array.of(0, 1, 2, 254, 255)), at, out);
+	} else if (_17 === 1) {
+		65535 - 1;
+		stepped$u16([0, 1, 32767, 65534, 65535], at, out);
+	} else if (_17 === 2) {
+		4294967295 - 1;
+		stepped$u32([0, 1, 2147483648, 4294967294, 4294967295], at, out);
+	} else if (_17 === 3) {
+		stepped$u64([0, 1, rt.u64Sub(past53, 2), rt.u64Sub(past53, 1), past53, { hi: 0xffffffff, lo: 0xfffffffe } as rt.u64, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64], at, out);
+	} else if (_17 === 4) {
+		stepped$u128([0, 1, rt.u128Sub(past64, 2), rt.u128Sub(past64, 1), past64, rt.u128Sub({ hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128, 1), { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128], at, out);
+	} else if (_17 === 5) {
+		4294967295 - 1;
+		stepped$usize([0, 1, 2147483648, 4294967294, 4294967295], at, out);
+	} else if (_17 === 6) {
+		-128 + 1;
+		stepped$i8([-128, -127, -1, 0, 127], at, out);
+	} else if (_17 === 7) {
+		32767 - 1;
+		stepped$i16([-32768, -1, 0, 1, 32766, 32767], at, out);
+	} else if (_17 === 8) {
+		-2147483648 + 1;
+		stepped$i32([-2147483648, -2147483647, -1, 0, 2147483647], at, out);
+	} else if (_17 === 9) {
+		const past532: rt.i64 = rt.i64Cast(past53);
+		stepped$i64([{ hi: -0x80000000, lo: 0 } as rt.i64, rt.i64Neg(past532), -1, 0, past532, { hi: 0x7fffffff, lo: 0xfffffffe } as rt.i64, { hi: 0x7fffffff, lo: 0xffffffff } as rt.i64], at, out);
+	} else if (_17 === 10) {
+		const past642: rt.i128 = rt.i128Cast(past64);
+		stepped$i128([{ hi: -0x80000000, w2: 0, w1: 0, lo: 0 } as rt.i128, rt.i128Add({ hi: -0x80000000, w2: 0, w1: 0, lo: 0 } as rt.i128, 1), rt.i128Neg(past642), -1, 0, past642, { hi: 0x7fffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.i128], at, out);
+	} else if (_17 === 11) {
+		2147483647 - 1;
+		stepped$isize([-2147483648, -1, 0, 1, 2147483646, 2147483647], at, out);
+	} else if (_17 === 12) {
+		stepped$char([0, 97, 55294, 55295, 57344, 57345, 1114111], at, out);
+	} else if (_17 === 13) {
+		bounded$f64([NaN, -Infinity, -1.5, -0.0, 0.0, 2.5, Infinity], at, out);
+	} else if (_17 === 14) {
+		bounded$f32([NaN, -Infinity, -1.5, -0.0, 0.0, 2.5, Infinity], at, out);
+	} else if (_17 === 15) {
+		stepped$NonZero_u8(rt.arrayMap(Uint8Array.of(1, 2, 254, 255), (n4: rt.u8): rt.u8 => {
+			return rt.optionUnwrap(rt.nonZero(n4));
+		}), at, out);
+	} else if (_17 === 16) {
+		stepped$NonZero_u64(rt.arrayMap([1, past53, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64], (n3: rt.u64): rt.u64 => {
+			return rt.optionUnwrap(rt.nonZero(n3));
+		}), at, out);
+	} else if (_17 === 17) {
+		stepped$NonZero_u128(rt.arrayMap([1, past64, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128], (n2: rt.u128): rt.u128 => {
+			return rt.optionUnwrap(rt.nonZero(n2));
+		}), at, out);
+	} else {
+		stepped$NonZero_usize(rt.arrayMap([1, 2, 4294967295], (n: rt.usize): rt.usize => {
+			return rt.optionUnwrap(rt.nonZero(n));
+		}), at, out);
+	}
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$NonZero_u128(table: rt.u128[], at: rt.usize[], out: rt.ByteVec): [rt.u128, rt.u128] {
+	const _6: rt.u128[] = rt.arrayMap(at, (i: rt.usize): rt.u128 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u128 = _6[0];
+	const b: rt.u128 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128))), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$NonZero_u128_Range_NonZero_u128(new rt.Range(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), _19);
+		const _41: boolean = boundsContain$NonZero_u128_RangeInclusive_NonZero_u128(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), _19);
+		const _43: boolean = boundsContain$NonZero_u128_RangeFrom_NonZero_u128(new rt.RangeFrom(a, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), _19);
+		const _45: boolean = boundsContain$NonZero_u128_RangeTo_NonZero_u128({ end: b }, _19);
+		const _47: boolean = boundsContain$NonZero_u128_RangeToInclusive_NonZero_u128({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$NonZero_u128_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u128>, { tag: "Included", _0: b } as rt.RangeBound<rt.u128>] as [rt.RangeBound<rt.u128>, rt.RangeBound<rt.u128>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u128>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u128>] as [rt.RangeBound<rt.u128>, rt.RangeBound<rt.u128>], _19);
+		const _62: rt.Range<rt.u128> = new rt.Range(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _64: rt.Range<rt.u128> = new rt.Range(_19, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _60: boolean = rt.rangeEq(rt.u128Eq)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _70: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, _19, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _66: boolean = rt.rangeEq(rt.u128Eq)(_68, _70);
+		const _74: rt.RangeFrom<rt.u128> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _76: rt.RangeFrom<rt.u128> = new rt.RangeFrom(_19, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _72: boolean = !rt.rangeEq(rt.u128Eq)(_74, _76);
+		const _80: { end: rt.u128 } = { end: b };
+		const _82: { end: rt.u128 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.u128Eq)(_80, _82);
+		const _86: { end: rt.u128; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u128; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.u128Eq)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u128, rt.u128] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)));
+	const start: rt.u128 = _94[0];
+	const end: rt.u128 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+	const _102: rt.Range<rt.u128> = new rt.Range(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+	const _105: rt.RangeFrom<rt.u128> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+	const _107: { end: rt.u128 } = { end: b };
+	const _109: { end: rt.u128; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u128, rt.u128] = [start, end];
+	const _113: [rt.u128, rt.u128] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u128Debug(_111[0], f), (f: rt.Formatter) => rt.u128Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u128Debug(_113[0], f), (f: rt.Formatter) => rt.u128Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u128>, { end: rt.u128 }, { end: rt.u128; inclusive: true }] = [new rt.RangeFrom(a, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u128> = _137[0];
+	const to: { end: rt.u128 } = _137[1];
+	const through: { end: rt.u128; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u128>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u128>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u128>, { tag: "Unbounded" } as rt.RangeBound<rt.u128>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u128>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u128>], (bound: rt.RangeBound<rt.u128>): rt.u8 => {
+		return boundOf$NonZero_u128(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u128, rt.u128];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$NonZero_u64(table: rt.u64[], at: rt.usize[], out: rt.ByteVec): [rt.u64, rt.u64] {
+	const _6: rt.u64[] = rt.arrayMap(at, (i: rt.usize): rt.u64 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u64 = _6[0];
+	const b: rt.u64 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64))), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$NonZero_u64_Range_NonZero_u64(new rt.Range(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), _19);
+		const _41: boolean = boundsContain$NonZero_u64_RangeInclusive_NonZero_u64(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), _19);
+		const _43: boolean = boundsContain$NonZero_u64_RangeFrom_NonZero_u64(new rt.RangeFrom(a, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), _19);
+		const _45: boolean = boundsContain$NonZero_u64_RangeTo_NonZero_u64({ end: b }, _19);
+		const _47: boolean = boundsContain$NonZero_u64_RangeToInclusive_NonZero_u64({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$NonZero_u64_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u64>, { tag: "Included", _0: b } as rt.RangeBound<rt.u64>] as [rt.RangeBound<rt.u64>, rt.RangeBound<rt.u64>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u64>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u64>] as [rt.RangeBound<rt.u64>, rt.RangeBound<rt.u64>], _19);
+		const _62: rt.Range<rt.u64> = new rt.Range(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _64: rt.Range<rt.u64> = new rt.Range(_19, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _60: boolean = rt.rangeEq(rt.u64Eq)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _70: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, _19, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _66: boolean = rt.rangeEq(rt.u64Eq)(_68, _70);
+		const _74: rt.RangeFrom<rt.u64> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _76: rt.RangeFrom<rt.u64> = new rt.RangeFrom(_19, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _72: boolean = !rt.rangeEq(rt.u64Eq)(_74, _76);
+		const _80: { end: rt.u64 } = { end: b };
+		const _82: { end: rt.u64 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.u64Eq)(_80, _82);
+		const _86: { end: rt.u64; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u64; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.u64Eq)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u64, rt.u64] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)));
+	const start: rt.u64 = _94[0];
+	const end: rt.u64 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+	const _102: rt.Range<rt.u64> = new rt.Range(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+	const _105: rt.RangeFrom<rt.u64> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+	const _107: { end: rt.u64 } = { end: b };
+	const _109: { end: rt.u64; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u64, rt.u64] = [start, end];
+	const _113: [rt.u64, rt.u64] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u64Debug(_111[0], f), (f: rt.Formatter) => rt.u64Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u64Debug(_113[0], f), (f: rt.Formatter) => rt.u64Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u64>, { end: rt.u64 }, { end: rt.u64; inclusive: true }] = [new rt.RangeFrom(a, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u64> = _137[0];
+	const to: { end: rt.u64 } = _137[1];
+	const through: { end: rt.u64; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u64>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u64>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u64>, { tag: "Unbounded" } as rt.RangeBound<rt.u64>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u64>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u64>], (bound: rt.RangeBound<rt.u64>): rt.u8 => {
+		return boundOf$NonZero_u64(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u64, rt.u64];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$NonZero_u8(table: rt.u8[], at: rt.usize[], out: rt.ByteVec): [rt.u8, rt.u8] {
+	const _6: rt.u8[] = rt.arrayMap(at, (i: rt.usize): rt.u8 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u8 = _6[0];
+	const b: rt.u8 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255)))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255)), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.nonZeroStep(rt.u8Step, 255)), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$NonZero_u8_Range_NonZero_u8(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$NonZero_u8_RangeInclusive_NonZero_u8(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255)), _19);
+		const _43: boolean = boundsContain$NonZero_u8_RangeFrom_NonZero_u8(new rt.RangeFrom(a, rt.nonZeroStep(rt.u8Step, 255)), _19);
+		const _45: boolean = boundsContain$NonZero_u8_RangeTo_NonZero_u8({ end: b }, _19);
+		const _47: boolean = boundsContain$NonZero_u8_RangeToInclusive_NonZero_u8({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$NonZero_u8_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u8>, { tag: "Included", _0: b } as rt.RangeBound<rt.u8>] as [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u8>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u8>] as [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>], _19);
+		const _62: rt.Range<rt.u8> = new rt.Range(a, b);
+		const _64: rt.Range<rt.u8> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255));
+		const _70: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, _19, rt.nonZeroStep(rt.u8Step, 255));
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.u8> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u8Step, 255));
+		const _76: rt.RangeFrom<rt.u8> = new rt.RangeFrom(_19, rt.nonZeroStep(rt.u8Step, 255));
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.u8 } = { end: b };
+		const _82: { end: rt.u8 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.u8; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u8; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u8, rt.u8] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255)));
+	const start: rt.u8 = _94[0];
+	const end: rt.u8 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255));
+	const _102: rt.Range<rt.u8> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.u8> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u8Step, 255));
+	const _107: { end: rt.u8 } = { end: b };
+	const _109: { end: rt.u8; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u8, rt.u8] = [start, end];
+	const _113: [rt.u8, rt.u8] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(_111[0], f), (f: rt.Formatter) => rt.u8Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(_113[0], f), (f: rt.Formatter) => rt.u8Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u8>, { end: rt.u8 }, { end: rt.u8; inclusive: true }] = [new rt.RangeFrom(a, rt.nonZeroStep(rt.u8Step, 255)), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u8> = _137[0];
+	const to: { end: rt.u8 } = _137[1];
+	const through: { end: rt.u8; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u8>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u8>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u8>, { tag: "Unbounded" } as rt.RangeBound<rt.u8>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u8>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u8>], (bound: rt.RangeBound<rt.u8>): rt.u8 => {
+		return boundOf$NonZero_u8(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u8, rt.u8];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$NonZero_usize(table: rt.usize[], at: rt.usize[], out: rt.ByteVec): [rt.usize, rt.usize] {
+	const _6: rt.usize[] = rt.arrayMap(at, (i: rt.usize): rt.usize => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.usize = _6[0];
+	const b: rt.usize = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295)))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295)), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.nonZeroStep(rt.usizeStep, 4294967295)), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$NonZero_usize_Range_NonZero_usize(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$NonZero_usize_RangeInclusive_NonZero_usize(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295)), _19);
+		const _43: boolean = boundsContain$NonZero_usize_RangeFrom_NonZero_usize(new rt.RangeFrom(a, rt.nonZeroStep(rt.usizeStep, 4294967295)), _19);
+		const _45: boolean = boundsContain$NonZero_usize_RangeTo_NonZero_usize({ end: b }, _19);
+		const _47: boolean = boundsContain$NonZero_usize_RangeToInclusive_NonZero_usize({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$NonZero_usize_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.usize>, { tag: "Included", _0: b } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.usize>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _19);
+		const _62: rt.Range<rt.usize> = new rt.Range(a, b);
+		const _64: rt.Range<rt.usize> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const _70: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, _19, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.usize> = new rt.RangeFrom(a, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const _76: rt.RangeFrom<rt.usize> = new rt.RangeFrom(_19, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.usize } = { end: b };
+		const _82: { end: rt.usize } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.usize; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.usize; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.usize, rt.usize] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295)));
+	const start: rt.usize = _94[0];
+	const end: rt.usize = _94[1];
+	const inclusive: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295));
+	const _102: rt.Range<rt.usize> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.usize> = new rt.RangeFrom(a, rt.nonZeroStep(rt.usizeStep, 4294967295));
+	const _107: { end: rt.usize } = { end: b };
+	const _109: { end: rt.usize; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.usize, rt.usize] = [start, end];
+	const _113: [rt.usize, rt.usize] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(_111[0], f), (f: rt.Formatter) => rt.usizeDebug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(_113[0], f), (f: rt.Formatter) => rt.usizeDebug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.usize>, { end: rt.usize }, { end: rt.usize; inclusive: true }] = [new rt.RangeFrom(a, rt.nonZeroStep(rt.usizeStep, 4294967295)), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.usize> = _137[0];
+	const to: { end: rt.usize } = _137[1];
+	const through: { end: rt.usize; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.usize>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.usize>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.usize>, { tag: "Unbounded" } as rt.RangeBound<rt.usize>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.usize>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.usize>], (bound: rt.RangeBound<rt.usize>): rt.u8 => {
+		return boundOf$NonZero_usize(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.usize, rt.usize];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$char(table: rt.char[], at: rt.usize[], out: rt.ByteVec): [rt.char, rt.char] {
+	const _6: rt.char[] = rt.arrayMap(at, (i: rt.usize): rt.char => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.char = _6[0];
+	const b: rt.char = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.charStep)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.charStep))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.charStep), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.charStep), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.charStep), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$char_Range_char(new rt.Range(a, b, rt.charStep), _19);
+		const _41: boolean = boundsContain$char_RangeInclusive_char(new rt.RangeInclusive(a, b, rt.charStep), _19);
+		const _43: boolean = boundsContain$char_RangeFrom_char(new rt.RangeFrom(a, rt.charStep), _19);
+		const _45: boolean = boundsContain$char_RangeTo_char({ end: b }, _19);
+		const _47: boolean = boundsContain$char_RangeToInclusive_char({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$char_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.char>, { tag: "Included", _0: b } as rt.RangeBound<rt.char>] as [rt.RangeBound<rt.char>, rt.RangeBound<rt.char>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.char>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.char>] as [rt.RangeBound<rt.char>, rt.RangeBound<rt.char>], _19);
+		const _62: rt.Range<rt.char> = new rt.Range(a, b, rt.charStep);
+		const _64: rt.Range<rt.char> = new rt.Range(_19, b, rt.charStep);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(a, b, rt.charStep);
+		const _70: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(a, _19, rt.charStep);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.char> = new rt.RangeFrom(a, rt.charStep);
+		const _76: rt.RangeFrom<rt.char> = new rt.RangeFrom(_19, rt.charStep);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.char } = { end: b };
+		const _82: { end: rt.char } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.char; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.char; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.char, rt.char] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.charStep));
+	const start: rt.char = _94[0];
+	const end: rt.char = _94[1];
+	const inclusive: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(a, b, rt.charStep);
+	const _102: rt.Range<rt.char> = new rt.Range(a, b, rt.charStep);
+	const _105: rt.RangeFrom<rt.char> = new rt.RangeFrom(a, rt.charStep);
+	const _107: { end: rt.char } = { end: b };
+	const _109: { end: rt.char; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.char, rt.char] = [start, end];
+	const _113: [rt.char, rt.char] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtCharDebug(_111[0], f), (f: rt.Formatter) => rt.fmtCharDebug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtCharDebug(_113[0], f), (f: rt.Formatter) => rt.fmtCharDebug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.char>, { end: rt.char }, { end: rt.char; inclusive: true }] = [new rt.RangeFrom(a, rt.charStep), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.char> = _137[0];
+	const to: { end: rt.char } = _137[1];
+	const through: { end: rt.char; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.char>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.char>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.char>, { tag: "Unbounded" } as rt.RangeBound<rt.char>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.char>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.char>], (bound: rt.RangeBound<rt.char>): rt.u8 => {
+		return boundOf$char(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.char, rt.char];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$f32(table: rt.f32[], at: rt.usize[], out: rt.ByteVec): [rt.f32, rt.f32] {
+	const _6: rt.f32[] = rt.arrayMap(at, (i: rt.usize): rt.f32 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.f32 = _6[0];
+	const b: rt.f32 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$f32_Range_f32(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$f32_RangeInclusive_f32(new rt.RangeInclusive(a, b), _19);
+		const _43: boolean = boundsContain$f32_RangeFrom_f32(new rt.RangeFrom(a), _19);
+		const _45: boolean = boundsContain$f32_RangeTo_f32({ end: b }, _19);
+		const _47: boolean = boundsContain$f32_RangeToInclusive_f32({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$f32_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.f32>, { tag: "Included", _0: b } as rt.RangeBound<rt.f32>] as [rt.RangeBound<rt.f32>, rt.RangeBound<rt.f32>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.f32>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.f32>] as [rt.RangeBound<rt.f32>, rt.RangeBound<rt.f32>], _19);
+		const _62: rt.Range<rt.f32> = new rt.Range(a, b);
+		const _64: rt.Range<rt.f32> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.f32> = new rt.RangeInclusive(a, b);
+		const _70: rt.RangeInclusive<rt.f32> = new rt.RangeInclusive(a, _19);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.f32> = new rt.RangeFrom(a);
+		const _76: rt.RangeFrom<rt.f32> = new rt.RangeFrom(_19);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.f32 } = { end: b };
+		const _82: { end: rt.f32 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.f32; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.f32; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.f32, rt.f32] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b));
+	const start: rt.f32 = _94[0];
+	const end: rt.f32 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.f32> = new rt.RangeInclusive(a, b);
+	const _102: rt.Range<rt.f32> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.f32> = new rt.RangeFrom(a);
+	const _107: { end: rt.f32 } = { end: b };
+	const _109: { end: rt.f32; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.f32, rt.f32] = [start, end];
+	const _113: [rt.f32, rt.f32] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.f32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.f32Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.f32Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.f32Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.f32Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.f32Debug(_111[0], f), (f: rt.Formatter) => rt.f32Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.f32Debug(_113[0], f), (f: rt.Formatter) => rt.f32Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.f32>, { end: rt.f32 }, { end: rt.f32; inclusive: true }] = [new rt.RangeFrom(a), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.f32> = _137[0];
+	const to: { end: rt.f32 } = _137[1];
+	const through: { end: rt.f32; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.f32>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.f32>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.f32>, { tag: "Unbounded" } as rt.RangeBound<rt.f32>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.f32>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.f32>], (bound: rt.RangeBound<rt.f32>): rt.u8 => {
+		return boundOf$f32(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.f32, rt.f32];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$f64(table: rt.f64[], at: rt.usize[], out: rt.ByteVec): [rt.f64, rt.f64] {
+	const _6: rt.f64[] = rt.arrayMap(at, (i: rt.usize): rt.f64 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.f64 = _6[0];
+	const b: rt.f64 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$f64_Range_f64(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$f64_RangeInclusive_f64(new rt.RangeInclusive(a, b), _19);
+		const _43: boolean = boundsContain$f64_RangeFrom_f64(new rt.RangeFrom(a), _19);
+		const _45: boolean = boundsContain$f64_RangeTo_f64({ end: b }, _19);
+		const _47: boolean = boundsContain$f64_RangeToInclusive_f64({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$f64_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.f64>, { tag: "Included", _0: b } as rt.RangeBound<rt.f64>] as [rt.RangeBound<rt.f64>, rt.RangeBound<rt.f64>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.f64>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.f64>] as [rt.RangeBound<rt.f64>, rt.RangeBound<rt.f64>], _19);
+		const _62: rt.Range<rt.f64> = new rt.Range(a, b);
+		const _64: rt.Range<rt.f64> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.f64> = new rt.RangeInclusive(a, b);
+		const _70: rt.RangeInclusive<rt.f64> = new rt.RangeInclusive(a, _19);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.f64> = new rt.RangeFrom(a);
+		const _76: rt.RangeFrom<rt.f64> = new rt.RangeFrom(_19);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.f64 } = { end: b };
+		const _82: { end: rt.f64 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.f64; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.f64; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.f64, rt.f64] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b));
+	const start: rt.f64 = _94[0];
+	const end: rt.f64 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.f64> = new rt.RangeInclusive(a, b);
+	const _102: rt.Range<rt.f64> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.f64> = new rt.RangeFrom(a);
+	const _107: { end: rt.f64 } = { end: b };
+	const _109: { end: rt.f64; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.f64, rt.f64] = [start, end];
+	const _113: [rt.f64, rt.f64] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.f64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.f64Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.f64Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.f64Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.f64Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.f64Debug(_111[0], f), (f: rt.Formatter) => rt.f64Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.f64Debug(_113[0], f), (f: rt.Formatter) => rt.f64Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.f64>, { end: rt.f64 }, { end: rt.f64; inclusive: true }] = [new rt.RangeFrom(a), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.f64> = _137[0];
+	const to: { end: rt.f64 } = _137[1];
+	const through: { end: rt.f64; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.f64>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.f64>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.f64>, { tag: "Unbounded" } as rt.RangeBound<rt.f64>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.f64>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.f64>], (bound: rt.RangeBound<rt.f64>): rt.u8 => {
+		return boundOf$f64(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.f64, rt.f64];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$i128(table: rt.i128[], at: rt.usize[], out: rt.ByteVec): [rt.i128, rt.i128] {
+	const _6: rt.i128[] = rt.arrayMap(at, (i: rt.usize): rt.i128 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.i128 = _6[0];
+	const b: rt.i128 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.i128Step)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.i128Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.i128Step), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.i128Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.i128Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$i128_Range_i128(new rt.Range(a, b, rt.i128Step), _19);
+		const _41: boolean = boundsContain$i128_RangeInclusive_i128(new rt.RangeInclusive(a, b, rt.i128Step), _19);
+		const _43: boolean = boundsContain$i128_RangeFrom_i128(new rt.RangeFrom(a, rt.i128Step), _19);
+		const _45: boolean = boundsContain$i128_RangeTo_i128({ end: b }, _19);
+		const _47: boolean = boundsContain$i128_RangeToInclusive_i128({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$i128_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.i128>, { tag: "Included", _0: b } as rt.RangeBound<rt.i128>] as [rt.RangeBound<rt.i128>, rt.RangeBound<rt.i128>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.i128>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.i128>] as [rt.RangeBound<rt.i128>, rt.RangeBound<rt.i128>], _19);
+		const _62: rt.Range<rt.i128> = new rt.Range(a, b, rt.i128Step);
+		const _64: rt.Range<rt.i128> = new rt.Range(_19, b, rt.i128Step);
+		const _60: boolean = rt.rangeEq(rt.i128Eq)(_62, _64);
+		const _68: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(a, b, rt.i128Step);
+		const _70: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(a, _19, rt.i128Step);
+		const _66: boolean = rt.rangeEq(rt.i128Eq)(_68, _70);
+		const _74: rt.RangeFrom<rt.i128> = new rt.RangeFrom(a, rt.i128Step);
+		const _76: rt.RangeFrom<rt.i128> = new rt.RangeFrom(_19, rt.i128Step);
+		const _72: boolean = !rt.rangeEq(rt.i128Eq)(_74, _76);
+		const _80: { end: rt.i128 } = { end: b };
+		const _82: { end: rt.i128 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.i128Eq)(_80, _82);
+		const _86: { end: rt.i128; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.i128; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.i128Eq)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.i128, rt.i128] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.i128Step));
+	const start: rt.i128 = _94[0];
+	const end: rt.i128 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(a, b, rt.i128Step);
+	const _102: rt.Range<rt.i128> = new rt.Range(a, b, rt.i128Step);
+	const _105: rt.RangeFrom<rt.i128> = new rt.RangeFrom(a, rt.i128Step);
+	const _107: { end: rt.i128 } = { end: b };
+	const _109: { end: rt.i128; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.i128, rt.i128] = [start, end];
+	const _113: [rt.i128, rt.i128] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.i128Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.i128Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.i128Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.i128Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.i128Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i128Debug(_111[0], f), (f: rt.Formatter) => rt.i128Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i128Debug(_113[0], f), (f: rt.Formatter) => rt.i128Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.i128>, { end: rt.i128 }, { end: rt.i128; inclusive: true }] = [new rt.RangeFrom(a, rt.i128Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.i128> = _137[0];
+	const to: { end: rt.i128 } = _137[1];
+	const through: { end: rt.i128; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.i128>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.i128>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.i128>, { tag: "Unbounded" } as rt.RangeBound<rt.i128>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.i128>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.i128>], (bound: rt.RangeBound<rt.i128>): rt.u8 => {
+		return boundOf$i128(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.i128, rt.i128];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$i16(table: rt.i16[], at: rt.usize[], out: rt.ByteVec): [rt.i16, rt.i16] {
+	const _6: rt.i16[] = rt.arrayMap(at, (i: rt.usize): rt.i16 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.i16 = _6[0];
+	const b: rt.i16 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.i16Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.i16Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.i16Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$i16_Range_i16(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$i16_RangeInclusive_i16(new rt.RangeInclusive(a, b, rt.i16Step), _19);
+		const _43: boolean = boundsContain$i16_RangeFrom_i16(new rt.RangeFrom(a, rt.i16Step), _19);
+		const _45: boolean = boundsContain$i16_RangeTo_i16({ end: b }, _19);
+		const _47: boolean = boundsContain$i16_RangeToInclusive_i16({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$i16_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.i16>, { tag: "Included", _0: b } as rt.RangeBound<rt.i16>] as [rt.RangeBound<rt.i16>, rt.RangeBound<rt.i16>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.i16>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.i16>] as [rt.RangeBound<rt.i16>, rt.RangeBound<rt.i16>], _19);
+		const _62: rt.Range<rt.i16> = new rt.Range(a, b);
+		const _64: rt.Range<rt.i16> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(a, b, rt.i16Step);
+		const _70: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(a, _19, rt.i16Step);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.i16> = new rt.RangeFrom(a, rt.i16Step);
+		const _76: rt.RangeFrom<rt.i16> = new rt.RangeFrom(_19, rt.i16Step);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.i16 } = { end: b };
+		const _82: { end: rt.i16 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.i16; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.i16; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.i16, rt.i16] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.i16Step));
+	const start: rt.i16 = _94[0];
+	const end: rt.i16 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(a, b, rt.i16Step);
+	const _102: rt.Range<rt.i16> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.i16> = new rt.RangeFrom(a, rt.i16Step);
+	const _107: { end: rt.i16 } = { end: b };
+	const _109: { end: rt.i16; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.i16, rt.i16] = [start, end];
+	const _113: [rt.i16, rt.i16] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.i16Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.i16Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.i16Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.i16Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.i16Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i16Debug(_111[0], f), (f: rt.Formatter) => rt.i16Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i16Debug(_113[0], f), (f: rt.Formatter) => rt.i16Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.i16>, { end: rt.i16 }, { end: rt.i16; inclusive: true }] = [new rt.RangeFrom(a, rt.i16Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.i16> = _137[0];
+	const to: { end: rt.i16 } = _137[1];
+	const through: { end: rt.i16; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.i16>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.i16>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.i16>, { tag: "Unbounded" } as rt.RangeBound<rt.i16>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.i16>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.i16>], (bound: rt.RangeBound<rt.i16>): rt.u8 => {
+		return boundOf$i16(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.i16, rt.i16];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$i32(table: rt.i32[], at: rt.usize[], out: rt.ByteVec): [rt.i32, rt.i32] {
+	const _6: rt.i32[] = rt.arrayMap(at, (i: rt.usize): rt.i32 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.i32 = _6[0];
+	const b: rt.i32 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.i32Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.i32Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.i32Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$i32_Range_i32(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$i32_RangeInclusive_i32(new rt.RangeInclusive(a, b, rt.i32Step), _19);
+		const _43: boolean = boundsContain$i32_RangeFrom_i32(new rt.RangeFrom(a, rt.i32Step), _19);
+		const _45: boolean = boundsContain$i32_RangeTo_i32({ end: b }, _19);
+		const _47: boolean = boundsContain$i32_RangeToInclusive_i32({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$i32_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.i32>, { tag: "Included", _0: b } as rt.RangeBound<rt.i32>] as [rt.RangeBound<rt.i32>, rt.RangeBound<rt.i32>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.i32>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.i32>] as [rt.RangeBound<rt.i32>, rt.RangeBound<rt.i32>], _19);
+		const _62: rt.Range<rt.i32> = new rt.Range(a, b);
+		const _64: rt.Range<rt.i32> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
+		const _70: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, _19, rt.i32Step);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
+		const _76: rt.RangeFrom<rt.i32> = new rt.RangeFrom(_19, rt.i32Step);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.i32 } = { end: b };
+		const _82: { end: rt.i32 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.i32; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.i32, rt.i32] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.i32Step));
+	const start: rt.i32 = _94[0];
+	const end: rt.i32 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
+	const _102: rt.Range<rt.i32> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
+	const _107: { end: rt.i32 } = { end: b };
+	const _109: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.i32, rt.i32] = [start, end];
+	const _113: [rt.i32, rt.i32] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i32Debug(_111[0], f), (f: rt.Formatter) => rt.i32Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i32Debug(_113[0], f), (f: rt.Formatter) => rt.i32Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.i32>, { end: rt.i32 }, { end: rt.i32; inclusive: true }] = [new rt.RangeFrom(a, rt.i32Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.i32> = _137[0];
+	const to: { end: rt.i32 } = _137[1];
+	const through: { end: rt.i32; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.i32>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.i32>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.i32>, { tag: "Unbounded" } as rt.RangeBound<rt.i32>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.i32>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.i32>], (bound: rt.RangeBound<rt.i32>): rt.u8 => {
+		return boundOf$i32(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.i32, rt.i32];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$i64(table: rt.i64[], at: rt.usize[], out: rt.ByteVec): [rt.i64, rt.i64] {
+	const _6: rt.i64[] = rt.arrayMap(at, (i: rt.usize): rt.i64 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.i64 = _6[0];
+	const b: rt.i64 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.i64Step)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.i64Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.i64Step), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.i64Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.i64Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$i64_Range_i64(new rt.Range(a, b, rt.i64Step), _19);
+		const _41: boolean = boundsContain$i64_RangeInclusive_i64(new rt.RangeInclusive(a, b, rt.i64Step), _19);
+		const _43: boolean = boundsContain$i64_RangeFrom_i64(new rt.RangeFrom(a, rt.i64Step), _19);
+		const _45: boolean = boundsContain$i64_RangeTo_i64({ end: b }, _19);
+		const _47: boolean = boundsContain$i64_RangeToInclusive_i64({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$i64_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.i64>, { tag: "Included", _0: b } as rt.RangeBound<rt.i64>] as [rt.RangeBound<rt.i64>, rt.RangeBound<rt.i64>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.i64>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.i64>] as [rt.RangeBound<rt.i64>, rt.RangeBound<rt.i64>], _19);
+		const _62: rt.Range<rt.i64> = new rt.Range(a, b, rt.i64Step);
+		const _64: rt.Range<rt.i64> = new rt.Range(_19, b, rt.i64Step);
+		const _60: boolean = rt.rangeEq(rt.i64Eq)(_62, _64);
+		const _68: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(a, b, rt.i64Step);
+		const _70: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(a, _19, rt.i64Step);
+		const _66: boolean = rt.rangeEq(rt.i64Eq)(_68, _70);
+		const _74: rt.RangeFrom<rt.i64> = new rt.RangeFrom(a, rt.i64Step);
+		const _76: rt.RangeFrom<rt.i64> = new rt.RangeFrom(_19, rt.i64Step);
+		const _72: boolean = !rt.rangeEq(rt.i64Eq)(_74, _76);
+		const _80: { end: rt.i64 } = { end: b };
+		const _82: { end: rt.i64 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.i64Eq)(_80, _82);
+		const _86: { end: rt.i64; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.i64; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.i64Eq)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.i64, rt.i64] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.i64Step));
+	const start: rt.i64 = _94[0];
+	const end: rt.i64 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(a, b, rt.i64Step);
+	const _102: rt.Range<rt.i64> = new rt.Range(a, b, rt.i64Step);
+	const _105: rt.RangeFrom<rt.i64> = new rt.RangeFrom(a, rt.i64Step);
+	const _107: { end: rt.i64 } = { end: b };
+	const _109: { end: rt.i64; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.i64, rt.i64] = [start, end];
+	const _113: [rt.i64, rt.i64] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.i64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.i64Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.i64Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.i64Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.i64Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i64Debug(_111[0], f), (f: rt.Formatter) => rt.i64Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i64Debug(_113[0], f), (f: rt.Formatter) => rt.i64Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.i64>, { end: rt.i64 }, { end: rt.i64; inclusive: true }] = [new rt.RangeFrom(a, rt.i64Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.i64> = _137[0];
+	const to: { end: rt.i64 } = _137[1];
+	const through: { end: rt.i64; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.i64>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.i64>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.i64>, { tag: "Unbounded" } as rt.RangeBound<rt.i64>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.i64>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.i64>], (bound: rt.RangeBound<rt.i64>): rt.u8 => {
+		return boundOf$i64(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.i64, rt.i64];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$i8(table: rt.i8[], at: rt.usize[], out: rt.ByteVec): [rt.i8, rt.i8] {
+	const _6: rt.i8[] = rt.arrayMap(at, (i: rt.usize): rt.i8 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.i8 = _6[0];
+	const b: rt.i8 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.i8Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.i8Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.i8Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$i8_Range_i8(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$i8_RangeInclusive_i8(new rt.RangeInclusive(a, b, rt.i8Step), _19);
+		const _43: boolean = boundsContain$i8_RangeFrom_i8(new rt.RangeFrom(a, rt.i8Step), _19);
+		const _45: boolean = boundsContain$i8_RangeTo_i8({ end: b }, _19);
+		const _47: boolean = boundsContain$i8_RangeToInclusive_i8({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$i8_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.i8>, { tag: "Included", _0: b } as rt.RangeBound<rt.i8>] as [rt.RangeBound<rt.i8>, rt.RangeBound<rt.i8>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.i8>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.i8>] as [rt.RangeBound<rt.i8>, rt.RangeBound<rt.i8>], _19);
+		const _62: rt.Range<rt.i8> = new rt.Range(a, b);
+		const _64: rt.Range<rt.i8> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(a, b, rt.i8Step);
+		const _70: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(a, _19, rt.i8Step);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.i8> = new rt.RangeFrom(a, rt.i8Step);
+		const _76: rt.RangeFrom<rt.i8> = new rt.RangeFrom(_19, rt.i8Step);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.i8 } = { end: b };
+		const _82: { end: rt.i8 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.i8; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.i8; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.i8, rt.i8] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.i8Step));
+	const start: rt.i8 = _94[0];
+	const end: rt.i8 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(a, b, rt.i8Step);
+	const _102: rt.Range<rt.i8> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.i8> = new rt.RangeFrom(a, rt.i8Step);
+	const _107: { end: rt.i8 } = { end: b };
+	const _109: { end: rt.i8; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.i8, rt.i8] = [start, end];
+	const _113: [rt.i8, rt.i8] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.i8Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.i8Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.i8Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.i8Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.i8Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i8Debug(_111[0], f), (f: rt.Formatter) => rt.i8Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.i8Debug(_113[0], f), (f: rt.Formatter) => rt.i8Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.i8>, { end: rt.i8 }, { end: rt.i8; inclusive: true }] = [new rt.RangeFrom(a, rt.i8Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.i8> = _137[0];
+	const to: { end: rt.i8 } = _137[1];
+	const through: { end: rt.i8; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.i8>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.i8>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.i8>, { tag: "Unbounded" } as rt.RangeBound<rt.i8>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.i8>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.i8>], (bound: rt.RangeBound<rt.i8>): rt.u8 => {
+		return boundOf$i8(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.i8, rt.i8];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$isize(table: rt.isize[], at: rt.usize[], out: rt.ByteVec): [rt.isize, rt.isize] {
+	const _6: rt.isize[] = rt.arrayMap(at, (i: rt.usize): rt.isize => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.isize = _6[0];
+	const b: rt.isize = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.isizeStep))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.isizeStep), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.isizeStep), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$isize_Range_isize(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$isize_RangeInclusive_isize(new rt.RangeInclusive(a, b, rt.isizeStep), _19);
+		const _43: boolean = boundsContain$isize_RangeFrom_isize(new rt.RangeFrom(a, rt.isizeStep), _19);
+		const _45: boolean = boundsContain$isize_RangeTo_isize({ end: b }, _19);
+		const _47: boolean = boundsContain$isize_RangeToInclusive_isize({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$isize_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.isize>, { tag: "Included", _0: b } as rt.RangeBound<rt.isize>] as [rt.RangeBound<rt.isize>, rt.RangeBound<rt.isize>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.isize>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.isize>] as [rt.RangeBound<rt.isize>, rt.RangeBound<rt.isize>], _19);
+		const _62: rt.Range<rt.isize> = new rt.Range(a, b);
+		const _64: rt.Range<rt.isize> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(a, b, rt.isizeStep);
+		const _70: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(a, _19, rt.isizeStep);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.isize> = new rt.RangeFrom(a, rt.isizeStep);
+		const _76: rt.RangeFrom<rt.isize> = new rt.RangeFrom(_19, rt.isizeStep);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.isize } = { end: b };
+		const _82: { end: rt.isize } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.isize; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.isize; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.isize, rt.isize] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.isizeStep));
+	const start: rt.isize = _94[0];
+	const end: rt.isize = _94[1];
+	const inclusive: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(a, b, rt.isizeStep);
+	const _102: rt.Range<rt.isize> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.isize> = new rt.RangeFrom(a, rt.isizeStep);
+	const _107: { end: rt.isize } = { end: b };
+	const _109: { end: rt.isize; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.isize, rt.isize] = [start, end];
+	const _113: [rt.isize, rt.isize] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.isizeDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.isizeDebug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.isizeDebug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.isizeDebug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.isizeDebug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.isizeDebug(_111[0], f), (f: rt.Formatter) => rt.isizeDebug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.isizeDebug(_113[0], f), (f: rt.Formatter) => rt.isizeDebug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.isize>, { end: rt.isize }, { end: rt.isize; inclusive: true }] = [new rt.RangeFrom(a, rt.isizeStep), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.isize> = _137[0];
+	const to: { end: rt.isize } = _137[1];
+	const through: { end: rt.isize; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.isize>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.isize>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.isize>, { tag: "Unbounded" } as rt.RangeBound<rt.isize>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.isize>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.isize>], (bound: rt.RangeBound<rt.isize>): rt.u8 => {
+		return boundOf$isize(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.isize, rt.isize];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$u128(table: rt.u128[], at: rt.usize[], out: rt.ByteVec): [rt.u128, rt.u128] {
+	const _6: rt.u128[] = rt.arrayMap(at, (i: rt.usize): rt.u128 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u128 = _6[0];
+	const b: rt.u128 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.u128Step)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.u128Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.u128Step), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.u128Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.u128Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$u128_Range_u128(new rt.Range(a, b, rt.u128Step), _19);
+		const _41: boolean = boundsContain$u128_RangeInclusive_u128(new rt.RangeInclusive(a, b, rt.u128Step), _19);
+		const _43: boolean = boundsContain$u128_RangeFrom_u128(new rt.RangeFrom(a, rt.u128Step), _19);
+		const _45: boolean = boundsContain$u128_RangeTo_u128({ end: b }, _19);
+		const _47: boolean = boundsContain$u128_RangeToInclusive_u128({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$u128_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u128>, { tag: "Included", _0: b } as rt.RangeBound<rt.u128>] as [rt.RangeBound<rt.u128>, rt.RangeBound<rt.u128>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u128>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u128>] as [rt.RangeBound<rt.u128>, rt.RangeBound<rt.u128>], _19);
+		const _62: rt.Range<rt.u128> = new rt.Range(a, b, rt.u128Step);
+		const _64: rt.Range<rt.u128> = new rt.Range(_19, b, rt.u128Step);
+		const _60: boolean = rt.rangeEq(rt.u128Eq)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.u128Step);
+		const _70: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, _19, rt.u128Step);
+		const _66: boolean = rt.rangeEq(rt.u128Eq)(_68, _70);
+		const _74: rt.RangeFrom<rt.u128> = new rt.RangeFrom(a, rt.u128Step);
+		const _76: rt.RangeFrom<rt.u128> = new rt.RangeFrom(_19, rt.u128Step);
+		const _72: boolean = !rt.rangeEq(rt.u128Eq)(_74, _76);
+		const _80: { end: rt.u128 } = { end: b };
+		const _82: { end: rt.u128 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.u128Eq)(_80, _82);
+		const _86: { end: rt.u128; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u128; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.u128Eq)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u128, rt.u128] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.u128Step));
+	const start: rt.u128 = _94[0];
+	const end: rt.u128 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.u128Step);
+	const _102: rt.Range<rt.u128> = new rt.Range(a, b, rt.u128Step);
+	const _105: rt.RangeFrom<rt.u128> = new rt.RangeFrom(a, rt.u128Step);
+	const _107: { end: rt.u128 } = { end: b };
+	const _109: { end: rt.u128; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u128, rt.u128] = [start, end];
+	const _113: [rt.u128, rt.u128] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u128Debug(_111[0], f), (f: rt.Formatter) => rt.u128Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u128Debug(_113[0], f), (f: rt.Formatter) => rt.u128Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u128>, { end: rt.u128 }, { end: rt.u128; inclusive: true }] = [new rt.RangeFrom(a, rt.u128Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u128> = _137[0];
+	const to: { end: rt.u128 } = _137[1];
+	const through: { end: rt.u128; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u128>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u128>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u128>, { tag: "Unbounded" } as rt.RangeBound<rt.u128>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u128>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u128>], (bound: rt.RangeBound<rt.u128>): rt.u8 => {
+		return boundOf$u128(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u128, rt.u128];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$u16(table: rt.u16[], at: rt.usize[], out: rt.ByteVec): [rt.u16, rt.u16] {
+	const _6: rt.u16[] = rt.arrayMap(at, (i: rt.usize): rt.u16 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u16 = _6[0];
+	const b: rt.u16 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.u16Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.u16Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.u16Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$u16_Range_u16(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$u16_RangeInclusive_u16(new rt.RangeInclusive(a, b, rt.u16Step), _19);
+		const _43: boolean = boundsContain$u16_RangeFrom_u16(new rt.RangeFrom(a, rt.u16Step), _19);
+		const _45: boolean = boundsContain$u16_RangeTo_u16({ end: b }, _19);
+		const _47: boolean = boundsContain$u16_RangeToInclusive_u16({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$u16_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u16>, { tag: "Included", _0: b } as rt.RangeBound<rt.u16>] as [rt.RangeBound<rt.u16>, rt.RangeBound<rt.u16>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u16>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u16>] as [rt.RangeBound<rt.u16>, rt.RangeBound<rt.u16>], _19);
+		const _62: rt.Range<rt.u16> = new rt.Range(a, b);
+		const _64: rt.Range<rt.u16> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(a, b, rt.u16Step);
+		const _70: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(a, _19, rt.u16Step);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.u16> = new rt.RangeFrom(a, rt.u16Step);
+		const _76: rt.RangeFrom<rt.u16> = new rt.RangeFrom(_19, rt.u16Step);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.u16 } = { end: b };
+		const _82: { end: rt.u16 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.u16; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u16; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u16, rt.u16] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.u16Step));
+	const start: rt.u16 = _94[0];
+	const end: rt.u16 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(a, b, rt.u16Step);
+	const _102: rt.Range<rt.u16> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.u16> = new rt.RangeFrom(a, rt.u16Step);
+	const _107: { end: rt.u16 } = { end: b };
+	const _109: { end: rt.u16; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u16, rt.u16] = [start, end];
+	const _113: [rt.u16, rt.u16] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u16Debug(_111[0], f), (f: rt.Formatter) => rt.u16Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u16Debug(_113[0], f), (f: rt.Formatter) => rt.u16Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u16>, { end: rt.u16 }, { end: rt.u16; inclusive: true }] = [new rt.RangeFrom(a, rt.u16Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u16> = _137[0];
+	const to: { end: rt.u16 } = _137[1];
+	const through: { end: rt.u16; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u16>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u16>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u16>, { tag: "Unbounded" } as rt.RangeBound<rt.u16>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u16>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u16>], (bound: rt.RangeBound<rt.u16>): rt.u8 => {
+		return boundOf$u16(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u16, rt.u16];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$u32(table: rt.u32[], at: rt.usize[], out: rt.ByteVec): [rt.u32, rt.u32] {
+	const _6: rt.u32[] = rt.arrayMap(at, (i: rt.usize): rt.u32 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u32 = _6[0];
+	const b: rt.u32 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.u32Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.u32Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.u32Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$u32_Range_u32(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$u32_RangeInclusive_u32(new rt.RangeInclusive(a, b, rt.u32Step), _19);
+		const _43: boolean = boundsContain$u32_RangeFrom_u32(new rt.RangeFrom(a, rt.u32Step), _19);
+		const _45: boolean = boundsContain$u32_RangeTo_u32({ end: b }, _19);
+		const _47: boolean = boundsContain$u32_RangeToInclusive_u32({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$u32_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u32>, { tag: "Included", _0: b } as rt.RangeBound<rt.u32>] as [rt.RangeBound<rt.u32>, rt.RangeBound<rt.u32>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u32>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u32>] as [rt.RangeBound<rt.u32>, rt.RangeBound<rt.u32>], _19);
+		const _62: rt.Range<rt.u32> = new rt.Range(a, b);
+		const _64: rt.Range<rt.u32> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(a, b, rt.u32Step);
+		const _70: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(a, _19, rt.u32Step);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.u32> = new rt.RangeFrom(a, rt.u32Step);
+		const _76: rt.RangeFrom<rt.u32> = new rt.RangeFrom(_19, rt.u32Step);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.u32 } = { end: b };
+		const _82: { end: rt.u32 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.u32; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u32; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u32, rt.u32] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.u32Step));
+	const start: rt.u32 = _94[0];
+	const end: rt.u32 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(a, b, rt.u32Step);
+	const _102: rt.Range<rt.u32> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.u32> = new rt.RangeFrom(a, rt.u32Step);
+	const _107: { end: rt.u32 } = { end: b };
+	const _109: { end: rt.u32; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u32, rt.u32] = [start, end];
+	const _113: [rt.u32, rt.u32] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u32Debug(_111[0], f), (f: rt.Formatter) => rt.u32Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u32Debug(_113[0], f), (f: rt.Formatter) => rt.u32Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u32>, { end: rt.u32 }, { end: rt.u32; inclusive: true }] = [new rt.RangeFrom(a, rt.u32Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u32> = _137[0];
+	const to: { end: rt.u32 } = _137[1];
+	const through: { end: rt.u32; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u32>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u32>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u32>, { tag: "Unbounded" } as rt.RangeBound<rt.u32>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u32>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u32>], (bound: rt.RangeBound<rt.u32>): rt.u8 => {
+		return boundOf$u32(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u32, rt.u32];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$u64(table: rt.u64[], at: rt.usize[], out: rt.ByteVec): [rt.u64, rt.u64] {
+	const _6: rt.u64[] = rt.arrayMap(at, (i: rt.usize): rt.u64 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.u64 = _6[0];
+	const b: rt.u64 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b, rt.u64Step)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.u64Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b, rt.u64Step), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.u64Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.u64Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$u64_Range_u64(new rt.Range(a, b, rt.u64Step), _19);
+		const _41: boolean = boundsContain$u64_RangeInclusive_u64(new rt.RangeInclusive(a, b, rt.u64Step), _19);
+		const _43: boolean = boundsContain$u64_RangeFrom_u64(new rt.RangeFrom(a, rt.u64Step), _19);
+		const _45: boolean = boundsContain$u64_RangeTo_u64({ end: b }, _19);
+		const _47: boolean = boundsContain$u64_RangeToInclusive_u64({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$u64_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u64>, { tag: "Included", _0: b } as rt.RangeBound<rt.u64>] as [rt.RangeBound<rt.u64>, rt.RangeBound<rt.u64>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u64>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u64>] as [rt.RangeBound<rt.u64>, rt.RangeBound<rt.u64>], _19);
+		const _62: rt.Range<rt.u64> = new rt.Range(a, b, rt.u64Step);
+		const _64: rt.Range<rt.u64> = new rt.Range(_19, b, rt.u64Step);
+		const _60: boolean = rt.rangeEq(rt.u64Eq)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.u64Step);
+		const _70: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, _19, rt.u64Step);
+		const _66: boolean = rt.rangeEq(rt.u64Eq)(_68, _70);
+		const _74: rt.RangeFrom<rt.u64> = new rt.RangeFrom(a, rt.u64Step);
+		const _76: rt.RangeFrom<rt.u64> = new rt.RangeFrom(_19, rt.u64Step);
+		const _72: boolean = !rt.rangeEq(rt.u64Eq)(_74, _76);
+		const _80: { end: rt.u64 } = { end: b };
+		const _82: { end: rt.u64 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.u64Eq)(_80, _82);
+		const _86: { end: rt.u64; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u64; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.u64Eq)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u64, rt.u64] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.u64Step));
+	const start: rt.u64 = _94[0];
+	const end: rt.u64 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.u64Step);
+	const _102: rt.Range<rt.u64> = new rt.Range(a, b, rt.u64Step);
+	const _105: rt.RangeFrom<rt.u64> = new rt.RangeFrom(a, rt.u64Step);
+	const _107: { end: rt.u64 } = { end: b };
+	const _109: { end: rt.u64; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u64, rt.u64] = [start, end];
+	const _113: [rt.u64, rt.u64] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u64Debug(_111[0], f), (f: rt.Formatter) => rt.u64Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u64Debug(_113[0], f), (f: rt.Formatter) => rt.u64Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u64>, { end: rt.u64 }, { end: rt.u64; inclusive: true }] = [new rt.RangeFrom(a, rt.u64Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u64> = _137[0];
+	const to: { end: rt.u64 } = _137[1];
+	const through: { end: rt.u64; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u64>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u64>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u64>, { tag: "Unbounded" } as rt.RangeBound<rt.u64>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u64>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u64>], (bound: rt.RangeBound<rt.u64>): rt.u8 => {
+		return boundOf$u64(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u64, rt.u64];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$u8(table: rt.ByteSlice, at: rt.usize[], out: rt.ByteVec): [rt.u8, rt.u8] {
+	const _6: Uint8Array = rt.bytesMap(at, (i: rt.usize): rt.u8 => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table.data[table.start + _3];
+	});
+	const a: rt.u8 = _6[0];
+	const b: rt.u8 = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.u8Step))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of rt.byteSliceView(table)) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.u8Step), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.u8Step), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$u8_Range_u8(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$u8_RangeInclusive_u8(new rt.RangeInclusive(a, b, rt.u8Step), _19);
+		const _43: boolean = boundsContain$u8_RangeFrom_u8(new rt.RangeFrom(a, rt.u8Step), _19);
+		const _45: boolean = boundsContain$u8_RangeTo_u8({ end: b }, _19);
+		const _47: boolean = boundsContain$u8_RangeToInclusive_u8({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$u8_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.u8>, { tag: "Included", _0: b } as rt.RangeBound<rt.u8>] as [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.u8>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.u8>] as [rt.RangeBound<rt.u8>, rt.RangeBound<rt.u8>], _19);
+		const _62: rt.Range<rt.u8> = new rt.Range(a, b);
+		const _64: rt.Range<rt.u8> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+		const _70: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, _19, rt.u8Step);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.u8> = new rt.RangeFrom(a, rt.u8Step);
+		const _76: rt.RangeFrom<rt.u8> = new rt.RangeFrom(_19, rt.u8Step);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.u8 } = { end: b };
+		const _82: { end: rt.u8 } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.u8; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.u8; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.u8, rt.u8] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.u8Step));
+	const start: rt.u8 = _94[0];
+	const end: rt.u8 = _94[1];
+	const inclusive: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+	const _102: rt.Range<rt.u8> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.u8> = new rt.RangeFrom(a, rt.u8Step);
+	const _107: { end: rt.u8 } = { end: b };
+	const _109: { end: rt.u8; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.u8, rt.u8] = [start, end];
+	const _113: [rt.u8, rt.u8] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(_111[0], f), (f: rt.Formatter) => rt.u8Debug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(_113[0], f), (f: rt.Formatter) => rt.u8Debug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.u8>, { end: rt.u8 }, { end: rt.u8; inclusive: true }] = [new rt.RangeFrom(a, rt.u8Step), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.u8> = _137[0];
+	const to: { end: rt.u8 } = _137[1];
+	const through: { end: rt.u8; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.u8>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.u8>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.u8>, { tag: "Unbounded" } as rt.RangeBound<rt.u8>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.u8>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.u8>], (bound: rt.RangeBound<rt.u8>): rt.u8 => {
+		return boundOf$u8(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.u8, rt.u8];
+}
+
+/**
+ * Each range type's comparisons of `a` and `b`, from `table`, against each of its
+ * values, and their `Debug`.
+ */
+export function bounded$usize(table: rt.usize[], at: rt.usize[], out: rt.ByteVec): [rt.usize, rt.usize] {
+	const _6: rt.usize[] = rt.arrayMap(at, (i: rt.usize): rt.usize => {
+		const _3: rt.usize = rt.usizeRem(i, table.length);
+		rt.idx(table, _3);
+		return table[_3];
+	});
+	const a: rt.usize = _6[0];
+	const b: rt.usize = _6[1];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeIsEmpty(new rt.Range(a, b)), rt.rangeInclusiveIsEmpty(new rt.RangeInclusive(a, b, rt.usizeStep))], (a0: boolean): rt.u8 => {
+		return a0 ? 1 : 0;
+	})), undefined, true);
+	for (const _19 of table) {
+		const _24: boolean = rt.rangeContains(new rt.Range(a, b), _19);
+		const _27: boolean = rt.rangeInclusiveContains(new rt.RangeInclusive(a, b, rt.usizeStep), _19);
+		const _30: boolean = rt.rangeFromContains(new rt.RangeFrom(a, rt.usizeStep), _19);
+		const _33: boolean = rt.rangeToContains({ end: b }, _19);
+		const _36: boolean = rt.rangeToContains({ end: b, inclusive: true }, _19);
+		const _39: boolean = boundsContain$usize_Range_usize(new rt.Range(a, b), _19);
+		const _41: boolean = boundsContain$usize_RangeInclusive_usize(new rt.RangeInclusive(a, b, rt.usizeStep), _19);
+		const _43: boolean = boundsContain$usize_RangeFrom_usize(new rt.RangeFrom(a, rt.usizeStep), _19);
+		const _45: boolean = boundsContain$usize_RangeTo_usize({ end: b }, _19);
+		const _47: boolean = boundsContain$usize_RangeToInclusive_usize({ end: b, inclusive: true }, _19);
+		const _49: boolean = boundsContain$usize_RangeFull(undefined, _19);
+		const _50: boolean = rt.boundsContains([{ tag: "Excluded", _0: a } as rt.RangeBound<rt.usize>, { tag: "Included", _0: b } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _19);
+		const _55: boolean = rt.boundsContains([{ tag: "Unbounded" } as rt.RangeBound<rt.usize>, { tag: "Excluded", _0: b } as rt.RangeBound<rt.usize>] as [rt.RangeBound<rt.usize>, rt.RangeBound<rt.usize>], _19);
+		const _62: rt.Range<rt.usize> = new rt.Range(a, b);
+		const _64: rt.Range<rt.usize> = new rt.Range(_19, b);
+		const _60: boolean = rt.rangeEq(rt.same)(_62, _64);
+		const _68: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+		const _70: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, _19, rt.usizeStep);
+		const _66: boolean = rt.rangeEq(rt.same)(_68, _70);
+		const _74: rt.RangeFrom<rt.usize> = new rt.RangeFrom(a, rt.usizeStep);
+		const _76: rt.RangeFrom<rt.usize> = new rt.RangeFrom(_19, rt.usizeStep);
+		const _72: boolean = !rt.rangeEq(rt.same)(_74, _76);
+		const _80: { end: rt.usize } = { end: b };
+		const _82: { end: rt.usize } = { end: _19 };
+		const _78: boolean = rt.rangeEq(rt.same)(_80, _82);
+		const _86: { end: rt.usize; inclusive: true } = { end: b, inclusive: true };
+		const _88: { end: rt.usize; inclusive: true } = { end: _19, inclusive: true };
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_24, _27, _30, _33, _36, _39, _41, _43, _45, _47, _49, _50, _55, _60, _66, _72, _78, !rt.rangeEq(rt.same)(_86, _88)], (a02: boolean): rt.u8 => {
+			return a02 ? 1 : 0;
+		})), undefined, true);
+	}
+	const _94: [rt.usize, rt.usize] = rt.rangeInclusiveIntoInner(new rt.RangeInclusive(a, b, rt.usizeStep));
+	const start: rt.usize = _94[0];
+	const end: rt.usize = _94[1];
+	const inclusive: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+	const _102: rt.Range<rt.usize> = new rt.Range(a, b);
+	const _105: rt.RangeFrom<rt.usize> = new rt.RangeFrom(a, rt.usizeStep);
+	const _107: { end: rt.usize } = { end: b };
+	const _109: { end: rt.usize; inclusive: true } = { end: b, inclusive: true };
+	const _111: [rt.usize, rt.usize] = [start, end];
+	const _113: [rt.usize, rt.usize] = [rt.rangeInclusiveStart(inclusive), rt.rangeInclusiveEnd(inclusive)];
+	const _118: [undefined, [undefined, rt.Range<rt.i32>]] = [undefined, [undefined, new rt.Range(1, 2)]];
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_102, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(inclusive, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeFrom(_105, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeTo(_107, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_109, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(_111[0], f), (f: rt.Formatter) => rt.usizeDebug(_111[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.usizeDebug(_113[0], f), (f: rt.Formatter) => rt.usizeDebug(_113[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtRangeFull(_118[1][0], f), (f: rt.Formatter) => rt.fmtRange(_118[1][1], f, rt.i32Debug)], f)], f)];
+	rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5], " ", args2[6], " ", args2[7]])), undefined, true);
+	const _137: [rt.RangeFrom<rt.usize>, { end: rt.usize }, { end: rt.usize; inclusive: true }] = [new rt.RangeFrom(a, rt.usizeStep), { end: b }, { end: b, inclusive: true }];
+	const from: rt.RangeFrom<rt.usize> = _137[0];
+	const to: { end: rt.usize } = _137[1];
+	const through: { end: rt.usize; inclusive: true } = _137[2];
+	rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([rt.rangeInclusiveStartBound(inclusive) as rt.RangeBound<rt.usize>, rt.rangeInclusiveEndBound(inclusive) as rt.RangeBound<rt.usize>, { tag: "Included", _0: from.start } as rt.RangeBound<rt.usize>, { tag: "Unbounded" } as rt.RangeBound<rt.usize>, { tag: "Excluded", _0: to.end } as rt.RangeBound<rt.usize>, { tag: "Included", _0: through.end } as rt.RangeBound<rt.usize>], (bound: rt.RangeBound<rt.usize>): rt.u8 => {
+		return boundOf$usize(table, bound);
+	})), undefined, true);
+	return [a, b] as [rt.usize, rt.usize];
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$NonZero_u128(table: rt.u128[], bound: rt.RangeBound<rt.u128>): rt.u8 {
+	const at: (a0: rt.u128) => rt.u8 = (x: rt.u128): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u128): boolean => {
+			return rt.u128Eq(y, x);
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u128 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u128 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$NonZero_u64(table: rt.u64[], bound: rt.RangeBound<rt.u64>): rt.u8 {
+	const at: (a0: rt.u64) => rt.u8 = (x: rt.u64): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u64): boolean => {
+			return rt.u64Eq(y, x);
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u64 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u64 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$NonZero_u8(table: rt.u8[], bound: rt.RangeBound<rt.u8>): rt.u8 {
+	const at: (a0: rt.u8) => rt.u8 = (x: rt.u8): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u8): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u8 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u8 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$NonZero_usize(table: rt.usize[], bound: rt.RangeBound<rt.usize>): rt.u8 {
+	const at: (a0: rt.usize) => rt.u8 = (x: rt.usize): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.usize): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.usize })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.usize })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$char(table: rt.char[], bound: rt.RangeBound<rt.char>): rt.u8 {
+	const at: (a0: rt.char) => rt.u8 = (x: rt.char): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.char): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.char })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.char })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$f32(table: rt.f32[], bound: rt.RangeBound<rt.f32>): rt.u8 {
+	const at: (a0: rt.f32) => rt.u8 = (x: rt.f32): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.f32): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.f32 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.f32 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$f64(table: rt.f64[], bound: rt.RangeBound<rt.f64>): rt.u8 {
+	const at: (a0: rt.f64) => rt.u8 = (x: rt.f64): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.f64): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.f64 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.f64 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$i128(table: rt.i128[], bound: rt.RangeBound<rt.i128>): rt.u8 {
+	const at: (a0: rt.i128) => rt.u8 = (x: rt.i128): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.i128): boolean => {
+			return rt.i128Eq(y, x);
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.i128 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.i128 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$i16(table: rt.i16[], bound: rt.RangeBound<rt.i16>): rt.u8 {
+	const at: (a0: rt.i16) => rt.u8 = (x: rt.i16): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.i16): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.i16 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.i16 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$i32(table: rt.i32[], bound: rt.RangeBound<rt.i32>): rt.u8 {
+	const at: (a0: rt.i32) => rt.u8 = (x: rt.i32): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.i32): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.i32 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.i32 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$i64(table: rt.i64[], bound: rt.RangeBound<rt.i64>): rt.u8 {
+	const at: (a0: rt.i64) => rt.u8 = (x: rt.i64): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.i64): boolean => {
+			return rt.i64Eq(y, x);
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.i64 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.i64 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$i8(table: rt.i8[], bound: rt.RangeBound<rt.i8>): rt.u8 {
+	const at: (a0: rt.i8) => rt.u8 = (x: rt.i8): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.i8): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.i8 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.i8 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$isize(table: rt.isize[], bound: rt.RangeBound<rt.isize>): rt.u8 {
+	const at: (a0: rt.isize) => rt.u8 = (x: rt.isize): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.isize): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.isize })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.isize })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$u128(table: rt.u128[], bound: rt.RangeBound<rt.u128>): rt.u8 {
+	const at: (a0: rt.u128) => rt.u8 = (x: rt.u128): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u128): boolean => {
+			return rt.u128Eq(y, x);
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u128 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u128 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$u16(table: rt.u16[], bound: rt.RangeBound<rt.u16>): rt.u8 {
+	const at: (a0: rt.u16) => rt.u8 = (x: rt.u16): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u16): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u16 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u16 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$u32(table: rt.u32[], bound: rt.RangeBound<rt.u32>): rt.u8 {
+	const at: (a0: rt.u32) => rt.u8 = (x: rt.u32): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u32): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u32 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u32 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$u64(table: rt.u64[], bound: rt.RangeBound<rt.u64>): rt.u8 {
+	const at: (a0: rt.u64) => rt.u8 = (x: rt.u64): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.u64): boolean => {
+			return rt.u64Eq(y, x);
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u64 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u64 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$u8(table: rt.ByteSlice, bound: rt.RangeBound<rt.u8>): rt.u8 {
+	const at: (a0: rt.u8) => rt.u8 = (x: rt.u8): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(rt.byteSliceView(table)), (y: rt.u8): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.u8 })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.u8 })._0);
+	}
+	return 0;
+}
+
+/** Which kind of bound `bound` is, and where its value is in `table`. */
+export function boundOf$usize(table: rt.usize[], bound: rt.RangeBound<rt.usize>): rt.u8 {
+	const at: (a0: rt.usize) => rt.u8 = (x: rt.usize): rt.u8 => {
+		return mapOr$02k4ito(rt.iterPosition(rt.iterSlice(table), (y: rt.usize): boolean => {
+			return y === x;
+		}), 63, (i: rt.usize): rt.u8 => {
+			return i & 0xff;
+		});
+	};
+	if (bound.tag === "Included") {
+		return 64 | at((bound as { tag: "Included"; _0: rt.usize })._0);
+	}
+	if (bound.tag === "Excluded") {
+		return 128 | at((bound as { tag: "Excluded"; _0: rt.usize })._0);
+	}
+	return 0;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u128_RangeFrom_NonZero_u128(r: rt.RangeFrom<rt.u128>, x: rt.u128): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u128_RangeFull(_: undefined, _x: rt.u128): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u128_RangeInclusive_NonZero_u128(r: rt.RangeInclusive<rt.u128>, x: rt.u128): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u128_RangeToInclusive_NonZero_u128(r: { end: rt.u128; inclusive: true }, x: rt.u128): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u128_RangeTo_NonZero_u128(r: { end: rt.u128 }, x: rt.u128): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u128_Range_NonZero_u128(r: rt.Range<rt.u128>, x: rt.u128): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u64_RangeFrom_NonZero_u64(r: rt.RangeFrom<rt.u64>, x: rt.u64): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u64_RangeFull(_: undefined, _x: rt.u64): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u64_RangeInclusive_NonZero_u64(r: rt.RangeInclusive<rt.u64>, x: rt.u64): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u64_RangeToInclusive_NonZero_u64(r: { end: rt.u64; inclusive: true }, x: rt.u64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u64_RangeTo_NonZero_u64(r: { end: rt.u64 }, x: rt.u64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u64_Range_NonZero_u64(r: rt.Range<rt.u64>, x: rt.u64): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u8_RangeFrom_NonZero_u8(r: rt.RangeFrom<rt.u8>, x: rt.u8): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u8_RangeFull(_: undefined, _x: rt.u8): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u8_RangeInclusive_NonZero_u8(r: rt.RangeInclusive<rt.u8>, x: rt.u8): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u8_RangeToInclusive_NonZero_u8(r: { end: rt.u8; inclusive: true }, x: rt.u8): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u8_RangeTo_NonZero_u8(r: { end: rt.u8 }, x: rt.u8): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_u8_Range_NonZero_u8(r: rt.Range<rt.u8>, x: rt.u8): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_usize_RangeFrom_NonZero_usize(r: rt.RangeFrom<rt.usize>, x: rt.usize): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_usize_RangeFull(_: undefined, _x: rt.usize): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_usize_RangeInclusive_NonZero_usize(r: rt.RangeInclusive<rt.usize>, x: rt.usize): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_usize_RangeToInclusive_NonZero_usize(r: { end: rt.usize; inclusive: true }, x: rt.usize): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_usize_RangeTo_NonZero_usize(r: { end: rt.usize }, x: rt.usize): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$NonZero_usize_Range_NonZero_usize(r: rt.Range<rt.usize>, x: rt.usize): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$char_RangeFrom_char(r: rt.RangeFrom<rt.char>, x: rt.char): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$char_RangeFull(_: undefined, _x: rt.char): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$char_RangeInclusive_char(r: rt.RangeInclusive<rt.char>, x: rt.char): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$char_RangeToInclusive_char(r: { end: rt.char; inclusive: true }, x: rt.char): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$char_RangeTo_char(r: { end: rt.char }, x: rt.char): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$char_Range_char(r: rt.Range<rt.char>, x: rt.char): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f32_RangeFrom_f32(r: rt.RangeFrom<rt.f32>, x: rt.f32): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f32_RangeFull(_: undefined, _x: rt.f32): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f32_RangeInclusive_f32(r: rt.RangeInclusive<rt.f32>, x: rt.f32): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f32_RangeToInclusive_f32(r: { end: rt.f32; inclusive: true }, x: rt.f32): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f32_RangeTo_f32(r: { end: rt.f32 }, x: rt.f32): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f32_Range_f32(r: rt.Range<rt.f32>, x: rt.f32): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f64_RangeFrom_f64(r: rt.RangeFrom<rt.f64>, x: rt.f64): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f64_RangeFull(_: undefined, _x: rt.f64): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f64_RangeInclusive_f64(r: rt.RangeInclusive<rt.f64>, x: rt.f64): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f64_RangeToInclusive_f64(r: { end: rt.f64; inclusive: true }, x: rt.f64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f64_RangeTo_f64(r: { end: rt.f64 }, x: rt.f64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$f64_Range_f64(r: rt.Range<rt.f64>, x: rt.f64): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i128_RangeFrom_i128(r: rt.RangeFrom<rt.i128>, x: rt.i128): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i128_RangeFull(_: undefined, _x: rt.i128): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i128_RangeInclusive_i128(r: rt.RangeInclusive<rt.i128>, x: rt.i128): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i128_RangeToInclusive_i128(r: { end: rt.i128; inclusive: true }, x: rt.i128): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i128_RangeTo_i128(r: { end: rt.i128 }, x: rt.i128): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i128_Range_i128(r: rt.Range<rt.i128>, x: rt.i128): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i16_RangeFrom_i16(r: rt.RangeFrom<rt.i16>, x: rt.i16): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i16_RangeFull(_: undefined, _x: rt.i16): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i16_RangeInclusive_i16(r: rt.RangeInclusive<rt.i16>, x: rt.i16): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i16_RangeToInclusive_i16(r: { end: rt.i16; inclusive: true }, x: rt.i16): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i16_RangeTo_i16(r: { end: rt.i16 }, x: rt.i16): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i16_Range_i16(r: rt.Range<rt.i16>, x: rt.i16): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i32_RangeFrom_i32(r: rt.RangeFrom<rt.i32>, x: rt.i32): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i32_RangeFull(_: undefined, _x: rt.i32): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i32_RangeInclusive_i32(r: rt.RangeInclusive<rt.i32>, x: rt.i32): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i32_RangeToInclusive_i32(r: { end: rt.i32; inclusive: true }, x: rt.i32): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i32_RangeTo_i32(r: { end: rt.i32 }, x: rt.i32): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i32_Range_i32(r: rt.Range<rt.i32>, x: rt.i32): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i64_RangeFrom_i64(r: rt.RangeFrom<rt.i64>, x: rt.i64): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i64_RangeFull(_: undefined, _x: rt.i64): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i64_RangeInclusive_i64(r: rt.RangeInclusive<rt.i64>, x: rt.i64): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i64_RangeToInclusive_i64(r: { end: rt.i64; inclusive: true }, x: rt.i64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i64_RangeTo_i64(r: { end: rt.i64 }, x: rt.i64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i64_Range_i64(r: rt.Range<rt.i64>, x: rt.i64): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i8_RangeFrom_i8(r: rt.RangeFrom<rt.i8>, x: rt.i8): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i8_RangeFull(_: undefined, _x: rt.i8): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i8_RangeInclusive_i8(r: rt.RangeInclusive<rt.i8>, x: rt.i8): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i8_RangeToInclusive_i8(r: { end: rt.i8; inclusive: true }, x: rt.i8): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i8_RangeTo_i8(r: { end: rt.i8 }, x: rt.i8): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$i8_Range_i8(r: rt.Range<rt.i8>, x: rt.i8): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$isize_RangeFrom_isize(r: rt.RangeFrom<rt.isize>, x: rt.isize): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$isize_RangeFull(_: undefined, _x: rt.isize): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$isize_RangeInclusive_isize(r: rt.RangeInclusive<rt.isize>, x: rt.isize): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$isize_RangeToInclusive_isize(r: { end: rt.isize; inclusive: true }, x: rt.isize): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$isize_RangeTo_isize(r: { end: rt.isize }, x: rt.isize): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$isize_Range_isize(r: rt.Range<rt.isize>, x: rt.isize): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u128_RangeFrom_u128(r: rt.RangeFrom<rt.u128>, x: rt.u128): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u128_RangeFull(_: undefined, _x: rt.u128): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u128_RangeInclusive_u128(r: rt.RangeInclusive<rt.u128>, x: rt.u128): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u128_RangeToInclusive_u128(r: { end: rt.u128; inclusive: true }, x: rt.u128): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u128_RangeTo_u128(r: { end: rt.u128 }, x: rt.u128): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u128_Range_u128(r: rt.Range<rt.u128>, x: rt.u128): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u16_RangeFrom_u16(r: rt.RangeFrom<rt.u16>, x: rt.u16): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u16_RangeFull(_: undefined, _x: rt.u16): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u16_RangeInclusive_u16(r: rt.RangeInclusive<rt.u16>, x: rt.u16): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u16_RangeToInclusive_u16(r: { end: rt.u16; inclusive: true }, x: rt.u16): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u16_RangeTo_u16(r: { end: rt.u16 }, x: rt.u16): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u16_Range_u16(r: rt.Range<rt.u16>, x: rt.u16): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u32_RangeFrom_u32(r: rt.RangeFrom<rt.u32>, x: rt.u32): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u32_RangeFull(_: undefined, _x: rt.u32): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u32_RangeInclusive_u32(r: rt.RangeInclusive<rt.u32>, x: rt.u32): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u32_RangeToInclusive_u32(r: { end: rt.u32; inclusive: true }, x: rt.u32): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u32_RangeTo_u32(r: { end: rt.u32 }, x: rt.u32): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u32_Range_u32(r: rt.Range<rt.u32>, x: rt.u32): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u64_RangeFrom_u64(r: rt.RangeFrom<rt.u64>, x: rt.u64): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u64_RangeFull(_: undefined, _x: rt.u64): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u64_RangeInclusive_u64(r: rt.RangeInclusive<rt.u64>, x: rt.u64): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u64_RangeToInclusive_u64(r: { end: rt.u64; inclusive: true }, x: rt.u64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u64_RangeTo_u64(r: { end: rt.u64 }, x: rt.u64): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u64_Range_u64(r: rt.Range<rt.u64>, x: rt.u64): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u8_RangeFrom_u8(r: rt.RangeFrom<rt.u8>, x: rt.u8): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u8_RangeFull(_: undefined, _x: rt.u8): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u8_RangeInclusive_u8(r: rt.RangeInclusive<rt.u8>, x: rt.u8): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u8_RangeToInclusive_u8(r: { end: rt.u8; inclusive: true }, x: rt.u8): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u8_RangeTo_u8(r: { end: rt.u8 }, x: rt.u8): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$u8_Range_u8(r: rt.Range<rt.u8>, x: rt.u8): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$usize_RangeFrom_usize(r: rt.RangeFrom<rt.usize>, x: rt.usize): boolean {
+	return rt.rangeFromContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$usize_RangeFull(_: undefined, _x: rt.usize): boolean {
+	return true;
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$usize_RangeInclusive_usize(r: rt.RangeInclusive<rt.usize>, x: rt.usize): boolean {
+	return rt.rangeInclusiveContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$usize_RangeToInclusive_usize(r: { end: rt.usize; inclusive: true }, x: rt.usize): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$usize_RangeTo_usize(r: { end: rt.usize }, x: rt.usize): boolean {
+	return rt.rangeToContains(r, x);
+}
+
+/** `RangeBounds::contains`, through the trait. */
+export function boundsContain$usize_Range_usize(r: rt.Range<rt.usize>, x: rt.usize): boolean {
+	return rt.rangeContains(r, x);
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$NonZero_u128(table: rt.u128[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u128 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u128, rt.u128] = bounded$NonZero_u128(table, at, out);
+	const a: rt.u128 = _6[0];
+	const b: rt.u128 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u128> = new rt.Range(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		rt.rangeHash(rt.hash128)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		rt.rangeHash(rt.hash128)(_10, h2);
+		const _15: rt.RangeFrom<rt.u128> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		rt.rangeHash(rt.hash128)(_15, h2);
+		const _19: { end: rt.u128 } = { end: b };
+		rt.rangeHash(rt.hash128)(_19, h2);
+		const _23: { end: rt.u128; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash128)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u128 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u128 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u128, rt.u128] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u128 = _54[0];
+		const end: rt.u128 = _54[1];
+		const _62: rt.RangeInclusive<rt.u128>[] = [new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128))];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash128), rt.rangeEq(rt.u128Eq))) as rt.HashSet<rt.RangeInclusive<rt.u128>>, rt.iterSlice(_62), undefined, undefined, 29360128));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u128Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$NonZero_u128(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u128>), boundOf$NonZero_u128(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u128>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _100: boolean = rt.rangeEq(rt.u128Eq)(r, _103);
+		const _109: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		const _106: boolean = rt.rangeEq(rt.u128Eq)(r, _109);
+		const _113: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u128Step, { hi: 0xffffffff, w2: 0xffffffff, w1: 0xffffffff, lo: 0xffffffff } as rt.u128));
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.u128Eq)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u128): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash128)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u128, rt.u128] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u128 = _129[0];
+		const end2: rt.u128 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u128Debug(start2, f), (f: rt.Formatter) => rt.u128Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$NonZero_u64(table: rt.u64[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u64 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u64, rt.u64] = bounded$NonZero_u64(table, at, out);
+	const a: rt.u64 = _6[0];
+	const b: rt.u64 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u64> = new rt.Range(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		rt.rangeHash(rt.hash64)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		rt.rangeHash(rt.hash64)(_10, h2);
+		const _15: rt.RangeFrom<rt.u64> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		rt.rangeHash(rt.hash64)(_15, h2);
+		const _19: { end: rt.u64 } = { end: b };
+		rt.rangeHash(rt.hash64)(_19, h2);
+		const _23: { end: rt.u64; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash64)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u64 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u64 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u64, rt.u64] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u64 = _54[0];
+		const end: rt.u64 = _54[1];
+		const _62: rt.RangeInclusive<rt.u64>[] = [new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64))];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash64), rt.rangeEq(rt.u64Eq))) as rt.HashSet<rt.RangeInclusive<rt.u64>>, rt.iterSlice(_62), undefined, undefined, 58720256));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u64Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$NonZero_u64(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u64>), boundOf$NonZero_u64(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u64>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _100: boolean = rt.rangeEq(rt.u64Eq)(r, _103);
+		const _109: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		const _106: boolean = rt.rangeEq(rt.u64Eq)(r, _109);
+		const _113: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u64Step, { hi: 0xffffffff, lo: 0xffffffff } as rt.u64));
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.u64Eq)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u64): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash64)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u64, rt.u64] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u64 = _129[0];
+		const end2: rt.u64 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Debug(start2, f), (f: rt.Formatter) => rt.u64Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$NonZero_u8(table: rt.u8[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u8 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u8, rt.u8] = bounded$NonZero_u8(table, at, out);
+	const a: rt.u8 = _6[0];
+	const b: rt.u8 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u8> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash8)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255));
+		rt.rangeHash(rt.hash8)(_10, h2);
+		const _15: rt.RangeFrom<rt.u8> = new rt.RangeFrom(a, rt.nonZeroStep(rt.u8Step, 255));
+		rt.rangeHash(rt.hash8)(_15, h2);
+		const _19: { end: rt.u8 } = { end: b };
+		rt.rangeHash(rt.hash8)(_19, h2);
+		const _23: { end: rt.u8; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash8)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255));
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u8 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u8 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u8, rt.u8] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u8 = _54[0];
+		const end: rt.u8 = _54[1];
+		const _62: rt.RangeInclusive<rt.u8>[] = [new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u8Step, 255)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u8Step, 255))];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash8), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.u8>>, rt.iterSlice(_62), undefined, undefined, 234881024));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u8Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$NonZero_u8(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u8>), boundOf$NonZero_u8(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u8>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.u8Step, 255));
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u8Step, 255));
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.u8Step, 255));
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u8): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash8)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u8, rt.u8] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u8 = _129[0];
+		const end2: rt.u8 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Debug(start2, f), (f: rt.Formatter) => rt.u8Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$NonZero_usize(table: rt.usize[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.usize | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.usize, rt.usize] = bounded$NonZero_usize(table, at, out);
+	const a: rt.usize = _6[0];
+	const b: rt.usize = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.usize> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash32)(_52, h2);
+		const _10: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		rt.rangeHash(rt.hash32)(_10, h2);
+		const _15: rt.RangeFrom<rt.usize> = new rt.RangeFrom(a, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		rt.rangeHash(rt.hash32)(_15, h2);
+		const _19: { end: rt.usize } = { end: b };
+		rt.rangeHash(rt.hash32)(_19, h2);
+		const _23: { end: rt.usize; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash32)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.usize | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.usize | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.usize, rt.usize] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.usize = _54[0];
+		const end: rt.usize = _54[1];
+		const _62: rt.RangeInclusive<rt.usize>[] = [new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.usizeStep, 4294967295)), new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.usizeStep, 4294967295))];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash32), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.usize>>, rt.iterSlice(_62), undefined, undefined, 117440512));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.usizeDebug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$NonZero_usize(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.usize>), boundOf$NonZero_usize(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.usize>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(start, end, rt.nonZeroStep(rt.usizeStep, 4294967295));
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.usize): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash32)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.usize, rt.usize] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.usize = _129[0];
+		const end2: rt.usize = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDebug(start2, f), (f: rt.Formatter) => rt.usizeDebug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$char(table: rt.char[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.char | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.char, rt.char] = bounded$char(table, at, out);
+	const a: rt.char = _6[0];
+	const b: rt.char = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.char> = new rt.Range(a, b, rt.charStep);
+		rt.rangeHash(rt.hash32)(_52, h2);
+		const _10: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(a, b, rt.charStep);
+		rt.rangeHash(rt.hash32)(_10, h2);
+		const _15: rt.RangeFrom<rt.char> = new rt.RangeFrom(a, rt.charStep);
+		rt.rangeHash(rt.hash32)(_15, h2);
+		const _19: { end: rt.char } = { end: b };
+		rt.rangeHash(rt.hash32)(_19, h2);
+		const _23: { end: rt.char; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash32)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(a, b, rt.charStep);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.char | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.char | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.char, rt.char] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.char = _54[0];
+		const end: rt.char = _54[1];
+		const _62: rt.RangeInclusive<rt.char>[] = [new rt.RangeInclusive(a, b, rt.charStep), new rt.RangeInclusive(start, end, rt.charStep), new rt.RangeInclusive(start, end, rt.charStep)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash32), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.char>>, rt.iterSlice(_62), undefined, undefined, 117440512));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.fmtCharDebug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$char(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.char>), boundOf$char(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.char>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(a, b, rt.charStep);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(start, end, rt.charStep);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.char> = new rt.RangeInclusive(start, end, rt.charStep);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.char): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash32)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.char, rt.char] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.char = _129[0];
+		const end2: rt.char = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtCharDebug(start2, f), (f: rt.Formatter) => rt.fmtCharDebug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$i128(table: rt.i128[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.i128 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.i128, rt.i128] = bounded$i128(table, at, out);
+	const a: rt.i128 = _6[0];
+	const b: rt.i128 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.i128> = new rt.Range(a, b, rt.i128Step);
+		rt.rangeHash(rt.hash128)(_52, h2);
+		const _10: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(a, b, rt.i128Step);
+		rt.rangeHash(rt.hash128)(_10, h2);
+		const _15: rt.RangeFrom<rt.i128> = new rt.RangeFrom(a, rt.i128Step);
+		rt.rangeHash(rt.hash128)(_15, h2);
+		const _19: { end: rt.i128 } = { end: b };
+		rt.rangeHash(rt.hash128)(_19, h2);
+		const _23: { end: rt.i128; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash128)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(a, b, rt.i128Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.i128 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.i128 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.i128, rt.i128] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.i128 = _54[0];
+		const end: rt.i128 = _54[1];
+		const _62: rt.RangeInclusive<rt.i128>[] = [new rt.RangeInclusive(a, b, rt.i128Step), new rt.RangeInclusive(start, end, rt.i128Step), new rt.RangeInclusive(start, end, rt.i128Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash128), rt.rangeEq(rt.i128Eq))) as rt.HashSet<rt.RangeInclusive<rt.i128>>, rt.iterSlice(_62), undefined, undefined, 29360128));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.i128Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.i128Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$i128(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.i128>), boundOf$i128(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.i128>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(a, b, rt.i128Step);
+		const _100: boolean = rt.rangeEq(rt.i128Eq)(r, _103);
+		const _109: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(start, end, rt.i128Step);
+		const _106: boolean = rt.rangeEq(rt.i128Eq)(r, _109);
+		const _113: rt.RangeInclusive<rt.i128> = new rt.RangeInclusive(start, end, rt.i128Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.i128Eq)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.i128): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash128)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.i128, rt.i128] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.i128 = _129[0];
+		const end2: rt.i128 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.i128Debug(start2, f), (f: rt.Formatter) => rt.i128Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$i16(table: rt.i16[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.i16 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.i16, rt.i16] = bounded$i16(table, at, out);
+	const a: rt.i16 = _6[0];
+	const b: rt.i16 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.i16> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash16)(_52, h2);
+		const _10: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(a, b, rt.i16Step);
+		rt.rangeHash(rt.hash16)(_10, h2);
+		const _15: rt.RangeFrom<rt.i16> = new rt.RangeFrom(a, rt.i16Step);
+		rt.rangeHash(rt.hash16)(_15, h2);
+		const _19: { end: rt.i16 } = { end: b };
+		rt.rangeHash(rt.hash16)(_19, h2);
+		const _23: { end: rt.i16; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash16)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(a, b, rt.i16Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.i16 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.i16 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.i16, rt.i16] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.i16 = _54[0];
+		const end: rt.i16 = _54[1];
+		const _62: rt.RangeInclusive<rt.i16>[] = [new rt.RangeInclusive(a, b, rt.i16Step), new rt.RangeInclusive(start, end, rt.i16Step), new rt.RangeInclusive(start, end, rt.i16Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash16), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.i16>>, rt.iterSlice(_62), undefined, undefined, 234881024));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.i16Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.i16Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$i16(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.i16>), boundOf$i16(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.i16>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(a, b, rt.i16Step);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(start, end, rt.i16Step);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.i16> = new rt.RangeInclusive(start, end, rt.i16Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.i16): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash16)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.i16, rt.i16] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.i16 = _129[0];
+		const end2: rt.i16 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.i16Debug(start2, f), (f: rt.Formatter) => rt.i16Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$i32(table: rt.i32[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.i32 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.i32, rt.i32] = bounded$i32(table, at, out);
+	const a: rt.i32 = _6[0];
+	const b: rt.i32 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.i32> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash32)(_52, h2);
+		const _10: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
+		rt.rangeHash(rt.hash32)(_10, h2);
+		const _15: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
+		rt.rangeHash(rt.hash32)(_15, h2);
+		const _19: { end: rt.i32 } = { end: b };
+		rt.rangeHash(rt.hash32)(_19, h2);
+		const _23: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash32)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.i32 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.i32 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.i32, rt.i32] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.i32 = _54[0];
+		const end: rt.i32 = _54[1];
+		const _62: rt.RangeInclusive<rt.i32>[] = [new rt.RangeInclusive(a, b, rt.i32Step), new rt.RangeInclusive(start, end, rt.i32Step), new rt.RangeInclusive(start, end, rt.i32Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash32), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.i32>>, rt.iterSlice(_62), undefined, undefined, 117440512));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.i32Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$i32(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.i32>), boundOf$i32(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.i32>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(start, end, rt.i32Step);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(start, end, rt.i32Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.i32): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash32)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.i32, rt.i32] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.i32 = _129[0];
+		const end2: rt.i32 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.i32Debug(start2, f), (f: rt.Formatter) => rt.i32Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$i64(table: rt.i64[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.i64 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.i64, rt.i64] = bounded$i64(table, at, out);
+	const a: rt.i64 = _6[0];
+	const b: rt.i64 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.i64> = new rt.Range(a, b, rt.i64Step);
+		rt.rangeHash(rt.hash64)(_52, h2);
+		const _10: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(a, b, rt.i64Step);
+		rt.rangeHash(rt.hash64)(_10, h2);
+		const _15: rt.RangeFrom<rt.i64> = new rt.RangeFrom(a, rt.i64Step);
+		rt.rangeHash(rt.hash64)(_15, h2);
+		const _19: { end: rt.i64 } = { end: b };
+		rt.rangeHash(rt.hash64)(_19, h2);
+		const _23: { end: rt.i64; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash64)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(a, b, rt.i64Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.i64 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.i64 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.i64, rt.i64] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.i64 = _54[0];
+		const end: rt.i64 = _54[1];
+		const _62: rt.RangeInclusive<rt.i64>[] = [new rt.RangeInclusive(a, b, rt.i64Step), new rt.RangeInclusive(start, end, rt.i64Step), new rt.RangeInclusive(start, end, rt.i64Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash64), rt.rangeEq(rt.i64Eq))) as rt.HashSet<rt.RangeInclusive<rt.i64>>, rt.iterSlice(_62), undefined, undefined, 58720256));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.i64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.i64Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$i64(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.i64>), boundOf$i64(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.i64>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(a, b, rt.i64Step);
+		const _100: boolean = rt.rangeEq(rt.i64Eq)(r, _103);
+		const _109: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(start, end, rt.i64Step);
+		const _106: boolean = rt.rangeEq(rt.i64Eq)(r, _109);
+		const _113: rt.RangeInclusive<rt.i64> = new rt.RangeInclusive(start, end, rt.i64Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.i64Eq)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.i64): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash64)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.i64, rt.i64] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.i64 = _129[0];
+		const end2: rt.i64 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.i64Debug(start2, f), (f: rt.Formatter) => rt.i64Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$i8(table: rt.i8[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.i8 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.i8, rt.i8] = bounded$i8(table, at, out);
+	const a: rt.i8 = _6[0];
+	const b: rt.i8 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.i8> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash8)(_52, h2);
+		const _10: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(a, b, rt.i8Step);
+		rt.rangeHash(rt.hash8)(_10, h2);
+		const _15: rt.RangeFrom<rt.i8> = new rt.RangeFrom(a, rt.i8Step);
+		rt.rangeHash(rt.hash8)(_15, h2);
+		const _19: { end: rt.i8 } = { end: b };
+		rt.rangeHash(rt.hash8)(_19, h2);
+		const _23: { end: rt.i8; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash8)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(a, b, rt.i8Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.i8 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.i8 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.i8, rt.i8] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.i8 = _54[0];
+		const end: rt.i8 = _54[1];
+		const _62: rt.RangeInclusive<rt.i8>[] = [new rt.RangeInclusive(a, b, rt.i8Step), new rt.RangeInclusive(start, end, rt.i8Step), new rt.RangeInclusive(start, end, rt.i8Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash8), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.i8>>, rt.iterSlice(_62), undefined, undefined, 234881024));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.i8Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.i8Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$i8(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.i8>), boundOf$i8(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.i8>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(a, b, rt.i8Step);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(start, end, rt.i8Step);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.i8> = new rt.RangeInclusive(start, end, rt.i8Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.i8): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash8)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.i8, rt.i8] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.i8 = _129[0];
+		const end2: rt.i8 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.i8Debug(start2, f), (f: rt.Formatter) => rt.i8Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$isize(table: rt.isize[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.isize | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.isize, rt.isize] = bounded$isize(table, at, out);
+	const a: rt.isize = _6[0];
+	const b: rt.isize = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.isize> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash32)(_52, h2);
+		const _10: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(a, b, rt.isizeStep);
+		rt.rangeHash(rt.hash32)(_10, h2);
+		const _15: rt.RangeFrom<rt.isize> = new rt.RangeFrom(a, rt.isizeStep);
+		rt.rangeHash(rt.hash32)(_15, h2);
+		const _19: { end: rt.isize } = { end: b };
+		rt.rangeHash(rt.hash32)(_19, h2);
+		const _23: { end: rt.isize; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash32)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(a, b, rt.isizeStep);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.isize | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.isize | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.isize, rt.isize] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.isize = _54[0];
+		const end: rt.isize = _54[1];
+		const _62: rt.RangeInclusive<rt.isize>[] = [new rt.RangeInclusive(a, b, rt.isizeStep), new rt.RangeInclusive(start, end, rt.isizeStep), new rt.RangeInclusive(start, end, rt.isizeStep)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash32), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.isize>>, rt.iterSlice(_62), undefined, undefined, 117440512));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.isizeDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.isizeDebug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$isize(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.isize>), boundOf$isize(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.isize>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(a, b, rt.isizeStep);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(start, end, rt.isizeStep);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.isize> = new rt.RangeInclusive(start, end, rt.isizeStep);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.isize): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash32)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.isize, rt.isize] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.isize = _129[0];
+		const end2: rt.isize = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.isizeDebug(start2, f), (f: rt.Formatter) => rt.isizeDebug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$u128(table: rt.u128[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u128 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u128, rt.u128] = bounded$u128(table, at, out);
+	const a: rt.u128 = _6[0];
+	const b: rt.u128 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u128> = new rt.Range(a, b, rt.u128Step);
+		rt.rangeHash(rt.hash128)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.u128Step);
+		rt.rangeHash(rt.hash128)(_10, h2);
+		const _15: rt.RangeFrom<rt.u128> = new rt.RangeFrom(a, rt.u128Step);
+		rt.rangeHash(rt.hash128)(_15, h2);
+		const _19: { end: rt.u128 } = { end: b };
+		rt.rangeHash(rt.hash128)(_19, h2);
+		const _23: { end: rt.u128; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash128)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.u128Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u128 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u128 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u128, rt.u128] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u128 = _54[0];
+		const end: rt.u128 = _54[1];
+		const _62: rt.RangeInclusive<rt.u128>[] = [new rt.RangeInclusive(a, b, rt.u128Step), new rt.RangeInclusive(start, end, rt.u128Step), new rt.RangeInclusive(start, end, rt.u128Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash128), rt.rangeEq(rt.u128Eq))) as rt.HashSet<rt.RangeInclusive<rt.u128>>, rt.iterSlice(_62), undefined, undefined, 29360128));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u128Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u128Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$u128(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u128>), boundOf$u128(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u128>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(a, b, rt.u128Step);
+		const _100: boolean = rt.rangeEq(rt.u128Eq)(r, _103);
+		const _109: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(start, end, rt.u128Step);
+		const _106: boolean = rt.rangeEq(rt.u128Eq)(r, _109);
+		const _113: rt.RangeInclusive<rt.u128> = new rt.RangeInclusive(start, end, rt.u128Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.u128Eq)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u128): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash128)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u128, rt.u128] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u128 = _129[0];
+		const end2: rt.u128 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u128Debug(start2, f), (f: rt.Formatter) => rt.u128Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$u16(table: rt.u16[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u16 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u16, rt.u16] = bounded$u16(table, at, out);
+	const a: rt.u16 = _6[0];
+	const b: rt.u16 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u16> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash16)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(a, b, rt.u16Step);
+		rt.rangeHash(rt.hash16)(_10, h2);
+		const _15: rt.RangeFrom<rt.u16> = new rt.RangeFrom(a, rt.u16Step);
+		rt.rangeHash(rt.hash16)(_15, h2);
+		const _19: { end: rt.u16 } = { end: b };
+		rt.rangeHash(rt.hash16)(_19, h2);
+		const _23: { end: rt.u16; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash16)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(a, b, rt.u16Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u16 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u16 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u16, rt.u16] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u16 = _54[0];
+		const end: rt.u16 = _54[1];
+		const _62: rt.RangeInclusive<rt.u16>[] = [new rt.RangeInclusive(a, b, rt.u16Step), new rt.RangeInclusive(start, end, rt.u16Step), new rt.RangeInclusive(start, end, rt.u16Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash16), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.u16>>, rt.iterSlice(_62), undefined, undefined, 234881024));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u16Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u16Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$u16(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u16>), boundOf$u16(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u16>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(a, b, rt.u16Step);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(start, end, rt.u16Step);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.u16> = new rt.RangeInclusive(start, end, rt.u16Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u16): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash16)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u16, rt.u16] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u16 = _129[0];
+		const end2: rt.u16 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Debug(start2, f), (f: rt.Formatter) => rt.u16Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$u32(table: rt.u32[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u32 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u32, rt.u32] = bounded$u32(table, at, out);
+	const a: rt.u32 = _6[0];
+	const b: rt.u32 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u32> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash32)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(a, b, rt.u32Step);
+		rt.rangeHash(rt.hash32)(_10, h2);
+		const _15: rt.RangeFrom<rt.u32> = new rt.RangeFrom(a, rt.u32Step);
+		rt.rangeHash(rt.hash32)(_15, h2);
+		const _19: { end: rt.u32 } = { end: b };
+		rt.rangeHash(rt.hash32)(_19, h2);
+		const _23: { end: rt.u32; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash32)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(a, b, rt.u32Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u32 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u32 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u32, rt.u32] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u32 = _54[0];
+		const end: rt.u32 = _54[1];
+		const _62: rt.RangeInclusive<rt.u32>[] = [new rt.RangeInclusive(a, b, rt.u32Step), new rt.RangeInclusive(start, end, rt.u32Step), new rt.RangeInclusive(start, end, rt.u32Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash32), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.u32>>, rt.iterSlice(_62), undefined, undefined, 117440512));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u32Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$u32(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u32>), boundOf$u32(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u32>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(a, b, rt.u32Step);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(start, end, rt.u32Step);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.u32> = new rt.RangeInclusive(start, end, rt.u32Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u32): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash32)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u32, rt.u32] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u32 = _129[0];
+		const end2: rt.u32 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Debug(start2, f), (f: rt.Formatter) => rt.u32Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$u64(table: rt.u64[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u64 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u64, rt.u64] = bounded$u64(table, at, out);
+	const a: rt.u64 = _6[0];
+	const b: rt.u64 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u64> = new rt.Range(a, b, rt.u64Step);
+		rt.rangeHash(rt.hash64)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.u64Step);
+		rt.rangeHash(rt.hash64)(_10, h2);
+		const _15: rt.RangeFrom<rt.u64> = new rt.RangeFrom(a, rt.u64Step);
+		rt.rangeHash(rt.hash64)(_15, h2);
+		const _19: { end: rt.u64 } = { end: b };
+		rt.rangeHash(rt.hash64)(_19, h2);
+		const _23: { end: rt.u64; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash64)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.u64Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u64 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u64 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u64, rt.u64] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u64 = _54[0];
+		const end: rt.u64 = _54[1];
+		const _62: rt.RangeInclusive<rt.u64>[] = [new rt.RangeInclusive(a, b, rt.u64Step), new rt.RangeInclusive(start, end, rt.u64Step), new rt.RangeInclusive(start, end, rt.u64Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash64), rt.rangeEq(rt.u64Eq))) as rt.HashSet<rt.RangeInclusive<rt.u64>>, rt.iterSlice(_62), undefined, undefined, 58720256));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u64Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$u64(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u64>), boundOf$u64(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u64>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(a, b, rt.u64Step);
+		const _100: boolean = rt.rangeEq(rt.u64Eq)(r, _103);
+		const _109: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(start, end, rt.u64Step);
+		const _106: boolean = rt.rangeEq(rt.u64Eq)(r, _109);
+		const _113: rt.RangeInclusive<rt.u64> = new rt.RangeInclusive(start, end, rt.u64Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.u64Eq)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.u64): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash64)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u64, rt.u64] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u64 = _129[0];
+		const end2: rt.u64 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u64Debug(start2, f), (f: rt.Formatter) => rt.u64Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$u8(table: rt.ByteSlice, at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.u8 | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.u8, rt.u8] = bounded$u8(table, at, out);
+	const a: rt.u8 = _6[0];
+	const b: rt.u8 = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.u8> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash8)(_52, h2);
+		const _10: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+		rt.rangeHash(rt.hash8)(_10, h2);
+		const _15: rt.RangeFrom<rt.u8> = new rt.RangeFrom(a, rt.u8Step);
+		rt.rangeHash(rt.hash8)(_15, h2);
+		const _19: { end: rt.u8 } = { end: b };
+		rt.rangeHash(rt.hash8)(_19, h2);
+		const _23: { end: rt.u8; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash8)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.u8 | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.u8 | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.u8, rt.u8] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.u8 = _54[0];
+		const end: rt.u8 = _54[1];
+		const _62: rt.RangeInclusive<rt.u8>[] = [new rt.RangeInclusive(a, b, rt.u8Step), new rt.RangeInclusive(start, end, rt.u8Step), new rt.RangeInclusive(start, end, rt.u8Step)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash8), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.u8>>, rt.iterSlice(_62), undefined, undefined, 234881024));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.u8Debug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$u8(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u8>), boundOf$u8(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u8>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(a, b, rt.u8Step);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(start, end, rt.u8Step);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(start, end, rt.u8Step);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(rt.byteSliceView(table)), (x: rt.u8): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash8)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.u8, rt.u8] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.u8 = _129[0];
+		const end2: rt.u8 = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Debug(start2, f), (f: rt.Formatter) => rt.u8Debug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
+ * `bounded`'s, then an inclusive range of `a` and `b` read each way before its methods:
+ * from either end, by `next` past its last item, which wraps it at its type's end, and
+ * folded, which exhausts it at its end. Each is compared with fresh ranges and hashed.
+ */
+export function stepped$usize(table: rt.usize[], at: rt.usize[], out: rt.ByteVec): void {
+	let _20!: rt.i32;
+	let read!: rt.usize | undefined;
+	const _7: (a0: (a0: rt.Hasher) => undefined) => Uint8Array = (value: (a0: rt.Hasher) => undefined): Uint8Array => {
+		const h: rt.Hasher = rt.hasher();
+		value(h);
+		return rt.u64ToBeBytes(rt.hashFinish(h)).reverse();
+	};
+	const _6: [rt.usize, rt.usize] = bounded$usize(table, at, out);
+	const a: rt.usize = _6[0];
+	const b: rt.usize = _6[1];
+	const part2 = (h2: rt.Hasher): undefined => {
+		const _52: rt.Range<rt.usize> = new rt.Range(a, b);
+		rt.rangeHash(rt.hash32)(_52, h2);
+		const _10: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+		rt.rangeHash(rt.hash32)(_10, h2);
+		const _15: rt.RangeFrom<rt.usize> = new rt.RangeFrom(a, rt.usizeStep);
+		rt.rangeHash(rt.hash32)(_15, h2);
+		const _19: { end: rt.usize } = { end: b };
+		rt.rangeHash(rt.hash32)(_19, h2);
+		const _23: { end: rt.usize; inclusive: true } = { end: b, inclusive: true };
+		rt.rangeHash(rt.hash32)(_23, h2);
+		rt.hashNothing(undefined, h2);
+	};
+	rt.iterExtendBytes(out, rt.iterSlice(_7(part2)), undefined, true);
+	let iterStart: rt.i32 = 0;
+	const iterEnd: rt.i32 = 9;
+	while ((_20 = iterStart++) < iterEnd) {
+		const how: rt.i32 = _20;
+		const r: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+		const n: rt.usize = rt.usizeRem(at[0], 4);
+		if (how === 0) {
+			read = undefined;
+		} else if (how === 1) {
+			read = rt.iterToOption(r.next());
+		} else if (how === 2) {
+			read = rt.iterToOption(r.nextBack());
+		} else if (how === 3) {
+			read = rt.iterLast(rt.iterTake(rt.iterBorrow(r), 300));
+		} else if (how === 4) {
+			read = rt.iterLast(rt.iterTake(rt.iterRev(rt.iterBorrow(r)), 300));
+		} else if (how === 5) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_22: rt.i32): rt.usize | undefined => {
+				return rt.iterToOption(r.next());
+			}));
+		} else if (how === 6) {
+			read = rt.iterLast(rt.iterMapWhile(new rt.Range(0, 300), (_2: rt.i32): rt.usize | undefined => {
+				return rt.iterToOption(r.nextBack());
+			}));
+		} else if (how === 7) {
+			read = rt.iterNth(r, n);
+		} else {
+			read = rt.iterNthBack(r, n);
+		}
+		const _54: [rt.usize, rt.usize] = [rt.rangeInclusiveStart(r), rt.rangeInclusiveEnd(r)];
+		const start: rt.usize = _54[0];
+		const end: rt.usize = _54[1];
+		const _62: rt.RangeInclusive<rt.usize>[] = [new rt.RangeInclusive(a, b, rt.usizeStep), new rt.RangeInclusive(start, end, rt.usizeStep), new rt.RangeInclusive(start, end, rt.usizeStep)];
+		const _77: rt.usize = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.rangeHash(rt.hash32), rt.rangeEq(rt.same))) as rt.HashSet<rt.RangeInclusive<rt.usize>>, rt.iterSlice(_62), undefined, undefined, 117440512));
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(read, f, rt.usizeDebug), (f: rt.Formatter) => rt.fmtRangeInclusive(r, f, rt.usizeDebug), (f: rt.Formatter) => rt.usizeDisplay(_77, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]])), undefined, true);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(boundOf$usize(table, rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.usize>), boundOf$usize(table, rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.usize>))), undefined, true);
+		const _98: boolean = rt.rangeInclusiveIsEmpty(r);
+		const _103: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(a, b, rt.usizeStep);
+		const _100: boolean = rt.rangeEq(rt.same)(r, _103);
+		const _109: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(start, end, rt.usizeStep);
+		const _106: boolean = rt.rangeEq(rt.same)(r, _109);
+		const _113: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(start, end, rt.usizeStep);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_98, _100, _106, !rt.rangeEq(rt.same)(r, _113)], (a0: boolean): rt.u8 => {
+			return a0 ? 1 : 0;
+		})), undefined, true);
+		rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(table), (x: rt.usize): rt.u8 => {
+			return rt.rangeInclusiveContains(r, x) ? 1 : 0;
+		}), undefined, true);
+		const part3 = (h3: rt.Hasher): undefined => {
+			rt.rangeHash(rt.hash32)(r, h3);
+		};
+		rt.iterExtendBytes(out, rt.iterSlice(_7(part3)), undefined, true);
+		const _129: [rt.usize, rt.usize] = rt.rangeInclusiveIntoInner(r);
+		const start2: rt.usize = _129[0];
+		const end2: rt.usize = _129[1];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDebug(start2, f), (f: rt.Formatter) => rt.usizeDebug(end2, f)];
+		rt.iterExtendBytes(out, rt.strBytes(rt.fmtFormat([args4[0], " ", args4[1]])), undefined, true);
+	}
+}
+
+/**
  * std's comparisons of iterators, logging each item they read and each call of a `_by`
  * form's closure, which counts them in what it captures: against the data cut short, run
  * long, or changed at its end, by `kind >> 4`. Of two `TrustedLen` sides, whose `eq` reads
