@@ -291,13 +291,20 @@ pub fn std_impl<'tcx>(
 		// An ASCII escape writes what it has left, unpadded, and `Debug` only its name.
 		ty::Adt(adt, _)
 			if matches!(
-				library::std_path(tcx, adt.did()).iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
+				library::std_path(tcx, adt.did())
+					.iter()
+					.map(String::as_str)
+					.collect::<Vec<_>>()
+					.as_slice(),
 				["ascii", "EscapeDefault"] | ["slice", "ascii", "EscapeAscii"]
 			) =>
 		{
 			match tr {
 				Trait::Display => Expr::rt("fmtEscapeAscii", vec![value, f]),
-				Trait::Debug => rt("writeStr", vec![f, Expr::Str(format!("{} {{ .. }}", tcx.item_name(adt.did())))]),
+				Trait::Debug => rt(
+					"writeStr",
+					vec![f, Expr::Str(format!("{} {{ .. }}", tcx.item_name(adt.did())))],
+				),
 				_ => return None,
 			}
 		}

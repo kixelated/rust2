@@ -12,9 +12,47 @@ use crate::fmt::put;
 /// that are no char, a Latin-1 letter JS's case maps change, and those whose Unicode case
 /// maps to or from ASCII: the long s, the Kelvin sign, and the dotted capital I.
 const CHARS: [char; 41] = [
-	'\0', '\t', '\n', '\u{b}', '\u{c}', '\r', '\u{1f}', ' ', '!', '/', '0', '7', '8', '9', ':', '@', 'A', 'F', 'G',
-	'Z', '[', '`', 'a', 'f', 'g', 'z', '{', '~', '\u{7f}', '\u{80}', '\u{c0}', '\u{ff}', '\u{100}', '\u{17f}', '\u{130}',
-	'\u{212a}', '\u{d7ff}', '\u{e000}', '\u{ffff}', '\u{10000}', '\u{10ffff}',
+	'\0',
+	'\t',
+	'\n',
+	'\u{b}',
+	'\u{c}',
+	'\r',
+	'\u{1f}',
+	' ',
+	'!',
+	'/',
+	'0',
+	'7',
+	'8',
+	'9',
+	':',
+	'@',
+	'A',
+	'F',
+	'G',
+	'Z',
+	'[',
+	'`',
+	'a',
+	'f',
+	'g',
+	'z',
+	'{',
+	'~',
+	'\u{7f}',
+	'\u{80}',
+	'\u{c0}',
+	'\u{ff}',
+	'\u{100}',
+	'\u{17f}',
+	'\u{130}',
+	'\u{212a}',
+	'\u{d7ff}',
+	'\u{e000}',
+	'\u{ffff}',
+	'\u{10000}',
+	'\u{10ffff}',
 ];
 
 /// Each test of `b`, a bit apiece.
@@ -162,10 +200,11 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 /// each method of `char`.
 pub fn chars(_: u8, data: &[u8], out: &mut Vec<u8>) {
 	let mut all = CHARS.to_vec();
-	all.extend(
-		data.chunks(4)
-			.filter_map(|c| char::from_u32(u32::from_be_bytes(core::array::from_fn(|i| c.get(i).copied().unwrap_or(0))))),
-	);
+	all.extend(data.chunks(4).filter_map(|c| {
+		char::from_u32(u32::from_be_bytes(core::array::from_fn(|i| {
+			c.get(i).copied().unwrap_or(0)
+		})))
+	}));
 	let others = all.clone();
 	for (i, &c) in all.iter().enumerate() {
 		out.extend_from_slice(&char_tests(c).to_be_bytes());
@@ -208,7 +247,14 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			v.make_ascii_lowercase();
 			out.extend_from_slice(&v);
 			let mut array = [0u8; 4];
-			array.copy_from_slice(&data[..4.min(data.len())].iter().chain([b'a'; 4].iter()).copied().take(4).collect::<Vec<u8>>());
+			array.copy_from_slice(
+				&data[..4.min(data.len())]
+					.iter()
+					.chain([b'a'; 4].iter())
+					.copied()
+					.take(4)
+					.collect::<Vec<u8>>(),
+			);
 			array.make_ascii_uppercase();
 			out.extend_from_slice(&array);
 		}
@@ -256,7 +302,11 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				let (lo, hi) = e.size_hint();
 				out.extend_from_slice(&(lo as u32).to_be_bytes());
 				out.extend_from_slice(&hi.map_or(u32::MAX, |h| h as u32).to_be_bytes());
-				let next = if data.get(i).is_some_and(|b| b & 1 == 1) { e.next_back() } else { e.next() };
+				let next = if data.get(i).is_some_and(|b| b & 1 == 1) {
+					e.next_back()
+				} else {
+					e.next()
+				};
 				let Some(b) = next else {
 					break;
 				};

@@ -2076,7 +2076,11 @@ fn mapping<'tcx>(
 		// `make_ascii_*`, which MIR lowers as a byte's and a char's.
 		(
 			"slice" | "str",
-			"is_ascii" | "eq_ignore_ascii_case" | "to_ascii_uppercase" | "to_ascii_lowercase" | "trim_ascii_start"
+			"is_ascii"
+			| "eq_ignore_ascii_case"
+			| "to_ascii_uppercase"
+			| "to_ascii_lowercase"
+			| "trim_ascii_start"
 			| "trim_ascii_end"
 			| "trim_ascii",
 		)
@@ -2724,7 +2728,12 @@ fn int_method<'tcx>(
 		"wrapping_mul" => "wrappingMul",
 		"div_ceil" => "divCeil",
 		"is_multiple_of" => "isMultipleOf",
-		_ if int.bits == 8 && !int.signed && let Some(method) = ascii(name) => return Some(Expr::rt(method, args)),
+		_ if int.bits == 8
+			&& !int.signed
+			&& let Some(method) = ascii(name) =>
+		{
+			return Some(Expr::rt(method, args));
+		}
 		// The operator's, which panics with the message each of these does.
 		"strict_add" => "add",
 		"strict_sub" => "sub",
