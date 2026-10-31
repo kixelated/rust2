@@ -30,7 +30,7 @@ generic std gap is planned here even when moq never calls it.
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [Equality through a held type's own ne](/quest/m3/ts-eq-own-ne.md) - `==` of slices of a type whose `ne` the crate overrides, and `!=` of a tuple or `Arc` of one, translate
-- [std iterators' Debug](/quest/m3/ts-iter-debug.md) - `{:?}` of std's iterators translates, writing std's text, a deque's two slices included
+- [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
 - [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check

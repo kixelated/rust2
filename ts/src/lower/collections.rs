@@ -360,7 +360,7 @@ fn lend<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, span: Span)
 		&& let Some(item) = b.t.iter_item(ty)
 	{
 		let f = lend_fn(b, item, span);
-		return Expr::rt("iterMap", vec![value, f]);
+		return Expr::rt("iterLend", vec![value, f]);
 	}
 	if let ty::Tuple(parts) = ty.kind()
 		&& value.is_path()

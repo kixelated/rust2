@@ -129,12 +129,12 @@ export function adaptors(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 						const b3: rt.u8 = _2;
 						return Uint8Array.of(b3, ~b3 & 0xff);
 					}), undefined, 2, true);
-					const copies: Uint8Array[] = rt.iterToArray(rt.iterCopied(rt.iterMap(rt.iterSlice(pairs), rt.byteSliceFrom), rt.byteSliceToArray), undefined, 2, true);
+					const copies: Uint8Array[] = rt.iterToArray(rt.iterCopied(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.byteSliceToArray), undefined, 2, true);
 					if (!((copies.length === 0))) {
 						const _174: rt.ByteSlice = rt.byteSliceFrom(copies[rt.idx(copies, 0)]);
 						_174.data[_174.start] = 85;
 					}
-					const iter4: rt.Iter<rt.ByteSlice> = rt.iterChain(rt.iterMap(rt.iterSlice(pairs), rt.byteSliceFrom), rt.iterMap(rt.iterSlice(copies), rt.byteSliceFrom));
+					const iter4: rt.Iter<rt.ByteSlice> = rt.iterChain(rt.iterLend(rt.iterSlice(pairs), rt.byteSliceFrom), rt.iterLend(rt.iterSlice(copies), rt.byteSliceFrom));
 					while (true) {
 						const _187: rt.ByteSlice | rt.Done = iter4.next();
 						if (_187 === rt.DONE) {
@@ -996,7 +996,7 @@ export function skips(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			return _28[0] ^ _28[1];
 		}));
 		rt.byteVecPush(out, rest14.len() & 0xff);
-		const rest15: rt.Iter<rt.ByteSlice> = rt.iterMap(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_29: rt.u8): Uint8Array => {
+		const rest15: rt.Iter<rt.ByteSlice> = rt.iterLend(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_29: rt.u8): Uint8Array => {
 			const b5: rt.u8 = _29;
 			return Uint8Array.of(b5, ~b5 & 0xff);
 		}), undefined, 2, true)), rt.byteSliceFrom);

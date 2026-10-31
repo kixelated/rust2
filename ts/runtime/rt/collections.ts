@@ -25,7 +25,6 @@ import {
 	iterChain,
 	iterEmpty,
 	iterFilter,
-	iterMap,
 	iterOnce,
 	iterSlice,
 	type RangeInclusive,
@@ -663,14 +662,20 @@ function retainHash<K, V>(m: HashMap<K, V>, f: (key: K, value: V | Place<V>) => 
 }
 
 /**
- * What a collection's iterator yields: its entries as `[key, value]`, keys, values, or
- * `[key, place]`, the place of a value JS copies.
+ * What a collection's iterator yields: its entries as `[key, value]`, keys, values,
+ * `[key, place]`, the place of a value JS copies, or that place alone.
  */
-type Pick = 0 | 1 | 2 | 3;
+type Pick = 0 | 1 | 2 | 3 | 4;
 const ENTRIES = 0;
 const KEYS = 1;
 const VALUES = 2;
 const PLACES = 3;
+const VALUE_PLACES = 4;
+
+/** What `pick` yields by value: each place its value. */
+function byValue(pick: Pick): Pick {
+	return pick === PLACES ? ENTRIES : pick === VALUE_PLACES ? VALUES : pick;
+}
 
 /**
  * An iterator of a hash collection: `iter`, `keys`, `values`, `drain`, and the rest.
@@ -678,6 +683,7 @@ const PLACES = 3;
  * and drops each entry it still holds as it drops.
  */
 export class HashIter<K, V, T> extends Iter<T> implements Disposable {
+	private readonly h: HashMap<K, V>;
 	private readonly m: Map<K, V>;
 	private readonly p: Iterator<[K, V]>;
 	private readonly o: Iterator<Slot<K, V>> | undefined;
@@ -691,6 +697,7 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 
 	constructor(m: HashMap<K, V>, pick: Pick, k?: (key: K) => void, v?: (value: V) => void, drain = false) {
 		super();
+		this.h = m;
 		this.m = m.p;
 		this.p = m.p.entries();
 		this.o = m.o?.values();
@@ -733,6 +740,7 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		if (this.left === 0) return DONE;
 		this.left--;
 		if (this.pick === PLACES) return this.place() as T;
+		if (this.pick === VALUE_PLACES) return this.place()[1] as T;
 		const entry = this.entry();
 		if (this.pick === ENTRIES) return entry as T;
 		if (this.pick === KEYS) {
@@ -760,6 +768,13 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		}
 		release?.();
 		return acc;
+	}
+
+	/** A fresh iterator of the same map, past what this one took: the map is unchanged while it is held. */
+	override remaining(): Iterable<unknown> {
+		const it = new HashIter<K, V, unknown>(this.h, byValue(this.pick));
+		while (it.left > this.left) it.next();
+		return it;
 	}
 
 	override len(): number {
@@ -806,7 +821,7 @@ export function hashIterMut<K, V>(m: HashMap<K, V>): Iter<[K, Place<V>]> {
 
 /** `values_mut` of values JS copies: the place of each. */
 export function hashValuesMut<K, V>(m: HashMap<K, V>): Iter<Place<V>> {
-	return iterMap(hashIterMut(m), (entry) => entry[1]);
+	return new HashIter<K, V, Place<V>>(m, VALUE_PLACES);
 }
 
 /** `drain` of a map: every entry, taken out at once, which drops as `hashIter`'s. */
@@ -1539,12 +1554,17 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 	private picked(l: Leaf<K, V>, i: number): T {
 		if (this.pick === ENTRIES) return [l.k[i], l.v[i]] as T;
 		if (this.pick === PLACES) return [l.k[i], new AtIndex(l.v, i)] as T;
+		if (this.pick === VALUE_PLACES) return new AtIndex(l.v, i) as T;
 		if (this.pick === KEYS) {
 			this.v?.(l.v[i]);
 			return l.k[i] as unknown as T;
 		}
 		this.k?.(l.k[i]);
 		return l.v[i] as unknown as T;
+	}
+
+	override remaining(): Iterable<unknown> {
+		return new BTreeIter<K, V, unknown>(byValue(this.pick), this.fl, this.fi, this.bl, this.bi);
 	}
 
 	override len(): number {
@@ -1608,7 +1628,7 @@ export function btreeIterMut<K, V>(m: BTreeMap<K, V>): Iter<[K, Place<V>]> {
 
 /** `values_mut` of values JS copies: the place of each. */
 export function btreeValuesMut<K, V>(m: BTreeMap<K, V>): Iter<Place<V>> {
-	return iterMap(btreeIterMut(m), (entry) => entry[1]);
+	return whole(m, VALUE_PLACES);
 }
 
 /** `values` and `values_mut`, and with droppers as `btreeIter`'s, `into_values`. */
@@ -2439,6 +2459,10 @@ class DequeIter<T> extends Iter<T> implements Disposable {
 		return this.front < this.back ? (this.q.b[at(this.q, this.front++)] as T) : DONE;
 	}
 
+	override remaining(): Iterable<T> {
+		return new DequeIter(this.q, this.front, this.back);
+	}
+
 	override nextBack(): T | Done {
 		return this.front < this.back ? (this.q.b[at(this.q, --this.back)] as T) : DONE;
 	}
@@ -2611,6 +2635,10 @@ class VecDrain<T> extends Iter<T> implements Disposable {
 		return this.front < this.back ? this.rest[this.front++] : DONE;
 	}
 
+	override remaining(): Iterable<T> {
+		return this.rest.slice(this.front, this.back);
+	}
+
 	override nextBack(): T | Done {
 		return this.front < this.back ? this.rest[--this.back] : DONE;
 	}
@@ -2662,6 +2690,10 @@ class ByteVecDrain extends Iter<number> implements Disposable {
 
 	next(): number | Done {
 		return this.front < this.back ? this.v.data[this.front++] : DONE;
+	}
+
+	override remaining(): Iterable<number> {
+		return this.v.data.slice(this.front, this.back);
 	}
 
 	override nextBack(): number | Done {

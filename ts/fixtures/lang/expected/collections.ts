@@ -2136,18 +2136,18 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 		if (_25 === rt.DONE) {
 			break;
 		}
-		putAll$u8s_Union_u8s(rt.iterMap(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom), put, out);
-		putAll$u8s_Intersection_u8s(rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom), put, out);
-		putAll$u8s_Difference_u8s(rt.iterMap(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom), put, out);
-		putAll$u8s_SymmetricDifference_u8s(rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom), put, out);
-		putHints$u8s_Union_u8s(rt.iterMap(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
-		putHints$u8s_Intersection_u8s(rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
-		putHints$u8s_Difference_u8s(rt.iterMap(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
-		putHints$u8s_SymmetricDifference_u8s(rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
+		putAll$u8s_Union_u8s(rt.iterLend(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom), put, out);
+		putAll$u8s_Intersection_u8s(rt.iterLend(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom), put, out);
+		putAll$u8s_Difference_u8s(rt.iterLend(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom), put, out);
+		putAll$u8s_SymmetricDifference_u8s(rt.iterLend(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom), put, out);
+		putHints$u8s_Union_u8s(rt.iterLend(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		putHints$u8s_Intersection_u8s(rt.iterLend(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		putHints$u8s_Difference_u8s(rt.iterLend(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		putHints$u8s_SymmetricDifference_u8s(rt.iterLend(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom), 1, out);
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.btreeUnion(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.btreeIntersection(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.btreeDifference(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.btreeSymmetricDifference(_25[0], _25[1]), rt.byteSliceFrom).next()), 221, put));
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeIsSubset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsSuperset(_25[0], _25[1]) ? 1 : 0, rt.btreeIsDisjoint(_25[0], _25[1]) ? 1 : 0)), undefined, true);
 		const iter2: rt.Iter<rt.BTreeSet<Uint8Array>> = rt.iterSlice([rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeUnion(_25[0], _25[1]), copy$u8s)), rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeIntersection(_25[0], _25[1]), copy$u8s)), rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeDifference(_25[0], _25[1]), copy$u8s)), rt.btreeFromSorted(rt.btreeNew(rt.cmpBytes) as rt.BTreeSet<Uint8Array>, rt.iterMap(rt.btreeSymmetricDifference(_25[0], _25[1]), copy$u8s))]);
 		while (true) {
@@ -2156,8 +2156,8 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 				break;
 			}
 			const built: rt.BTreeSet<Uint8Array> = _81;
-			putAll$u8s_Iter_u8s(rt.iterMap(rt.btreeKeys(built), rt.byteSliceFrom), put, out);
-			putAll$u8s_Rev_Iter_u8s(rt.iterRev(rt.iterMap(rt.btreeKeys(built), rt.byteSliceFrom)), put, out);
+			putAll$u8s_Iter_u8s(rt.iterLend(rt.btreeKeys(built), rt.byteSliceFrom), put, out);
+			putAll$u8s_Rev_Iter_u8s(rt.iterRev(rt.iterLend(rt.btreeKeys(built), rt.byteSliceFrom)), put, out);
 		}
 	}
 	const _93: rt.Iter<Uint8Array> = rt.iterMap(rt.iterSlice(rt.byteSliceView(left)), (_23: rt.u8): Uint8Array => {
@@ -2174,15 +2174,15 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 		if (_111 === rt.DONE) {
 			break;
 		}
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
-		putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
-		putHints$u8s_Union_u8s_RandomState(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
-		putHints$u8s_Intersection_u8s_RandomState(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
-		putHints$u8s_Difference_u8s_RandomState(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
-		putHints$u8s_SymmetricDifference_u8s_RandomState(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v: rt.ByteSlice): rt.u8 => {
+		putSorted$u8s(rt.iterToArray(rt.iterLend(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterLend(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterLend(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putSorted$u8s(rt.iterToArray(rt.iterLend(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), "next", 4), put, out);
+		putHints$u8s_Union_u8s_RandomState(rt.iterLend(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		putHints$u8s_Intersection_u8s_RandomState(rt.iterLend(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		putHints$u8s_Difference_u8s_RandomState(rt.iterLend(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		putHints$u8s_SymmetricDifference_u8s_RandomState(rt.iterLend(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom), 0, out);
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.hashUnion(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v: rt.ByteSlice): rt.u8 => {
 			let _3!: boolean;
 			if (!rt.hashContains(_111[0], rt.byteSliceView(v))) {
 				_3 = rt.hashContains(_111[1], rt.byteSliceView(v));
@@ -2191,7 +2191,7 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 			}
 			return _3 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v2: rt.ByteSlice): rt.u8 => {
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.hashIntersection(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v2: rt.ByteSlice): rt.u8 => {
 			let _32!: boolean;
 			if (!rt.hashContains(_111[0], rt.byteSliceView(v2))) {
 				_32 = false;
@@ -2200,10 +2200,10 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 			}
 			return _32 ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v3: rt.ByteSlice): rt.u8 => {
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.hashDifference(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v3: rt.ByteSlice): rt.u8 => {
 			return !rt.hashContains(_111[1], rt.byteSliceView(v3)) ? 1 : 0;
 		}));
-		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterMap(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v4: rt.ByteSlice): rt.u8 => {
+		rt.byteVecPush(out, mapOr$1w1gbwl(rt.iterToOption(rt.iterLend(rt.hashSymmetricDifference(_111[0], _111[1]), rt.byteSliceFrom).next()), 221, (v4: rt.ByteSlice): rt.u8 => {
 			return rt.hashContains(_111[0], rt.byteSliceView(v4)) !== rt.hashContains(_111[1], rt.byteSliceView(v4)) ? 1 : 0;
 		}));
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.hashIsSubset(_111[0], _111[1]) ? 1 : 0, rt.hashIsSuperset(_111[0], _111[1]) ? 1 : 0, rt.hashIsDisjoint(_111[0], _111[1]) ? 1 : 0)), undefined, true);
@@ -2213,7 +2213,7 @@ export function setOpsOf$u8s(left: rt.ByteSlice, right: rt.ByteSlice, make: (a0:
 			if (_175 === rt.DONE) {
 				break;
 			}
-			putSorted$u8s(rt.iterToArray(rt.iterMap(rt.hashKeys(_175), rt.byteSliceFrom), "next", 4), put, out);
+			putSorted$u8s(rt.iterToArray(rt.iterLend(rt.hashKeys(_175), rt.byteSliceFrom), "next", 4), put, out);
 		}
 	}
 }

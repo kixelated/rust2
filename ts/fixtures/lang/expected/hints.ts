@@ -1952,7 +1952,7 @@ export function hints(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				return Uint8Array.of(_245);
 			}), (value: Uint8Array) => rt.iterSlice(value), false, 1, true), steps, out);
 		} else {
-			walk$Flatten_Iter_u8s(rt.iterFlatten(rt.iterMap(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(bytes)), (_244: rt.u8): Uint8Array => {
+			walk$Flatten_Iter_u8s(rt.iterFlatten(rt.iterLend(rt.iterSlice(rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(bytes)), (_244: rt.u8): Uint8Array => {
 				const b5: rt.u8 = _244;
 				return Uint8Array.of(b5, b5);
 			}), undefined, 2, true)), rt.byteSliceFrom), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value)), false, 2), steps, out);
