@@ -1585,6 +1585,67 @@ pub fn atomic_exchanged(n: u16) -> u16 {
 	unsafe { *part }
 }
 
+/// Structs JS keeps as objects, each holding an `rt.Cell`, one for each std function that
+/// puts another object in place of a `RefCell`'s value through a shared reference, while a
+/// pointer to the cell, taken through a borrow of that value, may still be read.
+pub struct ByRefReplace(pub std::cell::UnsafeCell<u16>);
+
+#[derive(Default)]
+pub struct ByRefTake(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByKeySet(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByKeyReplace(pub std::cell::UnsafeCell<u16>);
+
+#[derive(Default)]
+pub struct ByKeyTake(pub std::cell::UnsafeCell<u16>);
+
+std::thread_local! {
+	static KEY_SET: std::cell::RefCell<(u16, ByKeySet)> = const { std::cell::RefCell::new((0, ByKeySet(std::cell::UnsafeCell::new(0)))) };
+	static KEY_REPLACE: std::cell::RefCell<(u16, ByKeyReplace)> = const { std::cell::RefCell::new((0, ByKeyReplace(std::cell::UnsafeCell::new(0)))) };
+	static KEY_TAKE: std::cell::RefCell<(u16, ByKeyTake)> = const { std::cell::RefCell::new((0, ByKeyTake(std::cell::UnsafeCell::new(0)))) };
+}
+
+/// Replaced by `RefCell::replace`.
+pub fn ref_replaced(n: u16) -> u16 {
+	let whole = std::cell::RefCell::new((n, ByRefReplace(cell(n))));
+	let part = whole.borrow().1.0.get();
+	drop(whole.replace((0, ByRefReplace(cell(0)))));
+	unsafe { *part }
+}
+
+/// Replaced by `RefCell::take`.
+pub fn ref_taken(n: u16) -> u16 {
+	let whole = std::cell::RefCell::new((n, ByRefTake(cell(n))));
+	let part = whole.borrow().1.0.get();
+	drop(whole.take());
+	unsafe { *part }
+}
+
+/// Replaced by a thread-local `RefCell`'s `set`.
+pub fn key_set(n: u16) -> u16 {
+	KEY_SET.set((n, ByKeySet(cell(n))));
+	let part = KEY_SET.with_borrow(|whole| whole.1.0.get());
+	KEY_SET.set((0, ByKeySet(cell(0))));
+	unsafe { *part }
+}
+
+/// Replaced by a thread-local `RefCell`'s `replace`.
+pub fn key_replaced(n: u16) -> u16 {
+	drop(KEY_REPLACE.replace((n, ByKeyReplace(cell(n)))));
+	let part = KEY_REPLACE.with_borrow(|whole| whole.1.0.get());
+	drop(KEY_REPLACE.replace((0, ByKeyReplace(cell(0)))));
+	unsafe { *part }
+}
+
+/// Replaced by a thread-local `RefCell`'s `take`.
+pub fn key_taken(n: u16) -> u16 {
+	let part = KEY_TAKE.with_borrow(|whole| whole.1.0.get());
+	unsafe { *part = n };
+	drop(KEY_TAKE.take());
+	unsafe { *part }
+}
+
 /// A `String`'s case changed where a tuple holds it, through a `&mut str` to an element
 /// JS copies, which is no path to write it back to.
 pub fn ascii_in_tuple(mut pair: (u8, String)) -> String {

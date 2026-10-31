@@ -333,9 +333,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 pub struct Writes<'tcx> {
 	into: Types<'tcx>,
 	/// The types the code may write whole, each standing for every type it holds by value
-	/// too: a write of a whole value, as `*r = v`, or a call of a std function given a
-	/// mutable reference to it, gives each part of `*r` another object, and each part
-	/// those hold, at any depth.
+	/// too: a write of a whole value, as `*r = v`, a call of a std function given a
+	/// mutable reference to it, or one that replaces a `RefCell`'s value through a shared
+	/// reference, gives each part of `*r` another object, and each part those hold, at
+	/// any depth.
 	replaced: Types<'tcx>,
 	/// The types a part of which, kept as a JS object, a write of that part alone gives
 	/// another object, as `p.x = Inner {..}` does to `p`'s.
@@ -588,6 +589,32 @@ fn instantiates<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, written: Ty<'tcx>, ty: T
 	!ocx.try_evaluate_obligations().has_errors()
 }
 
+/// The value std's `def_id`, given `this` as its `self`, writes whole through that shared
+/// reference, putting another object in its place: the value of the `RefCell` it is, or
+/// that a thread-local's `RefCell` holds. A `Cell`'s are left out, as none of its methods
+/// that translate lends a reference into its value.
+fn replaces<'tcx>(tcx: TyCtxt<'tcx>, def_id: DefId, this: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	let (owner, name) = super::library::key(tcx, def_id)?;
+	let replaces = matches!(
+		(owner.as_str(), name.as_str()),
+		("RefCell", "replace" | "take") | ("LocalKey", "set" | "replace" | "take")
+	);
+	if !replaces || !super::library::is_std(tcx, def_id) {
+		return None;
+	}
+	let mut ty = this.builtin_deref(true)?;
+	loop {
+		let ty::Adt(adt, args) = ty.kind() else {
+			return None;
+		};
+		match Std::of(tcx, adt.did()) {
+			Some(Std::LocalKey) => ty = args.type_at(0),
+			Some(Std::RefCell) => return Some(args.type_at(0)),
+			_ => return None,
+		}
+	}
+}
+
 /// The place each local of `body` borrows, where its one assignment is a borrow and
 /// nothing borrows the local itself, through which it could be pointed elsewhere.
 fn borrows<'tcx>(body: &mir::Body<'tcx>) -> IndexVec<mir::Local, Option<Place<'tcx>>> {
@@ -835,9 +862,10 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, '_, 'tcx> {
 	}
 
 	/// A function not of the crate, called here or taken as a value that a pointer or a
-	/// type parameter calls where no call shows: what its parameters take escapes to it.
-	/// This holds while the runtime writes in place only through such a parameter, as
-	/// `copy_from_slice` does, never in a std trait impl that a type parameter reaches.
+	/// type parameter calls where no call shows: what its parameters take escapes to it,
+	/// and what it [`replaces`] behind its `&self` is replaced. This holds while the
+	/// runtime writes in place only through such a parameter, as `copy_from_slice` does,
+	/// or through a cell's `&self`, never in a std trait impl that a type parameter reaches.
 	fn visit_operand(&mut self, operand: &mir::Operand<'tcx>, location: Location) {
 		if let mir::Operand::Constant(constant) = operand
 			&& let ty::FnDef(def_id, args) = *constant.ty().kind()
@@ -848,6 +876,11 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, '_, 'tcx> {
 				.fn_sig(def_id)
 				.instantiate(self.tcx, args.skip_binder())
 				.skip_norm_wip();
+			if let Some(&this) = sig.skip_binder().inputs().first()
+				&& let Some(value) = replaces(self.tcx, def_id, this)
+			{
+				self.replace(value);
+			}
 			// Those that point a pointer elsewhere or read through it replace nothing.
 			let replace = !super::pointer::keeps(self.tcx, def_id, args.skip_binder());
 			// A call's argument may point into memory nothing else points into yet.

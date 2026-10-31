@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 158
-- Function instances: 201
+- Refusals: 163
+- Function instances: 216
 - Generic functions no instance reached, lowered over their type parameters: 11
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 40 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:623:10 |
+| 45 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:623:10 |
 | 18 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
 | 14 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:344:2 |
@@ -39,7 +39,7 @@
 | 1 | `_` of `_` by `_`, which is not supported yet | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `_` of `_`, which is not supported yet | fixtures/reject/src/lib.rs:553:4 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:227:12 |
-| 1 | `_` of a value JS copies, which is no path | fixtures/reject/src/lib.rs:1591:2 |
+| 1 | `_` of a value JS copies, which is no path | fixtures/reject/src/lib.rs:1652:2 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:274:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:396:6 |
 | 1 | `collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet | fixtures/reject/src/lib.rs:970:22 |
@@ -111,6 +111,11 @@ The type or module each refused type or path belongs to.
 | 2 | `std::vec::IntoIter` | fixtures/reject/src/lib.rs:442:17 |
 | 1 | `(Tally,)` | fixtures/reject/src/lib.rs:1287:29 |
 | 1 | `(std::vec::Vec, Tally)` | fixtures/reject/src/lib.rs:1282:31 |
+| 1 | `(u16, ByKeyReplace)` | fixtures/reject/src/lib.rs:1636:55 |
+| 1 | `(u16, ByKeySet)` | fixtures/reject/src/lib.rs:1628:51 |
+| 1 | `(u16, ByKeyTake)` | fixtures/reject/src/lib.rs:1643:52 |
+| 1 | `(u16, ByRefReplace)` | fixtures/reject/src/lib.rs:1612:32 |
+| 1 | `(u16, ByRefTake)` | fixtures/reject/src/lib.rs:1620:32 |
 | 1 | `(u8, u8)` | fixtures/reject/src/lib.rs:1282:31 |
 | 1 | `(u8,)` | fixtures/reject/src/lib.rs:1287:29 |
 | 1 | `Aliased` | fixtures/reject/src/lib.rs:1135:29 |
@@ -121,8 +126,13 @@ The type or module each refused type or path belongs to.
 | 1 | `ByClosure` | fixtures/reject/src/lib.rs:1534:35 |
 | 1 | `ByExchanged` | fixtures/reject/src/lib.rs:1580:30 |
 | 1 | `ByInstance` | fixtures/reject/src/lib.rs:1560:35 |
+| 1 | `ByKeyReplace` | fixtures/reject/src/lib.rs:1636:55 |
+| 1 | `ByKeySet` | fixtures/reject/src/lib.rs:1628:51 |
+| 1 | `ByKeyTake` | fixtures/reject/src/lib.rs:1643:52 |
 | 1 | `ByObject` | fixtures/reject/src/lib.rs:1547:35 |
 | 1 | `ByRead` | fixtures/reject/src/lib.rs:1470:35 |
+| 1 | `ByRefReplace` | fixtures/reject/src/lib.rs:1612:32 |
+| 1 | `ByRefTake` | fixtures/reject/src/lib.rs:1620:32 |
 | 1 | `ByReplace` | fixtures/reject/src/lib.rs:1508:35 |
 | 1 | `BySwap` | fixtures/reject/src/lib.rs:1496:35 |
 | 1 | `BySwapped` | fixtures/reject/src/lib.rs:1569:76 |
@@ -179,8 +189,8 @@ The type or module each refused type or path belongs to.
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:446:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:446:32 |
 | 1 | `std::num` | fixtures/reject/src/lib.rs:1292:4 |
-| 1 | `std::ops::DerefMut` | fixtures/reject/src/lib.rs:1591:2 |
-| 1 | `std::ops::IndexMut` | fixtures/reject/src/lib.rs:1597:3 |
+| 1 | `std::ops::DerefMut` | fixtures/reject/src/lib.rs:1652:2 |
+| 1 | `std::ops::IndexMut` | fixtures/reject/src/lib.rs:1658:3 |
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:999:32 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:999:11 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:781:15 |
@@ -224,9 +234,9 @@ The type or module each refused type or path belongs to.
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::clone_from_slice`, `Reused` | fixtures/reject/src/lib.rs:299:4 |
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::fill`, `Reused` | fixtures/reject/src/lib.rs:21:4 |
 | 1 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | `std::option::Option::copied` | fixtures/reject/src/lib.rs:227:12 |
-| 1 | `_` of a value JS copies, which is no path | `std::ops::DerefMut::deref_mut` | fixtures/reject/src/lib.rs:1591:2 |
+| 1 | `_` of a value JS copies, which is no path | `std::ops::DerefMut::deref_mut` | fixtures/reject/src/lib.rs:1652:2 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::iter::once` | fixtures/reject/src/lib.rs:1250:22 |
-| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::ops::IndexMut::index_mut` | fixtures/reject/src/lib.rs:1597:3 |
+| 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::ops::IndexMut::index_mut` | fixtures/reject/src/lib.rs:1658:3 |
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::sync::Mutex::get_mut` | fixtures/reject/src/lib.rs:529:12 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:274:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | `BytesMut::capacity` | fixtures/reject/src/lib.rs:396:6 |
@@ -251,6 +261,11 @@ The type or module each refused type or path belongs to.
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Track` | fixtures/reject/src/lib.rs:867:19 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `Window` | fixtures/reject/src/lib.rs:684:2 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `(u32, u32)`, `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:702:15 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `ByKeyReplace`, `(u16, ByKeyReplace)` | fixtures/reject/src/lib.rs:1636:55 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `ByKeySet`, `(u16, ByKeySet)` | fixtures/reject/src/lib.rs:1628:51 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `ByKeyTake`, `(u16, ByKeyTake)` | fixtures/reject/src/lib.rs:1643:52 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `ByRefReplace`, `(u16, ByRefReplace)` | fixtures/reject/src/lib.rs:1612:32 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `ByRefTake`, `(u16, ByRefTake)` | fixtures/reject/src/lib.rs:1620:32 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Aliased` | fixtures/reject/src/lib.rs:1135:29 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `ByBox` | fixtures/reject/src/lib.rs:1519:35 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `ByClosure` | fixtures/reject/src/lib.rs:1534:35 |
@@ -322,7 +337,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>a raw pointer to `_` in `_`, which the crate may put another object in place of (40)</summary>
+<details><summary>a raw pointer to `_` in `_`, which the crate may put another object in place of (45)</summary>
 
 - fixtures/reject/src/lib.rs:623:10: a raw pointer to `(u32, u32)` in `Span2`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:684:2: a raw pointer to `(u32, u32)` in `Window`, which the crate may put another object in place of
@@ -364,6 +379,11 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:1560:35: a raw pointer to `std::cell::UnsafeCell<u16>` in `ByInstance`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:1569:76: a raw pointer to `std::cell::UnsafeCell<u16>` in `BySwapped`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:1580:30: a raw pointer to `std::cell::UnsafeCell<u16>` in `ByExchanged`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1612:32: a raw pointer to `ByRefReplace` in `(u16, ByRefReplace)`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1620:32: a raw pointer to `ByRefTake` in `(u16, ByRefTake)`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1628:51: a raw pointer to `ByKeySet` in `(u16, ByKeySet)`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1636:55: a raw pointer to `ByKeyReplace` in `(u16, ByKeyReplace)`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1643:52: a raw pointer to `ByKeyTake` in `(u16, ByKeyTake)`, which the crate may put another object in place of
 
 </details>
 
@@ -422,7 +442,7 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:529:12: `std::sync::Mutex::<T>::get_mut` with a mutable reference to a value JS copies, which its mapping would copy
 - fixtures/reject/src/lib.rs:1250:22: `std::iter::once` with a mutable reference to a value JS copies, which its mapping would copy
-- fixtures/reject/src/lib.rs:1597:3: `std::ops::IndexMut::index_mut` with a mutable reference to a value JS copies, which its mapping would copy
+- fixtures/reject/src/lib.rs:1658:3: `std::ops::IndexMut::index_mut` with a mutable reference to a value JS copies, which its mapping would copy
 
 </details>
 
@@ -604,7 +624,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>`_` of a value JS copies, which is no path (1)</summary>
 
-- fixtures/reject/src/lib.rs:1591:2: `std::ops::DerefMut::deref_mut` of a value JS copies, which is no path
+- fixtures/reject/src/lib.rs:1652:2: `std::ops::DerefMut::deref_mut` of a value JS copies, which is no path
 
 </details>
 

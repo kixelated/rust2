@@ -27,7 +27,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 ## Required
 
 - [A pointer a callee takes to a variable that gets another object](/quest/m2/ts-pointer-rebind.md) - waits on the maintainer's pick of approach: a pointer a callee took through a reference, to a variable the caller then assigns, is refused rather than silently left on the old object
-- [Whole writes std makes through a shared reference](/quest/m2/ts-interior-replace.md) - a pointer into a part of a value `RefCell::replace` or std's like it write whole through a `&` is refused rather than silently left on the old object
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
 - [Async in the TypeScript translator](/quest/m2/ts-async.md) - moq-net's and kio's async code translates with Rust's lazy futures
 - [Shared ownership](/quest/m2/ts-shared.md) - `Arc`/`Rc`/`Weak` keep exact counts, and locks and atomics become plain values
