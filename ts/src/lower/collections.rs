@@ -1509,23 +1509,34 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 				.or_else(|| arc_of(b, ty))
 				.or_else(|| reverse_of(b, ty))
 				.or_else(|| wrapping_of(b, ty))
-				.or_else(|| cow_of(b, ty)) =>
+				.or_else(|| cow_of(b, ty))
+				.or_else(|| deque_of(b, ty)) =>
 		{
 			held(inner)
 		}
 		ty::Adt(..) if let Some(bound) = range_of(b, ty) => held(bound),
 		ty::Adt(..) if let Some((inner, _)) = cell_of(b, ty) => held(inner),
-		// Whose derived `PartialEq` lowers from its MIR.
-		ty::Adt(_, args) if b.t.std_of(ty) == Some(Std::Result) => args.types().all(held),
+		ty::Adt(_, args) if derived_std(b, ty) => args.types().all(held),
 		ty::Adt(..) if b.t.std_of(ty).is_some_and(Std::error) => true,
 		ty::Adt(..) => library::string(b.t.tcx, ty) || matches!(b.t.std_of(ty), Some(Std::Ordering | Std::Duration)),
 		_ => false,
 	}
 }
 
+/// Whether `ty` is a `Result` or a `Poll`, whose derived `PartialEq`, `PartialOrd`, and `Ord`
+/// lower from their MIR.
+fn derived_std<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	matches!(b.t.std_of(ty), Some(Std::Result | Std::Poll))
+}
+
 /// What `ty` holds if it is an `Option`.
 fn option_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Option)).then(|| arg(ty, 0))
+}
+
+/// What `ty` holds if it is a `VecDeque`.
+fn deque_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	(b.t.std_of(ty) == Some(Std::VecDeque)).then(|| arg(ty, 0))
 }
 
 /// What `ty`'s bounds are if it is one of std's ranges that holds any.
@@ -1746,13 +1757,17 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 			Expr::rt("cowBy", vec![cmp_fn(b, Ty::new_slice(tcx, elem), partial, span)])
 		}
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("cmpSlice", vec![cmp_fn(b, elem, partial, span)]),
+		// A deque's is its iterator's, which compares each item by its own impls, as a slice's does.
+		ty::Adt(..) if let Some(item) = deque_of(b, ty) => Expr::rt("cmpDeque", vec![cmp_fn(b, item, partial, span)]),
 		// Whichever form it has, as the key it is or the operand a reference passes.
 		_ if bytes(b, ty) => Expr::Rt("cmpBytes".into()),
-		_ if by_own(b, ty) && partial => {
+		// A `Result`'s or a `Poll`'s derived impls lower from its MIR, by variant and then by
+		// what it holds.
+		_ if (by_own(b, ty) || derived_std(b, ty)) && partial => {
 			let cmp = trait_fn(tcx, "PartialOrd", "partial_cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}
-		_ if by_own(b, ty) => {
+		_ if by_own(b, ty) || derived_std(b, ty) => {
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
@@ -1802,8 +1817,9 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			Expr::rt("cowBy", vec![eq_fn(b, Ty::new_slice(tcx, elem), span)])
 		}
 		ty::Adt(..) if let Some(bound) = range_of(b, ty) => Expr::rt("rangeEq", vec![eq_fn(b, bound, span)]),
-		// A slice compares its elements by `!=`.
+		// A slice compares its elements by `!=`, as a deque does each of its halves.
 		_ if let Some(elem) = elements_of(b, ty) => Expr::rt("eqSlice", vec![not_ne_fn(b, elem, span)]),
+		ty::Adt(..) if let Some(item) = deque_of(b, ty) => Expr::rt("eqSeq", vec![not_ne_fn(b, item, span)]),
 		_ if bytes(b, ty) => Expr::Rt("eqBytes".into()),
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => {
 			let eq = eq_fn(b, inner, span);
@@ -1811,7 +1827,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 		}
 		// Whose `ne` is `!eq`, which compares what it holds by `eq`.
 		ty::Adt(..) if let Some((inner, by)) = cell_of(b, ty) => Expr::rt(by, vec![eq_fn(b, inner, span)]),
-		_ if by_own(b, ty) || b.t.std_of(ty).is_some_and(|std| std == Std::Result || std.error()) => {
+		_ if by_own(b, ty) || derived_std(b, ty) || b.t.std_of(ty).is_some_and(Std::error) => {
 			let eq = trait_fn(tcx, "PartialEq", "eq");
 			b.fn_value(eq, tcx.mk_args(&[ty.into(), ty.into()]), span)
 		}

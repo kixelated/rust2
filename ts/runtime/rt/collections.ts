@@ -172,6 +172,18 @@ export function cmpSlice<T, O extends Ordering | undefined>(cmp: (a: T, b: T) =>
 	};
 }
 
+/** `cmpSlice`'s of `VecDeque`s, by their items in order however each one's buffer wraps. */
+export function cmpDeque<T, O extends Ordering | undefined>(cmp: (a: T, b: T) => O): (a: VecDeque<T>, b: VecDeque<T>) => O {
+	return (a, b) => {
+		const n = Math.min(a.n, b.n);
+		for (let i = 0; i < n; i++) {
+			const c = cmp(a.b[at(a, i)] as T, b.b[at(b, i)] as T);
+			if (c !== 0) return c;
+		}
+		return (a.n < b.n ? -1 : a.n > b.n ? 1 : 0) as O;
+	};
+}
+
 /**
  * `Ord::cmp` of byte arrays, slices, or vectors, or `PartialOrd::partial_cmp`: by their
  * bytes in order, then by length. Each is a `[u8; N]`, a `&[u8]` or `&[u8; N]`, or a
