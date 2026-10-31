@@ -63,6 +63,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::TryLockError
 					| Std::Reverse
 					| Std::Wrapping
+					| Std::Saturating
 					| Std::Range
 					| Std::RangeInclusive
 					| Std::RangeFrom
@@ -162,7 +163,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Box
 					| Std::Pin
 					| Std::Reverse
-					| Std::Wrapping,
+					| Std::Wrapping
+					| Std::Saturating,
 				) => self.disposable(args.type_at(0), span),
 				// An `rt.Iter` drops what it was given to.
 				None | Some(Std::Peekable) if self.std_iter(ty) => self.closures_held(ty),
@@ -195,7 +197,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		};
 		match Std::of(self.tcx, adt.did()) {
 			_ if self.bound_drops(adt.did()).is_some() => true,
-			Some(Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::PoisonError) => {
+			Some(Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::Saturating | Std::PoisonError) => {
 				self.always_disposes(args.type_at(0))
 			}
 			Some(
@@ -260,7 +262,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Poll
 					| Std::Pin
 					| Std::Reverse
-					| Std::Wrapping,
+					| Std::Wrapping
+					| Std::Saturating,
 				) => args.types().all(|t| self.inert(t)),
 				// Its waker.
 				Some(Std::Context) => false,
@@ -317,7 +320,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let option = Ty::new_option(self.tcx, args.type_at(0));
 					return self.drop_value(value.member("v"), option, span);
 				}
-				Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::PoisonError => {
+				Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::Saturating | Std::PoisonError => {
 					return self.drop_value(value, args.type_at(0), span);
 				}
 				// Its value, or the function that never made one.
@@ -473,7 +476,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
 				Std::Vec => Some(args.type_at(0)),
 				Std::Option if self.erases_to(args.type_at(0)).undefined => None,
-				Std::Option | Std::Box | Std::Pin | Std::Reverse | Std::Wrapping => self.elements(args.type_at(0)),
+				Std::Option | Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::Saturating => {
+					self.elements(args.type_at(0))
+				}
 				_ => None,
 			},
 			_ => None,

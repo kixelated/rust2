@@ -733,11 +733,11 @@ fn hashing<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, key: Ty<'tcx>, span
 	let mut values = vec![hash_fn(b, key, hasher, span), eq_fn(b, key, span)];
 	// A fieldless enum is a JS string, and a bound value may be any primitive, which its
 	// own `Eq` may tell apart where JS can't, as is the `Some` of an `Option` of one, and a
-	// `Reverse` or a `Wrapping` of one.
+	// `Reverse`, a `Wrapping`, or a `Saturating` of one.
 	let mut held = peeled;
 	while let Some(inner) = option_of(b, held)
 		.or_else(|| reverse_of(b, held))
-		.or_else(|| wrapping_of(b, held))
+		.or_else(|| overflowing_of(b, held))
 	{
 		held = peel(b, inner);
 	}
@@ -971,13 +971,7 @@ fn btree<'tcx>(
 		}
 		("Extend", "extend") => {
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
-			let mut droppers = vec![Expr::lit("false")];
-			droppers.extend(entry_droppers(b, coll, span));
-			// By `for_each`.
-			droppers.push(super::iter::iter_take(b, iter, true, span));
-			let target = values.pop()?;
-			let f = if set { "btreeExtendKeys" } else { "btreeExtend" };
-			Expr::rt(f, super::iter::tail(vec![target, source], droppers))
+			extend(b, coll, library::targ(call.args, 1), values.pop()?, source, iter, span)?
 		}
 		("From", "from") => {
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
@@ -1151,15 +1145,7 @@ fn deque<'tcx>(
 				"From" => deque_new(b, coll, span),
 				_ => values.pop()?,
 			};
-			// Of a `TrustedLen` iterator, by `for_each`, reserving its upper bound first.
-			let trusted = super::iter::implements(b.t, iter, "TrustedLen");
-			let take = super::iter::iter_take(b, iter, trusted, span);
-			let reserve = vec![
-				take,
-				super::iter::size_of(b, item, span),
-				Expr::lit(trusted.to_string()),
-			];
-			Expr::rt("dequeExtend", super::iter::tail(vec![target, source], reserve))
+			extend(b, coll, library::targ(call.args, 1), target, source, iter, span)?
 		}
 		_ => return None,
 	};
@@ -1248,24 +1234,15 @@ fn heap<'tcx>(
 		}
 		("Extend", "extend") | ("From", "from") => {
 			let (source, iter) = extend_source(b, coll, call, owner, values.pop()?)?;
-			let trusted = super::iter::implements(b.t, iter, "TrustedLen");
 			if owner == "From" {
+				let trusted = super::iter::implements(b.t, iter, "TrustedLen");
 				let d = super::iter::to_array(b, source, iter, item, trusted, span);
 				return Some(Expr::rt(
 					"heapFrom",
 					[vec![d], heap_tests(b, item, true, span)].concat(),
 				));
 			}
-			// Into its vector, of a `TrustedLen` iterator by `for_each`, reserving as it does.
-			let take = super::iter::iter_take(b, iter, trusted, span);
-			let mut args = vec![values.pop()?, source];
-			args.extend(heap_tests(b, item, true, span));
-			let reserve = vec![
-				take,
-				super::iter::size_of(b, item, span),
-				Expr::lit(trusted.to_string()),
-			];
-			Expr::rt("heapExtend", super::iter::tail(args, reserve))
+			extend(b, coll, library::targ(call.args, 1), values.pop()?, source, iter, span)?
 		}
 		_ => return None,
 	};
@@ -1321,6 +1298,228 @@ fn extend_source<'tcx>(
 		None => items,
 	};
 	Some((items, iter))
+}
+
+/// `extend` of `target`, a collection of type `coll`, `()`, or a tuple of them, by `items`,
+/// an iterator of type `iter` of `item`s, copied already where they are borrowed, as its
+/// own `Extend` reads and reserves for it, giving the collection back.
+pub fn extend<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	coll: Ty<'tcx>,
+	item: Ty<'tcx>,
+	target: Expr,
+	items: Expr,
+	iter: Ty<'tcx>,
+	span: Span,
+) -> Option<Expr> {
+	// `()`'s reads each item by `for_each`, and a tuple's is its own.
+	if coll.is_unit() {
+		let drops = super::iter::iter_drops(b, iter, span);
+		let each = Expr::Lambda(Vec::new(), Box::new(Expr::undefined()));
+		return Some(Expr::rt(
+			"iterFold",
+			super::iter::tail(vec![items, Expr::undefined(), each], vec![drops]),
+		));
+	}
+	if let ty::Tuple(_) = coll.kind() {
+		return tuple_extend(b, coll, item, Some(target), items, iter, span);
+	}
+	let std = b.t.std_of(coll)?;
+	if std == Std::String {
+		return super::iter::string_extend(b, target, items, item, iter, span);
+	}
+	// Of a `TrustedLen` iterator into a vector, by `for_each`, reserving its upper bound first.
+	let trusted = super::iter::implements(b.t, iter, "TrustedLen");
+	let vec_reserve = |b: &mut Body<'_, '_, 'tcx>| {
+		let take = super::iter::iter_take(b, iter, trusted, span);
+		vec![
+			take,
+			super::iter::size_of(b, arg(coll, 0), span),
+			Expr::lit(trusted.to_string()),
+		]
+	};
+	Some(match std {
+		Std::Vec if matches!(arg(coll, 0).kind(), ty::Uint(ty::UintTy::U8)) => {
+			let take = super::iter::iter_take(b, iter, trusted, span);
+			Expr::rt(
+				"iterExtendBytes",
+				super::iter::tail(vec![target, items], vec![take, Expr::lit(trusted.to_string())]),
+			)
+		}
+		Std::Vec => Expr::rt("iterExtend", super::iter::tail(vec![target, items], vec_reserve(b))),
+		Std::VecDeque => Expr::rt("dequeExtend", super::iter::tail(vec![target, items], vec_reserve(b))),
+		// Into its vector, and then sifted.
+		Std::BinaryHeap => {
+			let mut args = vec![target, items];
+			args.extend(heap_tests(b, arg(coll, 0), true, span));
+			Expr::rt("heapExtend", super::iter::tail(args, vec_reserve(b)))
+		}
+		Std::HashMap | Std::HashSet => hash_extend(b, coll, target, items, iter, span),
+		Std::BTreeMap | Std::BTreeSet => {
+			let mut droppers = vec![Expr::lit("false")];
+			droppers.extend(entry_droppers(b, coll, span));
+			// By `for_each`.
+			droppers.push(super::iter::iter_take(b, iter, true, span));
+			let f = if std == Std::BTreeSet {
+				"btreeExtendKeys"
+			} else {
+				"btreeExtend"
+			};
+			Expr::rt(f, super::iter::tail(vec![target, items], droppers))
+		}
+		_ => return None,
+	})
+}
+
+/// What copies each borrowed `item` a collection of type `coll` is extended by, as
+/// `Extend<&T>` and `Extend<(&K, &V)>` store a copy: `None` where `item` is what it stores,
+/// a copy is the value itself, or `coll` is no collection of items.
+pub fn copy_borrowed<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, item: Ty<'tcx>, span: Span) -> Option<Expr> {
+	let Some(Std::Vec | Std::VecDeque | Std::BinaryHeap | Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet) =
+		b.t.std_of(coll)
+	else {
+		return None;
+	};
+	let stored = stored(b, coll);
+	if item == stored {
+		return None;
+	}
+	super::lend::copy_fn(b, stored, span)
+}
+
+/// `extend` of `target`, a tuple of collections of type `tuple`, by `items`, an iterator of
+/// type `iter` of `item`s, or without one, `collect` into the tuple of the collections'
+/// defaults, as std's `Extend` and `FromIterator` of tuples are: a 1-tuple's collection by
+/// its own `extend`, and a longer one's each by its `extend_reserve` and `extend_one`.
+pub fn tuple_extend<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	tuple: Ty<'tcx>,
+	item: Ty<'tcx>,
+	target: Option<Expr>,
+	items: Expr,
+	iter: Ty<'tcx>,
+	span: Span,
+) -> Option<Expr> {
+	let (ty::Tuple(colls), ty::Tuple(fields)) = (tuple.kind(), item.kind()) else {
+		return None;
+	};
+	let unsupported = |b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, field: Ty<'tcx>| {
+		b.err(
+			span,
+			format!("`Extend` of `{tuple}` by `{item}`, whose `{coll}` of `{field}` is not supported yet"),
+		)
+	};
+	let (f, rest) = match (colls.as_slice(), fields.as_slice()) {
+		([coll], [field]) => {
+			let (c, each) = (b.fresh("c"), b.fresh("items"));
+			let mut each_items = Expr::ident(&each);
+			if let Some(copy) = copy_borrowed(b, *coll, *field, span) {
+				each_items = Expr::rt("iterMap", vec![each_items, copy]);
+			}
+			let Some(extended) = extend(b, *coll, *field, Expr::ident(&c), each_items, iter, span) else {
+				return Some(unsupported(b, *coll, *field));
+			};
+			let params = [c, each].map(|name| Param { name, ty: None });
+			let f = Expr::Lambda(params.into(), Box::new(extended));
+			("tupleExtendOne", vec![items, f])
+		}
+		_ => {
+			let mut parts = Vec::new();
+			for (coll, field) in colls.iter().zip(fields.iter()) {
+				match part(b, coll, field, span) {
+					Some(part) => parts.push(part),
+					None => return Some(unsupported(b, coll, field)),
+				}
+			}
+			// By `for_each`.
+			let take = super::iter::iter_take(b, iter, true, span);
+			let args = super::iter::tail(vec![items, Expr::Array(parts)], vec![take]);
+			("tupleExtend", args)
+		}
+	};
+	let target = match target {
+		Some(target) => target,
+		None => {
+			let defaults = default(b, tuple, span)?;
+			empty(b, defaults, tuple, span)
+		}
+	};
+	Some(Expr::rt(f, [vec![target], rest].concat()))
+}
+
+/// The `rt.Part` a tuple's `Extend` adds `item`s to a collection of type `coll` by, or to a
+/// tuple of them, which is one too: `None` for any other.
+fn part<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, item: Ty<'tcx>, span: Span) -> Option<Expr> {
+	if coll.is_unit() {
+		return Some(Expr::Rt("UNIT_PART".into()));
+	}
+	if let (ty::Tuple(colls), ty::Tuple(items)) = (coll.kind(), item.kind()) {
+		let parts = colls.iter().zip(items.iter()).map(|(c, i)| part(b, c, i, span));
+		return Some(Expr::rt("tuplePart", vec![Expr::Array(parts.collect::<Option<_>>()?)]));
+	}
+	let std = b.t.std_of(coll)?;
+	if std == Std::String {
+		let chars = !super::iter::text_items(b.t, item)?;
+		return Some(Expr::Rt(if chars { "STRING_CHARS_PART" } else { "STRING_PART" }.into()));
+	}
+	let size = |b: &mut Body<'_, '_, 'tcx>| vec![super::iter::size_of(b, arg(coll, 0), span)];
+	let part = match std {
+		Std::Vec if matches!(arg(coll, 0).kind(), ty::Uint(ty::UintTy::U8)) => Expr::rt("byteVecPart", Vec::new()),
+		Std::Vec => Expr::rt("vecPart", super::iter::tail(Vec::new(), size(b))),
+		Std::VecDeque => Expr::rt("dequePart", super::iter::tail(Vec::new(), size(b))),
+		Std::BinaryHeap => {
+			let le = heap_tests(b, arg(coll, 0), false, span);
+			Expr::rt("heapPart", super::iter::tail(le, size(b)))
+		}
+		Std::HashMap | Std::HashSet => {
+			let mut args = entry_droppers(b, coll, span);
+			args.push(hash_max(b, coll, span));
+			let f = if std == Std::HashSet {
+				"hashKeysPart"
+			} else {
+				"hashPart"
+			};
+			Expr::rt(f, super::iter::tail(Vec::new(), args))
+		}
+		Std::BTreeMap | Std::BTreeSet => {
+			let droppers = entry_droppers(b, coll, span);
+			let f = if std == Std::BTreeSet {
+				"btreeKeysPart"
+			} else {
+				"btreePart"
+			};
+			Expr::rt(f, super::iter::tail(Vec::new(), droppers))
+		}
+		_ => return None,
+	};
+	Some(match copy_borrowed(b, coll, item, span) {
+		Some(copy) => Expr::rt("copiedPart", vec![part, copy]),
+		None => part,
+	})
+}
+
+/// `Default::default` of a collection of type `coll` that a tuple's `Extend` takes, or of a
+/// tuple of them.
+fn default<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, span: Span) -> Option<Expr> {
+	if coll.is_unit() {
+		return Some(Expr::undefined());
+	}
+	if let ty::Tuple(colls) = coll.kind() {
+		let defaults = colls.iter().map(|c| default(b, c, span));
+		return Some(Expr::Array(defaults.collect::<Option<_>>()?));
+	}
+	Some(match b.t.std_of(coll)? {
+		Std::String => Expr::Str(String::new()),
+		Std::Vec if matches!(arg(coll, 0).kind(), ty::Uint(ty::UintTy::U8)) => {
+			Expr::New(Box::new(Expr::Rt("ByteVec".into())), Vec::new())
+		}
+		Std::Vec => Expr::Array(Vec::new()),
+		Std::VecDeque => deque_new(b, coll, span),
+		Std::BinaryHeap => empty(b, Expr::rt("heapNew", Vec::new()), coll, span),
+		Std::HashMap | Std::HashSet => hash_new(b, coll, span)?,
+		Std::BTreeMap | Std::BTreeSet => btree_new(b, coll, span),
+		_ => return None,
+	})
 }
 
 /// A method of an `Entry`, `OccupiedEntry`, or `VacantEntry`.
@@ -1508,7 +1707,7 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 			if let Some(inner) = option_of(b, ty)
 				.or_else(|| arc_of(b, ty))
 				.or_else(|| reverse_of(b, ty))
-				.or_else(|| wrapping_of(b, ty))
+				.or_else(|| overflowing_of(b, ty))
 				.or_else(|| cow_of(b, ty))
 				.or_else(|| deque_of(b, ty)) =>
 		{
@@ -1553,10 +1752,10 @@ fn reverse_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	(b.t.std_of(ty) == Some(Std::Reverse)).then(|| arg(ty, 0))
 }
 
-/// What `ty` holds if it is a `Wrapping`, which compares, orders, and hashes as it, but for
-/// its `ne`, which is `!eq`.
-fn wrapping_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	(b.t.std_of(ty) == Some(Std::Wrapping)).then(|| arg(ty, 0))
+/// What `ty` holds if it is a `Wrapping` or a `Saturating`, which compares, orders, and
+/// hashes as it, but for its `ne`, which is `!eq`.
+fn overflowing_of<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	b.t.std_of(ty).and_then(Std::overflow).map(|_| arg(ty, 0))
 }
 
 /// What `ty` holds if it is a `Cow<[T]>` other than of bytes, `T`, which compares, orders,
@@ -1760,7 +1959,7 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 		ty::Adt(..) if let Some(inner) = reverse_of(b, ty) => {
 			Expr::rt("cmpReverse", vec![cmp_fn(b, inner, partial, span)])
 		}
-		ty::Adt(..) if let Some(inner) = wrapping_of(b, ty) => cmp_fn(b, inner, partial, span),
+		ty::Adt(..) if let Some(inner) = overflowing_of(b, ty) => cmp_fn(b, inner, partial, span),
 		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
 			Expr::rt("cowBy", vec![cmp_fn(b, Ty::new_slice(tcx, elem), partial, span)])
 		}
@@ -1820,7 +2019,7 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
 			eq => Expr::rt("eqOption", [eq].into_iter().chain(b.t.none_arg(inner)).collect()),
 		},
-		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| wrapping_of(b, ty)) => eq_fn(b, inner, span),
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| overflowing_of(b, ty)) => eq_fn(b, inner, span),
 		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {
 			Expr::rt("cowBy", vec![eq_fn(b, Ty::new_slice(tcx, elem), span)])
 		}
@@ -2037,7 +2236,7 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			Expr::rt("hashOption", [hash].into_iter().chain(b.t.none_arg(inner)).collect())
 		}
 		ty::Adt(..) if let Some(inner) = arc_of(b, ty) => Expr::rt("hashArc", vec![hash_fn(b, inner, hasher, span)]),
-		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| wrapping_of(b, ty)) => {
+		ty::Adt(..) if let Some(inner) = reverse_of(b, ty).or_else(|| overflowing_of(b, ty)) => {
 			hash_fn(b, inner, hasher, span)
 		}
 		ty::Adt(..) if let Some(elem) = cow_of(b, ty) => {

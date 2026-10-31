@@ -368,35 +368,20 @@ pub fn call<'tcx>(
 		return collect(b, targ(0)?, targ(1)?, items, iter, trusted, span);
 	}
 
-	// `Vec::extend` with an iterator, which it drops once done.
+	// `Vec::extend` with an iterator, which it drops once done, `()`'s, and a tuple's of collections.
 	if (owner, name) == ("Extend", "extend") {
-		let (vec, item, source) = (targ(0)?, targ(1)?, targ(2)?);
-		let ty::Adt(adt, vec_args) = vec.kind() else {
-			return None;
-		};
-		if Std::of(tcx, adt.did()) != Some(Std::Vec) {
+		let (coll, item, source) = (targ(0)?, targ(1)?, targ(2)?);
+		if !matches!(coll.kind(), ty::Tuple(_)) && b.t.std_of(coll) != Some(Std::Vec) {
 			return None;
 		}
-		let [v, items] = <[Expr; 2]>::try_from(args).ok()?;
+		let [target, items] = <[Expr; 2]>::try_from(args).ok()?;
 		let iter = iter_of(b.t, source)?;
 		let mut items = into_iter(b, source, items, span)?;
 		// `Extend<&T>` copies each element.
-		if item != vec_args.type_at(0)
-			&& let Some(copy) = super::lend::copy_fn(b, vec_args.type_at(0), span)
-		{
+		if let Some(copy) = super::collections::copy_borrowed(b, coll, item, span) {
 			items = Expr::rt("iterMap", vec![items, copy]);
 		}
-		// Of a `TrustedLen` iterator, by `for_each`, and reserving its upper bound first.
-		let trusted = implements(b.t, iter, "TrustedLen");
-		let take = iter_take(b, iter, trusted, span);
-		let (extend, reserve) = match vec_args.type_at(0).kind() {
-			ty::Uint(ty::UintTy::U8) => ("iterExtendBytes", vec![take, Expr::lit(trusted.to_string())]),
-			_ => {
-				let size = size_of(b, vec_args.type_at(0), span);
-				("iterExtend", vec![take, size, Expr::lit(trusted.to_string())])
-			}
-		};
-		return Some(Expr::rt(extend, tail(vec![v, items], reserve)));
+		return super::collections::extend(b, coll, item, target, items, iter, span);
 	}
 
 	let self_ty = match (owner, name) {
@@ -524,18 +509,20 @@ pub fn call<'tcx>(
 				tail(vec![Expr::rt_of(float.name(), op), float.lit(unit)], vec![drops]),
 			)
 		}
-		// A `Wrapping`'s wraps, as its `+` and `*` do.
+		// A `Wrapping`'s wraps and a `Saturating`'s saturates, as its `+` and `*` do.
 		"sum" | "product" => {
-			let wrapping = super::library::wrapping_of(b.t.tcx, targ(1)?);
-			let int = Int::of(wrapping.unwrap_or(targ(1)?))?;
-			let (op, unit) = match (name, wrapping.is_some()) {
-				("sum", false) => ("add", 0),
-				("sum", true) => ("wrappingAdd", 0),
-				(_, false) => ("mul", 1),
-				(_, true) => ("wrappingMul", 1),
+			let overflowing = super::library::overflowing(b.t.tcx, targ(1)?);
+			let int = Int::of(overflowing.map_or(targ(1)?, |(_, int)| int))?;
+			let (op, unit) = match name {
+				"sum" => ("Add", 0),
+				_ => ("Mul", 1),
+			};
+			let op = match overflowing {
+				Some((overflow, _)) => overflow.method(op),
+				None => op.to_lowercase(),
 			};
 			let drops = iter_drops(b, self_ty, span);
-			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
+			method(name, tail(vec![int.func(&op), int.lit(unit)], vec![drops]))
 		}
 		// `ExactSizeIterator::len` and `size_hint` are each iterator's own.
 		"len" => Some(recv.member("len").call(rest)),
@@ -714,6 +701,11 @@ pub fn call<'tcx>(
 		"collect" => {
 			let trusted = implements(b.t, self_ty, "TrustedLen");
 			collect(b, targ(1)?, item, recv, self_ty, trusted, span)
+		}
+		// `extend` of the pair of collections' defaults.
+		"unzip" => {
+			let tuple = Ty::new_tup(tcx, &[targ(3)?, targ(4)?]);
+			super::collections::tuple_extend(b, tuple, item, None, recv, self_ty, span)
 		}
 		_ => None,
 	}
@@ -1167,6 +1159,10 @@ fn collect<'tcx>(
 			tail(vec![iter, Expr::undefined(), each], vec![drops]),
 		));
 	}
+	// A tuple's, which `extend`s the collections' defaults.
+	if let ty::Tuple(_) = ty.kind() {
+		return super::collections::tuple_extend(b, ty, item, None, iter, from, span);
+	}
 	let ty::Adt(adt, args) = ty.kind() else {
 		return None;
 	};
@@ -1246,19 +1242,28 @@ pub(super) fn string_extend<'tcx>(
 	iter: Ty<'tcx>,
 	span: Span,
 ) -> Option<Expr> {
-	let text = match *item.peel_refs().kind() {
-		ty::Char => false,
-		ty::Str => true,
-		ty::Adt(_, args) => match b.t.std_of(item)? {
-			Std::String => true,
-			Std::Box | Std::Cow => args.types().next().is_some_and(|t| t.is_str()),
-			_ => return None,
-		},
-		_ => return None,
+	let extend = if text_items(b.t, item)? {
+		"stringExtend"
+	} else {
+		"stringExtendChars"
 	};
-	let extend = if text { "stringExtend" } else { "stringExtendChars" };
 	let drops = iter_drops(b, iter, span);
 	Some(Expr::rt(extend, tail(vec![s, items], vec![drops])))
+}
+
+/// Whether a `String` extends by `item`s of text, a `&str`, `String`, `Box<str>`, or
+/// `Cow<str>`, rather than chars, through any `&`: `None` for any other.
+pub(super) fn text_items<'tcx>(t: &Translator<'_, 'tcx>, item: Ty<'tcx>) -> Option<bool> {
+	match *item.peel_refs().kind() {
+		ty::Char => Some(false),
+		ty::Str => Some(true),
+		ty::Adt(_, args) => match t.std_of(item)? {
+			Std::String => Some(true),
+			Std::Box | Std::Cow => Some(args.types().next().is_some_and(|t| t.is_str())),
+			_ => None,
+		},
+		_ => None,
+	}
 }
 
 /// Whether an iterator of type `ty` that a runtime function takes by value drops what it

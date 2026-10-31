@@ -551,6 +551,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					| Std::Reverse
 					| Std::NonZero
 					| Std::Wrapping
+					| Std::Saturating
 					| Std::PoisonError,
 				) => base,
 				// Cast to its variant, which a test narrows only where it reads the field.

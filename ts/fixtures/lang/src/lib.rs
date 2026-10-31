@@ -16,8 +16,9 @@
 //! slices, the order, equality, and
 //! hashes of bytes, ranges of `Bound`s and of the crate's own `RangeBounds`, the equality
 //! of `Result`s and std's errors, inclusive ranges read through each adaptor, iterators'
-//! size hints, the capacity overflows collections reserving by them panic with, and
-//! zero-sized values, which MIR never assigns, with std's impls of them.
+//! size hints, the capacity overflows collections reserving by them panic with, tuples of
+//! collections collected and extended by their items, and zero-sized values, which MIR
+//! never assigns, with std's impls of them.
 //!
 //! `harness::run` is the entry point both sides of the differential test run, and
 //! `fmt::Fault` an error only `caller.ts` prints.
@@ -63,6 +64,7 @@ mod objects;
 mod orders;
 mod pointers;
 mod refs;
+mod saturates;
 mod separated;
 mod shapes;
 mod singles;
@@ -70,6 +72,7 @@ mod slices;
 mod splits;
 mod statics;
 mod strs;
+mod tuples;
 mod utf8;
 #[cfg(target_arch = "wasm32")]
 #[path = "../../wasm.rs"]

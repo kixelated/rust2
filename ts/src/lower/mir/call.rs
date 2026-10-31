@@ -641,10 +641,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					None => done(place, true),
 				}
 			}
-			// A `Wrapping` is its integer, so what the `&mut` borrows gets the wrapped result.
+			// A `Wrapping` or a `Saturating` is its integer, so what the `&mut` borrows gets the
+			// wrapped or saturated result.
 			(_, _)
 				if let Some(op) = owner.strip_suffix("Assign").and_then(library::operator)
-					&& let Some(int) = targ(0).and_then(|t| library::wrapping_of(tcx, t)) =>
+					&& let Some((overflow, int)) = targ(0).and_then(|t| library::overflowing(tcx, t)) =>
 			{
 				let place = self.borrowed_place(&args[0].node, span, out)?;
 				let by = self.operand(&args[1].node, span, out);
@@ -656,7 +657,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					expr: by,
 					value: self.const_int(&args[1].node),
 				};
-				let value = crate::lower::num::wrapping(self.b, op, l, r, int, span);
+				let value = crate::lower::num::overflowing(self.b, overflow, op, l, r, int, span);
 				self.set_borrowed(&place, value, span, out);
 				done(Expr::undefined(), false)
 			}

@@ -4,8 +4,8 @@
 use crate::{
 	arrays, atomics, borrows, bounds, captures, cells, chars, chunks, clones, collections, combinators, counts, cows,
 	cycles, defaults, durations, dyns, edits, errors, floats, fmt, folds, generics, hashes, hints, holds, ints, iters,
-	joins, keys, locals, locks, nested, objects, orders, pointers, refs, separated, shapes, singles, slices, splits,
-	statics, strs, utf8, wrappers, wraps, zeros,
+	joins, keys, locals, locks, nested, objects, orders, pointers, refs, saturates, separated, shapes, singles, slices,
+	splits, statics, strs, tuples, utf8, wrappers, wraps, zeros,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -207,6 +207,9 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("fmt::enums", |_, data, out| fmt::enums(data, out)),
 		("pointers::segments", |_, data, out| pointers::segments(data, out)),
 		("pointers::uninit_runs", |_, data, out| pointers::uninit_runs(data, out)),
+		("pointers::beside_written", |_, data, out| {
+			pointers::beside_written(data, out)
+		}),
 		("keys::byte_refs", keys::byte_refs),
 		("orders::held", |_, data, out| orders::held(data, out)),
 		("joins::joins", joins::joins),
@@ -215,6 +218,19 @@ fn cases() -> Vec<(&'static str, Case)> {
 		}),
 		("zeros::writes", zeros::writes),
 		("orders::tuples", |_, data, out| orders::tuples(data, out)),
+		("tuples::tuples", tuples::tuples),
+		("saturates::u8s", saturates::u8s),
+		("saturates::u16s", saturates::u16s),
+		("saturates::u32s", saturates::u32s),
+		("saturates::u64s", saturates::u64s),
+		("saturates::u128s", saturates::u128s),
+		("saturates::usizes", saturates::usizes),
+		("saturates::i8s", saturates::i8s),
+		("saturates::i16s", saturates::i16s),
+		("saturates::i32s", saturates::i32s),
+		("saturates::i64s", saturates::i64s),
+		("saturates::i128s", saturates::i128s),
+		("saturates::isizes", saturates::isizes),
 		("separated::separated", separated::separated),
 	]
 }

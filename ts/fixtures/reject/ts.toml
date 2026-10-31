@@ -111,5 +111,15 @@ roots = [
     "kept_across_iterations",
     "lent_kept",
     "pushed_part_kept",
+    "tallied",
+    "tallied_alone",
+    "saturating_pow",
+    "array_part_replaced",
+    "tuple_part_replaced",
+    "nested_part_replaced",
+    "payload_part_replaced",
+    "field_part_replaced",
+    "generic_part_replaced",
+    "written_part_replaced",
 ]
 printable = ["Meters"]
