@@ -21,7 +21,7 @@ import type * as lite_version_Version from "./lite/version.Version.ts";
  * moves no other.
  */
 export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => undefined> {
-	return [decodeScript as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, encodeScript as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, zigzag as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, sizes as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtrip$Versions as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtripLite$Group as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtripLite$Probe as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, encodeMessages as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, errors as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined];
+	return [decodeScript as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, encodeScript as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, zigzag as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, sizes as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtrip$coding_version_Versions as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtripLite$lite_group_Group as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, roundtripLite$lite_probe_Probe as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, encodeMessages as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined, errors as (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined];
 }
 
 /** Run one case. */
@@ -89,16 +89,16 @@ export function takeU64(data: rt.ByteSlice): [rt.u64, rt.ByteSlice] {
 /** A decode error's code, then its text. */
 export function decodeFailed(out: rt.ByteVec, err: DecodeError.DecodeError): void {
 	decodeError(out, err);
-	const _5: string = rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$Display(err, f));
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)];
+	const _5: string = rt.fmtToString((f: rt.Formatter) => DecodeError.fmt$fmt_Display(err, f));
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$fmt_Debug(err, f)];
 	putText(out, _5, rt.fmtFormat([args2[0]]));
 }
 
 /** An encode error's code, then its text. */
 export function encodeFailed(out: rt.ByteVec, err: EncodeError.EncodeError): void {
 	encodeError(out, err);
-	const _5: string = rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$Display(err, f));
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => EncodeError.fmt$Debug(err, f)];
+	const _5: string = rt.fmtToString((f: rt.Formatter) => EncodeError.fmt$fmt_Display(err, f));
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => EncodeError.fmt$fmt_Debug(err, f)];
 	putText(out, _5, rt.fmtFormat([args2[0]]));
 }
 
@@ -415,15 +415,15 @@ export function sizes(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** Decode a `T` from the wire, then encode what came out. */
-export function roundtrip$Versions(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function roundtrip$coding_version_Versions(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
 		const form_: Form.Form = form(data.data[data.start]);
-		const _8: rt.Result<[Versions.Versions, rt.usize], DecodeError.DecodeError> = Versions.decodeSlice$Decode_Form(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), form_);
+		const _8: rt.Result<[Versions.Versions, rt.usize], DecodeError.DecodeError> = Versions.decodeSlice$coding_decode_Decode_coding_varint_Form(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), form_);
 		if (_8.ok) {
 			const value: Versions.Versions = _8.value[0];
 			putUsize(out, _8.value[1]);
 			const buf: rt.ByteVec = new rt.ByteVec();
-			const _14: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Form(value, Encoder.new(buf, form_), form_);
+			const _14: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$coding_encode_Encode_coding_varint_Form(value, Encoder.new(buf, form_), form_);
 			if (_14.ok) {
 				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 			} else {
@@ -436,16 +436,16 @@ export function roundtrip$Versions(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
-export function roundtripLite$Group(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function roundtripLite$lite_group_Group(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
 		const version: lite_version_Version.Version = liteVersion(data.data[data.start]);
-		const _8: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$Decode_Version(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), version);
+		const _8: rt.Result<[Group.Group, rt.usize], DecodeError.DecodeError> = Group.decodeSlice$coding_decode_Decode_lite_version_Version(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), version);
 		if (_8.ok) {
 			const value: Group.Group = _8.value[0];
 			putUsize(out, _8.value[1]);
 			const buf: rt.ByteVec = new rt.ByteVec();
-			const _19: Form.Form = Form.from$From_Version(version);
-			const _14: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$Encode_Version(value, Encoder.new(buf, _19), version);
+			const _19: Form.Form = Form.from$convert_From_lite_version_Version(version);
+			const _14: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$coding_encode_Encode_lite_version_Version(value, Encoder.new(buf, _19), version);
 			if (_14.ok) {
 				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 			} else {
@@ -458,16 +458,16 @@ export function roundtripLite$Group(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /** [`roundtrip`] for a lite message, size-prefixed at a lite version. */
-export function roundtripLite$Probe(data: rt.ByteSlice, out: rt.ByteVec): void {
+export function roundtripLite$lite_probe_Probe(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
 		const version: lite_version_Version.Version = liteVersion(data.data[data.start]);
-		const _8: rt.Result<[Probe.Probe, rt.usize], DecodeError.DecodeError> = Probe.decodeSlice$Decode_Version(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), version);
+		const _8: rt.Result<[Probe.Probe, rt.usize], DecodeError.DecodeError> = Probe.decodeSlice$coding_decode_Decode_lite_version_Version(new rt.ByteSlice(data.data, data.start + 1, data.length - 1), version);
 		if (_8.ok) {
 			const value: Probe.Probe = _8.value[0];
 			putUsize(out, _8.value[1]);
 			const buf: rt.ByteVec = new rt.ByteVec();
-			const _19: Form.Form = Form.from$From_Version(version);
-			const _14: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$Encode_Version(value, Encoder.new(buf, _19), version);
+			const _19: Form.Form = Form.from$convert_From_lite_version_Version(version);
+			const _14: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$coding_encode_Encode_lite_version_Version(value, Encoder.new(buf, _19), version);
 			if (_14.ok) {
 				rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 			} else {
@@ -492,12 +492,12 @@ export function encodeMessages(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _19: [rt.u64, rt.ByteSlice] = takeU64(_16[1]);
 		const bitrate: rt.u64 = _19[0];
 		const rtt: rt.u64 = takeU64(_19[1])[0];
-		encodeMessage$Group({ subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) }, version, out);
-		encodeMessage$Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: thenSome$1ugl8af(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
-		const versions: Versions.Versions = Versions.from$From_Versions([{ _0: subscribe }, { _0: sequence }]);
+		encodeMessage$lite_group_Group({ subscribe, sequence, frameStart: rt.u64Rem(frameStart, 4) }, version, out);
+		encodeMessage$lite_probe_Probe({ bitrate: rt.u64CheckedSub(bitrate, 1), rtt: thenSome$1ugl8af(rt.u64Rem(rtt, 3) !== 0, rtt) }, version, out);
+		const versions: Versions.Versions = Versions.from$convert_From_array2_coding_version_Version([{ _0: subscribe }, { _0: sequence }]);
 		const buf: rt.ByteVec = new rt.ByteVec();
-		const _45: Form.Form = Form.from$From_Version(version);
-		const _40: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$Encode_Version(versions, Encoder.new(buf, _45), version);
+		const _45: Form.Form = Form.from$convert_From_lite_version_Version(version);
+		const _40: rt.Result<undefined, EncodeError.EncodeError> = Versions.encode$coding_encode_Encode_lite_version_Version(versions, Encoder.new(buf, _45), version);
 		if (_40.ok) {
 			rt.byteVecExtendFromSlice(out, rt.byteVecSlice(buf));
 		} else {
@@ -506,11 +506,11 @@ export function encodeMessages(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
-export function encodeMessage$Group(msg: Group.Group, version: lite_version_Version.Version, out: rt.ByteVec): void {
+export function encodeMessage$lite_group_Group(msg: Group.Group, version: lite_version_Version.Version, out: rt.ByteVec): void {
 	const buf: rt.ByteVec = new rt.ByteVec();
-	const _7: Form.Form = Form.from$From_Version(version);
+	const _7: Form.Form = Form.from$convert_From_lite_version_Version(version);
 	const w: Encoder.Encoder = Encoder.new(buf, _7);
-	const _8: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$Encode_Version(msg, w, version);
+	const _8: rt.Result<undefined, EncodeError.EncodeError> = Group.encode$coding_encode_Encode_lite_version_Version(msg, w, version);
 	if (_8.ok) {
 		rt.byteVecPush(out, w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
@@ -520,11 +520,11 @@ export function encodeMessage$Group(msg: Group.Group, version: lite_version_Vers
 	}
 }
 
-export function encodeMessage$Probe(msg: Probe.Probe, version: lite_version_Version.Version, out: rt.ByteVec): void {
+export function encodeMessage$lite_probe_Probe(msg: Probe.Probe, version: lite_version_Version.Version, out: rt.ByteVec): void {
 	const buf: rt.ByteVec = new rt.ByteVec();
-	const _7: Form.Form = Form.from$From_Version(version);
+	const _7: Form.Form = Form.from$convert_From_lite_version_Version(version);
 	const w: Encoder.Encoder = Encoder.new(buf, _7);
-	const _8: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$Encode_Version(msg, w, version);
+	const _8: rt.Result<undefined, EncodeError.EncodeError> = Probe.encode$coding_encode_Encode_lite_version_Version(msg, w, version);
 	if (_8.ok) {
 		rt.byteVecPush(out, w.control !== undefined ? 1 : 0);
 		putUsize(out, buf.length);
@@ -559,21 +559,21 @@ export function errors(data: rt.ByteSlice, out: rt.ByteVec): void {
 					err = { tag: "InvalidString", _0: _20.error } as DecodeError.DecodeError;
 				}
 			} else if (_10 === 5) {
-				err = DecodeError.from$From_BoundsExceeded({});
+				err = DecodeError.from$convert_From_coding_varint_BoundsExceeded({});
 			} else {
 				if (_10 === 6) {
 					const arg = {};
-					const _26: string = rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$Display(arg, f));
+					const _26: string = rt.fmtToString((f: rt.Formatter) => BoundsExceeded.fmt$fmt_Display(arg, f));
 					const arg2 = {};
-					const args2: rt.Fmt[] = [(f: rt.Formatter) => BoundsExceeded.fmt$Debug(arg2, f)];
+					const args2: rt.Fmt[] = [(f: rt.Formatter) => BoundsExceeded.fmt$fmt_Debug(arg2, f)];
 					putText(out, _26, rt.fmtFormat([args2[0], " ", rt.fmtSpec({ alternate: true }, args2[0])]));
 					break b0;
 				}
 				err = { tag: "MalformedAuthToken" } as DecodeError.DecodeError;
 			}
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Display(err, f)];
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$fmt_Display(err, f)];
 			const _38: string = rt.fmtFormat([args4[0], " ", rt.fmtSpec({ align: ">", width: 30 }, args4[0]), "|"]);
-			const args6: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$Debug(err, f)];
+			const args6: rt.Fmt[] = [(f: rt.Formatter) => DecodeError.fmt$fmt_Debug(err, f)];
 			putText(out, _38, rt.fmtFormat([rt.fmtSpec({ alternate: true }, args6[0])]));
 			decodeFailed(out, err);
 		}

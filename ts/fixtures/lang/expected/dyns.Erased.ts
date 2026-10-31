@@ -2,46 +2,46 @@
 
 import * as rt from "./rt.ts";
 import type * as Any from "./core/any.Any.ts";
-import { asAny$Erased_u32, asAnyMut$Erased_u32 } from "./dyns.ts";
-import * as dyns_Square from "./dyns.Square.ts";
-import * as dyns_Tri from "./dyns.Tri.ts";
+import { asAny$dyns_Erased_u32, asAnyMut$dyns_Erased_u32 } from "./dyns.ts";
+import * as Square from "./dyns.Square.ts";
+import * as Tri from "./dyns.Tri.ts";
 
 /** A value that knows its own type, as an object of a trait whose `as_any` gives it. */
 export type Erased = { asAny$Erased: () => Any.Any; asAnyMut$Erased: () => Any.Any };
 
-export class Square {
-	v: dyns_Square.Square;
+export class of$dyns_Square {
+	v: Square.Square;
 
-	constructor(v: dyns_Square.Square) {
+	constructor(v: Square.Square) {
 		this.v = v;
 	}
 
 	asAny$Erased(): Any.Any {
-		return dyns_Square.asAny$Erased(this.v);
+		return Square.asAny$dyns_Erased(this.v);
 	}
 
 	asAnyMut$Erased(): Any.Any {
-		return dyns_Square.asAnyMut$Erased(this.v);
+		return Square.asAnyMut$dyns_Erased(this.v);
 	}
 }
 
-export class Tri {
-	v: dyns_Tri.Tri;
+export class of$dyns_Tri {
+	v: Tri.Tri;
 
-	constructor(v: dyns_Tri.Tri) {
+	constructor(v: Tri.Tri) {
 		this.v = v;
 	}
 
 	asAny$Erased(): Any.Any {
-		return dyns_Tri.asAny$Erased(this.v);
+		return Tri.asAny$dyns_Erased(this.v);
 	}
 
 	asAnyMut$Erased(): Any.Any {
-		return dyns_Tri.asAnyMut$Erased(this);
+		return Tri.asAnyMut$dyns_Erased(this);
 	}
 }
 
-export class u32 {
+export class of$u32 {
 	v: rt.u32;
 
 	constructor(v: rt.u32) {
@@ -49,15 +49,15 @@ export class u32 {
 	}
 
 	asAny$Erased(): Any.Any {
-		return asAny$Erased_u32(this.v);
+		return asAny$dyns_Erased_u32(this.v);
 	}
 
 	asAnyMut$Erased(): Any.Any {
-		return asAnyMut$Erased_u32(this);
+		return asAnyMut$dyns_Erased_u32(this);
 	}
 }
 
-export class u32$Place {
+export class ofPlace$u32 {
 	v: rt.Place<rt.u32>;
 
 	constructor(v: rt.Place<rt.u32>) {
@@ -65,11 +65,11 @@ export class u32$Place {
 	}
 
 	asAny$Erased(): Any.Any {
-		return asAny$Erased_u32(this.v.v);
+		return asAny$dyns_Erased_u32(this.v.v);
 	}
 
 	asAnyMut$Erased(): Any.Any {
-		return asAnyMut$Erased_u32(this.v);
+		return asAnyMut$dyns_Erased_u32(this.v);
 	}
 }
 

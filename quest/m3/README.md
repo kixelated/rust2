@@ -15,7 +15,6 @@ generic std gap is planned here even when moq never calls it.
 
 - [Retrial Cranelift on moq's tests](/quest/m3/cranelift-unwind.md) - waits on upstream: moq's tests pass under Cranelift, so its CI can weigh it again
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
-- [Fresh writes through std's iterators](/quest/m3/ts-fresh-iterated.md) - a whole write reaching fresh memory through std's slice iterators no longer refuses later pointers, as writing by index already doesn't
 - [Pointers that write nothing whole](/quest/m3/ts-unwritten-pointees.md) - a `*mut T` given to a std atomic, or kept in memory, no longer counts as a whole write of `T`, so moq-net's pointers into an `AtomicWaker` translate
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
@@ -28,11 +27,12 @@ generic std gap is planned here even when moq never calls it.
 - [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
 - [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
-- [mem::replace and mem::swap of ()](/quest/m3/ts-unit-replace.md) - swapping or replacing through a `&mut ()` type-checks and matches native Rust
+- [ptr::replace whose result nothing reads](/quest/m3/ts-ptr-replace-unread.md) - `ptr::replace` with its result discarded type-checks
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [Saturating](/quest/m3/ts-saturating.md) - `Saturating<T>` and its std impls translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [A tuple's cmp typed as total](/quest/m3/ts-cmp-tuple-total.md) - `rt.cmpTuple` of total fields types its result as `Ordering`
-- [concat and join of slices of arrays](/quest/m3/ts-slice-concat.md) - `concat` and `join` of a slice of arrays or slices translate
+- [Slices split by a predicate](/quest/m3/ts-slice-split.md) - `[T]::split` and its forms by a predicate translate
+- [Boxed slices](/quest/m3/ts-boxed-slices.md) - `Box<[T]>` translates, made, read, and turned back into a `Vec`
 - [collect into tuples of collections](/quest/m3/ts-collect-tuples.md) - `collect` into a tuple of collections translates

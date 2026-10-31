@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function hash$Hash_DefaultHasher(self: Small, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Small, state: rt.Hasher): void {
 	rt.hash8({ Low: 3, High: 200 }[self], state);
 }
 

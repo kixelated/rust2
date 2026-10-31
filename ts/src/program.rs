@@ -37,10 +37,10 @@ pub type ModPath = Vec<String>;
 #[derive(Debug)]
 pub struct Symbol {
 	pub module: ModPath,
-	/// The name it would like, before collisions are resolved.
+	/// Its item's name, which its instances share.
 	pub base: String,
 	/// Appended after a `$`, whether or not another instance of its item is reached:
-	/// what tells the instance apart, such as `Display_Pair`. Empty for none.
+	/// what tells the instance apart, such as `fmt_Display_copy_Pair`. Empty for none.
 	pub suffix: String,
 	/// The class a method belongs to.
 	pub owner: Option<SymId>,
@@ -48,6 +48,9 @@ pub struct Symbol {
 	/// Its source position in rustc's source map, which numbers files in the order it
 	/// loads them.
 	pub order: u32,
+	/// Where it is defined, or first reached for what translation makes, which a collision
+	/// of its name reports.
+	pub span: rustc_span::Span,
 	/// The function instance it is, printed in full; empty for anything else.
 	pub instance: String,
 	/// The final name, set by [`Program::name`].
@@ -195,8 +198,8 @@ impl Names {
 	}
 }
 
-/// A name as far as its first `$`, which the suffixes and numbers after it only tell apart
-/// within one module.
+/// A name as far as its first `$`, which the suffix after it only tells apart within one
+/// module.
 pub fn root(name: &str) -> &str {
 	name.split('$').next().unwrap_or(name)
 }
@@ -316,9 +319,10 @@ impl Program {
 		}
 	}
 
-	/// Put every item and method in order, and name every symbol and field, resolving
-	/// collisions within each scope in that order.
-	pub fn name(&mut self) -> Result<(), String> {
+	/// Put every item and method in order, and name every symbol and field: each symbol by
+	/// its base and suffix alone, failing where two in one scope would share a name, and a
+	/// field by its own, numbered where it clashes in its class.
+	pub fn name(&mut self) -> Result<(), (rustc_span::Span, String)> {
 		let syms = &self.syms;
 		self.items
 			.sort_by(|a, b| syms[item_sym(a)].key().cmp(&syms[item_sym(b)].key()));
@@ -347,15 +351,13 @@ impl Program {
 				continue;
 			}
 			ids.sort_by(|&a, &b| self.syms[a].key().cmp(&self.syms[b].key()));
-			let mut taken = HashSet::new();
-			match &scope {
-				// The runtime's import binding.
-				Scope::Module(_) => {
-					taken.insert("rt".to_string());
-				}
-				// What a class already defines.
-				Scope::Owner(_) => taken.extend(["constructor".to_string(), "prototype".to_string()]),
-			}
+			// What a class already defines, and else the runtime's import binding.
+			let defined: &[&str] = match &scope {
+				Scope::Module(_) => &["rt"],
+				Scope::Owner(_) => &["constructor", "prototype"],
+			};
+			let mut named: HashMap<String, Option<SymId>> =
+				defined.iter().map(|name| (name.to_string(), None)).collect();
 			for id in ids {
 				let sym = &self.syms[id];
 				if self.by_text(id) {
@@ -365,14 +367,35 @@ impl Program {
 					true => sym.base.clone(),
 					false => format!("{}${}", sym.base, sym.suffix),
 				};
-				let escaped = match sym.kind {
+				let name = match sym.kind {
 					SymKind::Function | SymKind::Value => crate::lower::escape(&base),
 					_ => base.clone(),
 				};
-				let name = unique(&mut taken, &escaped);
-				self.syms[id].alias = (name == escaped && escaped != base).then_some(base);
+				if let Some(other) = named.insert(name.clone(), Some(id)) {
+					let what = |sym: &Symbol| match sym.instance.is_empty() {
+						true => format!("`{}`", sym.base),
+						false => format!("`{}`", sym.instance),
+					};
+					let file = module_file(&sym.module);
+					let msg = match other {
+						Some(other) => format!(
+							"{} and {} would both be named `{name}` in {}",
+							what(&self.syms[other]),
+							what(sym),
+							file.display()
+						),
+						None => format!(
+							"{} would be named `{name}`, which {} defines",
+							what(sym),
+							file.display()
+						),
+					};
+					return Err((sym.span, msg));
+				}
+				self.syms[id].alias = (name != base).then_some(base);
 				self.syms[id].name = name;
 			}
+			let mut taken: HashSet<String> = named.into_keys().collect();
 			if let Scope::Owner(owner) = scope {
 				for field in self.fields.iter_mut().filter(|f| f.owner == owner) {
 					let base = match field.base.strip_prefix('#') {
@@ -401,7 +424,7 @@ impl Program {
 	/// what it calls by name, so the name is the same whichever of the instances that merged
 	/// into it translation reaches. Those it calls are named first; instances that call each
 	/// other read each other's calls alike.
-	fn name_by_text(&mut self) -> Result<(), String> {
+	fn name_by_text(&mut self) -> Result<(), (rustc_span::Span, String)> {
 		let functions: BTreeMap<SymId, &Function> = (self.items.iter())
 			.filter_map(|item| match item {
 				Item::Function(f) if self.by_text(f.sym) => Some((f.sym, f)),
@@ -443,9 +466,12 @@ impl Program {
 		for (id, name) in names {
 			let module = &self.syms[id].module;
 			if self.syms.iter().any(|s| &s.module == module && s.name == name) {
-				return Err(format!(
-					"two functions of {} hash to one name, {name}",
-					module_file(module).display()
+				return Err((
+					self.syms[id].span,
+					format!(
+						"two functions of {} hash to one name, {name}",
+						module_file(module).display()
+					),
 				));
 			}
 			self.syms[id].name = name;

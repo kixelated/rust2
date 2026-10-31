@@ -16,7 +16,7 @@ export function clone$Clone(self: Names): Names {
 	return { _0: undefined, _1: undefined, _2: undefined, _3: undefined, _4: undefined, _5: undefined, _6: undefined, _7: undefined, _8: undefined, _9: undefined };
 }
 
-export function fmt$Debug(_self: Names, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(_self: Names, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const values: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<u8>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<alloc::string::String>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<(i64, bool)>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<&str>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<[u16; 3]>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<alloc::vec::Vec<core::option::Option<char>>>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<fn(u8) -> u8>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<lang_fixture::zeros::Unit>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<lang_fixture::zeros::Tagged<()>>"), (f: rt.Formatter) => rt.fmtWriteStr(f, "PhantomData<()>")];
 	return rt.fmtDebugTupleFields(f, "Names", values);
 }
@@ -35,7 +35,7 @@ export function default$Default(): Names {
 	return { _0: undefined, _1: undefined, _2: undefined, _3: undefined, _4: undefined, _5: undefined, _6: undefined, _7: undefined, _8: undefined, _9: undefined };
 }
 
-export function eq$PartialEq(_self: Names, _other: Names): boolean {
+export function eq$cmp_PartialEq(_self: Names, _other: Names): boolean {
 	if (true) {
 		if (true) {
 			if (true) {
@@ -58,7 +58,7 @@ export function eq$PartialEq(_self: Names, _other: Names): boolean {
 	return false;
 }
 
-export function cmp$Ord(self: Names, other: Names): rt.Ordering {
+export function cmp$cmp_Ord(self: Names, other: Names): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmpNothing(self._0, other._0);
 	if (cmp === 0) {
 		const cmp2: rt.Ordering = rt.cmpNothing(self._1, other._1);
@@ -98,7 +98,7 @@ export function cmp$Ord(self: Names, other: Names): rt.Ordering {
 	return cmp;
 }
 
-export function hash$Hash_DefaultHasher(self: Names, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Names, state: rt.Hasher): void {
 	rt.hashNothing(self._0, state);
 	rt.hashNothing(self._1, state);
 	rt.hashNothing(self._2, state);

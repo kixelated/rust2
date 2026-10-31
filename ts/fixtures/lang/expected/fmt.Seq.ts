@@ -7,10 +7,10 @@ export interface Seq {
 	_0: fmt_Pair.Pair[];
 }
 
-export function fmt$Debug(self: Seq, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Seq, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _5: rt.DebugList = rt.fmtDebugList(f);
 	const _6: rt.Iter<fmt_Pair.Pair> = rt.iterSlice(self._0);
-	return rt.debugListFinish(rt.debugListEntries(_5, _6, (value: fmt_Pair.Pair, f: rt.Formatter) => fmt_Pair.fmt$Debug(value, f)));
+	return rt.debugListFinish(rt.debugListEntries(_5, _6, (value: fmt_Pair.Pair, f: rt.Formatter) => fmt_Pair.fmt$fmt_Debug(value, f)));
 }
 
 //# sourceMappingURL=fmt.Seq.ts.map

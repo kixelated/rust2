@@ -13,12 +13,12 @@ export class Noisy {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.log[Symbol.dispose]();
 	}
 }
 
-export function drop$Drop(self: Noisy): void {
+export function drop$ops_Drop(self: Noisy): void {
 	const _5: rt.Mutex<rt.ByteVec> = rt.mutexLock(self.log.value);
 	rt.byteVecPush(_5.value, self.id);
 	rt.mutexUnlock(_5);

@@ -3,7 +3,8 @@
 //! variant, `PhantomData`, closures that capture nothing, and std's iterators made of
 //! them, as results, as values, in collections, and as they drop; and std's impls of its
 //! own, as `#[derive]` calls them on a field, and of `()` as a key and a collected item;
-//! and parameters whose every read lowers to nothing.
+//! parameters whose every read lowers to nothing; and writes through a `&mut` or a
+//! pointer to one, which write nothing.
 
 use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -442,4 +443,113 @@ pub fn unread(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.extend(LOG.load(Relaxed).to_be_bytes());
 		}
 	}
+}
+
+/// A fresh `&mut ()`, after logging `tag`.
+fn leaked(tag: u32) -> &'static mut () {
+	log(tag);
+	Box::leak(Box::new(()))
+}
+
+/// A fresh `*mut ()`, after logging `tag`.
+fn raw(tag: u32) -> *mut () {
+	log(tag);
+	Box::into_raw(Box::new(()))
+}
+
+/// What `T::default` makes, after logging 5.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Defaulted;
+
+impl Default for Defaulted {
+	fn default() -> Self {
+		log(5);
+		Defaulted
+	}
+}
+
+/// Writes through a `&mut` or a pointer to a value of no bytes, which have nothing to
+/// read or write but still run their operands.
+pub fn writes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	LOG.store(0, Relaxed);
+	let n = data.len() as u8;
+	match kind % 5 {
+		// `mem`'s, of `()`, through what a call makes and through locals.
+		0 => {
+			let _ = std::mem::replace(leaked(1), ());
+			let mut u = ();
+			let old = std::mem::replace(&mut u, ());
+			out.push(u8::from(old == u));
+			std::mem::swap(leaked(2), &mut ());
+			std::mem::swap(leaked(3), leaked(4));
+			std::mem::take(leaked(6));
+			let t: () = std::mem::take(&mut u);
+			out.push(u8::from(t == u) | n << 1);
+		}
+		// Of `PhantomData` and unit structs, one whose `Default` has an effect.
+		1 => {
+			let mut p = PhantomData::<u8>;
+			let q = std::mem::replace(&mut p, PhantomData);
+			std::mem::swap(&mut p, &mut PhantomData);
+			out.push(u8::from(p == q));
+			let mut a = Unit;
+			let mut b = unit();
+			std::mem::swap(&mut a, &mut b);
+			std::mem::take(&mut a);
+			let t = std::mem::take(&mut b);
+			out.push(u8::from(a == t) | n << 1);
+			let mut c = Defaulted;
+			let d = std::mem::take(&mut c);
+			let _ = std::mem::replace(&mut c, Defaulted);
+			out.push(u8::from(c == d));
+		}
+		// Through raw pointers.
+		2 => unsafe {
+			let p = raw(1);
+			p.write(());
+			let r: () = p.read();
+			let _ = p.replace(r);
+			std::ptr::swap(p, raw(2));
+			std::ptr::swap(raw(3), std::ptr::dangling_mut());
+			raw(4).write(());
+			let mut s = Unit;
+			let q: *mut Unit = &mut s;
+			std::ptr::write(q, Unit);
+			let old = std::ptr::replace(q, unit());
+			std::ptr::swap(q, &mut Unit);
+			out.push(u8::from(std::ptr::read(q) == old) | n << 1);
+		},
+		// Through `Cell`s and slices, whose bounds still panic.
+		3 => {
+			let c = std::cell::Cell::new(());
+			let _ = c.replace(());
+			let t: () = c.take();
+			c.set(t);
+			let units = &mut [(); 3];
+			units.swap(0, usize::from(n));
+			let mut v = vec![Unit; 2];
+			v.swap(0, 1);
+			out.push(units.len() as u8 | (v.len() as u8) << 4);
+			let p = std::cell::Cell::new(PhantomData::<u8>);
+			let _ = p.replace(PhantomData);
+			out.push(u8::from(p.take() == PhantomData));
+		}
+		// `Option<()>`, which has a byte, and replaces of others whose result nothing reads.
+		_ => {
+			let mut o = (n > 0).then_some(());
+			let old = o.replace(());
+			out.push(u8::from(old.is_some()) | u8::from(o.is_some()) << 1);
+			let taken = o.take();
+			let _ = o.take();
+			out.push(u8::from(taken.is_some()) | u8::from(o.is_some()) << 1);
+			let mut x = n;
+			let _ = std::mem::replace(&mut x, 1);
+			let _ = std::mem::take(&mut x);
+			let mut y = Some(n);
+			let _ = y.take();
+			let _ = y.replace(n);
+			out.push(x | y.unwrap_or(0) << 4);
+		}
+	}
+	out.extend(LOG.load(Relaxed).to_be_bytes());
 }

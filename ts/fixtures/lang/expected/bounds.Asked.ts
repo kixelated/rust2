@@ -14,22 +14,22 @@ export class Asked<T> {
 	}
 }
 
-export function startBound$RangeBounds_u8_u8(self: Asked<rt.u8>): rt.RangeBound<rt.u8> {
+export function startBound$ops_RangeBounds_u8_u8(self: Asked<rt.u8>): rt.RangeBound<rt.u8> {
 	bounds_log(165);
 	return self.start;
 }
 
-export function startBound$RangeBounds_usize_usize(self: Asked<rt.usize>): rt.RangeBound<rt.usize> {
+export function startBound$ops_RangeBounds_usize_usize(self: Asked<rt.usize>): rt.RangeBound<rt.usize> {
 	bounds_log(165);
 	return self.start;
 }
 
-export function endBound$RangeBounds_u8_u8(self: Asked<rt.u8>): rt.RangeBound<rt.u8> {
+export function endBound$ops_RangeBounds_u8_u8(self: Asked<rt.u8>): rt.RangeBound<rt.u8> {
 	bounds_log(174);
 	return self.end;
 }
 
-export function endBound$RangeBounds_usize_usize(self: Asked<rt.usize>): rt.RangeBound<rt.usize> {
+export function endBound$ops_RangeBounds_usize_usize(self: Asked<rt.usize>): rt.RangeBound<rt.usize> {
 	bounds_log(174);
 	return self.end;
 }

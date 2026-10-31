@@ -7,7 +7,7 @@ export interface Shown {
 	_0: rt.Fmt;
 }
 
-export function fmt$Debug(self: Shown, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Shown, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return self._0(f);
 }
 

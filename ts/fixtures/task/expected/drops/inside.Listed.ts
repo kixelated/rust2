@@ -22,15 +22,15 @@ export class Listed {
 	}
 }
 
-export function fmt$Debug(self: Listed, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Listed, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const guard: (a0: rt.u8) => Shown.Shown = (n: rt.u8): Shown.Shown => {
 		return new Shown.Shown(Guard.new(rt.u32Add(self._0, n as rt.u32), Log.clone$Clone(self._1)));
 	};
 	const list: rt.DebugList = rt.fmtDebugList(f);
 	const _11: rt.Iter<Shown.Shown> = rt.iterMap(new rt.Range(0, self._2), guard);
-	rt.debugListEntries(list, _11, (value: Shown.Shown, f: rt.Formatter) => Shown.fmt$Debug(value, f), rt.drop);
+	rt.debugListEntries(list, _11, (value: Shown.Shown, f: rt.Formatter) => Shown.fmt$fmt_Debug(value, f), rt.drop);
 	const _16: Shown.Shown[] = rt.iterToArray(rt.iterMap(new rt.Range(10, rt.u8Add(10, self._2)), guard), undefined, 8, true);
-	rt.debugListEntries(list, _16, (value: Shown.Shown, f: rt.Formatter) => Shown.fmt$Debug(value, f), rt.drop);
+	rt.debugListEntries(list, _16, (value: Shown.Shown, f: rt.Formatter) => Shown.fmt$fmt_Debug(value, f), rt.drop);
 	const _24: rt.Iter<rt.u32> = rt.iterMap(rt.iterSlice(rt.iterToArray(rt.iterMap(new rt.Range(20, rt.u8Add(20, self._2)), guard), undefined, 8, true), rt.drop), (g: Shown.Shown): rt.u32 => {
 		const _03: rt.u32 = Guard.id(g._0);
 		g[Symbol.dispose]();
@@ -38,7 +38,7 @@ export function fmt$Debug(self: Listed, f: rt.Formatter): rt.Result<undefined, r
 	});
 	rt.debugListEntries(list, _24, rt.u32Debug);
 	const kept: Shown.Shown[] = rt.iterToArray(rt.iterMap(new rt.Range(30, rt.u8Add(30, self._2)), guard), undefined, 8, true);
-	rt.debugListEntries(list, kept, (value: Shown.Shown, f: rt.Formatter) => Shown.fmt$Debug(value, f));
+	rt.debugListEntries(list, kept, (value: Shown.Shown, f: rt.Formatter) => Shown.fmt$fmt_Debug(value, f));
 	const _0: rt.Result<undefined, rt.FmtError> = rt.debugListFinish(list);
 	rt.dropAll(kept);
 	return _0;

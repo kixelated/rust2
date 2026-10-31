@@ -12,13 +12,13 @@ export class Halving<T> {
 	}
 }
 
-export function next$Iterator_u8(self: Halving<rt.u8>): rt.u8 | rt.Done {
+export function next$iter_Iterator_u8(self: Halving<rt.u8>): rt.u8 | rt.Done {
 	const value: rt.u8 = self.value;
 	self.value = rt.u8Div(self.value, 2);
 	return rt.iterFromOption(thenSome$0d5am30(value !== 0, value));
 }
 
-export function next$Iterator_u64(self: Halving<rt.u64>): rt.u64 | rt.Done {
+export function next$iter_Iterator_u64(self: Halving<rt.u64>): rt.u64 | rt.Done {
 	if (self.value === 0) {
 		return rt.DONE;
 	}

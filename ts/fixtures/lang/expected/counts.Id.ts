@@ -6,7 +6,7 @@ import * as counts_Noisy from "./counts.Noisy.ts";
 /** What a trait object of a `Noisy` reads. */
 export type Id = { id$Id: () => rt.u8 };
 
-export class Noisy {
+export class of$counts_Noisy {
 	v: counts_Noisy.Noisy;
 
 	constructor(v: counts_Noisy.Noisy) {
@@ -18,7 +18,7 @@ export class Noisy {
 	}
 
 	id$Id(): rt.u8 {
-		return counts_Noisy.id$Id(this.v);
+		return counts_Noisy.id$counts_Id(this.v);
 	}
 }
 

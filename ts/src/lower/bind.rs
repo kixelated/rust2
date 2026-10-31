@@ -13,7 +13,7 @@ use rustc_metadata::creader::CStore;
 use rustc_middle::ty::{self, Instance, InstanceKind, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
-use super::{Translator, camel, short_name};
+use super::{Translator, camel, names};
 use crate::program::{Bound, Check, ModPath, Program, SymKind, Symbol, module_file};
 use crate::ts::{Expr, Function, Item, Param, StmtKind, SymId, Type};
 
@@ -404,6 +404,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			owner: None,
 			kind,
 			order: 0,
+			span: rustc_span::DUMMY_SP,
 			instance: String::new(),
 			name,
 			alias: None,
@@ -420,6 +421,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			owner: None,
 			kind: SymKind::Function,
 			order: self.program.checks.len() as u32,
+			span,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,
@@ -610,19 +612,14 @@ pub fn check_module() -> ModPath {
 /// implements with the trait's type arguments as the impl names them, as a translated
 /// function's suffix has them, but not the type arguments of the type or the function,
 /// which a generic TS function takes. `Bytes::slice` is `slice`, and `Bytes`'s
-/// `PartialEq<[u8]>` is `eq$PartialEq_u8s`.
+/// `PartialEq<[u8]>` is `eq$cmp_PartialEq_slice_u8`.
 fn export_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 	let base = camel(tcx.item_name(def_id).as_str());
 	let Some(imp) = tcx.trait_impl_of_assoc(def_id) else {
 		return base;
 	};
 	let trait_ref = tcx.impl_trait_ref(imp).instantiate_identity().skip_norm_wip();
-	let mut parts = vec![tcx.item_name(trait_ref.def_id).to_string()];
-	let args = tcx
-		.generics_of(trait_ref.def_id)
-		.own_args_no_defaults(tcx, trait_ref.args);
-	parts.extend(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)));
-	format!("{base}${}", parts.join("_"))
+	format!("{base}${}", names::trait_name(tcx, trait_ref))
 }
 
 /// The item `segments` name under `module`, through modules, and then a type's inherent

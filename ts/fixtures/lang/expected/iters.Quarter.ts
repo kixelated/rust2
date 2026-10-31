@@ -8,7 +8,7 @@ export interface Quarter {
 	_1: rt.Cell<rt.u8>;
 }
 
-export function eq$PartialEq_u8(self: Quarter, other: rt.u8): boolean {
+export function eq$cmp_PartialEq_u8(self: Quarter, other: rt.u8): boolean {
 	rt.cellSet(self._1, rt.u8WrappingAdd(self._1.v, 1));
 	return rt.u8Rem(self._0, 4) === rt.u8Rem(other, 4);
 }

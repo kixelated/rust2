@@ -19,13 +19,13 @@ export class Relay {
 	}
 }
 
-export function wake$Wake(self: rt.Arc<Relay>): void {
+export function wake$task_Wake(self: rt.Arc<Relay>): void {
 	Guard.note(self.value.guard, "relay wake");
 	self.value.task.wakeByRef();
 	self[Symbol.dispose]();
 }
 
-export function wakeByRef$Wake(self: rt.Arc<Relay>): void {
+export function wakeByRef$task_Wake(self: rt.Arc<Relay>): void {
 	Guard.note(self.value.guard, "relay wake_by_ref");
 	self.value.task.wakeByRef();
 }

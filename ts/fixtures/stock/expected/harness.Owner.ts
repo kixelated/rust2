@@ -8,7 +8,7 @@ export interface Owner {
 	skip: rt.usize;
 }
 
-export function asRef$AsRef_u8s(self: Owner): rt.ByteSlice {
+export function asRef$convert_AsRef_slice_u8(self: Owner): rt.ByteSlice {
 	const part = rt.min(self.skip, self.data.length);
 	return rt.byteSliceRange(rt.byteVecSlice(self.data), part);
 }

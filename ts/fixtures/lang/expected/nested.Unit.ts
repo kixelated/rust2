@@ -5,7 +5,7 @@ import * as rt from "./rt.ts";
 export interface Unit {
 }
 
-export function made$Made(_self: Unit, _2: rt.u8): void {
+export function made$nested_Made(_self: Unit, _2: rt.u8): void {
 }
 
 //# sourceMappingURL=nested.Unit.ts.map

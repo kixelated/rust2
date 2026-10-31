@@ -8,7 +8,7 @@ import * as rt from "./rt.ts";
  */
 export type Way = "Up" | "Top" | "Down";
 
-export function eq$PartialEq(self: Way, other: Way): boolean {
+export function eq$cmp_PartialEq(self: Way, other: Way): boolean {
 	let _3!: boolean;
 	let _5!: boolean;
 	if (self === "Down") {
@@ -24,7 +24,7 @@ export function eq$PartialEq(self: Way, other: Way): boolean {
 	return _3 === _5;
 }
 
-export function hash$Hash_DefaultHasher(self: Way, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Way, state: rt.Hasher): void {
 	let _5!: boolean;
 	if (self === "Down") {
 		_5 = true;

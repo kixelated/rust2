@@ -6,7 +6,7 @@ export function clone$Clone(self: Run): Run {
 	return { words: rt.cowClone(self.words) };
 }
 
-export function fmt$Debug(self: Run, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Run, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Run";
 	const _4: string = "words";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtList(rt.cowSlice(self.words), f, rt.u16Debug);
@@ -18,11 +18,11 @@ export function default$Default(): Run {
 	return { words: _1 };
 }
 
-export function eq$PartialEq(self: Run, other: Run): boolean {
+export function eq$cmp_PartialEq(self: Run, other: Run): boolean {
 	return rt.eqSlice(rt.same)(rt.cowSlice(self.words), rt.cowSlice(other.words));
 }
 
-export function hash$Hash_DefaultHasher(self: Run, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Run, state: rt.Hasher): void {
 	rt.hashCow(rt.hashSlice(rt.hash16))(self.words, state);
 }
 

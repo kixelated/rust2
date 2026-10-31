@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Rank, other: Rank): boolean {
+export function eq$cmp_PartialEq(self: Rank, other: Rank): boolean {
 	if (!({ Low: 0, Mid: 1, High: 2 }[self.tag] === { Low: 0, Mid: 1, High: 2 }[other.tag])) {
 		return false;
 	}
@@ -21,7 +21,7 @@ export function eq$PartialEq(self: Rank, other: Rank): boolean {
 	return true;
 }
 
-export function hash$Hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
 	rt.hash32({ Low: 0, Mid: 1, High: 2 }[self.tag], state);
 	if (self.tag === "Mid") {
 		rt.hash8(self._0, state);
@@ -31,7 +31,7 @@ export function hash$Hash_DefaultHasher(self: Rank, state: rt.Hasher): void {
 	}
 }
 
-export function cmp$Ord(self: Rank, other: Rank): rt.Ordering {
+export function cmp$cmp_Ord(self: Rank, other: Rank): rt.Ordering {
 	if (self.tag === "Mid") {
 		if (other.tag === "Mid") {
 			return rt.cmp(self._0, other._0);

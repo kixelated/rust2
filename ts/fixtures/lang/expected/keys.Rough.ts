@@ -10,11 +10,11 @@ export interface Rough {
 	_0: rt.u8;
 }
 
-export function eq$PartialEq(self: Rough, other: Rough): boolean {
+export function eq$cmp_PartialEq(self: Rough, other: Rough): boolean {
 	return self._0 === other._0;
 }
 
-export function partialCmp$PartialOrd(self: Rough, other: Rough): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Rough, other: Rough): rt.Ordering | undefined {
 	let _3!: boolean;
 	if (!(self._0 > 200)) {
 		_3 = other._0 > 200;

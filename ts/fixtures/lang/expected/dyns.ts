@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import * as Any from "./core/any.Any.ts";
 import { unwrapOr$1iemzn8 as option_unwrapOr$1iemzn8, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, map$1i542n2 as option_map$1i542n2, mapOr$06rr3sb as option_mapOr$06rr3sb } from "./core/option.ts";
-import { ok$1bbzz6g, map$0zzqmaz as result_map$0zzqmaz } from "./core/result.ts";
+import { ok$0lceojf, map$0zzqmaz as result_map$0zzqmaz } from "./core/result.ts";
 import * as dyns_Erased from "./dyns.Erased.ts";
 import type * as Hits from "./dyns.Hits.ts";
 import * as Hook from "./dyns.Hook.ts";
@@ -15,29 +15,29 @@ import * as Tri from "./dyns.Tri.ts";
 import { put as fmt_put } from "./fmt.ts";
 
 /** Provided, and overridden by one impl. */
-export function sides$Shape_u32(_self: rt.u32): rt.u8 {
+export function sides$dyns_Shape_u32(_self: rt.u32): rt.u8 {
 	return 4;
 }
 
-export function intoArea$Shape_u32(self: rt.u32): rt.u32 {
-	return rt.u32WrappingAdd(area$Shape_u32(self), 1);
+export function intoArea$dyns_Shape_u32(self: rt.u32): rt.u32 {
+	return rt.u32WrappingAdd(area$dyns_Shape_u32(self), 1);
 }
 
 /** Over early-bound lifetimes, which its signature takes as arguments too. */
-export function larger$Shape_u32(self: rt.u32, other: rt.u32): rt.u32 {
-	return rt.max(area$Shape_u32(self), other);
+export function larger$dyns_Shape_u32(self: rt.u32, other: rt.u32): rt.u32 {
+	return rt.max(area$dyns_Shape_u32(self), other);
 }
 
 /** Writes through a `&mut` to a number, which is an `rt.Place`. */
-export function tally$Shape_u32(self: rt.u32, sum: rt.Place<rt.u32>): void {
-	sum.v = rt.u32WrappingAdd(sum.v, area$Shape_u32(self));
+export function tally$dyns_Shape_u32(self: rt.u32, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$dyns_Shape_u32(self));
 }
 
-export function area$Shape_u32(self: rt.u32): rt.u32 {
+export function area$dyns_Shape_u32(self: rt.u32): rt.u32 {
 	return self;
 }
 
-export function grow$Shape_u32(self: rt.Place<rt.u32>, by: rt.u8): void {
+export function grow$dyns_Shape_u32(self: rt.Place<rt.u32>, by: rt.u8): void {
 	self.v = rt.u32WrappingMul(self.v, by as rt.u32);
 }
 
@@ -53,13 +53,13 @@ export function growTwice(s: dyns_Shape.Shape, by: rt.u8): void {
 }
 
 /** Over a type parameter that the trait object instantiates. */
-export function sidesOf$Square(s: Square.Square): rt.u8 {
-	return Square.sides$Shape(s);
+export function sidesOf$dyn_dyns_Shape(s: dyns_Shape.Shape): rt.u8 {
+	return s.sides$Shape();
 }
 
 /** Over a type parameter that the trait object instantiates. */
-export function sidesOf$dyn_Shape(s: dyns_Shape.Shape): rt.u8 {
-	return s.sides$Shape();
+export function sidesOf$dyns_Square(s: Square.Square): rt.u8 {
+	return Square.sides$dyns_Shape(s);
 }
 
 export function upcast(n: dyns_Named.Named): dyns_Shape.Shape {
@@ -69,14 +69,14 @@ export function upcast(n: dyns_Named.Named): dyns_Shape.Shape {
 export function make(kind: rt.u8, n: rt.u8): dyns_Named.Named {
 	let _10!: Tri.Tri;
 	if (rt.u8Rem(kind, 2) === 0) {
-		return new dyns_Named.Square({ side: n as rt.u16 });
+		return new dyns_Named.of$dyns_Square({ side: n as rt.u16 });
 	}
 	if (!(rt.u8Rem(n, 3) === 0)) {
 		_10 = { tag: "Tall", _0: n } as Tri.Tri;
 	} else {
 		_10 = { tag: "Flat" } as Tri.Tri;
 	}
-	return new dyns_Named.Tri(_10);
+	return new dyns_Named.of$dyns_Tri(_10);
 }
 
 export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
@@ -94,17 +94,17 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 			tri = { tag: "Flat" } as Tri.Tri;
 		}
 		let n: rt.u32 = c as rt.u32;
-		const part = total([new dyns_Shape.Square(sq), new dyns_Shape.Tri(tri), new dyns_Shape.u32(n)]);
+		const part = total([new dyns_Shape.of$dyns_Square(sq), new dyns_Shape.of$dyns_Tri(tri), new dyns_Shape.of$u32(n)]);
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];
 		fmt_put(out, rt.fmtFormat([args2[0], " "]));
-		growTwice(new dyns_Shape.Square(sq), b);
-		growTwice(new dyns_Shape.Tri$Place(rt.place(() => tri, (value) => tri = value)), c);
-		growTwice(new dyns_Shape.u32$Place(rt.place(() => n, (value2) => n = value2)), a);
+		growTwice(new dyns_Shape.of$dyns_Square(sq), b);
+		growTwice(new dyns_Shape.ofPlace$dyns_Tri(rt.place(() => tri, (value) => tri = value)), c);
+		growTwice(new dyns_Shape.ofPlace$u32(rt.place(() => n, (value2) => n = value2)), a);
 		const arg = sq.side;
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f), (f: rt.Formatter) => Tri.fmt$Debug(tri, f), (f: rt.Formatter) => rt.u32Display(n, f)];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f), (f: rt.Formatter) => Tri.fmt$fmt_Debug(tri, f), (f: rt.Formatter) => rt.u32Display(n, f)];
 		fmt_put(out, rt.fmtFormat([args4[0], " ", args4[1], " ", args4[2], " "]));
-		const _78: rt.u8 = sidesOf$dyn_Shape(new dyns_Shape.Tri(tri));
-		const _82: rt.u8 = sidesOf$Square(sq);
+		const _78: rt.u8 = sidesOf$dyn_dyns_Shape(new dyns_Shape.of$dyns_Tri(tri));
+		const _82: rt.u8 = sidesOf$dyns_Square(sq);
 		const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(_78, f), (f: rt.Formatter) => rt.u8Display(_82, f)];
 		fmt_put(out, rt.fmtFormat([args6[0], " ", args6[1], " "]));
 		const shapes: dyns_Named.Named[] = [];
@@ -131,7 +131,7 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			const _129: string = s.v.label$Named();
 			const _132: rt.u32 = s.v.area$Shape();
-			const _135: rt.u8 = sidesOf$dyn_Shape(upcast(s.v));
+			const _135: rt.u8 = sidesOf$dyn_dyns_Shape(upcast(s.v));
 			const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _129), (f: rt.Formatter) => rt.u32Display(_132, f), (f: rt.Formatter) => rt.u8Display(_135, f), (f: rt.Formatter) => s.v.fmt$Debug(f)];
 			fmt_put(out, rt.fmtFormat([args8[0], ":", args8[1], ":", args8[2], ":", args8[3], " "]));
 		}
@@ -142,63 +142,63 @@ export function dyns(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _167: Tri.Tri = tri;
 		const at2 = rt.idx(shapes, 0);
 		const _175: rt.u32 = sum;
-		const _165: Shown.Shown = { _0: (f: rt.Formatter) => Tri.fmt$Debug(_167, f) };
+		const _165: Shown.Shown = { _0: (f: rt.Formatter) => Tri.fmt$fmt_Debug(_167, f) };
 		const _169: rt.u32 = shapes[at2].larger$Shape(b as rt.u32);
-		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_175, f), (f: rt.Formatter) => Shown.fmt$Debug(_165, f), (f: rt.Formatter) => rt.u32Display(_169, f)];
+		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_175, f), (f: rt.Formatter) => Shown.fmt$fmt_Debug(_165, f), (f: rt.Formatter) => rt.u32Display(_169, f)];
 		fmt_put(out, rt.fmtFormat([args10[0], " ", args10[1], " ", args10[2], " "]));
 		for (const s2 of shapes) {
 			sum = rt.u32WrappingAdd(sum, s2.intoArea$Shape());
 		}
 		const _204: rt.u32 = sum;
-		const _203: rt.u32 = new dyns_Shape.u32(n).intoArea$Shape();
+		const _203: rt.u32 = new dyns_Shape.of$u32(n).intoArea$Shape();
 		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_204, f), (f: rt.Formatter) => rt.u32Display(_203, f)];
 		fmt_put(out, rt.fmtFormat([args12[0], " ", args12[1]]));
 	}
 }
 
-export function counts$Hits(arcs: rt.Arc<Hits.Hits>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Hits.Hits>): string => {
+export function counts$dyn_dyns_Named(arcs: rt.Arc<dyns_Named.Named>[]): string {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Named.Named>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
-export function counts$Square(arcs: rt.Arc<Square.Square>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Square.Square>): string => {
+export function counts$dyn_dyns_Shape(arcs: rt.Arc<dyns_Shape.Shape>[]): string {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Shape.Shape>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
-export function counts$dyn_Named(arcs: rt.Arc<dyns_Named.Named>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Named.Named>): string => {
+export function counts$dyns_Hits(arcs: rt.Arc<Hits.Hits>[]): string {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Hits.Hits>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
-export function counts$dyn_Shape(arcs: rt.Arc<dyns_Shape.Shape>[]): string {
-	return rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<dyns_Shape.Shape>): string => {
+export function counts$dyns_Square(arcs: rt.Arc<Square.Square>[]): string {
+	return rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(arcs), (a: rt.Arc<Square.Square>): string => {
 		const _42: rt.usize = a.strong;
 		return rt.fmtToString((f: rt.Formatter) => rt.usizeDisplay(_42, f));
-	}), undefined, 12, true).join(",");
+	}), undefined, 12, true), ",");
 }
 
 export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length >= 2) {
 		const sq: rt.Arc<Square.Square> = new rt.Arc({ side: data.data[data.start] as rt.u16 });
 		const _13: rt.Arc<Square.Square> = rt.arcClone(sq);
-		const named: rt.Arc<dyns_Named.Named> = new rt.ArcDyn(_13, new dyns_Named.Square(_13.value));
+		const named: rt.Arc<dyns_Named.Named> = new rt.ArcDyn(_13, new dyns_Named.of$dyns_Square(_13.value));
 		const _16: rt.Arc<Square.Square> = rt.arcClone(sq);
-		const again: rt.Arc<dyns_Named.Named> = new rt.ArcDyn(_16, new dyns_Named.Square(_16.value));
+		const again: rt.Arc<dyns_Named.Named> = new rt.ArcDyn(_16, new dyns_Named.of$dyns_Square(_16.value));
 		const shape: rt.Arc<dyns_Shape.Shape> = rt.arcClone(named);
 		const up: rt.Arc<dyns_Shape.Shape> = rt.arcClone(again);
-		const part = counts$Square([sq]);
+		const part = counts$dyns_Square([sq]);
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part)];
 		fmt_put(out, rt.fmtFormat([args2[0], " "]));
 		const _49: string = named.value.label$Named();
 		const _53: rt.u32 = shape.value.area$Shape();
-		const _57: rt.u8 = sidesOf$dyn_Shape(up.value);
+		const _57: rt.u8 = sidesOf$dyn_dyns_Shape(up.value);
 		const _62: dyns_Named.Named = named.value;
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _49), (f: rt.Formatter) => rt.u32Display(_53, f), (f: rt.Formatter) => rt.u8Display(_57, f), (f: rt.Formatter) => _62.fmt$Debug(f)];
 		fmt_put(out, rt.fmtFormat([args4[0], " ", args4[1], " ", args4[2], " ", args4[3], " "]));
@@ -212,7 +212,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		fmt_put(out, rt.fmtFormat([args6[0], " ", args6[1], " ", args6[2], " "]));
 		sq[Symbol.dispose]();
 		named[Symbol.dispose]();
-		const _113: string = counts$dyn_Named([again]);
+		const _113: string = counts$dyn_dyns_Named([again]);
 		const _119: rt.usize = weak.arc.strong;
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _113), (f: rt.Formatter) => rt.usizeDisplay(_119, f)];
 		fmt_put(out, rt.fmtFormat([args8[0], " ", args8[1], " "]));
@@ -222,11 +222,11 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			return _0;
 		});
 		again[Symbol.dispose]();
-		const part2 = counts$dyn_Shape([up]);
+		const part2 = counts$dyn_dyns_Shape([up]);
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part2)];
 		fmt_put(out, rt.fmtFormat([args10[0], " "]));
 		up[Symbol.dispose]();
-		const _156: string = counts$dyn_Shape([shape]);
+		const _156: string = counts$dyn_dyns_Shape([shape]);
 		const _164: rt.Arc<dyns_Shape.Shape> | undefined = rt.weakUpgrade(weak);
 		const _162: boolean = _164 !== undefined;
 		const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, _156), (f: rt.Formatter) => rt.fmtBool(_162, f), (f: rt.Formatter) => rt.fmtOption(upgraded, f, rt.u32Debug)];
@@ -244,23 +244,23 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const hits: rt.Arc<Hits.Hits> = new rt.Arc({ _0: new rt.Atomic(data.data[data.start + 1] as rt.u32) });
 		const objects: rt.Arc<dyns_Shape.Shape>[] = rt.iterToArray(rt.iterMap(new rt.Range(0, 3), (_2: rt.i32): rt.Arc<dyns_Shape.Shape> => {
 			const _34: rt.Arc<Hits.Hits> = rt.arcClone(hits);
-			return new rt.ArcDyn(_34, new dyns_Shape.Hits(_34.value));
+			return new rt.ArcDyn(_34, new dyns_Shape.of$dyns_Hits(_34.value));
 		}), undefined, 8, true);
 		const sum: rt.u32 = rt.iterFold(rt.iterSlice(objects), 0, (sum2: rt.u32, s2: rt.Arc<dyns_Shape.Shape>): rt.u32 => {
 			return rt.u32WrappingAdd(sum2, s2.value.area$Shape());
 		});
 		const _216: rt.u32 = rt.atomicLoad(hits.value._0, 0);
-		const _222: string = counts$Hits([hits]);
+		const _222: string = counts$dyns_Hits([hits]);
 		const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(sum, f), (f: rt.Formatter) => rt.u32Display(_216, f), (f: rt.Formatter) => rt.fmtPad(f, _222)];
 		fmt_put(out, rt.fmtFormat([args16[0], " ", args16[1], " ", args16[2], " "]));
 		rt.dropAll(objects);
-		const part3 = counts$Hits([hits]);
+		const part3 = counts$dyns_Hits([hits]);
 		const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part3)];
 		fmt_put(out, rt.fmtFormat([args18[0], " "]));
 		const _253: rt.Arc<rt.u32> = new rt.Arc(data.data[data.start + 1] as rt.u32);
-		const n: rt.Arc<dyns_Shape.Shape> = new rt.ArcDyn(_253, new dyns_Shape.u32(_253.value));
+		const n: rt.Arc<dyns_Shape.Shape> = new rt.ArcDyn(_253, new dyns_Shape.of$u32(_253.value));
 		const _257: rt.Arc<rt.u32> = new rt.Arc(data.data[data.start + 1] as rt.u32);
-		const m: rt.Arc<dyns_Shape.Shape> = new rt.ArcDyn(_257, new dyns_Shape.u32(_257.value));
+		const m: rt.Arc<dyns_Shape.Shape> = new rt.ArcDyn(_257, new dyns_Shape.of$u32(_257.value));
 		const _268: rt.u32 = n.value.area$Shape();
 		const _272: boolean = rt.arcPtrEq(n, m);
 		const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_268, f), (f: rt.Formatter) => rt.fmtBool(_272, f)];
@@ -270,14 +270,14 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _43: rt.u8 = rt.u8Rem(x, 3);
 			if (_43 === 0) {
 				const _72: rt.Arc<Tri.Tri> = new rt.Arc({ tag: "Flat" } as Tri.Tri);
-				return new rt.ArcDyn(_72, new dyns_Named.Tri(_72.value));
+				return new rt.ArcDyn(_72, new dyns_Named.of$dyns_Tri(_72.value));
 			}
 			if (_43 === 1) {
 				const _92: rt.Arc<Tri.Tri> = new rt.Arc({ tag: "Tall", _0: x } as Tri.Tri);
-				return new rt.ArcDyn(_92, new dyns_Named.Tri(_92.value));
+				return new rt.ArcDyn(_92, new dyns_Named.of$dyns_Tri(_92.value));
 			}
 			const _112: rt.Arc<Square.Square> = new rt.Arc({ side: x as rt.u16 });
-			return new rt.ArcDyn(_112, new dyns_Named.Square(_112.value));
+			return new rt.ArcDyn(_112, new dyns_Named.of$dyns_Square(_112.value));
 		}), undefined, 8, true);
 		const kept: rt.Arc<dyns_Named.Named>[] = rt.iterToArray(rt.iterMap(rt.iterStepBy(rt.iterSlice(tris), 2), (a0: rt.Arc<dyns_Named.Named>): rt.Arc<dyns_Named.Named> => {
 			return rt.arcClone(a0);
@@ -294,7 +294,7 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 		for (const _322 of kept) {
 			_322.value.tally$Shape(rt.place(() => total, (value) => total = value));
 		}
-		const _337: string = counts$dyn_Named(rt.iterToArray(rt.iterSlice(kept), undefined, 4, true));
+		const _337: string = counts$dyn_dyns_Named(rt.iterToArray(rt.iterSlice(kept), undefined, 4, true));
 		const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(total, f), (f: rt.Formatter) => rt.fmtPad(f, _337)];
 		fmt_put(out, rt.fmtFormat([args24[0], " ", args24[1]]));
 		rt.dropAll(kept);
@@ -306,33 +306,33 @@ export function shared(data: rt.ByteSlice, out: rt.ByteVec): void {
 	}
 }
 
-export function asAny$Erased_u32(self: rt.u32): Any.Any {
-	return new Any.u32(self);
+export function asAny$dyns_Erased_u32(self: rt.u32): Any.Any {
+	return new Any.of$u32(self);
 }
 
-export function asAnyMut$Erased_u32(self: rt.Place<rt.u32>): Any.Any {
-	return new Any.u32$Place(self);
+export function asAnyMut$dyns_Erased_u32(self: rt.Place<rt.u32>): Any.Any {
+	return new Any.ofPlace$u32(self);
 }
 
 /** What `a` holds, by the type it downcasts to. */
 export function kind(a: Any.Any): string {
-	const _2: Square.Square | undefined = a instanceof Any.Square ? a.v : undefined;
+	const _2: Square.Square | undefined = a instanceof Any.of$dyns_Square ? a.v : undefined;
 	if (_2 !== undefined) {
 		const arg = _2.side;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f)];
 		return rt.fmtFormat(["square ", args2[0]]);
 	}
-	const _13: rt.u32 | undefined = a instanceof Any.u32 ? a.v : a instanceof Any.u32$Place ? a.v.v : undefined;
+	const _13: rt.u32 | undefined = a instanceof Any.of$u32 ? a.v : a instanceof Any.ofPlace$u32 ? a.v.v : undefined;
 	if (_13 !== undefined) {
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(_13, f)];
 		return rt.fmtFormat(["u32 ", args4[0]]);
 	}
-	const _24: Tri.Tri | undefined = a instanceof Any.Tri ? a.v : a instanceof Any.Tri$Place ? a.v.v : undefined;
+	const _24: Tri.Tri | undefined = a instanceof Any.of$dyns_Tri ? a.v : a instanceof Any.ofPlace$dyns_Tri ? a.v.v : undefined;
 	if (_24 !== undefined) {
-		const args6: rt.Fmt[] = [(f: rt.Formatter) => Tri.fmt$Debug(_24, f)];
+		const args6: rt.Fmt[] = [(f: rt.Formatter) => Tri.fmt$fmt_Debug(_24, f)];
 		return rt.fmtFormat(["tri ", args6[0]]);
 	}
-	if (!((a instanceof Any.u8 || a instanceof Any.u8$Place))) {
+	if (!((a instanceof Any.of$u8 || a instanceof Any.ofPlace$u8))) {
 		return "other";
 	}
 	return "u8";
@@ -340,34 +340,34 @@ export function kind(a: Any.Any): string {
 
 /** Bumps the number or enum `a` holds where it is. */
 export function bump(a: Any.Any, by: rt.u8): boolean {
-	const _3: rt.Place<rt.u32> | undefined = a instanceof Any.u32 ? a : a instanceof Any.u32$Place ? a.v : undefined;
+	const _3: rt.Place<rt.u32> | undefined = a instanceof Any.of$u32 ? a : a instanceof Any.ofPlace$u32 ? a.v : undefined;
 	if (_3 !== undefined) {
 		_3.v = rt.u32WrappingAdd(_3.v, by as rt.u32);
 		return true;
 	}
-	const _9: rt.Place<Tri.Tri> | undefined = a instanceof Any.Tri ? a : a instanceof Any.Tri$Place ? a.v : undefined;
+	const _9: rt.Place<Tri.Tri> | undefined = a instanceof Any.of$dyns_Tri ? a : a instanceof Any.ofPlace$dyns_Tri ? a.v : undefined;
 	if (_9 !== undefined) {
-		Tri.grow$Shape(_9, by);
+		Tri.grow$dyns_Shape(_9, by);
 		return true;
 	}
-	const _13: Square.Square | undefined = a instanceof Any.Square ? a.v : undefined;
+	const _13: Square.Square | undefined = a instanceof Any.of$dyns_Square ? a.v : undefined;
 	if (_13 !== undefined) {
-		Square.grow$Shape(_13, by);
+		Square.grow$dyns_Shape(_13, by);
 		return true;
 	}
 	return false;
 }
 
 /** The same, through a generic `downcast_ref`, as a type parameter instantiates it. */
-export function isA$Square(e: dyns_Erased.Erased): boolean {
+export function isA$dyns_Square(e: dyns_Erased.Erased): boolean {
 	const _4: Any.Any = e.asAny$Erased();
-	return ((_4 instanceof Any.Square ? _4.v : undefined)) !== undefined;
+	return ((_4 instanceof Any.of$dyns_Square ? _4.v : undefined)) !== undefined;
 }
 
 /** The same, through a generic `downcast_ref`, as a type parameter instantiates it. */
 export function isA$u32(e: dyns_Erased.Erased): boolean {
 	const _4: Any.Any = e.asAny$Erased();
-	return ((_4 instanceof Any.u32 ? _4.v : _4 instanceof Any.u32$Place ? _4.v.v : undefined)) !== undefined;
+	return ((_4 instanceof Any.of$u32 ? _4.v : _4 instanceof Any.ofPlace$u32 ? _4.v.v : undefined)) !== undefined;
 }
 
 export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
@@ -384,7 +384,7 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 			tri = { tag: "Flat" } as Tri.Tri;
 		}
 		let n: rt.u32 = b as rt.u32;
-		const iter: rt.Iter<Any.Any> = rt.iterSlice([new Any.Square(sq), new Any.Tri(tri), new Any.u32(n), new Any.u8(a), new Any.str("str")]);
+		const iter: rt.Iter<Any.Any> = rt.iterSlice([new Any.of$dyns_Square(sq), new Any.of$dyns_Tri(tri), new Any.of$u32(n), new Any.of$u8(a), new Any.of$ref_str("str")]);
 		while (true) {
 			const _33: Any.Any | rt.Done = iter.next();
 			if (_33 === rt.DONE) {
@@ -394,57 +394,57 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, part)];
 			fmt_put(out, rt.fmtFormat([args2[0], " "]));
 		}
-		const _51: boolean = bump(new Any.Square(sq), a);
-		const _54: boolean = bump(new Any.Tri$Place(rt.place(() => tri, (value) => tri = value)), b);
-		const _57: boolean = bump(new Any.u32$Place(rt.place(() => n, (value2) => n = value2)), a);
+		const _51: boolean = bump(new Any.of$dyns_Square(sq), a);
+		const _54: boolean = bump(new Any.ofPlace$dyns_Tri(rt.place(() => tri, (value) => tri = value)), b);
+		const _57: boolean = bump(new Any.ofPlace$u32(rt.place(() => n, (value2) => n = value2)), a);
 		let _63: rt.u8 = 0;
 		const _72: Tri.Tri = tri;
-		const hit: [boolean, boolean, boolean, boolean] = [_51, _54, _57, bump(new Any.u8$Place(rt.place(() => _63, (value3) => _63 = value3)), a)];
+		const hit: [boolean, boolean, boolean, boolean] = [_51, _54, _57, bump(new Any.ofPlace$u8(rt.place(() => _63, (value3) => _63 = value3)), a)];
 		const arg = sq.side;
-		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f), (f: rt.Formatter) => Tri.fmt$Debug(_72, f), (f: rt.Formatter) => rt.u32Display(n, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtBool(hit[0], f), (f: rt.Formatter) => rt.fmtBool(hit[1], f), (f: rt.Formatter) => rt.fmtBool(hit[2], f), (f: rt.Formatter) => rt.fmtBool(hit[3], f)], f)];
+		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u16Display(arg, f), (f: rt.Formatter) => Tri.fmt$fmt_Debug(_72, f), (f: rt.Formatter) => rt.u32Display(n, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtBool(hit[0], f), (f: rt.Formatter) => rt.fmtBool(hit[1], f), (f: rt.Formatter) => rt.fmtBool(hit[2], f), (f: rt.Formatter) => rt.fmtBool(hit[3], f)], f)];
 		fmt_put(out, rt.fmtFormat([args4[0], " ", args4[1], " ", args4[2], " ", args4[3], " "]));
-		const iter2: rt.Iter<dyns_Erased.Erased> = rt.iterSlice([new dyns_Erased.Square(sq), new dyns_Erased.Tri(tri), new dyns_Erased.u32(n)]);
+		const iter2: rt.Iter<dyns_Erased.Erased> = rt.iterSlice([new dyns_Erased.of$dyns_Square(sq), new dyns_Erased.of$dyns_Tri(tri), new dyns_Erased.of$u32(n)]);
 		while (true) {
 			const _91: dyns_Erased.Erased | rt.Done = iter2.next();
 			if (_91 === rt.DONE) {
 				break;
 			}
-			const _103: boolean = isA$Square(_91);
+			const _103: boolean = isA$dyns_Square(_91);
 			const _105: boolean = isA$u32(_91);
 			const _107: string = kind(_91.asAny$Erased());
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_103, f), (f: rt.Formatter) => rt.fmtBool(_105, f), (f: rt.Formatter) => rt.fmtPad(f, _107)];
 			fmt_put(out, rt.fmtFormat([args6[0], args6[1], args6[2], " "]));
 		}
 		let m: rt.u32 = a as rt.u32;
-		const _119: Any.Any = new dyns_Erased.u32$Place(rt.place(() => m, (value4) => m = value4)).asAnyMut$Erased();
-		const _118: rt.Place<rt.u32> | undefined = _119 instanceof Any.u32 ? _119 : _119 instanceof Any.u32$Place ? _119.v : undefined;
+		const _119: Any.Any = new dyns_Erased.ofPlace$u32(rt.place(() => m, (value4) => m = value4)).asAnyMut$Erased();
+		const _118: rt.Place<rt.u32> | undefined = _119 instanceof Any.of$u32 ? _119 : _119 instanceof Any.ofPlace$u32 ? _119.v : undefined;
 		if (_118 !== undefined) {
 			_118.v = rt.u32WrappingMul(_118.v, 3);
 		}
 		const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(m, f)];
 		fmt_put(out, rt.fmtFormat([args8[0], " "]));
-		const unit: Any.Any = new Any.unit(undefined);
-		const part2 = [unit instanceof Any.unit ? unit.v : unit instanceof Any.unit$Place ? unit.v.v : rt.None, unit instanceof Any.Option_u8 || unit instanceof Any.Option_u8$Place] as [undefined | rt.None, boolean];
+		const unit: Any.Any = new Any.of$unit(undefined);
+		const part2 = [unit instanceof Any.of$unit ? unit.v : unit instanceof Any.ofPlace$unit ? unit.v.v : rt.None, unit instanceof Any.of$Option_u8 || unit instanceof Any.ofPlace$Option_u8] as [undefined | rt.None, boolean];
 		const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part2[0], f, rt.fmtUnit, rt.None), (f: rt.Formatter) => rt.fmtBool(part2[1], f)], f)];
 		fmt_put(out, rt.fmtFormat([args10[0], " "]));
 		let some: rt.u8 | undefined = a;
 		let none: rt.u8 | undefined = undefined;
-		const iter3: rt.Iter<Any.Any> = rt.iterSlice([new Any.Option_u8$Place(rt.place(() => some, (value5) => some = value5)), new Any.Option_u8$Place(rt.place(() => none, (value6) => none = value6)), new Any.u32$Place(rt.place(() => n, (value7) => n = value7))]);
+		const iter3: rt.Iter<Any.Any> = rt.iterSlice([new Any.ofPlace$Option_u8(rt.place(() => some, (value5) => some = value5)), new Any.ofPlace$Option_u8(rt.place(() => none, (value6) => none = value6)), new Any.ofPlace$u32(rt.place(() => n, (value7) => n = value7))]);
 		while (true) {
 			const _167: Any.Any | rt.Done = iter3.next();
 			if (_167 === rt.DONE) {
 				break;
 			}
-			const part3 = [_167 instanceof Any.unit ? _167.v : _167 instanceof Any.unit$Place ? _167.v.v : rt.None, _167 instanceof Any.Option_u8 ? _167.v : _167 instanceof Any.Option_u8$Place ? _167.v.v : rt.None] as [undefined | rt.None, rt.u8 | undefined | rt.None];
+			const part3 = [_167 instanceof Any.of$unit ? _167.v : _167 instanceof Any.ofPlace$unit ? _167.v.v : rt.None, _167 instanceof Any.of$Option_u8 ? _167.v : _167 instanceof Any.ofPlace$Option_u8 ? _167.v.v : rt.None] as [undefined | rt.None, rt.u8 | undefined | rt.None];
 			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part3[0], f, rt.fmtUnit, rt.None), (f: rt.Formatter) => rt.fmtOption(part3[1], f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug), rt.None)], f)];
 			fmt_put(out, rt.fmtFormat([args12[0]]));
-			const _189: rt.Place<rt.u8 | undefined> | undefined = _167 instanceof Any.Option_u8 ? _167 : _167 instanceof Any.Option_u8$Place ? _167.v : undefined;
+			const _189: rt.Place<rt.u8 | undefined> | undefined = _167 instanceof Any.of$Option_u8 ? _167 : _167 instanceof Any.ofPlace$Option_u8 ? _167.v : undefined;
 			if (_189 !== undefined) {
 				_189.v = option_mapOr$06rr3sb(_189.v, b, (_2: rt.u8): rt.u8 | undefined => {
 					return undefined;
 				});
 			}
-			const arg2 = ((_167 instanceof Any.unit ? _167 : _167 instanceof Any.unit$Place ? _167.v : undefined)) !== undefined;
+			const arg2 = ((_167 instanceof Any.of$unit ? _167 : _167 instanceof Any.ofPlace$unit ? _167.v : undefined)) !== undefined;
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(arg2, f)];
 			fmt_put(out, rt.fmtFormat([args14[0], " "]));
 		}
@@ -461,13 +461,13 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const x: rt.u8 = _229[1];
 			const _238: rt.u8 = rt.u8Rem(x, 4);
 			if (_238 === 0) {
-				_237 = new Any.u8(x);
+				_237 = new Any.of$u8(x);
 			} else if (_238 === 1) {
-				_237 = new Any.u32(x as rt.u32);
+				_237 = new Any.of$u32(x as rt.u32);
 			} else if (_238 === 2) {
-				_237 = new Any.Tri({ tag: "Tall", _0: x } as Tri.Tri);
+				_237 = new Any.of$dyns_Tri({ tag: "Tall", _0: x } as Tri.Tri);
 			} else {
-				_237 = new Any.Square({ side: i & 0xffff });
+				_237 = new Any.of$dyns_Square({ side: i & 0xffff });
 			}
 			boxes.push(_237);
 		}
@@ -480,14 +480,14 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			const i2: rt.usize = _256[0];
 			const boxed: Any.Any = _256[1];
-			const _261: rt.Result<rt.u32, Any.Any> = boxed instanceof Any.u32 ? rt.Ok(boxed.v) : rt.Err(boxed);
+			const _261: rt.Result<rt.u32, Any.Any> = boxed instanceof Any.of$u32 ? rt.Ok(boxed.v) : rt.Err(boxed);
 			if (_261.ok) {
 				const part5 = _261.value;
 				const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part5, f)];
 				fmt_put(out, rt.fmtFormat(["n", args18[0], " "]));
 			} else if (!(rt.usizeRem(i2, 2) === 0)) {
 				const other2: Any.Any = _261.error;
-				const _282: rt.Result<rt.u8, Any.Any> = other2 instanceof Any.u8 ? rt.Ok(other2.v) : rt.Err(other2);
+				const _282: rt.Result<rt.u8, Any.Any> = other2 instanceof Any.of$u8 ? rt.Ok(other2.v) : rt.Err(other2);
 				if (_282.ok) {
 					const arg3 = _282.value;
 					const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg3, f)];
@@ -516,22 +516,22 @@ export function anys(data: rt.ByteSlice, out: rt.ByteVec): void {
 			fmt_put(out, rt.fmtFormat([args24[0], ":", args24[1], " "]));
 		}
 		const _339: rt.Arc<[rt.u8, rt.u8]> = new rt.Arc([a, b] as [rt.u8, rt.u8]);
-		const hold: rt.Arc<Any.Any> = new rt.ArcDyn(_339, new Any.u8_u8(_339.value));
+		const hold: rt.Arc<Any.Any> = new rt.ArcDyn(_339, new Any.of$tuple2_u8_u8(_339.value));
 		const _358: Any.Any = hold.value;
 		const held: rt.Arc<Any.Any>[] = [rt.arcClone(hold), rt.arcClone(hold)];
 		const _354: rt.usize = hold.strong;
-		const _357: [rt.u8, rt.u8] | undefined = _358 instanceof Any.u8_u8 ? _358.v : undefined;
+		const _357: [rt.u8, rt.u8] | undefined = _358 instanceof Any.of$tuple2_u8_u8 ? _358.v : undefined;
 		const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(_354, f), (f: rt.Formatter) => rt.fmtOption(_357, f, (value: [rt.u8, rt.u8], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0], f), (f: rt.Formatter) => rt.u8Debug(value[1], f)], f))];
 		fmt_put(out, rt.fmtFormat([args26[0], " ", args26[1], " "]));
 		rt.dropAll(held);
 		const part6 = hold.strong;
 		const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.usizeDisplay(part6, f)];
 		fmt_put(out, rt.fmtFormat([args28[0], " "]));
-		const _381: rt.Result<rt.Arc<rt.u8>, rt.Arc<Any.Any>> = rt.arcDowncast(hold, Any.u8);
+		const _381: rt.Result<rt.Arc<rt.u8>, rt.Arc<Any.Any>> = rt.arcDowncast(hold, Any.of$u8);
 		if (_381.ok) {
 			rt.panic("internal error: entered unreachable code");
 		} else {
-			const part7 = ok$1bbzz6g(result_map$0zzqmaz(rt.arcDowncast(_381.error, Any.u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
+			const part7 = ok$0lceojf(result_map$0zzqmaz(rt.arcDowncast(_381.error, Any.of$tuple2_u8_u8), (t: rt.Arc<[rt.u8, rt.u8]>): [rt.usize, rt.u8] => {
 				const _02: [rt.usize, rt.u8] = [t.strong, t.value[0]];
 				t[Symbol.dispose]();
 				return _02;

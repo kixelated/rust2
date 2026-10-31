@@ -24,27 +24,27 @@ export function repin(p: rt.Place<rt.Arc<rt.u8>>, to: rt.u8): void {
 }
 
 /** What a pointer to a pinned `Arc` reads, through its own `Deref` and then the pin's. */
-export function through$Pin_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>): rt.u8 {
+export function through$mut_Pin_sync_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>): rt.u8 {
 	return p.v.value;
 }
 
 /** What a pointer to a pinned `Arc` reads, through its own `Deref` and then the pin's. */
-export function through$Pin_Arc_u8$2(p: rt.Arc<rt.u8>): rt.u8 {
+export function through$ref_Pin_sync_Arc_u8(p: rt.Arc<rt.u8>): rt.u8 {
 	return p.value;
 }
 
 /** What a pointer to an `Arc` reads, through its own `Deref` and then the `Arc`'s. */
-export function throughArc$Arc_u8(p: rt.Place<rt.Arc<rt.u8>>): rt.u8 {
+export function throughArc$mut_sync_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>): rt.u8 {
 	return p.v.value;
 }
 
 /** What a pointer to an `Arc` reads, through its own `Deref` and then the `Arc`'s. */
-export function throughArc$Arc_u8$2(p: rt.Arc<rt.u8>): rt.u8 {
+export function throughArc$ref_sync_Arc_u8(p: rt.Arc<rt.u8>): rt.u8 {
 	return p.value;
 }
 
 /** What a pointer to a guard reads, through its own `Deref` and then the guard's. */
-export function throughMutex$Mutex_u8(p: rt.Mutex<rt.u8>): rt.u8 {
+export function throughMutex$mut_sync_Mutex_u8(p: rt.Mutex<rt.u8>): rt.u8 {
 	const _4: rt.Mutex<rt.u8> = rt.mutexLock(p);
 	const _0: rt.u8 = _4.value;
 	rt.mutexUnlock(_4);
@@ -52,7 +52,7 @@ export function throughMutex$Mutex_u8(p: rt.Mutex<rt.u8>): rt.u8 {
 }
 
 /** What a pointer to a guard reads, through its own `Deref` and then the guard's. */
-export function throughMutex$Mutex_u8$2(p: rt.Mutex<rt.u8>): rt.u8 {
+export function throughMutex$ref_sync_Mutex_u8(p: rt.Mutex<rt.u8>): rt.u8 {
 	const _4: rt.Mutex<rt.u8> = rt.mutexLock(p);
 	const _0: rt.u8 = _4.value;
 	rt.mutexUnlock(_4);
@@ -60,36 +60,36 @@ export function throughMutex$Mutex_u8$2(p: rt.Mutex<rt.u8>): rt.u8 {
 }
 
 /** Writes a byte through a pointer's `DerefMut`. */
-export function writeThrough$Pin_u8(p: rt.Place<rt.u8>, by: rt.u8): void {
+export function writeThrough$Pin_mut_u8(p: rt.Place<rt.u8>, by: rt.u8): void {
 	p.v = p.v ^ by;
 }
 
 /** Writes a byte through a pointer's `DerefMut`. */
-export function writeThrough$u8(p: rt.Place<rt.u8>, by: rt.u8): void {
+export function writeThrough$mut_u8(p: rt.Place<rt.u8>, by: rt.u8): void {
 	p.v = p.v ^ by;
 }
 
 /** Replaces an `Arc` through a pointer's `DerefMut`. */
-export function replaceThrough$Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
+export function replaceThrough$Pin_mut_sync_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
+	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
+	const _4: rt.Place<rt.Arc<rt.u8>> = p;
+	_4.v[Symbol.dispose]();
+	_4.v = _3;
+}
+
+/** Replaces an `Arc` through a pointer's `DerefMut`. */
+export function replaceThrough$mut_sync_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
 	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
 	p.v[Symbol.dispose]();
 	p.v = _3;
 }
 
 /** Replaces an `Arc` through a pointer's `DerefMut`. */
-export function replaceThrough$MutexGuard_Arc_u8(p: rt.Mutex<rt.Arc<rt.u8>>, by: rt.u8): void {
+export function replaceThrough$sync_MutexGuard_sync_Arc_u8(p: rt.Mutex<rt.Arc<rt.u8>>, by: rt.u8): void {
 	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
 	p.value[Symbol.dispose]();
 	p.value = _3;
 	rt.mutexUnlock(p);
-}
-
-/** Replaces an `Arc` through a pointer's `DerefMut`. */
-export function replaceThrough$Pin_Arc_u8(p: rt.Place<rt.Arc<rt.u8>>, by: rt.u8): void {
-	const _3: rt.Arc<rt.u8> = new rt.Arc(by);
-	const _4: rt.Place<rt.Arc<rt.u8>> = p;
-	_4.v[Symbol.dispose]();
-	_4.v = _3;
 }
 
 /** A pin of a byte, made through a function pointer, that writes the byte. */
@@ -307,17 +307,17 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rebox(rt.place(() => boxed, (value4) => boxed = value4), _156);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(boxed.value, held.strong & 0xff)));
 	const lent: rt.Arc<rt.u8> = held;
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(lent.strong & 0xff, lent.value, through$Pin_Arc_u8$2(pinned))));
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(throughArc$Arc_u8$2(held), throughMutex$Mutex_u8$2(lockedBy(by)))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(lent.strong & 0xff, lent.value, through$ref_Pin_sync_Arc_u8(pinned))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(throughArc$ref_sync_Arc_u8(held), throughMutex$ref_sync_Mutex_u8(lockedBy(by)))));
 	let _199: rt.Arc<rt.u8> = rt.arcClone(held);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(throughArc$Arc_u8(rt.place(() => _199, (value5) => _199 = value5)), through$Pin_Arc_u8(rt.place(() => pinned, (value6) => pinned = value6)))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(throughArc$mut_sync_Arc_u8(rt.place(() => _199, (value5) => _199 = value5)), through$mut_Pin_sync_Arc_u8(rt.place(() => pinned, (value6) => pinned = value6)))));
 	_199[Symbol.dispose]();
-	rt.byteVecPush(out, throughMutex$Mutex_u8(lockedBy(by)));
+	rt.byteVecPush(out, throughMutex$mut_sync_Mutex_u8(lockedBy(by)));
 	let byte: rt.u8 = by;
 	const _210: rt.Place<rt.u8> = rt.place(() => byte, (value7) => byte = value7);
 	_210.v = _210.v ^ 90;
-	writeThrough$Pin_u8(rt.place(() => byte, (value8) => byte = value8), 33);
-	writeThrough$u8(rt.place(() => byte, (value9) => byte = value9), 12);
+	writeThrough$Pin_mut_u8(rt.place(() => byte, (value8) => byte = value8), 33);
+	writeThrough$mut_u8(rt.place(() => byte, (value9) => byte = value9), 12);
 	rt.byteVecPush(out, byte);
 	let replaced: rt.Arc<rt.u8> = new rt.Arc(by);
 	const _220: rt.Arc<rt.u8> = new rt.Arc(rt.u8WrappingAdd(by, 1));
@@ -325,13 +325,13 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	_222.v[Symbol.dispose]();
 	_222.v = _220;
 	rt.byteVecPush(out, replaced.value);
-	replaceThrough$Pin_Arc_u8(rt.place(() => replaced, (value11) => replaced = value11), rt.u8WrappingAdd(by, 2));
+	replaceThrough$Pin_mut_sync_Arc_u8(rt.place(() => replaced, (value11) => replaced = value11), rt.u8WrappingAdd(by, 2));
 	rt.byteVecPush(out, replaced.value);
 	const _240: rt.u8 = rt.u8WrappingAdd(by, 3);
-	replaceThrough$Arc_u8(rt.place(() => replaced, (value12) => replaced = value12), _240);
+	replaceThrough$mut_sync_Arc_u8(rt.place(() => replaced, (value12) => replaced = value12), _240);
 	rt.byteVecPush(out, replaced.value);
 	const guarded: rt.Mutex<rt.Arc<rt.u8>> = new rt.Mutex(new rt.Arc(by));
-	replaceThrough$MutexGuard_Arc_u8(rt.mutexLock(guarded), rt.u8WrappingAdd(by, 4));
+	replaceThrough$sync_MutexGuard_sync_Arc_u8(rt.mutexLock(guarded), rt.u8WrappingAdd(by, 4));
 	const _257: rt.Mutex<rt.Arc<rt.u8>> = rt.mutexLock(guarded);
 	rt.byteVecPush(out, _257.value.value);
 	rt.mutexUnlock(_257);
@@ -475,7 +475,7 @@ export function objects(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(a.start, a.held.length & 0xff, b7.start, b7.held.length & 0xff)));
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(array[0] & 0xff, array[1] & 0xff)));
 	const wakes: rt.Arc<Wakes.Wakes> = new rt.Arc({ _0: new rt.Atomic(0) });
-	const counting: rt.Waker = new rt.ArcWaker(rt.arcClone(wakes), Wakes.wake$Wake as (a0: rt.Arc<Wakes.Wakes>) => undefined, (arc: rt.Arc<Wakes.Wakes>) => arc[Symbol.dispose]());
+	const counting: rt.Waker = new rt.ArcWaker(rt.arcClone(wakes), Wakes.wake$task_Wake as (a0: rt.Arc<Wakes.Wakes>) => undefined, (arc: rt.Arc<Wakes.Wakes>) => arc[Symbol.dispose]());
 	const noop: rt.Waker = rt.NOOP_WAKER.clone();
 	let w2: rt.Waker = noop.clone();
 	for (const _619 of rt.byteSliceView(data)) {

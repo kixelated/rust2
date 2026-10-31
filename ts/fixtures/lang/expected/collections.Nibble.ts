@@ -10,20 +10,20 @@ export interface Nibble {
 	_0: rt.u8;
 }
 
-export function eq$PartialEq(self: Nibble, other: Nibble): boolean {
+export function eq$cmp_PartialEq(self: Nibble, other: Nibble): boolean {
 	return (self._0 & 15) === (other._0 & 15);
 }
 
-export function hash$Hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
 	rt.hash8(self._0 & 15, state);
 }
 
-export function cmp$Ord(self: Nibble, other: Nibble): rt.Ordering {
+export function cmp$cmp_Ord(self: Nibble, other: Nibble): rt.Ordering {
 	return rt.cmp(other._0 & 15, self._0 & 15);
 }
 
-export function partialCmp$PartialOrd(self: Nibble, other: Nibble): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Nibble, other: Nibble): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
 //# sourceMappingURL=collections.Nibble.ts.map
