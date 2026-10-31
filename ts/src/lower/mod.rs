@@ -57,6 +57,7 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	if t.failed {
 		return None;
 	}
+	t.program.mark_unread();
 	t.program.merge();
 	if let Err(msg) = t.program.name() {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));

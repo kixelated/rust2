@@ -73,6 +73,8 @@ export interface Iter<T> {
 	nextBack(): T | Done;
 	/** `ExactSizeIterator::len`. */
 	len(): number;
+	/** The items it has left, by value, without taking them: what std's `Debug` of it lists. */
+	remaining(): Iterable<unknown>;
 }
 
 /** `Iterator`: `next`, and the methods std's iterators each do their own way. */
@@ -519,6 +521,14 @@ export function iterExtendBytes(v: ByteVec, items: Iter<number>, take?: Take, tr
 /** `Iterator::map`. */
 export function iterMap<T, U>(it: Iter<T>, f: (item: T) => U): Iter<U> {
 	return new MapIter(it, f);
+}
+
+/**
+ * `it` with each item lent by `f` as translated code reads it, as a `&[u8; N]` of a
+ * `Uint8Array` is lent as an `rt.ByteSlice`.
+ */
+export function iterLend<T, U>(it: Iter<T>, f: (item: T) => U): Iter<U> {
+	return new LendIter(it, f);
 }
 
 /** `Iterator::filter`, dropping what `f` rejects by `drop`. */
@@ -1238,6 +1248,10 @@ class SliceIter<T> extends Iter<T> implements Disposable {
 		return exactHint(this.len());
 	}
 
+	override remaining(): Iterable<T> {
+		return Array.prototype.slice.call(this.s, this.front, this.back);
+	}
+
 	[Symbol.dispose](): void {
 		if (this.drop === undefined) return;
 		const from = this.front;
@@ -1289,6 +1303,10 @@ class SliceMutIter<T> extends Iter<Place<T>> {
 
 	override sizeHint(): SizeHint {
 		return exactHint(this.len());
+	}
+
+	override remaining(): Iterable<T> {
+		return Array.prototype.slice.call(this.s, this.front, this.back);
 	}
 
 	override advanceBy(n: number): number {
@@ -1566,6 +1584,13 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 
 	override rfold<A>(acc: A, g: (acc: A, item: U) => A, release?: () => void): A {
 		return this.inner.rfold(acc, mapFold(this.f, g), then(release, this.take()));
+	}
+}
+
+/** What `iterLend` makes, which has left the items `inner` has, as it holds them. */
+class LendIter<T, U> extends MapIter<T, U> {
+	override remaining(): Iterable<unknown> {
+		return this.inner.remaining();
 	}
 }
 

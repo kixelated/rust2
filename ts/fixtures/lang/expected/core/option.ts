@@ -38,6 +38,7 @@ import type * as slices_Item from "../slices.Item.ts";
 import * as slices_Noisy from "../slices.Noisy.ts";
 import type * as slices_Pair from "../slices.Pair.ts";
 import type * as Short from "../splits.Short.ts";
+import type * as Loud from "../zeros.Loud.ts";
 import * as Tagged from "../zeros.Tagged.ts";
 
 export function isSomeAnd$09tpccf(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
@@ -413,6 +414,13 @@ export function map$0a57co2(self: rt.u32 | undefined, f: (a0: rt.u32) => rt.u8):
 	return f(self);
 }
 
+export function map$1ibcmaa(self: rt.u8 | undefined, f: (a0: rt.u8) => Loud.Loud): Loud.Loud | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0rbsrz6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u8 | undefined): rt.u8 | undefined | rt.None {
 	if (self === undefined) {
 		return rt.None;
@@ -435,6 +443,13 @@ export function map$0oc32h1(self: rt.u8 | undefined, f: (a0: rt.u8) => string): 
 }
 
 export function map$0ejznqm(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.ByteVec): rt.ByteVec | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1qp1ym6(self: rt.u8 | undefined, f: (a0: rt.u8) => rt.u32): rt.u32 | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
