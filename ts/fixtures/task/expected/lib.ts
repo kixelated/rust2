@@ -258,4 +258,11 @@ export function drop$tuple2_usize_model_Guard(_1: [rt.usize, Guard.Guard]): void
 	_1[1][Symbol.dispose]();
 }
 
+export function drop$tuple4_task_Waker_task_Waker_task_Waker_task_Waker(_1: [rt.Waker, rt.Waker, rt.Waker, rt.Waker]): void {
+	_1[0][Symbol.dispose]();
+	_1[1][Symbol.dispose]();
+	_1[2][Symbol.dispose]();
+	_1[3][Symbol.dispose]();
+}
+
 //# sourceMappingURL=lib.ts.map

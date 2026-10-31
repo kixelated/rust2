@@ -5,10 +5,11 @@
 
 /** A waker, as the translation calls it. */
 interface Waker extends Disposable {
+	readonly data: unknown;
+	readonly vtable: object;
 	wake(): void;
 	wakeByRef(): void;
 	clone(): Waker;
-	willWake(other: Waker): boolean;
 }
 
 interface Future<T> extends Disposable {
@@ -62,6 +63,7 @@ export interface Fixture<V> {
 	futures: {
 		helpers(rx: Consumer, guard: Guard): Future<V>;
 		boxed(rx: Consumer, guard: Guard): Future<V>;
+		wakers(rx: Consumer, guard: Guard): Future<V>;
 	};
 }
 
@@ -85,11 +87,20 @@ class Wake {
 	}
 }
 
+/** The vtable of every task's waker. */
+const TASK_VTABLE = {};
+
 class TaskWaker implements Waker {
 	readonly target: Wake;
+	readonly vtable = TASK_VTABLE;
 
 	constructor(target: Wake) {
 		this.target = target;
+	}
+
+	/** Each clone's, as the native waker's data is the `Arc` they share. */
+	get data(): unknown {
+		return this.target;
 	}
 
 	wake(): void {
@@ -106,9 +117,6 @@ class TaskWaker implements Waker {
 		return new TaskWaker(this.target);
 	}
 
-	willWake(other: Waker): boolean {
-		return other instanceof TaskWaker && other.target === this.target;
-	}
 
 	[Symbol.dispose](): void {
 		this.target.note(`t${this.target.task} waker drop`);
@@ -313,6 +321,13 @@ export const steps: [string, (r: Run<unknown>, arg: number) => void][] = [
 	],
 	["inside", (r, arg) => r.f.drops.inside(r.log, 1000 * r.exec.tasks.length, arg)],
 	["compared", (r, arg) => r.f.drops.compared(r.log, 1000 * r.exec.tasks.length, arg)],
+	[
+		"wakers",
+		(r, arg) => {
+			const c = pick(r.channels.length, arg);
+			if (c !== undefined) r.exec.spawn(r.f.futures.wakers(r.f.Channel.consumer(r.channels[c]), guard(r)));
+		},
+	],
 ];
 
 /** The script runner, as `harness.rs` runs it natively. */
@@ -403,4 +418,8 @@ export const cases: Uint8Array[] = [
 	...[...Array.from({ length: 10 }, (_, arg) => arg), 19, 29].map((arg) => script(["inside", arg])),
 	// What std's comparisons of iterators drop.
 	...Array.from({ length: 9 }, (_, arg) => script(["compared", arg])),
+	// Wakers' identities, as kio's `Polling` keeps one: a task's own across its polls, then
+	// another task's in between.
+	script(["open", 0], ["wakers", 0], ["run", 0], ["send", 3], ["run", 0], ["close", 0], ["run", 0]),
+	script(["open", 0], ["wakers", 0], ["wakers", 0], ["run", 0], ["send", 2], ["step", 0], ["step", 0], ["drop", 1], ["send", 5], ["run", 0], ["drop", 0]),
 ];
