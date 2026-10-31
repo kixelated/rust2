@@ -1495,19 +1495,8 @@ fn bounded<T: Copy + PartialOrd + fmt::Debug>(table: &[T], at: [usize; 2], out: 
 		to.end_bound(),
 		through.end_bound(),
 	];
-	out.extend(bounds.map(|bound| bound_of(table, bound)));
+	out.extend(format!("{bounds:?}").bytes());
 	(a, b)
-}
-
-/// Which kind of bound `bound` is, and where its value is in `table`.
-fn bound_of<T: PartialEq>(table: &[T], bound: std::ops::Bound<&T>) -> u8 {
-	use std::ops::Bound;
-	let at = |x: &T| table.iter().position(|y| y == x).map_or(0x3f, |i| i as u8);
-	match bound {
-		Bound::Included(x) => 0x40 | at(x),
-		Bound::Excluded(x) => 0x80 | at(x),
-		Bound::Unbounded => 0,
-	}
 }
 
 /// `RangeBounds::contains`, through the trait.
@@ -1556,7 +1545,7 @@ where
 		let (start, end) = (*r.start(), *r.end());
 		let keyed = std::collections::HashSet::from([a..=b, start..=end, start..=end]);
 		out.extend(format!("{read:?} {r:?} {}", keyed.len()).bytes());
-		out.extend([bound_of(table, r.start_bound()), bound_of(table, r.end_bound())]);
+		out.extend(format!("{:?} {:?}", r.start_bound(), r.end_bound()).bytes());
 		out.extend([r.is_empty(), r == (a..=b), r == (start..=end), r != (start..=end)].map(u8::from));
 		out.extend(table.iter().map(|x| u8::from(r.contains(x))));
 		out.extend(hash(&|h| r.hash(h)));

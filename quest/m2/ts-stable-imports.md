@@ -30,4 +30,12 @@ against how rarely a module imports two of one name.
 Proof: extend `stable_names` so an added root makes a module import a second symbol of a
 name it already imports, sorting before the first.
 
+Decided by the maintainer on 2026-10-30: qualify a binding by its shortest unique module
+path only when another definition translation could bind shares its name, a census over
+the crate graph as rustc's `trimmed_def_paths` walks it, and bind it plain otherwise. A new
+definition of a taken name can rename the other's binding, which is acceptable here since
+bindings are private to a module; exported instance names take the path-qualified rule
+([ts-stable-names](/quest/m2/ts-stable-names.md)). It keeps `import * as Decoder` and
+`Decoder.slice(dec, 4)` from `ts/README.md`.
+
 Public API: none beyond the generated files' import lines and local names.
