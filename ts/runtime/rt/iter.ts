@@ -982,6 +982,114 @@ export function iterIsSortedBy<T>(
 	return sorted;
 }
 
+/**
+ * What std's comparisons of iterators drop, after the iterators and the comparator: whether
+ * the first iterator drops, whether the second does, which drops before it, and whether
+ * the comparator owns values that drop, as a `_by` form's may. Then what drops an item of
+ * each that std drops itself: one of the first read past the second's end, and one of the
+ * second read past the first's.
+ */
+type Compared<T, U> = [drops?: boolean, dropsOther?: boolean, owns?: boolean, dropX?: Drop<T>, dropY?: Drop<U>];
+
+/**
+ * std's `iter_compare`: each item of `a` as `try_fold` reads it, against the next of `b`,
+ * by `f`, which takes both, until it finds them other than `Equal`. If `b` ends first, the
+ * item of `a` read past it drops by `dropX`, and `a` is `Greater`. `release` drops what
+ * `f` owns once `a`'s fold ends, as std drops the closure there; then, if `a` ended, `b`
+ * reads once more: `Less` if it has another, which drops by `dropY`, and else `Equal`.
+ */
+function iterCompare<T, U, O extends Ordering | undefined>(
+	a: Iter<T>,
+	b: Iter<U>,
+	f: (x: T, y: U) => O,
+	release?: () => void,
+	dropX?: Drop<T>,
+	dropY?: Drop<U>,
+): O {
+	const folded = a.folded();
+	for (let x = folded.next(); x !== DONE; x = folded.next()) {
+		const y = b.next();
+		if (y === DONE) {
+			dropX?.(x);
+			release?.();
+			return 1 as O;
+		}
+		const order = f(x, y);
+		if (order !== 0) {
+			release?.();
+			return order;
+		}
+	}
+	release?.();
+	const y = b.next();
+	if (y === DONE) return 0 as O;
+	dropY?.(y);
+	return -1 as O;
+}
+
+/** `f` as std's own closure of a comparison, which drops what it is given, the second first, once it compares them. */
+export function consuming<T, U, R>(f: (x: T, y: U) => R, dropX?: Drop<T>, dropY?: Drop<U>): (x: T, y: U) => R {
+	return (x, y) => {
+		const result = f(x, y);
+		dropY?.(y);
+		dropX?.(x);
+		return result;
+	};
+}
+
+/**
+ * `Iterator::cmp`, `partial_cmp`, and their `_by` forms: `iter_compare` of `a` and `b`
+ * by `cmp`, and then `b` and `a` dropped as `Compared` says.
+ */
+export function iterCmp<T, U, O extends Ordering | undefined>(
+	a: Iter<T>,
+	b: Iter<U>,
+	cmp: (x: T, y: U) => O,
+	...[drops = false, dropsOther = false, owns = false, dropX, dropY]: Compared<T, U>
+): O {
+	const order = iterCompare(a, b, cmp, owns ? () => dispose(cmp) : undefined, dropX, dropY);
+	if (dropsOther) dispose(b);
+	if (drops) dispose(a);
+	return order;
+}
+
+/**
+ * `Iterator::eq` and `eq_by`: `iter_compare` of `a` and `b` until `eq` fails. If `trusted`,
+ * as std's of two `TrustedLen` iterators, unequal at once, reading neither, unless their
+ * size hints' upper bounds are the same or both unknown.
+ */
+export function iterEq<T, U>(a: Iter<T>, b: Iter<U>, eq: (x: T, y: U) => boolean, trusted = false, ...[drops = false, dropsOther = false, owns = false, dropX, dropY]: Compared<T, U>): boolean {
+	const release = owns ? () => dispose(eq) : undefined;
+	let equal = false;
+	if (trusted && a.sizeHint()[1] !== b.sizeHint()[1]) release?.();
+	else equal = iterCompare(a, b, (x: T, y: U) => (eq(x, y) ? 0 : 1), release, dropX, dropY) === 0;
+	if (dropsOther) dispose(b);
+	if (drops) dispose(a);
+	return equal;
+}
+
+/** `Iterator::lt`: whether `iterCmp` by `partial_cmp` is `Less`. */
+export function iterLt<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	return iterCmp(a, b, cmp, ...rest) === -1;
+}
+
+/** `Iterator::le`: whether `iterCmp` by `partial_cmp` is `Less` or `Equal`. */
+export function iterLe<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	const order = iterCmp(a, b, cmp, ...rest);
+	return order !== undefined && order <= 0;
+}
+
+/** `Iterator::gt`: whether `iterCmp` by `partial_cmp` is `Greater`. */
+export function iterGt<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	return iterCmp(a, b, cmp, ...rest) === 1;
+}
+
+/** `Iterator::ge`: whether `iterCmp` by `partial_cmp` is `Greater` or `Equal`. */
+export function iterGe<T, U>(a: Iter<T>, b: Iter<U>, cmp: (x: T, y: U) => Ordering | undefined, ...rest: Compared<T, U>): boolean {
+	const order = iterCmp(a, b, cmp, ...rest);
+	return order !== undefined && order >= 0;
+}
+
 /** `collect` into a `Vec`, as `iterExtend` of an empty one. */
 export function iterToArray<T>(it: Iter<T>, take?: Take, size?: number, trusted = false): T[] {
 	const out: T[] = [];

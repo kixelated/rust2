@@ -17,12 +17,17 @@ export function log(self: Left, by: rt.u16): void {
 	rt.cellSet(self._1, rt.u16WrappingAdd(rt.u16WrappingMul(self._1.v, 31), self._0 ^ by));
 }
 
+export function eq$PartialEq_Right(self: Left, other: Right.Right): boolean {
+	log(self, 256);
+	return rt.u16Rem(self._0, 4) === rt.u16Rem(other._0, 4);
+}
+
 export function ne$PartialEq_Right(self: Left, other: Right.Right): boolean {
 	log(self, 512);
 	return rt.u16Rem(self._0, 3) !== rt.u16Rem(other._0, 3);
 }
 
-export function eq$PartialEq_Right(self: Left, other: Right.Right): boolean {
+export function eq$PartialEq_Right$2(self: Left, other: Right.Right): boolean {
 	log(self, 2048);
 	return rt.u16Rem(self._0, 5) === rt.u16Rem(other._0, 5);
 }
@@ -30,6 +35,11 @@ export function eq$PartialEq_Right(self: Left, other: Right.Right): boolean {
 export function eq$PartialEq_Left(self: Left, other: Left): boolean {
 	log(self, 4096);
 	return rt.u16Rem(self._0, 2) === rt.u16Rem(other._0, 2);
+}
+
+export function partialCmp$PartialOrd_Right(self: Left, other: Right.Right): rt.Ordering | undefined {
+	log(self, 8192);
+	return rt.cmp(rt.u16Rem(self._0, 4), rt.u16Rem(other._0, 4));
 }
 
 //# sourceMappingURL=collections.Left.ts.map

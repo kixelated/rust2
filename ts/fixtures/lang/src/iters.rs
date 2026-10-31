@@ -1384,3 +1384,111 @@ fn overflowed(a: u8, data: &[u8], out: &mut Vec<u8>) {
 		_ => out.extend(Vec::from_iter(top..)),
 	}
 }
+
+/// std's comparisons of iterators, logging each item they read and each call of a `_by`
+/// form's closure, which counts them in what it captures: against the data cut short, run
+/// long, or changed at its end, by `kind >> 4`. Of two `TrustedLen` sides, whose `eq` reads
+/// neither unless their lengths agree; of sides that are not, the first by `&mut` and read
+/// on after; of floats with NaN for 0xff, against a `Vec` by value; and of `start..`, which
+/// never ends, and panics past its type's last value.
+pub fn compares(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let log = std::cell::RefCell::new(Vec::new());
+	let mut other = data.to_vec();
+	match (kind >> 4) % 4 {
+		0 => {}
+		1 => drop(other.pop()),
+		2 => other.push(kind),
+		_ => {
+			if let Some(last) = other.last_mut() {
+				*last = last.wrapping_add(1);
+			}
+		}
+	}
+	macro_rules! seen {
+		($tag:expr) => {
+			|&x: &u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	macro_rules! stepped {
+		($tag:expr) => {
+			|x: u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	macro_rules! float {
+		($tag:expr) => {
+			|&x: &u8| {
+				log.borrow_mut().push(x ^ $tag);
+				if x == 0xff { f32::NAN } else { f32::from(x) }
+			}
+		};
+	}
+	let order = |o: Option<std::cmp::Ordering>| o.map_or(9, |o| o as u8);
+	// By `PartialEq` and `PartialOrd`, and the `_by` forms of each.
+	macro_rules! partial {
+		($a:expr, $b:expr) => {{
+			let mut calls = 0u8;
+			let r = match kind % 16 {
+				0 => $a.eq($b) as u8,
+				1 => $a.ne($b) as u8,
+				2 => $a.lt($b) as u8,
+				3 => $a.le($b) as u8,
+				4 => $a.gt($b) as u8,
+				5 => $a.ge($b) as u8,
+				6 => order($a.partial_cmp($b)),
+				7 => $a.eq_by($b, |x, y| {
+					calls += 1;
+					x == y
+				}) as u8,
+				_ => order($a.partial_cmp_by($b, |x, y| {
+					calls += 1;
+					x.partial_cmp(&y)
+				})),
+			};
+			out.extend([r, calls]);
+		}};
+	}
+	// And by `Ord`, and a comparison that overflows, which panics, past 255.
+	macro_rules! total {
+		($a:expr, $b:expr) => {{
+			let mut calls = 0u8;
+			match kind % 16 {
+				9 => out.push($a.cmp($b) as u8),
+				10 => out.push($a.cmp_by($b, |x, y| {
+					calls += 1;
+					x.cmp(&y)
+				}) as u8),
+				11 => out.push($a.cmp_by($b, |x: u8, y: u8| (x + y).cmp(&(y + x))) as u8),
+				_ => partial!($a, $b),
+			}
+			out.push(calls);
+		}};
+	}
+	match kind >> 6 {
+		0 => total!(data.iter().map(seen!(1)), other.iter().map(seen!(2))),
+		1 => {
+			let mut a = data.iter().map(seen!(3)).filter(|_| true);
+			total!(a.by_ref(), other.iter().map(seen!(4)).skip_while(|_| false));
+			out.push(a.count() as u8);
+		}
+		2 => {
+			let b: Vec<f32> = other.iter().map(float!(6)).collect();
+			partial!(data.iter().map(float!(5)), b);
+		}
+		_ => {
+			let lo = data.first().copied().unwrap_or(0);
+			match (kind >> 4) % 4 {
+				0 => total!(data.iter().map(seen!(7)), (lo..).map(stepped!(8))),
+				1 => total!((lo..).map(stepped!(9)), data.iter().map(seen!(10))),
+				2 => total!((lo..).map(stepped!(11)), (lo..).map(stepped!(12))),
+				_ => total!((lo..).take(data.len()).map(stepped!(13)), (lo..).map(stepped!(14))),
+			}
+		}
+	}
+	out.extend_from_slice(&log.borrow());
+}
