@@ -24,6 +24,8 @@ import type * as pointers_Run from "./pointers.Run.ts";
 import * as Segment from "./pointers.Segment.ts";
 import type * as Span from "./pointers.Span.ts";
 import type * as Stable from "./pointers.Stable.ts";
+import type * as Waiter from "./pointers.Waiter.ts";
+import * as Waiters from "./pointers.Waiters.ts";
 import * as Wrapped from "./pointers.Wrapped.ts";
 
 /** Put `node` in the list just before `at`. */
@@ -958,6 +960,67 @@ export function besideWritten(data: rt.ByteSlice, out: rt.ByteVec): void {
 		firstSet$u16(pair, byte as rt.u16);
 		cell.v = rt.u8WrappingAdd(cell.v, byte);
 		rt.byteVecPush(out, cell.v ^ (pair[0] & 0xff));
+	}
+}
+
+export function waiter(n: rt.u8): Waiter.Waiter {
+	return { next: new rt.Atomic(rt.NULL), enqueued: new rt.Atomic(false), slot: new rt.Cell([n, 0] as [rt.u8, rt.u8]) };
+}
+
+export function slotOf(waiter: Waiter.Waiter): [rt.u8, rt.u8] {
+	return waiter.slot.v;
+}
+
+/**
+ * Waiters linked and unlinked, each changed and read through the pointer into its cell
+ * taken when it was made, which nothing writing a waiter whole leaves stale.
+ */
+export function waiters(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _80!: rt.usize;
+	const nodes: Waiter.Waiter[] = [waiter(0), waiter(1), waiter(2), waiter(3)];
+	const slots: [rt.u8, rt.u8][] = [slotOf(nodes[0]), slotOf(nodes[1]), slotOf(nodes[2]), slotOf(nodes[3])];
+	const list: Waiters.Waiters = { head: new rt.Atomic(rt.NULL), last: rt.NULL };
+	for (const byte of rt.byteSliceView(data)) {
+		const at: rt.usize = rt.usizeRem(byte >> 2 as rt.usize, 4);
+		const _42: rt.u8 = rt.u8Rem(byte, 4);
+		if (_42 === 0) {
+			if (!(at < 4)) {
+				rt.panic("index out of bounds: the len is " + 4 + " but the index is " + at);
+			}
+			Waiters.push(list, nodes[at]);
+			continue;
+		}
+		if (_42 === 1) {
+			rt.byteVecPush(out, Waiters.pop(list) ? 1 : 0);
+			continue;
+		}
+		if (_42 === 2) {
+			if (!((list.last === rt.NULL))) {
+				const slot: [rt.u8, rt.u8] = slotOf(list.last);
+				slot[1] = rt.u8WrappingAdd(slot[1], byte);
+				continue;
+			}
+		}
+		if (!(at < 4)) {
+			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + at);
+		}
+		const _58: [rt.u8, rt.u8] = copy$tuple2_u8_u8(slots[at]);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_58[0], _58[1])), undefined, true);
+	}
+	let at2: Waiter.Waiter = rt.atomicLoad(list.head, 4);
+	while (!((at2 === rt.NULL))) {
+		const _69: [rt.u8, rt.u8] = copy$tuple2_u8_u8(slotOf(at2));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_69[0], _69[1])), undefined, true);
+		at2 = rt.atomicLoad(at2.next, 4);
+	}
+	let iterStart: rt.usize = 0;
+	const iterEnd: rt.usize = 4;
+	while ((_80 = iterStart++) < iterEnd) {
+		const node: rt.usize = _80;
+		if (!(node < 4)) {
+			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + node);
+		}
+		nodes[node];
 	}
 }
 

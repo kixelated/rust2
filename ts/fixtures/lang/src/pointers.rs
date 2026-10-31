@@ -2,14 +2,17 @@
 //! linked through a union and holding a `MaybeUninit` entry, with a free list of nodes to
 //! reuse; pointers to numbers, to fields, and to whole values, read, written, swapped,
 //! and compared; pointers to the parts of a struct kept as objects; the pointers
-//! `UnsafeCell::get` gives; and slots of fresh memory written whole before any pointer
-//! into them is taken, by index or through std's iterators over them.
+//! `UnsafeCell::get` gives; slots of fresh memory written whole before any pointer
+//! into them is taken, by index or through std's iterators over them; and pointers into
+//! nodes that an `AtomicPtr` and memory hold pointers to.
 
 use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::{AtomicBool, AtomicPtr};
 
 struct Links<V> {
 	next: NonNull<Node<V>>,
@@ -1091,5 +1094,102 @@ pub fn beside_written(data: &[u8], out: &mut Vec<u8>) {
 		first_set(&mut pair, u16::from(byte));
 		unsafe { *cell = (*cell).wrapping_add(byte) };
 		out.push(unsafe { *cell } ^ pair.0 as u8);
+	}
+}
+
+/// A node a list links through an `AtomicPtr`, holding a cell it lends a pointer into, as
+/// wasmtimer's timer nodes hold futures' `AtomicWaker`.
+struct Waiter {
+	next: AtomicPtr<Waiter>,
+	enqueued: AtomicBool,
+	slot: UnsafeCell<(u8, u8)>,
+}
+
+fn waiter(n: u8) -> *mut Waiter {
+	Box::into_raw(Box::new(Waiter {
+		next: AtomicPtr::new(ptr::null_mut()),
+		enqueued: AtomicBool::new(false),
+		slot: UnsafeCell::new((n, 0)),
+	}))
+}
+
+fn slot_of(waiter: &Waiter) -> *mut (u8, u8) {
+	waiter.slot.get()
+}
+
+/// Waiters pushed onto an atomic head and popped through `get_mut`, as wasmtimer's
+/// `ArcList` keeps them, with the one popped last kept in memory too.
+struct Waiters {
+	head: AtomicPtr<Waiter>,
+	last: *mut Waiter,
+}
+
+impl Waiters {
+	fn push(&self, waiter: *mut Waiter) {
+		let node = unsafe { &*waiter };
+		if node.enqueued.swap(true, SeqCst) {
+			return;
+		}
+		let mut head = self.head.load(SeqCst);
+		loop {
+			node.next.store(head, SeqCst);
+			match self.head.compare_exchange(head, waiter, SeqCst, SeqCst) {
+				Ok(_) => break,
+				Err(now) => head = now,
+			}
+		}
+	}
+
+	fn pop(&mut self) -> bool {
+		let head = *self.head.get_mut();
+		if head.is_null() {
+			return false;
+		}
+		*self.head.get_mut() = unsafe { (*head).next.load(SeqCst) };
+		unsafe { (*head).enqueued.store(false, SeqCst) };
+		self.last = head;
+		true
+	}
+}
+
+/// Waiters linked and unlinked, each changed and read through the pointer into its cell
+/// taken when it was made, which nothing writing a waiter whole leaves stale.
+pub fn waiters(data: &[u8], out: &mut Vec<u8>) {
+	let nodes = [waiter(0), waiter(1), waiter(2), waiter(3)];
+	let slots = unsafe {
+		[
+			slot_of(&*nodes[0]),
+			slot_of(&*nodes[1]),
+			slot_of(&*nodes[2]),
+			slot_of(&*nodes[3]),
+		]
+	};
+	let mut list = Waiters {
+		head: AtomicPtr::new(ptr::null_mut()),
+		last: ptr::null_mut(),
+	};
+	for &byte in data {
+		let at = usize::from(byte >> 2) % 4;
+		match byte % 4 {
+			0 => list.push(nodes[at]),
+			1 => out.push(u8::from(list.pop())),
+			2 if !list.last.is_null() => unsafe {
+				let slot = slot_of(&*list.last);
+				(*slot).1 = (*slot).1.wrapping_add(byte);
+			},
+			_ => {
+				let (a, b) = unsafe { *slots[at] };
+				out.extend([a, b]);
+			}
+		}
+	}
+	let mut at = list.head.load(SeqCst);
+	while !at.is_null() {
+		let (a, b) = unsafe { *slot_of(&*at) };
+		out.extend([a, b]);
+		at = unsafe { (*at).next.load(SeqCst) };
+	}
+	for node in 0..4 {
+		drop(unsafe { Box::from_raw(nodes[node]) });
 	}
 }

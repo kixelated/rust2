@@ -231,6 +231,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("saturates::i64s", saturates::i64s),
 		("saturates::i128s", saturates::i128s),
 		("saturates::isizes", saturates::isizes),
+		("pointers::waiters", |_, data, out| pointers::waiters(data, out)),
 	]
 }
 

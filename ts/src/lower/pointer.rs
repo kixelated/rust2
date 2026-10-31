@@ -316,9 +316,9 @@ pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 	)
 }
 
-/// Whether std's `def_id` with `args` is one this module maps that only makes a pointer
-/// or points one elsewhere, reads through it, or drops what it points at, so it gives no
-/// part another object.
+/// Whether std's `def_id` with `args` is one that only makes a pointer or points one
+/// elsewhere, reads through it, or drops what it points at, as this module maps them, or
+/// an atomic's, which holds a pointer as a value, so it gives no part another object.
 pub fn keeps<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
 	let keeps = matches!(
 		super::library::key(tcx, def_id),
@@ -337,7 +337,7 @@ pub fn keeps<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args
 					| "cast_mut" | "eq" | "read" | "read_unaligned" | "read_volatile" | "drop_in_place"
 			) | ("Box", "into_raw" | "leak" | "from_raw")
 				| ("UnsafeCell", "new" | "get" | "get_mut" | "into_inner")
-		)
+		) || owner == "Atomic" && super::library::is_std(tcx, def_id)
 	);
 	keeps || from_reference(tcx, def_id, args)
 }
