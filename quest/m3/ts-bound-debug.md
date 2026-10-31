@@ -9,7 +9,7 @@ native Rust.
 
 ## Plan
 
-Found by [Methods of std's ranges](/quest/m3/ts-range-methods.md), whose fixture encodes
+Found by [#325](https://github.com/moq-dev/rust2/pull/325), whose fixture encodes
 bounds as bytes instead. Planned without a moq consumer, under the maintainer's
 2026-10-27 decision that rust2 aims to support all of std.
 

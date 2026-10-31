@@ -9,7 +9,7 @@
 import { fmtCharDebug, type Place, panic, panicFmt, stringLen } from "../rt.ts";
 import { type Bounds, boundsRange } from "./collections.ts";
 import type { char, u8, usize } from "./int.ts";
-import { DONE, type Done, Iter, iterForEach, iterSlice, type SizeHint } from "./iter.ts";
+import { type Clones, DONE, type Done, Iter, iterForEach, iterSlice, type SizeHint } from "./iter.ts";
 import { drop as dispose } from "./task.ts";
 
 const encoder = /* @__PURE__ */ new TextEncoder();
@@ -132,8 +132,16 @@ class Chars extends Iter<char> {
 		return this.#s.slice(this.#front, this.#back);
 	}
 
+	override clone(): Iter<char> {
+		const it = new Chars(this.#s);
+		it.#front = this.#front;
+		it.#back = this.#back;
+		return it;
+	}
+
+	/** std's `Debug` lists a clone. */
 	override remaining(): Iterable<char> {
-		return new Chars(this.rest());
+		return this.clone();
 	}
 }
 
@@ -156,6 +164,17 @@ class Searcher {
 		this.s = s;
 		this.#p = p;
 		this.#back = s.length;
+	}
+
+	/** std's: where it is, with its pattern cloned by `h.f`, a closure's as Rust clones it. */
+	clone(h: Clones | undefined): Searcher {
+		const m = new Searcher(this.s, h?.f === undefined ? this.#p : (h.f as (p: Pattern) => Pattern)(this.#p));
+		m.#front = this.#front;
+		m.#back = this.#back;
+		m.#matched = this.#matched;
+		m.start = this.start;
+		m.end = this.end;
+		return m;
 	}
 
 	nextMatch(): boolean {
@@ -237,6 +256,14 @@ class Split extends Iter<string> {
 		this.#end = m.s.length;
 	}
 
+	override clone(h?: Clones): Iter<string> {
+		const it = new Split(this.#m.clone(h));
+		it.#start = this.#start;
+		it.#end = this.#end;
+		it.#finished = this.#finished;
+		return it;
+	}
+
 	next(): string | Done {
 		if (this.#finished) return DONE;
 		const m = this.#m;
@@ -279,6 +306,15 @@ class MatchIndices extends Iter<[usize, string]> {
 	constructor(m: Searcher) {
 		super();
 		this.#m = m;
+	}
+
+	override clone(h?: Clones): Iter<[usize, string]> {
+		const it = new MatchIndices(this.#m.clone(h));
+		it.#front = this.#front;
+		it.#frontBytes = this.#frontBytes;
+		it.#back = this.#back;
+		it.#backBytes = this.#backBytes;
+		return it;
 	}
 
 	next(): [usize, string] | Done {

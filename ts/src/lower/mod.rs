@@ -218,6 +218,11 @@ pub struct Translator<'a, 'tcx> {
 	read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
 	/// The instances whose bodies lowered from MIR, a closure's included.
 	lowered: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+	/// The closures whose clones can't share them that the runs before reached, each made
+	/// by a function of its captures, which makes its clone too.
+	cloned: rustc_data_structures::fx::FxHashSet<DefId>,
+	/// Those this run reached.
+	cloning: rustc_data_structures::fx::FxHashSet<DefId>,
 	/// The trait of each trait object, by its principal trait.
 	objects: rustc_data_structures::fx::FxHashMap<DefId, dynamic::Object>,
 	/// The class wrapping each type as each trait object.
@@ -343,7 +348,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	/// translation reaches runs, and of a generic body, only the instances it reaches, which
 	/// it knows once it has reached them. So it runs again while it reaches a body whose
 	/// writes it didn't read, or an instance of one writing a type parameter that it didn't
-	/// judge by.
+	/// judge by. A closure's clone may come before or after the closure is made, which
+	/// makes it as its clones need, so it runs again too when it reaches a new one.
 	fn settle<R>(
 		tcx: TyCtxt<'tcx>,
 		config: &'a Config,
@@ -351,8 +357,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		mut reach: impl FnMut(&mut Self) -> R,
 	) -> Option<(Self, R)> {
 		let mut read = rustc_data_structures::fx::FxHashSet::default();
+		let mut cloned = rustc_data_structures::fx::FxHashSet::default();
 		loop {
-			let mut t = Self::new(tcx, config, census, read)?;
+			let mut t = Self::new(tcx, config, census, read, cloned)?;
 			t.bind();
 			let out = reach(&mut t);
 			let reached: Vec<Instance<'tcx>> = t
@@ -362,12 +369,25 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				.copied()
 				.filter(|&instance| t.crates.translates(instance.def_id()) && t.writes.unread(instance))
 				.collect();
-			if reached.is_empty() {
+			if reached.is_empty() && t.cloning.is_subset(&t.cloned) {
 				return Some((t, out));
 			}
 			read = std::mem::take(&mut t.read);
 			read.extend(reached);
+			cloned = std::mem::take(&mut t.cloned);
+			cloned.extend(t.cloning.drain());
 		}
+	}
+
+	/// Note a clone of the closure `def_id` that can't share it.
+	pub fn clone_closure(&mut self, def_id: DefId) {
+		self.cloning.insert(def_id);
+	}
+
+	/// Whether a clone of the closure `def_id` that can't share it was reached, so it is
+	/// made by a function of its captures.
+	pub fn clones_closure(&self, def_id: DefId) -> bool {
+		self.cloned.contains(&def_id)
 	}
 
 	fn new(
@@ -375,6 +395,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		config: &'a Config,
 		census: bool,
 		read: rustc_data_structures::fx::FxHashSet<Instance<'tcx>>,
+		cloned: rustc_data_structures::fx::FxHashSet<DefId>,
 	) -> Option<Self> {
 		if tcx.data_layout.pointer_size().bits() != 32 {
 			tcx.dcx().err(
@@ -411,6 +432,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			writes: Default::default(),
 			read,
 			lowered: Default::default(),
+			cloned,
+			cloning: Default::default(),
 			held: false,
 			sites: Default::default(),
 			site: None,

@@ -2035,8 +2035,12 @@ pub fn clone_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> E
 	{
 		return copy;
 	}
-	if library::clone_copies(b.t, ty) || library::string(tcx, ty) {
+	if library::clone_copies(b.t, ty) || library::clone_shares(b.t, ty) {
 		return Expr::undefined();
+	}
+	if let ty::Closure(def_id, _) = ty.kind() {
+		b.t.clone_closure(*def_id);
+		return Expr::Rt("closureClone".into());
 	}
 	let clone = trait_fn(tcx, "Clone", "clone");
 	b.fn_value(clone, tcx.mk_args(&[ty.into()]), span)

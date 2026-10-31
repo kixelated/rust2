@@ -76,6 +76,25 @@ export interface Iter<T> {
 	len(): number;
 	/** The items it has left, by value, without taking them: what std's `Debug` of it lists. */
 	remaining(): Iterable<unknown>;
+	/** `Clone::clone`, reading on from where it is, independently of it, by `h`'s clones. */
+	clone(h?: Clones): Iter<T>;
+}
+
+/**
+ * What clones the parts of one of std's iterators that it can't clone itself, as std's
+ * `Clone` of each does: `i` and `o` the iterators it wraps, `f` its closure, and `v` an item
+ * or another value it holds. A part without one clones as itself.
+ */
+export interface Clones {
+	readonly i?: Clones;
+	readonly o?: Clones;
+	readonly f?: (f: never) => unknown;
+	readonly v?: (value: never) => unknown;
+}
+
+/** `value` cloned by `clone`, or itself. */
+function cloned<T>(value: T, clone: ((value: never) => unknown) | undefined): T {
+	return clone === undefined ? value : (clone as (value: T) => T)(value);
 }
 
 /** `Iterator`: `next`, and the methods std's iterators each do their own way. */
@@ -1253,6 +1272,19 @@ class SliceIter<T> extends Iter<T> implements Disposable {
 		return Array.prototype.slice.call(this.s, this.front, this.back);
 	}
 
+	/** std's: what it has left, each cloned in order by `h.v` into storage of its own, or else shared. */
+	override clone(h?: Clones): Iter<T> {
+		if (h?.v !== undefined) {
+			const items = Array.prototype.slice.call(this.s, this.front, this.back) as T[];
+			for (let i = 0; i < items.length; i++) items[i] = cloned(items[i], h.v);
+			return new SliceIter(items, this.drop);
+		}
+		const it = new SliceIter(this.s, this.drop);
+		it.front = this.front;
+		it.back = this.back;
+		return it;
+	}
+
 	[Symbol.dispose](): void {
 		if (this.drop === undefined) return;
 		const from = this.front;
@@ -1362,6 +1394,13 @@ class PartsIter<S> extends Iter<S> {
 		return this.part(this.s, start, Math.min(start + this.size, this.length));
 	}
 
+	override clone(): Iter<S> {
+		const it = new PartsIter(this.s, this.length, this.size, this.step, this.count, this.rev, this.part);
+		it.front = this.front;
+		it.back = this.back;
+		return it;
+	}
+
 	/** What the parts leave over, at the end the parts don't start from. */
 	remainder(): S {
 		const held = this.count * this.size;
@@ -1426,6 +1465,10 @@ class OptionIter<T> extends Iter<T> implements Disposable {
 		return this.some ? 1 : 0;
 	}
 
+	override clone(h?: Clones): Iter<T> {
+		return new OptionIter(this.some ? cloned(this.item as T, h?.v) : undefined, this.some, this.drop);
+	}
+
 	override sizeHint(): SizeHint {
 		return exactHint(this.len());
 	}
@@ -1452,6 +1495,11 @@ class FromNext<S, T> extends Iter<T> implements Disposable {
 
 	next(): T | Done {
 		return this.step(this.source);
+	}
+
+	/** Its source cloned by `h.v`, as the crate's own `Clone` of it. */
+	override clone(h?: Clones): Iter<T> {
+		return new FromNext(cloned(this.source, h?.v), this.step, this.drop);
 	}
 
 	[Symbol.dispose](): void {
@@ -1487,6 +1535,12 @@ class SuccessorsIter<T> extends Iter<T> implements Disposable {
 
 	override sizeHint(): SizeHint {
 		return this.item === this.none ? [0, 0] : [1, undefined];
+	}
+
+	/** std's: the item it holds next by `h.v`, then its closure by `h.f`. */
+	override clone(h?: Clones): Iter<T> {
+		const item = this.item === this.none ? this.item : cloned(this.item as T, h?.v);
+		return new SuccessorsIter(item, cloned(this.succ, h?.f), this.drop, this.none);
 	}
 
 	[Symbol.dispose](): void {
@@ -1578,6 +1632,12 @@ class MapIter<T, U> extends Calling<T, U, (item: T) => U> {
 		return new MapIter(inner, this.f);
 	}
 
+	/** Its iterator by `h.i`, then `f` by `h.f`, as each kind that maps does. */
+	override clone(h?: Clones): Iter<U> {
+		const kind = this.constructor as new (inner: Iter<T>, f: (item: T) => U) => MapIter<T, U>;
+		return new kind(this.inner.clone(h?.i), cloned(this.f, h?.f));
+	}
+
 	/** std's: `inner`'s, by a closure that drops `release`'s and then `f`. */
 	override fold<A>(acc: A, g: (acc: A, item: U) => A, release?: () => void): A {
 		return this.inner.fold(acc, mapFold(this.f, g), then(release, this.take()));
@@ -1643,6 +1703,10 @@ class FilterIter<T> extends Calling<T, T, (item: T) => boolean> {
 		return new FilterIter(inner, this.f, this.drop);
 	}
 
+	override clone(h?: Clones): Iter<T> {
+		return new FilterIter(this.inner.clone(h?.i), cloned(this.f, h?.f), this.drop);
+	}
+
 	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
 	override fold<A>(acc: A, g: (acc: A, item: T) => A, release?: () => void): A {
 		return this.inner.fold(acc, this.filterFold(g), then(this.take(), release));
@@ -1702,6 +1766,10 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | Non
 		return new FilterMapIter(inner, this.f, this.none);
 	}
 
+	override clone(h?: Clones): Iter<U> {
+		return new FilterMapIter(this.inner.clone(h?.i), cloned(this.f, h?.f), this.none);
+	}
+
 	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
 	override fold<A>(acc: A, g: (acc: A, item: U) => A, release?: () => void): A {
 		return this.inner.fold(acc, this.filterMapFold(g), then(this.take(), release));
@@ -1720,6 +1788,12 @@ class FilterMapIter<T, U> extends Calling<T, U, (item: T) => U | undefined | Non
 
 class EnumerateIter<T> extends Adaptor<T, [number, T]> {
 	index = 0;
+
+	override clone(h?: Clones): Iter<[number, T]> {
+		const it = new EnumerateIter(this.inner.clone(h?.i));
+		it.index = this.index;
+		return it;
+	}
 
 	override sizeHint(): SizeHint {
 		return this.inner.sizeHint();
@@ -1798,10 +1872,15 @@ class ChainIter<T> extends Iter<T> implements Disposable {
 	a: Iter<T> | undefined;
 	b: Iter<T> | undefined;
 
-	constructor(a: Iter<T>, b: Iter<T>) {
+	constructor(a: Iter<T> | undefined, b: Iter<T> | undefined) {
 		super();
 		this.a = a;
 		this.b = b;
+	}
+
+	/** std's: each half it still holds, the first by `h.i` and the second by `h.o`. */
+	override clone(h?: Clones): Iter<T> {
+		return new ChainIter(this.a?.clone(h?.i), this.b?.clone(h?.o));
 	}
 
 	/** Drop `a`, which ended. */
@@ -1952,6 +2031,10 @@ class ZipIter<A, B> extends Iter<[A, B]> implements Disposable {
 		this.dropB = dropB;
 	}
 
+	override clone(h?: Clones): Iter<[A, B]> {
+		return new ZipIter(this.a.clone(h?.i), this.b.clone(h?.o), this.bounded, this.dropA, this.dropB);
+	}
+
 	/** std's `SpecFold` of two `TrustedLen` iterators, which `try_fold` doesn't share. */
 	override folded(fold = false): Iter<[A, B]> {
 		return fold && this.bounded ? new ZipFold(this) : this;
@@ -2047,6 +2130,14 @@ class TrustedZipIter<A, B> extends ZipIter<A, B> {
 		this.end = Math.min(a.len(), b.len());
 	}
 
+	/** std's: its count of pairs read, with its iterators, which it reads by index as they are. */
+	override clone(h?: Clones): Iter<[A, B]> {
+		const it = new TrustedZipIter(this.a.clone(h?.i), this.b.clone(h?.o), this.dropA, this.dropB);
+		it.index = this.index;
+		it.end = this.end;
+		return it;
+	}
+
 	override next(): [A, B] | Done {
 		if (this.index >= this.end) return DONE;
 		this.index++;
@@ -2120,6 +2211,10 @@ class RevIter<T> extends Adaptor<T, T> {
 		return new RevIter(inner);
 	}
 
+	override clone(h?: Clones): Iter<T> {
+		return new RevIter(this.inner.clone(h?.i));
+	}
+
 	override fold<A>(acc: A, f: (acc: A, item: T) => A, release?: () => void): A {
 		return this.inner.rfold(acc, f, release);
 	}
@@ -2138,6 +2233,10 @@ class SkipIter<T> extends Adaptor<T, T> {
 		super(inner);
 		this.n = n;
 		this.drop = drop;
+	}
+
+	override clone(h?: Clones): Iter<T> {
+		return new SkipIter(this.inner.clone(h?.i), this.n, this.drop);
 	}
 
 	override sizeHint(): SizeHint {
@@ -2247,6 +2346,10 @@ class TakeIter<T> extends Adaptor<T, T> {
 		super(inner);
 		this.n = n;
 		this.drop = drop;
+	}
+
+	override clone(h?: Clones): Iter<T> {
+		return new TakeIter(this.inner.clone(h?.i), this.n, this.drop);
 	}
 
 	override sizeHint(): SizeHint {
@@ -2366,6 +2469,12 @@ class SkipWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 		this.drop = drop;
 	}
 
+	override clone(h?: Clones): Iter<T> {
+		const it = new SkipWhileIter(this.inner.clone(h?.i), cloned(this.f, h?.f), this.drop);
+		it.flag = this.flag;
+		return it;
+	}
+
 	next(): T | Done {
 		return findItem(
 			this.inner,
@@ -2412,6 +2521,12 @@ class TakeWhileIter<T> extends Calling<T, T, (item: T) => boolean> {
 	constructor(inner: Iter<T>, f: (item: T) => boolean, drop?: Drop<T>) {
 		super(inner, f);
 		this.drop = drop;
+	}
+
+	override clone(h?: Clones): Iter<T> {
+		const it = new TakeWhileIter(this.inner.clone(h?.i), cloned(this.f, h?.f), this.drop);
+		it.flag = this.flag;
+		return it;
 	}
 
 	next(): T | Done {
@@ -2461,6 +2576,10 @@ class MapWhileIter<T, U> extends Calling<T, U, (item: T) => U | undefined | None
 		return new MapWhileIter(inner, this.f, this.none);
 	}
 
+	override clone(h?: Clones): Iter<U> {
+		return new MapWhileIter(this.inner.clone(h?.i), cloned(this.f, h?.f), this.none);
+	}
+
 	override sizeHint(): SizeHint {
 		return fewer(this.inner);
 	}
@@ -2477,6 +2596,12 @@ class StepByIter<T> extends Adaptor<T, T> {
 		if (step === 0) panic("assertion failed: step != 0");
 		this.step = step - 1;
 		this.drop = drop;
+	}
+
+	override clone(h?: Clones): Iter<T> {
+		const it = new StepByIter(this.inner.clone(h?.i), this.step + 1, this.drop);
+		it.firstTake = this.firstTake;
+		return it;
 	}
 
 	next(): T | Done {
@@ -2600,6 +2725,10 @@ class InspectIter<T> extends Calling<T, T, (item: T) => void> {
 		return new InspectIter(inner, this.f);
 	}
 
+	override clone(h?: Clones): Iter<T> {
+		return new InspectIter(this.inner.clone(h?.i), cloned(this.f, h?.f));
+	}
+
 	/** std's: `inner`'s, by a closure that drops `f` and then `release`'s. */
 	override fold<A>(acc: A, g: (acc: A, item: T) => A, release?: () => void): A {
 		return this.inner.fold(acc, this.inspectFold(g), then(this.take(), release));
@@ -2624,10 +2753,15 @@ class FuseIter<T> extends Iter<T> implements Disposable {
 	/** Whether its iterator is a `FusedIterator`, which std's keeps once it ends. */
 	private readonly fused: boolean;
 
-	constructor(inner: Iter<T>, fused: boolean) {
+	constructor(inner: Iter<T> | undefined, fused: boolean) {
 		super();
 		this.inner = inner;
 		this.fused = fused;
+	}
+
+	/** std's: its iterator, while it holds it. */
+	override clone(h?: Clones): Iter<T> {
+		return new FuseIter(this.inner?.clone(h?.i), this.fused);
 	}
 
 	override sizeHint(): SizeHint {
@@ -2711,13 +2845,21 @@ class FlattenIter<T, V> extends Iter<V> implements Disposable {
 	front: Iter<V> | undefined;
 	back: Iter<V> | undefined;
 
-	constructor(outer: Iter<T>, into: (value: T) => Iter<V>, fused: boolean, size?: number, oneShot = false) {
+	constructor(outer: Iter<T> | undefined, into: (value: T) => Iter<V>, fused: boolean, size?: number, oneShot = false) {
 		super();
 		this.outer = outer;
 		this.into = into;
 		this.fused = fused;
 		this.size = size;
 		this.oneShot = oneShot;
+	}
+
+	/** std's: its source by `h.i`, while it holds it, then its front and back by `h.o`. */
+	override clone(h?: Clones): Iter<V> {
+		const it = new FlattenIter(this.outer?.clone(h?.i), this.into, this.fused, this.size, this.oneShot);
+		it.front = this.front?.clone(h?.o);
+		it.back = this.back?.clone(h?.o);
+		return it;
 	}
 
 	/**
@@ -2987,6 +3129,14 @@ export class Peekable<T> extends Adaptor<T, T> {
 	constructor(inner: Iter<T>, drop?: Drop<T>) {
 		super(inner);
 		this.drop = drop;
+	}
+
+	/** std's: its iterator by `h.i`, then the item it peeked by `h.v`. */
+	override clone(h?: Clones): Peekable<T> {
+		const it = new Peekable(this.inner.clone(h?.i), this.drop);
+		it.peeked = this.peeked;
+		it.item = this.item === DONE ? DONE : cloned(this.item, h?.v);
+		return it;
 	}
 
 	/** The item it peeked, if any, which it no longer holds. */
@@ -3267,6 +3417,10 @@ export class Range<T> extends Iter<T> {
 	override sizeHint(): SizeHint {
 		return lt(this.start, this.end) ? stepsBetween(this.start, this.end, this.int) : [0, 0];
 	}
+
+	override clone(): Range<T> {
+		return new Range(this.start, this.end, this.int);
+	}
 }
 
 /** `Range::is_empty`. */
@@ -3277,11 +3431,6 @@ export function rangeIsEmpty<T>(r: Range<T>): boolean {
 /** `Range::contains`: `start <= item < end`, so nothing past a NaN. */
 export function rangeContains<T>(r: Range<T>, item: T): boolean {
 	return le(r.start, item) && lt(item, r.end);
-}
-
-/** `Range::clone`. */
-export function rangeClone<T>(r: Range<T>): Range<T> {
-	return new Range(r.start, r.end, r.int);
 }
 
 /**
@@ -3314,6 +3463,10 @@ export class RangeFrom<T> extends Iter<T> {
 
 	override sizeHint(): SizeHint {
 		return [USIZE_MAX, undefined];
+	}
+
+	override clone(): RangeFrom<T> {
+		return new RangeFrom(this.start, this.int);
 	}
 }
 
@@ -3366,6 +3519,12 @@ export class RangeInclusive<T> extends Iter<T> {
 
 	override folded(): Iter<T> {
 		return new RangeInclusiveFold(this);
+	}
+
+	override clone(): RangeInclusive<T> {
+		const range = new RangeInclusive(this.lo, this.hi, this.int);
+		range.exhausted = this.exhausted;
+		return range;
 	}
 
 	override nextBack(): T | Done {
@@ -3501,13 +3660,6 @@ export function rangeHash<T>(hash: (value: T, s: Hasher) => void): (value: Bound
 		if ("start" in r) hash(r.start, s);
 		if ("end" in r) hash(r.end, s);
 	};
-}
-
-/** `RangeInclusive::clone`. */
-export function rangeInclusiveClone<T>(r: RangeInclusive<T>): RangeInclusive<T> {
-	const range = new RangeInclusive(r.lo, r.hi, r.int);
-	range.exhausted = r.exhausted;
-	return range;
 }
 
 /** `RangeInclusive::start_bound`: its start, included. */
