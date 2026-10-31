@@ -2,9 +2,9 @@
 
 import * as rt from "./rt.ts";
 import { copy$tuple2_u8_u8 } from "./lib.ts";
-import { min$1ljcpv9, min$1f8m2y1, min$0tn2vhs, min$1mtc1eg, minBy$0f4msyz, minByKey$04nvnd5, max$17dwnpn, max$1s8mlx0, max$0i3ups8, max$1tkcqvz, max$0bn3iky, max$0g5g0ks, maxBy$04pyy5s, maxByKey$1a9sf4b } from "./core/cmp.ts";
-import { map$0isl2bb as option_map$0isl2bb, map$05nbzug as option_map$05nbzug, mapOr$1e4a1e0 as option_mapOr$1e4a1e0, mapOr$14aggam as option_mapOr$14aggam, mapOr$0z7fb2w as option_mapOr$0z7fb2w, mapOr$1surhce as option_mapOr$1surhce, mapOr$06gg5x7 as option_mapOr$06gg5x7 } from "./core/option.ts";
-import { eq$15zrpyn as result_eq$15zrpyn, eq$1faqxpo as result_eq$1faqxpo, partialCmp$08on5x6 as result_partialCmp$08on5x6, partialCmp$0v2kxbo as result_partialCmp$0v2kxbo, partialCmp$0spmpix as result_partialCmp$0spmpix, partialCmp$0hea5es as result_partialCmp$0hea5es, cmp$0nb553d as result_cmp$0nb553d, cmp$0h5rzdg as result_cmp$0h5rzdg, cmp$06akmd5 as result_cmp$06akmd5 } from "./core/result.ts";
+import { min$1ljcpv9, min$1f8m2y1, min$0tn2vhs, min$1mtc1eg, minBy$0f4msyz, minBy$0wmhcb1, minByKey$04nvnd5, max$17dwnpn, max$1s8mlx0, max$0i3ups8, max$1tkcqvz, max$0bn3iky, max$0g5g0ks, maxBy$04pyy5s, maxBy$0yuzdd4, maxByKey$1a9sf4b } from "./core/cmp.ts";
+import { unwrapOr$0l1fs14 as option_unwrapOr$0l1fs14, map$0isl2bb as option_map$0isl2bb, map$05nbzug as option_map$05nbzug, mapOr$1e4a1e0 as option_mapOr$1e4a1e0, mapOr$14aggam as option_mapOr$14aggam, mapOr$0z7fb2w as option_mapOr$0z7fb2w, mapOr$1surhce as option_mapOr$1surhce, mapOr$06gg5x7 as option_mapOr$06gg5x7 } from "./core/option.ts";
+import { eq$15zrpyn as result_eq$15zrpyn, eq$1faqxpo as result_eq$1faqxpo, partialCmp$08on5x6 as result_partialCmp$08on5x6, partialCmp$0v2kxbo as result_partialCmp$0v2kxbo, partialCmp$0spmpix as result_partialCmp$0spmpix, partialCmp$0hea5es as result_partialCmp$0hea5es, cmp$0nb553d as result_cmp$0nb553d, cmp$0h5rzdg as result_cmp$0h5rzdg, cmp$0qsbu3y as result_cmp$0qsbu3y, cmp$06akmd5 as result_cmp$06akmd5 } from "./core/result.ts";
 import { eq$1h9nnoh as poll_eq$1h9nnoh, cmp$175ka5q as poll_cmp$175ka5q, partialCmp$1fsj76o as poll_partialCmp$1fsj76o, partialCmp$1r9dhkr as poll_partialCmp$1r9dhkr } from "./core/task/poll.ts";
 import * as orders_Item from "./orders.Item.ts";
 import * as Part from "./orders.Part.ts";
@@ -419,10 +419,10 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const b5: rt.u8 = _24;
 		return [rt.u8Rem(b5, 4), rt.u8Div(b5, 64)] as [rt.u8, rt.u8];
 	});
-	rt.heapExtend(pairs, _73, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 2, true);
+	rt.heapExtend(pairs, _73, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), undefined, 2, true);
 	const _78: [rt.u8, rt.u8][] = [[rt.u8Rem(data.length & 0xff, 4), 9] as [rt.u8, rt.u8]];
-	rt.heapExtend(pairs, rt.iterMap(rt.iterSlice(_78), copy$tuple2_u8_u8), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 2, true);
-	const _84: rt.PeekMut<[rt.u8, rt.u8]> | undefined = rt.heapPeekMut(pairs, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
+	rt.heapExtend(pairs, rt.iterMap(rt.iterSlice(_78), copy$tuple2_u8_u8), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), undefined, 2, true);
+	const _84: rt.PeekMut<[rt.u8, rt.u8]> | undefined = rt.heapPeekMut(pairs, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
 	if (_84 !== undefined) {
 		const top: rt.PeekMut<[rt.u8, rt.u8]> = _84;
 		const _88: rt.u8 = rt.u8WrappingAdd(top.v[1], 1);
@@ -430,14 +430,14 @@ export function values(data: rt.ByteSlice, out: rt.ByteVec): void {
 		top.v[1] = _88;
 		rt.peekMutDrop(top);
 	}
-	const _94: rt.PeekMut<[rt.u8, rt.u8]> | undefined = rt.heapPeekMut(pairs, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
+	const _94: rt.PeekMut<[rt.u8, rt.u8]> | undefined = rt.heapPeekMut(pairs, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
 	if (_94 !== undefined) {
 		const top2: rt.PeekMut<[rt.u8, rt.u8]> = _94;
 		rt.peekMutDerefMut(top2);
 		Object.assign(top2.v, [0, 0] as [rt.u8, rt.u8]);
 		rt.peekMutDrop(top2);
 	}
-	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(rt.heapIntoSortedVec(pairs, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])))), (_25: [rt.u8, rt.u8]): Uint8Array => {
+	rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice(rt.heapIntoSortedVec(pairs, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])))), (_25: [rt.u8, rt.u8]): Uint8Array => {
 		return Uint8Array.of(_25[0], _25[1]);
 	}, (value: Uint8Array) => rt.iterSlice(value), false, 2), undefined, true);
 }
@@ -474,7 +474,7 @@ export function bytes(data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(max$1s8mlx0(a, b)[0], rt.ordMin(a, b, rt.cmpLt(rt.cmpBytes))[1], rt.ordClamp(a, Uint8Array.of(1, 1), Uint8Array.of(2, 2), rt.cmpLe(rt.cmpBytes), rt.cmpLt(rt.cmpBytes), rt.cmpGt(rt.cmpBytes))[1])), undefined, true);
 		const pair: [Uint8Array, rt.u8] = [a, b[0]];
 		const _95: [Uint8Array, rt.u8] = [b, a[1]];
-		rt.byteVecPush(out, rt.cmpTuple([rt.cmpBytes, rt.cmp])(pair, _95) === -1 ? 1 : 0);
+		rt.byteVecPush(out, rt.cmpTuple<[Uint8Array, rt.u8], rt.Ordering | undefined>([rt.cmpBytes, rt.cmp])(pair, _95) === -1 ? 1 : 0);
 	}
 	const cut: rt.usize = rt.min(data.length, 6);
 	const iter2: rt.RangeInclusive<rt.usize> = new rt.RangeInclusive(0, cut, rt.usizeStep);
@@ -548,7 +548,7 @@ export function bytes(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const i4: rt.usize = _29[0];
 		return [rt.byteSliceToByteVec(_29[1]), i4] as [rt.ByteVec, rt.usize];
 	}), undefined, 16, true);
-	rt.sliceSort(vecs, rt.cmpLt(rt.cmpTuple([rt.cmpBytes, rt.cmp])));
+	rt.sliceSort(vecs, rt.cmpLt(rt.cmpTuple<[rt.ByteVec, rt.usize], rt.Ordering | undefined>([rt.cmpBytes, rt.cmp])));
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(vecs), (_211: [rt.ByteVec, rt.usize]): rt.u8 => {
 		return _211[1] & 0xff;
 	}), undefined, true);
@@ -564,7 +564,7 @@ export function bytes(data: rt.ByteSlice, out: rt.ByteVec): void {
 			refs.push([new rt.ByteSlice(_228.data, _228.start, 2), rt.u8Div(_228.data[_228.start], 64)] as [rt.ByteSlice, rt.u8]);
 		}
 	}
-	rt.sliceSort(refs, rt.cmpLt(rt.cmpTuple([rt.cmpBytes, rt.cmp])));
+	rt.sliceSort(refs, rt.cmpLt(rt.cmpTuple<[rt.ByteSlice, rt.u8], rt.Ordering | undefined>([rt.cmpBytes, rt.cmp])));
 	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(refs), (_212: [rt.ByteSlice, rt.u8]): rt.u8 => {
 		const _86: rt.ByteSlice = _212[0];
 		return _86.data[_86.start] ^ _212[1];
@@ -573,6 +573,151 @@ export function bytes(data: rt.ByteSlice, out: rt.ByteVec): void {
 
 export function part(tag: rt.usize, key: rt.u8): Part.Part {
 	return { key: rt.u8Rem(key, 8), tag: tag & 0xff };
+}
+
+/**
+ * Tuples by their fields in order, of `Part`s beside integers, vectors, and floats, which
+ * order as nothing at NaN: of one field, two, and twelve, through a generic function, as
+ * an array's, a vector's, an `Option`'s, a `Result`'s, and a `Reverse`'s, by `max`,
+ * `min`, `clamp`, and their `_by` forms, and as `sort_by` orders them, whose comparisons
+ * are the runtime's own.
+ */
+export function tuples(data: rt.ByteSlice, out: rt.ByteVec): void {
+	const _3: (a0: rt.u8) => rt.f64 = (b: rt.u8): rt.f64 => {
+		if (!(rt.u8Rem(b, 5) === 0)) {
+			return rt.u8Rem(b, 4) as rt.f64;
+		}
+		return NaN;
+	};
+	const parts: Part.Part[] = rt.iterToArray(rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_2: [rt.usize, rt.u8]): Part.Part => {
+		return part(_2[0], _2[1]);
+	}), undefined, 2, true);
+	const iter: rt.Iter<[rt.usize, rt.ByteSlice]> = rt.iterEnumerate(rt.byteSliceWindows(data, 2));
+	while (true) {
+		const _12: [rt.usize, rt.ByteSlice] | rt.Done = iter.next();
+		if (_12 === rt.DONE) {
+			break;
+		}
+		const i: rt.usize = _12[0];
+		const at = rt.idx(parts, i);
+		const at2 = rt.idx(parts, rt.usizeAdd(i, 1));
+		const part_ = parts[at];
+		const part2 = parts[at2];
+		rt.idx(_12[1], 0);
+		const _29: rt.u8 = rt.u8Rem(_12[1].data[_12[1].start], 3);
+		rt.idx(_12[1], 1);
+		const _28: [rt.u8, rt.u8] = [_29, rt.u8Rem(_12[1].data[_12[1].start + 1], 3)];
+		const x: rt.u8 = _29;
+		const y: rt.u8 = _28[1];
+		const _44: [Part.Part] = [part_];
+		const _46: [Part.Part] = [part2];
+		const _42: rt.Ordering = rt.cmpTuple<[Part.Part], rt.Ordering>([Part.cmp$cmp_Ord])(_44, _46);
+		const _49: [Part.Part, rt.u8] = [part_, x];
+		const _51: [Part.Part, rt.u8] = [part2, y];
+		const _47: rt.Ordering = rt.cmpTuple<[Part.Part, rt.u8], rt.Ordering>([Part.cmp$cmp_Ord, rt.cmp])(_49, _51);
+		const _54: [rt.u8, Part.Part] = [x, part_];
+		const _56: [rt.u8, Part.Part] = [y, part2];
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_42, _47, rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering>([rt.cmp, Part.cmp$cmp_Ord])(_54, _56), ranked$tuples_u8([part_, x] as [Part.Part, rt.u8], [part2, y] as [Part.Part, rt.u8]), ranked$tuples_Vec_u8([part_, rt.byteVecFrom(Uint8Array.of(x))] as [Part.Part, rt.ByteVec], [part2, rt.byteVecFrom(Uint8Array.of(y))] as [Part.Part, rt.ByteVec])], (o: rt.Ordering): rt.u8 => {
+			return o & 0xff;
+		})), undefined, true);
+		flush(out);
+		const s: [rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, Part.Part] = [x, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, part_];
+		const t: [rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, Part.Part] = [y, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, part2];
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.cmpTuple<[rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, Part.Part], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, Part.cmp$cmp_Ord])(s, t) & 0xff, order(rt.cmpTuple<[rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, Part.Part], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, Part.partialCmp$cmp_PartialOrd])(s, t)), rt.cmpTuple<[rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, rt.u8, Part.Part], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, rt.cmp, Part.partialCmp$cmp_PartialOrd])(s, t) === -1 ? 1 : 0)), undefined, true);
+		flush(out);
+		rt.idx(_12[1], 0);
+		const _95: rt.f64 = _3(_12[1].data[_12[1].start]);
+		rt.idx(_12[1], 1);
+		const _94: [rt.f64, rt.f64] = [_95, _3(_12[1].data[_12[1].start + 1])];
+		const fx: rt.f64 = _95;
+		const fy: rt.f64 = _94[1];
+		const _114: [Part.Part, rt.f64] = [part_, fx];
+		const _116: [Part.Part, rt.f64] = [part2, fy];
+		const _111: rt.u8 = order(rt.cmpTuple<[Part.Part, rt.f64], rt.Ordering | undefined>([Part.partialCmp$cmp_PartialOrd, rt.f64PartialCmp])(_114, _116));
+		const _120: [rt.f64, Part.Part] = [fx, part_];
+		const _122: [rt.f64, Part.Part] = [fy, part2];
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_111, order(rt.cmpTuple<[rt.f64, Part.Part], rt.Ordering | undefined>([rt.f64PartialCmp, Part.partialCmp$cmp_PartialOrd])(_120, _122)), order(rt.cmpTuple<[rt.u8, rt.f64], rt.Ordering | undefined>([rt.cmp, rt.f64PartialCmp])([x, fx] as [rt.u8, rt.f64], [y, fy] as [rt.u8, rt.f64])))), undefined, true);
+		const _134: [Part.Part, rt.f64] = [part_, fx];
+		const _136: [Part.Part, rt.f64] = [part2, fy];
+		const _132: boolean = rt.cmpTuple<[Part.Part, rt.f64], rt.Ordering | undefined>([Part.partialCmp$cmp_PartialOrd, rt.f64PartialCmp])(_134, _136) === -1;
+		const order_ = rt.cmpTuple<[rt.f64, rt.u8], rt.Ordering | undefined>([rt.f64PartialCmp, rt.cmp])([fx, x] as [rt.f64, rt.u8], [fy, y] as [rt.f64, rt.u8]);
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_132, order_ !== undefined && order_ >= 0], (a010: boolean): rt.u8 => {
+			return a010 ? 1 : 0;
+		})), undefined, true);
+		flush(out);
+		const _146: [Part.Part, rt.u8][] = [[part_, x] as [Part.Part, rt.u8]];
+		const _149: [Part.Part, rt.u8][] = [[part2, y] as [Part.Part, rt.u8]];
+		const _144: rt.Ordering = rt.cmpSlice(rt.cmpTuple<[Part.Part, rt.u8], rt.Ordering>([Part.cmp$cmp_Ord, rt.cmp]))(_146, _149);
+		const _153: [rt.u8, Part.Part][] = [[x, part_] as [rt.u8, Part.Part]];
+		const _157: [rt.u8, Part.Part][] = [[y, part2] as [rt.u8, Part.Part]];
+		const _151: rt.Ordering = rt.cmpSlice(rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering>([rt.cmp, Part.cmp$cmp_Ord]))(_153, _157);
+		const _162: [Part.Part, rt.u8] | undefined = [part_, x];
+		const _165: [Part.Part, rt.u8] | undefined = [part2, y];
+		const _160: rt.Ordering = rt.cmpOption(rt.cmpTuple<[Part.Part, rt.u8], rt.Ordering>([Part.cmp$cmp_Ord, rt.cmp]))(_162, _165);
+		const _167: rt.Ordering = result_cmp$0qsbu3y(rt.Ok([part_] as [Part.Part]), rt.Ok([part2] as [Part.Part]));
+		const _176: [Part.Part, rt.u8] = [part_, x];
+		const _179: [Part.Part, rt.u8] = [part2, y];
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_144, _151, _160, _167, rt.cmpReverse(rt.cmpTuple<[Part.Part, rt.u8], rt.Ordering>([Part.cmp$cmp_Ord, rt.cmp]))(_176, _179)], (o2: rt.Ordering): rt.u8 => {
+			return o2 & 0xff;
+		})), undefined, true);
+		flush(out);
+		const _186: [[Part.Part, rt.u8], [rt.u8, Part.Part]] = [rt.ordMax([part_, x] as [Part.Part, rt.u8], [part2, y] as [Part.Part, rt.u8], rt.cmpLt(rt.cmpTuple<[Part.Part, rt.u8], rt.Ordering | undefined>([Part.partialCmp$cmp_PartialOrd, rt.cmp]))), rt.ordMin([x, part_] as [rt.u8, Part.Part], [y, part2] as [rt.u8, Part.Part], rt.cmpLt(rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering | undefined>([rt.cmp, Part.partialCmp$cmp_PartialOrd])))];
+		const max: [Part.Part, rt.u8] = _186[0];
+		const min: [rt.u8, Part.Part] = _186[1];
+		const clamped: [rt.u8, Part.Part] = rt.ordClamp([x, part_] as [rt.u8, Part.Part], [0, part2] as [rt.u8, Part.Part], [2, part2] as [rt.u8, Part.Part], rt.cmpLe(rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering | undefined>([rt.cmp, Part.partialCmp$cmp_PartialOrd])), rt.cmpLt(rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering | undefined>([rt.cmp, Part.partialCmp$cmp_PartialOrd])), rt.cmpGt(rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering | undefined>([rt.cmp, Part.partialCmp$cmp_PartialOrd])));
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(max[0].tag, max[1], min[0], min[1].tag, clamped[0], clamped[1].tag)), undefined, true);
+		flush(out);
+		const _208: [[rt.f64, rt.u8], [rt.f64, rt.u8]] = [[fx, x] as [rt.f64, rt.u8], [fy, y] as [rt.f64, rt.u8]];
+		const p: [rt.f64, rt.u8] = _208[0];
+		const q: [rt.f64, rt.u8] = _208[1];
+		rt.iterExtendBytes(out, rt.iterFlatMap(rt.iterSlice([maxBy$0yuzdd4(p, q, (p2: [rt.f64, rt.u8], q2: [rt.f64, rt.u8]): rt.Ordering => {
+			return option_unwrapOr$0l1fs14(rt.cmpTuple<[rt.f64, rt.u8], rt.Ordering | undefined>([rt.f64PartialCmp, rt.cmp])(p2, q2), -1 as rt.Ordering);
+		}), minBy$0wmhcb1(p, q, (p3: [rt.f64, rt.u8], q3: [rt.f64, rt.u8]): rt.Ordering => {
+			return option_unwrapOr$0l1fs14(rt.cmpTuple<[rt.f64, rt.u8], rt.Ordering | undefined>([rt.f64PartialCmp, rt.cmp])(p3, q3), -1 as rt.Ordering);
+		})]), (_23: [rt.f64, rt.u8]): Uint8Array => {
+			let _510!: rt.u8;
+			const f: rt.f64 = _23[0];
+			const n: rt.u8 = _23[1];
+			if (!Number.isNaN(f)) {
+				_510 = rt.u8FromF64(f);
+			} else {
+				_510 = 9;
+			}
+			return Uint8Array.of(_510, n);
+		}, (value: Uint8Array) => rt.iterSlice(value), false, 2), undefined, true);
+	}
+	const pairs: [rt.u8, Part.Part][] = rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (p4: Part.Part): [rt.u8, Part.Part] => {
+		return [rt.u8Rem(p4.tag, 3), p4] as [rt.u8, Part.Part];
+	}), undefined, 8, true);
+	rt.sliceSortBy(pairs, (p5: [rt.u8, Part.Part], q4: [rt.u8, Part.Part]): rt.Ordering => {
+		const _512: [rt.u8, Part.Part] = [p5[0], p5[1]];
+		const _92: [rt.u8, Part.Part] = [q4[0], q4[1]];
+		return rt.cmpTuple<[rt.u8, Part.Part], rt.Ordering>([rt.cmp, Part.cmp$cmp_Ord])(_512, _92);
+	});
+	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(pairs), (p6: [rt.u8, Part.Part]): rt.u8 => {
+		return p6[1].tag;
+	}), undefined, true);
+	rt.localKeyWithBorrowMut(LOG, (a021: rt.ByteVec): undefined => {
+		rt.byteVecClear(a021);
+	});
+	const floats: [rt.f64, rt.u8][] = rt.iterToArray(rt.iterMap(rt.iterSlice(rt.byteSliceView(data)), (_26: rt.u8): [rt.f64, rt.u8] => {
+		const b3: rt.u8 = _26;
+		return [rt.u8Rem(b3, 4) as rt.f64, b3] as [rt.f64, rt.u8];
+	}), undefined, 16, true);
+	rt.sliceSortBy(floats, (p7: [rt.f64, rt.u8], q5: [rt.f64, rt.u8]): rt.Ordering => {
+		return rt.optionExpect(rt.cmpTuple<[rt.f64, rt.u8], rt.Ordering | undefined>([rt.f64PartialCmp, rt.cmp])(p7, q5), "no NaN");
+	});
+	rt.iterExtendBytes(out, rt.iterMap(rt.iterSlice(floats), (p8: [rt.f64, rt.u8]): rt.u8 => {
+		return p8[1];
+	}), undefined, true);
+}
+
+export function ranked$tuples_Vec_u8(a: [Part.Part, rt.ByteVec], b: [Part.Part, rt.ByteVec]): rt.Ordering {
+	return rt.cmpTuple<[Part.Part, rt.ByteVec], rt.Ordering>([Part.cmp$cmp_Ord, rt.cmpBytes])(a, b);
+}
+
+export function ranked$tuples_u8(a: [Part.Part, rt.u8], b: [Part.Part, rt.u8]): rt.Ordering {
+	return rt.cmpTuple<[Part.Part, rt.u8], rt.Ordering>([Part.cmp$cmp_Ord, rt.cmp])(a, b);
 }
 
 export function order(o: rt.Ordering | undefined): rt.u8 {
@@ -774,9 +919,9 @@ export function held(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _72: rt.Result<Part.Part, Part.Part> | undefined = a;
 		const _75: rt.Result<Part.Part, Part.Part> | undefined = b;
 		const _69: rt.u8 = order(rt.cmpOption(result_partialCmp$0spmpix)(_72, _75));
-		const _81: [rt.Result<Part.Part, Part.Part>] = [a];
-		const _84: [rt.Result<Part.Part, Part.Part>] = [b];
-		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_69, order(rt.cmpTuple([result_cmp$0h5rzdg])(_81, _84)))), undefined, true);
+		const _80: [rt.Result<Part.Part, Part.Part>] = [a];
+		const _83: [rt.Result<Part.Part, Part.Part>] = [b];
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_69, rt.cmpTuple<[rt.Result<Part.Part, Part.Part>], rt.Ordering>([result_cmp$0h5rzdg])(_80, _83) & 0xff)), undefined, true);
 		const _91: rt.Result<Part.Part, Part.Part>[] = [a, b];
 		const _95: rt.Result<Part.Part, Part.Part>[] = [b, a];
 		const _89: boolean = rt.cmpSlice(result_partialCmp$0spmpix)(_91, _95) === -1;
@@ -806,7 +951,7 @@ export function held(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _152: boolean = result_eq$15zrpyn(x, y);
 		const _157: [rt.Result<rt.f64, rt.f64>, rt.i32] = [x, 1];
 		const _159: [rt.Result<rt.f64, rt.f64>, rt.i32] = [y, 0];
-		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_140, _143, _146, _149, _152, rt.cmpTuple([result_partialCmp$0v2kxbo, rt.cmp])(_157, _159) === -1], (a09: boolean): rt.u8 => {
+		rt.iterExtendBytes(out, rt.iterSlice(rt.bytesMap([_140, _143, _146, _149, _152, rt.cmpTuple<[rt.Result<rt.f64, rt.f64>, rt.i32], rt.Ordering | undefined>([result_partialCmp$0v2kxbo, rt.cmp])(_157, _159) === -1], (a09: boolean): rt.u8 => {
 			return a09 ? 1 : 0;
 		})), undefined, true);
 		rt.idx(_10[1], 0);
@@ -858,9 +1003,9 @@ export function held(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const _280: rt.VecDeque<Part.Part> | undefined = d;
 			const _283: rt.VecDeque<Part.Part> | undefined = e;
 			const _277: rt.u8 = order(rt.cmpOption(rt.cmpDeque(Part.partialCmp$cmp_PartialOrd))(_280, _283));
-			const _289: rt.VecDeque<Part.Part>[] = [e];
-			const _293: rt.VecDeque<Part.Part>[] = [d];
-			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_277, order(rt.cmpSlice(rt.cmpDeque(Part.cmp$cmp_Ord))(_289, _293)))), undefined, true);
+			const _288: rt.VecDeque<Part.Part>[] = [e];
+			const _292: rt.VecDeque<Part.Part>[] = [d];
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_277, rt.cmpSlice(rt.cmpDeque(Part.cmp$cmp_Ord))(_288, _292) & 0xff)), undefined, true);
 			const _301: rt.VecDeque<rt.f64> = _296(d);
 			const _306: rt.VecDeque<rt.f64> = _296(e);
 			rt.byteVecPush(out, order(rt.cmpDeque(rt.f64PartialCmp)(_301, _306)));

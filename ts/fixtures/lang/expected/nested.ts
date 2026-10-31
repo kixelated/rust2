@@ -150,7 +150,7 @@ export function order(o: rt.Ordering): rt.u8 {
 export function keys(data: rt.ByteSlice, out: rt.ByteVec): void {
 	let _9!: rt.usize;
 	const hashed: rt.HashMap<[rt.u8, rt.u8 | undefined | rt.None], rt.u8> = rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hashOption(rt.hashOption(rt.hash8), rt.None)]), rt.eqTuple([rt.same, rt.same]))) as rt.HashMap<[rt.u8, rt.u8 | undefined | rt.None], rt.u8>;
-	const sorted: rt.BTreeMap<[rt.u8 | undefined | rt.None, rt.u8], rt.u8> = rt.btreeNew(rt.cmpTuple([rt.cmpOption(rt.cmpOption(rt.cmp), rt.None), rt.cmp])) as rt.BTreeMap<[rt.u8 | undefined | rt.None, rt.u8], rt.u8>;
+	const sorted: rt.BTreeMap<[rt.u8 | undefined | rt.None, rt.u8], rt.u8> = rt.btreeNew(rt.cmpTuple<[rt.u8 | undefined | rt.None, rt.u8], rt.Ordering>([rt.cmpOption(rt.cmpOption(rt.cmp), rt.None), rt.cmp])) as rt.BTreeMap<[rt.u8 | undefined | rt.None, rt.u8], rt.u8>;
 	let iterStart: rt.usize = 1;
 	const iterEnd: rt.usize = data.length;
 	while ((_9 = iterStart++) < iterEnd) {

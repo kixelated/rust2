@@ -298,7 +298,7 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			flush(out);
 			rt.iterExtendBytes(out, rt.btreeValues(map2), undefined, true);
-			const pairs: rt.BTreeSet<[rt.u8, Key.Key]> = rt.btreeNew(rt.cmpTuple([rt.cmp, Key.cmp$cmp_Ord])) as rt.BTreeSet<[rt.u8, Key.Key]>;
+			const pairs: rt.BTreeSet<[rt.u8, Key.Key]> = rt.btreeNew(rt.cmpTuple<[rt.u8, Key.Key], rt.Ordering>([rt.cmp, Key.cmp$cmp_Ord])) as rt.BTreeSet<[rt.u8, Key.Key]>;
 			for (const k2 of rt.byteSliceView(rt.byteSliceRange(data, 4))) {
 				rt.btreeAdd(pairs, [k2, { _0: k2 }] as [rt.u8, Key.Key]);
 			}
@@ -306,7 +306,7 @@ export function bounds(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const a3: [rt.u8, Key.Key] = _299[0];
 			const b3: [rt.u8, Key.Key] = _299[1];
 			const _308: [rt.RangeBound<[rt.u8, Key.Key]>, rt.RangeBound<[rt.u8, Key.Key]>] = [bound$ref_tuple2_u8_bounds_Key(s, a3), bound$ref_tuple2_u8_bounds_Key(e, b3)];
-			rt.iterExtendBytes(out, rt.iterMap(rt.btreeRangeKeys(pairs, _308, rt.eqTuple([rt.same, Key.eq$cmp_PartialEq]), rt.cmpGt(rt.cmpTuple([rt.cmp, Key.partialCmp$cmp_PartialOrd]))), (_25: [rt.u8, Key.Key]): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterMap(rt.btreeRangeKeys(pairs, _308, rt.eqTuple([rt.same, Key.eq$cmp_PartialEq]), rt.cmpGt(rt.cmpTuple<[rt.u8, Key.Key], rt.Ordering | undefined>([rt.cmp, Key.partialCmp$cmp_PartialOrd]))), (_25: [rt.u8, Key.Key]): rt.u8 => {
 				return _25[0];
 			}), "next");
 			flush(out);

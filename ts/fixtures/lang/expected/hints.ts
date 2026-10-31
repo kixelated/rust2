@@ -3335,13 +3335,13 @@ export function fill$tuple2_u64_u8_iter_Filter_iter_Map_ops_RangeInclusive_u32_h
 		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
+		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3356,7 +3356,7 @@ export function fill$tuple2_u64_u8_iter_Filter_iter_Map_ops_RangeInclusive_u32_h
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = option_mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
@@ -3405,13 +3405,13 @@ export function fill$tuple2_u64_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Rang
 		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
+		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3426,7 +3426,7 @@ export function fill$tuple2_u64_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Rang
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = option_mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
@@ -3475,13 +3475,13 @@ export function fill$tuple2_u64_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Rang
 		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
+		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3496,7 +3496,7 @@ export function fill$tuple2_u64_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Rang
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = option_mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
@@ -3545,13 +3545,13 @@ export function fill$tuple2_u64_u8_iter_Map_ops_RangeInclusive_u32_hints_typed_c
 		rt.dequeExtend(q, items, undefined, 16, true);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 16, true), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, undefined, 16, true), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), undefined, 16, true);
+		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), undefined, 16, true);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, undefined, 16, true));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, undefined, 16, true));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3566,7 +3566,7 @@ export function fill$tuple2_u64_u8_iter_Map_ops_RangeInclusive_u32_hints_typed_c
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 24, true));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 24, true));
 	} else if (coll === 11) {
 		len = option_mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
@@ -3615,13 +3615,13 @@ export function fill$tuple2_u64_u8_iter_Skip_iter_Map_ops_RangeInclusive_u32_hin
 		rt.dequeExtend(q, items, "next", 16);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 16), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp])), "next", 16);
+		const h: rt.BinaryHeap<[rt.u64, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp])), "next", 16);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u64, rt.u8]>, items, true, undefined, "next", 16));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash64, rt.hash8]), rt.eqTuple([rt.u64Eq, rt.same]))) as rt.HashSet<[rt.u64, rt.u8]>, items, undefined, undefined, 58720256));
 	} else if (coll === 9) {
@@ -3636,7 +3636,7 @@ export function fill$tuple2_u64_u8_iter_Skip_iter_Map_ops_RangeInclusive_u32_hin
 		const _50: rt.Iter<[[rt.u64, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u64, rt.u8]): [[rt.u64, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u64, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u64, rt.u8], rt.Ordering>([rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u64, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 24));
 	} else if (coll === 11) {
 		len = option_mapOr$0pdoq6p(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u64, rt.u8]): [rt.u64, rt.u8] | undefined => {
 			return a0;
@@ -3685,13 +3685,13 @@ export function fill$tuple3_u8_u8_u8_iter_Filter_iter_Map_ops_RangeInclusive_u32
 		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
+		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3706,7 +3706,7 @@ export function fill$tuple3_u8_u8_u8_iter_Filter_iter_Map_ops_RangeInclusive_u32
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = option_mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
@@ -3755,13 +3755,13 @@ export function fill$tuple3_u8_u8_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Ra
 		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
+		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3776,7 +3776,7 @@ export function fill$tuple3_u8_u8_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Ra
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = option_mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
@@ -3825,13 +3825,13 @@ export function fill$tuple3_u8_u8_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Ra
 		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
+		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3846,7 +3846,7 @@ export function fill$tuple3_u8_u8_u8_iter_Map_iter_Flatten_array_IntoIter_ops_Ra
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = option_mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
@@ -3895,13 +3895,13 @@ export function fill$tuple3_u8_u8_u8_iter_Map_ops_RangeInclusive_u32_hints_typed
 		rt.dequeExtend(q, items, undefined, 3, true);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, undefined, 3, true), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, undefined, 3, true), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), undefined, 3, true);
+		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), undefined, 3, true);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, undefined, 3, true));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, undefined, 3, true));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3916,7 +3916,7 @@ export function fill$tuple3_u8_u8_u8_iter_Map_ops_RangeInclusive_u32_hints_typed
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 8, true));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, undefined, 8, true));
 	} else if (coll === 11) {
 		len = option_mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
@@ -3965,13 +3965,13 @@ export function fill$tuple3_u8_u8_u8_iter_Skip_iter_Map_ops_RangeInclusive_u32_h
 		rt.dequeExtend(q, items, "next", 3);
 		len = q.n;
 	} else if (coll === 5) {
-		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp]))).d.length;
+		len = rt.heapFrom(rt.iterToArray(items, "next", 3), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp]))).d.length;
 	} else if (coll === 6) {
-		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])));
-		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
+		const h: rt.BinaryHeap<[rt.u8, rt.u8, rt.u8]> = rt.heapFrom(rt.vecFromElem(seed, 2, undefined), rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])));
+		rt.heapExtend(h, items, rt.cmpLe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpGe(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), rt.cmpLt(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering | undefined>([rt.cmp, rt.cmp, rt.cmp])), "next", 3);
 		len = h.d.length;
 	} else if (coll === 7) {
-		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
+		len = rt.btreeLen(rt.btreeExtendKeys(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeSet<[rt.u8, rt.u8, rt.u8]>, items, true, undefined, "next", 3));
 	} else if (coll === 8) {
 		len = rt.hashLen(rt.hashExtendKeys(rt.hashNew(rt.hashing(rt.hashTuple([rt.hash8, rt.hash8, rt.hash8]), rt.eqTuple([rt.same, rt.same, rt.same]))) as rt.HashSet<[rt.u8, rt.u8, rt.u8]>, items, undefined, undefined, 234881024));
 	} else if (coll === 9) {
@@ -3986,7 +3986,7 @@ export function fill$tuple3_u8_u8_u8_iter_Skip_iter_Map_ops_RangeInclusive_u32_h
 		const _50: rt.Iter<[[rt.u8, rt.u8, rt.u8], rt.u32]> = rt.iterMap(items, (t2: [rt.u8, rt.u8, rt.u8]): [[rt.u8, rt.u8, rt.u8], rt.u32] => {
 			return [t2, 1] as [[rt.u8, rt.u8, rt.u8], rt.u32];
 		});
-		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
+		len = rt.btreeLen(rt.btreeExtend(rt.btreeNew(rt.cmpTuple<[rt.u8, rt.u8, rt.u8], rt.Ordering>([rt.cmp, rt.cmp, rt.cmp])) as rt.BTreeMap<[rt.u8, rt.u8, rt.u8], rt.u32>, _50, true, undefined, undefined, "next", 8));
 	} else if (coll === 11) {
 		len = option_mapOr$0amk6zv(rt.iterCollectOption(rt.iterMap(items, (a0: [rt.u8, rt.u8, rt.u8]): [rt.u8, rt.u8, rt.u8] | undefined => {
 			return a0;
