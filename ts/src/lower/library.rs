@@ -93,6 +93,8 @@ pub enum Std {
 	LazyLock,
 	/// `rt.Waker`.
 	Waker,
+	/// `rt.WakerVTable`: a waker's vtable, of which only its identity is read.
+	WakerVTable,
 	/// `rt.Context`: its waker.
 	Context,
 	/// `rt.Poll<T>`: `T` itself, or `rt.Pending`.
@@ -287,6 +289,7 @@ impl Std {
 			["mem", "maybe_uninit", "MaybeUninit"] => Some(Self::MaybeUninit),
 			["future", "poll_fn", "PollFn"] => Some(Self::PollFn),
 			["future", "pending", "Pending"] => Some(Self::Pending),
+			["task", "wake", "RawWakerVTable"] => Some(Self::WakerVTable),
 			["convert", "Infallible"] => Some(Self::Infallible),
 			// A thread-local on wasm32 is never destroyed, so `try_with` never fails.
 			["thread", "local", "AccessError"] => Some(Self::Infallible),

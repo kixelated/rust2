@@ -1499,6 +1499,8 @@ fn std_key<'tcx>(b: &Body<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		// A float is no key, but its `PartialEq` and `PartialOrd` are the runtime's.
 		ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::Float(_) | ty::Str => true,
 		_ if library::nothing(b.t.tcx, ty) => true,
+		// Which compares as its JS value where that is its address, and orders and hashes by none.
+		ty::RawPtr(..) => true,
 		ty::Tuple(tys) => tys.iter().all(held),
 		_ if let Some(elem) = elements_of(b, ty) => held(elem),
 		_ if bytes(b, ty) => true,
@@ -1754,6 +1756,10 @@ pub fn cmp_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, partial: bool, spa
 			let cmp = trait_fn(tcx, "Ord", "cmp");
 			b.fn_value(cmp, tcx.mk_args(&[ty.into()]), span)
 		}
+		ty::RawPtr(..) => b.err(
+			span,
+			format!("ordering `{ty}` by its address, which JS has no counterpart of"),
+		),
 		// Each instance decides what its type parameters are.
 		_ if b.t.deferred(ty) => Expr::undefined(),
 		_ => b.err(span, format!("ordering `{ty}`, which is not supported yet")),
@@ -1782,6 +1788,10 @@ pub fn eq_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Expr
 			let fns = tys.iter().map(|t| eq_fn(b, t, span)).collect();
 			Expr::rt("eqTuple", vec![Expr::Array(fns)])
 		}
+		ty::RawPtr(pointee, _) => match b.t.incomparable(*pointee) {
+			Some(why) => b.err(span, why),
+			None => Expr::Rt("same".into()),
+		},
 		ty::Adt(..) if let Some(inner) = option_of(b, ty) => match eq_fn(b, inner, span) {
 			// `None` is no value of `inner`, so `===` tells it from each.
 			Expr::Rt(same) if same == "same" => Expr::Rt(same),
@@ -2026,6 +2036,10 @@ fn hash_fn<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, hasher: Ty<'tcx>, spa
 			let hash = trait_fn(tcx, "Hash", "hash");
 			b.fn_value(hash, tcx.mk_args(&[ty.into(), hasher.into()]), span)
 		}
+		ty::RawPtr(..) => b.err(
+			span,
+			format!("hashing `{ty}` by its address, which JS has no counterpart of"),
+		),
 		_ if b.t.deferred(ty) => Expr::undefined(),
 		_ => b.err(span, format!("hashing `{ty}` as a key, which is not supported yet")),
 	}

@@ -107,6 +107,9 @@ export const NULL: never = null as never;
 /** A dangling raw pointer, `NonNull::dangling`, of any type: nothing reads through it. */
 export const DANGLING: never = /* @__PURE__ */ Object.freeze({}) as never;
 
+/** A dangling pointer to `()`, std's every one: a place that holds only `()`. */
+export const DANGLING_UNIT: Place<undefined> = { v: undefined };
+
 /**
  * `ptr::write` of `value` through a pointer to an object: `value` copied into it, one
  * object deep, so every pointer to it sees the write.
