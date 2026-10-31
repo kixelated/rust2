@@ -1155,9 +1155,12 @@ export function byteVecDedupByKeyMut<K>(v: ByteVec, key: (byte: Place<number>) =
 // class: a `Cow<[u8]>` is an `rt.ByteVec` or an `rt.ByteSlice`, and any other is an array
 // or the `rt.Borrowed` wrapping the array it borrows.
 
-/** The slice a `Cow<[T]>` borrows, which it clones before it changes. */
+/**
+ * The slice a `Cow<[T]>` borrows, which it clones before it changes. A `&mut` to the
+ * borrow writes `slice`, so no two `Cow`s share one.
+ */
 export class Borrowed<T> {
-	readonly slice: T[];
+	slice: T[];
 
 	constructor(slice: T[]) {
 		this.slice = slice;
@@ -1190,9 +1193,9 @@ export function byteCowIntoOwned(c: ByteCow): ByteVec {
 	return c instanceof ByteVec ? c : byteSliceToByteVec(c);
 }
 
-/** `Clone` of a `Cow<[T]>`: the same borrow, or a clone of its `Vec`. */
+/** `Clone` of a `Cow<[T]>`: a borrow of the same slice, or a clone of its `Vec`. */
 export function cowClone<T>(c: Cow<T>, clone?: (item: T) => T): Cow<T> {
-	if (c instanceof Borrowed) return c;
+	if (c instanceof Borrowed) return new Borrowed(c.slice);
 	return clone === undefined ? c.slice() : c.map(clone);
 }
 

@@ -348,6 +348,15 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			put_words(out, &c);
 			put_words(out, &kept);
+			// A payload passed on as a `&mut`, which leaves a clone as it was too.
+			let mut e = cow_of(&v, !owned);
+			let kept = e.clone();
+			match &mut e {
+				Cow::Borrowed(s) => repoint(s, half),
+				Cow::Owned(o) => o.truncate(1),
+			}
+			put_words(out, &e);
+			put_words(out, &kept);
 			let made: Vec<u16> = match c {
 				Cow::Borrowed(s) => s.iter().rev().copied().collect(),
 				Cow::Owned(o) => o,
@@ -426,6 +435,11 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// Point `s` at `to`, through the `&mut` a caller passes.
+fn repoint<'a, T>(s: &mut &'a [T], to: &'a [T]) {
+	*s = to;
+}
+
 fn made(s: &[u8], owned: bool) -> Cow<'_, [u8]> {
 	match owned {
 		true => Cow::Owned(s.to_vec()),
@@ -467,6 +481,12 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			Cow::Owned(o) => *o = half.to_vec(),
 		}
 		out.extend_from_slice(&kept);
+		let mut e = made(data, !owned);
+		match &mut e {
+			Cow::Borrowed(s) => repoint(s, half),
+			Cow::Owned(o) => o.truncate(1),
+		}
+		out.extend_from_slice(&e);
 	}
 	match kind % 3 {
 		0 => {
