@@ -213,6 +213,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::iterated_runs", |_, data, out| {
 			pointers::iterated_runs(data, out)
 		}),
+		("zeros::writes", zeros::writes),
 	]
 }
 

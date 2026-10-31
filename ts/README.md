@@ -334,6 +334,7 @@ known, as a local, a field, an element, or a `MutexGuard`'s value, and otherwise
 into the object in place: a `Vec`'s items, or the fields of a struct, a collection, or a
 `Weak`, with what it held moved out into an object of its own. A guard, a context, a
 pinned reference, or a binding's value, whose object is shared or opaque, is refused there.
+A write of a value of no bytes, through a `&mut` or a pointer, reads and writes nothing.
 
 A collection keeps Rust's key semantics. A hash map or set keeps a key that is a JS
 number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` does, and
