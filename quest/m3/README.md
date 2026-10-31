@@ -36,4 +36,3 @@ generic std gap is planned here even when moq never calls it.
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [Unbounded ranges as iterators adaptors take](/quest/m3/ts-range-from-iter.md) - `iter.zip(0..)` and other adaptors taking a `start..` type-check
 - [Cloning std's iterators](/quest/m3/ts-iter-clone.md) - `clone` of std's iterators and adaptors translates, each clone reading on independently
-- [The TS benchmark's A/B route as documented](/quest/m3/ts-bench-route.md) - the README's A/B bench command runs as written
