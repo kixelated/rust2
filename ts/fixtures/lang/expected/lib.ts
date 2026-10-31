@@ -38,6 +38,7 @@ import type * as Point from "./shapes.Point.ts";
 import type * as Shape from "./shapes.Shape.ts";
 import type * as slices_Pair from "./slices.Pair.ts";
 import * as Lock from "./statics.Lock.ts";
+import * as Tick from "./wraps.Tick.ts";
 import * as zeros_Lock from "./zeros.Lock.ts";
 import type * as Loud from "./zeros.Loud.ts";
 
@@ -261,6 +262,54 @@ export function copy$Shape(v: Shape.Shape): Shape.Shape {
 
 export function copy$Tally(v: Tally.Tally): Tally.Tally {
 	return { n: v.n };
+}
+
+export function copy$Tick_i128(v: Tick.Tick<rt.i128>): Tick.Tick<rt.i128> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_i16(v: Tick.Tick<rt.i16>): Tick.Tick<rt.i16> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_i32(v: Tick.Tick<rt.i32>): Tick.Tick<rt.i32> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_i64(v: Tick.Tick<rt.i64>): Tick.Tick<rt.i64> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_i8(v: Tick.Tick<rt.i8>): Tick.Tick<rt.i8> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_isize(v: Tick.Tick<rt.isize>): Tick.Tick<rt.isize> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_u128(v: Tick.Tick<rt.u128>): Tick.Tick<rt.u128> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_u16(v: Tick.Tick<rt.u16>): Tick.Tick<rt.u16> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_u32(v: Tick.Tick<rt.u32>): Tick.Tick<rt.u32> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_u64(v: Tick.Tick<rt.u64>): Tick.Tick<rt.u64> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_u8(v: Tick.Tick<rt.u8>): Tick.Tick<rt.u8> {
+	return new Tick.Tick(v._0);
+}
+
+export function copy$Tick_usize(v: Tick.Tick<rt.usize>): Tick.Tick<rt.usize> {
+	return new Tick.Tick(v._0);
 }
 
 export function copy$Twin(v: Twin.Twin): Twin.Twin {

@@ -1455,13 +1455,21 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 				library::Std::String => Type::Builtin("string"),
 				library::Std::Cow if library::string(tcx, Ty::new_adt(tcx, adt, args)) => Type::Builtin("string"),
+				library::Std::Cow if let Some(elem) = library::cow_slice(tcx, Ty::new_adt(tcx, adt, args)) => {
+					match elem.kind() {
+						ty::Uint(ty::UintTy::U8) => Type::Rt("ByteCow", vec![]),
+						_ => Type::Rt("Cow", vec![self.ty(elem, span)]),
+					}
+				}
 				library::Std::Cow => {
 					self.unrepresented(span, format!("`{}` is not supported yet", Ty::new_adt(tcx, adt, args)));
 					Type::Builtin("unknown")
 				}
-				library::Std::Box | library::Std::Reverse | library::Std::NonZero | library::Std::PoisonError => {
-					self.ty(args.type_at(0), span)
-				}
+				library::Std::Box
+				| library::Std::Reverse
+				| library::Std::NonZero
+				| library::Std::Wrapping
+				| library::Std::PoisonError => self.ty(args.type_at(0), span),
 				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::TryLockError => Type::Rt("TryLockError", vec![self.ty(args.type_at(0), span)]),
 				library::Std::FromUtf8Error => Type::Rt("FromUtf8Error", vec![]),
@@ -1758,6 +1766,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Pin
 					| library::Std::Reverse
 					| library::Std::NonZero
+					| library::Std::Wrapping
 					| library::Std::PoisonError,
 				) => self.erases_to(args.type_at(0)),
 				// `undefined` while it holds nothing.

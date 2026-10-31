@@ -1151,6 +1151,74 @@ export function byteVecDedupByKeyMut<K>(v: ByteVec, key: (byte: Place<number>) =
 	byteVecDedupByMut(v, (a, b) => eq(key(a), key(b)));
 }
 
+// Cows of slices. An owned one is its `Vec` and a borrowed one its slice, told apart by
+// class: a `Cow<[u8]>` is an `rt.ByteVec` or an `rt.ByteSlice`, and any other is an array
+// or the `rt.Borrowed` wrapping the array it borrows.
+
+/**
+ * The slice a `Cow<[T]>` borrows, which it clones before it changes. A `&mut` to the
+ * borrow writes `slice`, so no two `Cow`s share one.
+ */
+export class Borrowed<T> {
+	slice: T[];
+
+	constructor(slice: T[]) {
+		this.slice = slice;
+	}
+}
+
+/** `Cow<[T]>`: the `Vec` it owns, or the slice it borrows. */
+export type Cow<T> = T[] | Borrowed<T>;
+/** `Cow<[u8]>`: the `Vec<u8>` it owns, or the bytes it borrows. */
+export type ByteCow = ByteVec | ByteSlice;
+
+/** `Deref` of a `Cow<[T]>`: its slice. */
+export function cowSlice<T>(c: Cow<T>): T[] {
+	return c instanceof Borrowed ? c.slice : c;
+}
+
+/** `Deref` of a `Cow<[u8]>`: its bytes. */
+export function byteCowSlice(c: ByteCow): ByteSlice {
+	return c instanceof ByteVec ? byteVecSlice(c) : c;
+}
+
+/** `Cow::into_owned` of a `Cow<[T]>`: its `Vec`, or a clone of what it borrows, each item by `clone` if given. */
+export function cowIntoOwned<T>(c: Cow<T>, clone?: (item: T) => T): T[] {
+	if (!(c instanceof Borrowed)) return c;
+	return clone === undefined ? c.slice.slice() : c.slice.map(clone);
+}
+
+/** `Cow::into_owned` of a `Cow<[u8]>`. */
+export function byteCowIntoOwned(c: ByteCow): ByteVec {
+	return c instanceof ByteVec ? c : byteSliceToByteVec(c);
+}
+
+/** `Clone` of a `Cow<[T]>`: a borrow of the same slice, or a clone of its `Vec`. */
+export function cowClone<T>(c: Cow<T>, clone?: (item: T) => T): Cow<T> {
+	if (c instanceof Borrowed) return new Borrowed(c.slice);
+	return clone === undefined ? c.slice() : c.map(clone);
+}
+
+/** `Clone` of a `Cow<[u8]>`. */
+export function byteCowClone(c: ByteCow): ByteCow {
+	return c instanceof ByteVec ? byteSliceToByteVec(byteVecSlice(c)) : c;
+}
+
+/** Drop a `Cow<[T]>`: the items it owns, by `f` if given. */
+export function cowDrop<T>(c: Cow<T>, f?: (item: T) => void): void {
+	if (!(c instanceof Borrowed)) dropAll(c, f);
+}
+
+/** `f` of the slices two `Cow<[T]>`s deref to, as their `PartialEq` and `Ord` compare them. */
+export function cowBy<T, R>(f: (a: T[], b: T[]) => R): (a: Cow<T>, b: Cow<T>) => R {
+	return (a, b) => f(cowSlice(a), cowSlice(b));
+}
+
+/** `Hash::hash` of a `Cow<[T]>`: its slice's. */
+export function hashCow<T, S>(hash: (value: T[], s: S) => void): (value: Cow<T>, s: S) => void {
+	return (value, s) => hash(cowSlice(value), s);
+}
+
 // Strings
 
 const encoder = /* @__PURE__ */ new TextEncoder();
