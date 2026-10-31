@@ -413,6 +413,10 @@ impl Refs {
 				self.expr(program, e);
 				self.ty(program, ty);
 			}
+			Expr::Instantiate(e, tys) => {
+				self.expr(program, e);
+				tys.iter().for_each(|ty| self.ty(program, ty));
+			}
 		}
 	}
 }
@@ -1007,6 +1011,11 @@ impl Printer<'_> {
 				let ty = self.ty(ty);
 				self.write(&format!(" as {ty}"));
 			}
+			Expr::Instantiate(f, tys) => {
+				self.base(f);
+				let tys: Vec<String> = tys.iter().map(|ty| self.ty(ty)).collect();
+				self.write(&format!("<{}>", tys.join(", ")));
+			}
 			Expr::Located(loc, inner) => {
 				self.mark(Some(*loc));
 				self.expr(inner, min.max(prec));
@@ -1158,7 +1167,7 @@ fn prec(e: &Expr) -> u8 {
 		Expr::Unary(..) => 17,
 		Expr::Postfix(..) => 18,
 		Expr::Lit(text) if text.starts_with('-') => 17,
-		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) => 19,
+		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) | Expr::Instantiate(..) => 19,
 		Expr::Located(_, e) => prec(e),
 		_ => 20,
 	}
@@ -1239,9 +1248,12 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 		}
 		Expr::Array(es) => es.iter().for_each(|e| collect_expr_locals(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| collect_expr_locals(e, out)),
-		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => {
-			collect_expr_locals(e, out)
-		}
+		Expr::Member(e, _)
+		| Expr::Unary(_, e)
+		| Expr::Located(_, e)
+		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
+		| Expr::Postfix(e, _) => collect_expr_locals(e, out),
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 			collect_expr_locals(a, out);
 			collect_expr_locals(b, out);
@@ -1271,6 +1283,7 @@ fn starts_with_object(e: &Expr) -> bool {
 		| Expr::Cond(e, _, _)
 		| Expr::Assign(e, _)
 		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
 		| Expr::Located(_, e) => starts_with_object(e),
 		_ => false,
 	}
