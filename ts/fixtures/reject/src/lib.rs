@@ -1166,6 +1166,11 @@ pub fn written_through_loaded(n: u16) -> u16 {
 	unsafe { p.write(Loaded(std::cell::UnsafeCell::new((n, n)))) };
 	let part = unsafe { (*p).0.get() };
 	let container = Box::into_raw(Box::new(p.cast_const()));
-	unsafe { container.read().cast_mut().write(Loaded(std::cell::UnsafeCell::new((0, 0)))) };
+	unsafe {
+		container
+			.read()
+			.cast_mut()
+			.write(Loaded(std::cell::UnsafeCell::new((0, 0))))
+	};
 	unsafe { (*part).0 }
 }
