@@ -26,7 +26,6 @@ The fork's feature quests folded into the [exporter](/quest/m1/ffi-export/README
 
 ## Required
 
-- [Raw pointers to arrays of bytes](/quest/m2/ts-byte-array-pointers.md) - `ptr::eq`, `swap`, `read`, and `write` of pointers to a `[u8; N]` keep std's semantics or refuse
 - [A pointer a callee takes to a part another function replaces](/quest/m2/ts-pointer-part-replaced.md) - a pointer a callee took through a reference to a part, which another function then replaces whole, is refused rather than silently left on the old object
 - [Borrows refused for a pointer no callee keeps there](/quest/m2/ts-taken-precision.md) - moq's census drops the 194 borrows refused for a pointer that no callee they reach keeps
 - [Byte slices without objects](/quest/m2/ts-byte-views/README.md) - reading through a translated cursor allocates no object per read
