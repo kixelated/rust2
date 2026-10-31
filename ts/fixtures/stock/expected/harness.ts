@@ -16,9 +16,9 @@ export function cases(): [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefine
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
-		const op_: rt.u8 = input.data[input.start];
+		const op: rt.u8 = input.data[input.start];
 		const cases_: [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined][] = cases();
-		cases_[rt.idx(cases_, rt.usizeRem(op_ as rt.usize, cases_.length))][1](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
+		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))][1](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}
 	return out;
@@ -101,14 +101,14 @@ export function made(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
 		const skip: rt.u8 = data.data[data.start];
 		const rest: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + 1, data.length - 1);
-		const made_: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$AsRef_u8s({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
+		const made: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$AsRef_u8s({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
 		const source: rt.ByteVec = rt.byteSliceToByteVec(rest);
 		const copied: rt.ByteSlice = rt.bytesCopyFromSlice(rt.byteVecSlice(source));
 		rt.byteVecClear(source);
 		rt.byteVecPush(source, 0);
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(copied, f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
-		const iter: rt.Iter<rt.ByteSlice> = rt.iterSlice(made_);
+		const iter: rt.Iter<rt.ByteSlice> = rt.iterSlice(made);
 		while (true) {
 			const _46: rt.ByteSlice | rt.Done = iter.next();
 			if (_46 === rt.DONE) {

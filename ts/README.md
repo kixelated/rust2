@@ -287,7 +287,15 @@ arguments. Types are translated once, generically, so a function of a generic ty
 instance's, declaring the instance it takes as `self`:
 `fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
 type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
-and exports it as its own: `function new_` is `Decoder.new`. A `Copy` struct, enum, tuple,
+and exports it as its own: `function new_` is `Decoder.new`. A module imports a function
+or value by its name, and a type's module whole by the type's, `import * as Decoder`,
+unless another module could declare one of that name, or the importer declares one,
+as a trait object's class is named for the type it wraps: then by its name after the
+shortest end of its module's path no other such module shares, as `counts_Noisy` or
+`option_unwrapOr$0r2bmpr`. The modules that could are counted over every item of the crate,
+the crates it translates, and std's that translate, whether or not translation reaches
+them, so reaching more renames no binding. A local is renamed `x_` only where its own
+function refers to a binding `x`. A `Copy` struct, enum, tuple,
 or array, or an `Option`, `Result`, or `Poll` holding one, is copied where Rust copies
 it, since JS would share the object: by a function of `lib.ts` made for its type, such
 as `copy$Point`, which copies what it holds by value and shares what it holds by
