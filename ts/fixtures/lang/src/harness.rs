@@ -244,6 +244,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("methods::i128s", methods::i128s),
 		("methods::isizes", methods::isizes),
 		("separated::separated", separated::separated),
+		("pointers::waiters", |_, data, out| pointers::waiters(data, out)),
 	]
 }
 

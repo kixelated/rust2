@@ -1414,3 +1414,173 @@ pub fn written_part_replaced(n: u16) -> u16 {
 	unsafe { p.write([InWritten(cell(0))]) };
 	unsafe { *part }
 }
+
+/// Structs JS keeps as objects, each holding an `rt.Cell`, one for each path by which a
+/// pointer kept in memory reaches a whole write of what it points at, which gives it
+/// another cell, while a pointer to the cell, taken through a reference to the struct,
+/// may still be read.
+pub struct ByRead(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByWrite(pub std::cell::UnsafeCell<u16>);
+
+pub struct BySwap(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByReplace(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByBox(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByClosure(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByObject(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByInstance(pub std::cell::UnsafeCell<u16>);
+
+pub struct BySwapped(pub std::cell::UnsafeCell<u16>);
+
+pub struct ByExchanged(pub std::cell::UnsafeCell<u16>);
+
+/// A pointer kept in memory, which only the crate's own code reads back.
+pub struct Kept<T> {
+	pub at: *mut T,
+}
+
+impl<T> Kept<T> {
+	fn put(&self, value: T) {
+		unsafe { *self.at = value }
+	}
+}
+
+pub trait Put {
+	fn put(&self);
+}
+
+impl Put for Kept<ByObject> {
+	fn put(&self) {
+		unsafe { *self.at = ByObject(cell(0)) }
+	}
+}
+
+/// Read back from memory, then written whole through.
+pub fn kept_read(n: u16) -> u16 {
+	let mut whole = ByRead(cell(n));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	let at = kept.at;
+	unsafe { *at = ByRead(cell(0)) };
+	unsafe { *part }
+}
+
+/// Read back from memory, then written whole by `ptr::write`.
+pub fn kept_written(n: u16) -> u16 {
+	let mut whole = ByWrite(cell(n));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	unsafe { kept.at.write(ByWrite(cell(0))) };
+	unsafe { *part }
+}
+
+/// Read back from memory, then swapped whole by `ptr::swap`.
+pub fn kept_swapped(n: u16) -> u16 {
+	let mut whole = BySwap(cell(n));
+	let mut other = BySwap(cell(0));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	unsafe { std::ptr::swap(kept.at, &raw mut other) };
+	unsafe { *part }
+}
+
+/// Read back from memory, then replaced whole by `mem::replace` through a `&mut`.
+pub fn kept_replaced(n: u16) -> u16 {
+	let mut whole = ByReplace(cell(n));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	drop(std::mem::replace(unsafe { &mut *kept.at }, ByReplace(cell(0))));
+	unsafe { *part }
+}
+
+/// Read back from memory into `Box::from_raw`, then written whole through the box.
+pub fn kept_boxed(n: u16) -> u16 {
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = Box::into_raw(Box::new(ByBox(cell(n))));
+	let part = unsafe { (*kept.at).0.get() };
+	let mut boxed = unsafe { Box::from_raw(kept.at) };
+	*boxed = ByBox(cell(0));
+	let read = unsafe { *part };
+	drop(boxed);
+	read
+}
+
+/// Read back from memory by a closure, which writes whole through it.
+pub fn kept_called(n: u16) -> u16 {
+	let mut whole = ByClosure(cell(n));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	let put: Box<dyn Fn()> = Box::new(|| unsafe { *kept.at = ByClosure(cell(0)) });
+	put();
+	unsafe { *part }
+}
+
+/// Read back from memory by a trait object's method, which writes whole through it.
+pub fn kept_object(n: u16) -> u16 {
+	let mut whole = ByObject(cell(n));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	let put: &dyn Put = &kept;
+	put.put();
+	unsafe { *part }
+}
+
+/// Read back from memory by a generic method, which writes whole through it.
+pub fn kept_instance(n: u16) -> u16 {
+	let mut whole = ByInstance(cell(n));
+	let mut kept = Kept {
+		at: std::ptr::null_mut(),
+	};
+	kept.at = &raw mut whole;
+	let part = unsafe { (*kept.at).0.get() };
+	kept.put(ByInstance(cell(0)));
+	unsafe { *part }
+}
+
+/// Given to an atomic, handed back by its `swap`, then written whole through.
+pub fn atomic_swapped(n: u16) -> u16 {
+	let mut whole = BySwapped(cell(n));
+	let atomic = std::sync::atomic::AtomicPtr::new(&raw mut whole);
+	let part = unsafe { (*atomic.load(std::sync::atomic::Ordering::SeqCst)).0.get() };
+	let at = atomic.swap(std::ptr::null_mut(), std::sync::atomic::Ordering::SeqCst);
+	unsafe { *at = BySwapped(cell(0)) };
+	unsafe { *part }
+}
+
+/// Given to an atomic, handed back by its `compare_exchange`, then written whole through.
+pub fn atomic_exchanged(n: u16) -> u16 {
+	let mut whole = ByExchanged(cell(n));
+	let at = &raw mut whole;
+	let atomic = std::sync::atomic::AtomicPtr::new(at);
+	let part = unsafe { (*at).0.get() };
+	let order = std::sync::atomic::Ordering::SeqCst;
+	if let Ok(at) = atomic.compare_exchange(at, std::ptr::null_mut(), order, order) {
+		unsafe { *at = ByExchanged(cell(0)) };
+	}
+	unsafe { *part }
+}
