@@ -8,7 +8,7 @@ import { ok$0whpnxs, err$0fnxqh3, asRef$01pd5k9, mapOr$1hlk3iq, mapOrElse$196aho
 import { scoped, discarded, iterated } from "./drops/closures.ts";
 import { folded as folds_folded, rfolded as folds_rfolded } from "./drops/folds.ts";
 import { inside as inside_inside } from "./drops/inside.ts";
-import { looped, collected, drained, extended } from "./drops/iters.ts";
+import { looped, collected, drained, extended, compared as iters_compared } from "./drops/iters.ts";
 import { boxed, shared, anys, fns } from "./drops/objects.ts";
 import { run as once_run } from "./drops/once.ts";
 import * as Held from "./drops.Held.ts";
@@ -1270,6 +1270,11 @@ export function rfolded(log: Log.Log, id: rt.u32, arg: rt.u8): void {
  */
 export function inside(log: Log.Log, id: rt.u32, arg: rt.u8): void {
 	inside_inside(log, id, arg);
+}
+
+/** Run scenario `arg % 9` of what std's comparisons of iterators drop. */
+export function compared(log: Log.Log, id: rt.u32, arg: rt.u8): void {
+	iters_compared(log, id, arg);
 }
 
 /**
