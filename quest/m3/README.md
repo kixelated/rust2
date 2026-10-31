@@ -33,3 +33,4 @@ generic std gap is planned here even when moq never calls it.
 - [The rest of a boxed slice's impls](/quest/m3/ts-boxed-slice-rest.md) - `clone_from`, `AsRef`, `AsMut`, `TryFrom` into a boxed array, and `Box<str>` into bytes translate for boxed slices
 - [A crate's own Extend in a tuple](/quest/m3/ts-tuple-own-extend.md) - `collect` and `extend` into a tuple holding a crate's `Extend` type translate
 - [moq-pin without a network when the pin is present](/quest/m3/ts-moq-pin-offline.md) - `just ts moq-pin` skips its fetch when the pinned commit is already there
+- [A reversed zip's per-pair cost](/quest/m3/ts-zip-rev-overhead.md) - a reversed by-index zip costs per pair what a forward one does, or the gap is explained
