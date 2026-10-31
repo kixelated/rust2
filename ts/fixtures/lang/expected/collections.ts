@@ -886,7 +886,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			return { _0: _219 ^ 48 };
 		});
 		rt.btreeExtendKeys(keys, _437);
-		const iter14: rt.Iter<[[Nibble.Nibble, rt.u8], Nibble.Nibble]> = rt.iterZip(rt.btreeIter(collected), rt.btreeKeys(keys));
+		const iter14: rt.Iter<[[Nibble.Nibble, rt.u8], Nibble.Nibble]> = rt.iterZip(rt.btreeIter(collected), rt.btreeKeys(keys), "len");
 		while (true) {
 			const _446: [[Nibble.Nibble, rt.u8], Nibble.Nibble] | rt.Done = iter14.next();
 			if (_446 === rt.DONE) {

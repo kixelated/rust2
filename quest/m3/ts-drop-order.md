@@ -23,9 +23,14 @@ Each left is refused with a span where std's order is one JS's can't follow yet:
   in `library.rs` says, as `or_insert_with` does (`called_closures`). Each consumer whose
   std folds takes a `release` the way `rt.iterFold` does. The reject fixture's
   `called_closure` reproduces `or_insert_with`.
-- `zip` of two `TrustedRandomAccess` iterators of items that drop, as the reject fixture's
-  `zip_dropped`, `v.iter().map(|&n| Noisy(n)).zip(0..2).count()`: std's `next` makes one
-  item past the shorter side and drops it, and its `next_back` trims the longer side.
+- A `skip` of a `zip` of two `TrustedRandomAccess` iterators of items that drop, as the
+  reject fixture's `skipped_zip`: std's `Skip` read by index, as a zip by index or `take`'s
+  fold reads it, makes and drops each skipped pair whole, where its `next` skips through
+  the zip's `nth`, a side at a time. `rt.Iter` would need a reader by index beside `folded`.
+- A `collect` in place of a zip std reads by index that holds values that drop, as the
+  reject fixture's `zip_in_place`: std reads it by index, then drops it whole, inner
+  closures before outer ones, where the runtime's bounded read is its `fold`, which drops
+  each closure as its fold ends.
 - A `flatten` or `flat_map` whose inner iterator holds items once ended, as
   `v.into_iter().map(|v| v.into_iter().take(1)).flatten()` of a `Vec<Vec<T>>` whose `T`
   drops. std's `try_fold` keeps an ended inner iterator until the next one replaces it, or

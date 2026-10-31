@@ -164,12 +164,6 @@ pub fn backs() -> usize {
 	Backs.rev().count()
 }
 
-/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
-/// through `next`, which calls the first side's closure once more.
-pub fn zipped(a: &[u8], b: &[u8]) -> usize {
-	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
-}
-
 /// JS compares objects by identity, not by `PartialOrd`.
 #[derive(PartialEq, PartialOrd)]
 pub struct Key(pub u8);
@@ -214,9 +208,17 @@ pub fn fused() -> usize {
 	Fused.fuse().count()
 }
 
-/// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
-pub fn zip_dropped(v: &[u8]) -> usize {
-	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
+/// A `skip` of a zip std reads by index, which a zip by index drops a pair at a time.
+pub fn skipped_zip(v: &[u8]) -> usize {
+	let pairs = v.iter().map(|&n| Noisy(n)).zip(v.iter().map(|&n| Noisy(!n)));
+	pairs.skip(1).zip(0..2).count()
+}
+
+/// A zip collected in place, which std reads by index and drops with what its closure owns.
+pub fn zip_in_place(v: Vec<u8>) -> Vec<u8> {
+	let n = Noisy(1);
+	let owned = v.into_iter().map(move |x| x ^ (&n).0);
+	owned.zip(0..2u8).map(|(x, y)| x ^ y).collect()
 }
 
 /// A pinned reference is its referent in JS: replacing it would change what it points at.

@@ -1049,3 +1049,155 @@ fn peeked<I: Iterator>(it: &mut std::iter::Peekable<I>) -> Option<&I::Item> {
 fn at<T>(items: &[T], i: usize) -> Option<&T> {
 	items.get(i)
 }
+
+/// A zip of each kind std specializes, of sides whose closures log each item they make, and
+/// either side shorter or empty: by index (`TrustedRandomAccess`), folded by its size hint
+/// (`TrustedLen`, or only `TrustedRandomAccessNoCoerce`), and by `next` (neither), read by
+/// each of std's consumers, and through adaptors that fold it or read it by `try_fold`.
+pub fn zips(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let split = (kind >> 5) as usize % (data.len() + 1);
+	let (a, b) = data.split_at(split);
+	let (a, b) = if kind & 8 == 0 { (a, b) } else { (b, a) };
+	let other = kind & 4 != 0;
+	let n = data.first().map_or(0, |&b| b as usize % 4);
+	let log = std::cell::RefCell::new(Vec::new());
+	macro_rules! seen {
+		($tag:expr) => {
+			|&x: &u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	macro_rules! owned {
+		($tag:expr) => {
+			|x: u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	// `$zip` read one way, by the case's bits.
+	macro_rules! read {
+		($zip:expr) => {{
+			let z = $zip;
+			let at = |(x, y): (u8, u8)| x ^ y;
+			match data.len() % 8 {
+				0 => out.push(z.count() as u8),
+				1 => out.push(z.last().map_or(0xee, at)),
+				2 => z.for_each(|p| out.push(at(p))),
+				3 => out.extend(z.map(|(x, y)| x as u32 + y as u32).sum::<u32>().to_le_bytes()),
+				4 => out.extend(z.map(at).collect::<Vec<_>>()),
+				5 => out.push(z.fold(0u8, |acc, p| acc.wrapping_mul(3) ^ at(p))),
+				6 => out.push(z.map(at).any(|x| x == 0) as u8),
+				_ => {
+					let mut z = z;
+					out.push(z.position(|(x, y)| x > y).map_or(0xee, |i| i as u8));
+					out.push(z.find(|&(x, _)| x % 3 == 0).map_or(0xee, at));
+					out.push(z.nth(n).map_or(0xee, at));
+					out.push(z.next().map_or(0xee, at));
+				}
+			}
+		}};
+	}
+	// `$zip` and then adaptors of it, each folding it or reading it by `try_fold`.
+	macro_rules! adapt {
+		($zip:expr) => {{
+			match kind & 16 {
+				0 => read!($zip),
+				_ => match data.len() % 8 {
+					0 => out.push($zip.filter(|&(x, _)| x % 2 == 0).count() as u8),
+					1 => out.push($zip.filter_map(|(x, y)| x.checked_sub(y)).count() as u8),
+					2 => out.push($zip.skip_while(|&(x, _)| x < 0x80).count() as u8),
+					3 => out.push($zip.enumerate().map(|(i, _)| i as u8).last().unwrap_or(0xee)),
+					4 => out.push($zip.chain([(1, 2)]).count() as u8),
+					5 => out.push($zip.take(n).count() as u8),
+					6 => out.push($zip.skip(n).count() as u8),
+					_ => {
+						let mut p = $zip.peekable();
+						let first = p.peek().is_some() as u8;
+						out.push(first ^ p.count() as u8);
+					}
+				},
+			}
+		}};
+	}
+	match kind % 4 {
+		// By index, never past the shorter side.
+		0 => adapt!(a.iter().map(seen!(1)).zip(b.iter().map(seen!(2)))),
+		// `TrustedLen`, not by index: `fold` stops at the shorter side, `next` reads the first one past it.
+		1 => match other {
+			false => adapt!(a.iter().rev().map(seen!(3)).zip(b.iter().rev().map(seen!(4)))),
+			true => adapt!(
+				a.iter()
+					.map(seen!(5))
+					.chain(b.iter().copied())
+					.zip(b.iter().rev().map(seen!(6)))
+			),
+		},
+		// Only `TrustedRandomAccessNoCoerce`, whose `fold` reads by index and `next` as any other zip's.
+		2 => match other {
+			false => adapt!(
+				a.to_vec()
+					.into_iter()
+					.map(owned!(7))
+					.zip(b.to_vec().into_iter().map(owned!(8)))
+			),
+			true => adapt!(
+				a.to_vec()
+					.into_iter()
+					.skip(1)
+					.map(owned!(9))
+					.zip(b.iter().map(seen!(10)))
+			),
+		},
+		// Neither, read by `next`, and nested: a zip of zips.
+		_ => match other {
+			false => adapt!(a.iter().map(seen!(11)).filter(|_| true).zip(b.iter().map(seen!(12)))),
+			true => adapt!(
+				a.iter()
+					.map(seen!(13))
+					.zip(b.iter().rev().map(seen!(14)))
+					.zip(a.iter().rev().map(seen!(15)))
+					.map(|((x, y), z)| (x ^ z, y))
+			),
+		},
+	}
+	out.extend_from_slice(&log.borrow());
+}
+
+/// `next_back` of a zip of sides that each log what they make: std trims the longer side
+/// first, a by-index zip only a side that logs, then reads both from the back.
+pub fn zips_back(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	let split = (kind >> 3) as usize % (data.len() + 1);
+	let (a, b) = data.split_at(split);
+	let log = std::cell::RefCell::new(Vec::new());
+	macro_rules! seen {
+		($tag:expr) => {
+			|&x: &u8| {
+				log.borrow_mut().push(x ^ $tag);
+				x
+			}
+		};
+	}
+	macro_rules! back {
+		($zip:expr) => {{
+			let mut z = $zip;
+			if kind & 4 != 0 {
+				out.push(z.next().map_or(0xee, |(x, y)| x ^ y));
+			}
+			while let Some((x, y)) = z.next_back() {
+				out.push(x ^ y);
+				out.push(z.len() as u8);
+			}
+			out.push(z.next().map_or(0xee, |(x, y)| x ^ y));
+		}};
+	}
+	match kind % 4 {
+		0 => back!(a.iter().map(seen!(1)).zip(b.iter().copied())),
+		1 => back!(a.iter().copied().zip(b.iter().map(seen!(2)))),
+		2 => back!(a.iter().map(seen!(3)).zip(b.iter().map(seen!(4)))),
+		_ => back!(a.iter().rev().map(seen!(5)).zip(b.iter().map(seen!(6)))),
+	}
+	out.extend_from_slice(&log.borrow());
+}
