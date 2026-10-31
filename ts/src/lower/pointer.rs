@@ -6,6 +6,10 @@
 //! which a `Vec` or an `Arc` also is here: its JS object is what it owns, not where Rust
 //! keeps it. Null is `rt.NULL`, and a dangling pointer `rt.DANGLING`.
 //!
+//! A pointer to `()`, as std erases one, is an identity that compares as itself: null,
+//! `rt.DANGLING_UNIT`, or a waker's data. One to a place of `()` or from a reference to
+//! one is refused, as an `rt.Place` of it would be an identity of its own each borrow.
+//!
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
 //! a `&mut`, so a pointer to a part kept as an object is refused wherever the crate may
@@ -47,9 +51,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let ty = self.uninit_inner(ty);
 		let object = match (self.object_kind(ty), ty.kind()) {
 			(Some(ObjectKind::Array | ObjectKind::Bytes), ty::Array(..) | ty::Tuple(_)) => true,
-			// An async body passes its context as a pointer to it.
+			// An async body passes its context as a pointer to it, and a waker's vtable is
+			// one that is its identity.
 			(Some(ObjectKind::Class), ty::Adt(adt, _)) => match Std::of(self.tcx, adt.did()) {
-				Some(std) => std == Std::Context,
+				Some(std) => matches!(std, Std::Context | Std::WakerVTable),
 				None => self.bound_drops(adt.did()).is_none(),
 			},
 			_ => false,
@@ -57,6 +62,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match object {
 			true => Pointee::Object,
 			false => Pointee::Place,
+		}
+	}
+
+	/// Whether a pointer to `ty` is an identity: one to `()`, through any `MaybeUninit`s.
+	pub fn identity_pointee(&self, ty: Ty<'tcx>) -> bool {
+		self.uninit_inner(ty).is_unit()
+	}
+
+	/// Why pointers to `ty` that are not null don't compare as their JS values, if they
+	/// don't. Two `rt.Place`s of one place are two objects, and Rust leaves where a value of
+	/// no bytes is unspecified, but a pointer to `()` is an identity.
+	pub fn incomparable(&self, ty: Ty<'tcx>) -> Option<String> {
+		if self.identity_pointee(ty) {
+			return None;
+		}
+		if self.zero_sized(ty) {
+			return Some(format!(
+				"comparing pointers to `{ty}`, which has no bytes and so no address of its own"
+			));
+		}
+		match self.pointee(ty) {
+			Pointee::Object => None,
+			Pointee::Place => Some(format!(
+				"comparing pointers to `{ty}`, each a place JS makes of its own"
+			)),
 		}
 	}
 
@@ -357,7 +387,22 @@ pub fn call<'tcx>(
 	let mut arg = || args.next().expect("an argument");
 	let e = match (owner, name) {
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
-		// One to a value of no bytes points at one, which every read of it reads.
+		// A pointer to `()` is an identity, which the `rt.Place` of a place or a reference
+		// is not. A box of one holds nothing, so its pointer is dangling.
+		("MaybeUninit", "as_ptr" | "as_mut_ptr") | ("UnsafeCell", "get") if b.t.identity_pointee(pointee()) => b.err(
+			span,
+			"a raw pointer to a place of `()`, which has no address of its own",
+		),
+		("From", "from") if pointer_self(b, call).is_some_and(|t| b.t.identity_pointee(t)) => b.err(
+			span,
+			"a raw pointer to a place of `()`, which has no address of its own",
+		),
+		("Box", "into_raw" | "leak") if b.t.identity_pointee(pointee()) => Expr::Rt("DANGLING_UNIT".into()),
+		// One to a value of no bytes points at one, which every read of it reads. One to
+		// `()` is an identity, the same for every call, as its address is.
+		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.identity_pointee(pointee()) => {
+			Expr::Rt("DANGLING_UNIT".into())
+		}
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.zero_sized(pointee()) => {
 			match (b.t.empty(pointee()), kind(b, pointee())) {
 				(false, _) => b.err(
@@ -559,22 +604,11 @@ fn write<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, value: Expr, ty: Ty<'tcx>, s
 }
 
 /// Whether pointers `x` and `y` to `ty` point at the same place: the same object, or
-/// null both. Two `rt.Place`s of one place are two objects, and Rust leaves where a value
-/// of no bytes is unspecified, so both are refused.
+/// null both.
 pub fn compare<'tcx>(b: &mut Body<'_, '_, 'tcx>, x: Expr, y: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let null = |e: &Expr| matches!(e, Expr::Rt(n) if n == "NULL");
-	if b.t.zero_sized(ty) && !null(&x) && !null(&y) {
-		return b.err(
-			span,
-			format!("comparing pointers to `{ty}`, which has no bytes and so no address of its own"),
-		);
-	}
-	match b.t.pointee(ty) {
-		Pointee::Object => x.binary("===", y),
-		Pointee::Place if null(&x) || null(&y) => x.binary("===", y),
-		Pointee::Place => b.err(
-			span,
-			format!("comparing pointers to `{ty}`, each a place JS makes of its own"),
-		),
+	match b.t.incomparable(ty) {
+		Some(why) if !null(&x) && !null(&y) => b.err(span, why),
+		_ => x.binary("===", y),
 	}
 }

@@ -19,17 +19,11 @@ generators in Node, 1.8-5.5x in Bun, and 1.4-3.5x in Chrome, and past depth 1 fa
 than moq's hand-written promises. `rt.spawn` stays.
 
 std's future helpers translate: `Poll`'s methods, `Poll<Poll<T>>`, `pin!`, `poll_fn`, `future::pending`,
-`Waker::from(Arc<W>)`, and `Waker::noop`, and so do `Box::pin` and `dyn Future`. What
-moq-net still needs, by its census from MIR at the pinned revision:
+`Waker::from(Arc<W>)`, and `Waker::noop`, and so do `Box::pin`, `dyn Future`, and a
+waker's identity, as kio's `Tasks` compares it. What moq-net still needs, by its census
+from MIR at the pinned revision:
 
 - Async closures, which only moq-net's tests write today.
-- kio's `Tasks`, which the model's census binds. Translated, it refuses a waker's
-  identity: `Polling` keeps `(Waker::data, Waker::vtable)` in a thread-local and compares
-  it as an `Option` of that pair (`rs/kio/src/task.rs`), 10 of kio's refusals. `rt.Waker`
-  has no identity a raw pointer can stand for. Decided by the maintainer on 2026-10-30:
-  each `rt.Waker` carries an identity, which `Waker::data` and `Waker::vtable` read and
-  `will_wake` compares, as std compares the data pointer and vtable, rather than JS object
-  identity, which a clone made another way would not share; a caller's own waker gives one.
 - The edge: `rt.spawn`'s shape for callers, and cancelling a spawned task.
 
 An async block that captures part of a variable, which THIR refused 47 times, is a

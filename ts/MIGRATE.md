@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `rt.Waker` has `data` and `vtable`, its identity, in place of `willWake`, which is
+  `rt.willWake(a, b)`: a caller's own waker gives as `data` what each of its clones
+  shares, such as the task it wakes, and as `vtable` an object of its kind of waker.
 - A `start..` is an `rt.RangeFrom`, an iterator as `rt.Range` is, rather than
   `{ start }`: a caller passes one as `new rt.RangeFrom(start, rt.u64Step)`, with its
   integer type's `Step`, or `rt.charStep`, and none for other types. A binding taking one

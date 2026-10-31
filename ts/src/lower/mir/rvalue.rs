@@ -74,15 +74,17 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let pointee = place.ty(&self.mir.local_decls, tcx).ty;
 				match self.b.t.pointee(pointee) {
 					Pointee::Object => self.place_expr(*place, span, out),
-					// `&raw mut *p` is `p`.
+					// `&raw mut *p` is `p`. A pointer to `()` is an identity, which only another
+					// pointer is: not the `rt.Place` of a place or of a `&mut`, each borrow's own.
 					Pointee::Place => match place.projection.as_slice() {
 						[rest @ .., mir::ProjectionElem::Deref]
-							if !self.box_pointer(place.local)
-								&& self
-									.b
-									.t
-									.place_pointee(Place::ty_from(place.local, rest, &self.mir.local_decls, tcx).ty)
-									.is_some() =>
+							if !self.box_pointer(place.local) && {
+								let base = Place::ty_from(place.local, rest, &self.mir.local_decls, tcx).ty;
+								match self.b.t.identity_pointee(pointee) {
+									true => base.is_raw_ptr(),
+									false => self.b.t.place_pointee(base).is_some(),
+								}
+							} =>
 						{
 							let base = Place {
 								local: place.local,
@@ -90,6 +92,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							};
 							self.place_expr(base, span, out)
 						}
+						_ if self.b.t.identity_pointee(pointee) => self.err(
+							span,
+							"a raw pointer to a place of `()`, which has no address of its own",
+						),
 						// A reference to an object is the object, not the place holding it.
 						[.., mir::ProjectionElem::Deref] if !self.box_pointer(place.local) => self.err(
 							span,
