@@ -2,6 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { copy$tuple2_u8_u8 } from "./lib.ts";
+import { thenSome$1d6toqn } from "./core/bool.ts";
 import { min$1ljcpv9, min$1f8m2y1, min$0tn2vhs, min$1mtc1eg, minBy$0f4msyz, minBy$0wmhcb1, minByKey$04nvnd5, max$17dwnpn, max$1s8mlx0, max$0i3ups8, max$1tkcqvz, max$0bn3iky, max$0g5g0ks, maxBy$04pyy5s, maxBy$0yuzdd4, maxByKey$1a9sf4b } from "./core/cmp.ts";
 import { unwrapOr$0l1fs14 as option_unwrapOr$0l1fs14, map$0isl2bb as option_map$0isl2bb, map$05nbzug as option_map$05nbzug, mapOr$1e4a1e0 as option_mapOr$1e4a1e0, mapOr$14aggam as option_mapOr$14aggam, mapOr$0z7fb2w as option_mapOr$0z7fb2w, mapOr$1surhce as option_mapOr$1surhce, mapOr$06gg5x7 as option_mapOr$06gg5x7 } from "./core/option.ts";
 import { eq$15zrpyn as result_eq$15zrpyn, eq$1faqxpo as result_eq$1faqxpo, partialCmp$08on5x6 as result_partialCmp$08on5x6, partialCmp$0v2kxbo as result_partialCmp$0v2kxbo, partialCmp$0spmpix as result_partialCmp$0spmpix, partialCmp$0hea5es as result_partialCmp$0hea5es, cmp$0nb553d as result_cmp$0nb553d, cmp$0h5rzdg as result_cmp$0h5rzdg, cmp$0qsbu3y as result_cmp$0qsbu3y, cmp$06akmd5 as result_cmp$06akmd5 } from "./core/result.ts";
@@ -1248,10 +1249,12 @@ export function btrees(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeLen(set2) & 0xff, rt.btreeLen(units) & 0xff, rt.btreeLen(map2) & 0xff)), undefined, true);
 	rt.iterExtendBytes(out, rt.btreeValues(map2), undefined, true);
 	flush(out);
-	const _214: rt.Iter<[undefined, orders_Item.Item]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_213: [rt.usize, rt.u8]): [undefined, orders_Item.Item] => {
-		return [undefined, item(_213[0], _213[1])] as [undefined, orders_Item.Item];
+	const _214: rt.Iter<[undefined | rt.None, orders_Item.Item]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_213: [rt.usize, rt.u8]): [undefined | rt.None, orders_Item.Item] => {
+		const i4: rt.usize = _213[0];
+		const b14: rt.u8 = _213[1];
+		return [thenSome$1d6toqn(rt.u8Rem(b14, 2) === 0, undefined), item(i4, b14)] as [undefined | rt.None, orders_Item.Item];
 	});
-	const phantoms: rt.BTreeMap<undefined, orders_Item.Item> = rt.btreeCollect(rt.btreeNew(rt.cmpNothing) as rt.BTreeMap<undefined, orders_Item.Item>, rt.iterToArray(_214, undefined, 2, true), true, undefined, undefined, rt.drop);
+	const phantoms: rt.BTreeMap<undefined | rt.None, orders_Item.Item> = rt.btreeCollect(rt.btreeNew(rt.cmpOption(rt.cmpNothing, rt.None)) as rt.BTreeMap<undefined | rt.None, orders_Item.Item>, rt.iterToArray(_214, undefined, 3, true), true, undefined, undefined, rt.drop);
 	rt.iterExtendBytes(out, rt.iterMap(rt.btreeValues(phantoms), (x: orders_Item.Item): rt.u8 => {
 		return x.tag;
 	}), undefined, true);

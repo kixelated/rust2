@@ -1087,11 +1087,20 @@ fn own_ord<'tcx>(
 		// Which compare nothing they name.
 		ty::RawPtr(..) | ty::FnPtr(..) => false,
 		ty::Adt(adt, _) if adt.is_phantom_data() => false,
-		// std's, by what it holds.
-		_ => ty
-			.walk()
-			.filter_map(|arg| arg.as_type())
-			.any(|t| t != ty && own_ord(b, t, seen)),
+		// std's, by each type it holds, which decides whether to look deeper.
+		_ => {
+			let mut walk = ty.walk();
+			walk.next();
+			while let Some(arg) = walk.next() {
+				if let Some(t) = arg.as_type() {
+					walk.skip_current_subtree();
+					if own_ord(b, t, seen) {
+						return true;
+					}
+				}
+			}
+			false
+		}
 	}
 }
 

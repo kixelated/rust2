@@ -716,12 +716,12 @@ pub fn btrees(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	out.extend([set.len() as u8, units.len() as u8, map.len() as u8]);
 	out.extend(map.values());
 	flush(out);
-	// `PhantomData` compares nothing, so keys of one agree whatever it names, and each
-	// value but the last drops.
-	let phantoms: BTreeMap<PhantomData<Torn>, Item> = data
+	// `PhantomData` compares nothing, so keys holding one agree whatever it names, and
+	// each value but the last of equal keys drops.
+	let phantoms: BTreeMap<Option<PhantomData<Torn>>, Item> = data
 		.iter()
 		.enumerate()
-		.map(|(i, &b)| (PhantomData, item(i, b)))
+		.map(|(i, &b)| ((b % 2 == 0).then_some(PhantomData), item(i, b)))
 		.collect();
 	out.extend(phantoms.values().map(|x| x.tag));
 	drop(phantoms);
