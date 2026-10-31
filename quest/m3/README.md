@@ -35,3 +35,4 @@ generic std gap is planned here even when moq never calls it.
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [Cloning std's iterators](/quest/m3/ts-iter-clone.md) - `clone` of std's iterators and adaptors translates, each clone reading on independently
 - [Comparing iterators](/quest/m3/ts-iter-compare.md) - `eq`, `cmp`, `lt`, and the rest of `Iterator`'s comparisons translate against any `IntoIterator`
+- [Methods of std's ranges](/quest/m3/ts-range-methods.md) - `contains`, `is_empty`, `==`, `Hash`, and `into_inner` of every range type, and `NonZero` ranges, translate as std's
