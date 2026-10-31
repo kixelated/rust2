@@ -7,8 +7,8 @@
 //! keeps it. Null is `rt.NULL`, and a dangling pointer `rt.DANGLING`.
 //!
 //! A pointer to `()`, as std erases one, is an identity that compares as itself: null,
-//! dangling, or a waker's data. One to a place of `()` is refused, as an `rt.Place` of it
-//! would be an identity of its own each time it is taken.
+//! `rt.DANGLING_UNIT`, or a waker's data. One to a place of `()` or from a reference to
+//! one is refused, as an `rt.Place` of it would be an identity of its own each borrow.
 //!
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
@@ -320,17 +320,21 @@ pub fn call<'tcx>(
 	let mut arg = || args.next().expect("an argument");
 	let e = match (owner, name) {
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
-		// A pointer to `()` is an identity, which a place's `rt.Place` is not. A box of one
-		// holds nothing, so its pointer is dangling.
+		// A pointer to `()` is an identity, which the `rt.Place` of a place or a reference
+		// is not. A box of one holds nothing, so its pointer is dangling.
 		("MaybeUninit", "as_ptr" | "as_mut_ptr") | ("UnsafeCell", "get") if pointee().is_unit() => b.err(
 			span,
 			"a raw pointer to a place of `()`, which has no address of its own",
 		),
-		("Box", "into_raw" | "leak") if pointee().is_unit() => Expr::Rt("DANGLING".into()),
+		("From", "from") if pointer_self(b, call).is_some_and(|t| t.is_unit()) => b.err(
+			span,
+			"a raw pointer to a place of `()`, which has no address of its own",
+		),
+		("Box", "into_raw" | "leak") if pointee().is_unit() => Expr::Rt("DANGLING_UNIT".into()),
 		// One to a value of no bytes points at one, which every read of it reads. One to
 		// `()` is an identity, the same for every call, as its address is.
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if pointee().is_unit() => {
-			Expr::Rt("DANGLING".into())
+			Expr::Rt("DANGLING_UNIT".into())
 		}
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.zero_sized(pointee()) => {
 			match (b.t.empty(pointee()), kind(b, pointee())) {

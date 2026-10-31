@@ -740,7 +740,7 @@ pub fn cell_field_replaced(n: u32) -> u32 {
 /// Pointers to places of no bytes, which Rust may put anywhere, `()`'s refused as made.
 pub fn units_compared() -> bool {
 	let (a, b, c, d) = ((), (), Fused, Fused);
-	std::ptr::eq(&raw const a, &raw const b) && std::ptr::eq(&raw const c, &raw const d)
+	std::ptr::eq(&raw const a, std::ptr::NonNull::from(&b).as_ptr()) && std::ptr::eq(&raw const c, &raw const d)
 }
 
 pub enum Only {

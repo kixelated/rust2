@@ -64,7 +64,7 @@
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:248:75 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | fixtures/reject/src/lib.rs:792:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | fixtures/reject/src/lib.rs:611:2 |
-| 1 | comparing pointers to `_`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:743:46 |
+| 1 | comparing pointers to `_`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:743:70 |
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:362:53 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:248:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:323:16 |
@@ -114,7 +114,7 @@ The type or module each refused type or path belongs to.
 | 1 | `DoubleEndedIterator` | fixtures/reject/src/lib.rs:152:1 |
 | 1 | `Entry` | fixtures/reject/src/lib.rs:332:13 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:200:1 |
-| 1 | `Fused` | fixtures/reject/src/lib.rs:743:46 |
+| 1 | `Fused` | fixtures/reject/src/lib.rs:743:70 |
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:274:9 |
 | 1 | `Hits` | fixtures/reject/src/lib.rs:735:21 |
@@ -222,7 +222,7 @@ The type or module each refused type or path belongs to.
 | 1 | comparing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:248:75 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:792:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | `u32` | fixtures/reject/src/lib.rs:611:2 |
-| 1 | comparing pointers to `_`, which has no bytes and so no address of its own | `Fused` | fixtures/reject/src/lib.rs:743:46 |
+| 1 | comparing pointers to `_`, which has no bytes and so no address of its own | `Fused` | fixtures/reject/src/lib.rs:743:70 |
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:362:53 |
 | 1 | hashing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:248:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | `std::vec::Vec`, `Batched` | fixtures/reject/src/lib.rs:323:16 |
@@ -656,7 +656,7 @@ The type or module each refused type or path belongs to.
 
 <details><summary>comparing pointers to `_`, which has no bytes and so no address of its own (1)</summary>
 
-- fixtures/reject/src/lib.rs:743:46: comparing pointers to `Fused`, which has no bytes and so no address of its own
+- fixtures/reject/src/lib.rs:743:70: comparing pointers to `Fused`, which has no bytes and so no address of its own
 
 </details>
 

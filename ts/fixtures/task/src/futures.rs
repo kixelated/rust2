@@ -162,6 +162,9 @@ pub async fn wakers(mut rx: Consumer, guard: Guard) -> u64 {
 	];
 	// SAFETY: the box's own pointer, which nothing else holds.
 	drop(unsafe { Box::from_raw(unit) });
+	assign(Box::leak(Box::new(())));
+	// SAFETY: a dangling pointer to a value of no bytes is valid to write.
+	assign(unsafe { &mut *ptr::dangling_mut() });
 	guard.note(&format!("wakers {checks:?}"));
 	drop((a, b, other, plain));
 	let mut last: Option<Identity> = None;
@@ -191,6 +194,11 @@ pub async fn wakers(mut rx: Consumer, guard: Guard) -> u64 {
 			None => return total,
 		}
 	}
+}
+
+/// Write `()` through `value`, which a dangling pointer may give.
+fn assign(value: &mut ()) {
+	*value = ();
 }
 
 /// A boxed future, as moq's `MaybeSendBox` is.
