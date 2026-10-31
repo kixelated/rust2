@@ -275,6 +275,17 @@ pub fn std_impl<'tcx>(
 		ty::Dynamic(preds, ..) if preds.principal_def_id().and_then(|did| Trait::of(tcx, did)) == Some(tr) => {
 			value.call(vec![f])
 		}
+		// Unpadded, naming its type as `type_name` does.
+		ty::Adt(adt, args) if tr == Trait::Debug && adt.is_phantom_data() => {
+			let name = rustc_const_eval::util::type_name(tcx, args.type_at(0));
+			rt("writeStr", vec![f, Expr::Str(format!("PhantomData<{name}>"))])
+		}
+		// Each its name alone, unpadded.
+		ty::Adt(adt, _)
+			if tr == Trait::Debug && (library::pinned(tcx, adt.did()) || library::empty_iter(tcx, adt.did())) =>
+		{
+			rt("writeStr", vec![f, Expr::Str(tcx.item_name(adt.did()).to_string())])
+		}
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),

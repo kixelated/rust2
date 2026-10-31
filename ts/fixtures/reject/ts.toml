@@ -6,7 +6,6 @@ roots = [
     "refilled",
     "scanned",
     "generic_unit",
-    "collected",
     "Noisy",
     "async_closure",
     "pointer",

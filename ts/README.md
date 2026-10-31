@@ -83,6 +83,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `f64` | `rt.f64`: a `number` branded so, which is the same IEEE 754 double |
 | `f32` | `rt.f32`: a `number` branded so, which a single holds exactly |
+| `()`, `PhantomData<T>`, `PhantomPinned`, `..` | `undefined`, every value equal and hashing nothing; a type parameter only a `PhantomData` holds is `_T` in its struct's interface |
 | `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |

@@ -229,19 +229,13 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		let ty::Adt(adt, _) = ty.kind() else {
 			return Err(values);
 		};
-		match library::std_path(tcx, adt.did())
-			.iter()
-			.map(String::as_str)
-			.collect::<Vec<_>>()
-			.as_slice()
-		{
-			["marker", "PhantomData"] => return Ok(Expr::undefined()),
-			// Typed, as what reads it may infer nothing of it.
-			["iter", "sources", "empty", "Empty"] => {
-				let ts_ty = self.t.ty(ty, span);
-				return Ok(Expr::As(Box::new(Expr::rt("iterEmpty", Vec::new())), ts_ty));
-			}
-			_ => {}
+		if library::nothing(tcx, ty) {
+			return Ok(Expr::undefined());
+		}
+		// Typed, as what reads it may infer nothing of it.
+		if library::empty_iter(tcx, adt.did()) {
+			let ts_ty = self.t.ty(ty, span);
+			return Ok(Expr::As(Box::new(Expr::rt("iterEmpty", Vec::new())), ts_ty));
 		}
 		let Some((make, gargs)) = super::iter::maker(self.t, ty) else {
 			return Err(values);
