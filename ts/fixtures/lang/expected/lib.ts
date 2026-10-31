@@ -514,6 +514,10 @@ export function drop$array2_joins_Logged(value: joins_Logged.Logged[]): void {
 	rt.dropAll(value);
 }
 
+export function drop$boxed_Box_slice_joins_Logged(value: joins_Logged.Logged[]): void {
+	rt.dropAll(value);
+}
+
 export function drop$cell_RefCell_Vec_Rc_counts_RcReleasing(value: rt.RefCell<rt.Arc<RcReleasing.RcReleasing>[]>): void {
 	rt.dropAll(value.value);
 }

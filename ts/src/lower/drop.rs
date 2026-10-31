@@ -93,7 +93,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				None => false,
 			},
 			ty::Tuple(tys) => tys.iter().any(|t| self.drops(t)),
-			ty::Array(elem, _) => self.drops(*elem),
+			// A slice, which a box owns.
+			ty::Array(elem, _) | ty::Slice(elem) => self.drops(*elem),
 			ty::Closure(_, args) => args.as_closure().upvar_tys().iter().any(|t| self.drops(t)),
 			// Whatever it was made of may drop.
 			ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
@@ -468,11 +469,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(droppers)
 	}
 
-	/// The elements of an array or `Vec` that `ty` is, or holds in an `Option` or a box,
+	/// The elements of an array, slice, or `Vec` that `ty` is, or holds in an `Option` or a box,
 	/// whose JS value is the array or `undefined`.
 	fn elements(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		match ty.kind() {
-			ty::Array(elem, _) => Some(*elem),
+			ty::Array(elem, _) | ty::Slice(elem) => Some(*elem),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
 				Std::Vec => Some(args.type_at(0)),
 				Std::Option if self.erases_to(args.type_at(0)).undefined => None,
