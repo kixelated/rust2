@@ -2027,11 +2027,10 @@ fn mapping<'tcx>(
 			if string(tcx, targ(gargs, 0).peel_refs()) && targ(gargs, 1).peel_refs().is_str() =>
 		{
 			let mut values = args;
-			let sep = match name.as_str() {
-				"join" => values.pop()?,
-				_ => Expr::Str(String::new()),
-			};
-			values.pop()?.method("join", vec![sep])
+			if name == "concat" {
+				values.push(Expr::Str(String::new()));
+			}
+			Expr::rt("strsJoin", values)
 		}
 		("slice", "concat" | "join") => {
 			return slices_join(b, targ(gargs, 0), targ(gargs, 1), name == "join", args, span);
@@ -2354,8 +2353,9 @@ fn slices_join<'tcx>(
 	if bytes {
 		return Some(Expr::rt("byteSlicesJoin", trimmed(vec![items, sep, slice])));
 	}
+	let size = super::iter::size_of(b, elem, span);
 	let clone = super::collections::clone_fn(b, elem, span);
-	Some(Expr::rt("slicesJoin", trimmed(vec![items, sep, slice, clone])))
+	Some(Expr::rt("slicesJoin", trimmed(vec![items, size, sep, slice, clone])))
 }
 
 /// `args` without the `undefined`s that end them, which a runtime function's optional

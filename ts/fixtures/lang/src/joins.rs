@@ -1,6 +1,7 @@
 //! `concat` and `join` of slices of arrays, slices, and vectors, of bytes and of other
 //! values, and of text: each item's elements cloned once, in order, with the separator's
-//! between them, outer and inner slices empty or not.
+//! between them, outer and inner slices empty or not, and totals past what the result may
+//! hold, which panic as std's do.
 
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -73,7 +74,7 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let parts = &all[..usize::from(kind >> 3) % (all.len() + 1)];
 	let sep = data.first().copied().unwrap_or(7);
 	let seps = &data[..data.len().min(3)];
-	match kind % 6 {
+	match kind % 7 {
 		// Byte slices and vectors of them.
 		0 => {
 			bytes(parts.concat(), out);
@@ -181,7 +182,7 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			put(out, &none.join(&sep));
 		}
 		// `Cow`s, borrowed and owned in turn.
-		_ => {
+		5 => {
 			let cows: Vec<Cow<[u8]>> = parts
 				.iter()
 				.enumerate()
@@ -217,6 +218,26 @@ pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				.collect();
 			put(out, &texts.concat());
 			put(out, &texts.join("--"));
+		}
+		// Totals past what a `Vec` or a `String` may hold, of one part repeated, which panic
+		// before anything is cloned.
+		_ => {
+			let big = vec![1u8; 1 << 16];
+			let wide = vec![1u16; 1 << 16];
+			let text = text(&big);
+			let refs = |n: usize| vec![&big[..]; n];
+			match data.first().copied().unwrap_or(0) % 6 {
+				// Bytes past `isize::MAX`.
+				0 => bytes(refs((1 << 15) + 1).concat(), out),
+				// Their count past `usize::MAX`.
+				1 => bytes(refs((1 << 16) + 1).concat(), out),
+				// Past `isize::MAX` only with the separators.
+				2 => bytes(refs((1 << 14) + 1).join(&big[..]), out),
+				// `u16`s past what a `Vec` of them may hold, half as many as bytes.
+				3 => wides(vec![&wide[..]; (1 << 14) + 1].concat(), out),
+				4 => put(out, &vec![text.as_str(); (1 << 15) + 1].concat()),
+				_ => put(out, &vec![text.as_str(); (1 << 16) + 1].join("")),
+			}
 		}
 	}
 }
