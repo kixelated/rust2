@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 145
-- Function instances: 186
+- Refusals: 146
+- Function instances: 187
 - Generic functions no instance reached, lowered over their type parameters: 11
 
 ## By construct
@@ -9,7 +9,7 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 30 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:623:10 |
-| 17 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
+| 18 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
 | 14 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:344:2 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:237:14 |
@@ -128,13 +128,13 @@ The type or module each refused type or path belongs to.
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:274:9 |
 | 1 | `Hits` | fixtures/reject/src/lib.rs:735:21 |
-| 1 | `InArray` | fixtures/reject/src/lib.rs:1312:9 |
-| 1 | `InField` | fixtures/reject/src/lib.rs:1328:9 |
-| 1 | `InGeneric` | fixtures/reject/src/lib.rs:1332:9 |
-| 1 | `InNested` | fixtures/reject/src/lib.rs:1320:9 |
-| 1 | `InPayload` | fixtures/reject/src/lib.rs:1324:9 |
-| 1 | `InTuple` | fixtures/reject/src/lib.rs:1316:9 |
-| 1 | `InWritten` | fixtures/reject/src/lib.rs:1336:9 |
+| 1 | `InArray` | fixtures/reject/src/lib.rs:1317:9 |
+| 1 | `InField` | fixtures/reject/src/lib.rs:1333:9 |
+| 1 | `InGeneric` | fixtures/reject/src/lib.rs:1337:9 |
+| 1 | `InNested` | fixtures/reject/src/lib.rs:1325:9 |
+| 1 | `InPayload` | fixtures/reject/src/lib.rs:1329:9 |
+| 1 | `InTuple` | fixtures/reject/src/lib.rs:1321:9 |
+| 1 | `InWritten` | fixtures/reject/src/lib.rs:1341:9 |
 | 1 | `Lane` | fixtures/reject/src/lib.rs:887:19 |
 | 1 | `Loaded` | fixtures/reject/src/lib.rs:1157:29 |
 | 1 | `Looped` | fixtures/reject/src/lib.rs:1125:26 |
@@ -167,6 +167,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter` | fixtures/reject/src/lib.rs:1250:22 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:446:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:446:32 |
+| 1 | `std::num::Saturating` | fixtures/reject/src/lib.rs:1292:26 |
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:999:32 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:999:11 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:781:15 |
@@ -239,13 +240,13 @@ The type or module each refused type or path belongs to.
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Called` | fixtures/reject/src/lib.rs:1101:28 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Escaped` | fixtures/reject/src/lib.rs:1087:43 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Hits` | fixtures/reject/src/lib.rs:735:21 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InArray` | fixtures/reject/src/lib.rs:1312:9 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InField` | fixtures/reject/src/lib.rs:1328:9 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InGeneric` | fixtures/reject/src/lib.rs:1332:9 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InNested` | fixtures/reject/src/lib.rs:1320:9 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InPayload` | fixtures/reject/src/lib.rs:1324:9 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InTuple` | fixtures/reject/src/lib.rs:1316:9 |
-| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InWritten` | fixtures/reject/src/lib.rs:1336:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InArray` | fixtures/reject/src/lib.rs:1317:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InField` | fixtures/reject/src/lib.rs:1333:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InGeneric` | fixtures/reject/src/lib.rs:1337:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InNested` | fixtures/reject/src/lib.rs:1325:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InPayload` | fixtures/reject/src/lib.rs:1329:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InTuple` | fixtures/reject/src/lib.rs:1321:9 |
+| 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `InWritten` | fixtures/reject/src/lib.rs:1341:9 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Loaded` | fixtures/reject/src/lib.rs:1157:29 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Looped` | fixtures/reject/src/lib.rs:1125:26 |
 | 1 | a raw pointer to `_` in `_`, which the crate may put another object in place of | `std::cell::UnsafeCell`, `Mapped` | fixtures/reject/src/lib.rs:1202:39 |
@@ -283,6 +284,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:314:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:553:17 |
 | 1 | unsupported call to `_` | `std::borrow::Cow::is_borrowed` | fixtures/reject/src/lib.rs:356:2 |
+| 1 | unsupported call to `_` | `std::num::Saturating::pow` | fixtures/reject/src/lib.rs:1292:26 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:167:8 |
 | 1 | unsupported call to `_` | `std::ops::Range::is_empty` | fixtures/reject/src/lib.rs:1004:9 |
 | 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:999:11 |
@@ -320,17 +322,17 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:1236:18: a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Repeated`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:1248:46: a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Onced`, which the crate may put another object in place of
 - fixtures/reject/src/lib.rs:1263:22: a raw pointer to `(u16, u16)` in `Pushed`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1312:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InArray`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1316:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InTuple`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1320:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InNested`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1324:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InPayload`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1328:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InField`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1332:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InGeneric`, which the crate may put another object in place of
-- fixtures/reject/src/lib.rs:1336:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InWritten`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1317:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InArray`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1321:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InTuple`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1325:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InNested`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1329:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InPayload`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1333:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InField`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1337:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InGeneric`, which the crate may put another object in place of
+- fixtures/reject/src/lib.rs:1341:9: a raw pointer to `std::cell::UnsafeCell<u16>` in `InWritten`, which the crate may put another object in place of
 
 </details>
 
-<details><summary>unsupported call to `_` (17)</summary>
+<details><summary>unsupported call to `_` (18)</summary>
 
 - fixtures/reject/src/lib.rs:167:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 - fixtures/reject/src/lib.rs:314:10: unsupported call to `<u8 as std::hash::Hash>::hash::<H>`
@@ -349,6 +351,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:999:11: unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>`
 - fixtures/reject/src/lib.rs:999:32: unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>`
 - fixtures/reject/src/lib.rs:1004:9: unsupported call to `std::ops::Range::<&mut u8>::is_empty`
+- fixtures/reject/src/lib.rs:1292:26: unsupported call to `std::num::Saturating::<u8>::pow`
 
 </details>
 

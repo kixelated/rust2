@@ -297,8 +297,10 @@ pub fn std_impl<'tcx>(
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
-			// A `NonZero` and a `Wrapping` write their integer, by each trait.
-			(Std::Box | Std::NonZero | Std::Wrapping, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `NonZero`, a `Wrapping`, and a `Saturating` write their integer, by each trait.
+			(Std::Box | Std::NonZero | Std::Wrapping | Std::Saturating, _) => {
+				b.fmt_call(tr, args.type_at(0), value, f, span)
+			}
 			// A `Cow<[T]>` writes its slice.
 			(Std::Cow, Trait::Debug) if let Some(elem) = library::cow_slice(tcx, ty) => {
 				b.fmt_call(tr, Ty::new_slice(tcx, elem), library::cow_deref(value, elem), f, span)

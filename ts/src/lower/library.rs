@@ -13,7 +13,7 @@ use rustc_span::Span;
 use super::Translator;
 use super::body::Body;
 use super::fmt;
-use super::num::{self, Int, Operand};
+use super::num::{self, Int, Operand, Overflow};
 use crate::ts::{Expr, Stmt, StmtKind};
 
 /// A type with a representation of its own: std's, or a well-known crate's that
@@ -128,6 +128,8 @@ pub enum Std {
 	NonZero,
 	/// What it holds, whose arithmetic wraps.
 	Wrapping,
+	/// What it holds, whose arithmetic saturates at its bounds.
+	Saturating,
 	/// A `format_args!` argument: a function writing its value, `rt.Fmt`.
 	Argument,
 	/// A raw pointer to its pointee, as `pointer` has it.
@@ -180,6 +182,15 @@ impl Std {
 				| Self::TryFromFloatSecsError
 				| Self::FmtError
 		)
+	}
+
+	/// How its operators overflow, if it is a `Wrapping` or a `Saturating`.
+	pub fn overflow(self) -> Option<Overflow> {
+		match self {
+			Self::Wrapping => Some(Overflow::Wrap),
+			Self::Saturating => Some(Overflow::Saturate),
+			_ => None,
+		}
 	}
 
 	pub fn of(tcx: TyCtxt<'_>, did: DefId) -> Option<Self> {
@@ -306,6 +317,7 @@ impl Std {
 			["ops", "range", "Bound"] => Some(Self::Bound),
 			["num", "nonzero", "NonZero"] => Some(Self::NonZero),
 			["num", "wrapping", "Wrapping"] => Some(Self::Wrapping),
+			["num", "saturating", "Saturating"] => Some(Self::Saturating),
 			["hash", "random", "DefaultHasher"] => Some(Self::Hasher),
 			["hash", "random", "RandomState"] => Some(Self::RandomState),
 			["collections", "hash", "map", "Entry" | "OccupiedEntry" | "VacantEntry"]
@@ -396,14 +408,14 @@ pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 }
 
 /// What a value of `ty` is in JS if `ty` wraps one value it is represented as: `Reverse<T>`'s,
-/// `NonZero<T>`'s, and `Wrapping<T>`'s `T`, which differ only in their order, range, and
-/// arithmetic, a pattern type's base, and the field of each of core's `niche_types`
-/// structs that hold one.
+/// `NonZero<T>`'s, `Wrapping<T>`'s, and `Saturating<T>`'s `T`, which differ only in their
+/// order, range, and arithmetic, a pattern type's base, and the field of each of core's
+/// `niche_types` structs that hold one.
 pub fn wrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 	match ty.kind() {
 		ty::Pat(base, _) => Some(*base),
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-			Some(Std::Reverse | Std::NonZero | Std::Wrapping) => Some(args.type_at(0)),
+			Some(Std::Reverse | Std::NonZero | Std::Wrapping | Std::Saturating) => Some(args.type_at(0)),
 			Some(_) => None,
 			None => {
 				let path = std_path(tcx, adt.did());
@@ -1252,6 +1264,10 @@ fn mapping<'tcx>(
 			"saturating_add" => "saturatingAdd",
 			"saturating_sub" => "saturatingSub",
 			"saturating_mul" => "saturatingMul",
+			// Only a signed one can overflow, at `MIN / -1`.
+			"saturating_div" if int.signed => "saturatingDiv",
+			"saturating_div" => "div",
+			"saturating_neg" => return Some(int.method("saturatingSub", [vec![int.lit(0)], args].concat())),
 			"wrapping_add" => "wrappingAdd",
 			"wrapping_sub" => "wrappingSub",
 			"wrapping_mul" => "wrappingMul",
@@ -1363,10 +1379,11 @@ fn mapping<'tcx>(
 			int.method("tryFrom", values)
 		}
 
-		// A `Wrapping`'s operators, which wrap as its integer's `wrapping_*` do.
+		// A `Wrapping`'s or a `Saturating`'s operators, which wrap or saturate as its integer's
+		// `wrapping_*` or `saturating_*` do.
 		(_, _)
 			if let Some(op) = operator(&owner)
-				&& let Some(int) = wrapping_of(tcx, targ(gargs, 0).peel_refs()) =>
+				&& let Some((overflow, int)) = overflowing(tcx, targ(gargs, 0).peel_refs()) =>
 		{
 			let [l, r] = <[Expr; 2]>::try_from(args).ok()?;
 			// A constant shift amount, which masks to a constant.
@@ -1374,8 +1391,9 @@ fn mapping<'tcx>(
 				Expr::Lit(l) => l.parse().ok(),
 				_ => None,
 			};
-			num::wrapping(
+			num::overflowing(
 				b,
+				overflow,
 				op,
 				Operand { expr: l, value: None },
 				Operand { expr: r, value },
@@ -1383,11 +1401,11 @@ fn mapping<'tcx>(
 				span,
 			)
 		}
-		("Neg", "neg") if let Some(int) = wrapping_of(tcx, targ(gargs, 0).peel_refs()) => {
-			let zero = Int::of(int)?.lit(0);
-			Int::of(int)?.method("wrappingSub", vec![zero, args.pop()?])
+		("Neg", "neg") if let Some((overflow, int)) = overflowing(tcx, targ(gargs, 0).peel_refs()) => {
+			let int = Int::of(int)?;
+			int.method(&overflow.method("Sub"), vec![int.lit(0), args.pop()?])
 		}
-		("Not", "not") if let Some(int) = wrapping_of(tcx, targ(gargs, 0).peel_refs()) => {
+		("Not", "not") if let Some((_, int)) = overflowing(tcx, targ(gargs, 0).peel_refs()) => {
 			num::unary(b, rustc_middle::mir::UnOp::Not, args.pop()?, int, span)
 		}
 		// Operators on references to primitives.
@@ -1585,11 +1603,16 @@ fn mapping<'tcx>(
 		// A `NonZero` is its integer.
 		("NonZero", "get") => args.pop()?,
 		("NonZero", "new") => Expr::rt("nonZero", args),
-		// Of each width's own impl, which has no type argument to read the integer from.
-		("NonZero", "leading_zeros" | "trailing_zeros") => {
+		// Of each width's own impl, which has no type argument to read the integer from. Its
+		// saturating arithmetic is its integer's, which never saturates to 0.
+		("NonZero", "leading_zeros" | "trailing_zeros" | "saturating_add" | "saturating_mul" | "saturating_neg") => {
 			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
 			let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
-			Int::of(unwrapped(tcx, self_ty))?.method(&super::camel(&name), args)
+			let int = Int::of(unwrapped(tcx, self_ty))?;
+			match name.as_str() {
+				"saturating_neg" => int.method("saturatingSub", vec![int.lit(0), args.pop()?]),
+				_ => int.method(&super::camel(&name), args),
+			}
 		}
 		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
 		("Bound", "cloned") => {
@@ -2447,14 +2470,14 @@ pub fn operator(owner: &str) -> Option<rustc_middle::mir::BinOp> {
 	})
 }
 
-/// The integer a `Wrapping` of type `ty` holds, if it is one of an integer.
-pub fn wrapping_of<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
-	match ty.kind() {
-		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Wrapping) => {
-			Some(args.type_at(0)).filter(|&t| Int::of(t).is_some())
-		}
-		_ => None,
-	}
+/// How the operators of `ty` overflow and the integer it holds, if it is a `Wrapping` or a
+/// `Saturating` of an integer.
+pub fn overflowing<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<(Overflow, Ty<'tcx>)> {
+	let ty::Adt(adt, args) = ty.kind() else {
+		return None;
+	};
+	let overflow = Std::of(tcx, adt.did())?.overflow()?;
+	Int::of(args.type_at(0)).map(|_| (overflow, args.type_at(0)))
 }
 
 /// A `str` method's pattern as the runtime takes it, an `rt.Pattern`: a `char`'s text, a
@@ -2664,7 +2687,7 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 				vec![default_value(b, args.type_at(0), span, out)?],
 			),
 			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
-			Std::Box | Std::Wrapping => part(b, args.type_at(0), out),
+			Std::Box | Std::Wrapping | Std::Saturating => part(b, args.type_at(0), out),
 			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),
 			Std::RefCell => Expr::New(

@@ -29,8 +29,8 @@ generic std gap is planned here even when moq never calls it.
 - [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
 - [ptr::replace whose result nothing reads](/quest/m3/ts-ptr-replace-unread.md) - `ptr::replace` with its result discarded type-checks
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
-- [Saturating](/quest/m3/ts-saturating.md) - `Saturating<T>` and its std impls translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [Slices split by a predicate](/quest/m3/ts-slice-split.md) - `[T]::split` and its forms by a predicate translate
 - [Boxed slices](/quest/m3/ts-boxed-slices.md) - `Box<[T]>` translates, made, read, and turned back into a `Vec`
+- [Integers' inherent methods](/quest/m3/ts-int-methods.md) - `pow`, `abs`, and the other inherent methods of integers, `NonZero`, `Wrapping`, and `Saturating` translate

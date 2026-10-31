@@ -1287,6 +1287,11 @@ pub fn tallied_alone(data: &[u8]) -> (Tally,) {
 	data.iter().map(|&b| (b,)).collect()
 }
 
+/// A `Saturating`'s own methods, which are its integer's, are not translated yet.
+pub fn saturating_pow(a: u8) -> u8 {
+	std::num::Saturating(a).pow(2).0
+}
+
 /// Structs JS keeps as objects, each holding an `rt.Cell`, one for each kind of whole
 /// write of a value that holds one, which gives it another cell, while a pointer to the
 /// cell, taken through a reference to the struct, may still be read.

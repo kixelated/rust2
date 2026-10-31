@@ -1431,6 +1431,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				| library::Std::Reverse
 				| library::Std::NonZero
 				| library::Std::Wrapping
+				| library::Std::Saturating
 				| library::Std::PoisonError => self.ty(args.type_at(0), span),
 				library::Std::Bound => Type::Rt("RangeBound", vec![self.ty(args.type_at(0), span)]),
 				library::Std::TryLockError => Type::Rt("TryLockError", vec![self.ty(args.type_at(0), span)]),
@@ -1730,6 +1731,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Reverse
 					| library::Std::NonZero
 					| library::Std::Wrapping
+					| library::Std::Saturating
 					| library::Std::PoisonError,
 				) => self.erases_to(args.type_at(0)),
 				// `undefined` while it holds nothing.
