@@ -1216,29 +1216,30 @@ pub fn zips_back(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		2 => back!(a.iter().map(seen!(3)).zip(b.iter().map(seen!(4))), |(x, y)| x ^ y),
 		// `TrustedLen`, not by index: `next_back` trims either side.
 		3 => back!(a.iter().rev().map(seen!(5)).zip(b.iter().map(seen!(6))), |(x, y)| x ^ y),
-		4 => back!(
-			(0..a.len()).zip(b.iter().zip(data.chunks(2))),
-			|(i, (&y, c)): (usize, (&u8, &[u8]))| i as u8 ^ y ^ len(c)
-		),
-		5 => back!(
-			a.chunks(2).zip(b.iter().enumerate()),
-			|(c, (i, &y)): (&[u8], (usize, &u8))| len(c) ^ i as u8 ^ y
-		),
-		6 => back!(
-			(split as u8..data.len() as u8).zip(a.chunks(3).map(|c| {
+		4 => {
+			let at = |(i, (&y, c)): (usize, (&u8, &[u8]))| i as u8 ^ y ^ len(c);
+			back!((0..a.len()).zip(b.iter().zip(data.chunks(2))), at)
+		}
+		5 => {
+			let at = |(c, (i, &y)): (&[u8], (usize, &u8))| len(c) ^ i as u8 ^ y;
+			back!(a.chunks(2).zip(b.iter().enumerate()), at)
+		}
+		6 => {
+			let logged = |c| {
 				log.borrow_mut().push(len(c));
 				c
-			})),
-			|(x, c): (u8, &[u8])| x ^ len(c)
-		),
-		_ => back!(
-			a.iter().enumerate().map(|(i, &x)| {
+			};
+			let at = |(x, c): (u8, &[u8])| x ^ len(c);
+			back!((split as u8..data.len() as u8).zip(a.chunks(3).map(logged)), at)
+		}
+		_ => {
+			let logged = |(i, &x): (usize, &u8)| {
 				log.borrow_mut().push(i as u8);
 				x
-			})
-			.zip(b.chunks(2).enumerate()),
-			|(x, (i, c)): (u8, (usize, &[u8]))| x ^ i as u8 ^ len(c)
-		),
+			};
+			let at = |(x, (i, c)): (u8, (usize, &[u8]))| x ^ i as u8 ^ len(c);
+			back!(a.iter().enumerate().map(logged).zip(b.chunks(2).enumerate()), at)
+		}
 	}
 	out.extend_from_slice(&log.borrow());
 }

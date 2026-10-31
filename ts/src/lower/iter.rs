@@ -1111,7 +1111,10 @@ fn zip_trusted<'tcx>(b: &mut Body<'_, '_, 'tcx>, a: Ty<'tcx>, other: Ty<'tcx>, s
 	if both("TrustedRandomAccess") {
 		let effects = [a, other].map(|ty| match may_have_side_effect(b.t, ty, span) {
 			Some(effect) => Expr::lit(effect.to_string()),
-			None => b.err(span, format!("a zip of `{ty}`, whose `MAY_HAVE_SIDE_EFFECT` does not evaluate")),
+			None => b.err(
+				span,
+				format!("a zip of `{ty}`, whose `MAY_HAVE_SIDE_EFFECT` does not evaluate"),
+			),
 		});
 		Expr::Array(effects.into())
 	} else if both("TrustedLen") || both("TrustedRandomAccessNoCoerce") {
