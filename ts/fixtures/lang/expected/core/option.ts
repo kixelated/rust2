@@ -32,6 +32,7 @@ import type * as Side from "../keys.Side.ts";
 import type * as Way from "../keys.Way.ts";
 import type * as locals_Noisy from "../locals.Noisy.ts";
 import type * as orders_Item from "../orders.Item.ts";
+import type * as Loaded from "../pointers.Loaded.ts";
 import type * as pointers_Pair from "../pointers.Pair.ts";
 import { sum, sumWords, sumPairs, sumTexts, sumTwos } from "../separated.ts";
 import type * as separated_Pair from "../separated.Pair.ts";
@@ -133,6 +134,13 @@ export function unwrapOr$00uis1j(self: rt.i64 | undefined, default_: rt.i64): rt
 }
 
 export function unwrapOr$1tvry1i(self: rt.u64 | undefined, default_: rt.u64): rt.u64 {
+	if (self === undefined) {
+		return default_;
+	}
+	return self;
+}
+
+export function unwrapOr$0mkoact(self: Loaded.Loaded | undefined, default_: Loaded.Loaded): Loaded.Loaded {
 	if (self === undefined) {
 		return default_;
 	}
@@ -524,6 +532,13 @@ export function map$1u8sh4f(self: edits_Named.Named | undefined, _: (a0: edits_N
 		return undefined;
 	}
 	return [self];
+}
+
+export function map$1cfrse5(self: Loaded.Loaded | undefined, f: (a0: Loaded.Loaded) => Loaded.Loaded): Loaded.Loaded | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
 }
 
 export function map$1r7pvtd(self: string[] | undefined, _: (a0: string[]) => rt.u8): rt.u8 | undefined {
