@@ -190,6 +190,7 @@ const VERBATIM: &[&str] = &[
 	"rt.OuterPending",
 	"rt.Pending",
 	"self",
+	"skip",
 	"undefined",
 	"write_str",
 	"zip",

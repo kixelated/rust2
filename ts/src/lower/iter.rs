@@ -431,6 +431,20 @@ pub fn call<'tcx>(
 		}
 		// What each drops: an item it skips or rejects, or one it peeked.
 		"filter" | "skip_while" | "take_while" | "peekable" | "skip" | "take" | "step_by" => {
+			// std reads such a `skip` by index where what wraps it does, making and dropping each
+			// skipped pair whole, and else by the zip's `nth`, a side at a time.
+			if name == "skip"
+				&& b.t.drops(item)
+				&& implements(b.t, self_ty, "TrustedRandomAccess")
+				&& nth_zips(tcx, self_ty)
+			{
+				return Some(b.err(
+					span,
+					format!(
+						"a `skip` of `{self_ty}`, a zip std reads by index, of items that drop, which is not supported yet"
+					),
+				));
+			}
 			let dropper = b.t.dropper(item, span);
 			method(&camel, tail(rest, vec![dropper]))
 		}
@@ -727,6 +741,19 @@ fn std_iter_path(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> Option<Vec<String>> {
 		return None;
 	};
 	Some(library::std_path(tcx, adt.did())).filter(|p| !p.is_empty())
+}
+
+/// Whether `nth` of `ty`, an iterator, is that of a zip it wraps, through the adaptors
+/// whose `nth` is their iterator's.
+fn nth_zips(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
+	let ty::Adt(adt, args) = ty.kind() else {
+		return false;
+	};
+	match library::std_path(tcx, adt.did()).last().map(String::as_str) {
+		Some("Zip") => true,
+		Some("Enumerate" | "Fuse" | "Skip") => nth_zips(tcx, args.type_at(0)),
+		_ => false,
+	}
 }
 
 /// Whether std's `owner::name` takes a closure by value that it drops as its fold ends,

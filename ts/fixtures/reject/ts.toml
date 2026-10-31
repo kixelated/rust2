@@ -25,6 +25,7 @@ roots = [
     "keyed",
     "hinted",
     "fused",
+    "skipped_zip",
     "replace_pinned_ref",
     "filter_owned_bytes",
     "copied_closure",
