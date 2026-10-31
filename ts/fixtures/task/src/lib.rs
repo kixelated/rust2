@@ -12,6 +12,8 @@
 //! executor. `bench` holds the handoff `just ts bench` times. None of `exec`, `harness`,
 //! and `bench` is translated.
 
+#![feature(iter_order_by)]
+
 pub mod bench;
 pub mod drops;
 pub mod exec;

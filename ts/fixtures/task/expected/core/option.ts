@@ -185,6 +185,13 @@ export function mapOr$1w10sgd(self: Key.Key | undefined, default_: rt.u32, f: (a
 	return f(self);
 }
 
+export function mapOr$00i7kb3(self: rt.Ordering | undefined, default_: rt.i8, f: (a0: rt.Ordering) => rt.i8): rt.i8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$0vxyhav(self: Guard.Guard[] | undefined, default_: rt.usize, f: (a0: Guard.Guard[]) => rt.usize): rt.usize {
 	if (self === undefined) {
 		return default_;
