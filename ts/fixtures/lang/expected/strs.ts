@@ -574,7 +574,7 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 			const _69: rt.Range<rt.usize> = new rt.Range(i, j);
 			s.v = rt.stringReplaceRange(s.v, _69, piece);
 		} else if (_67 === 1) {
-			const _72: { start: rt.usize } = { start: i };
+			const _72: rt.RangeFrom<rt.usize> = new rt.RangeFrom(i, rt.usizeStep);
 			s.v = rt.stringReplaceRange(s.v, _72, piece);
 		} else if (_67 === 2) {
 			const _75: { end: rt.usize } = { end: j };
@@ -596,7 +596,7 @@ export function edit(s: rt.Place<string>, op: rt.u8, a: rt.u8, b: rt.u8, out: rt
 		if (_91 === 0) {
 			s.v = rt.stringExtendFromWithin(s.v, new rt.Range(i, j));
 		} else if (_91 === 1) {
-			s.v = rt.stringExtendFromWithin(s.v, { start: i });
+			s.v = rt.stringExtendFromWithin(s.v, new rt.RangeFrom(i, rt.usizeStep));
 		} else if (_91 === 2) {
 			s.v = rt.stringExtendFromWithin(s.v, { end: j, inclusive: true });
 		} else if (_91 === 3) {
@@ -1292,7 +1292,7 @@ export function drainBy(s: rt.Place<string>, form: rt.u8, a: rt.u8, b: rt.u8, st
 		drain = rt.stringDrain(s, new rt.Range(i, j));
 		_71 = true;
 	} else if (_17 === 1) {
-		drain = rt.stringDrain(s, { start: i });
+		drain = rt.stringDrain(s, new rt.RangeFrom(i, rt.usizeStep));
 		_71 = true;
 	} else if (_17 === 2) {
 		drain = rt.stringDrain(s, { end: j });
@@ -1385,7 +1385,7 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				const _56: { end: rt.usize } = { end: offset(s, a) };
 				put(out, rt.stringExtendChars("", rt.stringDrain(rt.place(() => s, (value5) => s = value5), _56), true));
 			} else if (_49 === 1) {
-				const _64: { start: rt.usize } = { start: offset(s, a) };
+				const _64: rt.RangeFrom<rt.usize> = new rt.RangeFrom(offset(s, a), rt.usizeStep);
 				rt.byteVecPush(out, rt.ownedCount(rt.stringDrain(rt.place(() => s, (value4) => s = value4), _64)) & 0xff);
 			} else if (_49 === 2) {
 				putChar(out, rt.ownedLast(rt.stringDrain(rt.place(() => s, (value3) => s = value3), undefined)));

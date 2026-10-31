@@ -585,7 +585,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					let ts_ty = self.b.t.ty(ty, span);
 					crate::lower::library::tagged(def.name.as_str(), values.pop(), ts_ty)
 				}
-				(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
+				(Std::RangeFrom, _) => {
+					values.extend(crate::lower::library::range_step(args.type_at(0), true));
+					Expr::New(Box::new(Expr::Rt("RangeFrom".into())), values)
+				}
 				(Std::RangeFull, _) => Expr::undefined(),
 				(Std::ParseIntError, _) => Expr::Object(vec![(Key::Name("kind".into()), values.pop().unwrap())]),
 				(Std::ErrorKind, _) => Expr::As(Box::new(Expr::Str(def.name.to_string())), self.b.t.ty(ty, span)),
@@ -593,14 +596,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::AtomicOrdering, _) => crate::lower::task::atomic_ordering(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
 				(Std::Range, _) => {
-					let ty::Adt(_, gargs) = ty.kind() else {
-						unreachable!("a range is a struct")
-					};
-					if let Some(int) = Int::of(gargs.type_at(0))
-						&& int.big()
-					{
-						values.push(int.func("step"));
-					}
+					values.extend(crate::lower::library::range_step(args.type_at(0), false));
 					Expr::New(Box::new(Expr::Rt("Range".into())), values)
 				}
 				(Std::AssertKind, _) => match def.name.as_str() {

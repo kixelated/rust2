@@ -134,7 +134,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
 						{
 							values.pop();
-							values.extend(crate::lower::num::Int::of(args.type_at(0)).map(|int| int.func("step")));
+							values.extend(super::library::range_step(args.type_at(0), true));
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
@@ -146,7 +146,10 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 						(Std::RangeTo | Std::RangeToInclusive, _) => {
 							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
 						}
-						(Std::RangeFrom, _) => Expr::Object(vec![(Key::Name("start".into()), values.pop().unwrap())]),
+						(Std::RangeFrom, _) => {
+							values.extend(super::library::range_step(args.type_at(0), true));
+							Expr::New(Box::new(Expr::Rt("RangeFrom".into())), values)
+						}
 						(Std::RangeFull, _) => Expr::undefined(),
 						(Std::ParseIntError, _) => {
 							Expr::Object(vec![(Key::Name("kind".into()), values.pop().unwrap())])

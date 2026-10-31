@@ -56,7 +56,7 @@ export function bounds$Bound_u64_Bound_u64(out: rt.ByteVec, r: [rt.RangeBound<rt
  * The bounds of `r`, written, then the first sequence and the end past the last it holds,
  * as a range of groups reads them.
  */
-export function bounds$RangeFrom_u64(out: rt.ByteVec, r: { start: rt.u64 }): void {
+export function bounds$RangeFrom_u64(out: rt.ByteVec, r: rt.RangeFrom<rt.u64>): void {
 	let start!: rt.u64 | undefined;
 	let end!: rt.u64 | undefined;
 	putBound(out, { tag: "Included", _0: r.start } as rt.RangeBound<rt.u64>);
@@ -360,15 +360,15 @@ export function wrappers(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void
 		rt.byteVecPush(out, rt.rangeInclusiveIsEmpty(narrow) ? 1 : 0);
 		bounds$RangeTo_u64(out, { end: b });
 		bounds$RangeToInclusive_u64(out, { end: b, inclusive: true });
-		bounds$RangeFrom_u64(out, { start: a });
+		bounds$RangeFrom_u64(out, new rt.RangeFrom(a, rt.u64Step));
 		bounds$RangeFull(out, undefined);
 		bounds$Bound_u64_Bound_u64(out, [boundOf(at(2), a), boundOf(at(3), b)] as [rt.RangeBound<rt.u64>, rt.RangeBound<rt.u64>]);
 		const held2: [rt.RangeBound<rt.u64>, rt.RangeBound<rt.u64>] = [boundOf(at(3), b), { tag: "Unbounded" } as rt.RangeBound<rt.u64>];
 		bounds$Bound_u64_Bound_u64(out, held2);
 		putBound(out, held2[0]);
-		const _246: [{ end: rt.usize }, { start: rt.usize }] = [{ end: rt.usizeRem(at(2) as rt.usize, rt.usizeAdd(data.length, 1)) }, { start: rt.usizeRem(at(3) as rt.usize, rt.usizeAdd(data.length, 1)) }];
+		const _246: [{ end: rt.usize }, rt.RangeFrom<rt.usize>] = [{ end: rt.usizeRem(at(2) as rt.usize, rt.usizeAdd(data.length, 1)) }, new rt.RangeFrom(rt.usizeRem(at(3) as rt.usize, rt.usizeAdd(data.length, 1)), rt.usizeStep)];
 		const to: { end: rt.usize } = _246[0];
-		const from: { start: rt.usize } = _246[1];
+		const from: rt.RangeFrom<rt.usize> = _246[1];
 		putU64(out, rt.usizeAdd(to.end, from.start) as rt.u64);
 		putU64(out, b);
 		rt.byteVecPush(out, rt.byteSliceRange(data, 0, to.end).length & 0xff);

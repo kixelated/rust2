@@ -1211,7 +1211,7 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(rt.iterToByteVec(rt.byteVecDrain(bytes, { end: b }), "fold", true))), undefined, true);
 			rt.drop(rt.vecDrain(words, { end: b }));
 		} else if (_31 === 3) {
-			const drain4: rt.Iter<Item.Item> = rt.vecDrain(items, { start: a }, rt.drop);
+			const drain4: rt.Iter<Item.Item> = rt.vecDrain(items, new rt.RangeFrom(a, rt.usizeStep), rt.drop);
 			rt.iterExtendBytes(out, rt.iterOption(map$003seos(rt.iterNth(drain4, 1, rt.drop), (x6: Item.Item): rt.u8 => {
 				const _07: rt.u8 = x6.tag;
 				x6[Symbol.dispose]();
@@ -1226,10 +1226,10 @@ export function drains(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			flush(out);
 			rt.byteVecPush(out, drain4.len() & 0xff);
 			rt.drop(drain4);
-			const _127: rt.Iter<rt.u8> = rt.byteVecDrain(bytes, { start: a });
+			const _127: rt.Iter<rt.u8> = rt.byteVecDrain(bytes, new rt.RangeFrom(a, rt.usizeStep));
 			rt.iterExtendBytes(out, rt.iterOption(rt.iterNth(_127, 2)), undefined, true);
 			rt.drop(_127);
-			rt.iterExtendBytes(out, rt.iterMap(rt.iterRev(rt.vecDrain(words, { start: a })), (w: rt.u32): rt.u8 => {
+			rt.iterExtendBytes(out, rt.iterMap(rt.iterRev(rt.vecDrain(words, new rt.RangeFrom(a, rt.usizeStep))), (w: rt.u32): rt.u8 => {
 				return w & 0xff;
 			}), "fold", true);
 		} else if (_31 === 4) {

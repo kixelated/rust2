@@ -1428,7 +1428,7 @@ fn mapping<'tcx>(
 		// An integer range wraps within its type's bounds where std's `nth` does.
 		("RangeInclusive", "new") if range => {
 			let mut values = args;
-			values.extend(self_ty().and_then(Int::of).map(|int| int.func("step")));
+			values.extend(self_ty().and_then(|t| range_step(t, true)));
 			Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 		}
 		// JS compares integers as Rust does, and other endpoints by identity.
@@ -2239,6 +2239,16 @@ fn range_of(std: Std) -> Option<&'static str> {
 		Std::Range => Some("range"),
 		Std::RangeInclusive => Some("rangeInclusive"),
 		_ => None,
+	}
+}
+
+/// The `Step` a range of `ty`s is made with: a `char`'s, which skips the surrogates, and a
+/// wide integer's, which steps past 2^53, or any integer's where `every` integer needs it to
+/// step within its type.
+pub fn range_step(ty: Ty<'_>, every: bool) -> Option<Expr> {
+	match Int::of(ty) {
+		Some(int) => (every || int.big()).then(|| int.func("step")),
+		None => ty.is_char().then(|| Expr::Rt("charStep".into())),
 	}
 }
 
