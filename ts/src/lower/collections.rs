@@ -1909,16 +1909,22 @@ pub fn pair_eq<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, by_ne
 }
 
 /// `<t as PartialOrd<u>>::partial_cmp` as a function, which std's `partial_cmp` of a `t`
-/// and a `u` calls: `cmp_fn`'s of one type, else the crate's own impl.
+/// and a `u` calls: through the references std's forwards through, `cmp_fn`'s where std's
+/// impl compares one type, and else the crate's own.
 pub fn pair_partial_cmp<'tcx>(b: &mut Body<'_, '_, 'tcx>, t: Ty<'tcx>, u: Ty<'tcx>, span: Span) -> Expr {
-	let (pt, pu) = (peel(b, t), peel(b, u));
-	if b.t.deferred(pt) || b.t.deferred(pu) {
+	let tcx = b.t.tcx;
+	if b.t.deferred(peel(b, t)) || b.t.deferred(peel(b, u)) {
 		return Expr::undefined();
 	}
-	if alike(b, t, u) {
+	let f = trait_fn(tcx, "PartialOrd", "partial_cmp");
+	let (pt, pu) = peel_pair(b, f, t, u);
+	let std = Instance::try_resolve(tcx, b.t.typing_env_pub(), f, tcx.mk_args(&[pt.into(), pu.into()]))
+		.ok()
+		.flatten()
+		.is_some_and(|instance| library::is_std(tcx, instance.def_id()));
+	if std && same_key(b, pt, pu) {
 		return cmp_fn(b, pt, true, span);
 	}
-	let (pt, pu) = peel_pair(b, trait_fn(b.t.tcx, "PartialOrd", "partial_cmp"), t, u);
 	impl_fn(b, "PartialOrd", "partial_cmp", pt, pu, [t, u], span)
 }
 

@@ -1216,7 +1216,16 @@ impl<'a> PartialEq<&Left<'a>> for Left<'_> {
 
 /// An item only a reference to compares, by the crate's impl of two references, which
 /// std's of references would otherwise forward from.
+#[derive(PartialEq)]
 struct Odd(u16);
+
+/// Ordered only through references, by the remainder by 3, though `Odd`s are equal by
+/// value.
+impl PartialOrd for &Odd {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		(self.0 % 3).partial_cmp(&(other.0 % 3))
+	}
+}
 
 impl PartialEq<&Right> for &Odd {
 	fn eq(&self, other: &&Right) -> bool {
@@ -1538,6 +1547,7 @@ pub fn unlike_compares(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	put_eq(lefts().into_iter().ne(mine.iter()), &log, out);
 	let odds: Vec<Odd> = data.iter().map(|&b| Odd(b.into())).collect();
 	put_eq(odds.iter().eq(refs.iter().copied()), &log, out);
+	order(odds.iter().partial_cmp(odds.iter().rev()), &log, out);
 	put_eq(data.iter().copied().eq(rights()), &log, out);
 	let pairs: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
 	put_eq(pairs.iter().copied().eq(rights()), &log, out);
