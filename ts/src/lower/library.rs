@@ -1662,6 +1662,29 @@ fn mapping<'tcx>(
 				false => rt2(args, "slice", &super::camel(&name)),
 			}
 		}
+		// Each part of bytes is a view already, and one of other values lent mutably the
+		// runtime's view.
+		(
+			"slice",
+			"split"
+			| "split_mut"
+			| "rsplit"
+			| "rsplit_mut"
+			| "split_inclusive"
+			| "split_inclusive_mut"
+			| "splitn"
+			| "splitn_mut"
+			| "rsplitn"
+			| "rsplitn_mut",
+		) => match is_u8(targ(gargs, 0)) {
+			true => rt2(
+				args,
+				"byteSlice",
+				&super::camel(name.strip_suffix("_mut").unwrap_or(&name)),
+			),
+			false => rt2(args, "slice", &super::camel(&name)),
+		},
+		("Split", "as_slice") => Expr::rt("splitAsSlice", args),
 		// Halves of bytes are views already, and of other values the runtime's views.
 		("slice", "split_at_mut" | "split_at_mut_checked") => match is_u8(targ(gargs, 0)) {
 			true => rt2(args, "byteSlice", &super::camel(&name.replace("_mut", ""))),
