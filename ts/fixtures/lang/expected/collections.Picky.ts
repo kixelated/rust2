@@ -15,13 +15,17 @@ export interface Picky {
 	_1: rt.Cell<rt.u16>;
 }
 
+export function log(self: Picky, other: Picky, by: rt.u16): void {
+	rt.cellSet(self._1, rt.u16WrappingAdd(rt.u16WrappingMul(self._1.v, 31), self._0 ^ ((other._0 << 4) & 0xffff) ^ by));
+}
+
 export function eq$PartialEq(self: Picky, other: Picky): boolean {
-	rt.cellSet(self._1, rt.u16WrappingAdd(rt.u16WrappingMul(self._1.v, 31), self._0 ^ ((other._0 << 4) & 0xffff) ^ 256));
+	log(self, other, 256);
 	return rt.u16Rem(self._0, 4) === rt.u16Rem(other._0, 4);
 }
 
 export function ne$PartialEq(self: Picky, other: Picky): boolean {
-	rt.cellSet(self._1, rt.u16WrappingAdd(rt.u16WrappingMul(self._1.v, 31), self._0 ^ ((other._0 << 4) & 0xffff) ^ 512));
+	log(self, other, 512);
 	return rt.u16Rem(self._0, 3) !== rt.u16Rem(other._0, 3);
 }
 

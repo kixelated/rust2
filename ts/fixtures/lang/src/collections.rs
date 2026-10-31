@@ -1376,14 +1376,21 @@ fn each<T, U>(v: &[T], f: impl Fn(&T) -> U) -> Vec<U> {
 #[derive(Clone)]
 struct Picky<'a>(u16, &'a std::cell::Cell<u16>);
 
+impl Picky<'_> {
+	fn log(&self, other: &Self, by: u16) {
+		self.1
+			.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ other.0 << 4 ^ by));
+	}
+}
+
 impl PartialEq for Picky<'_> {
 	fn eq(&self, other: &Self) -> bool {
-		self.1.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ other.0 << 4 ^ 0x100));
+		self.log(other, 0x100);
 		self.0 % 4 == other.0 % 4
 	}
 
 	fn ne(&self, other: &Self) -> bool {
-		self.1.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ other.0 << 4 ^ 0x200));
+		self.log(other, 0x200);
 		self.0 % 3 != other.0 % 3
 	}
 }
@@ -1436,15 +1443,35 @@ pub fn own_nes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	put_eq(tuple(&a) != tuple(&b), &log, out);
 	put_eq(tuple(&a) == tuple(&b), &log, out);
 	put_eq((tuple(&a), 1u8) != (tuple(&b), 1u8), &log, out);
-	put_eq(each(&a, |p| (p.clone(), p.0 as u8)) == each(&b, |p| (p.clone(), p.0 as u8)), &log, out);
-	put_eq(&each(&a, |p| (p.clone(), p.0 as u8))[..] != &each(&b, |p| (p.clone(), p.0 as u8))[..], &log, out);
+	put_eq(
+		each(&a, |p| (p.clone(), p.0 as u8)) == each(&b, |p| (p.clone(), p.0 as u8)),
+		&log,
+		out,
+	);
+	put_eq(
+		&each(&a, |p| (p.clone(), p.0 as u8))[..] != &each(&b, |p| (p.clone(), p.0 as u8))[..],
+		&log,
+		out,
+	);
 	put_eq((Some(one(&a, 0)),) != (Some(one(&b, 0)),), &log, out);
 	put_eq((Reverse(one(&a, 0)),) != (Reverse(one(&b, 0)),), &log, out);
 	put_eq((Box::new(one(&a, 0)),) != (Box::new(one(&b, 0)),), &log, out);
 	put_eq((&one(&a, 0),) != (&one(&b, 0),), &log, out);
-	put_eq(each(&a, |p| Some(p.clone())) == each(&b, |p| Some(p.clone())), &log, out);
-	put_eq(each(&a, |p| Reverse(p.clone())) == each(&b, |p| Reverse(p.clone())), &log, out);
-	put_eq(each(&a, |p| Box::new(p.clone())) == each(&b, |p| Box::new(p.clone())), &log, out);
+	put_eq(
+		each(&a, |p| Some(p.clone())) == each(&b, |p| Some(p.clone())),
+		&log,
+		out,
+	);
+	put_eq(
+		each(&a, |p| Reverse(p.clone())) == each(&b, |p| Reverse(p.clone())),
+		&log,
+		out,
+	);
+	put_eq(
+		each(&a, |p| Box::new(p.clone())) == each(&b, |p| Box::new(p.clone())),
+		&log,
+		out,
+	);
 
 	// An `Arc` of an `Eq` finds itself equal without comparing; of a tuple with a float,
 	// which is no `Eq`, it compares even itself.
