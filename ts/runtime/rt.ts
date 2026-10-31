@@ -8,7 +8,7 @@
 import type { Ordering } from "./rt/collections.ts";
 import type { ParseFloatError } from "./rt/float.ts";
 import { type char, type ParseCharError, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
-import type { Range, RangeInclusive } from "./rt/iter.ts";
+import type { Iter, Range, RangeInclusive } from "./rt/iter.ts";
 import { drop as dispose, dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
@@ -1735,6 +1735,34 @@ export function fmtMap<K, V>(entries: Iterable<[K, V]>, f: Formatter, key: Debug
 		if (r.ok) r = f.out.writeStr(": ");
 		return r.ok ? value(v, f) : r;
 	});
+}
+
+/** What one of std's iterators writes around its list: a tuple struct's name, or a struct's name and its one field's. */
+export type IterWrap = string | readonly [name: string, field: string];
+
+/** `Debug` of one of std's iterators: the items `it` has left, as a list inside `wraps`, outermost first. */
+export function fmtIter<T>(it: Iter<unknown>, f: Formatter, debug: Debug<T>, wraps: readonly IterWrap[] = []): FmtResult {
+	return wrapIn(f, wraps, (f) => fmtList(it.remaining() as Iterable<T>, f, debug));
+}
+
+function wrapIn(f: Formatter, wraps: readonly IterWrap[], inner: Fmt): FmtResult {
+	if (wraps.length === 0) return inner(f);
+	const [wrap, ...rest] = wraps;
+	const field: Fmt = (f) => wrapIn(f, rest, inner);
+	if (typeof wrap === "string") return fmtDebugTupleFields(f, wrap, [field]);
+	return fmtDebugStructFields(f, wrap[0], [wrap[1]], [field]);
+}
+
+/** `Debug` of `str::Chars`: its name around the list of chars it has left, which a field's indent would not be. */
+export function fmtChars(it: Iter<char>, f: Formatter): FmtResult {
+	let r = f.out.writeStr("Chars(");
+	if (r.ok) r = fmtList(it.remaining() as Iterable<char>, f, fmtCharDebug);
+	return r.ok ? f.out.writeStr(")") : r;
+}
+
+/** `Debug` of a key as a `BTreeSet`'s `range` and `into_iter` list it: its map's entry, the key and a `SetValZST`. */
+export function fmtSetVal<K>(debug: Debug<K>): Debug<K> {
+	return (key, f) => fmtTuple([(f) => debug(key, f), (f) => f.out.writeStr("SetValZST")], f);
 }
 
 /** `Debug` of a range: each bound present, written with the formatter's options, around `dots`, which none pads. */

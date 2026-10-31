@@ -131,6 +131,10 @@ class Chars extends Iter<char> {
 	rest(): string {
 		return this.#s.slice(this.#front, this.#back);
 	}
+
+	override remaining(): Iterable<char> {
+		return new Chars(this.rest());
+	}
 }
 
 /**
