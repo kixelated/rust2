@@ -954,3 +954,33 @@ pub fn uninit_part_replaced(n: u32) -> u32 {
 pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
 	set.extend(pairs);
 }
+
+/// A key ordered by its own `Ord`.
+#[derive(Clone, Copy)]
+pub struct Ranked(pub u8);
+
+impl PartialEq for Ranked {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 % 4 == other.0 % 4
+	}
+}
+
+impl Eq for Ranked {}
+
+impl PartialOrd for Ranked {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Ranked {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		(self.0 % 4).cmp(&(other.0 % 4))
+	}
+}
+
+/// Entries that drop, sorted by what a cell holds, whose own `Ord` the runtime's sort
+/// calls where std's does not.
+pub fn ranked_cells(entries: Vec<(std::cell::Cell<Ranked>, Noisy)>) -> usize {
+	entries.into_iter().collect::<std::collections::BTreeMap<_, _>>().len()
+}

@@ -545,6 +545,21 @@ pub fn clone_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool
 	t.is_copy(ty) && clone_only_copies(t, ty)
 }
 
+/// Whether `Clone` of `ty` is the value itself, as JS holds it: a string, a function, or a
+/// closure that writes none of its captures, each of which only copies or clones so, as
+/// nothing else reaches what a closure owns to write it.
+pub fn clone_shares<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
+	match ty.kind() {
+		ty::FnDef(..) => true,
+		ty::Closure(_, args) => {
+			!super::mir::writes_captures(t.tcx, ty)
+				&& (args.as_closure().upvar_tys().iter())
+					.all(|capture| clone_copies(t, capture) || clone_shares(t, capture))
+		}
+		_ => string(t.tcx, ty),
+	}
+}
+
 /// Whether `Clone` of `ty`, a `Copy` type, only copies.
 fn clone_only_copies<'tcx>(t: &super::Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
 	let tcx = t.tcx;
@@ -1177,14 +1192,6 @@ fn mapping<'tcx>(
 	let is_u8 = |t: Ty<'tcx>| matches!(t.kind(), ty::Uint(ty::UintTy::U8));
 	let byte_slice = |t: Ty<'tcx>| matches!(t.kind(), ty::Slice(e) if is_u8(*e));
 	let range = matches!(inherent_std(tcx, call.def_id), Some(Std::Range | Std::RangeInclusive));
-	// A range of integers, whose comparisons and clones JS makes as Rust does.
-	let int_range = |t: Ty<'tcx>| match t.peel_refs().kind() {
-		ty::Adt(adt, args) => {
-			matches!(Std::of(tcx, adt.did()), Some(Std::Range | Std::RangeInclusive))
-				&& Int::of(args.type_at(0)).is_some()
-		}
-		_ => false,
-	};
 
 	let e = match (owner.as_str(), name.as_str()) {
 		// Conversions.
@@ -1343,9 +1350,12 @@ fn mapping<'tcx>(
 				ty::Adt(adt, _) if empty_iter(tcx, adt.did()) => b.zero_sized_std(ty, Vec::new(), span).ok()?,
 				// Through the reference, a slice of the bytes.
 				_ if super::byte_array(ty) => Expr::rt("byteSliceToArray", vec![value]),
-				ty::Adt(adt, _) if int_range(ty) => {
-					Expr::rt_of(range_of(Std::of(tcx, adt.did())?)?, "clone").call(vec![value])
+				_ if b.t.std_iter(ty) => return super::iter::clone(b, ty, value, span),
+				ty::Closure(def_id, _) if !clone_shares(b.t, ty) => {
+					b.t.clone_closure(*def_id);
+					Expr::rt("closureClone", vec![value])
 				}
+				_ if clone_shares(b.t, ty) => value,
 				_ if clone_copies(b.t, ty) => b.t.copied(value, ty, span),
 				_ => return None,
 			}

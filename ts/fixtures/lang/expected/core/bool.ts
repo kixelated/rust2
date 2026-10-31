@@ -153,6 +153,13 @@ export function then$0b2eeh4(self: boolean, f: () => Array<rt.u8 | undefined>): 
 	return f();
 }
 
+export function then$0wlzj76(self: boolean, f: () => rt.Ordering): rt.Ordering | undefined {
+	if (!self) {
+		return undefined;
+	}
+	return f();
+}
+
 export function then$0afp4no(self: boolean, f: () => rt.Result<rt.u8, rt.ParseIntError>): rt.Result<rt.u8, rt.ParseIntError> | undefined {
 	if (!self) {
 		return undefined;

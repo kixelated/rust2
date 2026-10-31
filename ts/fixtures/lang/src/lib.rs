@@ -31,6 +31,7 @@ mod captures;
 mod cells;
 mod chars;
 mod chunks;
+mod clones;
 mod collections;
 mod combinators;
 mod counts;

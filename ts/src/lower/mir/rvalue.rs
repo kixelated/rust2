@@ -14,7 +14,7 @@ use crate::lower::library::Std;
 use crate::lower::num::{self, Int};
 use crate::lower::pointer::Pointee;
 use crate::lower::{AdtRepr, byte_array, field_name};
-use crate::ts::{Expr, Key, Stmt, StmtKind, Type};
+use crate::ts::{Expr, Key, Param, Stmt, StmtKind, Type};
 
 impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	/// The value of `rvalue`, assigned to `dest`, or `None` if it has none to assign.
@@ -676,12 +676,30 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			return Expr::undefined();
 		};
 		let rebound = rebound_captures(&mir);
+		// One whose clone can't share it is made by a function of its captures, whose
+		// parameters they are, with what they are now as its arguments.
+		let made = self.b.t.clones_closure(def_id);
+		let mut params = Vec::new();
+		let mut values = Vec::new();
 		// A capture by reference reads the place it borrows; one by value is the value as
 		// it was when the closure was made, a reference held in a variable included, which
 		// a closure that assigns it whole reassigns.
 		let mut captures = Vec::with_capacity(ops.len());
 		for (field, op) in ops.iter_enumerated() {
 			let ty = op.ty(&self.mir.local_decls, tcx);
+			if made {
+				let name = self.b.fresh("captured");
+				values.push(self.operand(op, span, out));
+				params.push(Param {
+					name: name.clone(),
+					ty: Some(self.b.t.held_ty(ty, span)),
+				});
+				captures.push(Capture {
+					value: Expr::ident(name),
+					pointee: false,
+				});
+				continue;
+			}
 			// A `&mut` to a borrowed place the closure reads and writes as a JS closure does,
 			// so it can replace an object there whole, as `mem::take` does.
 			if let Some(local) = op.place().and_then(|p| p.as_local())
@@ -732,14 +750,40 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			false => None,
 		};
 		let mut inner = Fx::new(&mut *self.b, &mir, Env::Closure(captures), span);
-		let params = inner.params();
+		let inputs = inner.params();
 		let body = inner.lower();
-		let f = Expr::Arrow(params, ret, body);
-		// One that owns what drops carries the glue that drops it.
-		match glue {
-			Some(glue) => Expr::rt("closure", vec![f, Expr::Arrow(Vec::new(), Type::Builtin("void"), glue)]),
-			None => f,
+		let mut f = Expr::Arrow(inputs, ret, body);
+		let make = made.then(|| self.b.fresh("make"));
+		if let Some(make) = &make {
+			// Its clone, made again of each capture's, in order, as rustc's clones them.
+			let upvars = args.as_closure().upvar_tys();
+			let clones = std::iter::zip(&params, upvars)
+				.map(|(param, ty)| {
+					let value = Expr::ident(&param.name);
+					match crate::lower::collections::clone_fn(self.b, ty, span) {
+						Expr::Lit(l) if l == "undefined" => value,
+						clone => clone.call(vec![value]),
+					}
+				})
+				.collect();
+			let again = Expr::Lambda(Vec::new(), Box::new(Expr::ident(make).call(clones)));
+			f = Expr::rt("cloning", vec![f, again]);
 		}
+		// One that owns what drops carries the glue that drops it.
+		if let Some(glue) = glue {
+			f = Expr::rt("closure", vec![f, Expr::Arrow(Vec::new(), Type::Builtin("void"), glue)]);
+		}
+		let Some(make) = make else {
+			return f;
+		};
+		let fn_ty = self.b.t.ty(ty, span);
+		let made = Expr::Arrow(params, fn_ty, vec![StmtKind::Return(Some(f)).at(None)]);
+		self.emit(
+			vec![StmtKind::decl(false, make.clone(), None, Some(made)).at(None)],
+			false,
+			out,
+		);
+		Expr::ident(make).call(values)
 	}
 }
 

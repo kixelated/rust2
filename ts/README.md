@@ -103,7 +103,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `PeekMut<T>` | `rt.PeekMut<T>`, the `rt.Place` of a heap's greatest element, which sifts it down as it drops once `DerefMut` lent it |
 | `Ordering`, `DefaultHasher`, `RandomState` | `rt.Ordering`, which is `-1`, `0`, or `1`; `rt.Hasher`; `rt.RandomState`, the keys of the `DefaultHasher` it builds, never changed once made |
 | `Duration` | `rt.Duration`: `{ secs, nanos }`, std's whole seconds as an `rt.u64` and the nanoseconds past them, never changed once made |
-| closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops |
+| closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops, and what makes its clone if a clone can't be itself |
 | `fn` pointer, function item as a value | the function, as a closure is typed: a `()` result is `undefined`, where a declared function returns `void` |
 | `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
 | `dyn Any` | an instance of the class its value's type was wrapped in, which a downcast checks for: `a instanceof Any.Square ? a.v : undefined` |
@@ -241,6 +241,16 @@ bound `undefined` for `None`, and a `collect` or `extend` into a `Vec`, `VecDequ
 std's capacity overflow past the most it holds. Capacity isn't modeled, so a collection
 an `extend` starts from is taken as full.
 
+`clone` of one of std's iterators or adaptors is its `rt.Iter`'s `clone`, which reads on
+from where the original was, independently of it, as std's `Clone` does; one over a hash
+collection steps a fresh iterator of it past what the original read, as JS can't copy
+where a `Map`'s iterator is. What it holds that the runtime can't clone, an item one that
+owns its items holds, an adaptor's closure, or the crate's own iterator, it clones by
+what the translation gives it, as `it.clone({ v: Item.clone$Clone })`. A closure clones as Rust
+clones its captures: one that writes none of them, each of which only copies or clones
+as itself, is its own clone, and another whose clone translation reaches is made by a
+function of its captures, which makes the clone again of theirs, in order.
+
 A `str` is a JS string, which is UTF-16: `chars` steps by code point, and a search by a
 `char`, a `&str`, a predicate, or an array or slice of chars, as in `rt.strSplit(s, "/")`, takes the text or the
 closure, which it calls on each char it reads, in the order std reads them. An offset it
@@ -304,8 +314,9 @@ number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` do
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
 `Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
-so a map of `Arc<str>` finds a `&str`, and arrays, slices, and vectors, of bytes or of
-other elements, order by their elements and then their length, and compare and hash alike
+so a map of `Arc<str>` finds a `&str`, a `Cell` and a `RefCell` compare and order as
+what they hold, a `RefCell` borrowing each, a one-time cell compares its `Option`, and
+arrays, slices, and vectors, of bytes or of other elements, order by their elements and then their length, and compare and hash alike
 whatever their form, so a map of `Vec<u8>` finds a `&[u8]` and one of `[u16; 2]` a `&[u16]`.
 Slices, arrays, `Vec`s, and `VecDeque`s compare against each
 other as std's do, by their lengths and then each pair of items in order, through the
@@ -707,8 +718,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   closures that log what each
   adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
   and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, sequences, tuples, and `Arc`s compared across forms and item types by an
-  `eq` and `ne` that disagree, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
+  disagree with JS's, sequences, tuples, `Arc`s, and cells compared across forms and item
+  types by an `eq` and `ne` that disagree, a `RefCell` compared while mutably borrowed,
+  `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
   that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw

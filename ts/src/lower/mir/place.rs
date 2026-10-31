@@ -1698,21 +1698,29 @@ pub fn transparent<'tcx>(t: &crate::lower::Translator<'_, 'tcx>, ty: Ty<'tcx>) -
 /// nothing when written.
 fn changes_captures<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
-		ty::Closure(def_id, args) => {
+		ty::Closure(_, args) => {
 			let closure = args.as_closure();
-			let upvars = closure.upvar_tys();
-			let writes = closure.kind() == ty::ClosureKind::FnMut
-				&& (!tcx.is_mir_available(*def_id)
-					|| written_captures(tcx.optimized_mir(*def_id))
-						.into_iter()
-						.any(|field| upvars.get(field.index()).is_none_or(|t| !stateless(*t))));
-			writes || upvars.iter().any(|t| changes_captures(tcx, t))
+			let writes = closure.kind() == ty::ClosureKind::FnMut && writes_captures(tcx, ty);
+			writes || closure.upvar_tys().iter().any(|t| changes_captures(tcx, t))
 		}
 		ty::Tuple(tys) => tys.iter().any(|t| changes_captures(tcx, t)),
 		ty::Array(t, _) => changes_captures(tcx, *t),
 		ty::Adt(_, args) => args.types().any(|t| changes_captures(tcx, t)),
 		_ => false,
 	}
+}
+
+/// Whether the body of `ty`, a closure, writes a capture that holds state, which a JS
+/// closure sharing its variables would write for each copy of it.
+pub fn writes_captures<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
+	let ty::Closure(def_id, args) = ty.kind() else {
+		return false;
+	};
+	let upvars = args.as_closure().upvar_tys();
+	!tcx.is_mir_available(*def_id)
+		|| written_captures(tcx.optimized_mir(*def_id))
+			.into_iter()
+			.any(|field| upvars.get(field.index()).is_none_or(|t| !stateless(*t)))
 }
 
 /// Whether every value of `ty` is the same, so writing one changes nothing.
