@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 131
+- Refusals: 130
 - Function instances: 161
 - Generic functions no instance reached, lowered over their type parameters: 10
 
@@ -31,7 +31,6 @@
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:402:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | fixtures/reject/src/lib.rs:387:2 |
 | 1 | `Pointer` formatting, as in `{:p}`, is not supported | fixtures/reject/src/lib.rs:56:2 |
-| 1 | `_` is not supported yet | fixtures/reject/src/lib.rs:355:18 |
 | 1 | `_` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` | fixtures/reject/src/lib.rs:79:20 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | fixtures/reject/src/lib.rs:510:2 |
@@ -79,8 +78,8 @@ The type or module each refused type or path belongs to.
 | ---: | --- | --- |
 | 22 | `(u32, u32)` | fixtures/reject/src/lib.rs:623:10 |
 | 9 | `std::cell::UnsafeCell` | fixtures/reject/src/lib.rs:702:15 |
-| 7 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:344:2 |
 | 6 | `f16` | fixtures/reject/src/lib.rs:7:14 |
+| 6 | `std::borrow::Cow` | fixtures/reject/src/lib.rs:344:2 |
 | 5 | `Gap` | fixtures/reject/src/lib.rs:928:10 |
 | 5 | `Option` | fixtures/reject/src/lib.rs:16:15 |
 | 5 | `u32` | fixtures/reject/src/lib.rs:570:27 |
@@ -180,7 +179,6 @@ The type or module each refused type or path belongs to.
 | 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | `Blank` | fixtures/reject/src/lib.rs:776:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | `Counted` | fixtures/reject/src/lib.rs:402:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | `std::sync::Arc` | fixtures/reject/src/lib.rs:387:2 |
-| 1 | `_` is not supported yet | `std::borrow::Cow` | fixtures/reject/src/lib.rs:355:18 |
 | 1 | `_` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` | `Poll` | fixtures/reject/src/lib.rs:79:20 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | `Maybe`, `value`, `Option`, `T \| undefined`, `Option` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | `Waiting`, `poll`, `Poll`, `rt.Poll`, `Poll` | fixtures/reject/src/lib.rs:510:2 |
@@ -243,13 +241,13 @@ The type or module each refused type or path belongs to.
 | 1 | replacing the value behind a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:119:2 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:597:1 |
 | 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:553:2 |
-| 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:356:2 |
 | 1 | unsupported call to `_` | `<std::ops::RangeFrom as std::ops::RangeBounds>::contains` | fixtures/reject/src/lib.rs:1009:32 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:382:2 |
 | 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:781:15 |
 | 1 | unsupported call to `_` | `<std::vec::Vec as std::clone::Clone>::clone_from` | fixtures/reject/src/lib.rs:906:10 |
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:314:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:553:17 |
+| 1 | unsupported call to `_` | `std::borrow::Cow::is_borrowed` | fixtures/reject/src/lib.rs:356:2 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:167:8 |
 | 1 | unsupported call to `_` | `std::ops::Range::is_empty` | fixtures/reject/src/lib.rs:1014:9 |
 | 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:1009:11 |
@@ -288,7 +286,7 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:167:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 - fixtures/reject/src/lib.rs:314:10: unsupported call to `<u8 as std::hash::Hash>::hash::<H>`
-- fixtures/reject/src/lib.rs:356:2: unsupported call to `<std::borrow::Cow<'_, [u8]> as std::ops::Deref>::deref`
+- fixtures/reject/src/lib.rs:356:2: unsupported call to `std::borrow::Cow::<'_, [u8]>::is_borrowed`
 - fixtures/reject/src/lib.rs:382:2: unsupported call to `<std::option::Option<&mut u32> as std::cmp::PartialEq>::eq`
 - fixtures/reject/src/lib.rs:442:17: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<std::time::Duration>`
 - fixtures/reject/src/lib.rs:442:38: unsupported call to `<std::vec::IntoIter<Part> as std::iter::Iterator>::sum::<u64>`
@@ -466,12 +464,6 @@ The type or module each refused type or path belongs to.
 <details><summary>`Pointer` formatting, as in `{:p}`, is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:56:2: `Pointer` formatting, as in `{:p}`, is not supported
-
-</details>
-
-<details><summary>`_` is not supported yet (1)</summary>
-
-- fixtures/reject/src/lib.rs:355:18: `std::borrow::Cow<'_, [u8]>` is not supported yet
 
 </details>
 

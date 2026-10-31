@@ -41,7 +41,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did()) {
 				// Their payload, or no object at all; a write into an `rt.Result`'s payload
 				// replaces the result.
-				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow | Std::Reverse) => {
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow | Std::Reverse | Std::Wrapping) => {
 					(false, args.types().collect())
 				}
 				Some(Std::Bound) => (true, args.types().collect()),
@@ -185,7 +185,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				Some(Std::Option) => ret(self.copy_unless(self.none(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Poll) => ret(self.copy_unless(self.pending(args.type_at(0)), args.type_at(0), span)),
 				Some(Std::Result) => ret(self.copy_result(args.type_at(0), args.type_at(1), span)),
-				Some(Std::Reverse) => ret(self.snapshot(v(), args.type_at(0), span)),
+				Some(Std::Reverse | Std::Wrapping) => ret(self.snapshot(v(), args.type_at(0), span)),
 				Some(Std::Bound) => {
 					let ts_ty = self.ty(ty, span);
 					let held = self.snapshot(v().member("_0"), args.type_at(0), span);

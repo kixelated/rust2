@@ -342,6 +342,38 @@ pub fn binary<'tcx>(
 	}
 }
 
+/// `l op r` of `Wrapping<ty>`s, as the integer's `wrapping_*` computes it: arithmetic
+/// wraps, a shift masks its amount to the width, and only a zero divisor panics.
+pub fn wrapping<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: BinOp, l: Operand, r: Operand, ty: Ty<'tcx>, span: Span) -> Expr {
+	let Some(int) = Int::of(ty) else {
+		return b.err(span, format!("arithmetic on `Wrapping<{ty}>`"));
+	};
+	let name = match op {
+		BinOp::Add => "wrappingAdd",
+		BinOp::Sub => "wrappingSub",
+		BinOp::Mul => "wrappingMul",
+		BinOp::Div if int.signed => "wrappingDiv",
+		BinOp::Rem if int.signed => "wrappingRem",
+		BinOp::Shl | BinOp::Shr => {
+			let mask = i128::from(int.bits - 1);
+			let r = match r.value {
+				Some(c) => Operand {
+					expr: Expr::lit((c & mask).to_string()),
+					value: Some(c & mask),
+				},
+				None => Operand {
+					expr: r.expr.binary("&", Expr::lit(mask.to_string())),
+					value: None,
+				},
+			};
+			return binary(b, op, l, r, ty, b.t.tcx.types.usize, span);
+		}
+		// Neither overflows.
+		_ => return binary(b, op, l, r, ty, ty, span),
+	};
+	int.method(name, vec![l.expr, r.expr])
+}
+
 pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let ty = ty.peel_refs();
 	if let Some(float) = float::Float::of(ty) {

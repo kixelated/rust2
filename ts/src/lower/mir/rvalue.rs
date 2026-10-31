@@ -389,6 +389,14 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 					// The value is its discriminant.
 					Some(Std::Ordering | Std::AtomicOrdering) => scrut,
+					Some(Std::Cow) if let Some(elem) = crate::lower::library::cow_slice(tcx, ty) => {
+						let borrows = crate::lower::library::cow_borrows(scrut, elem);
+						Expr::Cond(
+							Box::new(borrows),
+							Box::new(int.lit(discrs[0].1 as i128)),
+							Box::new(int.lit(discrs[1].1 as i128)),
+						)
+					}
 					Some(Std::Cow) => self.err(span, crate::lower::library::cow_variant(ty)),
 					Some(std @ (Std::Bound | Std::TryLockError | Std::ErrorKind)) => {
 						let table = discrs
@@ -582,6 +590,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::Option | Std::Poll | Std::Pin, _) => values.pop().unwrap(),
 				// Either variant is its text.
 				(Std::Cow, _) if crate::lower::library::string(tcx, ty) => values.pop().unwrap(),
+				(Std::Cow, _) if let Some(elem) = crate::lower::library::cow_slice(tcx, ty) => {
+					crate::lower::library::cow_made(elem, variant, values.pop().unwrap())
+				}
 				(Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
 				(Std::FmtError, _) => Expr::New(Box::new(Expr::Rt("FmtError".into())), Vec::new()),
 				(Std::ParseBoolError, _) => Expr::New(Box::new(Expr::Rt("ParseBoolError".into())), Vec::new()),
@@ -590,7 +601,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::RangeTo | Std::RangeToInclusive, _) => {
 					crate::lower::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
 				}
-				(Std::Reverse, _) => values.pop().unwrap(),
+				(Std::Reverse | Std::Wrapping, _) => values.pop().unwrap(),
 				(Std::Bound | Std::TryLockError, _) => {
 					let ts_ty = self.b.t.ty(ty, span);
 					crate::lower::library::tagged(def.name.as_str(), values.pop(), ts_ty)

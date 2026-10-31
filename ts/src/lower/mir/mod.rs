@@ -3318,16 +3318,16 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 	}
 }
 
-/// The names `stmts` assign, anywhere in them.
+/// The names `stmts` assign, anywhere in them, as themselves or cast to a variant's type.
 fn assigned(stmts: &[Stmt]) -> FxHashSet<String> {
 	let mut names = FxHashSet::default();
 	for stmt in stmts {
 		visit_stmt(stmt, &mut |e| {
 			visit_expr(e, &mut |e| {
 				if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-					&& let Expr::Ident(name) = &**target
+					&& let Some(name) = assigned_name(target)
 				{
-					names.insert(name.clone());
+					names.insert(name.to_string());
 				}
 			})
 		});
@@ -3494,12 +3494,24 @@ fn writes_of(e: &Expr, name: &str) -> usize {
 	let mut n = 0;
 	visit_expr(e, &mut |e| {
 		if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-			&& matches!(&**target, Expr::Ident(i) if i == name)
+			&& assigned_name(target) == Some(name)
 		{
 			n += 1;
 		}
 	});
 	n
+}
+
+/// The name an assignment to `target` writes whole: itself, or cast to the type of a
+/// variant it holds, as a `Cow`'s payload is.
+fn assigned_name(mut target: &Expr) -> Option<&str> {
+	while let Expr::As(inner, _) = target {
+		target = inner;
+	}
+	match target {
+		Expr::Ident(name) => Some(name),
+		_ => None,
+	}
 }
 
 /// Call `f` on each expression the statement holds directly, and in its blocks.
