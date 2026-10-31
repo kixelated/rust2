@@ -25,19 +25,14 @@ array lengths, two types or closures of one name in different modules (`copy$Pai
 `pointers::Pair`), fn-local items of one name (`captures`' `through$2`..`$12`), and the
 coroutine classes of one function (`blocksFuture$2`..). moq-net has none today.
 
-Open decision, for the maintainer before work starts: how to tell apart names that only a
-path disambiguates, such as types, traits, and closures of one name, while keeping names a
-pure function of the instance. Hand-written callers call suffixed names
-(`Fault.fmt$Display`), which rules out a hash on every suffix. Options:
-
-- Recommended: qualify every type, trait, and closure in a suffix by its path: the crate's
-  own by module path, a dependency's under its crate, std's by its public path with a
-  repeated module dropped (`Option`, `fmt_Display`, `io_Error`). The only option that is
-  both a pure function of the instance and readable, but every name over a type outside the
-  crate root changes, and closures in impls need the impl's type and trait.
-- Qualify only a name that another definition in the crate graph shares, as rustc trims
-  paths. Fewest renames and stable under reach, but defining a type of a taken name renames
-  the other's instances, and rustc's `trimmed_def_paths` is for diagnostics only.
+Decided by the maintainer on 2026-10-30: qualify every type, trait, and closure in a
+suffix by its path: the crate's own by module path, a dependency's under its crate, std's
+by its public path with a repeated module dropped (`Option`, `fmt_Display`, `io_Error`).
+It is the only rule that keeps a name a pure function of the instance, since callers call
+these names; every name over a type outside the crate root renames once, and closures in
+impls need the impl's type and trait. Qualifying only names another definition shares was
+rejected here: defining a type of a taken name would rename the other's instances.
+Import bindings take the other rule ([ts-stable-imports](/quest/m2/ts-stable-imports.md)).
 
 Either way, spell out `&`, `&mut`, and array lengths, and name fn-local items and
 coroutine classes by their enclosing items rather than a counter.
