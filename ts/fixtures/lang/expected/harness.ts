@@ -13,15 +13,15 @@ import { iters } from "./clones.ts";
 import { hashMaps, sets, btreeMaps, deques, vecs, stores, optionals, setOps, unlikeEqs, ownNes, cellEqs, unlikeCompares, refOrders } from "./collections.ts";
 import { combinators } from "./combinators.ts";
 import { arcs, clonedArcs, cyclicArcs, uniqueArcs, clonedRcs, cyclicRcs, rcs, uniqueRcs, copies } from "./counts.ts";
-import { cows } from "./cows.ts";
+import { cows, slices, bytes } from "./cows.ts";
 import { cycles } from "./cycles.ts";
 import { defaults } from "./defaults.ts";
 import { durations } from "./durations.ts";
 import { dyns, shared, anys, fns } from "./dyns.ts";
-import { edits, bytes } from "./edits.ts";
+import { edits, bytes as edits_bytes } from "./edits.ts";
 import { eqs } from "./errors.ts";
 import { floats, mulAdds, formats, parses } from "./floats.ts";
-import { ints, strings, derived, written, counts, rounding, panics, wrapped, collections, iters as fmt_iters, writes } from "./fmt.ts";
+import { ints, strings, derived, written, counts, rounding, panics, wrapped, collections, enums, iters as fmt_iters, writes } from "./fmt.ts";
 import { folds } from "./folds.ts";
 import { methods } from "./generics.ts";
 import { values, random, bytes as hashes_bytes } from "./hashes.ts";
@@ -42,9 +42,10 @@ import { singles, mulAdds as singles_mulAdds, formats as singles_formats, parses
 import { parts, chunked, subslices, drains, ranges as slices_ranges, edits as slices_edits } from "./slices.ts";
 import { splits } from "./splits.ts";
 import { statics, cells as statics_cells, onces } from "./statics.ts";
-import { strs, slices, edits as strs_edits, parses as strs_parses, iters as strs_iters, drains as strs_drains, hinted } from "./strs.ts";
+import { strs, slices as strs_slices, edits as strs_edits, parses as strs_parses, iters as strs_iters, drains as strs_drains, hinted } from "./strs.ts";
 import { decodes } from "./utf8.ts";
 import { wrappers } from "./wrappers.ts";
+import { u8s, u16s, u32s, u64s, u128s, usizes, i8s, i16s, i32s, i64s, i128s, isizes } from "./wraps.ts";
 import { zeros, impls, keys as zeros_keys, unread } from "./zeros.ts";
 
 /**
@@ -90,7 +91,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		flows(data18, out18);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["keys::keys", keys as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["chars::chars", chars as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["strs::strs", strs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::vecs", (_2118: rt.u8, data19: rt.ByteSlice, out19: rt.ByteVec): undefined => {
 		vecs(data19, out19);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["strs::slices", slices as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::stores", (_2119: rt.u8, data20: rt.ByteSlice, out20: rt.ByteVec): undefined => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["strs::slices", strs_slices as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::stores", (_2119: rt.u8, data20: rt.ByteSlice, out20: rt.ByteVec): undefined => {
 		stores(data20, out20);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["chunks::chunks", chunks as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["cows::cows", cows as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["durations::durations", durations as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["combinators::combinators", combinators as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["splits::splits", splits as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["nested::nested", nested as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["refs::refs", (_2120: rt.u8, data21: rt.ByteSlice, out21: rt.ByteVec): undefined => {
 		refs(data21, out21);
@@ -146,7 +147,7 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		pointers_shared(data45, out46);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::unchecked", (_2146: rt.u8, data46: rt.ByteSlice, out47: rt.ByteVec): undefined => {
 		unchecked(data46, out47);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["edits::bytes", bytes as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["arrays::from_fns", (_2147: rt.u8, data47: rt.ByteSlice, out48: rt.ByteVec): undefined => {
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["edits::bytes", edits_bytes as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["arrays::from_fns", (_2147: rt.u8, data47: rt.ByteSlice, out48: rt.ByteVec): undefined => {
 		fromFns(data47, out48);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::optionals", optionals as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["objects::objects", (_2148: rt.u8, data48: rt.ByteSlice, out49: rt.ByteVec): undefined => {
 		objects(data48, out49);
@@ -200,6 +201,8 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		fmt_iters(data72, out73);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["zeros::unread", unread as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::range_froms", rangeFroms as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::range_methods", rangeMethods as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["clones::iters", iters as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::cell_eqs", cellEqs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["iters::compares", compares as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::unlike_compares", unlikeCompares as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["collections::ref_orders", refOrders as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["cycles::cycles", cycles as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::lapsed", (_2173: rt.u8, data73: rt.ByteSlice, out74: rt.ByteVec): undefined => {
 		lapsed(data73, out74);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["cows::slices", slices as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["cows::bytes", bytes as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::u8s", u8s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::u16s", u16s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::u32s", u32s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::u64s", u64s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::u128s", u128s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::usizes", usizes as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::i8s", i8s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::i16s", i16s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::i32s", i32s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::i64s", i64s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::i128s", i128s as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["wraps::isizes", isizes as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["fmt::enums", (_2174: rt.u8, data74: rt.ByteSlice, out75: rt.ByteVec): undefined => {
+		enums(data74, out75);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
 }
 

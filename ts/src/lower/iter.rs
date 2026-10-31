@@ -501,11 +501,15 @@ pub fn call<'tcx>(
 				tail(vec![Expr::rt_of(float.name(), op), float.lit(unit)], vec![drops]),
 			)
 		}
+		// A `Wrapping`'s wraps, as its `+` and `*` do.
 		"sum" | "product" => {
-			let int = Int::of(targ(1)?)?;
-			let (op, unit) = match name {
-				"sum" => ("add", 0),
-				_ => ("mul", 1),
+			let wrapping = super::library::wrapping_of(b.t.tcx, targ(1)?);
+			let int = Int::of(wrapping.unwrap_or(targ(1)?))?;
+			let (op, unit) = match (name, wrapping.is_some()) {
+				("sum", false) => ("add", 0),
+				("sum", true) => ("wrappingAdd", 0),
+				(_, false) => ("mul", 1),
+				(_, true) => ("wrappingMul", 1),
 			};
 			let drops = iter_drops(b, self_ty, span);
 			method(name, tail(vec![int.func(op), int.lit(unit)], vec![drops]))
@@ -1128,18 +1132,25 @@ fn collect<'tcx>(
 		return None;
 	};
 	let std = Std::of(tcx, adt.did())?;
-	match std {
-		Std::Vec => Some(match args.type_at(0).kind() {
+	// A `Cow<[T]>` owns the `Vec` std's collects.
+	let elem = match std {
+		Std::Vec => Some(args.type_at(0)),
+		_ => library::cow_slice(tcx, ty),
+	};
+	if let Some(elem) = elem {
+		return Some(match elem.kind() {
 			ty::Uint(ty::UintTy::U8) => {
-				let (folds, by_index) = collect_folds(b, from, args.type_at(0), span);
+				let (folds, by_index) = collect_folds(b, from, elem, span);
 				let take = iter_take(b, from, folds, span);
 				Expr::rt(
 					"iterToByteVec",
 					tail(vec![iter], vec![take, Expr::lit((trusted || by_index).to_string())]),
 				)
 			}
-			_ => to_array(b, iter, from, args.type_at(0), trusted, span),
-		}),
+			_ => to_array(b, iter, from, elem, trusted, span),
+		});
+	}
+	match std {
 		// The values, collected as the `Ok` or `Some` type is, until the first `Err` or `None`.
 		std @ (Std::Result | Std::Option) => {
 			let ty::Adt(_, item_args) = item.kind() else {

@@ -5,7 +5,7 @@ use crate::{
 	arrays, atomics, borrows, bounds, captures, cells, chars, chunks, clones, collections, combinators, counts, cows,
 	cycles, defaults, durations, dyns, edits, errors, floats, fmt, folds, generics, hashes, hints, holds, ints, iters,
 	keys, locals, locks, nested, objects, orders, pointers, refs, shapes, singles, slices, splits, statics, strs, utf8,
-	wrappers, zeros,
+	wrappers, wraps, zeros,
 };
 
 /// The native side's entry: [`run`], except that a case starting with 0xff prints a
@@ -190,6 +190,21 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("collections::ref_orders", collections::ref_orders),
 		("cycles::cycles", cycles::cycles),
 		("pointers::lapsed", |_, data, out| pointers::lapsed(data, out)),
+		("cows::slices", cows::slices),
+		("cows::bytes", cows::bytes),
+		("wraps::u8s", wraps::u8s),
+		("wraps::u16s", wraps::u16s),
+		("wraps::u32s", wraps::u32s),
+		("wraps::u64s", wraps::u64s),
+		("wraps::u128s", wraps::u128s),
+		("wraps::usizes", wraps::usizes),
+		("wraps::i8s", wraps::i8s),
+		("wraps::i16s", wraps::i16s),
+		("wraps::i32s", wraps::i32s),
+		("wraps::i64s", wraps::i64s),
+		("wraps::i128s", wraps::i128s),
+		("wraps::isizes", wraps::isizes),
+		("fmt::enums", |_, data, out| fmt::enums(data, out)),
 	]
 }
 

@@ -3845,6 +3845,11 @@ export function each$Picky_Box_Picky_own_nes_closure15(v: Picky.Picky[], f: (a0:
 }
 
 /** `f` of each of `v`. */
+export function each$Picky_Cow_Pickys_own_nes_closure18(v: Picky.Picky[], f: (a0: Picky.Picky) => rt.Cow<Picky.Picky>): rt.Cow<Picky.Picky>[] {
+	return rt.iterToArray(rt.iterMap(rt.iterSlice(v), f), undefined, 12, true);
+}
+
+/** `f` of each of `v`. */
 export function each$Picky_Option_Picky_own_nes_closure10(v: Picky.Picky[], f: (a0: Picky.Picky) => Picky.Picky | undefined): Array<Picky.Picky | undefined> {
 	return rt.iterToArray(rt.iterMap(rt.iterSlice(v), f), undefined, 8, true);
 }
@@ -3906,9 +3911,10 @@ export function each$Quirky_RefCell_Quirky_cell_eqs_closure5(v: Quirky.Quirky[],
 
 /**
  * `==` and `!=` of what holds a `Picky`, whose `ne` std's of tuples, `Arc`s, `Rc`s, and
- * `Box`es call, and std's `==` of slices calls of each item, but which an `Option`'s and
- * a `Reverse`'s `ne`, as `!eq`, does not: of unequal lengths, empty, nested, and with
- * items `eq` and `ne` disagree on at the positions `kind` picks.
+ * `Box`es call, and std's `==` of slices and `Cow`s of them calls of each item, but which
+ * an `Option`'s, a `Reverse`'s, and a `Wrapping`'s `ne`, as `!eq`, does not: of unequal
+ * lengths, empty, nested, and with items `eq` and `ne` disagree on at the positions
+ * `kind` picks.
  */
 export function ownNes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _34: (a0: Picky.Picky[], a1: rt.usize) => rt.u16 = (v: Picky.Picky[], i: rt.usize): rt.u16 => {
@@ -4143,6 +4149,46 @@ export function ownNes(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	putEq(rt.eqSeq((a41: Picky.Picky, b33: Picky.Picky): boolean => {
 		return !Picky.ne$PartialEq(a41, b33);
 	})(_485, _490), log, out);
+	const _496: [Picky.Picky] = [one(a, 0)];
+	const _504: [Picky.Picky] = [one(b, 0)];
+	putEq(!rt.eqTuple([Picky.eq$PartialEq])(_496, _504), log, out);
+	putEq(Picky.eq$PartialEq(one(a, 1), one(b, 1)), log, out);
+	const _531: [rt.Cow<Picky.Picky>, rt.Cow<Picky.Picky>] = [new rt.Borrowed(rt.sliceRange(a, 0)), b.map(Picky.clone$Clone)];
+	const ca: rt.Cow<Picky.Picky> = _531[0];
+	const cb: rt.Cow<Picky.Picky> = _531[1];
+	putEq(rt.eqSlice((a42: Picky.Picky, b34: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a42, b34);
+	})(rt.cowSlice(ca), rt.cowSlice(cb)), log, out);
+	putEq(!rt.eqSlice((a43: Picky.Picky, b35: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a43, b35);
+	})(rt.cowSlice(ca), rt.cowSlice(cb)), log, out);
+	const _553: Picky.Picky[] = rt.sliceRange(b, 0);
+	putEq(rt.eqSlice((a44: Picky.Picky, b36: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a44, b36);
+	})(rt.cowSlice(ca), _553), log, out);
+	putEq(!rt.eqSlice((a45: Picky.Picky, b37: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a45, b37);
+	})(rt.cowSlice(cb), a), log, out);
+	putEq(rt.eqSlice((a46: Picky.Picky, b38: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a46, b38);
+	})(b, rt.cowSlice(ca)), log, out);
+	const _570: Picky.Picky[] = rt.sliceRange(a, 0);
+	putEq(!rt.eqSlice((a47: Picky.Picky, b39: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a47, b39);
+	})(_570, rt.cowSlice(cb)), log, out);
+	const _576: Picky.Picky[] = rt.cowSlice(cb);
+	putEq(rt.eqSlice((a48: Picky.Picky, b40: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a48, b40);
+	})(_576, pa), log, out);
+	const owned: rt.Cow<Picky.Picky>[] = each$Picky_Cow_Pickys_own_nes_closure18(a, (p14: Picky.Picky): rt.Cow<Picky.Picky> => {
+		return [Picky.clone$Clone(p14)];
+	});
+	const borrowed: rt.Cow<Picky.Picky>[] = rt.iterToArray(rt.iterMap(rt.sliceChunks(b, 1), (a059: Picky.Picky[]): rt.Cow<Picky.Picky> => {
+		return new rt.Borrowed(a059);
+	}), undefined, 12, true);
+	putEq(!rt.eqSlice(rt.cowBy(rt.eqSlice((a49: Picky.Picky, b41: Picky.Picky): boolean => {
+		return !Picky.ne$PartialEq(a49, b41);
+	})))(owned, borrowed), log, out);
 	rt.dropAll(shared);
 	floated[Symbol.dispose]();
 	arc[Symbol.dispose]();

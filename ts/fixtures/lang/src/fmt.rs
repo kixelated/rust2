@@ -724,6 +724,91 @@ pub fn collections(data: &[u8], out: &mut Vec<u8>) {
 	put(out, &format!("{one:?}|{one:#?}|{one:>3?}|{set:?}|{set:#?}|{set:#04x?}"));
 }
 
+/// `Debug` of std's enums beside its ranges and comparisons, each derived: a variant with
+/// a field passes the options to it, and one without writes its name unpadded. A
+/// `ControlFlow` that `?` would break with holds the `Err` or `None` it was applied to.
+pub fn enums(data: &[u8], out: &mut Vec<u8>) {
+	use std::cmp::{Ordering, Reverse};
+	use std::convert::Infallible;
+	use std::ops::{Bound, ControlFlow, RangeBounds};
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let w = usize::from(at(0) % 10);
+	fn pick<T>(by: u8, x: T) -> Bound<T> {
+		match by % 3 {
+			0 => Bound::Included(x),
+			1 => Bound::Excluded(x),
+			_ => Bound::Unbounded,
+		}
+	}
+	let n = pick(at(1), at(2));
+	put(out, &format!("{n:?}|{n:#?}|{n:x?}|{n:#X?}|{n:>w$?}|{n:_^7?}|{n:+04?}"));
+	let s = pick(at(3), STRINGS[usize::from(at(4)) % STRINGS.len()]);
+	put(out, &format!("{s:?}|{s:#?}|{s:>9?}|{s:*<w$.2?}"));
+	let c = pick(at(5), char::from(at(6)));
+	put(out, &format!("{c:?}|{c:#?}|{c:^6?}"));
+	let o = pick(at(7), (at(8) % 2 == 0).then_some(at(9)));
+	put(out, &format!("{o:?}|{o:#?}|{o:x?}|{o:>4?}"));
+	let bytes = pick(at(10), &data[..data.len().min(3)]);
+	put(out, &format!("{bytes:?}|{bytes:#?}|{bytes:x?}|{bytes:3?}"));
+	let clip = pick(at(11), Clip(STRINGS[usize::from(at(12)) % STRINGS.len()]));
+	put(out, &format!("{:8.2?}|{:#?}|{:?}", clip.as_ref(), Some(clip), (n, s)));
+	// A range's bounds borrow its own.
+	let r = at(1)..=at(2);
+	put(
+		out,
+		&format!(
+			"{:?} {:?} {:?} {:x?} {:#?}",
+			r.start_bound(),
+			r.end_bound(),
+			(at(1)..).end_bound(),
+			(..at(2)).end_bound(),
+			RangeBounds::<u8>::start_bound(&..)
+		),
+	);
+
+	let ord = at(1).cmp(&at(2));
+	let all = [Ordering::Less, Ordering::Equal, Ordering::Greater];
+	put(out, &format!("{ord:?}|{ord:>8?}|{ord:#?}|{all:?}|{all:#?}"));
+	let rev = Reverse(at(1));
+	let nested = Reverse(Reverse(STRINGS[usize::from(at(4)) % STRINGS.len()]));
+	put(
+		out,
+		&format!("{rev:?}|{rev:#?}|{rev:x?}|{rev:>w$?}|{nested:?}|{nested:#?}"),
+	);
+
+	let text = STRINGS[usize::from(at(4)) % STRINGS.len()];
+	let flow = match at(1) % 2 {
+		0 => ControlFlow::Break(text),
+		_ => ControlFlow::Continue(u16::from(at(2)) * 300),
+	};
+	put(out, &format!("{flow:?}|{flow:#?}|{flow:x?}|{flow:>w$?}"));
+	let unit: ControlFlow<u8> = match at(1) % 2 {
+		0 => ControlFlow::Break(at(2)),
+		_ => ControlFlow::Continue(()),
+	};
+	put(out, &format!("{unit:?}|{unit:#?}|{unit:03?}"));
+	let erred: ControlFlow<Result<Infallible, u8>, u16> = match at(1) % 2 {
+		0 => ControlFlow::Break(Err(at(2))),
+		_ => ControlFlow::Continue(u16::from(at(2))),
+	};
+	put(out, &format!("{erred:?}|{erred:#?}|{erred:>5?}"));
+	let none: ControlFlow<Option<Infallible>, u8> = match at(1) % 2 {
+		0 => ControlFlow::Break(None),
+		_ => ControlFlow::Continue(at(2)),
+	};
+	// `()` is `undefined`, so its `None` is `rt.None`.
+	let unit_none: ControlFlow<Option<Infallible>> = match at(2) % 2 {
+		0 => ControlFlow::Break(None),
+		_ => ControlFlow::Continue(()),
+	};
+	put(
+		out,
+		&format!("{none:?}|{none:#?}|{none:<4?}|{unit_none:?}|{unit_none:#?}"),
+	);
+	let ok: Result<u8, Infallible> = Ok(at(2));
+	put(out, &format!("{ok:?}|{ok:#?}"));
+}
+
 /// std's iterators' `Debug`, each the items it has left in its own wrapper, through each
 /// element's `Debug` with the formatter's options: consumed from either end, empty, and
 /// pretty. A hash iterator holds at most one entry, since std leaves their order unspecified.

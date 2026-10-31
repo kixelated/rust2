@@ -248,6 +248,8 @@ pub fn std_impl<'tcx>(
 			};
 			Expr::rt_of(float.name(), method).call(vec![value, f])
 		}
+		// `!`, and `Infallible`, which is it: never written, as none exists.
+		ty::Never if text => Expr::rt("unreachable", vec![value]),
 		ty::Bool if text => rt("bool", vec![value, f]),
 		ty::Char if tr == Trait::Display => rt("charDisplay", vec![value, f]),
 		ty::Char if tr == Trait::Debug => rt("charDebug", vec![value, f]),
@@ -295,8 +297,12 @@ pub fn std_impl<'tcx>(
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
-			// A `NonZero` writes its integer, by each trait.
-			(Std::Box | Std::NonZero, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `NonZero` and a `Wrapping` write their integer, by each trait.
+			(Std::Box | Std::NonZero | Std::Wrapping, _) => b.fmt_call(tr, args.type_at(0), value, f, span),
+			// A `Cow<[T]>` writes its slice.
+			(Std::Cow, Trait::Debug) if let Some(elem) = library::cow_slice(tcx, ty) => {
+				b.fmt_call(tr, Ty::new_slice(tcx, elem), library::cow_deref(value, elem), f, span)
+			}
 			(Std::Arc, Trait::Display | Trait::Debug) => {
 				b.fmt_call(tr, args.type_at(0), value.member("value"), f, span)
 			}
@@ -316,6 +322,34 @@ pub fn std_impl<'tcx>(
 				rt(of, vec![value, f, bound])
 			}
 			(Std::RangeFull, Trait::Debug) => rt("rangeFull", vec![value, f]),
+			(Std::Bound, Trait::Debug) => {
+				let held = b.fmt_fn(tr, args.type_at(0), span);
+				rt("bound", vec![value, f, held])
+			}
+			(Std::Ordering, Trait::Debug) => rt("ordering", vec![value, f]),
+			// Erased to what it holds.
+			(Std::Reverse, Trait::Debug) => {
+				let held = b.fmt_value(tr, args.type_at(0), value, span, out);
+				rt(
+					"debugTupleFields",
+					vec![f, Expr::Str("Reverse".into()), Expr::Array(vec![held])],
+				)
+			}
+			(Std::ControlFlow, Trait::Debug) => {
+				let go = b.fmt_fn(tr, args.type_at(1), span);
+				let stop = b.fmt_fn(tr, args.type_at(0), span);
+				match library::Flow::of(tcx, args) {
+					library::Flow::Other => rt("controlFlow", vec![value, f, go, stop]),
+					library::Flow::Result => rt("controlFlow", vec![value, f, go, stop, Expr::lit("true")]),
+					library::Flow::Option => {
+						let none = b.t.none_arg(args.type_at(1));
+						rt(
+							"controlFlowOption",
+							[vec![value, f, go, stop], none.into_iter().collect()].concat(),
+						)
+					}
+				}
+			}
 			(Std::Vec, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![library::elements(value, ty), f, item])
