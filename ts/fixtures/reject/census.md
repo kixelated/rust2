@@ -16,8 +16,8 @@
 | 3 | an assignment through a reference to `_` | fixtures/reject/src/lib.rs:90:2 |
 | 3 | replacing the value behind a reference to `_` | fixtures/reject/src/lib.rs:98:2 |
 | 3 | unsupported type `_` | fixtures/reject/src/lib.rs:7:14 |
+| 2 | `Extend` of `_` by `_`, whose `_` of `_` is not supported yet | fixtures/reject/src/lib.rs:1182:31 |
 | 2 | `_` is not supported: its `None` and `Some` would both be `rt.None` | fixtures/reject/src/lib.rs:16:15 |
-| 2 | `_` of `_` by `_`, whose `_` of `_` is not supported yet | fixtures/reject/src/lib.rs:1182:31 |
 | 2 | `_` of `_`, whose `None` is `rt.None`, which is not supported yet | fixtures/reject/src/lib.rs:37:4 |
 | 2 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | fixtures/reject/src/lib.rs:21:4 |
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
@@ -90,7 +90,6 @@ The type or module each refused type or path belongs to.
 | 4 | `std::pin::Pin` | fixtures/reject/src/lib.rs:98:2 |
 | 3 | `std::vec::Vec` | fixtures/reject/src/lib.rs:323:16 |
 | 3 | `{closure}` | fixtures/reject/src/lib.rs:332:13 |
-| 2 | `Extend` | fixtures/reject/src/lib.rs:1182:31 |
 | 2 | `Poll` | fixtures/reject/src/lib.rs:79:20 |
 | 2 | `Reused` | fixtures/reject/src/lib.rs:21:4 |
 | 2 | `Scaled` | fixtures/reject/src/lib.rs:472:23 |
@@ -187,12 +186,12 @@ The type or module each refused type or path belongs to.
 | 1 | `Buf::copy_to_bytes` of `_`, a value JS copies, which is not supported | `Blank` | fixtures/reject/src/lib.rs:776:2 |
 | 1 | `BufMut::put` of `_` into a `BytesMut`, which picks the methods it calls by a capacity that depends on whether the other handles of its storage dropped, which is not supported | `Counted` | fixtures/reject/src/lib.rs:402:2 |
 | 1 | `Bytes::from_owner` of `_`, which would drop with the last clone of what it makes, which is not supported | `std::sync::Arc` | fixtures/reject/src/lib.rs:387:2 |
+| 1 | `Extend` of `_` by `_`, whose `_` of `_` is not supported yet | `(Tally,)`, `(u8,)`, `Tally`, `u8` | fixtures/reject/src/lib.rs:1187:29 |
+| 1 | `Extend` of `_` by `_`, whose `_` of `_` is not supported yet | `(std::vec::Vec, Tally)`, `(u8, u8)`, `Tally`, `u8` | fixtures/reject/src/lib.rs:1182:31 |
 | 1 | `_` is not supported: its `Pending` and `Ready` would both be `rt.OuterPending` | `Poll` | fixtures/reject/src/lib.rs:79:20 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `None` would be `rt.None` as `_` | `Maybe`, `value`, `Option`, `T \| undefined`, `Option` | fixtures/reject/src/lib.rs:31:2 |
 | 1 | `_` is not supported: its field `_` is `_`, typed `_`, whose `Pending` would be `rt.OuterPending` as `_` | `Waiting`, `poll`, `Poll`, `rt.Poll`, `Poll` | fixtures/reject/src/lib.rs:510:2 |
 | 1 | `_` of `_` by `_`, which is not supported yet | `HashMap::contains_key`, `std::collections::HashMap`, `u8` | fixtures/reject/src/lib.rs:266:6 |
-| 1 | `_` of `_` by `_`, whose `_` of `_` is not supported yet | `Extend`, `(Tally,)`, `(u8,)`, `Tally`, `u8` | fixtures/reject/src/lib.rs:1187:29 |
-| 1 | `_` of `_` by `_`, whose `_` of `_` is not supported yet | `Extend`, `(std::vec::Vec, Tally)`, `(u8, u8)`, `Tally`, `u8` | fixtures/reject/src/lib.rs:1182:31 |
 | 1 | `_` of `_`, which is not supported yet | `std::any::Any::type_id`, `dyn std::any::Any` | fixtures/reject/src/lib.rs:553:4 |
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::clone_from_slice`, `Reused` | fixtures/reject/src/lib.rs:299:4 |
 | 1 | `_` of `_`, whose `clone_from` is its own, which is not supported yet | `slice::fill`, `Reused` | fixtures/reject/src/lib.rs:21:4 |
@@ -374,17 +373,17 @@ The type or module each refused type or path belongs to.
 
 </details>
 
+<details><summary>`Extend` of `_` by `_`, whose `_` of `_` is not supported yet (2)</summary>
+
+- fixtures/reject/src/lib.rs:1182:31: `Extend` of `(std::vec::Vec<u8>, Tally)` by `(u8, u8)`, whose `Tally` of `u8` is not supported yet
+- fixtures/reject/src/lib.rs:1187:29: `Extend` of `(Tally,)` by `(u8,)`, whose `Tally` of `u8` is not supported yet
+
+</details>
+
 <details><summary>`_` is not supported: its `None` and `Some` would both be `rt.None` (2)</summary>
 
 - fixtures/reject/src/lib.rs:16:15: `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None`
 - fixtures/reject/src/lib.rs:17:2: `Option<std::option::Option<std::option::Option<u8>>>` is not supported: its `None` and `Some` would both be `rt.None`
-
-</details>
-
-<details><summary>`_` of `_` by `_`, whose `_` of `_` is not supported yet (2)</summary>
-
-- fixtures/reject/src/lib.rs:1182:31: `Extend` of `(std::vec::Vec<u8>, Tally)` by `(u8, u8)`, whose `Tally` of `u8` is not supported yet
-- fixtures/reject/src/lib.rs:1187:29: `Extend` of `(Tally,)` by `(u8,)`, whose `Tally` of `u8` is not supported yet
 
 </details>
 
