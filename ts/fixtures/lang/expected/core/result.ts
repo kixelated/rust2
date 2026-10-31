@@ -401,6 +401,17 @@ export function cmp$0h5rzdg(self: rt.Result<Part.Part, Part.Part>, other: rt.Res
 	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
 }
 
+export function cmp$0qsbu3y(self: rt.Result<[Part.Part], rt.u8>, other: rt.Result<[Part.Part], rt.u8>): rt.Ordering {
+	if (self.ok) {
+		if (other.ok) {
+			return rt.cmpTuple<[Part.Part], rt.Ordering>([Part.cmp$cmp_Ord])(self.value, other.value);
+		}
+	} else if (!other.ok) {
+		return rt.cmp(self.error, other.error);
+	}
+	return rt.cmp(self.ok ? 0 : 1, other.ok ? 0 : 1);
+}
+
 export function cmp$06akmd5(self: rt.Result<rt.u8, rt.i8>, other: rt.Result<rt.u8, rt.i8>): rt.Ordering {
 	if (self.ok) {
 		if (other.ok) {

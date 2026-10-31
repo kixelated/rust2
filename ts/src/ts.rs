@@ -52,6 +52,9 @@ pub enum Expr {
 	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
 	/// another integer type with the same value.
 	As(Box<Expr>, Type),
+	/// `f<A, B>`: a generic function given its type arguments, which TypeScript cannot
+	/// infer from its call alone.
+	Instantiate(Box<Expr>, Vec<Type>),
 	Located(Loc, Box<Expr>),
 }
 
@@ -363,6 +366,7 @@ impl Expr {
 			| Expr::Unary(_, e)
 			| Expr::Postfix(e, _)
 			| Expr::As(e, _)
+			| Expr::Instantiate(e, _)
 			| Expr::Located(_, e) => e.syms_mut(f),
 			Expr::Array(es) => es.iter_mut().for_each(|e| e.syms_mut(f)),
 			Expr::Object(props) => props.iter_mut().for_each(|(_, e)| e.syms_mut(f)),
@@ -480,9 +484,12 @@ impl Expr {
 				body.free_names(&mut inner);
 				function_free(params, inner, HashSet::new(), free);
 			}
-			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Postfix(e, _) | Expr::As(e, _) | Expr::Located(_, e) => {
-				e.free_names(free)
-			}
+			Expr::Member(e, _)
+			| Expr::Unary(_, e)
+			| Expr::Postfix(e, _)
+			| Expr::As(e, _)
+			| Expr::Instantiate(e, _)
+			| Expr::Located(_, e) => e.free_names(free),
 			Expr::Array(es) => es.iter_mut().for_each(|e| e.free_names(free)),
 			Expr::Object(props) => props.iter_mut().for_each(|(_, e)| e.free_names(free)),
 			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
@@ -516,9 +523,12 @@ impl Expr {
 		match self {
 			Expr::Sym(id) => f(*id),
 			Expr::Arrow(..) | Expr::Lambda(..) => {}
-			Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Postfix(e, _) | Expr::As(e, _) | Expr::Located(_, e) => {
-				e.eager_syms(f)
-			}
+			Expr::Member(e, _)
+			| Expr::Unary(_, e)
+			| Expr::Postfix(e, _)
+			| Expr::As(e, _)
+			| Expr::Instantiate(e, _)
+			| Expr::Located(_, e) => e.eager_syms(f),
 			Expr::Array(es) => es.iter().for_each(|e| e.eager_syms(f)),
 			Expr::Object(props) => props.iter().for_each(|(_, e)| e.eager_syms(f)),
 			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {

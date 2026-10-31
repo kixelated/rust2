@@ -32,7 +32,6 @@ generic std gap is planned here even when moq never calls it.
 - [Saturating](/quest/m3/ts-saturating.md) - `Saturating<T>` and its std impls translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
-- [A tuple's cmp typed as total](/quest/m3/ts-cmp-tuple-total.md) - `rt.cmpTuple` of total fields types its result as `Ordering`
 - [Slices split by a predicate](/quest/m3/ts-slice-split.md) - `[T]::split` and its forms by a predicate translate
 - [Boxed slices](/quest/m3/ts-boxed-slices.md) - `Box<[T]>` translates, made, read, and turned back into a `Vec`
 - [collect into tuples of collections](/quest/m3/ts-collect-tuples.md) - `collect` into a tuple of collections translates

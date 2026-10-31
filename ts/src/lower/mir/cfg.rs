@@ -674,7 +674,11 @@ fn unlabel(stmts: &mut [Stmt], innermost: Option<&str>, in_switch: bool) {
 pub fn pure(e: &Expr) -> bool {
 	match e {
 		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => true,
-		Expr::Member(base, _) | Expr::Unary(_, base) | Expr::Located(_, base) | Expr::As(base, _) => pure(base),
+		Expr::Member(base, _)
+		| Expr::Unary(_, base)
+		| Expr::Located(_, base)
+		| Expr::As(base, _)
+		| Expr::Instantiate(base, _) => pure(base),
 		Expr::Binary(l, _, r) => pure(l) && pure(r),
 		Expr::Cond(c, a, b) => pure(c) && pure(a) && pure(b),
 		_ => false,
