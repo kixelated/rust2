@@ -1290,6 +1290,13 @@ export function mapOr$11e0ggl(self: [rt.ByteSlice, rt.ByteSlice] | undefined, de
 	return f(self);
 }
 
+export function mapOr$0a96v80(self: [rt.ByteSlice, [rt.usize, rt.u8]] | undefined, default_: rt.u8, f: (a0: [rt.ByteSlice, [rt.usize, rt.u8]]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$1hjjwvv(self: [rt.Mutex<rt.u8>, rt.u8] | undefined, default_: rt.u8, f: (a0: [rt.Mutex<rt.u8>, rt.u8]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
@@ -1311,7 +1318,21 @@ export function mapOr$0ucbp7g(self: [rt.u64, rt.u64] | undefined, default_: rt.u
 	return f(self);
 }
 
+export function mapOr$1vjqo89(self: [rt.u8, rt.ByteSlice] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.ByteSlice]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$1wxcg5q(self: [rt.u8, rt.Arc<rt.u8>] | undefined, default_: rt.u8, f: (a0: [rt.u8, rt.Arc<rt.u8>]) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
+export function mapOr$0f73bb7(self: [rt.u8, [rt.usize, rt.ByteSlice]] | undefined, default_: rt.u8, f: (a0: [rt.u8, [rt.usize, rt.ByteSlice]]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;
 	}
