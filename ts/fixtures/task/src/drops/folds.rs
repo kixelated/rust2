@@ -736,7 +736,14 @@ fn zips(log: &Log, id: u32, arg: u8) {
 				.map(made)
 				.zip((5..7).map(made))
 				.count();
-			log.note(format!("no coerce {n} {at:?} {sum} {skipped}"));
+			// Collected in place by index, then dropped whole: `c`'s closure, then `d`'s.
+			let (c, d) = (guard(10), guard(11));
+			let kept: Vec<u32> = vec![1, 2, 3]
+				.into_iter()
+				.map(move |x| x + c.id() - id)
+				.map(move |x| x + d.id() - id)
+				.collect();
+			log.note(format!("no coerce {n} {at:?} {sum} {skipped} {kept:?}"));
 		}
 		4 => {
 			let v = guards(1, 4).into_iter().zip((4..6).map(guard)).collect::<Vec<_>>();
