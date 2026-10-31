@@ -33,6 +33,5 @@ generic std gap is planned here even when moq never calls it.
 - [std iterators' Debug](/quest/m3/ts-iter-debug.md) - `{:?}` of std's iterators translates, writing std's text, a deque's two slices included
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
-- [std's impls of its zero-sized types](/quest/m3/ts-zero-sized-impls.md) - `PhantomData`'s derived impls translate, and `()` is a hash or B-tree key
 - [Array keys a collection holds](/quest/m3/ts-array-keys.md) - collections of `[T; N]` keys type-check
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once

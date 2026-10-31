@@ -173,6 +173,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("singles::mul_adds", singles::mul_adds),
 		("fmt::collections", |_, data, out| fmt::collections(data, out)),
 		("collections::unlike_eqs", collections::unlike_eqs),
+		("zeros::impls", zeros::impls),
+		("zeros::keys", zeros::keys),
 	]
 }
 

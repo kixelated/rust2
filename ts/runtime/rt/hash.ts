@@ -299,6 +299,9 @@ export function hashStr(str: string, s: Hasher): void {
 	s.str(str);
 }
 
+/** `Hash::hash` of what holds nothing, as `()` and `PhantomData`: nothing written. */
+export function hashNothing(_value: undefined, _s: Hasher): void {}
+
 /** `Hash::hash` of tuples, from each field's. */
 export function hashTuple<T extends readonly unknown[]>(fields: readonly ((value: never, s: Hasher) => void)[]): (value: T, s: Hasher) => void {
 	return (value, s) => {

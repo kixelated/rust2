@@ -38,6 +38,7 @@ import type * as slices_Item from "../slices.Item.ts";
 import * as slices_Noisy from "../slices.Noisy.ts";
 import type * as slices_Pair from "../slices.Pair.ts";
 import type * as Short from "../splits.Short.ts";
+import * as Tagged from "../zeros.Tagged.ts";
 
 export function isSomeAnd$09tpccf(self: rt.u8 | undefined, f: (a0: rt.u8) => boolean): boolean {
 	if (self === undefined) {
@@ -189,6 +190,13 @@ export function unwrapOrDefault$0k1p6nh(self: [rt.u64 | undefined, Made.Made] | 
 export function unwrapOrDefault$165pyh5(self: string | undefined): string {
 	if (self === undefined) {
 		return "";
+	}
+	return self;
+}
+
+export function unwrapOrDefault$1b97y1a(self: Tagged.Tagged<string> | undefined): Tagged.Tagged<string> {
+	if (self === undefined) {
+		return Tagged.default$Default_String();
 	}
 	return self;
 }
@@ -370,6 +378,13 @@ export function map$1c7fhtg(self: rt.ByteVec | undefined, f: (a0: rt.ByteVec) =>
 	return f(self);
 }
 
+export function map$0po44cb(self: undefined[] | undefined, f: (a0: undefined[]) => Uint8Array): Uint8Array | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
 export function map$0lcwx9x(self: Way.Way | undefined, f: (a0: Way.Way) => boolean): boolean | undefined {
 	if (self === undefined) {
 		return undefined;
@@ -455,6 +470,13 @@ export function map$1fmzefe(self: rt.u8 | undefined, f: (a0: rt.u8) => [rt.u8, r
 }
 
 export function map$1k7m6zz(self: [rt.u8, rt.u8] | undefined, f: (a0: [rt.u8, rt.u8]) => [rt.u8, rt.u8]): [rt.u8, rt.u8] | undefined {
+	if (self === undefined) {
+		return undefined;
+	}
+	return f(self);
+}
+
+export function map$1iwwjee(self: rt.u8 | undefined, f: (a0: rt.u8) => Uint8Array): Uint8Array | undefined {
 	if (self === undefined) {
 		return undefined;
 	}
