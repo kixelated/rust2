@@ -22,7 +22,9 @@ difference. A writer that counts calls or fails partway, like a capped buffer, c
 
 - Port each runtime write to std's sequence: each fill char a `write_char`, the sign a
   `write_char` before the prefix and digits, the `Debug` builders' name and `": "` apart,
-  a string's `Debug` escapes in runs between quotes, and a float's formatted parts.
+  a string's `Debug` escapes in runs between quotes, a float's formatted parts, and a
+  byte slice's `escape_ascii`, whose spent front and back bytes are each a `write_char` and
+  each run it leaves as is, empty or not, and each escape a `write_str`.
 - Add `writeChar` to the runtime's `Write`, so a crate's own `write_char` override runs.
 - Measure what the extra calls cost `format!` into a `String`.
 - Rejected: allowing placeholders with the runtime's chunking. The bytes match, but a

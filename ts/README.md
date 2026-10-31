@@ -66,7 +66,7 @@ and each type a module of its own beside it, holding the type and its functions
 (`coding/decode.Decoder.ts`), each with a `.ts.map` source map into the Rust it came
 from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
-in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
+in `rt/str.ts`, the ASCII methods of `u8`, `char`, `[u8]`, and `str` in `rt/ascii.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s and `f32`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
 `Option`'s, `Result`'s, and `Poll`'s methods, `==` of std's errors, `==` and ordering of a `Result` and a `Poll`, `cmp::max` and `min`, and the `str::parse` and
 `from_str_radix` of an integer or a `NonZero` and `bool`'s `str::parse`, goes in a module under its crate's name, as
@@ -167,6 +167,13 @@ Each integer's inherent methods are std's, and a `NonZero`'s, a `Wrapping`'s, an
 `wrapping_pow`. `pow` and `abs` panic on overflow as a debug build's do. Those the operators
 lack are one runtime function for every width, `rt.intCheckedPow(a, n, 64, false)`, given
 the width and sign, which computes on the value's `bigint`.
+
+The stable ASCII methods of `u8` and `char`, and of `[u8]` and `str`, so of a `Vec<u8>`
+and a `String`, are std's. A `u8` and a `char` share each runtime function, `rt.isAsciiDigit(c)`.
+`make_ascii_uppercase` and `make_ascii_lowercase` of a byte, a char, or a string write
+the other case where the `&mut` borrows it; of a part of a `String`, or of a `String`
+that a tuple, an array, or a `Vec` holds, they are refused. `escape_ascii`'s iterators read from either
+end, size themselves as std's do, and write what they have left by `Display`, unpadded.
 
 An `f64` is a JS number, so its operators are JS's, which round as Rust's do. Where
 JS differs from std, the runtime has std's: `round` halves away from zero, `max` and
@@ -767,7 +774,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic, casts, and inherent methods, with
-  `NonZero`'s, `Wrapping`'s, and `Saturating`'s, at each width's edges, `char`s next to each
+  `NonZero`'s, `Wrapping`'s, and `Saturating`'s, at each width's edges, the ASCII methods of
+  every byte, of chars either side of ASCII, Latin-1, and the surrogates, and of slices and strings, `char`s next to each
   encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Box<[T]>` and `Box<str>` made each way and turned back, `Wrapping` and `Saturating` at every width, `Duration`s whose
   seconds pass 2^53 or reach `u64::MAX`, control flow,
   patterns, `Copy` aggregates, those a container stores included and those written into

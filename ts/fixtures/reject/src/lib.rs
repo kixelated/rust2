@@ -2,7 +2,7 @@
 //! output is written.
 
 #![allow(dead_code, reason = "each item is a translation root, not called from Rust")]
-#![feature(cow_is_borrowed, f16)]
+#![feature(cow_is_borrowed, f16, is_ascii_octdigit)]
 
 pub fn float(a: f16) -> f16 {
 	a * 2.0
@@ -1287,9 +1287,9 @@ pub fn tallied_alone(data: &[u8]) -> (Tally,) {
 	data.iter().map(|&b| (b,)).collect()
 }
 
-/// `u8`'s ASCII methods are not translated yet.
-pub fn ascii_upper(a: u8) -> u8 {
-	a.to_ascii_uppercase()
+/// `u8`'s unstable ASCII methods are not translated.
+pub fn ascii_octal(a: u8) -> bool {
+	a.is_ascii_octdigit()
 }
 
 /// Structs JS keeps as objects, each holding an `rt.Cell`, one for each kind of whole
@@ -1644,4 +1644,17 @@ pub fn key_taken(n: u16) -> u16 {
 	unsafe { *part = n };
 	drop(KEY_TAKE.take());
 	unsafe { *part }
+}
+
+/// A `String`'s case changed where a tuple holds it, through a `&mut str` to an element
+/// JS copies, which is no path to write it back to.
+pub fn ascii_in_tuple(mut pair: (u8, String)) -> String {
+	pair.1.make_ascii_uppercase();
+	pair.1
+}
+
+/// Part of a `String` changed in place, which a JS string can't be.
+pub fn ascii_part(mut s: String) -> String {
+	s[1..].make_ascii_uppercase();
+	s
 }

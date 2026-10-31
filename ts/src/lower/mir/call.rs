@@ -511,6 +511,19 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.set_borrowed(&place, pushed, span, out);
 				done(Expr::undefined(), false)
 			}
+			// What the `&mut` borrows gets the value of the other case, as a byte, a char, and a
+			// JS string can't change in place.
+			("u8" | "char" | "str", "make_ascii_uppercase" | "make_ascii_lowercase") => {
+				let place = self.borrowed_place(&args[0].node, span, out)?;
+				let to = crate::lower::camel(&name.replacen("make", "to", 1));
+				let to = match owner.as_str() {
+					"str" => Expr::rt_of("str", &to),
+					_ => Expr::Rt(to),
+				};
+				let changed = to.call(vec![place.0.clone()]);
+				self.set_borrowed(&place, changed, span, out);
+				done(Expr::undefined(), false)
+			}
 			// The extended string, from the iterator read as std's `Extend` reads it.
 			("Extend", "extend") if targ(0).is_some_and(|t| self.b.t.std_of(t) == Some(Std::String)) => {
 				let (item, source) = (targ(1)?, targ(2)?);

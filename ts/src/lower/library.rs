@@ -2120,7 +2120,24 @@ fn mapping<'tcx>(
 		("slice", "concat" | "join") => {
 			return slices_join(b, targ(gargs, 0), targ(gargs, 1), name == "join", args, span);
 		}
-		("char", "is_ascii_digit") => Expr::rt("charIsAsciiDigit", args),
+		("char", _) if let Some(method) = ascii(&name) => Expr::rt(method, args),
+		("ascii", "escape_default") => Expr::rt("escapeAscii", args),
+		// Those of `[u8]`, a `Vec<u8>`'s by `Deref`, and of `str`, a `String`'s, but `str`'s
+		// `make_ascii_*`, which MIR lowers as a byte's and a char's.
+		(
+			"slice" | "str",
+			"is_ascii"
+			| "eq_ignore_ascii_case"
+			| "to_ascii_uppercase"
+			| "to_ascii_lowercase"
+			| "trim_ascii_start"
+			| "trim_ascii_end"
+			| "trim_ascii",
+		)
+		| ("slice", "escape_ascii" | "make_ascii_uppercase" | "make_ascii_lowercase") => {
+			let of = if owner == "slice" { "byteSlice" } else { "str" };
+			Expr::rt_of(of, &super::camel(&name)).call(args)
+		}
 		// A `Cow<str>` is its text, whichever variant holds it.
 		("Cow", "into_owned") if targ(gargs, 0).is_str() => args.pop()?,
 		("AsRef", "as_ref") if string(tcx, targ(gargs, 0)) && targ(gargs, 1).is_str() => args.pop()?,
@@ -2628,6 +2645,30 @@ fn int_named(name: &str) -> Option<Int> {
 	Some(Int { bits, signed, pointer })
 }
 
+/// The runtime function of `u8`'s or `char`'s ASCII method `name`, which the two share:
+/// std's char ones are its byte ones' for an ASCII char, and past ASCII none holds or
+/// changes either. Their `make_ascii_*` write where the `&mut` borrows, as MIR lowers them.
+fn ascii(name: &str) -> Option<String> {
+	match name {
+		"is_ascii"
+		| "is_ascii_alphabetic"
+		| "is_ascii_uppercase"
+		| "is_ascii_lowercase"
+		| "is_ascii_alphanumeric"
+		| "is_ascii_digit"
+		| "is_ascii_hexdigit"
+		| "is_ascii_punctuation"
+		| "is_ascii_graphic"
+		| "is_ascii_whitespace"
+		| "is_ascii_control"
+		| "to_ascii_uppercase"
+		| "to_ascii_lowercase"
+		| "eq_ignore_ascii_case"
+		| "escape_ascii" => Some(super::camel(name)),
+		_ => None,
+	}
+}
+
 /// The type whose inherent impl holds `def_id`.
 fn impl_self(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Ty<'_>> {
 	let imp = tcx.inherent_impl_of_assoc(def_id)?;
@@ -2775,6 +2816,12 @@ fn int_method<'tcx>(
 		"wrapping_mul" => "wrappingMul",
 		"div_ceil" => "divCeil",
 		"is_multiple_of" => "isMultipleOf",
+		_ if int.bits == 8
+			&& !int.signed
+			&& let Some(method) = ascii(name) =>
+		{
+			return Some(Expr::rt(method, args));
+		}
 		// The operator's, which panics with the message each of these does.
 		"strict_add" => "add",
 		"strict_sub" => "sub",

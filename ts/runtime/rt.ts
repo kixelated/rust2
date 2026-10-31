@@ -13,6 +13,7 @@ import { drop as dispose, dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
 import { UNPRINTABLE } from "./rt/unicode.ts";
+export * from "./rt/ascii.ts";
 export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
@@ -1309,11 +1310,6 @@ export function stringLen(s: string): number {
 /** `char::from_u32`: `n`, unless it is a surrogate or past the last char. */
 export function charFromU32(n: u32): char | undefined {
 	return n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? undefined : (n as char);
-}
-
-/** `char::is_ascii_digit`. */
-export function charIsAsciiDigit(c: char): boolean {
-	return c >= 0x30 && c <= 0x39;
 }
 
 // Formatting, as `core::fmt` does it: the same output byte for byte.

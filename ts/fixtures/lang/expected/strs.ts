@@ -97,7 +97,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 						if (_41 === rt.DONE) {
 							break;
 						}
-						rt.byteVecPush(out, rt.charIsAsciiDigit(_41) ? 1 : 0);
+						rt.byteVecPush(out, rt.isAsciiDigit(_41) ? 1 : 0);
 					}
 					rt.byteVecPush(out, s.length === 0 ? 1 : 0);
 					rt.byteVecPush(out, s.length === 0 ? 1 : 0);
@@ -131,7 +131,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			const parts2: rt.Iter<string> = rt.strSplit(s, (c9: rt.char): boolean => {
 				seen.push(c9);
 				if (!(c9 === sep)) {
-					return rt.charIsAsciiDigit(c9);
+					return rt.isAsciiDigit(c9);
 				}
 				return true;
 			});
@@ -170,7 +170,7 @@ export function strs(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}));
 			putSeen(out, seen2);
 			rt.byteVecPush(out, rt.strStartsWith(s, (c7: rt.char): boolean => {
-				return rt.charIsAsciiDigit(c7);
+				return rt.isAsciiDigit(c7);
 			}) ? 1 : 0);
 			fmt_put(out, rt.strTrimStartMatches(s, digit));
 			putOffset(out, rt.strRfind(s, (c8: rt.char): boolean => {
@@ -325,7 +325,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.byteVecPush(out, rt.strContains(s, p) ? 1 : 0);
 				rt.byteVecPush(out, rt.strContains(s, "/") ? 1 : 0);
 				rt.byteVecPush(out, rt.strContains(s, (c: rt.char): boolean => {
-					return rt.charIsAsciiDigit(c);
+					return rt.isAsciiDigit(c);
 				}) ? 1 : 0);
 				putOffset(out, rt.strRfind(s, p));
 			} else {
@@ -395,7 +395,7 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 
 /** A predicate that is a function, not a closure. */
 export function digit(c: rt.char): boolean {
-	return rt.charIsAsciiDigit(c);
+	return rt.isAsciiDigit(c);
 }
 
 /** `/` separates parts, and `\` escapes a `/` or `\` within one. */
@@ -1192,7 +1192,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (_21 === 0) {
 		fmt_put(out, rt.stringExtendChars("", rt.strChars(s)));
 		fmt_put(out, rt.stringExtendChars("", rt.iterFilter(rt.iterRev(rt.strChars(s)), (c: rt.char): boolean => {
-			return !rt.charIsAsciiDigit(c);
+			return !rt.isAsciiDigit(c);
 		})));
 		fmt_put(out, rt.stringExtendChars("", rt.iterSlice(chars)));
 		fmt_put(out, rt.stringExtendChars("", rt.iterSkip(rt.iterSlice(chars), 1)));
@@ -1267,7 +1267,7 @@ export function extendChars(t: rt.Place<string>, chars: rt.char[], kind: rt.u8):
 		t.v = rt.stringExtendChars(t.v, _8);
 	} else if (_4 === 1) {
 		const _9: rt.Iter<rt.char> = rt.iterFilter(rt.iterSlice(chars), (c: rt.char): boolean => {
-			return rt.charIsAsciiDigit(c);
+			return rt.isAsciiDigit(c);
 		});
 		t.v = rt.stringExtendChars(t.v, _9);
 	} else {

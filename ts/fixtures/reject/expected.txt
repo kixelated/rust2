@@ -128,7 +128,7 @@ a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Onced`, which the crate
 a raw pointer to `(u16, u16)` in `Pushed`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1263:22
 `Extend` of `(std::vec::Vec<u8>, Tally)` by `(u8, u8)`, whose `Tally` of `u8` is not supported yet at fixtures/reject/src/lib.rs:1282:31
 `Extend` of `(Tally,)` by `(u8,)`, whose `Tally` of `u8` is not supported yet at fixtures/reject/src/lib.rs:1287:29
-unsupported call to `core::num::<impl u8>::to_ascii_uppercase` at fixtures/reject/src/lib.rs:1292:4
+unsupported call to `core::num::<impl u8>::is_ascii_octdigit` at fixtures/reject/src/lib.rs:1292:4
 a raw pointer to `std::cell::UnsafeCell<u16>` in `ByRead`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1470:35
 a raw pointer to `std::cell::UnsafeCell<u16>` in `ByWrite`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1483:35
 a raw pointer to `std::cell::UnsafeCell<u16>` in `BySwap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1496:35
@@ -144,6 +144,8 @@ a raw pointer to `ByRefTake` in `(u16, ByRefTake)`, which the crate may put anot
 a raw pointer to `ByKeySet` in `(u16, ByKeySet)`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1628:51
 a raw pointer to `ByKeyReplace` in `(u16, ByKeyReplace)`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1636:55
 a raw pointer to `ByKeyTake` in `(u16, ByKeyTake)`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1643:52
+`std::ops::DerefMut::deref_mut` of a value JS copies, which is no path at fixtures/reject/src/lib.rs:1652:2
+`std::ops::IndexMut::index_mut` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:1658:3
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:132:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:152:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:180:2

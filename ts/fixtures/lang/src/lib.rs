@@ -26,6 +26,7 @@
 #![feature(iter_order_by, split_as_slice, wrapping_int_impl, wrapping_next_power_of_two)]
 
 mod arrays;
+mod ascii;
 mod atomics;
 mod borrows;
 mod bounds;
