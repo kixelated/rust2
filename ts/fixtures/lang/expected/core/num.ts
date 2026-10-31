@@ -39,14 +39,14 @@ export function canNotOverflow$01utshh(radix: rt.u32, isSignedTy: boolean, digit
 }
 
 export function fromAsciiBytesRadixPanic(radix: rt.u32): never {
-	doPanic(radix);
+	doPanic$0sx2e1f(radix);
 }
 
-export function doPanic(radix: rt.u32): never {
-	runtime(radix);
+export function doPanic$0sx2e1f(radix: rt.u32): never {
+	runtime$0bn0geu(radix);
 }
 
-export function runtime(radix: rt.u32): never {
+export function runtime$0bn0geu(radix: rt.u32): never {
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(radix, f)];
 	rt.panicFmt(["from_ascii_bytes_radix: radix must lie in the range `[2, 36]` - found ", args2[0]]);
 }

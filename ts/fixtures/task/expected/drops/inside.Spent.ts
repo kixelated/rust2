@@ -20,12 +20,12 @@ export class Spent {
 	}
 }
 
-export function startBound$RangeBounds_usize(self: Spent): rt.RangeBound<rt.usize> {
+export function startBound$ops_RangeBounds_usize(self: Spent): rt.RangeBound<rt.usize> {
 	Guard.note(self._0, "start");
 	return { tag: "Included", _0: self._1 } as rt.RangeBound<rt.usize>;
 }
 
-export function endBound$RangeBounds_usize(self: Spent): rt.RangeBound<rt.usize> {
+export function endBound$ops_RangeBounds_usize(self: Spent): rt.RangeBound<rt.usize> {
 	Guard.note(self._0, "end");
 	return { tag: "Excluded", _0: self._2 } as rt.RangeBound<rt.usize>;
 }

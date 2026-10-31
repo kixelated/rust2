@@ -8,7 +8,7 @@ export interface Manual {
 	list: rt.u16[];
 }
 
-export function fmt$Debug(self: Manual, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Manual, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.debugStructFinishNonExhaustive(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, "Manual"), "id", (f: rt.Formatter) => rt.u8Debug(self.id, f)), "list", (f: rt.Formatter) => rt.fmtList(self.list, f, rt.u16Debug)));
 }
 

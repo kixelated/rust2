@@ -7,7 +7,7 @@ export interface Evens {
 	inner: rt.Iter<rt.u8>;
 }
 
-export function next$Iterator(self: Evens): rt.u8 | rt.Done {
+export function next$iter_Iterator(self: Evens): rt.u8 | rt.Done {
 	while (true) {
 		const _2: rt.u8 | rt.Done = self.inner.next();
 		if (_2 !== rt.DONE) {

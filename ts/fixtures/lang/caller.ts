@@ -10,8 +10,8 @@ import * as rt from "./rt.ts";
 export function run(input: rt.ByteSlice): rt.ByteVec {
 	if (rt.byteSliceFirst(input) !== 0xff) return harness(input);
 	const fault = Fault.new(rt.byteSliceRange(input, 1));
-	const display: rt.Fmt = (f) => Fault.fmt$Display(fault, f);
-	const debug: rt.Fmt = (f) => Fault.fmt$Debug(fault, f);
+	const display: rt.Fmt = (f) => Fault.fmt$fmt_Display(fault, f);
+	const debug: rt.Fmt = (f) => Fault.fmt$fmt_Debug(fault, f);
 	const text = rt.fmtFormat([
 		display,
 		"|",

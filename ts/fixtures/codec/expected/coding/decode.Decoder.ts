@@ -175,7 +175,7 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 		if (_2.ok) {
 			return rt.Ok(_2.value);
 		}
-		return rt.Err(DecodeError.from$From_FromUtf8Error((_2 as { ok: false; error: rt.FromUtf8Error }).error));
+		return rt.Err(DecodeError.from$convert_From_string_FromUtf8Error((_2 as { ok: false; error: rt.FromUtf8Error }).error));
 	}
 	return _5;
 }

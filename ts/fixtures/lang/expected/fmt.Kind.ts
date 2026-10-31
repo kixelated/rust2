@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Kind, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Empty") {
 		return rt.fmtWriteStr(f, "Empty");
 	}

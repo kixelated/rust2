@@ -16,31 +16,31 @@ export class Wrapped<T> {
 	}
 }
 
-export function new$Held(value: pointers_Held.Held): Wrapped<pointers_Held.Held> {
+export function new$pointers_Held(value: pointers_Held.Held): Wrapped<pointers_Held.Held> {
 	return new Wrapped(new rt.Cell(value));
 }
 
-export function with$Held_u8_cells_closure2(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => rt.u8): rt.u8 {
+export function with$pointers_Held_u8_pointers_cells_closure2(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => rt.u8): rt.u8 {
 	return f(self._0.v);
 }
 
-export function with$Held_u8_cells_closure4(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => rt.u8): rt.u8 {
+export function with$pointers_Held_u8_pointers_cells_closure4(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => rt.u8): rt.u8 {
 	return f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure0(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
+export function withMut$pointers_Held_unit_pointers_cells_closure0(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
 	f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure1(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
+export function withMut$pointers_Held_unit_pointers_cells_closure1(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
 	f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure3(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
+export function withMut$pointers_Held_unit_pointers_cells_closure3(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
 	f(self._0.v);
 }
 
-export function withMut$Held_unit_cells_closure5(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
+export function withMut$pointers_Held_unit_pointers_cells_closure5(self: Wrapped<pointers_Held.Held>, f: (a0: pointers_Held.Held) => undefined): void {
 	f(self._0.v);
 }
 

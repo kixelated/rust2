@@ -6,7 +6,7 @@ import * as Meters from "./shapes.Meters.ts";
 import * as Point from "./shapes.Point.ts";
 import * as shapes_Shape from "./shapes.Shape.ts";
 
-export function fmt$Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(self.value, f, rt.u8Debug);
@@ -15,43 +15,16 @@ export function fmt$Debug_Option_u8(self: Wrap<rt.u8 | undefined>, f: rt.Formatt
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
-export function fmt$Debug_Pair(self: Wrap<fmt_Pair.Pair>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_Result_u8_shapes_Shape(self: Wrap<rt.Result<rt.u8, shapes_Shape.Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$Debug(self.value, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Debug, (value: shapes_Shape.Shape, f: rt.Formatter) => shapes_Shape.fmt$fmt_Debug(value, f));
 	const _7: string = "count";
 	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
-export function fmt$Debug_Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const _3: string = "Wrap";
-	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => Point.fmt$Debug(self.value, f);
-	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
-}
-
-export function fmt$Debug_Result_u8_Shape(self: Wrap<rt.Result<rt.u8, shapes_Shape.Shape>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const _3: string = "Wrap";
-	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtResult(self.value, f, rt.u8Debug, (value: shapes_Shape.Shape, f: rt.Formatter) => shapes_Shape.fmt$Debug(value, f));
-	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
-}
-
-export function fmt$Debug_Shape(self: Wrap<shapes_Shape.Shape>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
-	const _3: string = "Wrap";
-	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => shapes_Shape.fmt$Debug(self.value, f);
-	const _7: string = "count";
-	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
-	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
-}
-
-export function fmt$Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.fmtList(self.value, f, rt.u16Debug);
@@ -60,16 +33,25 @@ export function fmt$Debug_Vec_u16(self: Wrap<rt.u16[]>, f: rt.Formatter): rt.Res
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
-export function fmt$Debug_Wrap_Pair(self: Wrap<Wrap<fmt_Pair.Pair>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_fmt_Pair(self: Wrap<fmt_Pair.Pair>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
-	const _5: rt.Fmt = (f: rt.Formatter) => fmt$Debug_Pair(self.value, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$fmt_Debug(self.value, f);
 	const _7: string = "count";
 	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
-export function fmt$Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_generics_Wrap_fmt_Pair(self: Wrap<Wrap<fmt_Pair.Pair>>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	const _3: string = "Wrap";
+	const _4: string = "value";
+	const _5: rt.Fmt = (f: rt.Formatter) => fmt$fmt_Debug_fmt_Pair(self.value, f);
+	const _7: string = "count";
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
+}
+
+export function fmt$fmt_Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.i16Debug(self.value, f);
@@ -78,7 +60,25 @@ export function fmt$Debug_i16(self: Wrap<rt.i16>, f: rt.Formatter): rt.Result<un
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
-export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug_shapes_Point(self: Wrap<Point.Point>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	const _3: string = "Wrap";
+	const _4: string = "value";
+	const _5: rt.Fmt = (f: rt.Formatter) => Point.fmt$fmt_Debug(self.value, f);
+	const _7: string = "count";
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
+}
+
+export function fmt$fmt_Debug_shapes_Shape(self: Wrap<shapes_Shape.Shape>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+	const _3: string = "Wrap";
+	const _4: string = "value";
+	const _5: rt.Fmt = (f: rt.Formatter) => shapes_Shape.fmt$fmt_Debug(self.value, f);
+	const _7: string = "count";
+	const _8: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.count, f);
+	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
+}
+
+export function fmt$fmt_Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Wrap";
 	const _4: string = "value";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self.value, f);
@@ -87,11 +87,11 @@ export function fmt$Debug_u8(self: Wrap<rt.u8>, f: rt.Formatter): rt.Result<unde
 	return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _3), _4, _5), _7, _8));
 }
 
-export function eq$PartialEq_Pair(self: Wrap<fmt_Pair.Pair>, other: Wrap<fmt_Pair.Pair>): boolean {
+export function eq$cmp_PartialEq_fmt_Pair(self: Wrap<fmt_Pair.Pair>, other: Wrap<fmt_Pair.Pair>): boolean {
 	if (!(self.count === other.count)) {
 		return false;
 	}
-	return fmt_Pair.eq$PartialEq(self.value, other.value);
+	return fmt_Pair.eq$cmp_PartialEq(self.value, other.value);
 }
 
 /** A generic struct, with methods on every instance, on some, and on one. */
@@ -109,23 +109,23 @@ export function new$Option_u8(value: rt.u8 | undefined): Wrap<rt.u8 | undefined>
 	return new Wrap(value, 0);
 }
 
-export function new$Pair(value: fmt_Pair.Pair): Wrap<fmt_Pair.Pair> {
+export function new$fmt_Pair(value: fmt_Pair.Pair): Wrap<fmt_Pair.Pair> {
 	return new Wrap(value, 0);
 }
 
-export function new$Point(value: Point.Point): Wrap<Point.Point> {
-	return new Wrap(value, 0);
-}
-
-export function new$Shape(value: shapes_Shape.Shape): Wrap<shapes_Shape.Shape> {
-	return new Wrap(value, 0);
-}
-
-export function new$Wrap_Pair(value: Wrap<fmt_Pair.Pair>): Wrap<Wrap<fmt_Pair.Pair>> {
+export function new$generics_Wrap_fmt_Pair(value: Wrap<fmt_Pair.Pair>): Wrap<Wrap<fmt_Pair.Pair>> {
 	return new Wrap(value, 0);
 }
 
 export function new$i16(value: rt.i16): Wrap<rt.i16> {
+	return new Wrap(value, 0);
+}
+
+export function new$shapes_Point(value: Point.Point): Wrap<Point.Point> {
+	return new Wrap(value, 0);
+}
+
+export function new$shapes_Shape(value: shapes_Shape.Shape): Wrap<shapes_Shape.Shape> {
 	return new Wrap(value, 0);
 }
 
@@ -137,11 +137,11 @@ export function get$Option_u8(self: Wrap<rt.u8 | undefined>): rt.u8 | undefined 
 	return self.value;
 }
 
-export function get$Pair(self: Wrap<fmt_Pair.Pair>): fmt_Pair.Pair {
+export function get$fmt_Pair(self: Wrap<fmt_Pair.Pair>): fmt_Pair.Pair {
 	return self.value;
 }
 
-export function get$Wrap_Pair(self: Wrap<Wrap<fmt_Pair.Pair>>): Wrap<fmt_Pair.Pair> {
+export function get$generics_Wrap_fmt_Pair(self: Wrap<Wrap<fmt_Pair.Pair>>): Wrap<fmt_Pair.Pair> {
 	return self.value;
 }
 
@@ -149,12 +149,12 @@ export function get$u8(self: Wrap<rt.u8>): rt.u8 {
 	return self.value;
 }
 
-export function bump$Point(self: Wrap<Point.Point>): rt.u8 {
+export function bump$Vec_u16(self: Wrap<rt.u16[]>): rt.u8 {
 	self.count = rt.u8WrappingAdd(self.count, 1);
 	return self.count;
 }
 
-export function bump$Vec_u16(self: Wrap<rt.u16[]>): rt.u8 {
+export function bump$shapes_Point(self: Wrap<Point.Point>): rt.u8 {
 	self.count = rt.u8WrappingAdd(self.count, 1);
 	return self.count;
 }
@@ -164,45 +164,45 @@ export function bump$u8(self: Wrap<rt.u8>): rt.u8 {
 	return self.count;
 }
 
-export function intoInner$Point(self: Wrap<Point.Point>): Point.Point {
+export function intoInner$shapes_Point(self: Wrap<Point.Point>): Point.Point {
 	return self.value;
 }
 
 /** A method with its own type parameter. */
-export function map$u8_Pair_methods_closure1(self: Wrap<rt.u8>, f: (a0: rt.u8) => fmt_Pair.Pair): Wrap<fmt_Pair.Pair> {
+export function map$u8_fmt_Pair_generics_methods_closure1(self: Wrap<rt.u8>, f: (a0: rt.u8) => fmt_Pair.Pair): Wrap<fmt_Pair.Pair> {
 	return new Wrap(f(self.value), self.count);
 }
 
-export function scaled$Meters(self: Wrap<Meters.Meters>): rt.u64 {
-	return rt.u64SaturatingAdd(Meters.area$Area(self.value), self.count as rt.u64);
+export function scaled$shapes_Meters(self: Wrap<Meters.Meters>): rt.u64 {
+	return rt.u64SaturatingAdd(Meters.area$shapes_Area(self.value), self.count as rt.u64);
 }
 
-export function scaled$Shape(self: Wrap<shapes_Shape.Shape>): rt.u64 {
-	return rt.u64SaturatingAdd(shapes_Shape.area$Area(self.value), self.count as rt.u64);
+export function scaled$shapes_Shape(self: Wrap<shapes_Shape.Shape>): rt.u64 {
+	return rt.u64SaturatingAdd(shapes_Shape.area$shapes_Area(self.value), self.count as rt.u64);
 }
 
 export function double$u8(self: Wrap<rt.u8>): rt.u16 {
 	return rt.u16Mul(self.value as rt.u16, 2);
 }
 
-export function area$Area_Meters(self: Wrap<Meters.Meters>): rt.u64 {
-	return Meters.area$Area(self.value);
+export function area$shapes_Area_shapes_Meters(self: Wrap<Meters.Meters>): rt.u64 {
+	return Meters.area$shapes_Area(self.value);
 }
 
-export function area$Area_Shape(self: Wrap<shapes_Shape.Shape>): rt.u64 {
-	return shapes_Shape.area$Area(self.value);
+export function area$shapes_Area_shapes_Shape(self: Wrap<shapes_Shape.Shape>): rt.u64 {
+	return shapes_Shape.area$shapes_Area(self.value);
 }
 
 /** A default method, monomorphized for each type. */
-export function describe$Area_Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec): void {
+export function describe$shapes_Area_shapes_Meters(self: Wrap<Meters.Meters>, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 0);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$Area_Meters(self))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$shapes_Area_shapes_Meters(self))));
 }
 
 /** A default method, monomorphized for each type. */
-export function describe$Area_Shape(self: Wrap<shapes_Shape.Shape>, out: rt.ByteVec): void {
+export function describe$shapes_Area_shapes_Shape(self: Wrap<shapes_Shape.Shape>, out: rt.ByteVec): void {
 	rt.byteVecPush(out, 4);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$Area_Shape(self))));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(area$shapes_Area_shapes_Shape(self))));
 }
 
 //# sourceMappingURL=generics.Wrap.ts.map

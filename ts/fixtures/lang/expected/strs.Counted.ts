@@ -8,7 +8,7 @@ export interface Counted<T> {
 	nexts: rt.Cell<rt.u8>;
 }
 
-export function next$Iterator_String(self: Counted<string>): string | rt.Done {
+export function next$iter_Iterator_String(self: Counted<string>): string | rt.Done {
 	rt.cellSet(self.nexts, rt.u8Add(self.nexts.v, 1));
 	const _8: [string, string[]] | undefined = rt.sliceSplitFirst(self.items);
 	if (_8 !== undefined) {
@@ -19,7 +19,7 @@ export function next$Iterator_String(self: Counted<string>): string | rt.Done {
 	return rt.DONE;
 }
 
-export function next$Iterator_char(self: Counted<rt.char>): rt.char | rt.Done {
+export function next$iter_Iterator_char(self: Counted<rt.char>): rt.char | rt.Done {
 	rt.cellSet(self.nexts, rt.u8Add(self.nexts.v, 1));
 	const _8: [rt.char, rt.char[]] | undefined = rt.sliceSplitFirst(self.items);
 	if (_8 !== undefined) {
@@ -30,7 +30,7 @@ export function next$Iterator_char(self: Counted<rt.char>): rt.char | rt.Done {
 	return rt.DONE;
 }
 
-export function next$Iterator_str(self: Counted<string>): string | rt.Done {
+export function next$iter_Iterator_ref_str(self: Counted<string>): string | rt.Done {
 	rt.cellSet(self.nexts, rt.u8Add(self.nexts.v, 1));
 	const _8: [string, string[]] | undefined = rt.sliceSplitFirst(self.items);
 	if (_8 !== undefined) {

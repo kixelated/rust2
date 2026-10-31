@@ -28,15 +28,15 @@ export function checkedAdd(self: Timestamp, rhs: Timestamp): Timestamp | undefin
 	return undefined;
 }
 
-export function partialCmp$PartialOrd(self: Timestamp, other: Timestamp): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Timestamp, other: Timestamp): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
 /**
  * moq-net's temporal order: across scales, the cross products in `u128`, with a tie
  * broken by `(scale, value)`.
  */
-export function cmp$Ord(self: Timestamp, other: Timestamp): rt.Ordering {
+export function cmp$cmp_Ord(self: Timestamp, other: Timestamp): rt.Ordering {
 	if (!rt.u64Eq(self.scale, other.scale)) {
 		return rt.orderingThen(rt.orderingThen(rt.cmp(rt.u128Mul(rt.u128Cast(self.value), rt.u128Cast(other.scale)), rt.u128Mul(rt.u128Cast(other.value), rt.u128Cast(self.scale))), (): rt.Ordering => {
 			return rt.cmp(self.scale, other.scale);

@@ -3,12 +3,12 @@
 import * as rt from "./rt.ts";
 import * as Skew from "./keys.Skew.ts";
 
-export function eq$PartialEq(self: Skewed, other: Skewed): boolean {
-	return Skew.eq$PartialEq(self._0, other._0);
+export function eq$cmp_PartialEq(self: Skewed, other: Skewed): boolean {
+	return Skew.eq$cmp_PartialEq(self._0, other._0);
 }
 
-export function partialCmp$PartialOrd(self: Skewed, other: Skewed): rt.Ordering | undefined {
-	return Skew.partialCmp$PartialOrd(self._0, other._0);
+export function partialCmp$cmp_PartialOrd(self: Skewed, other: Skewed): rt.Ordering | undefined {
+	return Skew.partialCmp$cmp_PartialOrd(self._0, other._0);
 }
 
 /**

@@ -101,7 +101,7 @@ export function made(data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (data.length !== 0) {
 		const skip: rt.u8 = data.data[data.start];
 		const rest: rt.ByteSlice = new rt.ByteSlice(data.data, data.start + 1, data.length - 1);
-		const made: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$AsRef_u8s({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
+		const made: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$convert_AsRef_slice_u8({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
 		const source: rt.ByteVec = rt.byteSliceToByteVec(rest);
 		const copied: rt.ByteSlice = rt.bytesCopyFromSlice(rt.byteVecSlice(source));
 		rt.byteVecClear(source);

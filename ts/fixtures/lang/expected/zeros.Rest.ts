@@ -8,7 +8,7 @@ export function clone$Clone(self: Rest): Rest {
 	return { _0: undefined, _1: rt.iterEmpty() as rt.Iter<rt.u8> };
 }
 
-export function fmt$Debug(self: Rest, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Rest, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Rest";
 	const _4: rt.Fmt = (f: rt.Formatter) => rt.fmtRangeFull(self._0, f);
 	const _6: rt.Fmt = (f: rt.Formatter) => rt.fmtWriteStr(f, "Empty");

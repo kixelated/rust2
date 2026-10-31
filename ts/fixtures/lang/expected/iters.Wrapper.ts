@@ -2,7 +2,7 @@
 
 import * as Bumped from "./iters.Bumped.ts";
 
-export function clone$Clone_Bumped(self: Wrapper<Bumped.Bumped>): Wrapper<Bumped.Bumped> {
+export function clone$Clone_iters_Bumped(self: Wrapper<Bumped.Bumped>): Wrapper<Bumped.Bumped> {
 	return new Wrapper(Bumped.clone$Clone(self._0));
 }
 

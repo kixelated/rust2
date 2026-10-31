@@ -42,500 +42,500 @@ import * as Tick from "./wraps.Tick.ts";
 import * as zeros_Lock from "./zeros.Lock.ts";
 import type * as Loud from "./zeros.Loud.ts";
 
-export function copy$Bumped(v: Bumped.Bumped): Bumped.Bumped {
-	return { _0: v._0 };
+export function copy$Option_array0_u32(v: rt.u32[] | undefined): rt.u32[] | undefined {
+	return v === undefined ? v : copy$array_u32(v);
 }
 
-export function copy$ByCall(v: ByCall.ByCall): ByCall.ByCall {
+export function copy$Option_array275_u32(v: rt.u32[] | undefined): rt.u32[] | undefined {
+	return v === undefined ? v : copy$array_u32(v);
+}
+
+export function copy$Option_array2_Option_u8(v: Array<rt.u8 | undefined> | undefined): Array<rt.u8 | undefined> | undefined {
+	return v === undefined ? v : copy$array_Option_u8(v);
+}
+
+export function copy$Option_array2_keys_Hop(v: Hop.Hop[] | undefined): Hop.Hop[] | undefined {
+	return v === undefined ? v : copy$array_keys_Hop(v);
+}
+
+export function copy$Option_array2_u16(v: rt.u16[] | undefined): rt.u16[] | undefined {
+	return v === undefined ? v : copy$array_u16(v);
+}
+
+export function copy$Option_array2_u64(v: rt.u64[] | undefined): rt.u64[] | undefined {
+	return v === undefined ? v : copy$array_u64(v);
+}
+
+export function copy$Option_array2_u8(v: Uint8Array | undefined): Uint8Array | undefined {
+	return v === undefined ? v : copy$array_u8(v);
+}
+
+export function copy$Option_collections_Tally(v: collections_Tally.Tally | undefined): collections_Tally.Tally | undefined {
+	return v === undefined ? v : copy$collections_Tally(v);
+}
+
+export function copy$Option_keys_Hop(v: Hop.Hop | undefined): Hop.Hop | undefined {
+	return v === undefined ? v : copy$keys_Hop(v);
+}
+
+export function copy$Option_pointers_Pair(v: pointers_Pair.Pair | undefined): pointers_Pair.Pair | undefined {
+	return v === undefined ? v : copy$pointers_Pair(v);
+}
+
+export function copy$Option_shapes_Shape(v: shapes_Shape.Shape | undefined): shapes_Shape.Shape | undefined {
+	return v === undefined ? v : copy$shapes_Shape(v);
+}
+
+export function copy$Option_tuple2_ref_sync_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined): [rt.Mutex<rt.u8>, rt.u8] | undefined {
+	return v === undefined ? v : copy$tuple2_ref_sync_Mutex_u8_u8(v);
+}
+
+export function copy$Option_tuple2_u64_u64(v: [rt.u64, rt.u64] | undefined): [rt.u64, rt.u64] | undefined {
+	return v === undefined ? v : copy$tuple2_u64_u64(v);
+}
+
+export function copy$Option_tuple2_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8] | undefined {
+	return v === undefined ? v : copy$tuple2_u8_u8(v);
+}
+
+export function copy$Result_array2_u32_u16(v: rt.Result<rt.u32[], rt.u16>): rt.Result<rt.u32[], rt.u16> {
+	return v.ok ? rt.Ok(copy$array_u32(v.value)) : rt.Err(v.error);
+}
+
+export function copy$Result_tuple2_ref_sync_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>): rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> {
+	return v.ok ? rt.Ok(copy$tuple2_ref_sync_Mutex_u8_u8(v.value)) : rt.Err(v.error);
+}
+
+export function copy$array_Option_u8(v: Array<rt.u8 | undefined>): Array<rt.u8 | undefined> {
+	return v.slice();
+}
+
+export function copy$array_array2_u8(v: Uint8Array[]): Uint8Array[] {
+	return v.map(copy$array_u8);
+}
+
+export function copy$array_collections_Quirky(v: Quirky.Quirky[]): Quirky.Quirky[] {
+	return v.map(copy$collections_Quirky);
+}
+
+export function copy$array_generics_Either_u8_shapes_Point(v: Either.Either<rt.u8, Point.Point>[]): Either.Either<rt.u8, Point.Point>[] {
+	return v.map(copy$generics_Either_u8_shapes_Point);
+}
+
+export function copy$array_keys_Hop(v: Hop.Hop[]): Hop.Hop[] {
+	return v.map(copy$keys_Hop);
+}
+
+export function copy$array_ref_sync_Mutex_u8(v: rt.Mutex<rt.u8>[]): rt.Mutex<rt.u8>[] {
+	return v.slice();
+}
+
+export function copy$array_shapes_Point(v: Point.Point[]): Point.Point[] {
+	return v.map(copy$shapes_Point);
+}
+
+export function copy$array_tuple2_u8_u16(v: [rt.u8, rt.u16][]): [rt.u8, rt.u16][] {
+	return v.map(copy$tuple2_u8_u16);
+}
+
+export function copy$array_tuple2_u8_u8(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
+	return v.map(copy$tuple2_u8_u8);
+}
+
+export function copy$array_u16(v: rt.u16[]): rt.u16[] {
+	return v.slice();
+}
+
+export function copy$array_u32(v: rt.u32[]): rt.u32[] {
+	return v.slice();
+}
+
+export function copy$array_u64(v: rt.u64[]): rt.u64[] {
+	return v.slice();
+}
+
+export function copy$array_u8(v: Uint8Array): Uint8Array {
+	return v.slice();
+}
+
+export function copy$array_unit(v: undefined[]): undefined[] {
+	return v.slice();
+}
+
+export function copy$collections_Quirky(v: Quirky.Quirky): Quirky.Quirky {
 	return { _0: v._0, _1: v._1 };
 }
 
-export function copy$ByClosure(v: ByClosure.ByClosure): ByClosure.ByClosure {
-	return { _0: v._0, _1: v._1 };
+export function copy$collections_Tally(v: collections_Tally.Tally): collections_Tally.Tally {
+	return { n: v.n };
 }
 
-export function copy$ByObject(v: ByObject.ByObject): ByObject.ByObject {
-	return { _0: v._0, _1: v._1 };
+export function copy$durations_Window(v: durations_Window.Window): durations_Window.Window {
+	return { start: v.start, len: v.len };
 }
 
-export function copy$ControlFlow_Arc_u8_u8s(v: rt.Result<Uint8Array, rt.Arc<rt.u8>>): rt.Result<Uint8Array, rt.Arc<rt.u8>> {
-	return v.ok ? rt.Ok(copy$u8s(v.value)) : rt.Err(v.error);
-}
-
-export function copy$ControlFlow_unit_u8s(v: rt.Result<Uint8Array, undefined>): rt.Result<Uint8Array, undefined> {
-	return v.ok ? rt.Ok(copy$u8s(v.value)) : rt.Err(v.error);
-}
-
-export function copy$Duo(v: Duo.Duo): Duo.Duo {
-	return { _0: v._0, _1: v._1 };
-}
-
-export function copy$Either_u8_Point(v: Either.Either<rt.u8, Point.Point>): Either.Either<rt.u8, Point.Point> {
+export function copy$generics_Either_u8_shapes_Point(v: Either.Either<rt.u8, Point.Point>): Either.Either<rt.u8, Point.Point> {
 	if (v.tag === "Left") {
 		return { tag: "Left", _0: v._0 };
 	}
 	if (v.tag === "Right") {
-		return { tag: "Right", value: copy$Point(v.value) };
+		return { tag: "Right", value: copy$shapes_Point(v.value) };
 	}
 	return v;
 }
 
-export function copy$Either_u8_Points(v: Either.Either<rt.u8, Point.Point>[]): Either.Either<rt.u8, Point.Point>[] {
-	return v.map(copy$Either_u8_Point);
+export function copy$generics_Wrap_shapes_Point(v: Wrap.Wrap<Point.Point>): Wrap.Wrap<Point.Point> {
+	return new Wrap.Wrap(copy$shapes_Point(v.value), v.count);
 }
 
-export function copy$Gauge(v: shapes_Gauge.Gauge): shapes_Gauge.Gauge {
-	return { level: v.level };
-}
-
-export function copy$Halves(v: pointers_Halves.Halves): pointers_Halves.Halves {
-	return ({ at0: copy$MaybeUninit_u32s(v.at0) } as unknown) as pointers_Halves.Halves;
-}
-
-export function copy$Held(v: shapes_Held.Held): shapes_Held.Held {
-	return { at: copy$Point(v.at) };
-}
-
-export function copy$Hop(v: Hop.Hop): Hop.Hop {
-	return { _0: v._0 };
-}
-
-export function copy$Hops(v: Hop.Hop[]): Hop.Hop[] {
-	return v.map(copy$Hop);
-}
-
-export function copy$Horizon(v: Horizon.Horizon): Horizon.Horizon {
-	return { exclude: copy$Option_Hop(v.exclude), local: v.local };
-}
-
-export function copy$Inner(v: Inner.Inner): Inner.Inner {
-	return { a: v.a, b: v.b };
-}
-
-export function copy$Lens(v: Lens.Lens): Lens.Lens {
-	return { slot: v.slot, n: v.n };
-}
-
-export function copy$Level(v: Level.Level): Level.Level {
-	return { _0: v._0 };
-}
-
-export function copy$Mark(v: Mark.Mark): Mark.Mark {
-	return { at: v.at };
-}
-
-export function copy$MaybeUninit_u32s(v: rt.u32[]): rt.u32[] {
-	if (v === undefined) {
-		return v;
-	}
-	return v.slice();
-}
-
-export function copy$MaybeUninit_u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
-	if (v === undefined) {
-		return v;
-	}
-	return [v[0], v[1]];
-}
-
-export function copy$Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8]): [rt.Mutex<rt.u8>, rt.u8] {
-	return [v[0], v[1]];
-}
-
-export function copy$Mutex_u8s(v: rt.Mutex<rt.u8>[]): rt.Mutex<rt.u8>[] {
-	return v.slice();
-}
-
-export function copy$Option_Hop(v: Hop.Hop | undefined): Hop.Hop | undefined {
-	return v === undefined ? v : copy$Hop(v);
-}
-
-export function copy$Option_Hops(v: Hop.Hop[] | undefined): Hop.Hop[] | undefined {
-	return v === undefined ? v : copy$Hops(v);
-}
-
-export function copy$Option_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8] | undefined): [rt.Mutex<rt.u8>, rt.u8] | undefined {
-	return v === undefined ? v : copy$Mutex_u8_u8(v);
-}
-
-export function copy$Option_Option_u8s(v: Array<rt.u8 | undefined> | undefined): Array<rt.u8 | undefined> | undefined {
-	return v === undefined ? v : copy$Option_u8s(v);
-}
-
-export function copy$Option_Pair(v: pointers_Pair.Pair | undefined): pointers_Pair.Pair | undefined {
-	return v === undefined ? v : copy$Pair(v);
-}
-
-export function copy$Option_Shape(v: shapes_Shape.Shape | undefined): shapes_Shape.Shape | undefined {
-	return v === undefined ? v : copy$Shape(v);
-}
-
-export function copy$Option_Tally(v: collections_Tally.Tally | undefined): collections_Tally.Tally | undefined {
-	return v === undefined ? v : copy$Tally(v);
-}
-
-export function copy$Option_u16s(v: rt.u16[] | undefined): rt.u16[] | undefined {
-	return v === undefined ? v : copy$u16s(v);
-}
-
-export function copy$Option_u32s(v: rt.u32[] | undefined): rt.u32[] | undefined {
-	return v === undefined ? v : copy$u32s(v);
-}
-
-export function copy$Option_u32s$2(v: rt.u32[] | undefined): rt.u32[] | undefined {
-	return v === undefined ? v : copy$u32s(v);
-}
-
-export function copy$Option_u64_u64(v: [rt.u64, rt.u64] | undefined): [rt.u64, rt.u64] | undefined {
-	return v === undefined ? v : copy$u64_u64(v);
-}
-
-export function copy$Option_u64s(v: rt.u64[] | undefined): rt.u64[] | undefined {
-	return v === undefined ? v : copy$u64s(v);
-}
-
-export function copy$Option_u8_u8(v: [rt.u8, rt.u8] | undefined): [rt.u8, rt.u8] | undefined {
-	return v === undefined ? v : copy$u8_u8(v);
-}
-
-export function copy$Option_u8s(v: Array<rt.u8 | undefined>): Array<rt.u8 | undefined> {
-	return v.slice();
-}
-
-export function copy$Option_u8s$2(v: Uint8Array | undefined): Uint8Array | undefined {
-	return v === undefined ? v : copy$u8s(v);
-}
-
-export function copy$Outer(v: Outer.Outer): Outer.Outer {
-	return { inner: copy$Inner(v.inner), pair: copy$u32_u32(v.pair), n: v.n };
-}
-
-export function copy$Pair(v: pointers_Pair.Pair): pointers_Pair.Pair {
-	return { a: v.a, b: v.b };
-}
-
-export function copy$Pair$2(v: slices_Pair.Pair): slices_Pair.Pair {
-	return { a: v.a, b: v.b };
-}
-
-export function copy$Point(v: Point.Point): Point.Point {
-	return { x: v.x, y: v.y };
-}
-
-export function copy$Point_u8(v: [Point.Point, rt.u8]): [Point.Point, rt.u8] {
-	return [copy$Point(v[0]), v[1]];
-}
-
-export function copy$Points(v: Point.Point[]): Point.Point[] {
-	return v.map(copy$Point);
-}
-
-export function copy$Poll_u8s(v: rt.Poll<Uint8Array>): rt.Poll<Uint8Array> {
-	return v === rt.Pending ? v : copy$u8s(v);
-}
-
-export function copy$Quirky(v: Quirky.Quirky): Quirky.Quirky {
-	return { _0: v._0, _1: v._1 };
-}
-
-export function copy$Quirkys(v: Quirky.Quirky[]): Quirky.Quirky[] {
-	return v.map(copy$Quirky);
-}
-
-export function copy$Result_Mutex_u8_u8_u8(v: rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8>): rt.Result<[rt.Mutex<rt.u8>, rt.u8], rt.u8> {
-	return v.ok ? rt.Ok(copy$Mutex_u8_u8(v.value)) : rt.Err(v.error);
-}
-
-export function copy$Result_u32s_u16(v: rt.Result<rt.u32[], rt.u16>): rt.Result<rt.u32[], rt.u16> {
-	return v.ok ? rt.Ok(copy$u32s(v.value)) : rt.Err(v.error);
-}
-
-export function copy$Shape(v: shapes_Shape.Shape): shapes_Shape.Shape {
-	if (v.tag === "Line") {
-		return { tag: "Line", _0: copy$Point(v._0), _1: copy$Point(v._1) };
-	}
-	if (v.tag === "Rect") {
-		return { tag: "Rect", corner: copy$Point(v.corner), width: v.width, height: v.height };
-	}
-	return v;
-}
-
-export function copy$Tally(v: collections_Tally.Tally): collections_Tally.Tally {
-	return { n: v.n };
-}
-
-export function copy$Tick_i128(v: Tick.Tick<rt.i128>): Tick.Tick<rt.i128> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_i16(v: Tick.Tick<rt.i16>): Tick.Tick<rt.i16> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_i32(v: Tick.Tick<rt.i32>): Tick.Tick<rt.i32> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_i64(v: Tick.Tick<rt.i64>): Tick.Tick<rt.i64> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_i8(v: Tick.Tick<rt.i8>): Tick.Tick<rt.i8> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_isize(v: Tick.Tick<rt.isize>): Tick.Tick<rt.isize> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_u128(v: Tick.Tick<rt.u128>): Tick.Tick<rt.u128> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_u16(v: Tick.Tick<rt.u16>): Tick.Tick<rt.u16> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_u32(v: Tick.Tick<rt.u32>): Tick.Tick<rt.u32> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_u64(v: Tick.Tick<rt.u64>): Tick.Tick<rt.u64> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_u8(v: Tick.Tick<rt.u8>): Tick.Tick<rt.u8> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Tick_usize(v: Tick.Tick<rt.usize>): Tick.Tick<rt.usize> {
-	return new Tick.Tick(v._0);
-}
-
-export function copy$Twin(v: locals_Twin.Twin): locals_Twin.Twin {
-	return { _0: v._0, _1: v._1 };
-}
-
-export function copy$Twin_Twin(v: [locals_Twin.Twin, locals_Twin.Twin]): [locals_Twin.Twin, locals_Twin.Twin] {
-	return [copy$Twin(v[0]), copy$Twin(v[1])];
-}
-
-export function copy$Window(v: durations_Window.Window): durations_Window.Window {
-	return { start: v.start, len: v.len };
-}
-
-export function copy$Wrap_Point(v: Wrap.Wrap<Point.Point>): Wrap.Wrap<Point.Point> {
-	return new Wrap.Wrap(copy$Point(v.value), v.count);
-}
-
-export function copy$Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
+export function copy$generics_Wrap_u8(v: Wrap.Wrap<rt.u8>): Wrap.Wrap<rt.u8> {
 	return new Wrap.Wrap(v.value, v.count);
 }
 
-export function copy$u16s(v: rt.u16[]): rt.u16[] {
+export function copy$iters_Bumped(v: Bumped.Bumped): Bumped.Bumped {
+	return { _0: v._0 };
+}
+
+export function copy$keys_Hop(v: Hop.Hop): Hop.Hop {
+	return { _0: v._0 };
+}
+
+export function copy$keys_Horizon(v: Horizon.Horizon): Horizon.Horizon {
+	return { exclude: copy$Option_keys_Hop(v.exclude), local: v.local };
+}
+
+export function copy$locals_Twin(v: locals_Twin.Twin): locals_Twin.Twin {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$mem_MaybeUninit_array_u32(v: rt.u32[]): rt.u32[] {
+	if (v === undefined) {
+		return v;
+	}
 	return v.slice();
 }
 
-export function copy$u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
+export function copy$mem_MaybeUninit_tuple2_u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
+	if (v === undefined) {
+		return v;
+	}
 	return [v[0], v[1]];
 }
 
-export function copy$u32s(v: rt.u32[]): rt.u32[] {
-	return v.slice();
+export function copy$ops_ControlFlow_ref_sync_Arc_u8_array1_u8(v: rt.Result<Uint8Array, rt.Arc<rt.u8>>): rt.Result<Uint8Array, rt.Arc<rt.u8>> {
+	return v.ok ? rt.Ok(copy$array_u8(v.value)) : rt.Err(v.error);
 }
 
-export function copy$u32s_u8(v: [rt.u32[], rt.u8]): [rt.u32[], rt.u8] {
-	return [copy$u32s(v[0]), v[1]];
+export function copy$ops_ControlFlow_unit_array2_u8(v: rt.Result<Uint8Array, undefined>): rt.Result<Uint8Array, undefined> {
+	return v.ok ? rt.Ok(copy$array_u8(v.value)) : rt.Err(v.error);
 }
 
-export function copy$u64_u64(v: [rt.u64, rt.u64]): [rt.u64, rt.u64] {
+export function copy$pointers_ByCall(v: ByCall.ByCall): ByCall.ByCall {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$pointers_ByClosure(v: ByClosure.ByClosure): ByClosure.ByClosure {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$pointers_ByObject(v: ByObject.ByObject): ByObject.ByObject {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$pointers_Duo(v: Duo.Duo): Duo.Duo {
+	return { _0: v._0, _1: v._1 };
+}
+
+export function copy$pointers_Halves(v: pointers_Halves.Halves): pointers_Halves.Halves {
+	return ({ at0: copy$mem_MaybeUninit_array_u32(v.at0) } as unknown) as pointers_Halves.Halves;
+}
+
+export function copy$pointers_Inner(v: Inner.Inner): Inner.Inner {
+	return { a: v.a, b: v.b };
+}
+
+export function copy$pointers_Outer(v: Outer.Outer): Outer.Outer {
+	return { inner: copy$pointers_Inner(v.inner), pair: copy$tuple2_u32_u32(v.pair), n: v.n };
+}
+
+export function copy$pointers_Pair(v: pointers_Pair.Pair): pointers_Pair.Pair {
+	return { a: v.a, b: v.b };
+}
+
+export function copy$shapes_Gauge(v: shapes_Gauge.Gauge): shapes_Gauge.Gauge {
+	return { level: v.level };
+}
+
+export function copy$shapes_Held(v: shapes_Held.Held): shapes_Held.Held {
+	return { at: copy$shapes_Point(v.at) };
+}
+
+export function copy$shapes_Lens(v: Lens.Lens): Lens.Lens {
+	return { slot: v.slot, n: v.n };
+}
+
+export function copy$shapes_Level(v: Level.Level): Level.Level {
+	return { _0: v._0 };
+}
+
+export function copy$shapes_Mark(v: Mark.Mark): Mark.Mark {
+	return { at: v.at };
+}
+
+export function copy$shapes_Point(v: Point.Point): Point.Point {
+	return { x: v.x, y: v.y };
+}
+
+export function copy$shapes_Shape(v: shapes_Shape.Shape): shapes_Shape.Shape {
+	if (v.tag === "Line") {
+		return { tag: "Line", _0: copy$shapes_Point(v._0), _1: copy$shapes_Point(v._1) };
+	}
+	if (v.tag === "Rect") {
+		return { tag: "Rect", corner: copy$shapes_Point(v.corner), width: v.width, height: v.height };
+	}
+	return v;
+}
+
+export function copy$slices_Pair(v: slices_Pair.Pair): slices_Pair.Pair {
+	return { a: v.a, b: v.b };
+}
+
+export function copy$task_Poll_array1_u8(v: rt.Poll<Uint8Array>): rt.Poll<Uint8Array> {
+	return v === rt.Pending ? v : copy$array_u8(v);
+}
+
+export function copy$tuple2_array2_u32_u8(v: [rt.u32[], rt.u8]): [rt.u32[], rt.u8] {
+	return [copy$array_u32(v[0]), v[1]];
+}
+
+export function copy$tuple2_locals_Twin_locals_Twin(v: [locals_Twin.Twin, locals_Twin.Twin]): [locals_Twin.Twin, locals_Twin.Twin] {
+	return [copy$locals_Twin(v[0]), copy$locals_Twin(v[1])];
+}
+
+export function copy$tuple2_ref_sync_Mutex_u8_u8(v: [rt.Mutex<rt.u8>, rt.u8]): [rt.Mutex<rt.u8>, rt.u8] {
 	return [v[0], v[1]];
 }
 
-export function copy$u64s(v: rt.u64[]): rt.u64[] {
-	return v.slice();
+export function copy$tuple2_shapes_Point_u8(v: [Point.Point, rt.u8]): [Point.Point, rt.u8] {
+	return [copy$shapes_Point(v[0]), v[1]];
 }
 
-export function copy$u8_Arc_u8(v: [rt.u8, rt.Arc<rt.u8>]): [rt.u8, rt.Arc<rt.u8>] {
+export function copy$tuple2_u32_u32(v: [rt.u32, rt.u32]): [rt.u32, rt.u32] {
 	return [v[0], v[1]];
 }
 
-export function copy$u8_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
-	return [v[0], copy$Horizon(v[1])];
-}
-
-export function copy$u8_String(v: [rt.u8, string]): [rt.u8, string] {
+export function copy$tuple2_u64_u64(v: [rt.u64, rt.u64]): [rt.u64, rt.u64] {
 	return [v[0], v[1]];
 }
 
-export function copy$u8_Tally(v: [rt.u8, collections_Tally.Tally]): [rt.u8, collections_Tally.Tally] {
-	return [v[0], copy$Tally(v[1])];
-}
-
-export function copy$u8_u16(v: [rt.u8, rt.u16]): [rt.u8, rt.u16] {
+export function copy$tuple2_u8_String(v: [rt.u8, string]): [rt.u8, string] {
 	return [v[0], v[1]];
 }
 
-export function copy$u8_u16s(v: [rt.u8, rt.u16][]): [rt.u8, rt.u16][] {
-	return v.map(copy$u8_u16);
+export function copy$tuple2_u8_collections_Tally(v: [rt.u8, collections_Tally.Tally]): [rt.u8, collections_Tally.Tally] {
+	return [v[0], copy$collections_Tally(v[1])];
 }
 
-export function copy$u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
+export function copy$tuple2_u8_keys_Horizon(v: [rt.u8, Horizon.Horizon]): [rt.u8, Horizon.Horizon] {
+	return [v[0], copy$keys_Horizon(v[1])];
+}
+
+export function copy$tuple2_u8_sync_Arc_u8(v: [rt.u8, rt.Arc<rt.u8>]): [rt.u8, rt.Arc<rt.u8>] {
 	return [v[0], v[1]];
 }
 
-export function copy$u8_u8s(v: [rt.u8, rt.u8][]): [rt.u8, rt.u8][] {
-	return v.map(copy$u8_u8);
+export function copy$tuple2_u8_u16(v: [rt.u8, rt.u16]): [rt.u8, rt.u16] {
+	return [v[0], v[1]];
 }
 
-export function copy$u8s(v: Uint8Array): Uint8Array {
-	return v.slice();
+export function copy$tuple2_u8_u8(v: [rt.u8, rt.u8]): [rt.u8, rt.u8] {
+	return [v[0], v[1]];
 }
 
-export function copy$u8ss(v: Uint8Array[]): Uint8Array[] {
-	return v.map(copy$u8s);
+export function copy$wraps_Tick_i128(v: Tick.Tick<rt.i128>): Tick.Tick<rt.i128> {
+	return new Tick.Tick(v._0);
 }
 
-export function copy$units(v: undefined[]): undefined[] {
-	return v.slice();
+export function copy$wraps_Tick_i16(v: Tick.Tick<rt.i16>): Tick.Tick<rt.i16> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$Arc_Picky_u8(_1: [rt.Arc<collections_Picky.Picky>, rt.u8]): void {
-	_1[0][Symbol.dispose]();
+export function copy$wraps_Tick_i32(v: Tick.Tick<rt.i32>): Tick.Tick<rt.i32> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$List_Arc_u8(_1: List.List<rt.Arc<rt.u8>>): void {
-	List.drop$Drop_Arc_u8(_1);
+export function copy$wraps_Tick_i64(v: Tick.Tick<rt.i64>): Tick.Tick<rt.i64> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$List_String(_1: List.List<string>): void {
-	List.drop$Drop_String(_1);
+export function copy$wraps_Tick_i8(v: Tick.Tick<rt.i8>): Tick.Tick<rt.i8> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$Lock_Loud(_1: zeros_Lock.Lock<Loud.Loud>): void {
-	zeros_Lock.drop$Drop_Loud(_1);
+export function copy$wraps_Tick_isize(v: Tick.Tick<rt.isize>): Tick.Tick<rt.isize> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$Lock_Rc_unit(_1: statics_Lock.Lock<rt.Arc<undefined>>): void {
-	statics_Lock.drop$Drop_Rc_unit(_1);
+export function copy$wraps_Tick_u128(v: Tick.Tick<rt.u128>): Tick.Tick<rt.u128> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$Lock_u32(_1: zeros_Lock.Lock<rt.u32>): void {
-	zeros_Lock.drop$Drop_u32(_1);
+export function copy$wraps_Tick_u16(v: Tick.Tick<rt.u16>): Tick.Tick<rt.u16> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$Lock_u8_Rc_unit(_1: statics_Lock.Lock<[rt.u8, rt.Arc<undefined>]>): void {
-	statics_Lock.drop$Drop_u8_Rc_unit(_1);
+export function copy$wraps_Tick_u32(v: Tick.Tick<rt.u32>): Tick.Tick<rt.u32> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$RefCell_Vec_Arc_ArcReleasing(value: rt.RefCell<rt.Arc<ArcReleasing.ArcReleasing>[]>): void {
-	rt.dropAll(value.value);
+export function copy$wraps_Tick_u64(v: Tick.Tick<rt.u64>): Tick.Tick<rt.u64> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$RefCell_Vec_Rc_RcReleasing(value: rt.RefCell<rt.Arc<RcReleasing.RcReleasing>[]>): void {
-	rt.dropAll(value.value);
+export function copy$wraps_Tick_u8(v: Tick.Tick<rt.u8>): Tick.Tick<rt.u8> {
+	return new Tick.Tick(v._0);
 }
 
-export function drop$Result_MutexGuard_Tally_TryLockError_MutexGuard_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
+export function copy$wraps_Tick_usize(v: Tick.Tick<rt.usize>): Tick.Tick<rt.usize> {
+	return new Tick.Tick(v._0);
+}
+
+export function drop$Result_sync_MutexGuard_locks_Tally_sync_TryLockError_sync_MutexGuard_locks_Tally(_1: rt.Result<rt.Mutex<locks_Tally.Tally>, rt.TryLockError<rt.Mutex<locks_Tally.Tally>>>): void {
 	if (_1.ok) {
 		rt.mutexUnlock(_1.value);
 	} else {
-		drop$TryLockError_MutexGuard_Tally(_1.error);
+		drop$sync_TryLockError_sync_MutexGuard_locks_Tally(_1.error);
 	}
 }
 
-export function drop$Result_MutexGuard_u32_TryLockError_MutexGuard_u32(_1: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>>): void {
+export function drop$Result_sync_MutexGuard_u32_sync_TryLockError_sync_MutexGuard_u32(_1: rt.Result<rt.Mutex<rt.u32>, rt.TryLockError<rt.Mutex<rt.u32>>>): void {
 	if (_1.ok) {
 		rt.mutexUnlock(_1.value);
 	} else {
-		drop$TryLockError_MutexGuard_u32(_1.error);
+		drop$sync_TryLockError_sync_MutexGuard_u32(_1.error);
 	}
 }
 
-export function drop$Result_RwLockReadGuard_Tally_TryLockError_RwLockReadGuard_Tally(_1: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>>): void {
+export function drop$Result_sync_RwLockReadGuard_locks_Tally_sync_TryLockError_sync_RwLockReadGuard_locks_Tally(_1: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>>): void {
 	if (_1.ok) {
 		rt.refRelease(_1.value);
 	} else {
-		drop$TryLockError_RwLockReadGuard_Tally(_1.error);
+		drop$sync_TryLockError_sync_RwLockReadGuard_locks_Tally(_1.error);
 	}
 }
 
-export function drop$Result_RwLockWriteGuard_Tally_TryLockError_RwLockWriteGuard_Tally(_1: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>>): void {
+export function drop$Result_sync_RwLockWriteGuard_locks_Tally_sync_TryLockError_sync_RwLockWriteGuard_locks_Tally(_1: rt.Result<rt.RefCell<locks_Tally.Tally>, rt.TryLockError<rt.RefCell<locks_Tally.Tally>>>): void {
 	if (_1.ok) {
 		rt.refMutRelease(_1.value);
 	} else {
-		drop$TryLockError_RwLockWriteGuard_Tally(_1.error);
+		drop$sync_TryLockError_sync_RwLockWriteGuard_locks_Tally(_1.error);
 	}
 }
 
-export function drop$Result_usize_u8_Arc_dyn_Any(_1: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>): void {
+export function drop$Result_tuple2_usize_u8_sync_Arc_dyn_Any_marker_Sync_marker_Send(_1: rt.Result<[rt.usize, rt.u8], rt.Arc<Any.Any>>): void {
 	if (!_1.ok) {
 		_1.error[Symbol.dispose]();
 	}
 }
 
-export function drop$TryLockError_MutexGuard_Tally(_1: rt.TryLockError<rt.Mutex<locks_Tally.Tally>>): void {
+export function drop$Vec_Rc_counts_Noisy(value: rt.Arc<counts_Noisy.Noisy>[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$Vec_clones_Logged(value: clones_Logged.Logged[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$Vec_sync_Arc_counts_Noisy(value: rt.Arc<counts_Noisy.Noisy>[]): void {
+	rt.dropAll(value);
+}
+
+export function drop$cell_RefCell_Vec_Rc_counts_RcReleasing(value: rt.RefCell<rt.Arc<RcReleasing.RcReleasing>[]>): void {
+	rt.dropAll(value.value);
+}
+
+export function drop$cell_RefCell_Vec_sync_Arc_counts_ArcReleasing(value: rt.RefCell<rt.Arc<ArcReleasing.ArcReleasing>[]>): void {
+	rt.dropAll(value.value);
+}
+
+export function drop$pointers_List_String(_1: List.List<string>): void {
+	List.drop$ops_Drop_String(_1);
+}
+
+export function drop$pointers_List_sync_Arc_u8(_1: List.List<rt.Arc<rt.u8>>): void {
+	List.drop$ops_Drop_sync_Arc_u8(_1);
+}
+
+export function drop$statics_Lock_Rc_unit(_1: statics_Lock.Lock<rt.Arc<undefined>>): void {
+	statics_Lock.drop$ops_Drop_Rc_unit(_1);
+}
+
+export function drop$statics_Lock_tuple2_u8_Rc_unit(_1: statics_Lock.Lock<[rt.u8, rt.Arc<undefined>]>): void {
+	statics_Lock.drop$ops_Drop_tuple2_u8_Rc_unit(_1);
+}
+
+export function drop$sync_TryLockError_sync_MutexGuard_locks_Tally(_1: rt.TryLockError<rt.Mutex<locks_Tally.Tally>>): void {
 	if (_1.tag === "Poisoned") {
 		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<locks_Tally.Tally> })._0);
 	}
 }
 
-export function drop$TryLockError_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt.u32>>): void {
+export function drop$sync_TryLockError_sync_MutexGuard_u32(_1: rt.TryLockError<rt.Mutex<rt.u32>>): void {
 	if (_1.tag === "Poisoned") {
 		rt.mutexUnlock((_1 as { tag: "Poisoned"; _0: rt.Mutex<rt.u32> })._0);
 	}
 }
 
-export function drop$TryLockError_RwLockReadGuard_Tally(_1: rt.TryLockError<rt.RefCell<locks_Tally.Tally>>): void {
+export function drop$sync_TryLockError_sync_RwLockReadGuard_locks_Tally(_1: rt.TryLockError<rt.RefCell<locks_Tally.Tally>>): void {
 	if (_1.tag === "Poisoned") {
 		rt.refRelease((_1 as { tag: "Poisoned"; _0: rt.RefCell<locks_Tally.Tally> })._0);
 	}
 }
 
-export function drop$TryLockError_RwLockWriteGuard_Tally(_1: rt.TryLockError<rt.RefCell<locks_Tally.Tally>>): void {
+export function drop$sync_TryLockError_sync_RwLockWriteGuard_locks_Tally(_1: rt.TryLockError<rt.RefCell<locks_Tally.Tally>>): void {
 	if (_1.tag === "Poisoned") {
 		rt.refMutRelease((_1 as { tag: "Poisoned"; _0: rt.RefCell<locks_Tally.Tally> })._0);
 	}
 }
 
-export function drop$Vec_Arc_Noisy(value: rt.Arc<counts_Noisy.Noisy>[]): void {
-	rt.dropAll(value);
+export function drop$tuple2_sync_Arc_collections_Picky_u8(_1: [rt.Arc<collections_Picky.Picky>, rt.u8]): void {
+	_1[0][Symbol.dispose]();
 }
 
-export function drop$Vec_Arc_Noisy_Vec_Arc_Noisy_Vec_ArcShared_Vec_Noisy_Vec_Vec_Arc_Noisy(_1: [rt.Arc<counts_Noisy.Noisy>[], rt.Arc<counts_Noisy.Noisy>[], ArcShared.ArcShared[], counts_Noisy.Noisy[], rt.Arc<counts_Noisy.Noisy>[][]]): void {
+export function drop$tuple2_u8_Rc_unit(_1: [rt.u8, rt.Arc<undefined>]): void {
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$tuple2_u8_cmp_Reverse_sync_Arc_keys_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$tuple2_u8_sync_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
+	_1[1][Symbol.dispose]();
+}
+
+export function drop$tuple5_Vec_Rc_counts_Noisy_Vec_Rc_counts_Noisy_Vec_counts_RcShared_Vec_counts_Noisy_Vec_Vec_Rc_counts_Noisy(_1: [rt.Arc<counts_Noisy.Noisy>[], rt.Arc<counts_Noisy.Noisy>[], RcShared.RcShared[], counts_Noisy.Noisy[], rt.Arc<counts_Noisy.Noisy>[][]]): void {
 	rt.dropAll(_1[0]);
 	rt.dropAll(_1[1]);
 	rt.dropAll(_1[2]);
 	rt.dropAll(_1[3]);
-	rt.dropAll(_1[4], drop$Vec_Arc_Noisy);
+	rt.dropAll(_1[4], drop$Vec_Rc_counts_Noisy);
 }
 
-export function drop$Vec_Logged(value: clones_Logged.Logged[]): void {
-	rt.dropAll(value);
-}
-
-export function drop$Vec_Rc_Noisy(value: rt.Arc<counts_Noisy.Noisy>[]): void {
-	rt.dropAll(value);
-}
-
-export function drop$Vec_Rc_Noisy_Vec_Rc_Noisy_Vec_RcShared_Vec_Noisy_Vec_Vec_Rc_Noisy(_1: [rt.Arc<counts_Noisy.Noisy>[], rt.Arc<counts_Noisy.Noisy>[], RcShared.RcShared[], counts_Noisy.Noisy[], rt.Arc<counts_Noisy.Noisy>[][]]): void {
+export function drop$tuple5_Vec_sync_Arc_counts_Noisy_Vec_sync_Arc_counts_Noisy_Vec_counts_ArcShared_Vec_counts_Noisy_Vec_Vec_sync_Arc_counts_Noisy(_1: [rt.Arc<counts_Noisy.Noisy>[], rt.Arc<counts_Noisy.Noisy>[], ArcShared.ArcShared[], counts_Noisy.Noisy[], rt.Arc<counts_Noisy.Noisy>[][]]): void {
 	rt.dropAll(_1[0]);
 	rt.dropAll(_1[1]);
 	rt.dropAll(_1[2]);
 	rt.dropAll(_1[3]);
-	rt.dropAll(_1[4], drop$Vec_Rc_Noisy);
+	rt.dropAll(_1[4], drop$Vec_sync_Arc_counts_Noisy);
 }
 
-export function drop$u8_Arc_u8(_1: [rt.u8, rt.Arc<rt.u8>]): void {
-	_1[1][Symbol.dispose]();
+export function drop$zeros_Lock_u32(_1: zeros_Lock.Lock<rt.u32>): void {
+	zeros_Lock.drop$ops_Drop_u32(_1);
 }
 
-export function drop$u8_Rc_unit(_1: [rt.u8, rt.Arc<undefined>]): void {
-	_1[1][Symbol.dispose]();
-}
-
-export function drop$u8_Reverse_Arc_Lopsided(_1: [rt.u8, rt.Arc<Lopsided.Lopsided>]): void {
-	_1[1][Symbol.dispose]();
+export function drop$zeros_Lock_zeros_Loud(_1: zeros_Lock.Lock<Loud.Loud>): void {
+	zeros_Lock.drop$ops_Drop_zeros_Loud(_1);
 }
 
 //# sourceMappingURL=lib.ts.map

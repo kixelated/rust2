@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { toDigit$01k9ewn } from "./core/char/methods.ts";
 import { fromStr$1ej7fl2 as num_fromStr$1ej7fl2, fromStr$076yg1t as num_fromStr$076yg1t, fromStr$1dxzqb4 as num_fromStr$1dxzqb4, fromStr$09oey6q as num_fromStr$09oey6q, fromStr$1m3wp28 as num_fromStr$1m3wp28, fromStr$1gsa29j as num_fromStr$1gsa29j, fromStrRadix$1cxc8v7 as num_fromStrRadix$1cxc8v7, fromStrRadix$0w5k2s7 as num_fromStrRadix$0w5k2s7, fromStrRadix$1a42la1 as num_fromStrRadix$1a42la1, fromStrRadix$0olne29 as num_fromStrRadix$0olne29, fromStrRadix$0snhnv5 as num_fromStrRadix$0snhnv5, fromStrRadix$1mq18rn as num_fromStrRadix$1mq18rn, fromStr$0pnvd2c as num_fromStr$0pnvd2c, fromStr$1bigolo as num_fromStr$1bigolo, fromStr$1uzmhcw as num_fromStr$1uzmhcw, fromStr$05sn9io as num_fromStr$05sn9io, fromStr$0kn8g72 as num_fromStr$0kn8g72, fromStr$0qgw0pl as num_fromStr$0qgw0pl, fromStrRadix$1549erz as num_fromStrRadix$1549erz, fromStrRadix$1x7yq9g as num_fromStrRadix$1x7yq9g, fromStrRadix$1gamglm as num_fromStrRadix$1gamglm, fromStrRadix$0bx9j5d as num_fromStrRadix$0bx9j5d, fromStrRadix$1ys3fwo as num_fromStrRadix$1ys3fwo, fromStrRadix$09ykvvv as num_fromStrRadix$09ykvvv } from "./core/num.ts";
-import { isSomeAnd$09tpccf, unwrapOr$11c0we2 as option_unwrapOr$11c0we2, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr } from "./core/option.ts";
+import { isSomeAnd$09tpccf, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$11c0we2 as option_unwrapOr$11c0we2 } from "./core/option.ts";
 import { eq$0pee78b as result_eq$0pee78b, eq$1mi4cle as result_eq$1mi4cle, eq$1ukayff as result_eq$1ukayff, eq$1hy1is1 as result_eq$1hy1is1, eq$1hd8lo9 as result_eq$1hd8lo9, eq$0w2dfat as result_eq$0w2dfat, eq$06vyx9e as result_eq$06vyx9e, eq$08241oi as result_eq$08241oi, eq$0nbftnc as result_eq$0nbftnc, eq$1gq81ib as result_eq$1gq81ib, eq$12e5exx as result_eq$12e5exx, eq$1xhgva4 as result_eq$1xhgva4, unwrapOr$01jdcm7 as result_unwrapOr$01jdcm7, unwrapOr$0nhd29g as result_unwrapOr$0nhd29g, unwrapOr$09i71ei as result_unwrapOr$09i71ei } from "./core/result.ts";
 import { parse$0zwe7sh, parse$1rrjn2d, parse$12n9p35, parse$1ilajpu, parse$1fq462u, parse$1g5tknx, parse$137ljop, parse$0mrlpzv, parse$1bassid, parse$1q1obm6, parse$0yt2578, parse$1m4h82x } from "./core/str.ts";
 import { put as fmt_put } from "./fmt.ts";
@@ -5981,7 +5981,7 @@ export function widenings(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(b3)));
 				rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(c3)));
 			}
-			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(Scaled.from$From_u8(b2)._0)));
+			rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(Scaled.from$convert_From_u8(b2)._0)));
 		}
 	}
 }

@@ -15,13 +15,13 @@ export class Both {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this._0[Symbol.dispose]();
 		this._1[Symbol.dispose]();
 	}
 }
 
-export function drop$Drop(_self: Both): void {
+export function drop$ops_Drop(_self: Both): void {
 	zeros_log(3);
 }
 

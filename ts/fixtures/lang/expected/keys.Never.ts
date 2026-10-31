@@ -4,7 +4,7 @@
 export interface Never {
 }
 
-export function eq$PartialEq(_self: Never, _2: Never): boolean {
+export function eq$cmp_PartialEq(_self: Never, _2: Never): boolean {
 	return false;
 }
 

@@ -17,17 +17,6 @@ export class Lock<T> {
 	}
 }
 
-export function new$Loud(value: Loud.Loud | undefined): Lock<Loud.Loud> {
-	let value2!: Loud.Loud;
-	const set: boolean = value !== undefined;
-	if (value === undefined) {
-		value2 = (new Loud.Loud() as unknown) as Loud.Loud;
-	} else {
-		value2 = value;
-	}
-	return new Lock(set, new rt.Cell(value2));
-}
-
 export function new$u32(value: rt.u32 | undefined): Lock<rt.u32> {
 	let value2!: rt.u32;
 	const set: boolean = value !== undefined;
@@ -39,13 +28,24 @@ export function new$u32(value: rt.u32 | undefined): Lock<rt.u32> {
 	return new Lock(set, new rt.Cell(value2));
 }
 
-export function drop$Drop_Loud(self: Lock<Loud.Loud>): void {
+export function new$zeros_Loud(value: Loud.Loud | undefined): Lock<Loud.Loud> {
+	let value2!: Loud.Loud;
+	const set: boolean = value !== undefined;
+	if (value === undefined) {
+		value2 = (new Loud.Loud() as unknown) as Loud.Loud;
+	} else {
+		value2 = value;
+	}
+	return new Lock(set, new rt.Cell(value2));
+}
+
+export function drop$ops_Drop_u32(_self: Lock<rt.u32>): void {
+}
+
+export function drop$ops_Drop_zeros_Loud(self: Lock<Loud.Loud>): void {
 	if (self.set) {
 		self.value.v[Symbol.dispose]();
 	}
-}
-
-export function drop$Drop_u32(_self: Lock<rt.u32>): void {
 }
 
 //# sourceMappingURL=zeros.Lock.ts.map

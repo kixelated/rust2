@@ -17,7 +17,7 @@ export class Key {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.log[Symbol.dispose]();
 	}
 }
@@ -26,7 +26,7 @@ function new_(id: rt.u32, log: Log.Log): Key {
 	return new Key(id, log, false);
 }
 
-export function drop$Drop(self: Key): void {
+export function drop$ops_Drop(self: Key): void {
 	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["k", args2[0], " drop"]);
@@ -34,19 +34,19 @@ export function drop$Drop(self: Key): void {
 	self.id = 4294967295;
 }
 
-export function eq$PartialEq(self: Key, other: Key): boolean {
+export function eq$cmp_PartialEq(self: Key, other: Key): boolean {
 	return self.id === other.id;
 }
 
-export function partialCmp$PartialOrd(self: Key, other: Key): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Key, other: Key): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Key, other: Key): rt.Ordering {
+export function cmp$cmp_Ord(self: Key, other: Key): rt.Ordering {
 	return rt.cmp(self.id, other.id);
 }
 
-export function hash$Hash_DefaultHasher(self: Key, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Key, state: rt.Hasher): void {
 	if (self.counted) {
 		const arg = self.id;
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];

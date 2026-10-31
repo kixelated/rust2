@@ -14,7 +14,7 @@ export function get(self: Nibble): rt.u8 {
 	return self;
 }
 
-export function eq$PartialEq(self: Nibble, other: Nibble): boolean {
+export function eq$cmp_PartialEq(self: Nibble, other: Nibble): boolean {
 	return (self & 0xf) === (other & 0xf);
 }
 
@@ -23,10 +23,10 @@ export function hash$Hash(self: Nibble, state: rt.Hasher): undefined {
 	return undefined;
 }
 
-export function partialCmp$PartialOrd(self: Nibble, other: Nibble): rt.Ordering {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Nibble, other: Nibble): rt.Ordering {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Nibble, other: Nibble): rt.Ordering {
+export function cmp$cmp_Ord(self: Nibble, other: Nibble): rt.Ordering {
 	return rt.cmp(self & 0xf, other & 0xf);
 }
