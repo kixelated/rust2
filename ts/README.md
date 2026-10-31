@@ -68,7 +68,7 @@ from. `rt.ts` beside them is the
 runtime: what std does that JS does not, with iterators in `rt/iter.ts`, `str`'s searches
 in `rt/str.ts`, collections in `rt/collections.ts`, hashing in `rt/hash.ts`, ownership, atomics, and async in
 `rt/task.ts`, `f64`'s and `f32`'s methods in `rt/float.ts`, and `Duration` in `rt/time.ts`. What translates from std's own MIR,
-`Option`'s, `Result`'s, and `Poll`'s methods, `==` of a `Result` and of std's errors, `cmp::max` and `min`, and the `str::parse` and
+`Option`'s, `Result`'s, and `Poll`'s methods, `==` of std's errors, `==` and ordering of a `Result` and a `Poll`, `cmp::max` and `min`, and the `str::parse` and
 `from_str_radix` of an integer or a `NonZero` and `bool`'s `str::parse`, goes in a module under its crate's name, as
 `core/option.ts` holds `map$1cf8u0y`. A dependency's modules go
 under its crate's name too, `kio.ts` and `kio/lock.ts`, with the instances of its generic
@@ -206,9 +206,11 @@ never rounds through a double. The `str::parse` and `from_str_radix` of an integ
 `NonZero` are core's own, over the string's UTF-8 bytes; their `ParseIntError` is
 `rt.ParseIntError`, `{ kind }`, whose `IntErrorKind` is the variant's name. `bool`'s is
 core's too, failing with an `rt.ParseBoolError`; a `char`'s is `rt.charFromStr`, failing with
-an `rt.ParseCharError`, `{ kind }`, its private `CharErrorKind`'s name. `==` of a `Result`
-and of std's errors is their derived `PartialEq`, from core's MIR, so two errors are equal
-where their kinds are, private or not. `Debug` of a string or `char` escapes by
+an `rt.ParseCharError`, `{ kind }`, its private `CharErrorKind`'s name. `==` of a `Result`,
+a `Poll`, and std's errors is their derived `PartialEq`, from core's MIR, so two errors are equal
+where their kinds are, private or not. A `Result`'s and a `Poll`'s `PartialOrd` and `Ord` are
+their derived ones too: by variant, `Ok` before `Err` and `Ready` before `Pending`, then by
+what each holds. `Debug` of a string or `char` escapes by
 std's Unicode tables, which the runtime carries, not the engine's. `Debug` of std's
 collections writes their items in the order each iterates, a hash map's or set's included,
 and of their iterators and `Chars` the items each has left, in std's wrapper; a deque's
@@ -342,6 +344,7 @@ so a map of `Arc<str>` finds a `&str`, a `Cell` and a `RefCell` compare and orde
 what they hold, a `RefCell` borrowing each, a one-time cell compares its `Option`, and
 arrays, slices, and vectors, of bytes or of other elements, order by their elements and then their length, and compare and hash alike
 whatever their form, so a map of `Vec<u8>` finds a `&[u8]` and one of `[u16; 2]` a `&[u16]`.
+A `VecDeque` orders as they do, however its buffer wraps.
 Slices, arrays, `Vec`s, and `VecDeque`s compare against each
 other as std's do, by their lengths and then each pair of items in order, through the
 items' own `PartialEq<U>`, and its `ne` where the crate overrides it, which a tuple's and
