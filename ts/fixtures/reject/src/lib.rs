@@ -1173,6 +1173,10 @@ pub struct Repeated(pub std::cell::UnsafeCell<(u16, u16)>);
 
 pub struct Onced(pub std::cell::UnsafeCell<(u16, u16)>);
 
+pub struct Pushed {
+	pub part: (u16, u16),
+}
+
 pub struct Copied {
 	pub span: (u16, u16),
 }
@@ -1247,5 +1251,16 @@ pub fn lent_kept(n: u16) -> u16 {
 		*lent = &mut old;
 	}
 	slot.write(Onced(std::cell::UnsafeCell::new((0, 0))));
+	unsafe { (*part).0 }
+}
+
+/// An element of memory `Vec::push` allocated, written whole while a pointer into it may
+/// still be read.
+pub fn pushed_part_kept(n: u16) -> u16 {
+	let mut v = Vec::new();
+	v.push(Pushed { part: (n, n) });
+	let p = &raw mut v[0];
+	let part = unsafe { &raw mut (*p).part };
+	unsafe { p.write(Pushed { part: (0, 0) }) };
 	unsafe { (*part).0 }
 }

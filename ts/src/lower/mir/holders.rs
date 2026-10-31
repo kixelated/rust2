@@ -121,7 +121,8 @@ enum Level {
 /// Where a pointer may have come from.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Source {
-	/// Memory the call assigning this local allocated.
+	/// Memory the call assigning this local, or changing it through a borrow, may have
+	/// allocated, reached only through what the local holds.
 	Fresh(Local),
 	/// A borrow of this local or a part of it.
 	Local(Local),
@@ -725,8 +726,8 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 	/// Where the pointers `local` may hold, to a `filled` value if known, may have come
 	/// from, following copies, casts, pointers made through them, and calls of std or the
 	/// crate that return where they point, or of std's that run none of the crate's code,
-	/// which may return what their arguments reach and change what their mutable borrows of
-	/// a local hold; `None` if from anywhere else, such as memory.
+	/// which may return what their arguments reach, or memory they allocate, and change what
+	/// their mutable borrows of a local hold; `None` if from anywhere else, such as memory.
 	fn origins(&self, local: Local, filled: Option<Ty<'tcx>>) -> Option<FxIndexSet<Source>> {
 		let defs = self.defs();
 		let defs = defs.as_ref().expect("defs are found");
@@ -756,6 +757,8 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 			}
 			for &lent in &defs[local].lent {
 				for args in self.lent_to(lent)? {
+					// What std's code puts there may be memory it allocated, as `Vec::push` does.
+					sources.insert(Source::Fresh(local));
 					reached(args, &mut stack)?;
 				}
 			}
@@ -806,6 +809,7 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 								stack.push((direct(args[param.as_usize() - 1].node.place()?)?, deep));
 							}
 						} else if self.runs_std(def_id, gargs.skip_binder(), args) {
+							sources.insert(Source::Fresh(local));
 							reached(args, &mut stack)?;
 						} else {
 							return None;
