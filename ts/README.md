@@ -83,6 +83,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `f64` | `rt.f64`: a `number` branded so, which is the same IEEE 754 double |
 | `f32` | `rt.f32`: a `number` branded so, which a single holds exactly |
+| `()`, `PhantomData<T>`, `PhantomPinned`, `..` | `undefined`, every value equal and hashing nothing; a type parameter only a `PhantomData` holds is `_T` in its struct's interface |
 | `struct` | a plain object, typed by an interface; a class if it may drop |
 | `enum` without data | a union of strings: `"Lite01" \| "Lite02"`, or `never` without variants |
 | `enum` | a union of objects tagged by variant |
@@ -206,7 +207,8 @@ core's too, failing with an `rt.ParseBoolError`; a `char`'s is `rt.charFromStr`,
 an `rt.ParseCharError`, `{ kind }`, its private `CharErrorKind`'s name. `==` of a `Result`
 and of std's errors is their derived `PartialEq`, from core's MIR, so two errors are equal
 where their kinds are, private or not. `Debug` of a string or `char` escapes by
-std's Unicode tables, which the runtime carries, not the engine's. A caller prints a
+std's Unicode tables, which the runtime carries, not the engine's. `Debug` of std's
+collections writes their items in the order each iterates, a hash map's or set's included. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
 would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
 `rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
@@ -298,7 +300,9 @@ finds any other key, a 64-bit one past 2^53 included, through its translated `Ha
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
 so a map of `Arc<str>` finds a `&str`, and byte arrays, slices, and vectors order by their
 bytes and then their length, and compare and hash alike whatever their form, so a map of
-`Vec<u8>` finds a `&[u8]`. A collection's reference to a byte array it holds, as `keys`,
+`Vec<u8>` finds a `&[u8]`. Slices, arrays, `Vec`s, and `VecDeque`s compare against each
+other as std's do, by their lengths and then each pair of items in order, through the
+items' own `PartialEq<U>`, and its `ne` where the crate overrides it. A collection's reference to a byte array it holds, as `keys`,
 `HashSet::get`, and `retain`'s closure get one, is an `rt.ByteSlice` of its bytes, as a
 `&[u8; N]` is elsewhere; a `&mut` writes where the collection holds them. A `&mut` to a value a map holds that JS copies,
 such as a number, from `get_mut` or the entry API, is an `rt.Place` whose `v` reads and
@@ -695,7 +699,8 @@ built natively for wasm32 and run beside its translation on the same inputs by
   closures that log what each
   adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
   and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
+  disagree with JS's, sequences compared across forms and item types by an `eq` and `ne`
+  that disagree, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
   that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw

@@ -533,7 +533,7 @@ export function peekedOthers(data: rt.ByteSlice, out: rt.ByteVec): void {
 		return Uint8Array.of(_317, rt.u8Rem(c.data[c.start + 1], 2));
 	}));
 	const _217: rt.ByteSlice = rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(0, 1)), 0);
-	rt.byteVecPush(out, mapOr$0sl5app(rt.peekableNextIfEq(it9, _217, (a, b7): boolean => {
+	rt.byteVecPush(out, mapOr$0sl5app(rt.peekableNextIfEq(it9, _217, (a: Uint8Array, b7: rt.ByteSlice): boolean => {
 		return ((a017: rt.ByteSlice, a113: rt.ByteSlice): boolean => {
 			return rt.eqBytes(a017, a113);
 		})(rt.byteSliceFrom(a), b7);
@@ -543,7 +543,7 @@ export function peekedOthers(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, mapOr$0sl5app(rt.iterToOption(it9.next()), 170, (p2: Uint8Array): rt.u8 => {
 		return p2[0];
 	}));
-	rt.byteVecPush(out, mapOr$0sl5app(rt.peekableNextIfEq(it9, { _0: 1, _1: calls }, (a2, b8): boolean => {
+	rt.byteVecPush(out, mapOr$0sl5app(rt.peekableNextIfEq(it9, { _0: 1, _1: calls }, (a2: Uint8Array, b8: Quarter.Quarter): boolean => {
 		return eq$PartialEq_Quarter_u8s(rt.byteSliceFrom(a2), b8);
 	}), 170, (p3: Uint8Array): rt.u8 => {
 		return p3[0];

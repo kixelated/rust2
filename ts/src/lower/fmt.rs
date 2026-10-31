@@ -275,6 +275,17 @@ pub fn std_impl<'tcx>(
 		ty::Dynamic(preds, ..) if preds.principal_def_id().and_then(|did| Trait::of(tcx, did)) == Some(tr) => {
 			value.call(vec![f])
 		}
+		// Unpadded, naming its type as `type_name` does.
+		ty::Adt(adt, args) if tr == Trait::Debug && adt.is_phantom_data() => {
+			let name = rustc_const_eval::util::type_name(tcx, args.type_at(0));
+			rt("writeStr", vec![f, Expr::Str(format!("PhantomData<{name}>"))])
+		}
+		// Each its name alone, unpadded.
+		ty::Adt(adt, _)
+			if tr == Trait::Debug && (library::pinned(tcx, adt.did()) || library::empty_iter(tcx, adt.did())) =>
+		{
+			rt("writeStr", vec![f, Expr::Str(tcx.item_name(adt.did()).to_string())])
+		}
 		ty::Adt(adt, args) => match (Std::of(tcx, adt.did())?, tr) {
 			(Std::String | Std::Cow, Trait::Display) if library::string(tcx, ty) => Expr::rt("fmtPad", vec![f, value]),
 			(Std::String | Std::Cow, Trait::Debug) if library::string(tcx, ty) => rt("str", vec![value, f]),
@@ -306,6 +317,22 @@ pub fn std_impl<'tcx>(
 			(Std::BinaryHeap, Trait::Debug) => {
 				let item = b.fmt_fn(tr, args.type_at(0), span);
 				rt("list", vec![value.member("d"), f, item])
+			}
+			// Each writes its items as its iterator reads them: a deque from its head.
+			(Std::VecDeque, Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				rt("list", vec![Expr::rt("dequeIter", vec![value]), f, item])
+			}
+			(std @ (Std::HashSet | Std::BTreeSet), Trait::Debug) => {
+				let item = b.fmt_fn(tr, args.type_at(0), span);
+				let keys = if std == Std::HashSet { "hashKeys" } else { "btreeKeys" };
+				rt("set", vec![Expr::rt(keys, vec![value]), f, item])
+			}
+			(std @ (Std::HashMap | Std::BTreeMap), Trait::Debug) => {
+				let key = b.fmt_fn(tr, args.type_at(0), span);
+				let val = b.fmt_fn(tr, args.type_at(1), span);
+				let entries = if std == Std::HashMap { "hashIter" } else { "btreeIter" };
+				rt("map", vec![Expr::rt(entries, vec![value]), f, key, val])
 			}
 			(Std::Option, Trait::Debug) => {
 				let some = b.fmt_fn(tr, args.type_at(0), span);

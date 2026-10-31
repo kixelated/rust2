@@ -1011,13 +1011,20 @@ export function iterCollectResult<U, E, C>(it: Iter<Result<U, E>>, into: (values
 	return error;
 }
 
-/** `collect` of `Option`s: `None` at the first `None`, or every value collected by `into`, as `iterCollectResult`. */
-export function iterCollectOption<U, C>(it: Iter<U | undefined>, into: (values: Iter<U>) => C, drop?: Drop<C>): C | undefined {
-	const shunt = new OptionShunt(it);
+/**
+ * `collect` of `Option`s: `None` at the first `None`, or every value collected by `into`,
+ * as `iterCollectResult`. An item's `None` is `itemNone`, and the result's `none`, each
+ * `rt.None` where `undefined` is a value.
+ */
+export function iterCollectOption<U, C>(it: Iter<U | undefined>, into: (values: Iter<U>) => C, drop?: Drop<C>): C | undefined;
+export function iterCollectOption<U, C>(it: Iter<U | None>, into: (values: Iter<U>) => C, drop: Drop<C> | undefined, itemNone: None): C | undefined;
+export function iterCollectOption<U, C>(it: Iter<U | undefined | None>, into: (values: Iter<U>) => C, drop: Drop<C> | undefined, itemNone: None | undefined, none: None): C | None;
+export function iterCollectOption<U, C>(it: Iter<U | undefined | None>, into: (values: Iter<U>) => C, drop?: Drop<C>, itemNone?: None, none?: None): C | undefined | None {
+	const shunt = new OptionShunt(it, itemNone);
 	const values = into(shunt);
 	if (!shunt.none) return values;
 	drop?.(values);
-	return undefined;
+	return none;
 }
 
 // What std's iterators override to count or take the last: `count` and `last`, each of
@@ -3114,15 +3121,21 @@ class ResultShunt<U, E> extends Adaptor<Result<U, E>, U> {
 	}
 }
 
-/** What `iterCollectOption` collects from: values until the first `None`. */
-class OptionShunt<U> extends Adaptor<U | undefined, U> {
+/** What `iterCollectOption` collects from: values until the first `None`, which is `itemNone`. */
+class OptionShunt<U> extends Adaptor<U | undefined | None, U> {
 	none = false;
+	private readonly itemNone: None | undefined;
+
+	constructor(inner: Iter<U | undefined | None>, itemNone: None | undefined) {
+		super(inner);
+		this.itemNone = itemNone;
+	}
 
 	next(): U | Done {
 		if (this.none) return DONE;
 		const item = this.inner.folded().next();
 		if (item === DONE) return DONE;
-		if (item !== undefined) return item;
+		if (item !== this.itemNone) return item as U;
 		this.none = true;
 		return DONE;
 	}

@@ -453,6 +453,22 @@ pub enum Type {
 	Object(Vec<(String, Type)>),
 }
 
+impl Type {
+	/// Whether it names the type parameter `param`.
+	pub fn names(&self, param: &str) -> bool {
+		match self {
+			Type::Param(name) => name == param,
+			Type::Builtin(_) | Type::StrLit(_) => false,
+			Type::Rt(_, tys) | Type::Sym(_, tys) | Type::Union(tys) | Type::Tuple(tys) => {
+				tys.iter().any(|t| t.names(param))
+			}
+			Type::Array(t) => t.names(param),
+			Type::Func(tys, ret) => ret.names(param) || tys.iter().any(|t| t.names(param)),
+			Type::Object(fields) => fields.iter().any(|(_, t)| t.names(param)),
+		}
+	}
+}
+
 #[derive(Clone, Debug)]
 pub struct Function {
 	pub sym: SymId,

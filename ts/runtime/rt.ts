@@ -1716,9 +1716,25 @@ export function fmtResult<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, r.ok ? "Ok" : "Err"), field));
 }
 
-/** `Debug` of a slice, array, or `Vec`. */
+/** `Debug` of a slice, array, `Vec`, `VecDeque`, or `BinaryHeap`. */
 export function fmtList<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
 	return debugListFinish(debugListEntries(fmtDebugList(f), items, debug));
+}
+
+/** `Debug` of a set: std's `DebugSet` is its `DebugList` in braces. */
+export function fmtSet<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	const b = debugListEntries({ fmt: f, result: f.out.writeStr("{"), hasFields: false }, items, debug);
+	if (b.result.ok) b.result = f.out.writeStr("}");
+	return b.result;
+}
+
+/** `Debug` of a map: a set of entries, each its key and value apart by `": "` in one indented field. */
+export function fmtMap<K, V>(entries: Iterable<[K, V]>, f: Formatter, key: Debug<K>, value: Debug<V>): FmtResult {
+	return fmtSet(entries, f, ([k, v], f) => {
+		let r = key(k, f);
+		if (r.ok) r = f.out.writeStr(": ");
+		return r.ok ? value(v, f) : r;
+	});
 }
 
 /** `Debug` of a range: each bound present, written with the formatter's options, around `dots`, which none pads. */

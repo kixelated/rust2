@@ -12,7 +12,7 @@ use super::Translator;
 use super::body::Body;
 use super::library::{self, Call, Std};
 use super::num::Int;
-use crate::ts::{Expr, Param, StmtKind, Type};
+use crate::ts::{Expr, Param, Type};
 
 /// `Iterator::next`, and the trait's `Item`.
 fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
@@ -497,29 +497,14 @@ pub fn call<'tcx>(
 		// An item JS copies is lent as its place, and an object as itself.
 		"peek_mut" => method(&camel, vec![Expr::lit(b.t.needs_place(item).to_string())]),
 		// By the item's `PartialEq<T>`: `eq_fn` of its own type, else the impl's `eq`, as a
-		// call to it lowers.
+		// call to it lowers, given a `&T`.
 		"next_if_eq" => {
 			let expected = targ(1)?;
 			let eq = match expected == item {
 				true => super::collections::eq_fn(b, item, span),
 				false => {
-					let eq = super::collections::trait_fn(tcx, "PartialEq", "eq");
-					let eq = b.fn_value(eq, tcx.mk_args(&[item.into(), expected.into()]), span);
-					match super::byte_array(item) {
-						// The `eq` takes a `&[u8; N]`, an `rt.ByteSlice` of the item's bytes.
-						true => {
-							let (a, c) = (b.fresh("a"), b.fresh("b"));
-							let lent = Expr::rt("byteSliceFrom", vec![Expr::ident(&a)]);
-							let call = eq.call(vec![lent, Expr::ident(&c)]);
-							let params = [a, c].map(|name| Param { name, ty: None }).into();
-							Expr::Arrow(
-								params,
-								Type::Builtin("boolean"),
-								vec![StmtKind::Return(Some(call)).at(None)],
-							)
-						}
-						false => eq,
-					}
+					let by = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, expected);
+					super::collections::impl_eq(b, "eq", item, expected, [item, by], span)
 				}
 			};
 			method(&camel, [rest, vec![eq], none.into_iter().collect()].concat())
@@ -922,6 +907,16 @@ fn collect<'tcx>(
 	span: Span,
 ) -> Option<Expr> {
 	let tcx = b.t.tcx;
+	// `()`'s reads every item, each a `()` too, by `for_each`, which folds: from `undefined`,
+	// so the result is typed as `()` is.
+	if ty.is_unit() {
+		let drops = iter_drops(b, from, span);
+		let each = Expr::Lambda(Vec::new(), Box::new(Expr::undefined()));
+		return Some(Expr::rt(
+			"iterFold",
+			tail(vec![iter, Expr::undefined(), each], vec![drops]),
+		));
+	}
 	let ty::Adt(adt, args) = ty.kind() else {
 		return None;
 	};
@@ -943,15 +938,6 @@ fn collect<'tcx>(
 				return None;
 			};
 			let value = item_args.type_at(0);
-			// The runtime ends at the first `undefined` item, and returns `undefined` for `None`.
-			if std == Std::Option
-				&& let Some(some) = [value, args.type_at(0)]
-					.into_iter()
-					.find(|&t| b.t.erases_to(t).undefined)
-			{
-				let msg = format!("collecting `Option<{some}>`, whose `None` is `rt.None`, which is not supported yet");
-				b.t.err(span, msg);
-			}
 			let value_ty = b.t.ty(value, span);
 			// What it collects from is what `from` yields up to the first `Err` or `None`, which
 			// std's collects in place of `from`'s source as it would `from`, but never trusts
@@ -961,13 +947,19 @@ fn collect<'tcx>(
 				name: "values".into(),
 				ty: Some(Type::Rt("Iter", vec![value_ty])),
 			};
-			let collect = match std {
-				Std::Result => "iterCollectResult",
-				_ => "iterCollectOption",
-			};
 			let dropper = b.t.dropper(args.type_at(0), span);
-			let args = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
-			Some(Expr::rt(collect, tail(args, vec![dropper])))
+			let collected = vec![iter, Expr::Lambda(vec![param], Box::new(values))];
+			Some(match std {
+				Std::Result => Expr::rt("iterCollectResult", tail(collected, vec![dropper])),
+				// The items' `None`, and the result's, each `rt.None` where `undefined` is a value.
+				_ => {
+					let nones = [value, args.type_at(0)].map(|t| b.t.none(t));
+					Expr::rt(
+						"iterCollectOption",
+						tail(collected, [vec![dropper], nones.into()].concat()),
+					)
+				}
+			})
 		}
 		// From chars or text, as `extend` of an empty one, but for an owned string's, which
 		// the rest extend once `next` gives it. A `Cow<str>` and a `Box<str>` own the `String`

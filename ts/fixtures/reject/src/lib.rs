@@ -31,11 +31,6 @@ pub fn generic_unit(value: Option<()>) -> bool {
 	Maybe { value }.value.is_some()
 }
 
-/// The runtime's collecting into an `Option` ends at the first `undefined`, which `Some(())` is.
-pub fn collected(v: &[u8]) -> Option<Vec<()>> {
-	v.iter().map(|&b| (b > 1).then_some(())).collect()
-}
-
 /// `scan` of items that can be `undefined`: its closure's `None` and `Some(None)` would both be.
 pub fn scanned(v: &[u8]) -> usize {
 	v.iter()
@@ -843,26 +838,6 @@ impl std::fmt::Write for Sink {
 /// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
 pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
 	map.into_keys().next().map_or(0, |k| k[0])
-}
-
-/// `next_if_eq` compares by the item's `PartialEq<Vec<u8>>`, which is refused as `==` is.
-pub fn peeked_deque(v: Vec<std::collections::VecDeque<u8>>) -> bool {
-	v.into_iter().peekable().next_if_eq(&vec![1]).is_some()
-}
-
-pub struct Left(pub u16);
-
-pub struct Right(pub u16);
-
-impl PartialEq<Right> for Left {
-	fn eq(&self, other: &Right) -> bool {
-		self.0 % 4 == other.0 % 4
-	}
-}
-
-/// `Vec`s compare by their elements' `PartialEq<Right>`, not by `Left`'s own.
-pub fn unlike_elements(v: Vec<Vec<Left>>, w: &[Right]) -> bool {
-	v.into_iter().peekable().next_if_eq(&w).is_some()
 }
 
 pub struct Plain {

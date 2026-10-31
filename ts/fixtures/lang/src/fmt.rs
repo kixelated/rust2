@@ -3,6 +3,7 @@
 
 #![allow(dead_code, reason = "fields only `Debug` reads")]
 
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::ops::{Range, RangeToInclusive};
 use std::rc::Rc;
@@ -661,6 +662,66 @@ pub fn wrapped(data: &[u8], out: &mut Vec<u8>) {
 	put(out, &format!("{shared:?} {shared:#?}"));
 	let t: Arc<str> = Arc::from(STRINGS[usize::from(at(3)) % STRINGS.len()]);
 	put(out, &format!("{t} {t:?} {t:>9.2}"));
+}
+
+/// std's collections' `Debug`, which passes its options to each element: a deque from its
+/// head however its buffer wraps, sets and maps in braces, nested, and pretty. A hash
+/// collection holds at most one entry, since std leaves their order unspecified.
+pub fn collections(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	// Each byte pushes or pops at either end, so the head wraps around the buffer.
+	let mut q: VecDeque<Option<u8>> = VecDeque::with_capacity(4);
+	for &b in data {
+		match b % 4 {
+			0 => q.push_back((b % 3 != 0).then_some(b)),
+			1 => q.push_front((b % 3 != 0).then_some(b)),
+			2 => {
+				q.pop_back();
+			}
+			_ => {
+				q.pop_front();
+			}
+		}
+	}
+	put(out, &format!("{q:?}|{q:#?}|{q:x?}|{q:>4?}"));
+	// Pushed at the front, the head wraps to the buffer's end, and popping the back past
+	// where it started leaves only what wrapped.
+	let mut wrapped = VecDeque::with_capacity(4);
+	wrapped.extend([Hex(1), Hex(2)]);
+	wrapped.push_front(Hex(u32::from(at(0)) * 0x1001));
+	wrapped.push_front(Hex(u32::from(at(1))));
+	wrapped.pop_back();
+	let mid = format!("{wrapped:?}");
+	wrapped.pop_back();
+	put(out, &format!("{mid}|{wrapped:?}|{wrapped:#?}|{wrapped:6?}"));
+	let empty = VecDeque::<u8>::new();
+	let units: VecDeque<()> = (0..at(2) % 3).map(|_| ()).collect();
+	put(out, &format!("{empty:?}|{empty:#?}|{units:?}"));
+	let nested: VecDeque<VecDeque<Pair>> = [VecDeque::new(), VecDeque::from([Pair(at(3), -1), Pair(2, 3)])].into();
+	put(out, &format!("{nested:?}|{nested:#?}"));
+
+	let sorted: BTreeSet<Option<u8>> = data.iter().map(|&b| (b % 3 != 0).then_some(b % 8)).collect();
+	put(out, &format!("{sorted:?}|{sorted:#?}|{sorted:02x?}"));
+	let mut map: BTreeMap<u8, VecDeque<Pair>> = BTreeMap::new();
+	for &b in data.iter().take(6) {
+		map.entry(b % 4).or_default().push_front(Pair(b, -i64::from(b)));
+	}
+	put(
+		out,
+		&format!(
+			"{map:?}|{map:#?}|{:?}|{:#?}",
+			BTreeMap::<u8, u8>::new(),
+			BTreeSet::<u8>::new()
+		),
+	);
+	let (mut one, mut set) = (HashMap::new(), HashSet::new());
+	if let Some(&b) = data.first() {
+		one.insert((b % 2 == 0).then_some(b), Hex(b.into()));
+	}
+	if let Some(&b) = data.get(1) {
+		set.insert(b);
+	}
+	put(out, &format!("{one:?}|{one:#?}|{one:>3?}|{set:?}|{set:#?}|{set:#04x?}"));
 }
 
 /// An error only a TypeScript caller prints, as moq's callers print its errors: nothing
