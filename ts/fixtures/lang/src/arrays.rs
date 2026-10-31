@@ -352,7 +352,9 @@ fn given_n<const N: usize>(data: &[u8], out: &mut Vec<u8>) {
 	std::mem::swap(&mut first[0], &mut rest[1]);
 	put(out, &v);
 	// Parts of a longer slice, at an offset into it.
-	let mut buf: Vec<u8> = (0..2 * N + 1).map(|i| data.get(i).map_or(i as u8 ^ 0x55, |d| d ^ 0x80)).collect();
+	let mut buf: Vec<u8> = (0..2 * N + 1)
+		.map(|i| data.get(i).map_or(i as u8 ^ 0x55, |d| d ^ 0x80))
+		.collect();
 	out.push(u8::from(v.contains(buf.last_chunk::<N>().unwrap())));
 	let part = buf[1..].first_chunk::<N>().copied();
 	if let Some((x, rest)) = buf.split_first_chunk_mut::<N>()
@@ -392,7 +394,9 @@ fn given_n<const N: usize>(data: &[u8], out: &mut Vec<u8>) {
 /// own `Debug`.
 fn fields(data: &[u8], out: &mut Vec<u8>) {
 	let mut a: [u8; 3] = bytes_at(data, 2);
-	let mut held = Framed { bytes: bytes_at(data, 0) };
+	let mut held = Framed {
+		bytes: bytes_at(data, 0),
+	};
 	std::mem::swap(&mut held.bytes, &mut a);
 	let old = std::mem::replace(&mut held.bytes, [a[2], a[1], a[0]]);
 	held.bytes[0] ^= 0x10;
