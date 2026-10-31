@@ -1,6 +1,6 @@
 # Commits
 
-PRs into `main` are squash-merged through the merge queue, so the PR title becomes the commit subject.
+PRs into `main` land as squash commits through the land gate, so the PR title becomes the commit subject.
 
 - Use conventional-commit subjects (`feat(ts): ...`, `fix: ...`, `chore: ...`, `docs: ...`).
 - AI commit attribution goes in a `Co-Authored-By:` trailer, not the commit body.
@@ -20,12 +20,12 @@ Have at least these sections:
 Never rebase or force-push a pushed branch; merge the base branch in instead.
 Open a draft PR while working, run `just ci` before every push, and mark the PR ready yourself when the work is done.
 
-# Merge queue
+# Landing
 
-PRs into `main` get no cloud CI: they report **Check** as skipped, and `just ci` runs the same gate locally.
-The merge queue runs Check on the PR combined with the latest `main` and the PRs queued ahead of it.
-Enqueue the reviewed head with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this).
-A dequeued PR failed that combined check, timed out, or no longer meets the ruleset: read why in the PR timeline, fix the cause, and enqueue again.
+PRs into `main` get no cloud CI; `just ci` runs the same gate locally.
+PRs land only through `quest land`: queue the reviewed head with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this).
+The land gate, `quest land serve` on the maintainer's host, takes the longest-queued PR plus up to log₂ n more that merge cleanly, runs `just ci` once on the batch, and lands each PR through GitHub's squash merge.
+A failing batch is ejected together, and a Codex fixer makes mechanical fixes and requeues healthy PRs or hands them back with a comment: read why in the PR, fix the cause, and queue again.
 The admin bypass of `main`'s ruleset is for emergencies.
 
 # Reviews
