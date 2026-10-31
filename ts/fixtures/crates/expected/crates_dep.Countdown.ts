@@ -12,7 +12,7 @@ function new_(from: rt.u8): Countdown {
 	return { next: from, last: 0 };
 }
 
-export function next$Iterator(self: Countdown): rt.u8 | rt.Done {
+export function next$iter_Iterator(self: Countdown): rt.u8 | rt.Done {
 	if (!(self.next === self.last)) {
 		self.next = rt.u8Sub(self.next, 1);
 		return rt.u8Add(self.next, 1);

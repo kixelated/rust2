@@ -489,18 +489,19 @@ fn bind() {
 /// A package and its dependency translate as one program, trait objects of the
 /// dependency's trait and its safe twin of its `unsafe` included, and run as native Rust
 /// does. Its `unsafe` that nothing binds is refused at its span, and so are its iterator
-/// that runs from either end and a module of the package's that would share the
-/// dependency's files.
+/// that runs from either end, a module of the package's that would share the
+/// dependency's files, and two instances whose suffixes are alike.
 #[test]
 fn crates() {
 	let out = translated("crates");
 	snapshot("crates", &out);
 	typecheck(&out);
 	differential("crates-fixture", &[], &out, "harness.ts", 1_000);
-	let cases: [(&str, &str, &[&str]); 3] = [
+	let cases: [(&str, &str, &[&str]); 4] = [
 		("refused", "refused.toml", &[]),
 		("rev", "ts.toml", &["--", "--features", "rev"]),
 		("shared", "ts.toml", &["--", "--features", "shared"]),
+		("alike", "alike.toml", &["--", "--features", "alike"]),
 	];
 	for (case, config, cargo) in cases {
 		let out = scratch().join("crates").join(case);

@@ -11,19 +11,19 @@ export interface Mixed {
 	_0: rt.u16;
 }
 
-export function eq$PartialEq(self: Mixed, other: Mixed): boolean {
+export function eq$cmp_PartialEq(self: Mixed, other: Mixed): boolean {
 	return rt.u16Rem(self._0, 5) === rt.u16Rem(other._0, 5);
 }
 
-export function partialCmp$PartialOrd(self: Mixed, other: Mixed): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Mixed, other: Mixed): rt.Ordering | undefined {
 	return rt.cmp(rt.u16Rem(self._0, 5), rt.u16Rem(other._0, 5));
 }
 
-export function cmp$Ord(self: Mixed, other: Mixed): rt.Ordering {
+export function cmp$cmp_Ord_ref(self: Mixed, other: Mixed): rt.Ordering {
 	return rt.cmp(rt.u16Rem(self._0, 3), rt.u16Rem(other._0, 3));
 }
 
-export function hash$Hash_DefaultHasher(self: Mixed, state: rt.Hasher): void {
+export function hash$Hash_ref_hash_DefaultHasher(self: Mixed, state: rt.Hasher): void {
 	rt.hash16(rt.u16Rem(self._0, 5), state);
 }
 

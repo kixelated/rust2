@@ -6,11 +6,11 @@ export function clone$Clone(_self: One): One {
 	return "Only" as One;
 }
 
-export function fmt$Debug(_self: One, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(_self: One, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.fmtWriteStr(f, "Only");
 }
 
-export function eq$PartialEq(_self: One, _other: One): boolean {
+export function eq$cmp_PartialEq(_self: One, _other: One): boolean {
 	return true;
 }
 

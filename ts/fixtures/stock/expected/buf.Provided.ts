@@ -41,8 +41,8 @@ export interface Provided {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf(self: Provided): rt.usize {
-	return Pieces.remaining$Buf(self._0);
+export function remaining$bytes_Buf(self: Provided): rt.usize {
+	return Pieces.remaining$bytes_Buf(self._0);
 }
 
 /**
@@ -75,8 +75,8 @@ export function remaining$Buf(self: Provided): rt.usize {
  * return 0 and `remaining()` returning 0 implies that `chunk()` will
  * return an empty slice.
  */
-export function chunk$Buf(self: Provided): rt.ByteSlice {
-	return Pieces.chunk$Buf(self._0);
+export function chunk$bytes_Buf(self: Provided): rt.ByteSlice {
+	return Pieces.chunk$bytes_Buf(self._0);
 }
 
 /**
@@ -111,8 +111,8 @@ export function chunk$Buf(self: Provided): rt.ByteSlice {
  *
  * A call with `cnt == 0` should never panic and be a no-op.
  */
-export function advance$Buf(self: Provided, cnt: rt.usize): void {
-	Pieces.advance$Buf(self._0, cnt);
+export function advance$bytes_Buf(self: Provided, cnt: rt.usize): void {
+	Pieces.advance$bytes_Buf(self._0, cnt);
 }
 
 /**
@@ -134,8 +134,8 @@ export function advance$Buf(self: Provided, cnt: rt.usize): void {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf(self: Provided): boolean {
-	return remaining$Buf(self) > 0;
+export function hasRemaining$bytes_Buf(self: Provided): boolean {
+	return remaining$bytes_Buf(self) > 0;
 }
 
 /**
@@ -161,8 +161,8 @@ export function hasRemaining$Buf(self: Provided): boolean {
  *
  * This function panics if `self.remaining() < dst.len()`.
  */
-export function copyToSlice$Buf(self: Provided, dst: rt.ByteSlice): void {
-	result_unwrapOrElse$0s2lrc9(tryCopyToSlice$Buf(self, dst), (error: TryGetError.TryGetError): undefined => {
+export function copyToSlice$bytes_Buf(self: Provided, dst: rt.ByteSlice): void {
+	result_unwrapOrElse$0s2lrc9(tryCopyToSlice$bytes_Buf(self, dst), (error: TryGetError.TryGetError): undefined => {
 		panicAdvance(error);
 	});
 }
@@ -185,12 +185,12 @@ export function copyToSlice$Buf(self: Provided, dst: rt.ByteSlice): void {
  *
  * This function panics if there is no more remaining data in `self`.
  */
-export function getU8$Buf(self: Provided): rt.u8 {
-	if (!(remaining$Buf$2(self) < 1)) {
-		const _7: rt.ByteSlice = chunk$Buf$2(self);
+export function getU8$bytes_Buf(self: Provided): rt.u8 {
+	if (!(remaining$bytes_Buf_mut(self) < 1)) {
+		const _7: rt.ByteSlice = chunk$bytes_Buf_mut(self);
 		rt.idx(_7, 0);
 		const ret: rt.u8 = _7.data[_7.start];
-		advance$Buf(self, 1);
+		advance$bytes_Buf(self, 1);
 		return ret;
 	}
 	panicAdvance({ requested: 1, available: 0 });
@@ -228,18 +228,18 @@ export function getU8$Buf(self: Provided): rt.u8 {
  * assert_eq!(11, buf.remaining());
  * ```
  */
-export function tryCopyToSlice$Buf(self: Provided, dst: rt.ByteSlice): rt.Result<undefined, TryGetError.TryGetError> {
-	if (!(remaining$Buf$2(self) < dst.length)) {
+export function tryCopyToSlice$bytes_Buf(self: Provided, dst: rt.ByteSlice): rt.Result<undefined, TryGetError.TryGetError> {
+	if (!(remaining$bytes_Buf_mut(self) < dst.length)) {
 		while (!(dst.length === 0)) {
-			const src: rt.ByteSlice = chunk$Buf$2(self);
+			const src: rt.ByteSlice = chunk$bytes_Buf_mut(self);
 			const cnt: rt.usize = rt.min(src.length, dst.length);
 			rt.byteSliceCopyFromSlice(rt.byteSliceRange(dst, 0, cnt), rt.byteSliceRange(src, 0, cnt));
 			dst = rt.byteSliceRange(dst, cnt);
-			advance$Buf(self, cnt);
+			advance$bytes_Buf(self, cnt);
 		}
 		return rt.OK;
 	}
-	return rt.Err({ requested: dst.length, available: remaining$Buf$2(self) });
+	return rt.Err({ requested: dst.length, available: remaining$bytes_Buf_mut(self) });
 }
 
 /**
@@ -272,8 +272,8 @@ export function tryCopyToSlice$Buf(self: Provided, dst: rt.ByteSlice): rt.Result
  * return 0 and `remaining()` returning 0 implies that `chunk()` will
  * return an empty slice.
  */
-export function chunk$Buf$2(self: Provided): rt.ByteSlice {
-	return chunk$Buf(self);
+export function chunk$bytes_Buf_mut(self: Provided): rt.ByteSlice {
+	return chunk$bytes_Buf(self);
 }
 
 /**
@@ -295,8 +295,8 @@ export function chunk$Buf$2(self: Provided): rt.ByteSlice {
  * assert!(!buf.has_remaining());
  * ```
  */
-export function hasRemaining$Buf$2(self: Provided): boolean {
-	return hasRemaining$Buf(self);
+export function hasRemaining$bytes_Buf_mut(self: Provided): boolean {
+	return hasRemaining$bytes_Buf(self);
 }
 
 /**
@@ -326,8 +326,8 @@ export function hasRemaining$Buf$2(self: Provided): boolean {
  * not change unless a call is made to `advance` or any other function that
  * is documented to change the `Buf`'s current position.
  */
-export function remaining$Buf$2(self: Provided): rt.usize {
-	return remaining$Buf(self);
+export function remaining$bytes_Buf_mut(self: Provided): rt.usize {
+	return remaining$bytes_Buf(self);
 }
 
 //# sourceMappingURL=buf.Provided.ts.map

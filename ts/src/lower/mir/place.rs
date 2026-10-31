@@ -1221,10 +1221,12 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let sym = self.b.t.program.sym(Symbol {
 			module: self.b.t.module_of(item),
 			base: tcx.item_name(item).to_string(),
-			suffix: String::new(),
+			// A static of a function, by the items it is nested in.
+			suffix: crate::lower::names::enclosing(tcx, item).join("_"),
 			owner: None,
 			kind: SymKind::Value,
 			order: self.b.t.order(tcx.def_span(item)),
+			span: tcx.def_span(item),
 			instance: String::new(),
 			name: String::new(),
 			alias: None,

@@ -7,7 +7,7 @@ export interface Countdown {
 	_0: rt.u8;
 }
 
-export function next$Iterator(self: Countdown): rt.u8 | rt.Done {
+export function next$iter_Iterator(self: Countdown): rt.u8 | rt.Done {
 	const _2: rt.u8 | undefined = rt.u8CheckedSub(self._0, 1);
 	if (_2 !== undefined) {
 		self._0 = _2;

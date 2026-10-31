@@ -7,25 +7,25 @@ export interface Hex {
 	_0: rt.u32;
 }
 
-export function fmt$Binary(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Binary(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.u32Binary(self._0, f);
 }
 
-export function fmt$Octal(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Octal(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Octal(arg, f)];
 	return rt.fmtWriteFmt(f, [args2[0]]);
 }
 
-export function fmt$LowerExp(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_LowerExp(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.u32LowerExp(self._0, f);
 }
 
-export function fmt$UpperExp(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_UpperExp(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.u32UpperExp(self._0, f);
 }
 
-export function fmt$Display(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (!rt.fmtAlternate(f)) {
 		const arg2 = self._0;
 		const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.u32LowerHex(arg2, f)];
@@ -36,7 +36,7 @@ export function fmt$Display(self: Hex, f: rt.Formatter): rt.Result<undefined, rt
 	return rt.fmtWriteFmt(f, [rt.fmtSpec({ alternate: true }, args2[0])]);
 }
 
-export function fmt$Debug(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Hex, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.u32Display(self._0, f);
 }
 

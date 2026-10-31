@@ -22,7 +22,7 @@ use rustc_span::{DUMMY_SP, Span};
 
 use super::library::{Flow, Std};
 use super::mir::holders::{Filled, Trace};
-use super::{AdtRepr, Translator, field_name, short_name};
+use super::{AdtRepr, Translator, field_name, names};
 use crate::program::{SymKind, Symbol};
 use crate::ts::{self, Expr, Key, Param, Stmt, StmtKind};
 
@@ -96,15 +96,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// The function copying a `ty`, made the first time.
 	fn shim(&mut self, ty: Ty<'tcx>, span: Span) -> Option<Expr> {
-		// An array's copy is the same at every length.
+		// An array's copy is the same at every length, so its name has none: `array_u8`.
 		let tcx = self.tcx;
-		let ty = match ty.kind() {
-			ty::Array(elem, _) => Ty::new_array(tcx, *elem, 0),
+		let (ty, any_length) = match ty.kind() {
+			ty::Array(elem, _) => (Ty::new_array(tcx, *elem, 0), true),
 			ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::MaybeUninit) => match args.type_at(0).kind() {
-				ty::Array(elem, _) => Ty::new_maybe_uninit(tcx, Ty::new_array(tcx, *elem, 0)),
-				_ => ty,
+				ty::Array(elem, _) => (Ty::new_maybe_uninit(tcx, Ty::new_array(tcx, *elem, 0)), true),
+				_ => (ty, false),
 			},
-			_ => ty,
+			_ => (ty, false),
 		};
 		if let Some(&sym) = self.copy_shims.get(&ty) {
 			return Some(Expr::Sym(sym));
@@ -116,10 +116,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let sym = self.program.sym(Symbol {
 			module: Vec::new(),
 			base: "copy".into(),
-			suffix: short_name(self.tcx, ty),
+			suffix: match any_length {
+				true => names::ty(tcx, ty).replacen("array0_", "array_", 1),
+				false => names::ty(tcx, ty),
+			},
 			owner: None,
 			kind: SymKind::Function,
 			order: 0,
+			span,
 			instance: ty::print::with_no_trimmed_paths!(ty.to_string()),
 			name: String::new(),
 			alias: None,

@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 import { thenSome$0d5am30 } from "./core/bool.ts";
-import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, map$1u07cey as option_map$1u07cey, map$05nbzug as option_map$05nbzug, mapOr$0djjvgl as option_mapOr$0djjvgl, mapOr$1surhce as option_mapOr$1surhce, mapOr$02k4ito as option_mapOr$02k4ito, mapOr$06gg5x7 as option_mapOr$06gg5x7 } from "./core/option.ts";
+import { unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, map$1u07cey as option_map$1u07cey, map$05nbzug as option_map$05nbzug, mapOr$0djjvgl as option_mapOr$0djjvgl, mapOr$1surhce as option_mapOr$1surhce, mapOr$02k4ito as option_mapOr$02k4ito, mapOr$06gg5x7 as option_mapOr$06gg5x7 } from "./core/option.ts";
 import * as cycles_Countdown from "./cycles.Countdown.ts";
 import * as cycles_Logged from "./cycles.Logged.ts";
 
@@ -19,7 +19,55 @@ export function flush(log: rt.RefCell<rt.ByteVec>, out: rt.ByteVec): void {
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Chain_Iter_u8_Take_Rev_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$cycles_Countdown_cycles_cycles_closure4(it: cycles_Countdown.Countdown, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+	let item!: rt.u8 | undefined;
+	const it2: rt.Iter<rt.u8> = rt.iterCycle(rt.iterFrom(it, (it: cycles_Countdown.Countdown) => cycles_Countdown.next$iter_Iterator(it)), { v: cycles_Countdown.clone$Clone });
+	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
+	const lower: rt.usize = _8[0];
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(lower & 0xff, (lower >>> 24) & 0xff, option_mapOr$02k4ito(_8[1], 254, (n2: rt.usize): rt.u8 => {
+		return n2 & 0xff;
+	}))), undefined, true);
+	const iter: rt.Iter<rt.u8> = rt.iterTake(rt.iterSlice(rt.byteSliceView(steps)), 12);
+	while (true) {
+		const _22: rt.u8 | rt.Done = iter.next();
+		if (_22 === rt.DONE) {
+			break;
+		}
+		const step: rt.u8 = _22;
+		const n: rt.usize = rt.usizeRem(step >> 2 as rt.usize, 9);
+		let left: rt.usize = n;
+		const nth: (a0: rt.u8) => boolean = (_2: rt.u8): boolean => {
+			const hit: boolean = left === 0;
+			left = rt.usizeWrappingSub(left, 1);
+			return hit;
+		};
+		const _36: rt.u8 = step & 3;
+		if (_36 === 0) {
+			item = rt.iterToOption(it2.next());
+		} else if (_36 === 1) {
+			item = rt.iterNth(it2, n);
+		} else if (_36 === 2) {
+			item = rt.iterFind(it2, (item3: rt.u8): boolean => {
+				return nth(item3);
+			});
+		} else {
+			rt.byteVecPush(out, option_mapOr$02k4ito(rt.iterPosition(it2, (item2: rt.u8): boolean => {
+				return nth(item2);
+			}), 238, (i: rt.usize): rt.u8 => {
+				return i & 0xff;
+			}));
+			continue;
+		}
+		rt.byteVecPush(out, option_mapOr$1surhce(item, 238, put));
+	}
+}
+
+/**
+ * `it` cycled, its size hint, and then read as each of `steps` picks: by `next`, `nth`,
+ * or `find` or `position` of the item a count picks, each item as `put` makes it, or
+ * 0xee for none.
+ */
+export function read$iter_Chain_slice_Iter_u8_iter_Take_iter_Rev_slice_Iter_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -67,9 +115,9 @@ export function read$Chain_Iter_u8_Take_Rev_Iter_u8_cycles_closure1(it: rt.Iter<
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Countdown_cycles_closure4(it: cycles_Countdown.Countdown, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Cycle_slice_Iter_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
-	const it2: rt.Iter<rt.u8> = rt.iterCycle(rt.iterFrom(it, (it: cycles_Countdown.Countdown) => cycles_Countdown.next$Iterator(it)), { v: cycles_Countdown.clone$Clone });
+	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
 	const lower: rt.usize = _8[0];
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(lower & 0xff, (lower >>> 24) & 0xff, option_mapOr$02k4ito(_8[1], 254, (n2: rt.usize): rt.u8 => {
@@ -115,7 +163,7 @@ export function read$Countdown_cycles_closure4(it: cycles_Countdown.Countdown, s
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Cycle_IntoIter_Logged_owned_closure6(it: rt.Iter<cycles_Logged.Logged>, steps: rt.ByteSlice, put: (a0: cycles_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Cycle_vec_IntoIter_cycles_Logged_cycles_owned_closure6(it: rt.Iter<cycles_Logged.Logged>, steps: rt.ByteSlice, put: (a0: cycles_Logged.Logged) => rt.u8, out: rt.ByteVec): void {
 	let item!: cycles_Logged.Logged | undefined;
 	const it2: rt.Iter<cycles_Logged.Logged> = rt.iterCycle(it, { i: { v: cycles_Logged.clone$Clone } });
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -166,7 +214,7 @@ export function read$Cycle_IntoIter_Logged_owned_closure6(it: rt.Iter<cycles_Log
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Cycle_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Empty_u8_cycles_cycles_closure3(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -214,55 +262,7 @@ export function read$Cycle_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Empty_u8_cycles_closure3(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
-	let item!: rt.u8 | undefined;
-	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
-	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-	const lower: rt.usize = _8[0];
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(lower & 0xff, (lower >>> 24) & 0xff, option_mapOr$02k4ito(_8[1], 254, (n2: rt.usize): rt.u8 => {
-		return n2 & 0xff;
-	}))), undefined, true);
-	const iter: rt.Iter<rt.u8> = rt.iterTake(rt.iterSlice(rt.byteSliceView(steps)), 12);
-	while (true) {
-		const _22: rt.u8 | rt.Done = iter.next();
-		if (_22 === rt.DONE) {
-			break;
-		}
-		const step: rt.u8 = _22;
-		const n: rt.usize = rt.usizeRem(step >> 2 as rt.usize, 9);
-		let left: rt.usize = n;
-		const nth: (a0: rt.u8) => boolean = (_2: rt.u8): boolean => {
-			const hit: boolean = left === 0;
-			left = rt.usizeWrappingSub(left, 1);
-			return hit;
-		};
-		const _36: rt.u8 = step & 3;
-		if (_36 === 0) {
-			item = rt.iterToOption(it2.next());
-		} else if (_36 === 1) {
-			item = rt.iterNth(it2, n);
-		} else if (_36 === 2) {
-			item = rt.iterFind(it2, (item3: rt.u8): boolean => {
-				return nth(item3);
-			});
-		} else {
-			rt.byteVecPush(out, option_mapOr$02k4ito(rt.iterPosition(it2, (item2: rt.u8): boolean => {
-				return nth(item2);
-			}), 238, (i: rt.usize): rt.u8 => {
-				return i & 0xff;
-			}));
-			continue;
-		}
-		rt.byteVecPush(out, option_mapOr$1surhce(item, 238, put));
-	}
-}
-
-/**
- * `it` cycled, its size hint, and then read as each of `steps` picks: by `next`, `nth`,
- * or `find` or `position` of the item a count picks, each item as `put` makes it, or
- * 0xee for none.
- */
-export function read$Enumerate_Iter_u8_cycles_closure9(it: rt.Iter<[rt.usize, rt.u8]>, steps: rt.ByteSlice, put: (a0: [rt.usize, rt.u8]) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Enumerate_slice_Iter_u8_cycles_cycles_closure9(it: rt.Iter<[rt.usize, rt.u8]>, steps: rt.ByteSlice, put: (a0: [rt.usize, rt.u8]) => rt.u8, out: rt.ByteVec): void {
 	let item!: [rt.usize, rt.u8] | undefined;
 	const it2: rt.Iter<[rt.usize, rt.u8]> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -310,55 +310,7 @@ export function read$Enumerate_Iter_u8_cycles_closure9(it: rt.Iter<[rt.usize, rt
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Filter_Iter_u8_cycles_closure8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
-	let item!: rt.u8 | undefined;
-	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
-	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
-	const lower: rt.usize = _8[0];
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(lower & 0xff, (lower >>> 24) & 0xff, option_mapOr$02k4ito(_8[1], 254, (n2: rt.usize): rt.u8 => {
-		return n2 & 0xff;
-	}))), undefined, true);
-	const iter: rt.Iter<rt.u8> = rt.iterTake(rt.iterSlice(rt.byteSliceView(steps)), 12);
-	while (true) {
-		const _22: rt.u8 | rt.Done = iter.next();
-		if (_22 === rt.DONE) {
-			break;
-		}
-		const step: rt.u8 = _22;
-		const n: rt.usize = rt.usizeRem(step >> 2 as rt.usize, 9);
-		let left: rt.usize = n;
-		const nth: (a0: rt.u8) => boolean = (_2: rt.u8): boolean => {
-			const hit: boolean = left === 0;
-			left = rt.usizeWrappingSub(left, 1);
-			return hit;
-		};
-		const _36: rt.u8 = step & 3;
-		if (_36 === 0) {
-			item = rt.iterToOption(it2.next());
-		} else if (_36 === 1) {
-			item = rt.iterNth(it2, n);
-		} else if (_36 === 2) {
-			item = rt.iterFind(it2, (item3: rt.u8): boolean => {
-				return nth(item3);
-			});
-		} else {
-			rt.byteVecPush(out, option_mapOr$02k4ito(rt.iterPosition(it2, (item2: rt.u8): boolean => {
-				return nth(item2);
-			}), 238, (i: rt.usize): rt.u8 => {
-				return i & 0xff;
-			}));
-			continue;
-		}
-		rt.byteVecPush(out, option_mapOr$1surhce(item, 238, put));
-	}
-}
-
-/**
- * `it` cycled, its size hint, and then read as each of `steps` picks: by `next`, `nth`,
- * or `find` or `position` of the item a count picks, each item as `put` makes it, or
- * 0xee for none.
- */
-export function read$Filter_Map_Take_Iter_u8_closures_closure5_closures_closure6_closures_closure7(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Filter_iter_Map_iter_Take_slice_Iter_u8_cycles_closures_closure5_cycles_closures_closure6_cycles_closures_closure7(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it, { i: { f: rt.closureClone }, f: rt.closureClone });
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -407,7 +359,7 @@ export function read$Filter_Map_Take_Iter_u8_closures_closure5_closures_closure6
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Flatten_Chunks_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Filter_slice_Iter_u8_cycles_cycles_closure8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -455,7 +407,7 @@ export function read$Flatten_Chunks_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$IntoIter_u8_cycles_closure2(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Flatten_slice_Chunks_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -503,7 +455,7 @@ export function read$IntoIter_u8_cycles_closure2(it: rt.Iter<rt.u8>, steps: rt.B
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Peekable_slice_Iter_u8_cycles_cycles_closure1(it: rt.Peekable<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -551,7 +503,7 @@ export function read$Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteS
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Peekable_Iter_u8_cycles_closure1(it: rt.Peekable<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Skip_slice_Iter_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -599,7 +551,7 @@ export function read$Peekable_Iter_u8_cycles_closure1(it: rt.Peekable<rt.u8>, st
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$RangeInclusive_u8_cycles_closure6(it: rt.RangeInclusive<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_StepBy_slice_Iter_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -647,7 +599,7 @@ export function read$RangeInclusive_u8_cycles_closure6(it: rt.RangeInclusive<rt.
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$RangeInclusive_u8_cycles_closure7(it: rt.RangeInclusive<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$iter_Take_slice_Iter_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -695,7 +647,7 @@ export function read$RangeInclusive_u8_cycles_closure7(it: rt.RangeInclusive<rt.
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Range_u8_cycles_closure5(it: rt.Range<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$ops_RangeInclusive_u8_cycles_cycles_closure6(it: rt.RangeInclusive<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -743,7 +695,7 @@ export function read$Range_u8_cycles_closure5(it: rt.Range<rt.u8>, steps: rt.Byt
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Skip_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$ops_RangeInclusive_u8_cycles_cycles_closure7(it: rt.RangeInclusive<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -791,7 +743,7 @@ export function read$Skip_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$StepBy_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$ops_Range_u8_cycles_cycles_closure5(it: rt.Range<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -839,7 +791,55 @@ export function read$StepBy_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: r
  * or `find` or `position` of the item a count picks, each item as `put` makes it, or
  * 0xee for none.
  */
-export function read$Take_Iter_u8_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+export function read$option_IntoIter_u8_cycles_cycles_closure2(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
+	let item!: rt.u8 | undefined;
+	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
+	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
+	const lower: rt.usize = _8[0];
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(lower & 0xff, (lower >>> 24) & 0xff, option_mapOr$02k4ito(_8[1], 254, (n2: rt.usize): rt.u8 => {
+		return n2 & 0xff;
+	}))), undefined, true);
+	const iter: rt.Iter<rt.u8> = rt.iterTake(rt.iterSlice(rt.byteSliceView(steps)), 12);
+	while (true) {
+		const _22: rt.u8 | rt.Done = iter.next();
+		if (_22 === rt.DONE) {
+			break;
+		}
+		const step: rt.u8 = _22;
+		const n: rt.usize = rt.usizeRem(step >> 2 as rt.usize, 9);
+		let left: rt.usize = n;
+		const nth: (a0: rt.u8) => boolean = (_2: rt.u8): boolean => {
+			const hit: boolean = left === 0;
+			left = rt.usizeWrappingSub(left, 1);
+			return hit;
+		};
+		const _36: rt.u8 = step & 3;
+		if (_36 === 0) {
+			item = rt.iterToOption(it2.next());
+		} else if (_36 === 1) {
+			item = rt.iterNth(it2, n);
+		} else if (_36 === 2) {
+			item = rt.iterFind(it2, (item3: rt.u8): boolean => {
+				return nth(item3);
+			});
+		} else {
+			rt.byteVecPush(out, option_mapOr$02k4ito(rt.iterPosition(it2, (item2: rt.u8): boolean => {
+				return nth(item2);
+			}), 238, (i: rt.usize): rt.u8 => {
+				return i & 0xff;
+			}));
+			continue;
+		}
+		rt.byteVecPush(out, option_mapOr$1surhce(item, 238, put));
+	}
+}
+
+/**
+ * `it` cycled, its size hint, and then read as each of `steps` picks: by `next`, `nth`,
+ * or `find` or `position` of the item a count picks, each item as `put` makes it, or
+ * 0xee for none.
+ */
+export function read$slice_Iter_u8_cycles_cycles_closure1(it: rt.Iter<rt.u8>, steps: rt.ByteSlice, put: (a0: rt.u8) => rt.u8, out: rt.ByteVec): void {
 	let item!: rt.u8 | undefined;
 	const it2: rt.Iter<rt.u8> = rt.iterCycle(it);
 	const _8: [rt.usize, rt.usize | undefined] = it2.sizeHint();
@@ -896,72 +896,72 @@ export function cycles(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	if (_12 === 0) {
 		const it: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
 		rt.iterNth(it, n);
-		read$Iter_u8_cycles_closure1(it, steps, (x18: rt.u8): rt.u8 => {
+		read$slice_Iter_u8_cycles_cycles_closure1(it, steps, (x18: rt.u8): rt.u8 => {
 			return x18;
 		}, out);
 		const it2: rt.Iter<rt.u8> = rt.iterSlice(rt.byteSliceView(data));
 		rt.iterForEach(rt.iterBorrow(it2), (_a03: rt.u8): undefined => {
 			undefined;
 		});
-		read$Iter_u8_cycles_closure1(it2, steps, (x19: rt.u8): rt.u8 => {
+		read$slice_Iter_u8_cycles_cycles_closure1(it2, steps, (x19: rt.u8): rt.u8 => {
 			return x19;
 		}, out);
-		read$Iter_u8_cycles_closure1(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, 0))), steps, (x20: rt.u8): rt.u8 => {
+		read$slice_Iter_u8_cycles_cycles_closure1(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, 0))), steps, (x20: rt.u8): rt.u8 => {
 			return x20;
 		}, out);
-		read$Take_Iter_u8_cycles_closure1(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), n), steps, (x21: rt.u8): rt.u8 => {
+		read$iter_Take_slice_Iter_u8_cycles_cycles_closure1(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), n), steps, (x21: rt.u8): rt.u8 => {
 			return x21;
 		}, out);
-		read$IntoIter_u8_cycles_closure2(rt.iterOption(n & 0xff), steps, (x22: rt.u8): rt.u8 => {
+		read$option_IntoIter_u8_cycles_cycles_closure2(rt.iterOption(n & 0xff), steps, (x22: rt.u8): rt.u8 => {
 			return x22;
 		}, out);
 		rt.iterEmpty();
-		read$Empty_u8_cycles_closure3(rt.iterEmpty() as rt.Iter<rt.u8>, steps, (x23: rt.u8): rt.u8 => {
+		read$iter_Empty_u8_cycles_cycles_closure3(rt.iterEmpty() as rt.Iter<rt.u8>, steps, (x23: rt.u8): rt.u8 => {
 			return x23;
 		}, out);
-		read$Countdown_cycles_closure4({ _0: rt.u8Mul(n & 0xff, 2) }, steps, (x24: rt.u8): rt.u8 => {
+		read$cycles_Countdown_cycles_cycles_closure4({ _0: rt.u8Mul(n & 0xff, 2) }, steps, (x24: rt.u8): rt.u8 => {
 			return x24;
 		}, out);
 	} else if (_12 === 1) {
 		const lo: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceFirst(data), 0), 8);
 		const hi: rt.u8 = rt.u8Rem(option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, 1), 9), 12);
-		read$Range_u8_cycles_closure5(new rt.Range(lo, hi), steps, (x8: rt.u8): rt.u8 => {
+		read$ops_Range_u8_cycles_cycles_closure5(new rt.Range(lo, hi), steps, (x8: rt.u8): rt.u8 => {
 			return x8;
 		}, out);
 		const range: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(lo, hi, rt.u8Step);
 		range.next();
-		read$RangeInclusive_u8_cycles_closure6(range.clone(), steps, (x9: rt.u8): rt.u8 => {
+		read$ops_RangeInclusive_u8_cycles_cycles_closure6(range.clone(), steps, (x9: rt.u8): rt.u8 => {
 			return x9;
 		}, out);
 		rt.iterForEach(rt.iterBorrow(range), (_a02: rt.u8): undefined => {
 			undefined;
 		});
-		read$RangeInclusive_u8_cycles_closure7(range, steps, (x10: rt.u8): rt.u8 => {
+		read$ops_RangeInclusive_u8_cycles_cycles_closure7(range, steps, (x10: rt.u8): rt.u8 => {
 			return x10;
 		}, out);
-		read$Filter_Iter_u8_cycles_closure8_cycles_closure1(rt.iterFilter(rt.iterSlice(rt.byteSliceView(data)), (_25: rt.u8): boolean => {
+		read$iter_Filter_slice_Iter_u8_cycles_cycles_closure8_cycles_cycles_closure1(rt.iterFilter(rt.iterSlice(rt.byteSliceView(data)), (_25: rt.u8): boolean => {
 			return rt.u8Rem(_25, 3) !== 0;
 		}), steps, (x12: rt.u8): rt.u8 => {
 			return x12;
 		}, out);
-		read$Chain_Iter_u8_Take_Rev_Iter_u8_cycles_closure1(rt.iterChain(rt.iterSlice(rt.byteSliceView(data)), rt.iterTake(rt.iterRev(rt.iterSlice(rt.byteSliceView(data))), 2)), steps, (x13: rt.u8): rt.u8 => {
+		read$iter_Chain_slice_Iter_u8_iter_Take_iter_Rev_slice_Iter_u8_cycles_cycles_closure1(rt.iterChain(rt.iterSlice(rt.byteSliceView(data)), rt.iterTake(rt.iterRev(rt.iterSlice(rt.byteSliceView(data))), 2)), steps, (x13: rt.u8): rt.u8 => {
 			return x13;
 		}, out);
-		read$StepBy_Iter_u8_cycles_closure1(rt.iterStepBy(rt.iterSlice(rt.byteSliceView(data)), rt.usizeAdd(n, 1)), steps, (x14: rt.u8): rt.u8 => {
+		read$iter_StepBy_slice_Iter_u8_cycles_cycles_closure1(rt.iterStepBy(rt.iterSlice(rt.byteSliceView(data)), rt.usizeAdd(n, 1)), steps, (x14: rt.u8): rt.u8 => {
 			return x14;
 		}, out);
-		read$Skip_Iter_u8_cycles_closure1(rt.iterSkip(rt.iterSlice(rt.byteSliceView(data)), n), steps, (x15: rt.u8): rt.u8 => {
+		read$iter_Skip_slice_Iter_u8_cycles_cycles_closure1(rt.iterSkip(rt.iterSlice(rt.byteSliceView(data)), n), steps, (x15: rt.u8): rt.u8 => {
 			return x15;
 		}, out);
-		read$Enumerate_Iter_u8_cycles_closure9(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), steps, (_29: [rt.usize, rt.u8]): rt.u8 => {
+		read$iter_Enumerate_slice_Iter_u8_cycles_cycles_closure9(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), steps, (_29: [rt.usize, rt.u8]): rt.u8 => {
 			return (_29[0] & 0xff) ^ _29[1];
 		}, out);
 		const peeked: rt.Peekable<rt.u8> = rt.iterPeekable(rt.iterSlice(rt.byteSliceView(data)));
 		rt.peekablePeek(peeked);
-		read$Peekable_Iter_u8_cycles_closure1(peeked, steps, (x16: rt.u8): rt.u8 => {
+		read$iter_Peekable_slice_Iter_u8_cycles_cycles_closure1(peeked, steps, (x16: rt.u8): rt.u8 => {
 			return x16;
 		}, out);
-		read$Flatten_Chunks_u8_cycles_closure1(rt.iterFlatten(rt.byteSliceChunks(data, rt.usizeAdd(n, 1)), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value))), steps, (x17: rt.u8): rt.u8 => {
+		read$iter_Flatten_slice_Chunks_u8_cycles_cycles_closure1(rt.iterFlatten(rt.byteSliceChunks(data, rt.usizeAdd(n, 1)), (value: rt.ByteSlice) => rt.iterSlice(rt.byteSliceView(value))), steps, (x17: rt.u8): rt.u8 => {
 			return x17;
 		}, out);
 	} else if (_12 === 2) {
@@ -1044,10 +1044,10 @@ export function cycles(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}));
 		}
 		rt.byteVecPush(out, rt.iterCycle(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, 0)))).clone().sizeHint()[0] & 0xff);
-		read$Cycle_Iter_u8_cycles_closure1(it4.clone(), steps, (x2: rt.u8): rt.u8 => {
+		read$iter_Cycle_slice_Iter_u8_cycles_cycles_closure1(it4.clone(), steps, (x2: rt.u8): rt.u8 => {
 			return x2;
 		}, out);
-		read$Cycle_Iter_u8_cycles_closure1(rt.iterCycle(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, 0)))), steps, (x3: rt.u8): rt.u8 => {
+		read$iter_Cycle_slice_Iter_u8_cycles_cycles_closure1(rt.iterCycle(rt.iterSlice(rt.byteSliceView(rt.byteSliceRange(data, 0, 0)))), steps, (x3: rt.u8): rt.u8 => {
 			return x3;
 		}, out);
 	}
@@ -1121,7 +1121,7 @@ export function closures(data: rt.ByteSlice, steps: rt.ByteSlice, out: rt.ByteVe
 			captured4[Symbol.dispose]();
 		});
 	};
-	read$Filter_Map_Take_Iter_u8_closures_closure5_closures_closure6_closures_closure7(rt.iterFilter(it3, make3(gate)), steps, (x4: rt.u8): rt.u8 => {
+	read$iter_Filter_iter_Map_iter_Take_slice_Iter_u8_cycles_closures_closure5_cycles_closures_closure6_cycles_closures_closure7(rt.iterFilter(it3, make3(gate)), steps, (x4: rt.u8): rt.u8 => {
 		return x4;
 	}, out);
 	flush(log.value, out);
@@ -1200,7 +1200,7 @@ export function owned(data: rt.ByteSlice, n: rt.usize, steps: rt.ByteSlice, out:
 	flush(log.value, out);
 	rt.drop(it2);
 	flush(log.value, out);
-	read$Cycle_IntoIter_Logged_owned_closure6(clone, steps, (x4: cycles_Logged.Logged): rt.u8 => {
+	read$iter_Cycle_vec_IntoIter_cycles_Logged_cycles_owned_closure6(clone, steps, (x4: cycles_Logged.Logged): rt.u8 => {
 		const _07: rt.u8 = cycles_Logged.id(x4);
 		x4[Symbol.dispose]();
 		return _07;

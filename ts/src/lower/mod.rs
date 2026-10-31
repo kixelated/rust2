@@ -62,8 +62,12 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	t.program.names = t.names();
 	t.program.mark_unread();
 	t.program.merge();
-	if let Err(msg) = t.program.names.check().and_then(|()| t.program.name()) {
+	if let Err(msg) = t.program.names.check() {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
+		return None;
+	}
+	if let Err((span, msg)) = t.program.name() {
+		tcx.dcx().span_err(span, format!("rust2-ts: {msg}"));
 		return None;
 	}
 	Some(t.program)
@@ -741,17 +745,19 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let base = names::fn_base(tcx, def_id);
 		// A function of a translated type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.
-		let (module, base) = match self.owner(instance) {
+		let owner = self.owner(instance);
+		let (module, base) = match owner {
 			Some(ty) => (self.program.syms[ty].module.clone(), base),
 			None => (self.module_of(def_id), escape(&base)),
 		};
 		let sym = self.program.sym(Symbol {
 			module,
 			base,
-			suffix: self.suffix(instance),
+			suffix: self.suffix(instance, owner.is_some()),
 			owner: None,
 			kind: SymKind::Function,
 			order: self.order(tcx.def_span(def_id)),
+			span: tcx.def_span(def_id),
 			// Without trimmed paths, which rustc computes only for a diagnostic.
 			instance: ty::print::with_no_trimmed_paths!(instance.to_string()),
 			name: String::new(),
@@ -792,51 +798,6 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		}
 		let span = self.tcx.def_span(instance.def_id());
 		Some(self.adt(*adt, span).sym)
-	}
-
-	/// What tells this instance apart from others of its item: the trait it implements, then
-	/// the type arguments its type and itself take, as `Display_Pair` for `Wrap<Pair>`'s
-	/// `Display::fmt`. It is printed whether or not another instance is reached, so reaching
-	/// one renames nothing; empty for a function that is neither generic, of a generic type,
-	/// nor of a trait.
-	fn suffix(&self, instance: Instance<'tcx>) -> String {
-		let tcx = self.tcx;
-		let def_id = instance.def_id();
-		let mut parts = Vec::new();
-		let trait_ref = match tcx.trait_impl_of_assoc(def_id) {
-			Some(imp) => Some(self.subst(instance.args, tcx.impl_trait_ref(imp).skip_binder())),
-			// A trait's own method, which an impl did not override.
-			None => tcx
-				.trait_of_assoc(def_id)
-				.map(|trait_id| ty::TraitRef::from_assoc(tcx, trait_id, instance.args)),
-		};
-		if let Some(trait_ref) = trait_ref {
-			parts.push(tcx.item_name(trait_ref.def_id).to_string());
-			// Without defaults, as `PartialEq`'s `Self`.
-			let args = tcx
-				.generics_of(trait_ref.def_id)
-				.own_args_no_defaults(tcx, trait_ref.args);
-			parts.extend(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)));
-		}
-		// The type whose module this is in goes without saying, but not its arguments; any
-		// other self type, such as `u64`'s in a trait impl, is spelled out.
-		if let Some(self_ty) = self.self_ty(instance) {
-			match self_ty.peel_refs().kind() {
-				ty::Adt(adt, args) if self.crates.translates(adt.did()) => {
-					parts.extend(args.types().map(|t| short_name(tcx, t)))
-				}
-				_ => parts.push(short_name(tcx, self_ty)),
-			}
-		}
-		let own = tcx.generics_of(def_id).parent_count;
-		for arg in &instance.args[own..] {
-			match arg.kind() {
-				ty::GenericArgKind::Type(t) => parts.push(short_name(tcx, t)),
-				ty::GenericArgKind::Const(c) => parts.push(c.to_string().replace(|c: char| !c.is_alphanumeric(), "")),
-				ty::GenericArgKind::Lifetime(_) => {}
-			}
-		}
-		parts.join("_")
 	}
 
 	/// The Rust module `def_id` is in, from the crate root; another crate's is under a
@@ -1021,12 +982,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		};
 		let name = tcx.item_name(did).to_string();
 		let sym = self.program.sym(Symbol {
-			module: crate::program::type_module(&self.module_of(did), &name),
+			module: self.type_module(did),
 			base: name,
 			suffix: String::new(),
 			owner: None,
 			kind,
 			order: self.order(tcx.def_span(did)),
+			span: tcx.def_span(did),
 			instance: String::new(),
 			name: String::new(),
 			alias: None,
@@ -1871,59 +1833,6 @@ pub fn byte_array(ty: Ty<'_>) -> bool {
 /// `&[u8]` is: a split's chunk is then no view.
 pub fn bytes_ref(ty: Ty<'_>) -> bool {
 	matches!(ty.kind(), ty::Ref(..)) && byte_array(ty.peel_refs())
-}
-
-/// A short name for a type, to tell instances apart.
-pub fn short_name<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> String {
-	match ty.kind() {
-		// Its arguments, but not defaults such as a `Vec`'s allocator.
-		ty::Adt(adt, args) => {
-			let args = tcx.generics_of(adt.did()).own_args_no_defaults(tcx, args);
-			std::iter::once(tcx.item_name(adt.did()).to_string())
-				.chain(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)))
-				.collect::<Vec<_>>()
-				.join("_")
-		}
-		ty::Ref(_, inner, _) => short_name(tcx, *inner),
-		// Named, since a suffix without its part would read as no instance.
-		ty::Tuple(tys) if tys.is_empty() => "unit".into(),
-		ty::Never => "never".into(),
-		ty::Tuple(tys) => tys.iter().map(|t| short_name(tcx, t)).collect::<Vec<_>>().join("_"),
-		ty::Array(elem, _) | ty::Slice(elem) => format!("{}s", short_name(tcx, *elem)),
-		// By its trait and the types it binds, as `dyn_Future_u64`.
-		ty::Dynamic(preds, ..) => {
-			let principal = preds.principal().map(|p| p.skip_binder());
-			let args = principal.iter().flat_map(|p| p.args.types());
-			let bound = preds.projection_bounds().filter_map(|p| p.skip_binder().term.as_type());
-			std::iter::once("dyn".to_string())
-				.chain(principal.map(|p| tcx.item_name(p.def_id).to_string()))
-				.chain(args.chain(bound).map(|t| short_name(tcx, t)))
-				.collect::<Vec<_>>()
-				.join("_")
-		}
-		// By where it is defined, not by its span, which code above it moves.
-		ty::Closure(def_id, _) | ty::Coroutine(def_id, _) | ty::CoroutineClosure(def_id, _) | ty::FnDef(def_id, _) => {
-			def_name(tcx, *def_id)
-		}
-		_ => ty.to_string().replace(|c: char| !c.is_alphanumeric(), ""),
-	}
-}
-
-/// A function's name, or a closure's as Rust numbers it in what defines it: `run_closure0`
-/// for `run::{closure#0}`. A tuple struct's constructor goes by the struct's name.
-fn def_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
-	use rustc_hir::definitions::{DefPathData, DefPathDataName};
-	let path = tcx.def_path(def_id).data;
-	let named = path.iter().rposition(|part| part.data.get_opt_name().is_some());
-	path[named.unwrap_or(0)..]
-		.iter()
-		.filter(|part| part.data != DefPathData::Ctor)
-		.map(|part| match part.data.name() {
-			DefPathDataName::Named(name) => name.to_string(),
-			DefPathDataName::Anon { namespace } => format!("{namespace}{}", part.disambiguator),
-		})
-		.collect::<Vec<_>>()
-		.join("_")
 }
 
 /// `snake_case` to `camelCase`, keeping leading underscores.

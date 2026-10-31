@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function hash$Hash_DefaultHasher(self: Shape, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Shape, state: rt.Hasher): void {
 	rt.hash32({ Dot: 0, Line: 1, Rect: 2 }[self.tag], state);
 	if (self.tag === "Line") {
 		rt.hash32(self._0, state);

@@ -16,7 +16,7 @@ export class Shown {
 	}
 }
 
-export function fmt$Debug(self: Shown, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Shown, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	Guard.note(self._0, "shown");
 	const part = Guard.id(self._0);
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(part, f)];

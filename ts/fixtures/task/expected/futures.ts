@@ -6,7 +6,7 @@ import { map$034yafl as poll_map$034yafl, map$1vdv176 as poll_map$1vdv176, map$1
 import * as Forward from "./futures.Forward.ts";
 import * as Plain from "./futures.Plain.ts";
 import * as Relay from "./futures.Relay.ts";
-import { wait$boxed_closure0_closure3_u64, wait$boxed_closure0_closure5_u64, recvFuture } from "./kio.ts";
+import { wait$futures_boxed_closure0_closure3_u64, wait$futures_boxed_closure0_closure5_u64, recvFuture$kio_Consumer } from "./kio.ts";
 import * as Consumer from "./kio.Consumer.ts";
 import * as Pending from "./kio.Pending.ts";
 import type * as Waiter from "./kio.Waiter.ts";
@@ -84,7 +84,7 @@ export class helpersFuture {
 					const owned: Guard.Guard = Guard.new(rt.u32Add(Guard.id(this.#guard), 500), Log.clone$Clone(Guard.log(this.#guard)));
 					this.#pinned = rt.NEVER;
 					const never: rt.Future<rt.u64> = this.#pinned;
-					this.#pinned$2 = new recvFuture(this.#rx);
+					this.#pinned$2 = new recvFuture$kio_Consumer(this.#rx);
 					const next: rt.Future<rt.u64 | undefined> = this.#pinned$2;
 					let captured2 = never;
 					let captured3 = undefined as rt.Waker | undefined;
@@ -165,9 +165,9 @@ export class helpersFuture {
 export function relayed(task: rt.Waker, log: Log.Log, id: rt.u32): rt.Waker {
 	const relay: Relay.Relay = new Relay.Relay(task.clone(), Guard.new(id, log));
 	if (rt.u32Rem(id, 2) === 0) {
-		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$Wake as (a0: rt.Arc<Relay.Relay>) => undefined, (arc2: rt.Arc<Relay.Relay>) => arc2[Symbol.dispose](), Relay.wakeByRef$Wake as (a0: rt.Arc<Relay.Relay>) => undefined);
+		return new rt.ArcWaker(new rt.Arc(relay), Relay.wake$task_Wake as (a0: rt.Arc<Relay.Relay>) => undefined, (arc2: rt.Arc<Relay.Relay>) => arc2[Symbol.dispose](), Relay.wakeByRef$task_Wake as (a0: rt.Arc<Relay.Relay>) => undefined);
 	}
-	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$Wake as (a0: rt.Arc<Plain.Plain>) => undefined, (arc: rt.Arc<Plain.Plain>) => arc[Symbol.dispose]());
+	return new rt.ArcWaker(new rt.Arc(new Plain.Plain(relay)), Plain.wake$task_Wake as (a0: rt.Arc<Plain.Plain>) => undefined, (arc: rt.Arc<Plain.Plain>) => arc[Symbol.dispose]());
 }
 
 /**
@@ -254,7 +254,7 @@ export class boxedFuture {
 								this.#saved$3 = false;
 								this.#saved$2 = false;
 								this.#saved$3 = true;
-								this.#awaitee = new recvFuture(this.#rx);
+								this.#awaitee = new recvFuture$kio_Consumer(this.#rx);
 							} else if (this.#state === 1) {
 								rt.asyncFnResumed();
 							} else if (this.#state !== 3) {
@@ -349,10 +349,10 @@ export class boxedFuture {
 				const ready: Guard.Guard = _108[2];
 				const next: Consumer.Consumer = Consumer.clone$Clone(this.#rx);
 				this.#saved$3 = false;
-				const _131: rt.Future<rt.u64> = new boxedFuture$2(this.#rx, block);
+				const _131: rt.Future<rt.u64> = new boxedFuture$closure2(this.#rx, block);
 				let captured2 = next;
 				const captured3 = waiting;
-				const _134: rt.Future<rt.u64> = new rt.DynFuture(wait$boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
+				const _134: rt.Future<rt.u64> = new rt.DynFuture(wait$futures_boxed_closure0_closure3_u64(rt.closure((waiter: Waiter.Waiter): rt.Poll<rt.u64> => {
 					return poll_map$1vdv176(Consumer.pollRecv(captured2, waiter), (value5: rt.u64 | undefined): rt.u64 => {
 						Guard.note(captured3, "waited");
 						return rt.u64Add(option_unwrapOr$1tvry1i(value5, 0), 2);
@@ -360,7 +360,7 @@ export class boxedFuture {
 				}, (): void => {
 					captured2[Symbol.dispose]();
 					captured3[Symbol.dispose]();
-				})), Pending.poll$Future_boxed_closure0_closure3, rt.drop);
+				})), Pending.poll$Future_futures_boxed_closure0_closure3, rt.drop);
 				const captured4 = ready;
 				const queue: rt.Future<rt.u64>[] = [_131, _134, new rt.PollFn(rt.closure((_23: rt.Context): rt.Poll<rt.u64> => {
 					Guard.note(captured4, "ready");
@@ -369,7 +369,7 @@ export class boxedFuture {
 					captured4[Symbol.dispose]();
 				}), rt.drop)];
 				const captured5 = Guard.new(rt.u32Add(this.#id, 800), Log.clone$Clone(this.#log));
-				this.#pinned = wait$boxed_closure0_closure5_u64(rt.closure((_24: Waiter.Waiter): rt.Poll<rt.u64> => {
+				this.#pinned = wait$futures_boxed_closure0_closure5_u64(rt.closure((_24: Waiter.Waiter): rt.Poll<rt.u64> => {
 					return Guard.id(captured5) as rt.u64;
 				}, (): void => {
 					captured5[Symbol.dispose]();
@@ -392,7 +392,7 @@ export class boxedFuture {
 					if (!((captured6.length === 0))) {
 						return rt.Pending;
 					}
-					return poll_map$1ooj6xj(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_boxed_closure0_closure5), cx), (value7: rt.u64): rt.u64 => {
+					return poll_map$1ooj6xj(pollUnsized$dyn_Future_u64(new rt.DynFuture(captured8, Pending.poll$Future_futures_boxed_closure0_closure5), cx), (value7: rt.u64): rt.u64 => {
 						return rt.u64Add(captured7, value7);
 					});
 				}, (): void => {
@@ -423,7 +423,7 @@ export class boxedFuture {
 	}
 }
 
-export class boxedFuture$2 {
+export class boxedFuture$closure2 {
 	#state: number = 0;
 	#rx: Consumer.Consumer;
 	#block: Guard.Guard;
@@ -447,7 +447,7 @@ export class boxedFuture$2 {
 
 	poll(_2: rt.Context): rt.Poll<rt.u64> {
 		if (this.#state === 0) {
-			this.#awaitee = new recvFuture(this.#rx);
+			this.#awaitee = new recvFuture$kio_Consumer(this.#rx);
 		} else if (this.#state === 1) {
 			rt.asyncFnResumed();
 		}

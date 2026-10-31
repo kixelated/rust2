@@ -13,7 +13,7 @@ export class Dropped {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
@@ -26,7 +26,7 @@ export function clone$Clone(self: Dropped): Dropped {
 	return new Dropped(rt.u8WrappingAdd(self._0, 16), self._1);
 }
 
-export function drop$Drop(self: Dropped): void {
+export function drop$ops_Drop(self: Dropped): void {
 	const _5: rt.RefCell<rt.ByteVec> = rt.refCellBorrowMut(self._1);
 	rt.byteVecPush(_5.value, self._0);
 	rt.refMutRelease(_5);

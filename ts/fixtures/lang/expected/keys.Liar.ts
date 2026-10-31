@@ -4,7 +4,7 @@
 export interface Liar {
 }
 
-export function eq$PartialEq(_self: Liar, _2: Liar): boolean {
+export function eq$cmp_PartialEq(_self: Liar, _2: Liar): boolean {
 	return false;
 }
 

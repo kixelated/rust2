@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Lopsided, other: Lopsided): boolean {
+export function eq$cmp_PartialEq(self: Lopsided, other: Lopsided): boolean {
 	return self._0 === other._0;
 }
 
-export function cmp$Ord(self: Lopsided, other: Lopsided): rt.Ordering {
+export function cmp$cmp_Ord(self: Lopsided, other: Lopsided): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
 
@@ -20,23 +20,23 @@ export interface Lopsided {
 	_0: rt.u8;
 }
 
-export function partialCmp$PartialOrd(self: Lopsided, other: Lopsided): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Lopsided, other: Lopsided): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function lt$PartialOrd(self: Lopsided, other: Lopsided): boolean {
+export function lt$cmp_PartialOrd(self: Lopsided, other: Lopsided): boolean {
 	return self._0 > other._0;
 }
 
-export function le$PartialOrd(self: Lopsided, other: Lopsided): boolean {
+export function le$cmp_PartialOrd(self: Lopsided, other: Lopsided): boolean {
 	return rt.u8Div(self._0, 4) >= rt.u8Div(other._0, 4);
 }
 
-export function gt$PartialOrd(self: Lopsided, other: Lopsided): boolean {
+export function gt$cmp_PartialOrd(self: Lopsided, other: Lopsided): boolean {
 	return self._0 < other._0;
 }
 
-export function ge$PartialOrd(self: Lopsided, other: Lopsided): boolean {
+export function ge$cmp_PartialOrd(self: Lopsided, other: Lopsided): boolean {
 	return rt.u8Rem(self._0, 4) >= rt.u8Rem(other._0, 4);
 }
 

@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import type * as BoundsExceeded from "../coding/varint.BoundsExceeded.ts";
 
-export function fmt$Display(self: EncodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: EncodeError, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self === "BoundsExceeded") {
 		return rt.fmtWriteStr(__formatter, "bounds exceeded");
 	}
@@ -25,7 +25,7 @@ export function fmt$Display(self: EncodeError, __formatter: rt.Formatter): rt.Re
 	return rt.fmtWriteStr(__formatter, "unsupported");
 }
 
-export function fmt$Debug(self: EncodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: EncodeError, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	let _3!: string;
 	if (self === "BoundsExceeded") {
 		_3 = "BoundsExceeded";
@@ -55,7 +55,7 @@ export type EncodeError =
 	| "Version"
 	| "Unsupported";
 
-export function from$From_BoundsExceeded(_1: BoundsExceeded.BoundsExceeded): EncodeError {
+export function from$convert_From_coding_varint_BoundsExceeded(_1: BoundsExceeded.BoundsExceeded): EncodeError {
 	return "BoundsExceeded" as EncodeError;
 }
 
