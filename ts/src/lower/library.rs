@@ -1437,9 +1437,9 @@ fn mapping<'tcx>(
 		}
 		// Of bounds JS compares as Rust does, by `<` and `<=`, against an item of their type.
 		("Range" | "RangeInclusive", "is_empty") | (_, "contains")
-			if self_ty().is_some_and(|t| primitive(unwrapped(tcx, t)))
-				&& (name == "is_empty" || unwrapped(tcx, targ(gargs, 0)) == unwrapped(tcx, targ(gargs, 1)))
-				&& let Some(of) = inherent_std(tcx, call.def_id).and_then(range_of) =>
+			if let Some(of) = inherent_std(tcx, call.def_id).and_then(range_of)
+				&& primitive(unwrapped(tcx, targ(gargs, 0)))
+				&& (name == "is_empty" || unwrapped(tcx, targ(gargs, 0)) == unwrapped(tcx, targ(gargs, 1))) =>
 		{
 			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
