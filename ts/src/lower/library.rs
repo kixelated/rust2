@@ -1435,14 +1435,18 @@ fn mapping<'tcx>(
 			let of = range_of(inherent_std(tcx, call.def_id)?)?;
 			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
-		// Of bounds JS compares as Rust does, by `<` and `<=`.
+		// Of bounds JS compares as Rust does, by `<` and `<=`, against an item of their type.
 		("Range" | "RangeInclusive", "is_empty") | (_, "contains")
 			if self_ty().is_some_and(|t| primitive(unwrapped(tcx, t)))
+				&& (name == "is_empty" || unwrapped(tcx, targ(gargs, 0)) == unwrapped(tcx, targ(gargs, 1)))
 				&& let Some(of) = inherent_std(tcx, call.def_id).and_then(range_of) =>
 		{
 			Expr::rt_of(of, &super::camel(&name)).call(args)
 		}
-		("RangeBounds", "contains") if primitive(unwrapped(tcx, targ(gargs, 1))) => {
+		("RangeBounds", "contains")
+			if primitive(unwrapped(tcx, targ(gargs, 1)))
+				&& unwrapped(tcx, targ(gargs, 1)) == unwrapped(tcx, targ(gargs, 2)) =>
+		{
 			let range = targ(gargs, 0).peel_refs();
 			match b.t.std_of(range) {
 				Some(Std::RangeFull) => Expr::lit("true"),

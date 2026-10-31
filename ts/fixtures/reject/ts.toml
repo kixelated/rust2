@@ -23,6 +23,7 @@ roots = [
     "folds",
     "backs",
     "keyed",
+    "keyed_across",
     "hinted",
     "fused",
     "skipped_zip",
