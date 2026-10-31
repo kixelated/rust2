@@ -49,6 +49,11 @@ The maintainer picks one of these before work starts:
    Simpler, but refuses accessors like `fn as_ptr(&self) -> *mut T` whatever the callers
    do, which crossbeam-epoch and futures-util have the shape of.
 
+A pointer into a part of the variable, at any depth, that a callee took through a
+reference to that part goes stale the same way when the caller assigns the variable. A
+whole write through a pointer or a projection already counts every part it holds; a
+variable's own assignment is left to this quest.
+
 Each new refusal goes in the reject fixture beside `variable_replaced`, and a pointer
 taken through two helpers and read while borrowed, as `pointers::rebound` in the lang
 fixture has, keeps translating.

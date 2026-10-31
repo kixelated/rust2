@@ -63,15 +63,16 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		object
 			&& self
 				.writes
-				.contains(&self.writes.into, self.tcx, ty, self.polymorphic())
+				.contains(&self.writes.into, false, self.tcx, ty, self.polymorphic())
 			|| parts.into_iter().any(|t| self.changes(t))
 	}
 
 	/// Whether the crate may give a part of a `ty` kept as a JS object another object: by
-	/// a write of the part, or of the whole value one object deep.
+	/// a write of the part, or of a whole value that is or holds a `ty`.
 	pub fn replaced(&self, ty: Ty<'tcx>) -> bool {
-		self.writes
-			.contains(&self.writes.replaced, self.tcx, ty, self.polymorphic())
+		let (writes, polymorphic) = (&self.writes, self.polymorphic());
+		writes.contains(&writes.replaced, true, self.tcx, ty, polymorphic)
+			|| writes.contains(&writes.holders, false, self.tcx, ty, polymorphic)
 	}
 
 	/// `value`, a `ty` read out of where it is kept, as a value of its own, as Rust's read
@@ -329,11 +330,14 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 #[derive(Default)]
 pub struct Writes<'tcx> {
 	into: Types<'tcx>,
-	/// The types a part of which, kept as a JS object, the code may give another object:
-	/// by a write of the part, as `p.x = Inner {..}`; by a write of the whole value, which
-	/// goes one object deep, as `*r = v` does; or by a call of a std function, as a
-	/// mutable reference to the type may do with any part of it.
+	/// The types the code may write whole, each standing for every type it holds by value
+	/// too: a write of a whole value, as `*r = v`, or a call of a std function given a
+	/// mutable reference to it, gives each part of `*r` another object, and each part
+	/// those hold, at any depth.
 	replaced: Types<'tcx>,
+	/// The types a part of which, kept as a JS object, a write of that part alone gives
+	/// another object, as `p.x = Inner {..}` does to `p`'s.
+	holders: Types<'tcx>,
 	/// The bodies read.
 	read: FxHashSet<DefId>,
 	/// The arguments of each body's instances that translation reached, without type
@@ -414,17 +418,18 @@ impl<'tcx> Writes<'tcx> {
 		}
 		let writes = |types: &Types<'tcx>| types.generic.iter().any(|&(body, _)| body == def_id);
 		!instance.args.has_param()
-			&& (writes(&self.into) || writes(&self.replaced))
+			&& (writes(&self.into) || writes(&self.replaced) || writes(&self.holders))
 			&& !self
 				.reached
 				.get(&def_id)
 				.is_some_and(|args| args.contains(&instance.args))
 	}
 
-	/// Whether `ty` is one of `types`. Over type parameters, as a census lowers some
-	/// functions, it may be, and a write into a type parameter counts for every type its
-	/// bounds allow; otherwise for the type each reached instance gives it.
-	fn contains(&self, types: &Types<'tcx>, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, polymorphic: bool) -> bool {
+	/// Whether `ty` is one of `types`, or with `held`, a type one of them holds by value.
+	/// Over type parameters, as a census lowers some functions, it may be, and a write into
+	/// a type parameter counts for every type its bounds allow; otherwise for the type each
+	/// reached instance gives it.
+	fn contains(&self, types: &Types<'tcx>, held: bool, tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, polymorphic: bool) -> bool {
 		let ty = tcx.erase_and_anonymize_regions(ty);
 		let stored = storage(tcx, ty);
 		if ty.has_param() || types.concrete.contains(&stored) {
@@ -443,13 +448,13 @@ impl<'tcx> Writes<'tcx> {
 				reached.iter().any(|&args| {
 					let written = EarlyBinder::bind(tcx, written);
 					// One that doesn't normalize counts.
-					tcx.try_instantiate_and_normalize_erasing_regions(
-						args,
-						ty::TypingEnv::fully_monomorphized(),
-						written,
-					)
-					.ok()
-					.is_none_or(|written| storage(tcx, written) == stored)
+					let env = ty::TypingEnv::fully_monomorphized();
+					tcx.try_instantiate_and_normalize_erasing_regions(args, env, written)
+						.ok()
+						.is_none_or(|written| match held {
+							true => by_value(tcx, env, written).any(|part| storage(tcx, part) == stored),
+							false => storage(tcx, written) == stored,
+						})
 				})
 			}),
 		});
@@ -481,6 +486,31 @@ fn storage<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 		ty::Array(elem, _) => Ty::new_slice(tcx, *elem),
 		_ => ty,
 	}
+}
+
+/// `ty` and each type it holds by value, at any depth: in a field, an element, or a
+/// payload. An array of no elements holds none, and a type parameter, or a type `env`
+/// can't normalize, stands for what it holds.
+fn by_value<'tcx>(tcx: TyCtxt<'tcx>, env: ty::TypingEnv<'tcx>, ty: Ty<'tcx>) -> impl Iterator<Item = Ty<'tcx>> {
+	let mut held = FxIndexSet::default();
+	let mut stack = vec![ty];
+	while let Some(ty) = stack.pop() {
+		if !held.insert(ty) {
+			continue;
+		}
+		match *ty.kind() {
+			ty::Array(_, len) if len.try_to_target_usize(tcx) == Some(0) => {}
+			ty::Array(elem, _) | ty::Pat(elem, _) => stack.push(elem),
+			ty::Tuple(tys) => stack.extend(tys),
+			ty::Adt(adt, args) => stack.extend(adt.all_fields().map(|field| {
+				let ty = field.ty(tcx, args).skip_norm_wip();
+				tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
+					.unwrap_or(ty)
+			})),
+			_ => {}
+		}
+	}
+	held.into_iter()
 }
 
 /// Whether `written`, a type over the type parameters of `def_id`, is `ty` for some
@@ -628,12 +658,19 @@ impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 		self.writes.into.insert(self.tcx, self.def_id, ty);
 	}
 
-	/// `ty` as replaced, if a part of it may be kept as a JS object: a write of the whole
-	/// goes one object deep, so it replaces only the parts it holds directly.
+	/// `ty`, and each type it holds by value, as replaced: a write of a whole `ty` gives
+	/// each part it holds another object, and so each part those hold, at any depth.
 	fn replace(&mut self, ty: Ty<'tcx>) {
-		if self.inline(ty) {
+		for ty in self.parts(ty) {
 			self.writes.replaced.insert(self.tcx, self.def_id, ty);
 		}
+	}
+
+	/// `ty` and each type it holds by value, at any depth, a part of which may be kept as a
+	/// JS object.
+	fn parts(&self, ty: Ty<'tcx>) -> Vec<Ty<'tcx>> {
+		let env = ty::TypingEnv::post_analysis(self.tcx, self.def_id);
+		by_value(self.tcx, env, ty).filter(|&ty| self.inline(ty)).collect()
 	}
 
 	/// Whether a `ty` may be kept as a JS object that a pointer to it is: a tuple, an
@@ -663,21 +700,29 @@ impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 		}
 	}
 
-	/// A whole `place` written at `at`: a whole part gives what holds it another object
-	/// there, and a whole value written through a pointer each of its parts, as it goes one
-	/// object deep, unless the memory is fresh.
+	/// A whole `place` written at `at`, unless the memory is fresh: each part of what it
+	/// held, at any depth, gets another object, and a whole field kept as an object gives
+	/// what holds it another object there. A variable assigned whole is judged where a
+	/// pointer into it is taken.
 	fn stored(&mut self, place: Place<'tcx>, at: Location) {
-		let ty = place.ty(self.body, self.tcx).ty;
-		let replaced = match place.iter_projections().last() {
-			Some((_, ProjectionElem::Deref)) => ty,
-			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => match base.ty(self.body, self.tcx).ty {
-				base if base.is_union() => return,
-				base => base,
-			},
-			_ => return,
+		let Some((base, elem)) = place.iter_projections().last() else {
+			return;
 		};
-		if self.inline(replaced) && !self.fresh(place, at, None) {
-			self.replace(replaced);
+		let ty = place.ty(self.body, self.tcx).ty;
+		let replaced = self.parts(ty);
+		let holder = match elem {
+			ProjectionElem::Field(..) if self.inline(ty) => {
+				Some(base.ty(self.body, self.tcx).ty).filter(|&base| !base.is_union() && self.inline(base))
+			}
+			_ => None,
+		};
+		if (!replaced.is_empty() || holder.is_some()) && !self.fresh(place, at, None) {
+			for ty in replaced {
+				self.writes.replaced.insert(self.tcx, self.def_id, ty);
+			}
+			if let Some(holder) = holder {
+				self.writes.holders.insert(self.tcx, self.def_id, holder);
+			}
 		}
 	}
 
