@@ -338,6 +338,16 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				o.push(5);
 			}
 			put_words(out, &c);
+			// A payload replaced whole, which leaves a clone as it was.
+			let kept = c.clone();
+			if let Cow::Borrowed(s) = &mut c {
+				*s = half;
+			}
+			if let Cow::Owned(o) = &mut c {
+				*o = half.iter().rev().copied().collect();
+			}
+			put_words(out, &c);
+			put_words(out, &kept);
 			let made: Vec<u16> = match c {
 				Cow::Borrowed(s) => s.iter().rev().copied().collect(),
 				Cow::Owned(o) => o,
@@ -388,9 +398,18 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 				out.extend_from_slice(&log.replace(0).to_be_bytes());
 				drop(copy);
 				out.extend_from_slice(&log.replace(0).to_be_bytes());
+				if let Cow::Borrowed(s) = &mut c {
+					*s = &items[items.len().min(1)..];
+				}
+				out.push(c.len() as u8);
 				c.to_mut().pop();
 				out.extend_from_slice(&log.replace(0).to_be_bytes());
 				c.to_mut().push(Tally(9, &log));
+				out.extend_from_slice(&log.replace(0).to_be_bytes());
+				// The `Vec` it owned drops as its payload is replaced.
+				if let Cow::Owned(o) = &mut c {
+					*o = vec![Tally(7, &log), Tally(8, &log)];
+				}
 				out.extend_from_slice(&log.replace(0).to_be_bytes());
 				let kept = c.into_owned();
 				out.extend_from_slice(&log.replace(0).to_be_bytes());
@@ -439,6 +458,15 @@ pub fn bytes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	];
 	for bit in bits {
 		out.push(bit as u8);
+	}
+	// A payload replaced whole, which leaves a clone as it was.
+	if kind & 0x40 != 0 {
+		let kept = c.clone();
+		match &mut c {
+			Cow::Borrowed(s) => *s = half,
+			Cow::Owned(o) => *o = half.to_vec(),
+		}
+		out.extend_from_slice(&kept);
 	}
 	match kind % 3 {
 		0 => {
