@@ -597,7 +597,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					crate::lower::library::tagged(def.name.as_str(), values.pop(), ts_ty)
 				}
 				(Std::RangeFrom, _) => {
-					values.extend(crate::lower::library::range_step(args.type_at(0), true));
+					values.extend(crate::lower::library::range_step(tcx, args.type_at(0), true));
 					Expr::New(Box::new(Expr::Rt("RangeFrom".into())), values)
 				}
 				(Std::RangeFull, _) => Expr::undefined(),
@@ -607,7 +607,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				(Std::AtomicOrdering, _) => crate::lower::task::atomic_ordering(variant),
 				(Std::ControlFlow, _) => super::call::control_flow(self, ty, variant, values),
 				(Std::Range, _) => {
-					values.extend(crate::lower::library::range_step(args.type_at(0), false));
+					values.extend(crate::lower::library::range_step(tcx, args.type_at(0), false));
 					Expr::New(Box::new(Expr::Rt("Range".into())), values)
 				}
 				(Std::AssertKind, _) => match def.name.as_str() {

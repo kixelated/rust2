@@ -229,7 +229,10 @@ are runtime functions taking the iterator first, `rt.iterMap(it, f)`, lazy and
 short-circuiting as std's are, and call their closures, and read what they wrap, in
 the same order and as often, a skip by `nth` included. `max`, `min`, and their `_by_key`
 forms test each next item's key for `<` the best's, as std's do, `max_by` and `min_by`
-compare the best and then the next, and a B-tree's iterators read their ends.
+compare the best and then the next, and a B-tree's iterators read their ends. `eq`,
+`cmp`, `partial_cmp`, the tests on it, and their `_by` forms read the first side by
+`try_fold` and the other by `next`, as std's `iter_compare` does, and `eq` of two
+`TrustedLen` iterators whose size hints' upper bounds differ reads neither.
 An iterator over a slice, array, or `Vec`, or a small range, that only its `next` and
 moves read steps in place, as two variables: the array and an index into it, or the
 range's bounds, with no `rt.Iter` made. The crate's own `impl Iterator` returns `rt.DONE` from its `next` too, and joins

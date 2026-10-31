@@ -137,7 +137,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							if values.len() == 3 && matches!(&values[2], Expr::Lit(l) if l == "false") =>
 						{
 							values.pop();
-							values.extend(super::library::range_step(args.type_at(0), true));
+							values.extend(super::library::range_step(tcx, args.type_at(0), true));
 							Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 						}
 						(Std::Ordering, _) => super::collections::ordering_variant(variant),
@@ -150,8 +150,12 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 							super::library::range_to(values.pop().unwrap(), std == Std::RangeToInclusive)
 						}
 						(Std::RangeFrom, _) => {
-							values.extend(super::library::range_step(args.type_at(0), true));
+							values.extend(super::library::range_step(tcx, args.type_at(0), true));
 							Expr::New(Box::new(Expr::Rt("RangeFrom".into())), values)
+						}
+						(Std::Range, _) => {
+							values.extend(super::library::range_step(tcx, args.type_at(0), false));
+							Expr::New(Box::new(Expr::Rt("Range".into())), values)
 						}
 						(Std::RangeFull, _) => Expr::undefined(),
 						(Std::ParseIntError, _) => {

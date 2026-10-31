@@ -1501,15 +1501,31 @@ fn mapping<'tcx>(
 		// An integer range wraps within its type's bounds where std's `nth` does.
 		("RangeInclusive", "new") if range => {
 			let mut values = args;
-			values.extend(self_ty().and_then(|t| range_step(t, true)));
+			values.extend(self_ty().and_then(|t| range_step(tcx, t, true)));
 			Expr::New(Box::new(Expr::Rt("RangeInclusive".into())), values)
 		}
-		// JS compares integers as Rust does, and other endpoints by identity.
-		("Range" | "RangeInclusive", "start" | "end" | "is_empty" | "contains")
-			if range && (matches!(name.as_str(), "start" | "end") || self_ty().and_then(Int::of).is_some()) =>
-		{
+		("Range" | "RangeInclusive", "start" | "end") | ("RangeInclusive", "into_inner") if range => {
 			let of = range_of(inherent_std(tcx, call.def_id)?)?;
 			Expr::rt_of(of, &super::camel(&name)).call(args)
+		}
+		// Of bounds JS compares as Rust does, by `<` and `<=`, against an item of their type.
+		("Range" | "RangeInclusive", "is_empty") | (_, "contains")
+			if let Some(of) = inherent_std(tcx, call.def_id).and_then(range_of)
+				&& let Some(bound) = compared(tcx, targ(gargs, 0))
+				&& (name == "is_empty" || compared(tcx, targ(gargs, 1)) == Some(bound)) =>
+		{
+			Expr::rt_of(of, &super::camel(&name)).call(args)
+		}
+		("RangeBounds", "contains")
+			if compared(tcx, targ(gargs, 1)).is_some_and(|bound| compared(tcx, targ(gargs, 2)) == Some(bound)) =>
+		{
+			let range = targ(gargs, 0).peel_refs();
+			match b.t.std_of(range) {
+				Some(Std::RangeFull) => Expr::lit("true"),
+				Some(std) => Expr::rt_of(range_of(std)?, "contains").call(args),
+				None if super::collections::plain_bounds(b.t, range) => Expr::rt("boundsContains", args),
+				None => return None,
+			}
 		}
 
 		// A `NonZero` is its integer.
@@ -2363,14 +2379,24 @@ fn range_of(std: Std) -> Option<&'static str> {
 	match std {
 		Std::Range => Some("range"),
 		Std::RangeInclusive => Some("rangeInclusive"),
+		Std::RangeFrom => Some("rangeFrom"),
+		Std::RangeTo | Std::RangeToInclusive => Some("rangeTo"),
 		_ => None,
 	}
 }
 
-/// The `Step` a range of `ty`s is made with: a `char`'s, which skips the surrogates, and a
-/// wide integer's, which steps past 2^53, or any integer's where `every` integer needs it to
+/// The `Step` a range of `ty`s is made with: a `char`'s, which skips the surrogates, an
+/// unsigned `NonZero`'s, which stops at either end where its integer's wraps, and a wide
+/// integer's, which steps past 2^53, or any integer's where `every` integer needs it to
 /// step within its type.
-pub fn range_step(ty: Ty<'_>, every: bool) -> Option<Expr> {
+pub fn range_step<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, every: bool) -> Option<Expr> {
+	if let ty::Adt(adt, args) = ty.kind()
+		&& Std::of(tcx, adt.did()) == Some(Std::NonZero)
+	{
+		let int = Int::of(args.type_at(0)).filter(|int| !int.signed)?;
+		let step = vec![int.func("step"), int.lit(int.max() as i128)];
+		return (every || int.big()).then(|| Expr::rt("nonZeroStep", step));
+	}
 	match Int::of(ty) {
 		Some(int) => (every || int.big()).then(|| int.func("step")),
 		None => ty.is_char().then(|| Expr::Rt("charStep".into())),
@@ -2403,6 +2429,16 @@ fn unwrapped<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
 		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::NonZero) => args.type_at(0),
 		_ => ty,
 	}
+}
+
+/// The primitive JS compares a range's bounds of type `ty` as, through shared references
+/// and a `NonZero`: not through a `&mut`, which may be an `rt.Place`.
+fn compared<'tcx>(tcx: TyCtxt<'tcx>, mut ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	while let ty::Ref(_, inner, ty::Mutability::Not) = ty.kind() {
+		ty = *inner;
+	}
+	let ty = (!ty.is_ref()).then(|| unwrapped(tcx, ty))?;
+	primitive(ty).then_some(ty)
 }
 
 fn primitive(ty: Ty<'_>) -> bool {

@@ -1,14 +1,14 @@
 # Census of `reject-fixture`
 
-- Refusals: 117
-- Function instances: 143
+- Refusals: 120
+- Function instances: 149
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
 
 | Count | Construct | First |
 | ---: | --- | --- |
-| 15 | unsupported call to `_` | fixtures/reject/src/lib.rs:124:11 |
+| 18 | unsupported call to `_` | fixtures/reject/src/lib.rs:124:11 |
 | 12 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:628:10 |
 | 8 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:636:10 |
 | 4 | `_` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it | fixtures/reject/src/lib.rs:232:16 |
@@ -100,6 +100,7 @@ The type or module each refused type or path belongs to.
 | 2 | `std::collections::HashMap` | fixtures/reject/src/lib.rs:271:6 |
 | 2 | `std::iter::Iterator` | fixtures/reject/src/lib.rs:232:16 |
 | 2 | `std::mem::MaybeUninit` | fixtures/reject/src/lib.rs:947:19 |
+| 2 | `std::ops::Range` | fixtures/reject/src/lib.rs:172:8 |
 | 2 | `std::std` | fixtures/reject/src/lib.rs:587:11 |
 | 2 | `std::sync::Arc` | fixtures/reject/src/lib.rs:309:2 |
 | 2 | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:90:2 |
@@ -139,7 +140,8 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter::Zip` | fixtures/reject/src/lib.rs:214:8 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:451:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:451:32 |
-| 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:172:8 |
+| 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:1014:32 |
+| 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:1014:11 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:387:2 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:786:15 |
 | 1 | `std::slice::Iter` | fixtures/reject/src/lib.rs:124:11 |
@@ -230,6 +232,7 @@ The type or module each refused type or path belongs to.
 | 1 | replacing the value behind a reference to `_` | `std::sync::MutexGuard` | fixtures/reject/src/lib.rs:119:2 |
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:602:1 |
 | 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:558:2 |
+| 1 | unsupported call to `_` | `<std::ops::RangeFrom as std::ops::RangeBounds>::contains` | fixtures/reject/src/lib.rs:1014:32 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:387:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:124:11 |
 | 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:786:15 |
@@ -238,6 +241,8 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:558:17 |
 | 1 | unsupported call to `_` | `std::borrow::Cow::is_borrowed` | fixtures/reject/src/lib.rs:361:2 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:172:8 |
+| 1 | unsupported call to `_` | `std::ops::Range::is_empty` | fixtures/reject/src/lib.rs:1019:9 |
+| 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:1014:11 |
 | 1 | unsupported call to `_` | `std::std::Layout::new` | fixtures/reject/src/lib.rs:585:15 |
 | 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:587:11 |
 | 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:590:3 |
@@ -247,7 +252,7 @@ The type or module each refused type or path belongs to.
 
 ## Spans
 
-<details><summary>unsupported call to `_` (15)</summary>
+<details><summary>unsupported call to `_` (18)</summary>
 
 - fixtures/reject/src/lib.rs:124:11: unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle`
 - fixtures/reject/src/lib.rs:172:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
@@ -264,6 +269,9 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:590:3: unsupported call to `std::alloc::dealloc`
 - fixtures/reject/src/lib.rs:786:15: unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted`
 - fixtures/reject/src/lib.rs:911:10: unsupported call to `<std::vec::Vec<u8> as std::clone::Clone>::clone_from`
+- fixtures/reject/src/lib.rs:1014:11: unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>`
+- fixtures/reject/src/lib.rs:1014:32: unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>`
+- fixtures/reject/src/lib.rs:1019:9: unsupported call to `std::ops::Range::<&mut u8>::is_empty`
 
 </details>
 

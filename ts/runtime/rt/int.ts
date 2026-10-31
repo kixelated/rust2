@@ -69,6 +69,18 @@ export type i128 = Num<"i128"> | I128Limbs;
  */
 export type Step<T> = (n: T, by: number) => [T, boolean];
 
+/**
+ * `NonZero<T>`'s `Step` of an unsigned `T`'s, `int`: within 1 and `max`, past which it
+ * stops at that end where `T`'s wraps.
+ */
+export function nonZeroStep<T>(int: Step<T>, max: T): Step<T> {
+	return (n, by) => {
+		const [v, over] = int(n, by);
+		if (over || v === 0) return [by > 0 ? max : (1 as T), true];
+		return [v, false];
+	};
+}
+
 /** `core::num::TryFromIntError`: which way the value was out of range. */
 export type TryFromIntError = { readonly kind: "PosOverflow" | "NegOverflow" };
 
