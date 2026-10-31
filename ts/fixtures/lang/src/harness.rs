@@ -210,6 +210,9 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("keys::byte_refs", keys::byte_refs),
 		("orders::held", |_, data, out| orders::held(data, out)),
 		("joins::joins", joins::joins),
+		("pointers::iterated_runs", |_, data, out| {
+			pointers::iterated_runs(data, out)
+		}),
 	]
 }
 

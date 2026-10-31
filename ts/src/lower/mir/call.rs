@@ -338,6 +338,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				| ("LocalKey", "with_borrow_mut")
 				| ("Arc" | "Rc", "get_mut" | "make_mut") => true,
 				("IntoIterator", "into_iter") => gargs.types().next().is_some_and(|ty| {
+					let ty = crate::lower::iter::unbox_ref(tcx, ty);
 					ty.ref_mutability() == Some(ty::Mutability::Mut)
 						&& match ty.peel_refs().kind() {
 							ty::Slice(_) | ty::Array(..) => true,

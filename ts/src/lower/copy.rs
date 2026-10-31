@@ -686,7 +686,8 @@ impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 			_ => return false,
 		};
 		let live = self.live.get_or_insert_with(|| self.trace.liveness());
-		self.trace.fresh(filled, at, made, live)
+		self.trace
+			.fresh(filled, place.ty(self.body, self.tcx).ty, at, made, live)
 	}
 
 	/// Whether the call at `at` given `arg` as a `ty`, a mutable reference or pointer to a
