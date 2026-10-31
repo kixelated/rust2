@@ -72,6 +72,17 @@ export function once<A extends unknown[], R>(f: (...args: A) => R): ((...args: A
 	return closure((...args: A) => callOnce(f, ...args), () => drop(f));
 }
 
+/**
+ * The function `make` makes of `f`, which calls it with what std lends it as translated code
+ * reads it: its clone is made of `f`'s clone, and it drops `f`.
+ */
+export function lending<F, G extends (...args: never[]) => unknown>(f: F, make: (f: F) => G): G & Disposable {
+	return closure(
+		cloning(make(f), () => lending(closureClone(f), make)),
+		() => drop(f),
+	);
+}
+
 /** A function that calls `f` but never drops it, for a reference to a closure that something would drop. */
 export function lent<A extends unknown[], R>(f: (...args: A) => R): (...args: A) => R {
 	return (...args: A) => f(...args);

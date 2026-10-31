@@ -1155,7 +1155,23 @@ pub fn call<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>
 	let mut args = args;
 	let released = super::iter::releases(&owner, &name);
 	let closures = called_closures(b, call, discarded, released, &mut args);
+	// What std lends of the `[u8; N]`s it holds, its closures are given and it returns as
+	// slices of them.
+	let lent = match super::lend::plan(b.t, call.def_id, call.args) {
+		super::lend::Plan::Lend(lent) => Some(lent),
+		_ => None,
+	};
+	for closure in lent.iter().flat_map(|lent| &lent.closures) {
+		let holds = closure.held || b.t.drops(closure.ty);
+		if let Some(value) = args.get_mut(closure.index) {
+			let f = std::mem::replace(value, Expr::undefined());
+			*value = super::lend::lend_closure(b, f, &closure.params, holds, call.span, out);
+		}
+	}
 	let mut e = mapping(b, call, owner.clone(), name.clone(), discarded, args, out)?;
+	if let Some((generic, ty)) = lent.and_then(|lent| lent.output) {
+		e = super::lend::lend(b, generic, ty, e, call.span);
+	}
 	if let Some(ty) = closures.leaked {
 		return Some(b.err(
 			call.span,

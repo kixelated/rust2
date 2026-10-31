@@ -9,8 +9,8 @@ use rustc_middle::ty::{self, GenericArgsRef, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use super::{Fx, Slot};
-use crate::lower::collections::holds_bytes_ref;
 use crate::lower::fmt::{self, Piece};
+use crate::lower::lend::{self, Plan};
 use crate::lower::library::{self, Flow, Std};
 use crate::lower::num::Int;
 use crate::ts::{Expr, Stmt, StmtKind};
@@ -44,7 +44,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.call_def(def_id, gargs.skip_binder(), args, result, span, &mut pre),
 				true,
 			),
-			ty::FnDef(def_id, gargs) if self.bytes_across(def_id, gargs.skip_binder(), fn_ty) => {
+			ty::FnDef(def_id, gargs) if matches!(lend::plan(self.b.t, def_id, gargs.skip_binder()), Plan::Refused) => {
 				let path = tcx.def_path_str(def_id);
 				let msg = format!(
 					"`{path}` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it"
@@ -96,6 +96,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					(crate::lower::iter::next(self.b, iter_ty, recv), true)
 				}
 			}
+			// What std lends of the `[u8; N]`s it holds, its mapping makes slices of.
+			ty::FnDef(def_id, gargs) if matches!(lend::plan(self.b.t, def_id, gargs.skip_binder()), Plan::Lend(_)) => (
+				self.call_def(def_id, gargs.skip_binder(), args, result, span, &mut pre),
+				true,
+			),
 			ty::FnDef(def_id, gargs) => match self.intercept(def_id, gargs.skip_binder(), args, dest, span, &mut pre) {
 				Some(Some(done)) => done,
 				// Done: the destination is set.
@@ -153,64 +158,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				self.emit(stmts, false, out);
 			}
 		}
-	}
-
-	/// Whether std's `def_id` makes a reference to a `[u8; N]` it holds or is handed, as
-	/// `Option::as_ref` of an `Option<[u8; 4]>` or `filter` over `[u8; 4]` items do: its
-	/// mapping has it as the `Uint8Array` itself, where translated code has a slice of it.
-	fn bytes_across(&self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, fn_ty: Ty<'tcx>) -> bool {
-		let tcx = self.tcx;
-		let t = &*self.b.t;
-		if t.translated(def_id, gargs) || !gargs.types().any(owns_bytes) {
-			return false;
-		}
-		// A collection's mapping lends the bytes it holds as slices, and finds a key by one.
-		if let Some(lends) = crate::lower::collections::lends_call(t, def_id, gargs) {
-			return !lends;
-		}
-		let self_ty = gargs.types().next();
-		// Mappings that make the slice, or take it.
-		if let Some((owner, name)) = library::key(tcx, def_id) {
-			let handled = match (owner.as_str(), name.as_str()) {
-				("Index" | "IndexMut", "index" | "index_mut") | ("Clone", "clone") | ("Argument", _) => true,
-				// The runtime compares and hashes bytes in whichever form it is given them.
-				("PartialOrd" | "Ord" | "PartialEq", _) | ("Hash", "hash") => true,
-				("slice", "iter" | "iter_mut") | ("array", "each_ref" | "each_mut") => true,
-				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| elem(tcx, s).is_some()),
-				_ => false,
-			};
-			if handled {
-				return false;
-			}
-		}
-		// A closure is the crate's own.
-		if tcx.trait_of_assoc(def_id).is_some_and(|tr| tcx.is_fn_trait(tr)) {
-			return false;
-		}
-		let env = t.typing_env_pub();
-		let normal = |ty: Ty<'tcx>| {
-			tcx.try_normalize_erasing_regions(env, ty::Unnormalized::new_wip(ty))
-				.unwrap_or(ty)
-		};
-		// An iterator's references were made where its items came from, unless it makes
-		// them of items it holds.
-		if tcx.trait_of_assoc(def_id).is_some()
-			&& let Some(item) = self_ty.and_then(|s| t.iter_item(s))
-			&& !owns_bytes(normal(item))
-		{
-			return false;
-		}
-		let sig = tcx.instantiate_bound_regions_with_erased(fn_ty.fn_sig(tcx));
-		// An iterator of items without such references was checked where each adaptor was
-		// made: a closure it holds takes them from there.
-		let refs = |ty: Ty<'tcx>| {
-			let ty = normal(ty);
-			match t.iter_item(ty).map(normal) {
-				Some(item) if !owns_bytes(item) && !holds_bytes_ref(item) => false,
-				item => std::iter::once(ty).chain(item).any(holds_bytes_ref),
-			}
-		};
-		sig.inputs_and_output.iter().any(refs) || gargs.types().any(refs)
 	}
 
 	/// Arguments, uncopied, since a callee that changes a parameter in place copies it
@@ -1555,18 +1502,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::Vec) => Some(library::elements(value, ty)),
 			_ => crate::lower::iter::into_iter(self.b, ty, value, span),
 		}
-	}
-}
-
-/// Whether `ty` holds a `[u8; N]` other than behind a reference or in a closure, which std
-/// only calls.
-fn owns_bytes(ty: Ty<'_>) -> bool {
-	match ty.kind() {
-		_ if crate::lower::byte_array(ty) => true,
-		ty::Array(elem, _) | ty::Slice(elem) => owns_bytes(*elem),
-		ty::Tuple(tys) => tys.iter().any(owns_bytes),
-		ty::Adt(_, args) | ty::Alias(_, ty::AliasTy { args, .. }) => args.types().any(owns_bytes),
-		_ => false,
 	}
 }
 

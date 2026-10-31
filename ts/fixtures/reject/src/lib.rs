@@ -221,10 +221,10 @@ pub fn replace_pinned_ref<'a>(dst: &mut std::pin::Pin<&'a mut Noisy>, src: std::
 	*dst = src;
 }
 
-/// A std adaptor lends its callback a reference to each array of bytes it holds, which it
-/// would pass as the array, not a slice of it.
-pub fn filter_owned_bytes(v: Vec<[u8; 2]>) -> usize {
-	v.into_iter().filter(|p| p[0] != 0).count()
+/// `copied` is given a reference to an array of bytes, a slice of it, which its mapping
+/// would copy as the array.
+pub fn copied_bytes(v: &[[u8; 2]]) -> [u8; 2] {
+	v.first().copied().unwrap_or_default()
 }
 
 /// Each copy of a closure has its own captures, which copies of an arrow function share.
@@ -826,11 +826,6 @@ impl std::fmt::Write for Sink {
 	}
 }
 
-/// Keys held as `&[u8; 2]` beside `[u8; 2]` values, lent as `&[u8; 2]` too.
-pub fn byte_key(map: std::collections::HashMap<&[u8; 2], [u8; 2]>) -> u8 {
-	map.into_keys().next().map_or(0, |k| k[0])
-}
-
 pub struct Plain {
 	pub at: (u32, u32),
 }
@@ -943,11 +938,6 @@ pub fn uninit_part_replaced(n: u32) -> u32 {
 	let q = gap.slot.as_mut_ptr();
 	reset_gap(&mut gap);
 	unsafe { (*p).0 + (*q).1 }
-}
-
-/// A set of `[u8; 2]` extended by references to arrays, which it would keep as slices.
-pub fn byte_extended(set: &mut std::collections::HashSet<[u8; 2]>, pairs: &[[u8; 2]]) {
-	set.extend(pairs);
 }
 
 /// A key ordered by its own `Ord`.

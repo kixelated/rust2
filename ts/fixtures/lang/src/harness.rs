@@ -207,6 +207,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("fmt::enums", |_, data, out| fmt::enums(data, out)),
 		("pointers::segments", |_, data, out| pointers::segments(data, out)),
 		("pointers::uninit_runs", |_, data, out| pointers::uninit_runs(data, out)),
+		("keys::byte_refs", keys::byte_refs),
 	]
 }
 

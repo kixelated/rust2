@@ -23,6 +23,11 @@ fn trait_items(tcx: ty::TyCtxt<'_>) -> Option<(DefId, DefId)> {
 	Some((next, item))
 }
 
+/// `Iterator::next`.
+pub fn next_fn(tcx: ty::TyCtxt<'_>) -> Option<DefId> {
+	Some(trait_items(tcx)?.0)
+}
+
 /// Whether `def_id` is `Iterator::next`, or an impl's.
 pub fn is_next(tcx: ty::TyCtxt<'_>, def_id: DefId) -> bool {
 	let Some((next, _)) = trait_items(tcx) else {
@@ -359,7 +364,7 @@ pub fn call<'tcx>(
 		let mut items = into_iter(b, source, items, span)?;
 		// `Extend<&T>` copies each element.
 		if item != vec_args.type_at(0)
-			&& let Some(copy) = b.t.copy_fn(vec_args.type_at(0), span)
+			&& let Some(copy) = super::lend::copy_fn(b, vec_args.type_at(0), span)
 		{
 			items = Expr::rt("iterMap", vec![items, copy]);
 		}

@@ -16,6 +16,7 @@ mod dynamic;
 mod float;
 mod fmt;
 mod iter;
+mod lend;
 mod library;
 mod mir;
 pub(crate) mod names;
