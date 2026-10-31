@@ -131,5 +131,10 @@ roots = [
     "kept_instance",
     "atomic_swapped",
     "atomic_exchanged",
+    "ref_replaced",
+    "ref_taken",
+    "key_set",
+    "key_replaced",
+    "key_taken",
 ]
 printable = ["Meters"]
