@@ -1,8 +1,9 @@
 //! Raw pointers: a circular list of boxed nodes as `hashlink`'s `LinkedHashMap` keeps one,
 //! linked through a union and holding a `MaybeUninit` entry, with a free list of nodes to
 //! reuse; pointers to numbers, to fields, and to whole values, read, written, swapped,
-//! and compared; pointers to the parts of a struct kept as objects; and the pointers
-//! `UnsafeCell::get` gives.
+//! and compared; pointers to the parts of a struct kept as objects; the pointers
+//! `UnsafeCell::get` gives; and slots of fresh memory written whole before any pointer
+//! into them is taken.
 
 use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
@@ -883,4 +884,123 @@ fn made_parts(n: u8) -> [u8; 7] {
 			g.slot.assume_init().0,
 		]
 	}
+}
+
+/// A cell read and written only through the pointer it lends a closure, as kio's
+/// `sync::UnsafeCell` is.
+struct Lent<T>(UnsafeCell<T>);
+
+impl<T> Lent<T> {
+	const fn new(value: T) -> Self {
+		Self(UnsafeCell::new(value))
+	}
+
+	fn with<R>(&self, f: impl FnOnce(*const T) -> R) -> R {
+		f(self.0.get())
+	}
+
+	fn with_mut<R>(&self, f: impl FnOnce(*mut T) -> R) -> R {
+		f(self.0.get())
+	}
+}
+
+type Entry = Lent<MaybeUninit<(u8, u8)>>;
+
+/// A run of slots as kio's log keeps one: each filled whole with an empty cell while
+/// nothing points into the fresh allocation yet, then written and read through the
+/// pointer its cell lends.
+struct Segment {
+	filled: usize,
+	slots: Box<[MaybeUninit<Entry>; 4]>,
+}
+
+impl Segment {
+	fn new() -> Self {
+		let mut slots = Box::new([const { MaybeUninit::uninit() }; 4]);
+		for at in 0..4 {
+			slots[at].write(Lent::new(MaybeUninit::uninit()));
+		}
+		Segment { filled: 0, slots }
+	}
+
+	fn slot(&self, at: usize) -> &Entry {
+		unsafe { self.slots[at].assume_init_ref() }
+	}
+}
+
+/// Entries pushed into segments of slots that each fill whole first, read back, and
+/// changed in place through the pointer each slot's cell lends.
+pub fn segments(data: &[u8], out: &mut Vec<u8>) {
+	let mut log: Vec<Segment> = Vec::new();
+	let mut len = 0;
+	for &byte in data {
+		match byte % 4 {
+			0 => {
+				if len % 4 == 0 {
+					log.push(Segment::new());
+				}
+				let segment = &mut log[len / 4];
+				segment
+					.slot(segment.filled)
+					.with_mut(|p| unsafe { (*p).write((byte, !byte)) });
+				segment.filled += 1;
+				len += 1;
+			}
+			1 if len > 0 => {
+				let at = usize::from(byte) % len;
+				let (a, b) = log[at / 4].slot(at % 4).with(|p| unsafe { *(*p).assume_init_ref() });
+				out.extend([a, b]);
+			}
+			2 if len > 0 => {
+				let at = usize::from(byte) % len;
+				log[at / 4]
+					.slot(at % 4)
+					.with_mut(|p| unsafe { (*(*p).as_mut_ptr()).1 ^= byte });
+			}
+			_ => out.push(log.iter().map(|s| s.filled as u8).sum()),
+		}
+	}
+}
+
+/// A struct JS keeps as an object, with a part it keeps as one too.
+struct Run {
+	span: (u8, u8),
+	n: u8,
+}
+
+/// A `MaybeUninit` array and a `MaybeUninit` variable, each slot written whole before any
+/// pointer into it is taken, then changed through pointers to a part of each and read back.
+pub fn uninit_runs(data: &[u8], out: &mut Vec<u8>) {
+	let mut runs: [MaybeUninit<Run>; 3] = [const { MaybeUninit::uninit() }; 3];
+	for at in 0..3 {
+		let n = data.get(at).copied().unwrap_or(0);
+		runs[at].write(Run {
+			span: (n, !n),
+			n: at as u8,
+		});
+	}
+	let mut last = MaybeUninit::<Run>::uninit();
+	unsafe {
+		last.as_mut_ptr().write(Run {
+			span: (data.len() as u8, 0),
+			n: 3,
+		})
+	};
+	let tail = unsafe { &raw mut (*last.as_mut_ptr()).span };
+	for &byte in data {
+		let run = unsafe { runs[usize::from(byte) % 3].assume_init_mut() };
+		let span = &raw mut run.span;
+		unsafe {
+			(*span).0 ^= byte;
+			(*span).1 = (*span).1.wrapping_add(run.n);
+			(*tail).1 = (*tail).1.wrapping_add((*span).0);
+			out.push((*span).0);
+		}
+	}
+	for run in &runs {
+		let run = unsafe { run.assume_init_ref() };
+		out.extend([run.span.0, run.span.1, run.n]);
+	}
+	let last = unsafe { last.assume_init() };
+	out.extend([last.span.0, last.span.1, last.n]);
 }

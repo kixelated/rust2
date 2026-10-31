@@ -13,12 +13,15 @@ use rustc_hir::def::DefKind;
 use rustc_hir::def_id::DefId;
 use rustc_index::IndexVec;
 use rustc_middle::mir::visit::{MutatingUseContext, PlaceContext, Visitor};
-use rustc_middle::mir::{self, Location, Place, ProjectionElem, Rvalue};
+use rustc_middle::mir::{self, Local, Location, Place, ProjectionElem, Rvalue};
 use rustc_middle::ty::fast_reject::DeepRejectCtxt;
 use rustc_middle::ty::{self, EarlyBinder, Ty, TyCtxt, TypeVisitableExt};
+use rustc_mir_dataflow::ResultsCursor;
+use rustc_mir_dataflow::impls::MaybeLiveLocals;
 use rustc_span::{DUMMY_SP, Span};
 
 use super::library::{Flow, Std};
+use super::mir::holders::{Filled, Trace};
 use super::{AdtRepr, Translator, field_name, short_name};
 use crate::program::{SymKind, Symbol};
 use crate::ts::{self, Expr, Key, Param, Stmt, StmtKind};
@@ -311,7 +314,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// or one kept anywhere but in a local, whose uses tell. Bodies are read as written, over
 /// their own type parameters, so a write into a type parameter stands for the type each
 /// instance of the body that translation reaches gives it, or in a census lowering a
-/// function over its own type parameters, for every type its bounds let it be.
+/// function over its own type parameters, for every type its bounds let it be. A write
+/// that fills memory nothing points into yet gives no pointer's object another.
 #[derive(Default)]
 pub struct Writes<'tcx> {
 	into: Types<'tcx>,
@@ -346,11 +350,13 @@ impl<'tcx> Writes<'tcx> {
 	/// closures and coroutines they hold: a binding stands in for any other, which counts
 	/// as code it doesn't read.
 	pub fn of_bodies(
-		tcx: TyCtxt<'tcx>,
+		t: &Translator<'_, 'tcx>,
 		bodies: impl IntoIterator<Item = DefId>,
 		reached: &FxHashSet<ty::Instance<'tcx>>,
 		own: &dyn Fn(DefId) -> bool,
 	) -> Self {
+		let tcx = t.tcx;
+		let memo = RefCell::default();
 		let mut writes = Writes::default();
 		for instance in reached.iter().filter(|instance| !instance.args.has_param()) {
 			writes.reached.entry(instance.def_id()).or_default().push(instance.args);
@@ -381,6 +387,8 @@ impl<'tcx> Writes<'tcx> {
 				writes: &mut writes,
 				own,
 				borrows: borrows(body),
+				trace: Trace::new(t, body, ty::TypingEnv::post_analysis(tcx, def_id), &memo),
+				live: None,
 			}
 			.visit_body(body);
 		}
@@ -591,7 +599,7 @@ pub fn through_borrows<'tcx>(
 }
 
 /// The writes of one body.
-struct BodyWrites<'w, 'm, 'tcx> {
+struct BodyWrites<'w, 'm, 'a, 'tcx> {
 	tcx: TyCtxt<'tcx>,
 	body: &'m mir::Body<'tcx>,
 	def_id: DefId,
@@ -599,9 +607,13 @@ struct BodyWrites<'w, 'm, 'tcx> {
 	own: &'w dyn Fn(DefId) -> bool,
 	/// The place each local borrows, where its one assignment is a borrow.
 	borrows: IndexVec<mir::Local, Option<Place<'tcx>>>,
+	/// The body's pointers, which tell whether a write fills memory nothing points into.
+	trace: Trace<'m, 'a, 'tcx>,
+	/// Rustc's liveness of the body's locals, found the first time it is needed.
+	live: Option<ResultsCursor<'m, 'tcx, MaybeLiveLocals>>,
 }
 
-impl<'tcx> BodyWrites<'_, '_, 'tcx> {
+impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 	fn insert(&mut self, ty: Ty<'tcx>) {
 		self.writes.into.insert(self.tcx, self.def_id, ty);
 	}
@@ -631,30 +643,59 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 		}
 	}
 
-	/// A write of a whole `place` through `(*r)`, which writes the place `r` borrows if `r`
-	/// is an alias of it, as a store of that place.
-	fn store_through(&mut self, place: Place<'tcx>) {
+	/// A write of a whole `place` through `(*r)` at `at`, which writes the place `r`
+	/// borrows if `r` is an alias of it, as a store of that place.
+	fn store_through(&mut self, place: Place<'tcx>, at: Location) {
 		if let [ProjectionElem::Deref] = place.projection.as_slice()
 			&& let Some(borrowed) = self.borrows[place.local]
 		{
-			self.stored(borrowed);
+			self.stored(borrowed, at);
 		}
 	}
 
-	/// A whole `place` written: a whole part gives what holds it another object there, and a
-	/// whole value written through a pointer each of its parts, as it goes one object deep.
-	fn stored(&mut self, place: Place<'tcx>) {
+	/// A whole `place` written at `at`: a whole part gives what holds it another object
+	/// there, and a whole value written through a pointer each of its parts, as it goes one
+	/// object deep, unless the memory is fresh.
+	fn stored(&mut self, place: Place<'tcx>, at: Location) {
 		let ty = place.ty(self.body, self.tcx).ty;
-		match place.iter_projections().last() {
-			Some((_, ProjectionElem::Deref)) => self.replace(ty),
-			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => {
-				let base = base.ty(self.body, self.tcx).ty;
-				if !base.is_union() {
-					self.replace(base);
-				}
-			}
-			_ => {}
+		let replaced = match place.iter_projections().last() {
+			Some((_, ProjectionElem::Deref)) => ty,
+			Some((base, ProjectionElem::Field(..))) if self.inline(ty) => match base.ty(self.body, self.tcx).ty {
+				base if base.is_union() => return,
+				base => base,
+			},
+			_ => return,
+		};
+		if self.inline(replaced) && !self.fresh(place, at, None) {
+			self.replace(replaced);
 		}
+	}
+
+	/// Whether a write of `place` at `at`, or by a call whose result is `made`, fills memory
+	/// nothing points into yet, as [`Trace::fresh`] judges it.
+	fn fresh(&mut self, place: Place<'tcx>, at: Location, made: Option<Local>) -> bool {
+		let filled = match place.projection.split_first() {
+			Some((ProjectionElem::Deref, rest)) if !rest.contains(&ProjectionElem::Deref) => {
+				Filled::Through(place.local)
+			}
+			_ if !place.is_indirect() => Filled::Local(place.local),
+			_ => return false,
+		};
+		let live = self.live.get_or_insert_with(|| self.trace.liveness());
+		self.trace.fresh(filled, at, made, live)
+	}
+
+	/// Whether the call at `at` given `arg` as a `ty`, a mutable reference or pointer to a
+	/// type that may be kept as an object, fills memory nothing points into yet there.
+	fn fills_fresh(&mut self, ty: Ty<'tcx>, arg: &mir::Operand<'tcx>, at: Location, made: Option<Local>) -> bool {
+		let (ty::Ref(_, inner, ty::Mutability::Mut) | ty::RawPtr(inner, ty::Mutability::Mut)) = *ty.kind() else {
+			return false;
+		};
+		self.inline(inner)
+			&& arg
+				.place()
+				.and_then(|p| p.as_local())
+				.is_some_and(|p| self.fresh(self.tcx.mk_place_deref(p.into()), at, made))
 	}
 
 	/// What each mutable reference or pointer a value of `ty` holds points at, where code
@@ -693,12 +734,12 @@ impl<'tcx> BodyWrites<'_, '_, 'tcx> {
 	}
 }
 
-impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
+impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, '_, 'tcx> {
 	fn visit_assign(&mut self, place: &Place<'tcx>, rvalue: &Rvalue<'tcx>, location: Location) {
 		if place.as_local().is_none() {
 			self.pointees(place.ty(self.body, self.tcx).ty, true);
 		}
-		self.store_through(*place);
+		self.store_through(*place, location);
 		// A `dyn Any` has no method that writes: a write through its downcast counts where it is.
 		let object = |t: Ty<'tcx>| t.is_trait() && !super::dynamic::is_any_object(self.tcx, t);
 		if let Rvalue::Cast(mir::CastKind::PointerCoercion(ty::adjustment::PointerCoercion::Unsize, _), op, to) = rvalue
@@ -717,12 +758,12 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 			..
 		} = &terminator.kind
 		{
-			self.store_through(*destination);
+			self.store_through(*destination, location);
 			let rebound = func
 				.const_fn_def()
 				.map_or(0, |(def_id, _)| super::pointer::rebinds(self.tcx, def_id));
 			for arg in args[..rebound].iter().filter_map(|a| a.node.place()) {
-				self.store_through(self.tcx.mk_place_deref(arg));
+				self.store_through(self.tcx.mk_place_deref(arg), location);
 			}
 		}
 		match &terminator.kind {
@@ -751,14 +792,38 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 				.skip_norm_wip();
 			// Those that point a pointer elsewhere or read through it replace nothing.
 			let replace = !super::pointer::keeps(self.tcx, def_id, args.skip_binder());
-			for &input in sig.skip_binder().inputs() {
-				self.pointees(input, replace);
+			// A call's argument may point into memory nothing else points into yet.
+			let body = self.body;
+			let call = match &body[location.block].terminator().kind {
+				mir::TerminatorKind::Call {
+					func,
+					args,
+					destination,
+					..
+				} if location == body.terminator_loc(location.block) && std::ptr::eq(func, operand) => {
+					Some((args, destination.as_local()))
+				}
+				_ => None,
+			};
+			for (i, &input) in sig.skip_binder().inputs().iter().enumerate() {
+				let fresh = replace
+					&& call.is_some_and(|(args, made)| {
+						args.get(i)
+							.is_some_and(|arg| self.fills_fresh(input, &arg.node, location, made))
+					});
+				match (fresh, input.kind()) {
+					(true, ty::Ref(_, inner, _) | ty::RawPtr(inner, _)) => {
+						self.insert(*inner);
+						self.pointees(*inner, true);
+					}
+					_ => self.pointees(input, replace),
+				}
 			}
 		}
 		self.super_operand(operand, location);
 	}
 
-	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, _: Location) {
+	fn visit_place(&mut self, place: &Place<'tcx>, context: PlaceContext, location: Location) {
 		let PlaceContext::MutatingUse(kind) = context else {
 			return;
 		};
@@ -783,7 +848,7 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, 'tcx> {
 				| MutatingUseContext::AsmOutput
 				| MutatingUseContext::Yield
 		) {
-			self.stored(*place);
+			self.stored(*place, location);
 		}
 	}
 }
