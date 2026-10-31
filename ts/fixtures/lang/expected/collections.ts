@@ -685,7 +685,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			rt.byteVecPush(out, _73[0]);
 			rt.byteVecPush(out, _73[1]);
 		}
-		const iter3: rt.Iter<[rt.u8, rt.u8]> = rt.iterRev(rt.btreeRange(map, { start: 10 }));
+		const iter3: rt.Iter<[rt.u8, rt.u8]> = rt.iterRev(rt.btreeRange(map, new rt.RangeFrom(10, rt.u8Step)));
 		while (true) {
 			const _88: [rt.u8, rt.u8] | rt.Done = iter3.next();
 			if (_88 === rt.DONE) {
@@ -711,7 +711,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(rt.btreeIter(map).next()), 255, (_229: [rt.u8, rt.u8]): rt.u8 => {
 			return _229[0] ^ _229[1];
 		}));
-		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(rt.btreeRange(map, { start: 4 }).nextBack()), 255, (_230: [rt.u8, rt.u8]): rt.u8 => {
+		rt.byteVecPush(out, mapOr$0mmpeqx(rt.iterToOption(rt.btreeRange(map, new rt.RangeFrom(4, rt.u8Step)).nextBack()), 255, (_230: [rt.u8, rt.u8]): rt.u8 => {
 			return _230[0] ^ _230[1];
 		}));
 		rt.byteVecPush(out, mapOr$1surhce(rt.iterMax(rt.btreeValues(map), rt.lt), 255, (v6: rt.u8): rt.u8 => {
@@ -733,7 +733,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 				return _235[0];
 			}), "next");
 		} else {
-			within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, { start: lo }), (_234: [rt.u8, rt.u8]): rt.u8 => {
+			within = rt.iterToByteVec(rt.iterMap(rt.btreeRange(map, new rt.RangeFrom(lo, rt.u8Step)), (_234: [rt.u8, rt.u8]): rt.u8 => {
 				return _234[0];
 			}), "next");
 		}
@@ -797,7 +797,7 @@ export function btreeMaps(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): voi
 			rt.byteVecPush(out, rt.u8Shl(_276[0][0], 4) | _276[0][1]);
 			rt.byteVecPush(out, _276[1]);
 		}
-		const _290: { start: rt.u64 } = { start: 4503599627370496 };
+		const _290: rt.RangeFrom<rt.u64> = new rt.RangeFrom(4503599627370496, rt.u64Step);
 		const iter9: rt.Iter<[rt.u64, rt.u8]> = rt.btreeRange(wides, _290);
 		while (true) {
 			const _295: [rt.u64, rt.u8] | rt.Done = iter9.next();
@@ -1032,7 +1032,7 @@ export function deques(data: rt.ByteSlice, out: rt.ByteVec): void {
 	} else if (_201 === 2) {
 		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { end: b2 }), "next");
 	} else {
-		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, { start: a }), "next");
+		drained2 = rt.iterToByteVec(rt.dequeDrain(q2, new rt.RangeFrom(a, rt.usizeStep)), "next");
 	}
 	rt.byteVecExtendFromSlice(out, rt.byteVecSlice(drained2));
 	rt.iterExtendBytes(out, rt.dequeIter(q2), undefined, true);

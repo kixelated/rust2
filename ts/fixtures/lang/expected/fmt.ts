@@ -616,14 +616,14 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const w: rt.usize = rt.u8Rem(at(2), 10) as rt.usize;
 	const _33: rt.Range<rt.i32> = new rt.Range(a, b);
 	const _35: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
-	const _37: { start: rt.i32 } = { start: a };
+	const _37: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
 	const _39: { end: rt.i32 } = { end: b };
 	const _41: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_33, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeInclusive(_35, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeFrom(_37, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeTo(_39, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeToInclusive(_41, f, rt.i32Debug), (f: rt.Formatter) => rt.fmtRangeFull(undefined, f)];
 	put(out, rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2], " ", args2[3], " ", args2[4], " ", args2[5]]));
 	const _60: rt.Range<rt.i32> = new rt.Range(a, b);
 	const _62: rt.RangeInclusive<rt.i32> = new rt.RangeInclusive(a, b, rt.i32Step);
-	const _64: { start: rt.i32 } = { start: a };
+	const _64: rt.RangeFrom<rt.i32> = new rt.RangeFrom(a, rt.i32Step);
 	const _66: { end: rt.i32 } = { end: b };
 	const _68: { end: rt.i32; inclusive: true } = { end: b, inclusive: true };
 	const _70: rt.Range<rt.i32> = new rt.Range(a, b);
@@ -646,7 +646,7 @@ export function wrapped(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const _127: rt.Range<Clip.Clip> = new rt.Range(lo, hi);
 	const _129: rt.RangeInclusive<Clip.Clip> = new rt.RangeInclusive(lo, hi);
 	const _131: { end: Clip.Clip } = { end: hi };
-	const _133: { start: Clip.Clip } = { start: lo };
+	const _133: rt.RangeFrom<Clip.Clip> = new rt.RangeFrom(lo);
 	const _135: { end: Clip.Clip; inclusive: true } = { end: lo, inclusive: true };
 	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtRange(_127, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtRangeInclusive(_129, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtRangeTo(_131, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtRangeFrom(_133, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), rt.fmtCount(w), (f: rt.Formatter) => rt.fmtRangeToInclusive(_135, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f))];
 	put(out, rt.fmtFormat([args6[0], "|", rt.fmtSpec({ width: 8, precision: 2 }, args6[1]), "|", rt.fmtSpec({ alternate: true }, args6[2]), "|", rt.fmtSpec({ fill: "_", align: ">", width: rt.fmtCountOf(args6[4]), precision: 1 }, args6[3]), "|", rt.fmtSpec({ alternate: true, width: 4 }, args6[5])]));
@@ -837,7 +837,7 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 	put(out, rt.fmtFormat([rt.fmtSpec({ debugHex: "x" }, args8[0])]));
 	const it4: rt.Iter<Hex.Hex> = ends$Drain_Hex(rt.vecDrain(rt.iterToArray(rt.iterMap(rt.iterTake(rt.iterSlice(rt.byteSliceView(data)), 5), (_23: rt.u8): Hex.Hex => {
 		return { _0: rt.u32Mul(_23 as rt.u32, 257) };
-	}), undefined, 4, true), { start: 1 }), front, back);
+	}), undefined, 4, true), new rt.RangeFrom(1, rt.usizeStep)), front, back);
 	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(it4, f, (value: Hex.Hex, f: rt.Formatter) => Hex.fmt$Debug(value, f), ["Drain"])];
 	put(out, rt.fmtFormat([args10[0], "|", rt.fmtSpec({ alternate: true, debugHex: "x" }, args10[0])]));
 	rt.drop(it4);
@@ -913,7 +913,7 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const args36: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(_335, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtIter(_339, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug))];
 	put(out, rt.fmtFormat([args36[0], "|", args36[1]]));
 	const lo: rt.u8 = rt.u8Rem(at(2), 16);
-	const _360: rt.Iter<[rt.u8, rt.u8 | undefined]> = ends$Range_u8_Option_u8(rt.btreeRange(map, { start: lo }), front, back);
+	const _360: rt.Iter<[rt.u8, rt.u8 | undefined]> = ends$Range_u8_Option_u8(rt.btreeRange(map, new rt.RangeFrom(lo, rt.u8Step)), front, back);
 	const _365: rt.Iter<[rt.u8, rt.u8 | undefined]> = ends$Range_u8_Option_u8(rt.btreeRange(map, { end: lo, inclusive: true }), front, back);
 	const args38: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(_360, f, (value: [rt.u8, rt.u8 | undefined], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0], f), (f: rt.Formatter) => rt.fmtOption(value[1], f, rt.u8Debug)], f)), (f: rt.Formatter) => rt.fmtIter(_365, f, (value: [rt.u8, rt.u8 | undefined], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0], f), (f: rt.Formatter) => rt.fmtOption(value[1], f, rt.u8Debug)], f))];
 	put(out, rt.fmtFormat([args38[0], "|", args38[1]]));
@@ -923,7 +923,7 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const part14 = ends$ValuesMut_u8_Option_u8(rt.btreeValuesMut(map), front, back);
 	const args42: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(part14, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug))];
 	put(out, rt.fmtFormat([args42[0]]));
-	const part15 = ends$RangeMut_u8_Option_u8(rt.btreeRangeMut(map, { start: lo }), front, back);
+	const part15 = ends$RangeMut_u8_Option_u8(rt.btreeRangeMut(map, new rt.RangeFrom(lo, rt.u8Step)), front, back);
 	const args44: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(part15, f, (value: [rt.u8, rt.u8 | undefined], f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(value[0], f), (f: rt.Formatter) => rt.fmtOption(value[1], f, rt.u8Debug)], f))];
 	put(out, rt.fmtFormat([args44[0]]));
 	const part16 = ends$IntoIter_u8_Option_u8(rt.btreeIter(rt.btreeClone(map, undefined, undefined)), front, back);
@@ -957,7 +957,7 @@ export function iters(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const part19 = ends$Iter_u8$2(rt.btreeKeys(set), front, back);
 	const args54: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(part19, f, rt.u8Debug, ["Iter"])];
 	put(out, rt.fmtFormat([args54[0], "|", rt.fmtSpec({ alternate: true }, args54[0])]));
-	const part20 = ends$Range_u8(rt.btreeRangeKeys(set, { start: lo }), front, back);
+	const part20 = ends$Range_u8(rt.btreeRangeKeys(set, new rt.RangeFrom(lo, rt.u8Step)), front, back);
 	const args56: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtIter(part20, f, rt.fmtSetVal(rt.u8Debug), [["Range", "iter"]])];
 	put(out, rt.fmtFormat([args56[0], "|", rt.fmtSpec({ alternate: true }, args56[0]), "|", rt.fmtSpec({ debugHex: "x" }, args56[0])]));
 	const part21 = ends$IntoIter_u8$2(rt.btreeKeys(set), front, back);

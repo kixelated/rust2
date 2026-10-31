@@ -3,8 +3,9 @@
 ## Goal
 
 [rust2-ts](/ts/README.md) translates `clone` of std's iterators and adaptors, such as a
-`zip`, a `map`, a `chars`, and a set operation's iterator, the clone reading on from where
-the original was, independently of it, proven by differential tests against native Rust.
+`zip`, a `map`, a `chars`, a `start..`, and a set operation's iterator, the clone reading
+on from where the original was, independently of it, proven by differential tests against
+native Rust.
 
 ## Plan
 

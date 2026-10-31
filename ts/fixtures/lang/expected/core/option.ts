@@ -870,6 +870,13 @@ export function mapOr$0atjiti(self: rt.char | undefined, default_: rt.u32, _: (a
 	return self as rt.u32;
 }
 
+export function mapOr$0okqj9y(self: rt.char | undefined, default_: rt.u8, f: (a0: rt.char) => rt.u8): rt.u8 {
+	if (self === undefined) {
+		return default_;
+	}
+	return f(self);
+}
+
 export function mapOr$141aobk(self: rt.char[] | undefined, default_: rt.u8, f: (a0: rt.char[]) => rt.u8): rt.u8 {
 	if (self === undefined) {
 		return default_;

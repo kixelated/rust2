@@ -558,4 +558,17 @@ const unlikeEqs = [[], [5], [1, 2], [0, 7, 2, 9], [3, 3, 3, 3, 3, 3, 3, 3, 3]].f
 const ownNesOp = op("collections::own_nes");
 const ownNes = unlikeEqs.map((input) => Uint8Array.of(ownNesOp, ...input.subarray(1)));
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes];
+/**
+ * `iters::range_froms` of each case, each way its zips read the range, from each distance
+ * below its type's last value and from 250, on up to nine bytes: each length its zips
+ * panic at.
+ */
+const rangeFromsOp = op("iters::range_froms");
+const rangeFroms = Array.from({ length: 16 * 4 * 4 * 10 }, (_, i) => {
+	const kind = (i % 16) | ((Math.floor(i / 16) % 4) << 6);
+	const a = [0, 1, 3, 250][Math.floor(i / 64) % 4];
+	const data = Array.from({ length: Math.floor(i / 256) }, (_, j) => (j === 0 ? a : (j * 37) & 0xff));
+	return Uint8Array.of(rangeFromsOp, kind, ...data);
+});
+
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms];

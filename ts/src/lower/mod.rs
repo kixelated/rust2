@@ -1176,6 +1176,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::Pending
 					| library::Std::Range
 					| library::Std::RangeInclusive
+					| library::Std::RangeFrom
 					| library::Std::Peekable
 					| library::Std::HashMap
 					| library::Std::HashSet
@@ -1514,7 +1515,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					("end".into(), self.ty(args.type_at(0), span)),
 					("inclusive".into(), Type::Builtin("true")),
 				]),
-				library::Std::RangeFrom => Type::Object(vec![("start".into(), self.ty(args.type_at(0), span))]),
+				library::Std::RangeFrom => Type::Rt("RangeFrom", vec![self.ty(args.type_at(0), span)]),
 				library::Std::RangeFull => Type::Builtin("undefined"),
 				library::Std::Argument => Type::Rt("Fmt", vec![]),
 				library::Std::NonNull => self.pointer_ty(args.type_at(0), span),

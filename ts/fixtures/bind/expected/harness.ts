@@ -19,7 +19,7 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const bytes: Blob.Blob = Blob.copyFromSlice(input);
 	const mid: rt.usize = rt.usizeDiv(Blob.len(bytes), 2);
 	const head: Blob.Blob = Blob.slice(bytes, { end: mid });
-	const tail: Blob.Blob = Blob.slice(bytes, { start: mid });
+	const tail: Blob.Blob = Blob.slice(bytes, new rt.RangeFrom(mid, rt.usizeStep));
 	const _16: rt.Range<rt.usize> = new rt.Range(rt.min(1, mid), mid);
 	const inner: Blob.Blob = Blob.slice(bytes, _16);
 	const _20: rt.u8 = Blob.len(head) & 0xff;
@@ -110,7 +110,7 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(counts, probe), 0));
 	rt.byteVecPush(out, rt.btreeContains(sorted, probe) ? 1 : 0);
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.btreeGet(firsts, probe), 255));
-	const _81: { start: Blob.Blob } = { start: Blob.clone$Clone(probe) };
+	const _81: rt.RangeFrom<Blob.Blob> = new rt.RangeFrom(Blob.clone$Clone(probe));
 	rt.byteVecPush(out, rt.iterCount(rt.btreeRangeKeys(sorted, _81, Blob.eq$PartialEq, rt.cmpGt(Blob.partialCmp$PartialOrd))) & 0xff);
 	const iter2: rt.Iter<[Blob.Blob, rt.u8]> = rt.btreeIter(firsts);
 	while (true) {
