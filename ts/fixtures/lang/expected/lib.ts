@@ -30,6 +30,7 @@ import type * as Inner from "./pointers.Inner.ts";
 import * as List from "./pointers.List.ts";
 import type * as Outer from "./pointers.Outer.ts";
 import type * as pointers_Pair from "./pointers.Pair.ts";
+import * as saturates_Gauge from "./saturates.Gauge.ts";
 import type * as shapes_Gauge from "./shapes.Gauge.ts";
 import type * as shapes_Held from "./shapes.Held.ts";
 import type * as Lens from "./shapes.Lens.ts";
@@ -261,6 +262,54 @@ export function copy$pointers_Outer(v: Outer.Outer): Outer.Outer {
 
 export function copy$pointers_Pair(v: pointers_Pair.Pair): pointers_Pair.Pair {
 	return { a: v.a, b: v.b };
+}
+
+export function copy$saturates_Gauge_i128(v: saturates_Gauge.Gauge<rt.i128>): saturates_Gauge.Gauge<rt.i128> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_i16(v: saturates_Gauge.Gauge<rt.i16>): saturates_Gauge.Gauge<rt.i16> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_i32(v: saturates_Gauge.Gauge<rt.i32>): saturates_Gauge.Gauge<rt.i32> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_i64(v: saturates_Gauge.Gauge<rt.i64>): saturates_Gauge.Gauge<rt.i64> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_i8(v: saturates_Gauge.Gauge<rt.i8>): saturates_Gauge.Gauge<rt.i8> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_isize(v: saturates_Gauge.Gauge<rt.isize>): saturates_Gauge.Gauge<rt.isize> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_u128(v: saturates_Gauge.Gauge<rt.u128>): saturates_Gauge.Gauge<rt.u128> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_u16(v: saturates_Gauge.Gauge<rt.u16>): saturates_Gauge.Gauge<rt.u16> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_u32(v: saturates_Gauge.Gauge<rt.u32>): saturates_Gauge.Gauge<rt.u32> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_u64(v: saturates_Gauge.Gauge<rt.u64>): saturates_Gauge.Gauge<rt.u64> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_u8(v: saturates_Gauge.Gauge<rt.u8>): saturates_Gauge.Gauge<rt.u8> {
+	return new saturates_Gauge.Gauge(v._0);
+}
+
+export function copy$saturates_Gauge_usize(v: saturates_Gauge.Gauge<rt.usize>): saturates_Gauge.Gauge<rt.usize> {
+	return new saturates_Gauge.Gauge(v._0);
 }
 
 export function copy$shapes_Gauge(v: shapes_Gauge.Gauge): shapes_Gauge.Gauge {

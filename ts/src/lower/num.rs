@@ -342,19 +342,46 @@ pub fn binary<'tcx>(
 	}
 }
 
-/// `l op r` of `Wrapping<ty>`s, as the integer's `wrapping_*` computes it: arithmetic
-/// wraps, a shift masks its amount to the width, and only a zero divisor panics.
-pub fn wrapping<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: BinOp, l: Operand, r: Operand, ty: Ty<'tcx>, span: Span) -> Expr {
+/// How a `Wrapping`'s or a `Saturating`'s operators overflow.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Overflow {
+	Wrap,
+	Saturate,
+}
+
+impl Overflow {
+	/// The runtime's name for the integer method that overflows so: `wrappingAdd` for `Add`.
+	pub fn method(self, op: &str) -> String {
+		match self {
+			Self::Wrap => format!("wrapping{op}"),
+			Self::Saturate => format!("saturating{op}"),
+		}
+	}
+}
+
+/// `l op r` of `Wrapping<ty>`s or `Saturating<ty>`s, as the integer's `wrapping_*` or
+/// `saturating_*` computes it. Arithmetic wraps or saturates, and a `Wrapping`'s shift masks
+/// its amount to the width. A zero divisor panics, as does a `Saturating`'s `MIN % -1`, whose
+/// `Rem` is the integer's.
+pub fn overflowing<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	overflow: Overflow,
+	op: BinOp,
+	l: Operand,
+	r: Operand,
+	ty: Ty<'tcx>,
+	span: Span,
+) -> Expr {
 	let Some(int) = Int::of(ty) else {
-		return b.err(span, format!("arithmetic on `Wrapping<{ty}>`"));
+		return b.err(span, format!("wrapping or saturating arithmetic on `{ty}`"));
 	};
-	let name = match op {
-		BinOp::Add => "wrappingAdd",
-		BinOp::Sub => "wrappingSub",
-		BinOp::Mul => "wrappingMul",
-		BinOp::Div if int.signed => "wrappingDiv",
-		BinOp::Rem if int.signed => "wrappingRem",
-		BinOp::Shl | BinOp::Shr => {
+	let name = match (overflow, op) {
+		(_, BinOp::Add) => "Add",
+		(_, BinOp::Sub) => "Sub",
+		(_, BinOp::Mul) => "Mul",
+		(_, BinOp::Div) if int.signed => "Div",
+		(Overflow::Wrap, BinOp::Rem) if int.signed => "Rem",
+		(Overflow::Wrap, BinOp::Shl | BinOp::Shr) => {
 			let mask = i128::from(int.bits - 1);
 			let r = match r.value {
 				Some(c) => Operand {
@@ -368,10 +395,15 @@ pub fn wrapping<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: BinOp, l: Operand, r: Oper
 			};
 			return binary(b, op, l, r, ty, b.t.tcx.types.usize, span);
 		}
-		// Neither overflows.
+		// std implements no shift for a `Saturating`.
+		(Overflow::Saturate, BinOp::Shl | BinOp::Shr) => {
+			return b.err(span, format!("`{op:?}` of `Saturating<{ty}>`"));
+		}
+		// The integer's own: a bitwise operator never overflows, and an unsigned division or a
+		// `Saturating`'s remainder panics where the integer's does.
 		_ => return binary(b, op, l, r, ty, ty, span),
 	};
-	int.method(name, vec![l.expr, r.expr])
+	int.method(&overflow.method(name), vec![l.expr, r.expr])
 }
 
 pub fn unary<'tcx>(b: &mut Body<'_, '_, 'tcx>, op: UnOp, value: Expr, ty: Ty<'tcx>, span: Span) -> Expr {

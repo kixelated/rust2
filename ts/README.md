@@ -82,6 +82,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
 | `Wrapping<T>` | the integer, whose operators wrap, and mask a shift's amount to the width, as std's do |
+| `Saturating<T>` | the integer, whose operators saturate at its bounds, as std's do |
 | `f64` | `rt.f64`: a `number` branded so, which is the same IEEE 754 double |
 | `f32` | `rt.f32`: a `number` branded so, which a single holds exactly |
 | `()`, `PhantomData<T>`, `PhantomPinned`, `..` | `undefined`, every value equal and hashing nothing; a type parameter only a `PhantomData` holds is `_T` in its struct's interface |
@@ -755,7 +756,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   Bun bundles a caller of `Decoder.u8` and `Decoder.new` through `import * as Decoder`,
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic and casts, `char`s next to each
-  encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Wrapping` at every width, `Duration`s whose
+  encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Wrapping` and `Saturating` at every width, `Duration`s whose
   seconds pass 2^53 or reach `u64::MAX`, control flow,
   patterns, `Copy` aggregates, those a container stores included and those written into
   only in another module, behind a type parameter, or through a box, formatting, methods

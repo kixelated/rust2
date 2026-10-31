@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 136
-- Function instances: 167
+- Refusals: 137
+- Function instances: 168
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -9,7 +9,7 @@
 | Count | Construct | First |
 | ---: | --- | --- |
 | 23 | a raw pointer to `_` in `_`, which the crate may put another object in place of | fixtures/reject/src/lib.rs:623:10 |
-| 17 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
+| 18 | unsupported call to `_` | fixtures/reject/src/lib.rs:167:8 |
 | 14 | a raw pointer to `_` in a variable assigned again while it may point there | fixtures/reject/src/lib.rs:631:10 |
 | 4 | a variant of `_`, which is not supported: either is the same JS string | fixtures/reject/src/lib.rs:344:2 |
 | 3 | a copy of a closure that changes what it captured | fixtures/reject/src/lib.rs:237:14 |
@@ -154,6 +154,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter` | fixtures/reject/src/lib.rs:1250:22 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:446:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:446:32 |
+| 1 | `std::num::Saturating` | fixtures/reject/src/lib.rs:1270:26 |
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:999:32 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:999:11 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:781:15 |
@@ -261,6 +262,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:314:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:553:17 |
 | 1 | unsupported call to `_` | `std::borrow::Cow::is_borrowed` | fixtures/reject/src/lib.rs:356:2 |
+| 1 | unsupported call to `_` | `std::num::Saturating::pow` | fixtures/reject/src/lib.rs:1270:26 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:167:8 |
 | 1 | unsupported call to `_` | `std::ops::Range::is_empty` | fixtures/reject/src/lib.rs:1004:9 |
 | 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:999:11 |
@@ -301,7 +303,7 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>unsupported call to `_` (17)</summary>
+<details><summary>unsupported call to `_` (18)</summary>
 
 - fixtures/reject/src/lib.rs:167:8: unsupported call to `std::ops::Range::<Key>::contains::<Key>`
 - fixtures/reject/src/lib.rs:314:10: unsupported call to `<u8 as std::hash::Hash>::hash::<H>`
@@ -320,6 +322,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:999:11: unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>`
 - fixtures/reject/src/lib.rs:999:32: unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>`
 - fixtures/reject/src/lib.rs:1004:9: unsupported call to `std::ops::Range::<&mut u8>::is_empty`
+- fixtures/reject/src/lib.rs:1270:26: unsupported call to `std::num::Saturating::<u8>::pow`
 
 </details>
 

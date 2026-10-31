@@ -1264,3 +1264,8 @@ pub fn pushed_part_kept(n: u16) -> u16 {
 	unsafe { p.write(Pushed { part: (0, 0) }) };
 	unsafe { (*part).0 }
 }
+
+/// A `Saturating`'s own methods, which are its integer's, are not translated yet.
+pub fn saturating_pow(a: u8) -> u8 {
+	std::num::Saturating(a).pow(2).0
+}
