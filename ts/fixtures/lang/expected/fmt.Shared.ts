@@ -3,10 +3,10 @@
 import * as rt from "./rt.ts";
 import * as fmt_Pair from "./fmt.Pair.ts";
 
-export function fmt$Debug(self: Shared, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Shared, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Shared";
 	const _4: string = "arc";
-	const _5: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$Debug(self.arc.value, f);
+	const _5: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$fmt_Debug(self.arc.value, f);
 	const _7: string = "span";
 	const _8: rt.Fmt = (f: rt.Formatter) => rt.fmtRange(self.span, f, rt.u16Debug);
 	const _10: string = "upto";

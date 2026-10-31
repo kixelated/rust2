@@ -49,7 +49,7 @@ export function pollRecv(self: Consumer, waiter: Waiter.Waiter): rt.Poll<rt.u64 
  * `f` of every value sent so far, once it is ready, or the error once the channel
  * closed and `f` is not, registering `waiter` otherwise.
  */
-export function poll$held_closure0_Poll_u64(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.u64> | rt.OuterPending): rt.Poll<rt.Result<rt.Poll<rt.u64>, Closed.Closed>> {
+export function poll$model_held_closure0_task_Poll_u64(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.u64> | rt.OuterPending): rt.Poll<rt.Result<rt.Poll<rt.u64>, Closed.Closed>> {
 	let _0!: rt.Poll<rt.Result<rt.Poll<rt.u64>, Closed.Closed>>;
 	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	const _8: rt.Poll<rt.u64> | rt.OuterPending = f(state.value.queue);
@@ -71,7 +71,7 @@ export function poll$held_closure0_Poll_u64(self: Consumer, waiter: Waiter.Waite
  * `f` of every value sent so far, once it is ready, or the error once the channel
  * closed and `f` is not, registering `waiter` otherwise.
  */
-export function poll$watch_closure0_closure1_usize(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.usize>): rt.Poll<rt.Result<rt.usize, Closed.Closed>> {
+export function poll$mut_model_watch_closure0_closure1_usize(self: Consumer, waiter: Waiter.Waiter, f: (a0: rt.u64[]) => rt.Poll<rt.usize>): rt.Poll<rt.Result<rt.usize, Closed.Closed>> {
 	let _0!: rt.Poll<rt.Result<rt.usize, Closed.Closed>>;
 	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	const _8: rt.Poll<rt.usize> = f(state.value.queue);

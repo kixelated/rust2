@@ -291,7 +291,7 @@ export function singles(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 		putF32(out, g.level);
 		putF32(out, option_unwrapOr$19h8ynp(g.peak, -1.0));
 		const _526: singles_Gauge.Gauge = singles_Gauge.default$Default();
-		rt.byteVecPush(out, singles_Gauge.eq$PartialEq(g, _526) ? 1 : 0);
+		rt.byteVecPush(out, singles_Gauge.eq$cmp_PartialEq(g, _526) ? 1 : 0);
 		rt.byteVecPush(out, g.peak === b ? 1 : 0);
 		let local: rt.f32 = a;
 		raise(rt.place(() => local, (value2) => local = value2), 0.10000000149011612);
@@ -413,7 +413,7 @@ export function formats(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void 
 		} else if (_13 === 3) {
 			const _78: rt.f32[] = [Math.fround(a * 0.5), -0.0, 9.999999747378752e-5, 1.0000000272564224e16, NaN];
 			const part = { level: a, history: _78 };
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => singles_Reading.fmt$Debug(part, f)];
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => singles_Reading.fmt$fmt_Debug(part, f)];
 			fmt_put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ precision: 2 }, args8[0]), "|", rt.fmtSpec({ plus: true, zero: true, width: 12 }, args8[0])]));
 		} else {
 			let state: rt.u32 = (takeBits(data)[0] | 1) >>> 0;

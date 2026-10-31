@@ -3,8 +3,8 @@
 import * as rt from "./rt.ts";
 import { then$0havnzo } from "./core/bool.ts";
 import { fromStr$1d7pnbk as nonzero_fromStr$1d7pnbk, fromStrRadix$1ae2pnm as nonzero_fromStrRadix$1ae2pnm, fromStr$15isx69 as nonzero_fromStr$15isx69, fromStrRadix$1mr00o6 as nonzero_fromStrRadix$1mr00o6, fromStr$04uijf8 as nonzero_fromStr$04uijf8, fromStrRadix$1wqmb68 as nonzero_fromStrRadix$1wqmb68, fromStr$0l2zu9x as nonzero_fromStr$0l2zu9x, fromStrRadix$0cd0jvv as nonzero_fromStrRadix$0cd0jvv, fromStr$0h0ptos as nonzero_fromStr$0h0ptos, fromStrRadix$10vntu7 as nonzero_fromStrRadix$10vntu7, fromStr$10svit2 as nonzero_fromStr$10svit2, fromStrRadix$0wc95fw as nonzero_fromStrRadix$0wc95fw, fromStr$19kbj04 as nonzero_fromStr$19kbj04, fromStrRadix$1o9c7gd as nonzero_fromStrRadix$1o9c7gd, fromStr$0br814e as nonzero_fromStr$0br814e, fromStrRadix$188cokx as nonzero_fromStrRadix$188cokx, fromStr$1471qz1 as nonzero_fromStr$1471qz1, fromStrRadix$0l5ymb0 as nonzero_fromStrRadix$0l5ymb0, fromStr$0k8sfhf as nonzero_fromStr$0k8sfhf, fromStrRadix$0fpnm5c as nonzero_fromStrRadix$0fpnm5c, fromStr$0b2xa80 as nonzero_fromStr$0b2xa80, fromStrRadix$1095n8m as nonzero_fromStrRadix$1095n8m, fromStr$17dd66m as nonzero_fromStr$17dd66m, fromStrRadix$1yrk04t as nonzero_fromStrRadix$1yrk04t } from "./core/num/nonzero.ts";
-import { unwrapOr$1iemzn8 as option_unwrapOr$1iemzn8, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, map$0gl6wke as option_map$0gl6wke, mapOr$147z9gi as option_mapOr$147z9gi, mapOr$16umieg as option_mapOr$16umieg } from "./core/option.ts";
-import { parse$0ub96so, parse$1ogkfqt, parse$1n7pf37, parse$1xm5283, parse$0xeilg3, parse$0eefxsx, parse$0bwhuel, parse$0zy5dnc, parse$1o8vfr6, parse$0l0cs1u, parse$0zrdgp4, parse$0s8xu45, parse$0vh4cry } from "./core/str.ts";
+import { unwrapOr$1iemzn8 as option_unwrapOr$1iemzn8, unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, map$0gl6wke as option_map$0gl6wke, mapOr$16umieg as option_mapOr$16umieg, mapOr$147z9gi as option_mapOr$147z9gi } from "./core/option.ts";
+import { parse$0vh4cry, parse$0ub96so, parse$1ogkfqt, parse$1n7pf37, parse$1xm5283, parse$0xeilg3, parse$0eefxsx, parse$0bwhuel, parse$0zy5dnc, parse$1o8vfr6, parse$0l0cs1u, parse$0zrdgp4, parse$0s8xu45 } from "./core/str.ts";
 import { fromStr$05d44vn as traits_fromStr$05d44vn } from "./core/str/traits.ts";
 import { put as fmt_put } from "./fmt.ts";
 import * as strs_Counted from "./strs.Counted.ts";
@@ -357,11 +357,11 @@ export function slices(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 					fmt_put(out, rt.strSlice(s, part5));
 				} else if (_8 === 5) {
 					const parts: string[] = rt.iterToArray(rt.strSplit(s, "/"), "next", 8);
-					fmt_put(out, parts.join(p));
-					fmt_put(out, rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
+					fmt_put(out, rt.strsJoin(parts, p));
+					fmt_put(out, rt.strsJoin(rt.iterToArray(rt.iterMap(rt.iterSlice(parts), (part3: string): string => {
 						return part3;
-					}), undefined, 12, true).join(p));
-					fmt_put(out, ["a", "", s].join("/"));
+					}), undefined, 12, true), p));
+					fmt_put(out, rt.strsJoin(["a", "", s], "/"));
 				} else {
 					const at2: (a0: rt.u8) => rt.usize = (b2: rt.u8): rt.usize => {
 						if ((kind & 32) === 0) {
@@ -1199,7 +1199,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.iterEmpty();
 		fmt_put(out, rt.stringExtendChars("", rt.iterEmpty() as rt.Iter<rt.char>));
 		fmt_put(out, rt.stringExtendChars("", rt.iterOption(rt.charFromU32(kind as rt.u32))));
-		fmt_put(out, rt.stringExtendChars("", rt.iterFrom({ items: chars, nexts }, (it: strs_Counted.Counted<rt.char>) => strs_Counted.next$Iterator_char(it))));
+		fmt_put(out, rt.stringExtendChars("", rt.iterFrom({ items: chars, nexts }, (it: strs_Counted.Counted<rt.char>) => strs_Counted.next$iter_Iterator_char(it))));
 	} else if (_21 === 1) {
 		fmt_put(out, rt.stringExtend("", rt.iterSlice(parts)));
 		fmt_put(out, rt.stringExtend("", rt.iterRev(rt.strSplit(s, "/"))));
@@ -1222,7 +1222,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		fmt_put(out, rt.stringFromStrings(rt.iterMap(rt.iterSlice(owned), (p7: string): string => {
 			return p7;
 		})));
-		fmt_put(out, rt.stringFromStrings(rt.iterFrom({ items: owned, nexts }, (it: strs_Counted.Counted<string>) => strs_Counted.next$Iterator_String(it))));
+		fmt_put(out, rt.stringFromStrings(rt.iterFrom({ items: owned, nexts }, (it: strs_Counted.Counted<string>) => strs_Counted.next$iter_Iterator_String(it))));
 	} else if (_21 === 2) {
 		let t: string = "é";
 		const _153: rt.char[] = chars;
@@ -1233,7 +1233,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.iterEmpty();
 		named.name = rt.stringExtendChars(named.name, rt.iterEmpty() as rt.Iter<rt.char>);
 		const counted3: strs_Counted.Counted<rt.char> = { items: chars, nexts };
-		t = rt.stringExtendChars(t, rt.iterFrom(counted3, (it: strs_Counted.Counted<rt.char>) => strs_Counted.next$Iterator_char(it)));
+		t = rt.stringExtendChars(t, rt.iterFrom(counted3, (it: strs_Counted.Counted<rt.char>) => strs_Counted.next$iter_Iterator_char(it)));
 		fmt_put(out, t);
 	} else {
 		let t2: string = "";
@@ -1253,7 +1253,7 @@ export function iters(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.iterEmpty();
 		named.name = rt.stringExtend(named.name, rt.iterEmpty() as rt.Iter<string>);
 		const counted4: strs_Counted.Counted<string> = { items: parts, nexts };
-		t2 = rt.stringExtend(t2, rt.iterFrom(counted4, (it: strs_Counted.Counted<string>) => strs_Counted.next$Iterator_str(it)));
+		t2 = rt.stringExtend(t2, rt.iterFrom(counted4, (it: strs_Counted.Counted<string>) => strs_Counted.next$iter_Iterator_ref_str(it)));
 		fmt_put(out, t2);
 	}
 	fmt_put(out, named.name);

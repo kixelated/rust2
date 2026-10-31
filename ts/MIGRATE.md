@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- An instance's suffix spells each type, trait, and closure by its path, the crate's own
+  by its module path, a dependency's under its crate, and std's by its public path
+  without a module its item repeats; `&` as `ref`, `&mut` as `mut`, and a slice, array,
+  or tuple with its length; and a function's nested item or async block by where it is.
+  No name is numbered `$2` on any more: `Fault.fmt$Display` is `Fault.fmt$fmt_Display`,
+  `Group.encode$Encode_Version` is `Group.encode$coding_encode_Encode_lite_version_Version`,
+  `read$u8s` is `read$mut_ref_slice_u8`, `through$2` is `through$u16s`, and
+  `blocksFuture$2` is `blocksFuture$closure0`. A type declared in a function has its
+  module suffixed alike, `copy.Pair$run.ts`. A trait object's class is `of$` and its
+  type, `Shape.of$dyns_Square` for `Shape.Square`, or `ofPlace$` for one of a place,
+  rather than `Square$Place`. A binding's export of a trait's function names the trait by
+  its path too: `eq$cmp_PartialEq`, `cmp$cmp_Ord`, `deref$ops_Deref`, and
+  `from$convert_From_Vec_u8`. A caller takes the new names from the output.
 - `rt.Waker` has `data` and `vtable`, its identity, in place of `willWake`, which is
   `rt.willWake(a, b)`: a caller's own waker gives as `data` what each of its clones
   shares, such as the task it wakes, and as `vtable` an object of its kind of waker.

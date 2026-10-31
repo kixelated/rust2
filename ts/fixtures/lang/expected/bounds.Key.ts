@@ -11,18 +11,18 @@ export interface Key {
 	_0: rt.u8;
 }
 
-export function eq$PartialEq(self: Key, other: Key): boolean {
+export function eq$cmp_PartialEq(self: Key, other: Key): boolean {
 	bounds_log(233);
 	return self._0 === other._0;
 }
 
-export function cmp$Ord(self: Key, other: Key): rt.Ordering {
+export function cmp$cmp_Ord(self: Key, other: Key): rt.Ordering {
 	return rt.cmp(other._0, self._0);
 }
 
-export function partialCmp$PartialOrd(self: Key, other: Key): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Key, other: Key): rt.Ordering | undefined {
 	bounds_log(201);
-	return cmp$Ord(self, other);
+	return cmp$cmp_Ord(self, other);
 }
 
 //# sourceMappingURL=bounds.Key.ts.map

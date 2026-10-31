@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function default$Default(): Priorities {
+export function default$random_Default(): Priorities {
 	return { state: rt.randomState() };
 }
 
@@ -10,4 +10,4 @@ export interface Priorities {
 	state: rt.RandomState;
 }
 
-//# sourceMappingURL=hashes.Priorities.ts.map
+//# sourceMappingURL=hashes.Priorities$random.ts.map

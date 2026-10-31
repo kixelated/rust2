@@ -7,7 +7,7 @@ export interface Nibble {
 	_0: rt.u8;
 }
 
-export function hash$Hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Nibble, state: rt.Hasher): void {
 	rt.hash8(self._0 & 15, state);
 }
 

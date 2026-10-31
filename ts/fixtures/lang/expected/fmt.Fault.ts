@@ -5,15 +5,15 @@ import * as Any from "./core/any.Any.ts";
 import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr } from "./core/option.ts";
 import * as fmt_Pair from "./fmt.Pair.ts";
 
-export function asAny$Erased(self: Fault): Any.Any {
-	return new Any.Fault(self);
+export function asAny$dyns_Erased(self: Fault): Any.Any {
+	return new Any.of$fmt_Fault(self);
 }
 
-export function asAnyMut$Erased(self: rt.Place<Fault>): Any.Any {
-	return new Any.Fault$Place(self);
+export function asAnyMut$dyns_Erased(self: rt.Place<Fault>): Any.Any {
+	return new Any.ofPlace$fmt_Fault(self);
 }
 
-export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
 		return rt.fmtWriteStr(f, "Short");
 	}
@@ -31,7 +31,7 @@ export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _11), _12, _13), _14, _15));
 	}
 	const _18: string = "At";
-	const _19: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$Debug(self._0, f);
+	const _19: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$fmt_Debug(self._0, f);
 	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _18), _19));
 }
 
@@ -45,7 +45,7 @@ export type Fault =
 	| { tag: "TooLarge"; size: rt.usize; max: rt.usize }
 	| { tag: "At"; _0: fmt_Pair.Pair };
 
-export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
 		return rt.fmtPad(f, "short buffer");
 	}
@@ -62,7 +62,7 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		return rt.fmtWriteFmt(f, [args4[0], " bytes exceeds the ", args4[1], " byte limit"]);
 	}
 	const arg = self._0;
-	const args6: rt.Fmt[] = [(f: rt.Formatter) => fmt_Pair.fmt$Debug(arg, f)];
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => fmt_Pair.fmt$fmt_Debug(arg, f)];
 	return rt.fmtWriteFmt(f, ["at ", args6[0]]);
 }
 

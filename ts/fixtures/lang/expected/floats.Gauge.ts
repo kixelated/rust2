@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Gauge, other: Gauge): boolean {
+export function eq$cmp_PartialEq(self: Gauge, other: Gauge): boolean {
 	if (!(self.level === other.level)) {
 		return false;
 	}

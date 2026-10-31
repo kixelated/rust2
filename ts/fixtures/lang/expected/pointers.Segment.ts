@@ -26,7 +26,7 @@ function new_(): Segment {
 			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + at);
 		}
 		const _15: Lent.Lent<[rt.u8, rt.u8]>[] = slots;
-		const _13: Lent.Lent<[rt.u8, rt.u8]> = Lent.new$MaybeUninit_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]);
+		const _13: Lent.Lent<[rt.u8, rt.u8]> = Lent.new$mem_MaybeUninit_tuple2_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]);
 		rt.ptrWrite(_15[at], _13);
 	}
 	return { filled: 0, slots };

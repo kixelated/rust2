@@ -7,17 +7,17 @@ export interface Touchy {
 	_0: rt.u8;
 }
 
-export function hash$Hash_DefaultHasher(self: Touchy, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Touchy, state: rt.Hasher): void {
 	rt.hash8(self._0, state);
 }
 
-export function eq$PartialEq(self: Touchy, _2: Touchy): boolean {
+export function eq$cmp_PartialEq(self: Touchy, _2: Touchy): boolean {
 	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["compared ", args2[0]]);
 }
 
-export function cmp$Ord(self: Touchy, _2: Touchy): rt.Ordering {
+export function cmp$cmp_Ord(self: Touchy, _2: Touchy): rt.Ordering {
 	const arg = self._0;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u8Display(arg, f)];
 	rt.panicFmt(["ordered ", args2[0]]);

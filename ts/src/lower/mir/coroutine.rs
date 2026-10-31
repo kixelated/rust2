@@ -5,6 +5,7 @@
 
 use rustc_abi::{FieldIdx, VariantIdx};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
 use rustc_index::IndexVec;
 use rustc_middle::mir::{self, CoroutineSavedLocal, Operand};
@@ -45,11 +46,28 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 	let tcx = t.tcx;
 	let parent = tcx.typeck_root_def_id(def_id);
 	let base = crate::lower::names::future_base(tcx.item_name(parent).as_str());
-	// The suffix of the instance of `parent` it is part of.
-	let suffix = t.suffix(Instance::new_raw(
-		parent,
-		args.truncate_to(tcx, tcx.generics_of(parent)),
-	));
+	// The suffix of the instance of `parent` it is part of, in `parent`'s Rust module, then
+	// where in `parent` a block is: `closure1` for `blocks::{closure#0}::{closure#1}`, as
+	// an async fn's body is `{closure#0}`, which goes without saying.
+	let mut parts = vec![t.suffix(
+		Instance::new_raw(parent, args.truncate_to(tcx, tcx.generics_of(parent))),
+		false,
+	)];
+	let mut within = Vec::new();
+	let mut at = def_id;
+	while at != parent {
+		let body = matches!(
+			tcx.coroutine_kind(at),
+			Some(hir::CoroutineKind::Desugared(_, hir::CoroutineSource::Fn))
+		);
+		if !body {
+			within.push(crate::lower::names::segment(tcx, at));
+		}
+		at = tcx.parent(at);
+	}
+	parts.extend(within.into_iter().rev());
+	parts.retain(|part| !part.is_empty());
+	let suffix = parts.join("_");
 	let sym = t.program.sym(Symbol {
 		module: t.module_of(parent),
 		base,
@@ -57,6 +75,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		owner: None,
 		kind: SymKind::Struct,
 		order: t.order(tcx.def_span(def_id)),
+		span: tcx.def_span(def_id),
 		instance: String::new(),
 		name: String::new(),
 		alias: None,
@@ -176,6 +195,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		owner: Some(sym),
 		kind: SymKind::Method,
 		order: 0,
+		span: rustc_span::DUMMY_SP,
 		instance: String::new(),
 		name: String::new(),
 		alias: None,
@@ -205,6 +225,7 @@ pub fn info<'tcx>(t: &mut Translator<'_, 'tcx>, def_id: DefId, args: GenericArgs
 		owner: Some(sym),
 		kind: SymKind::Method,
 		order: 0,
+		span: rustc_span::DUMMY_SP,
 		instance: String::new(),
 		name: String::new(),
 		alias: None,

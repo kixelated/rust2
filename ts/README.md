@@ -108,7 +108,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | closure | an arrow function, with `[Symbol.dispose]` if it owns a value that drops, and what makes its clone if a clone can't be itself |
 | `fn` pointer, function item as a value | the function, as a closure is typed: a `()` result is `undefined`, where a declared function returns `void` |
 | `&dyn Trait`, `&mut dyn Trait`, `Box<dyn Trait>`, `Arc<dyn Trait>` | an object with the trait's methods, its supertraits' included: `shape.area$Shape()`; behind an `Arc`, an `rt.ArcDyn` sharing the count of the `Arc` it was made from |
-| `dyn Any` | an instance of the class its value's type was wrapped in, which a downcast checks for: `a instanceof Any.Square ? a.v : undefined` |
+| `dyn Any` | an instance of the class its value's type was wrapped in, which a downcast checks for: `a instanceof Any.of$dyns_Square ? a.v : undefined` |
 | `dyn Fn`, `dyn FnMut`, `dyn FnOnce` | the closure or function it was made of: `(a0: rt.u8) => rt.u32` |
 | constant | its value, inlined as Rust inlines it, so each use of one holding a cell is a cell of its own; one with no value tree, or holding a cell, read from the memory rustc evaluated |
 | `static` | a module's value, named for the static, that every use shares, read from the memory rustc evaluated; one that reads another static or a class is an `rt.LazyCell` of it, made on first use, since that may not be made yet when its module is. A `static mut`, and a pointer in one into memory the translation can't name, fail translation |
@@ -218,8 +218,8 @@ and of their iterators and `Chars` the items each has left, in std's wrapper; a 
 counts, are refused. `Debug` of `Bound`, `Ordering`, `Reverse`, and `ControlFlow` is
 their derived one, whichever way each is held. A caller prints a
 `printable` type as `to_string()` and `format!("{err:?}")`
-would: `rt.fmtToString((f) => DecodeError.fmt$Display(err, f))` and
-`rt.fmtFormat([(f) => DecodeError.fmt$Debug(err, f)])`, after
+would: `rt.fmtToString((f) => DecodeError.fmt$fmt_Display(err, f))` and
+`rt.fmtFormat([(f) => DecodeError.fmt$fmt_Debug(err, f)])`, after
 `import * as DecodeError from "./coding/decode.DecodeError.ts"`. `fmt::Write` translates for a
 `String`, a `Formatter`, and the crate's own writers, and through a `&mut` to any of them.
 A crate's own provided `write_char` and `write_fmt` call its `write_str` once, as std's
@@ -277,22 +277,31 @@ so a `match` reads it, and `to_mut` of a borrowed one stores a clone of its slic
 `Cow`'s place before lending it.
 
 Functions and members are camelCase. Functions are monomorphized: each instance is its
-own function, suffixed after a `$` by its trait, then by its type's type arguments and
-its own, as in `roundtripLite$Group`, `Wrap.get$Wrap_Pair`, `Pair.fmt$Debug`, and
-`DecodeError.from$From_BoundsExceeded`. The suffix is there even when no other instance
-is, so reaching one renames nothing. An instance of a generic std function is suffixed
-instead by a hash of its text, with what it calls by name, as `map$1cf8u0y`: instances that print the
-same are one function, whichever of them translation reaches. A closure type goes by where it is defined,
-`methods_closure1` for `methods::{closure#1}`, and instances whose suffixes still match,
-such as of two types of one name, are numbered `$2` on in the order of their full type
-arguments. Types are translated once, generically, so a function of a generic type is one
-instance's, declaring the instance it takes as `self`:
-`fmt$Debug_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
+own function, suffixed after a `$` by the items it is nested in below its module, its
+trait, then its type's type arguments and its own, as in `roundtripLite$lite_group_Group`,
+`Wrap.new$fmt_Pair`, `Pair.fmt$fmt_Debug`, `DecodeError.from$convert_From_coding_varint_BoundsExceeded`,
+and `through$u16s` for a `through` declared in `fn u16s`. Each type, trait, and closure
+in a suffix goes by its path: the crate's own by its module path, a dependency's by its
+public path under its crate, as `bytes_Bytes`, and std's by its public path without its
+crate or a module its item repeats, as `Option`, `fmt_Display`, and `io_Error`. A closure
+goes by where it is defined, `hints_typed_closure1` for `hints::typed::{closure#1}`, with
+the type arguments of what it is in, and an impl by its trait and self type. A reference
+is `ref` or `mut`, a slice `slice`, and an array or tuple goes by its length, `array4` or
+`tuple2`, each before what it holds: `ref_slice_u8` for `&[u8]`. The suffix depends on
+the instance alone, and is there even when no other instance is, so reaching one renames
+nothing; two instances it doesn't tell apart fail translation. A type or trait declared
+in a function has its module suffixed alike, `copy.Pair$run`, and an async block's class
+by where its function holds it, `blocksFuture$closure1`. An instance of a generic std
+function is suffixed instead by a hash of its text, with what it calls by name, as
+`map$1cf8u0y`: instances that print the same are one function, whichever of them
+translation reaches. Types are translated once, generically, so a function of a generic
+type is one instance's, declaring the instance it takes as `self`:
+`fmt$fmt_Debug_fmt_Pair(self: Wrap<Pair.Pair>, f: rt.Formatter)`. A type's module exports the
 type by its own name, which a caller writes `Decoder.Decoder`, and a function whose name
 and exports it as its own: `function new_` is `Decoder.new`. A module imports a function
 or value by its name, and a type's module whole by the type's, `import * as Decoder`,
-unless another module could declare one of that name, or the importer declares one,
-as a trait object's class is named for the type it wraps: then by its name after the
+unless another module could declare one of that name, or the importer declares one:
+then by its name after the
 shortest end of its module's path no other such module shares, as `counts_Noisy` or
 `option_unwrapOr$0r2bmpr`. The modules that could are counted over every item of the crate,
 the crates it translates, and std's that translate, whether or not translation reaches
@@ -300,7 +309,7 @@ them, so reaching more renames no binding. A local is renamed `x_` only where it
 function refers to a binding `x`. A `Copy` struct, enum, tuple,
 or array, or an `Option`, `Result`, or `Poll` holding one, is copied where Rust copies
 it, since JS would share the object: by a function of `lib.ts` made for its type, such
-as `copy$Point`, which copies what it holds by value and shares what it holds by
+as `copy$shapes_Point`, which copies what it holds by value and shares what it holds by
 reference. Only a type the crate writes into in place is copied, or one holding such a
 type by value: a value of any other type never changes once made, so it is shared. A
 write counts through a field, an element, a reference, or a box, and a mutable reference
@@ -363,7 +372,7 @@ A value drops where Rust drops it, if dropping it does something JS can see: a `
 impl, an `Arc`'s count, or a waker. Bodies lower from MIR, so each drop is where drop
 elaboration put it. A panic drops nothing. A value without `[Symbol.dispose]` of its own, such as
 an enum or a tuple, drops through glue lowered from rustc's `drop_in_place` shim, a
-function of its type's own (`drop$Held`). `bool`'s, `Option`'s, `Result`'s, and `Poll`'s
+function of its type's own (`drop$drops_Held`). `bool`'s, `Option`'s, `Result`'s, and `Poll`'s
 methods and `cmp::max`, `min`, and their `_by` and `_by_key` forms lower from core's MIR,
 so they drop what core's do, where core's do. The runtime
 functions for std's collections, `Arc`, and the std functions that may discard an operand
@@ -380,9 +389,10 @@ A trait object of the crate's own trait, or a dependency's, behind `&`, `&mut`, 
 a method for each function a call can dispatch to, its supertraits' included, named for
 its trait as an impl's function is and taking what follows `self`: `shape.area$Shape()`.
 The trait's module exports its type, `Shape.Shape` from `dyns.Shape.ts`, which a TS
-caller can implement. A coercion wraps the value in a class of its type's, `new
-Shape.Square(sq)`, whose methods call that type's impl; one from a `&mut` to a value JS
-copies holds its `rt.Place`, so `&mut self` writes where the value is. An upcast is the
+caller can implement. A coercion wraps the value in a class of its type's, named for
+the type as a suffix spells it, `new Shape.of$dyns_Square(sq)`, whose methods call that
+type's impl; one from a `&mut` to a value JS copies holds its `rt.Place`, as
+`Shape.ofPlace$dyns_Square`, so `&mut self` writes where the value is. An upcast is the
 same object. A `Box<dyn Trait>` drops what it holds through its `[Symbol.dispose]`, which
 a TS caller's object may leave out. An `Arc<T>` unsized to an `Arc<dyn Trait>`, or to an
 `Arc<dyn Future>`, is an `rt.ArcDyn`: the object a box of its value would be, and the
@@ -390,7 +400,7 @@ a TS caller's object may leave out. An `Arc<T>` unsized to an `Arc<dyn Trait>`, 
 last of which drops the value. `Arc::ptr_eq` compares the `Arc<T>`s.
 
 A `dyn Any` is such an object with no methods, whose class `is`, `downcast_ref`,
-`downcast_mut`, and `Box`'s and `Arc`'s `downcast` check for: `a instanceof Any.Square ?
+`downcast_mut`, and `Box`'s and `Arc`'s `downcast` check for: `a instanceof Any.of$dyns_Square ?
 a.v : undefined`. A `&mut` one of a value JS copies is the class holding its `rt.Place`,
 or the class itself behind a `Box`, as a `&mut dyn Trait`'s is, and `Arc::downcast` gives
 back the `Arc<T>` the object was made from.
@@ -421,7 +431,7 @@ own, which each of its clones shares.
 A file's items follow the Rust source, whatever
 order translation reaches them in, so adding a root moves nothing it does not reach.
 What a macro makes sits where the macro is called. The instances of one function sit
-together, sorted by their suffix (`Debug_Pair` in `fmt$Debug_Pair`) and then by their
+together, sorted by their suffix (`fmt_Debug_fmt_Pair` in `fmt$fmt_Debug_fmt_Pair`) and then by their
 full type arguments.
 
 Imports name the `.ts` file, which Node, Bun, and bundlers run as is. A `tsc` build sets
@@ -489,8 +499,8 @@ parameters. A call of a bound function, or of a function that an impl for a boun
 the type's own crate defines, calls the file's export. The export is named as the
 translated function would be, without the type's or the function's type arguments, so one
 export serves every instance and a generic one is a generic TS function. `Blob::slice` is
-`Blob.slice`, `<Blob as PartialEq>::eq` is `Blob.eq$PartialEq`, and
-`<Blob as From<Vec<u8>>>::from` is `Blob.from$From_Vec_u8`. A trait's provided function
+`Blob.slice`, `<Blob as PartialEq>::eq` is `Blob.eq$cmp_PartialEq`, and
+`<Blob as From<Vec<u8>>>::from` is `Blob.from$convert_From_Vec_u8`. A trait's provided function
 that the impl doesn't override, such as `ne`, and a blanket impl's, such as `ToOwned`'s,
 stay the trait's, as for any other type. A generic export sees a type argument only in the
 values it takes, so a function with a bounded type parameter that no argument holds, such
@@ -517,9 +527,9 @@ another only where translation reaches both. A binding inside the output is refu
 a translation replaces it.
 
 A bound type keys a collection, alone or in a tuple, `Option`, or `Arc`, by the exports of
-its Rust impls: `hash$Hash(self, state: rt.Hasher): undefined` and `eq$PartialEq` for a
-`HashMap` or `HashSet`, `cmp$Ord` for a `BTreeMap` or `BTreeSet`, and
-`partialCmp$PartialOrd` too for a B-tree's `range`. A derived impl's are the same exports.
+its Rust impls: `hash$Hash(self, state: rt.Hasher): undefined` and `eq$cmp_PartialEq` for a
+`HashMap` or `HashSet`, `cmp$cmp_Ord` for a `BTreeMap` or `BTreeSet`, and
+`partialCmp$cmp_PartialOrd` too for a B-tree's `range`. A derived impl's are the same exports.
 Each must agree with the Rust impl: `hash` writes what it writes, through `rt.hash8` to
 `rt.hash128`, `rt.hashStr`, and `rt.hashBytes`, so values `eq` finds equal hash alike, and
 `cmp` orders as it does. A collection finds even a bound value that is a JS primitive by
@@ -757,8 +767,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
-  that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw
-  pointers: a linked list of boxed nodes as `hashlink` keeps one, through a union and a
+  that log what each is called with, `concat` and `join` of arrays, slices, `Vec`s, and
+  `Cow`s, of bytes and of items whose `Clone` logs, std's `Bound`, `Reverse`, and
+  `NonZero`, and raw pointers: a linked list of boxed nodes as `hashlink` keeps one, through a union and a
   `MaybeUninit` entry, pointers to locals, fields, and whole structs, and those
   `UnsafeCell::get` gives, as crossbeam-epoch's own `OnceLock` keeps its collector. Its
   differential test runs through `caller.ts`, a

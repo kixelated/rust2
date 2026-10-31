@@ -8,7 +8,7 @@ export interface Gaps {
 	at: rt.usize;
 }
 
-export function next$Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
+export function next$iter_Iterator(self: Gaps): rt.u8 | undefined | rt.Done {
 	const _3: rt.u8 | undefined = rt.byteSliceGet(self.data, self.at);
 	if (_3 !== undefined) {
 		const b: rt.u8 = _3;

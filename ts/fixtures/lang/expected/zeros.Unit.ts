@@ -6,7 +6,7 @@ export function clone$Clone(_self: Unit): Unit {
 	return {};
 }
 
-export function fmt$Debug(_self: Unit, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(_self: Unit, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.fmtWriteStr(f, "Unit");
 }
 
@@ -14,7 +14,7 @@ export function default$Default(): Unit {
 	return {};
 }
 
-export function eq$PartialEq(_self: Unit, _other: Unit): boolean {
+export function eq$cmp_PartialEq(_self: Unit, _other: Unit): boolean {
 	return true;
 }
 

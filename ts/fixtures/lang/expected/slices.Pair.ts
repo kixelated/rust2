@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function partialCmp$PartialOrd(self: Pair, other: Pair): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Pair, other: Pair): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Pair, other: Pair): rt.Ordering {
+export function cmp$cmp_Ord(self: Pair, other: Pair): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmp(self.a, other.a);
 	if (cmp === 0) {
 		return rt.cmp(self.b, other.b);

@@ -2060,10 +2060,18 @@ fn mapping<'tcx>(
 			let [s, p] = <[Expr; 2]>::try_from(args).ok()?;
 			Expr::rt_of("str", &super::camel(&name)).call(vec![s, pattern(b.t, targ(gargs, 0), p)?])
 		}
-		// A slice of strings joined by a `&str`.
-		("slice", "join") if is_text(b.t, targ(gargs, 0)) && targ(gargs, 1).peel_refs().is_str() => {
-			let [parts, sep] = <[Expr; 2]>::try_from(args).ok()?;
-			parts.method("join", vec![sep])
+		// A slice of strings concatenated, or joined by a `&str`.
+		("slice", "concat" | "join")
+			if string(tcx, targ(gargs, 0).peel_refs()) && targ(gargs, 1).peel_refs().is_str() =>
+		{
+			let mut values = args;
+			if name == "concat" {
+				values.push(Expr::Str(String::new()));
+			}
+			Expr::rt("strsJoin", values)
+		}
+		("slice", "concat" | "join") => {
+			return slices_join(b, targ(gargs, 0), targ(gargs, 1), name == "join", args, span);
 		}
 		("char", "is_ascii_digit") => Expr::rt("charIsAsciiDigit", args),
 		// A `Cow<str>` is its text, whichever variant holds it.
@@ -2336,6 +2344,65 @@ fn clone_from_clones<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>) -> bool {
 		_ => return false,
 	};
 	(t.std_of(ty) == Some(Std::Option) || !t.drops(ty)) && inner.into_iter().all(|arg| clone_from_clones(t, arg))
+}
+
+/// `concat` of a slice of `item`s, or with `join`, its `join` by `by`, a `&T` or a
+/// `&[T]`, where each item borrows a slice of `T`s: a `Vec<T>` of clones of their elements
+/// and the separator's between them, in order. `None` for an item with no slice.
+fn slices_join<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	item: Ty<'tcx>,
+	by: Ty<'tcx>,
+	join: bool,
+	mut args: Vec<Expr>,
+	span: Span,
+) -> Option<Expr> {
+	let sep = match join {
+		true => args.pop()?,
+		false => Expr::undefined(),
+	};
+	// A `&T` separator is a slice of one.
+	let (elem, one) = match by.builtin_deref(true) {
+		Some(by) if join => match by.kind() {
+			ty::Slice(elem) => (*elem, false),
+			_ => (by, true),
+		},
+		_ => (by, false),
+	};
+	let bytes = matches!(elem.kind(), ty::Uint(ty::UintTy::U8));
+	let sep = match (one, bytes) {
+		(true, true) => Expr::rt(
+			"byteSliceFrom",
+			vec![Expr::ident("Uint8Array").member("of").call(vec![sep])],
+		),
+		(true, false) => Expr::Array(vec![sep]),
+		(false, _) => sep,
+	};
+	let items = args.pop()?;
+	// What reads an item as its slice, unless it is one.
+	let slice = match item.kind() {
+		ty::Array(..) => bytes.then_some("byteSliceFrom"),
+		ty::Ref(_, s, _) if s.is_slice() => None,
+		_ if b.t.std_of(item) == Some(Std::Vec) => bytes.then_some("byteVecSlice"),
+		_ if cow_slice(b.t.tcx, item).is_some() => Some(if bytes { "byteCowSlice" } else { "cowSlice" }),
+		_ => return None,
+	};
+	let slice = slice.map_or_else(Expr::undefined, |f| Expr::Rt(f.into()));
+	if bytes {
+		return Some(Expr::rt("byteSlicesJoin", trimmed(vec![items, sep, slice])));
+	}
+	let size = super::iter::size_of(b, elem, span);
+	let clone = super::collections::clone_fn(b, elem, span);
+	Some(Expr::rt("slicesJoin", trimmed(vec![items, size, sep, slice, clone])))
+}
+
+/// `args` without the `undefined`s that end them, which a runtime function's optional
+/// parameters take as left out.
+fn trimmed(mut args: Vec<Expr>) -> Vec<Expr> {
+	while matches!(args.last(), Some(Expr::Lit(l)) if l == "undefined") {
+		args.pop();
+	}
+	args
 }
 
 /// `cow`, a `Cow<[elem]>`, through the runtime's `cow{op}`, `IntoOwned` or `Clone`, which

@@ -27,10 +27,11 @@ pub fn shim<'tcx>(t: &mut Translator<'_, 'tcx>, ty: Ty<'tcx>, span: Span) -> Opt
 	let sym = t.program.sym(Symbol {
 		module: Vec::new(),
 		base: "drop".into(),
-		suffix: crate::lower::short_name(tcx, ty),
+		suffix: crate::lower::names::ty(tcx, ty),
 		owner: None,
 		kind: SymKind::Function,
 		order: 0,
+		span,
 		instance: ty::print::with_no_trimmed_paths!(ty.to_string()),
 		name: String::new(),
 		alias: None,
