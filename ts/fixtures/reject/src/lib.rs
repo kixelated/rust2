@@ -984,3 +984,64 @@ impl Ord for Ranked {
 pub fn ranked_cells(entries: Vec<(std::cell::Cell<Ranked>, Noisy)>) -> usize {
 	entries.into_iter().collect::<std::collections::BTreeMap<_, _>>().len()
 }
+
+/// A struct holding a pointer.
+pub struct Aimed {
+	pub at: *mut (u32, u32),
+}
+
+/// A pointer to a variable's object, copied into a struct read after an assignment of
+/// the whole variable replaces the object.
+pub fn pointer_in_struct(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let aimed = Aimed { at: &raw mut pair };
+	pair = (0, 0);
+	unsafe { (*aimed.at).0 + pair.1 }
+}
+
+fn handed_back<T>(p: *mut T) -> *mut T {
+	p
+}
+
+/// A pointer to a variable's object, which a call returns, read after an assignment of
+/// the whole variable replaces the object.
+pub fn pointer_returned(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = handed_back(&raw mut pair);
+	pair = (0, 0);
+	unsafe { (*p).0 + pair.1 }
+}
+
+/// A pointer to a variable's object, kept in a `Vec` and read after an assignment of the
+/// whole variable replaces the object.
+pub fn pointer_pushed(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let mut kept = Vec::new();
+	kept.push(&raw mut pair);
+	pair = (0, 0);
+	unsafe { (*kept[0]).0 + pair.1 }
+}
+
+/// A pointer to a variable's object, which a closure captures and reads after an
+/// assignment of the whole variable replaces the object.
+pub fn pointer_captured(n: u32) -> u32 {
+	let mut pair = (n, n);
+	let p = &raw mut pair;
+	let read = move || unsafe { (*p).0 };
+	pair = (0, 0);
+	read() + pair.1
+}
+
+/// A pointer an earlier iteration made to a variable's object, read after the next
+/// iteration's assignment of the whole variable replaces the object.
+pub fn pointer_kept_across(data: &[u32]) -> u32 {
+	let mut pair = (0, 0);
+	let mut last = &raw mut pair;
+	let mut sum = 0;
+	for &n in data {
+		pair = (n, n);
+		sum += unsafe { (*last).0 };
+		last = &raw mut pair;
+	}
+	sum
+}

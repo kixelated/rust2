@@ -38,7 +38,8 @@ whole.
 - Judge such a write by the memory it fills, not by its type everywhere: for example, a
   write through a pointer derived from a fresh allocation or a `MaybeUninit`, made before
   that pointer or one derived from it escapes. Prefer a rustc dataflow analysis over a
-  hand-written one, as [m3/ts-pointer-liveness](/quest/m3/ts-pointer-liveness.md) plans.
+  hand-written one, as `holders` in `ts/src/lower/mir/holders.rs` bounds a pointer by
+  `MaybeLiveLocals`.
 - A write after the pointer escapes, or one the analysis can't place, counts as today.
 - Measure the model, moq-net, and kio census before and after.
 

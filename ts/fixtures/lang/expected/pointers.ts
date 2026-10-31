@@ -14,6 +14,7 @@ import * as Held from "./pointers.Held.ts";
 import type * as Inner from "./pointers.Inner.ts";
 import type * as Links from "./pointers.Links.ts";
 import * as List from "./pointers.List.ts";
+import type * as Log from "./pointers.Log.ts";
 import type * as Node from "./pointers.Node.ts";
 import type * as Outer from "./pointers.Outer.ts";
 import type * as Pair from "./pointers.Pair.ts";
@@ -370,9 +371,9 @@ export function sentinels(data: rt.ByteSlice, out: rt.ByteVec): void {
  */
 export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 	const count: rt.Arc<undefined> = new rt.Arc(undefined);
-	const num: rt.Cell<rt.u32> = new rt.Cell(4294967295 - 1);
+	let num: rt.Cell<rt.u32> = new rt.Cell(4294967295 - 1);
 	const pair: rt.Cell<Duo.Duo> = new rt.Cell({ _0: 0, _1: 255 });
-	const text: rt.Cell<string> = new rt.Cell("");
+	let text: rt.Cell<string> = new rt.Cell("");
 	const held: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(0, rt.arcClone(count)));
 	for (const op of rt.byteSliceView(data)) {
 		const n: rt.u8 = rt.u8Div(op, 8);
@@ -436,14 +437,19 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 				return p4.n;
 			}));
 		} else if (_23 === 6) {
-			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(renewNum(num, n as rt.u32)).reverse()), undefined, true);
-			const _134: string = rt.fmtToString((f: rt.Formatter) => rt.u8Display(n, f));
-			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(renewText(text, _134)))), undefined, true);
-			const _136: Duo.Duo = { _0: n, _1: ~n & 0xff };
-			Object.assign(pair.v, _136);
+			const _126: rt.Cell<rt.u32> = new rt.Cell(n as rt.u32);
+			const old3 = num;
+			num = _126;
+			rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(old3.v).reverse()), undefined, true);
+			const _133: rt.Cell<string> = new rt.Cell(rt.fmtToString((f: rt.Formatter) => rt.u8Display(n, f)));
+			const old4 = text;
+			text = _133;
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(old4.v))), undefined, true);
+			const _140: Duo.Duo = { _0: n, _1: ~n & 0xff };
+			Object.assign(pair.v, _140);
 		} else {
-			const _142: rt.Arc<undefined> = rt.arcClone(count);
-			const made_: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _142));
+			const _146: rt.Arc<undefined> = rt.arcClone(count);
+			const made_: Wrapped.Wrapped<Held.Held> = Wrapped.new$Held(new Held.Held(n, _146));
 			Wrapped.withMut$Held_unit_cells_closure5(made_, (p2: Held.Held): undefined => {
 				p2.n = p2.n ^ 85;
 			});
@@ -455,8 +461,8 @@ export function cells(data: rt.ByteSlice, out: rt.ByteVec): void {
 		}
 	}
 	rt.iterExtendBytes(out, rt.iterSlice(rt.u32ToBeBytes(num.v).reverse()), undefined, true);
-	const _165: Duo.Duo = pair.v;
-	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_165._0, _165._1)), undefined, true);
+	const _169: Duo.Duo = pair.v;
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(_169._0, _169._1)), undefined, true);
 	rt.iterExtendBytes(out, rt.iterSlice(rt.byteSliceView(rt.stringAsBytes(text.v))), undefined, true);
 	held[Symbol.dispose]();
 	rt.byteVecPush(out, count.strong & 0xff);
@@ -467,10 +473,6 @@ export function renewNum(cell: rt.Cell<rt.u32>, value: rt.u32): rt.u32 {
 	return rt.replaceIn(cell, new rt.Cell(value)).v;
 }
 
-export function renewText(cell: rt.Cell<string>, value: string): string {
-	return rt.replaceIn(cell, new rt.Cell(value)).v;
-}
-
 /**
  * Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
  * `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
@@ -478,7 +480,6 @@ export function renewText(cell: rt.Cell<string>, value: string): string {
  * through two helpers and read while the variable is borrowed, which is assigned after;
  * one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be;
  * and one through a reference `mem::replace` pointed elsewhere first.
- * Each is a function of its own, as a loop assigns its variables again.
  */
 export function rebound(data: rt.ByteSlice, out: rt.ByteVec): void {
 	for (const n of rt.byteSliceView(data)) {
@@ -601,6 +602,64 @@ export function flipped(d: Duo.Duo): rt.u8 {
 
 export function pointerOf(d: Duo.Duo): Duo.Duo {
 	return d;
+}
+
+/**
+ * Pointers to variables JS keeps as objects, each dead before its variable is assigned
+ * again, so it reads the object the variable held while it was made: one made in each
+ * iteration of a loop that assigns the variable after, one an arm makes where another
+ * arm replaces its variable, and ones nested loops make.
+ */
+export function lapsed(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let _54!: rt.u8;
+	let pair: Duo.Duo = { _0: 0, _1: 255 };
+	let log: Log.Log = { bytes: new rt.ByteVec() };
+	let window: Uint8Array = rt.bytes(3);
+	for (const n of rt.byteSliceView(data)) {
+		const p: Duo.Duo = pair;
+		p._0 = rt.u8WrappingAdd(p._0, n);
+		rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(p._0, p._1)), undefined, true);
+		pair = { _0: pair._1 ^ n, _1: pair._0 };
+		const _24: rt.u8 = rt.u8Rem(n, 4);
+		if (_24 === 0) {
+			const q: Log.Log = log;
+			rt.byteVecPush(q.bytes, n);
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(q.bytes)), undefined, true);
+		} else if (_24 === 1) {
+			const _33: Log.Log = { bytes: rt.byteVecFrom(Uint8Array.of(n, ~n & 0xff)) };
+			const old3 = log;
+			log = _33;
+			rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(old3.bytes)), undefined, true);
+			const old2: Duo.Duo = rt.replaceIn(pair, { _0: n, _1: n ^ 15 });
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(old2._0, old2._1)), undefined, true);
+		} else if (_24 === 2) {
+			let duo: Duo.Duo = { _0: n, _1: 0 };
+			const outer: Duo.Duo = duo;
+			const _51: rt.u8 = rt.u8Rem(n, 5);
+			let iterStart: rt.u8 = 0;
+			const iterEnd: rt.u8 = _51;
+			while ((_54 = iterStart++) < iterEnd) {
+				const i: rt.u8 = _54;
+				const inner: Uint8Array = window;
+				const _59: rt.usize = rt.u8Rem(i, 3) as rt.usize;
+				if (!(_59 < 3)) {
+					rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _59);
+				}
+				inner[_59] = inner[_59] ^ n;
+				outer._1 = rt.u8WrappingAdd(outer._1, inner[0]);
+				window = Uint8Array.of(window[2], window[0], rt.u8WrappingAdd(window[1], i));
+			}
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(outer._0, outer._1)), undefined, true);
+			duo = { _0: duo._1, _1: duo._0 };
+			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(duo._0, duo._1)), undefined, true);
+		} else {
+			rt.byteVecPush(out, window[0]);
+			window = rt.bytes(3).fill(n);
+		}
+	}
+	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(pair._0, pair._1)), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(rt.byteVecView(log.bytes)), undefined, true);
+	rt.iterExtendBytes(out, rt.iterSlice(window), undefined, true);
 }
 
 export function put$ByCall(slot: ByCall.ByCall, value: ByCall.ByCall): void {
