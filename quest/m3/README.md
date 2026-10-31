@@ -32,4 +32,8 @@ generic std gap is planned here even when moq never calls it.
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
 - [Debug of Bound](/quest/m3/ts-bound-debug.md) - `{:?}` of a `Bound`, as a range's `start_bound` gives, translates
-- [Orderings by a crate's impl on references](/quest/m3/ts-ord-ref-impls.md) - a tuple, `Option`, or slice of `&T` orders by the crate's `PartialOrd` for `&T`
+- [Orderings of Result and VecDeque](/quest/m3/ts-order-result-deque.md) - `PartialOrd` and `Ord` of a `Result` and a `VecDeque` translate
+- [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
+- [A tuple's cmp typed as total](/quest/m3/ts-cmp-tuple-total.md) - `rt.cmpTuple` of total fields types its result as `Ordering`
+- [concat and join of slices of arrays](/quest/m3/ts-slice-concat.md) - `concat` and `join` of a slice of arrays or slices translate
+- [collect into tuples of collections](/quest/m3/ts-collect-tuples.md) - `collect` into a tuple of collections translates
