@@ -77,7 +77,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 
 | Rust | TypeScript |
 | --- | --- |
-| `bool`, `str`, `String`, `Cow<str>` | `boolean`, `string` |
+| `bool`, `str`, `String`, `Box<str>`, `Cow<str>` | `boolean`, `string` |
 | `char` | `rt.char`: a `number` branded so, its Unicode scalar value |
 | `u8`-`u32`, `i8`-`i32`, `usize`, `isize` | `rt.u8` and so on: a `number` branded with its type, checked: overflow panics |
 | `u64`, `i64`, `u128`, `i128` | `rt.u64` and so on: a branded `number` while a safe integer, 32-bit limbs past 2^53, checked the same way |
@@ -92,7 +92,7 @@ crate translation reaches is refused, and so are two versions of one crate it re
 | `Option<T>` | `T \| undefined`; `T \| rt.None` where `T` can already be `undefined`, as `()` and `Option` can, so `Option<()>` and `Option<Option<u64>>` keep `None` apart from each `Some` |
 | `Result<T, E>` | `rt.Result<T, E>`: `{ ok: true, value }` or `{ ok: false, error }`; `rt.OK` or `rt.ERR` where the payload is `undefined`, as in `Ok(())` |
 | `ControlFlow<B, C>` | `rt.Result<C, B>`, `Ok` to continue; what `?` branches on is the value it was applied to, but for a `Poll`'s `Pending` and `Ready(None)`, which continue as `Ok` of themselves |
-| tuple, `[T; N]`, `&[T]`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]` and `&[u8; N]`, and `rt.ByteVec` for `Vec<u8>` |
+| tuple, `[T; N]`, `&[T]`, `Box<[T]>`, `Vec<T>` | an array; for bytes, `Uint8Array` for `[u8; N]`, `rt.ByteSlice` for `&[u8]`, `&[u8; N]`, and `Box<[u8]>`, and `rt.ByteVec` for `Vec<u8>` |
 | `Cow<[T]>` | `rt.Cow<T>`: the `Vec` it owns, or an `rt.Borrowed` holding the slice it borrows; `rt.ByteCow` for bytes, an `rt.ByteVec` or an `rt.ByteSlice` |
 | `&T`, `&mut T`, `Box<T>`, `Reverse<T>`, `NonZero<T>` | the value; a `&mut` to a value JS copies, such as a number, an `Option`, a `String`, or a reference, or to an `Arc` or a `Waker`, is an `rt.Place<T>` |
 | `*const T`, `*mut T`, `NonNull<T>` | what a `&mut T` is: the object, or an `rt.Place<T>` to a value JS copies and to a library type such as a `Vec` or an `Arc`; `rt.NULL` for null and `rt.DANGLING` for dangling. A `*const ()` is an identity, such as a waker's data, and `rt.DANGLING_UNIT` when dangling; one to a place of `()` or from a reference to one is refused. A write of a whole object copies into it one object deep, as an assignment through a `&mut` does, so a pointer to a part kept as an object, such as a field of a tuple or struct type, is refused wherever the crate may put another object there while a pointer into that memory may still be read, which a write into a fresh allocation, or a variable before any pointer into it is taken, can't, whether by index or through std's iterators over its slots; a read copies what the crate writes into in place |
@@ -767,7 +767,7 @@ built natively for wasm32 and run beside its translation on the same inputs by
   which must keep only those and what they call.
 - `lang` covers every integer width's arithmetic, casts, and inherent methods, with
   `NonZero`'s, `Wrapping`'s, and `Saturating`'s, at each width's edges, `char`s next to each
-  encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Wrapping` and `Saturating` at every width, `Duration`s whose
+  encoding's edges and the surrogates, `Cow<str>` and `Cow<[T]>` borrowed and owned, `Box<[T]>` and `Box<str>` made each way and turned back, `Wrapping` and `Saturating` at every width, `Duration`s whose
   seconds pass 2^53 or reach `u64::MAX`, control flow,
   patterns, `Copy` aggregates, those a container stores included and those written into
   only in another module, behind a type parameter, or through a box, formatting, methods

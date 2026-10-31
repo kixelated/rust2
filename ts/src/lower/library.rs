@@ -393,14 +393,14 @@ pub fn empty_iter(tcx: TyCtxt<'_>, did: DefId) -> bool {
 	is_std(tcx, did) && std_path(tcx, did) == ["iter", "sources", "empty", "Empty"]
 }
 
-/// Whether a `ty`'s value is a JS string: a `str`, a `String`, or a `Cow<str>`.
+/// Whether a `ty`'s value is a JS string: a `str`, a `String`, a `Box<str>`, or a `Cow<str>`.
 pub fn string<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> bool {
 	match ty.kind() {
 		ty::Str => true,
 		ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 			Some(Std::String) => true,
-			// Its first argument is its lifetime.
-			Some(Std::Cow) => args.types().next().is_some_and(|t| t.is_str()),
+			// A `Cow`'s first argument is its lifetime.
+			Some(Std::Cow | Std::Box) => args.types().next().is_some_and(|t| t.is_str()),
 			_ => false,
 		},
 		_ => false,
@@ -445,6 +445,17 @@ pub fn range_to(end: Expr, inclusive: bool) -> Expr {
 		props.push((crate::ts::Key::Name("inclusive".into()), Expr::lit("true")));
 	}
 	Expr::Object(props)
+}
+
+/// What a `Box<[T]>` of type `ty` holds, `T`, or `None` for any other type.
+pub fn box_slice<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+	match ty.kind() {
+		ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => match args.type_at(0).kind() {
+			ty::Slice(elem) => Some(*elem),
+			_ => None,
+		},
+		_ => None,
+	}
 }
 
 /// What a `Cow<[T]>` of type `ty` holds, `T`, or `None` for any other type.
@@ -837,7 +848,8 @@ pub struct Call<'tcx> {
 fn discards(owner: &str, name: &str) -> Option<&'static [usize]> {
 	Some(match (owner, name) {
 		("Option", "unwrap" | "expect")
-		| ("Vec", "push")
+		| ("Vec", "push" | "into_boxed_slice")
+		| ("slice", "into_vec")
 		| ("Box", "new" | "pin")
 		| ("mem", "replace" | "take" | "swap" | "forget")
 		| ("ptr", "write" | "write_unaligned" | "write_volatile" | "replace")
@@ -1296,6 +1308,24 @@ fn mapping<'tcx>(
 			{
 				return Some(cow_cloned(b, "IntoOwned", value, elem, span));
 			}
+			// A boxed slice clones what it borrows, moves an array's or a `Vec`'s elements, and
+			// owns the `Vec` a `Cow` gives up.
+			if let Some(elem) = box_slice(tcx, to) {
+				return match targ(gargs, 1).kind() {
+					ty::Ref(_, s, _) if s.is_slice() => slice_boxed(b, value, elem, span),
+					ty::Array(..) => Some(array_boxed(value, elem)),
+					_ if b.t.std_of(from) == Some(Std::Vec) => Some(vec_boxed(value, elem)),
+					_ if cow_slice(tcx, from).is_some() => {
+						Some(vec_boxed(cow_cloned(b, "IntoOwned", value, elem, span), elem))
+					}
+					_ => None,
+				};
+			}
+			if let Some(elem) = box_slice(tcx, from)
+				&& b.t.std_of(to) == Some(Std::Vec)
+			{
+				return Some(boxed_vec(value, elem));
+			}
 			// A heap's `Vec` is its elements.
 			if let ty::Adt(adt, args) = from.kind()
 				&& Std::of(tcx, adt.did()) == Some(Std::BinaryHeap)
@@ -1440,6 +1470,7 @@ fn mapping<'tcx>(
 					let clones = tys.iter().map(|t| super::collections::clone_fn(b, t, span)).collect();
 					Expr::rt("tupleClone", vec![value, Expr::Array(clones)])
 				}
+				_ if let Some(elem) = box_slice(tcx, ty) => return slice_boxed(b, value, elem, span),
 				// A box is what it holds, cloned.
 				ty::Adt(adt, args) if Std::of(tcx, adt.did()) == Some(Std::Box) => {
 					let inner = args.type_at(0);
@@ -1845,20 +1876,15 @@ fn mapping<'tcx>(
 				super::iter::tail(vec![items, compare], vec![Expr::undefined(), drop]),
 			)
 		}
-		// A boxed slice's elements, and `vec![a, b]`'s array once `mir::vec` took the box
-		// away. A `Copy` aggregate's operand may be shared with where it came from, which the
-		// vector must not change.
-		("slice", "into_vec") | ("boxed", "box_assume_init_into_vec_unsafe") => {
+		("slice", "into_vec") => boxed_vec(args.pop()?, targ(gargs, 0)),
+		("Vec", "into_boxed_slice") => vec_boxed(args.pop()?, targ(gargs, 0)),
+		// `vec![a, b]`'s array once `mir::vec` took the box away. A `Copy` aggregate's operand
+		// may be shared with where it came from, which the vector must not change.
+		("boxed", "box_assume_init_into_vec_unsafe") => {
 			let elem = targ(gargs, 0);
 			let value = args.pop()?;
 			if is_u8(elem) {
-				// A boxed `[u8]` is an `rt.ByteSlice`; `vec![a, b]`'s `[u8; N]` is a `Uint8Array`.
-				let f = if name == "into_vec" {
-					"byteSliceToByteVec"
-				} else {
-					"byteVecFrom"
-				};
-				return Some(Expr::rt(f, vec![value]));
+				return Some(Expr::rt("byteVecFrom", vec![value]));
 			}
 			match (b.t.copy_fn(elem, span), value) {
 				(None, value) => value,
@@ -2025,7 +2051,8 @@ fn mapping<'tcx>(
 		("Utf8Error", "valid_up_to") => args.pop()?.member("validUpTo"),
 		("Utf8Error", "error_len") => args.pop()?.member("errorLen"),
 		("String" | "str", "len") => Expr::rt("stringLen", args),
-		("String", "as_str") => args.pop()?,
+		// A `Box<str>` is its text, as a `String` is.
+		("String", "as_str" | "into_boxed_str") | ("str", "into_string") => args.pop()?,
 		("String", "new") => Expr::Str(String::new()),
 		("String", "with_capacity") => Expr::rt("stringWithCapacity", args),
 		// Of the place the `&mut` is, which it writes as it drops, and of a range, as `Vec::drain`.
@@ -2382,6 +2409,7 @@ fn slices_join<'tcx>(
 		ty::Ref(_, s, _) if s.is_slice() => None,
 		_ if b.t.std_of(item) == Some(Std::Vec) => bytes.then_some("byteVecSlice"),
 		_ if cow_slice(b.t.tcx, item).is_some() => Some(if bytes { "byteCowSlice" } else { "cowSlice" }),
+		_ if box_slice(b.t.tcx, item).is_some() => None,
 		_ => return None,
 	};
 	let slice = slice.map_or_else(Expr::undefined, |f| Expr::Rt(f.into()));
@@ -2424,6 +2452,40 @@ fn vec_clone<'tcx>(b: &mut Body<'_, '_, 'tcx>, value: Expr, elem: Ty<'tcx>, span
 		return Some(value.method("slice", Vec::new()));
 	}
 	Some(value.method("map", vec![clone]))
+}
+
+/// A `Box<[elem]>` of clones of the elements of `slice`, as std's `From<&[T]>` and `Clone`
+/// make one.
+fn slice_boxed<'tcx>(b: &mut Body<'_, '_, 'tcx>, slice: Expr, elem: Ty<'tcx>, span: Span) -> Option<Expr> {
+	match elem.kind() {
+		ty::Uint(ty::UintTy::U8) => Some(Expr::rt("byteSliceFrom", vec![Expr::rt("byteSliceToArray", vec![slice])])),
+		_ => vec_clone(b, slice, elem, span),
+	}
+}
+
+/// The `Box<[elem]>` that a `Vec<elem>`, `v`, becomes: its elements, as many as it holds.
+/// std's shrinks its capacity to them, which no translated `Vec` reports.
+pub(super) fn vec_boxed(v: Expr, elem: Ty<'_>) -> Expr {
+	match elem.kind() {
+		ty::Uint(ty::UintTy::U8) => Expr::rt("byteVecSlice", vec![v]),
+		_ => v,
+	}
+}
+
+/// The `Vec<elem>` that a `Box<[elem]>`, `boxed`, becomes, as `into_vec` makes it.
+fn boxed_vec(boxed: Expr, elem: Ty<'_>) -> Expr {
+	match elem.kind() {
+		ty::Uint(ty::UintTy::U8) => Expr::rt("byteSliceToByteVec", vec![boxed]),
+		_ => boxed,
+	}
+}
+
+/// The `Box<[elem]>` that `From<[elem; N]>` moves `array` into: its elements.
+fn array_boxed(array: Expr, elem: Ty<'_>) -> Expr {
+	match elem.kind() {
+		ty::Uint(ty::UintTy::U8) => Expr::rt("byteSliceFrom", vec![array]),
+		_ => array,
+	}
 }
 
 /// The operator a binary operator trait, `Add` or another, applies.
@@ -2874,6 +2936,10 @@ pub fn default_value<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, span: Span,
 				vec![default_value(b, args.type_at(0), span, out)?],
 			),
 			Std::OnceCell | Std::OnceLock => super::task::once_new(b, ty),
+			// An empty slice or text, its own.
+			Std::Box if !args.type_at(0).is_sized(tcx, b.t.typing_env_pub()) => {
+				return default_value(b, Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, args.type_at(0)), span, out);
+			}
 			Std::Box | Std::Wrapping | Std::Saturating => part(b, args.type_at(0), out),
 			Std::Arc => Expr::New(Box::new(Expr::Rt("Arc".into())), vec![part(b, args.type_at(0), out)]),
 			Std::Mutex => Expr::New(Box::new(Expr::Rt("Mutex".into())), vec![part(b, args.type_at(0), out)]),

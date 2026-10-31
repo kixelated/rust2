@@ -124,6 +124,8 @@ pub fn into_iter<'tcx>(b: &mut Body<'_, '_, 'tcx>, ty: Ty<'tcx>, value: Expr, sp
 		unboxed if unboxed != ty => (unboxed, b.t.pointee_value(ty, value)),
 		_ => (ty, value),
 	};
+	// A boxed slice owns its elements, as the `Vec` std's `into_iter` makes of it does.
+	let ty = library::box_slice(tcx, ty).map_or(ty, |elem| Ty::new_slice(tcx, elem));
 	let owned = !ty.is_ref();
 	if b.t.iter_item(ty).is_some() {
 		not_bound(b, ty, span);
@@ -1151,13 +1153,14 @@ fn collect<'tcx>(
 		return None;
 	};
 	let std = Std::of(tcx, adt.did())?;
-	// A `Cow<[T]>` owns the `Vec` std's collects.
+	// A `Cow<[T]>` owns the `Vec` std's collects, and a `Box<[T]>` becomes it.
+	let boxed = library::box_slice(tcx, ty);
 	let elem = match std {
 		Std::Vec => Some(args.type_at(0)),
-		_ => library::cow_slice(tcx, ty),
+		_ => library::cow_slice(tcx, ty).or(boxed),
 	};
 	if let Some(elem) = elem {
-		return Some(match elem.kind() {
+		let v = match elem.kind() {
 			ty::Uint(ty::UintTy::U8) => {
 				let (folds, by_index) = collect_folds(b, from, elem, span);
 				let take = iter_take(b, from, folds, span);
@@ -1167,6 +1170,10 @@ fn collect<'tcx>(
 				)
 			}
 			_ => to_array(b, iter, from, elem, trusted, span),
+		};
+		return Some(match boxed {
+			Some(elem) => library::vec_boxed(v, elem),
+			None => v,
 		});
 	}
 	match std {
