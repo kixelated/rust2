@@ -1252,44 +1252,7 @@ fn mapping<'tcx>(
 
 	// Methods on integers.
 	if let Some(int) = int_named(&owner) {
-		let method = match name.as_str() {
-			"from_be_bytes" | "from_le_bytes" | "from_ne_bytes" => "fromBeBytes",
-			"to_be_bytes" | "to_le_bytes" | "to_ne_bytes" => "toBeBytes",
-			"leading_ones" => "leadingOnes",
-			"leading_zeros" => "leadingZeros",
-			"trailing_zeros" => "trailingZeros",
-			"checked_add" => "checkedAdd",
-			"checked_sub" => "checkedSub",
-			"checked_mul" => "checkedMul",
-			"saturating_add" => "saturatingAdd",
-			"saturating_sub" => "saturatingSub",
-			"saturating_mul" => "saturatingMul",
-			// Only a signed one can overflow, at `MIN / -1`.
-			"saturating_div" if int.signed => "saturatingDiv",
-			"saturating_div" => "div",
-			"saturating_neg" => return Some(int.method("saturatingSub", [vec![int.lit(0)], args].concat())),
-			"wrapping_add" => "wrappingAdd",
-			"wrapping_sub" => "wrappingSub",
-			"wrapping_mul" => "wrappingMul",
-			"div_ceil" => "divCeil",
-			"is_multiple_of" => "isMultipleOf",
-			_ => return None,
-		};
-		// wasm32 is little-endian, so the native bytes are the little-endian ones: the
-		// big-endian bytes, the other way around. The caller may still hold the array it
-		// reads, so it reverses a copy; the bytes it makes are its own.
-		let args = match name.as_str() {
-			"from_le_bytes" | "from_ne_bytes" => args
-				.into_iter()
-				.map(|a| a.method("slice", Vec::new()).method("reverse", Vec::new()))
-				.collect(),
-			_ => args,
-		};
-		let e = int.method(method, args);
-		return Some(match name.as_str() {
-			"to_le_bytes" | "to_ne_bytes" => e.method("reverse", Vec::new()),
-			_ => e,
-		});
+		return int_method(b, call, int, &name, args);
 	}
 	let float = match owner.as_str() {
 		"f32" => Some(super::float::Float::F32),
@@ -1603,16 +1566,27 @@ fn mapping<'tcx>(
 		// A `NonZero` is its integer.
 		("NonZero", "get") => args.pop()?,
 		("NonZero", "new") => Expr::rt("nonZero", args),
-		// Of each width's own impl, which has no type argument to read the integer from. Its
-		// saturating arithmetic is its integer's, which never saturates to 0.
-		("NonZero", "leading_zeros" | "trailing_zeros" | "saturating_add" | "saturating_mul" | "saturating_neg") => {
-			let imp = tcx.inherent_impl_of_assoc(call.def_id)?;
-			let self_ty = tcx.type_of(imp).instantiate_identity().skip_norm_wip();
-			let int = Int::of(unwrapped(tcx, self_ty))?;
+		// Its integer's, of each width's own impl, which has no type argument to read the
+		// integer from, but for the bits it always has.
+		("NonZero", _) => {
+			let int = Int::of(unwrapped(tcx, impl_self(tcx, call.def_id)?))?;
 			match name.as_str() {
-				"saturating_neg" => int.method("saturatingSub", vec![int.lit(0), args.pop()?]),
-				_ => int.method(&super::camel(&name), args),
+				"highest_one" => {
+					let zeros = int.method("leadingZeros", args);
+					Expr::lit((int.bits - 1).to_string()).binary("-", zeros)
+				}
+				"lowest_one" => int.method("trailingZeros", args),
+				_ => return int_method(b, call, int, &name, args),
 			}
+		}
+		// A `Wrapping`'s and a `Saturating`'s are its integer's, of each width's own impl, but
+		// that each overflows as its operators do.
+		(_, _) if let Some((overflow, int)) = impl_self(tcx, call.def_id).and_then(|ty| overflowing(tcx, ty)) => {
+			let name = match name.as_str() {
+				"pow" | "abs" | "next_power_of_two" => format!("{}_{name}", overflow.prefix()),
+				_ => name,
+			};
+			return int_method(b, call, Int::of(int)?, &name, args);
 		}
 		// `Bound<&T>::cloned::<T>`: what it holds, cloned.
 		("Bound", "cloned") => {
@@ -2564,6 +2538,219 @@ fn int_named(name: &str) -> Option<Int> {
 		_ => return None,
 	};
 	Some(Int { bits, signed, pointer })
+}
+
+/// The type whose inherent impl holds `def_id`.
+fn impl_self(tcx: TyCtxt<'_>, def_id: DefId) -> Option<Ty<'_>> {
+	let imp = tcx.inherent_impl_of_assoc(def_id)?;
+	Some(tcx.type_of(imp).instantiate_identity().skip_norm_wip())
+}
+
+/// The integer methods whose runtime function serves every width, `intCheckedPow` for
+/// `checked_pow`, given the type's width and sign after the method's arguments. A
+/// `_signed` or `_unsigned` form is its plain one's, which takes any integer.
+const SHARED: &[&str] = &[
+	"abs",
+	"abs_diff",
+	"bit_width",
+	"borrowing_sub",
+	"carrying_add",
+	"carrying_mul",
+	"carrying_mul_add",
+	"checked_abs",
+	"checked_add",
+	"checked_div",
+	"checked_div_euclid",
+	"checked_ilog",
+	"checked_ilog10",
+	"checked_ilog2",
+	"checked_isqrt",
+	"checked_neg",
+	"checked_next_multiple_of",
+	"checked_next_power_of_two",
+	"checked_pow",
+	"checked_rem",
+	"checked_rem_euclid",
+	"checked_shl",
+	"checked_shr",
+	"checked_signed_diff",
+	"checked_sub",
+	"count_ones",
+	"count_zeros",
+	"div_euclid",
+	"funnel_shl",
+	"funnel_shr",
+	"highest_one",
+	"ilog",
+	"ilog10",
+	"ilog2",
+	"is_power_of_two",
+	"isolate_highest_one",
+	"isolate_lowest_one",
+	"isqrt",
+	"lowest_one",
+	"midpoint",
+	"next_multiple_of",
+	"next_power_of_two",
+	"overflowing_abs",
+	"overflowing_add",
+	"overflowing_div",
+	"overflowing_div_euclid",
+	"overflowing_mul",
+	"overflowing_neg",
+	"overflowing_pow",
+	"overflowing_rem",
+	"overflowing_rem_euclid",
+	"overflowing_shl",
+	"overflowing_shr",
+	"overflowing_sub",
+	"pow",
+	"rem_euclid",
+	"reverse_bits",
+	"rotate_left",
+	"rotate_right",
+	"saturating_abs",
+	"saturating_add",
+	"saturating_pow",
+	"saturating_sub",
+	"signum",
+	"strict_add",
+	"strict_neg",
+	"strict_sub",
+	"swap_bytes",
+	"trailing_ones",
+	"unbounded_shl",
+	"unbounded_shr",
+	"unsigned_abs",
+	"wrapping_abs",
+	"wrapping_add",
+	"wrapping_div_euclid",
+	"wrapping_neg",
+	"wrapping_next_power_of_two",
+	"wrapping_pow",
+	"wrapping_rem_euclid",
+	"wrapping_shl",
+	"wrapping_shr",
+	"wrapping_sub",
+];
+
+/// Of [`SHARED`], what only an unsigned type has, which a signed one's of the same name,
+/// where it has one, does otherwise.
+const UNSIGNED: &[&str] = &[
+	"bit_width",
+	"borrowing_sub",
+	"carrying_add",
+	"carrying_mul",
+	"carrying_mul_add",
+	"checked_next_multiple_of",
+	"checked_next_power_of_two",
+	"checked_signed_diff",
+	"funnel_shl",
+	"funnel_shr",
+	"is_power_of_two",
+	"next_multiple_of",
+	"next_power_of_two",
+	"wrapping_next_power_of_two",
+];
+
+/// A call of `int`'s inherent method `name` with `args`, or of a `NonZero`'s, a
+/// `Wrapping`'s, or a `Saturating`'s that is its integer's: `None` for one the runtime
+/// lacks.
+fn int_method<'tcx>(
+	b: &mut Body<'_, '_, 'tcx>,
+	call: &Call<'tcx>,
+	int: Int,
+	name: &str,
+	mut args: Vec<Expr>,
+) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	let method = match name {
+		"from_be_bytes" | "from_le_bytes" | "from_ne_bytes" => "fromBeBytes",
+		"to_be_bytes" | "to_le_bytes" | "to_ne_bytes" => "toBeBytes",
+		"leading_ones" => "leadingOnes",
+		"leading_zeros" => "leadingZeros",
+		"trailing_zeros" => "trailingZeros",
+		"checked_add" => "checkedAdd",
+		"checked_sub" => "checkedSub",
+		"checked_mul" => "checkedMul",
+		"saturating_add" => "saturatingAdd",
+		"saturating_sub" => "saturatingSub",
+		"saturating_mul" => "saturatingMul",
+		// Only a signed one can overflow, at `MIN / -1`.
+		"saturating_div" | "wrapping_div" if int.signed => &super::camel(name),
+		"wrapping_rem" if int.signed => "wrappingRem",
+		"saturating_div" | "wrapping_div" => "div",
+		"wrapping_rem" => "rem",
+		"saturating_neg" => return Some(int.method("saturatingSub", [vec![int.lit(0)], args].concat())),
+		"wrapping_add" => "wrappingAdd",
+		"wrapping_sub" => "wrappingSub",
+		"wrapping_mul" => "wrappingMul",
+		"div_ceil" => "divCeil",
+		"is_multiple_of" => "isMultipleOf",
+		// The operator's, which panics with the message each of these does.
+		"strict_add" => "add",
+		"strict_sub" => "sub",
+		"strict_mul" => "mul",
+		"strict_div" => "div",
+		"strict_rem" => "rem",
+		"strict_shl" => "shl",
+		"strict_shr" => "shr",
+		// wasm32 is little-endian.
+		"to_le" | "from_le" => return args.pop(),
+		"max_value" => return Some(int.lit(int.max() as i128)),
+		"min_value" => return Some(int.lit(int.min())),
+		"is_positive" => return Some(int.compare(">", args.pop()?, int.lit(0))),
+		"is_negative" => return Some(int.compare("<", args.pop()?, int.lit(0))),
+		"cast_signed" | "cast_unsigned" => {
+			let sig = b.t.sig(call.def_id, call.args);
+			let (from, to) = (unwrapped(tcx, sig.inputs()[0]), unwrapped(tcx, sig.output()));
+			let value = Operand {
+				expr: args.pop()?,
+				value: None,
+			};
+			return Some(num::cast(b, value, from, to, call.span));
+		}
+		_ => {
+			let shared = match name {
+				"to_be" | "from_be" => "swap_bytes",
+				// Each panics as its plain form does.
+				"strict_pow" | "strict_abs" | "strict_div_euclid" | "strict_rem_euclid" => &name["strict_".len()..],
+				_ => name
+					.strip_suffix("_signed")
+					.or_else(|| name.strip_suffix("_unsigned"))
+					.unwrap_or(name),
+			};
+			if !SHARED.contains(&shared) || (int.signed && UNSIGNED.contains(&shared)) {
+				return None;
+			}
+			args.push(Expr::lit(int.bits.to_string()));
+			args.push(Expr::lit(int.signed.to_string()));
+			let e = Expr::rt(super::camel(&format!("int_{shared}")), args);
+			// What gives another type's integer is any integer to the runtime.
+			return Some(match shared {
+				"abs_diff" | "unsigned_abs" | "checked_signed_diff" => {
+					let output = b.t.sig(call.def_id, call.args).output();
+					Expr::As(Box::new(e), b.t.ty(output, call.span))
+				}
+				_ => e,
+			});
+		}
+	};
+	// wasm32 is little-endian, so the native bytes are the little-endian ones: the
+	// big-endian bytes, the other way around. The caller may still hold the array it
+	// reads, so it reverses a copy; the bytes it makes are its own.
+	let args = match name {
+		"from_le_bytes" | "from_ne_bytes" => args
+			.into_iter()
+			.map(|a| a.method("slice", Vec::new()).method("reverse", Vec::new()))
+			.collect(),
+		_ => args,
+	};
+	let e = int.method(method, args);
+	Some(match name {
+		"to_le_bytes" | "to_ne_bytes" => e.method("reverse", Vec::new()),
+		_ => e,
+	})
 }
 
 /// What a JS value of `ty` is through references and `NonZero`, which is its integer.

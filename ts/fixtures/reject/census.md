@@ -167,7 +167,7 @@ The type or module each refused type or path belongs to.
 | 1 | `std::iter` | fixtures/reject/src/lib.rs:1250:22 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:446:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:446:32 |
-| 1 | `std::num::Saturating` | fixtures/reject/src/lib.rs:1292:26 |
+| 1 | `std::num` | fixtures/reject/src/lib.rs:1292:4 |
 | 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:999:32 |
 | 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:999:11 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:781:15 |
@@ -284,7 +284,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:314:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:553:17 |
 | 1 | unsupported call to `_` | `std::borrow::Cow::is_borrowed` | fixtures/reject/src/lib.rs:356:2 |
-| 1 | unsupported call to `_` | `std::num::Saturating::pow` | fixtures/reject/src/lib.rs:1292:26 |
+| 1 | unsupported call to `_` | `std::num::to_ascii_uppercase` | fixtures/reject/src/lib.rs:1292:4 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:167:8 |
 | 1 | unsupported call to `_` | `std::ops::Range::is_empty` | fixtures/reject/src/lib.rs:1004:9 |
 | 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:999:11 |
@@ -351,7 +351,7 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:999:11: unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>`
 - fixtures/reject/src/lib.rs:999:32: unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>`
 - fixtures/reject/src/lib.rs:1004:9: unsupported call to `std::ops::Range::<&mut u8>::is_empty`
-- fixtures/reject/src/lib.rs:1292:26: unsupported call to `std::num::Saturating::<u8>::pow`
+- fixtures/reject/src/lib.rs:1292:4: unsupported call to `core::num::<impl u8>::to_ascii_uppercase`
 
 </details>
 
