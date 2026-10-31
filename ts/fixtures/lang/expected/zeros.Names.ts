@@ -2,17 +2,17 @@
 
 import * as rt from "./rt.ts";
 
-export function clone$Clone(_self: Names): Names {
-	_self._0;
-	_self._1;
-	_self._2;
-	_self._3;
-	_self._4;
-	_self._5;
-	_self._6;
-	_self._7;
-	_self._8;
-	_self._9;
+export function clone$Clone(self: Names): Names {
+	self._0;
+	self._1;
+	self._2;
+	self._3;
+	self._4;
+	self._5;
+	self._6;
+	self._7;
+	self._8;
+	self._9;
 	return { _0: undefined, _1: undefined, _2: undefined, _3: undefined, _4: undefined, _5: undefined, _6: undefined, _7: undefined, _8: undefined, _9: undefined };
 }
 
@@ -58,26 +58,26 @@ export function eq$PartialEq(_self: Names, _other: Names): boolean {
 	return false;
 }
 
-export function cmp$Ord(_self: Names, _other: Names): rt.Ordering {
-	const cmp: rt.Ordering = rt.cmpNothing(_self._0, _other._0);
+export function cmp$Ord(self: Names, other: Names): rt.Ordering {
+	const cmp: rt.Ordering = rt.cmpNothing(self._0, other._0);
 	if (cmp === 0) {
-		const cmp2: rt.Ordering = rt.cmpNothing(_self._1, _other._1);
+		const cmp2: rt.Ordering = rt.cmpNothing(self._1, other._1);
 		if (cmp2 === 0) {
-			const cmp3: rt.Ordering = rt.cmpNothing(_self._2, _other._2);
+			const cmp3: rt.Ordering = rt.cmpNothing(self._2, other._2);
 			if (cmp3 === 0) {
-				const cmp4: rt.Ordering = rt.cmpNothing(_self._3, _other._3);
+				const cmp4: rt.Ordering = rt.cmpNothing(self._3, other._3);
 				if (cmp4 === 0) {
-					const cmp5: rt.Ordering = rt.cmpNothing(_self._4, _other._4);
+					const cmp5: rt.Ordering = rt.cmpNothing(self._4, other._4);
 					if (cmp5 === 0) {
-						const cmp6: rt.Ordering = rt.cmpNothing(_self._5, _other._5);
+						const cmp6: rt.Ordering = rt.cmpNothing(self._5, other._5);
 						if (cmp6 === 0) {
-							const cmp7: rt.Ordering = rt.cmpNothing(_self._6, _other._6);
+							const cmp7: rt.Ordering = rt.cmpNothing(self._6, other._6);
 							if (cmp7 === 0) {
-								const cmp8: rt.Ordering = rt.cmpNothing(_self._7, _other._7);
+								const cmp8: rt.Ordering = rt.cmpNothing(self._7, other._7);
 								if (cmp8 === 0) {
-									const cmp9: rt.Ordering = rt.cmpNothing(_self._8, _other._8);
+									const cmp9: rt.Ordering = rt.cmpNothing(self._8, other._8);
 									if (cmp9 === 0) {
-										return rt.cmpNothing(_self._9, _other._9);
+										return rt.cmpNothing(self._9, other._9);
 									}
 									return cmp9;
 								}
@@ -98,17 +98,17 @@ export function cmp$Ord(_self: Names, _other: Names): rt.Ordering {
 	return cmp;
 }
 
-export function hash$Hash_DefaultHasher(_self: Names, state: rt.Hasher): void {
-	rt.hashNothing(_self._0, state);
-	rt.hashNothing(_self._1, state);
-	rt.hashNothing(_self._2, state);
-	rt.hashNothing(_self._3, state);
-	rt.hashNothing(_self._4, state);
-	rt.hashNothing(_self._5, state);
-	rt.hashNothing(_self._6, state);
-	rt.hashNothing(_self._7, state);
-	rt.hashNothing(_self._8, state);
-	rt.hashNothing(_self._9, state);
+export function hash$Hash_DefaultHasher(self: Names, state: rt.Hasher): void {
+	rt.hashNothing(self._0, state);
+	rt.hashNothing(self._1, state);
+	rt.hashNothing(self._2, state);
+	rt.hashNothing(self._3, state);
+	rt.hashNothing(self._4, state);
+	rt.hashNothing(self._5, state);
+	rt.hashNothing(self._6, state);
+	rt.hashNothing(self._7, state);
+	rt.hashNothing(self._8, state);
+	rt.hashNothing(self._9, state);
 }
 
 /** `PhantomData` of several types, whose `Debug` names each. */
