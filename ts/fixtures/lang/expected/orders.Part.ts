@@ -13,12 +13,12 @@ export interface Part {
 	tag: rt.u8;
 }
 
-export function eq$PartialEq(self: Part, other: Part): boolean {
+export function eq$cmp_PartialEq(self: Part, other: Part): boolean {
 	orders_log(Uint8Array.of(61, self.tag, other.tag));
 	return self.key === other.key;
 }
 
-export function partialCmp$PartialOrd(self: Part, other: Part): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Part, other: Part): rt.Ordering | undefined {
 	let _7!: boolean;
 	orders_log(Uint8Array.of(112, self.tag, other.tag));
 	if (!(self.key === 7)) {
@@ -32,7 +32,7 @@ export function partialCmp$PartialOrd(self: Part, other: Part): rt.Ordering | un
 	return undefined;
 }
 
-export function cmp$Ord(self: Part, other: Part): rt.Ordering {
+export function cmp$cmp_Ord(self: Part, other: Part): rt.Ordering {
 	orders_log(Uint8Array.of(99, self.tag, other.tag));
 	return rt.cmp(other.key, self.key);
 }
