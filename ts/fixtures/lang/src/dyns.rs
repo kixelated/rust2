@@ -13,7 +13,7 @@ use std::sync::{Arc, Weak};
 
 use crate::fmt::put;
 
-trait Shape {
+pub(crate) trait Shape {
 	fn area(&self) -> u32;
 	fn grow(&mut self, by: u8);
 	/// Provided, and overridden by one impl.

@@ -10,10 +10,11 @@
 
 /** The translation's waker, by shape. */
 interface Waker extends Disposable {
+	readonly data: unknown;
+	readonly vtable: object;
 	wake(): void;
 	wakeByRef(): void;
 	clone(): Waker;
-	willWake(other: Waker): boolean;
 }
 
 interface Future<T> extends Disposable {
@@ -47,7 +48,12 @@ function output(total: bigint): Uint8Array {
 
 /** A waker that only records that it was woken: the executor of one task. */
 class Woken implements Waker {
+	readonly vtable = {};
 	woken = true;
+
+	get data(): unknown {
+		return this;
+	}
 
 	wake(): void {
 		this.woken = true;
@@ -59,10 +65,6 @@ class Woken implements Waker {
 
 	clone(): Waker {
 		return this;
-	}
-
-	willWake(other: Waker): boolean {
-		return other === this;
 	}
 
 	[Symbol.dispose](): void {}

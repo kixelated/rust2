@@ -19,6 +19,7 @@ mod iter;
 mod lend;
 mod library;
 mod mir;
+pub(crate) mod names;
 mod num;
 pub mod pointer;
 mod stock;
@@ -58,9 +59,10 @@ pub fn translate<'tcx>(tcx: TyCtxt<'tcx>, config: &Config) -> Option<Program> {
 	if t.failed {
 		return None;
 	}
+	t.program.names = t.names();
 	t.program.mark_unread();
 	t.program.merge();
-	if let Err(msg) = t.program.name() {
+	if let Err(msg) = t.program.names.check().and_then(|()| t.program.name()) {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
 		return None;
 	}
@@ -736,11 +738,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		if let Some(sym) = self.bound_fn(instance, tcx.def_span(def_id)) {
 			return sym;
 		}
-		let base = match library::local_init(tcx, def_id) {
-			// The macro names it alike for every key.
-			Some(key) => format!("{}$init", tcx.item_name(key)),
-			None => camel(tcx.item_name(def_id).as_str()),
-		};
+		let base = names::fn_base(tcx, def_id);
 		// A function of a translated type sits in the type's own module, escaped only where it is
 		// declared, so callers call it by its own name: `Decoder.new`.
 		let (module, base) = match self.owner(instance) {
@@ -1194,6 +1192,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| library::Std::LazyCell
 					| library::Std::LazyLock
 					| library::Std::Waker
+					| library::Std::WakerVTable
 					| library::Std::Context
 					| library::Std::Pin
 					| library::Std::PollFn
@@ -1528,6 +1527,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				library::Std::LazyCell => Type::Rt("LazyCell", vec![self.ty(args.type_at(0), span)]),
 				library::Std::LazyLock => Type::Rt("LazyLock", vec![self.ty(args.type_at(0), span)]),
 				library::Std::Waker => Type::Rt("Waker", vec![]),
+				library::Std::WakerVTable => Type::Rt("WakerVTable", vec![]),
 				library::Std::Context => Type::Rt("Context", vec![]),
 				library::Std::Poll => {
 					if let Some(msg) = self.erasure_conflict(Ty::new_adt(tcx, adt, args)) {

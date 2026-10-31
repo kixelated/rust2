@@ -6,7 +6,7 @@ import * as checksum from "./bind/checksum.ts";
 import * as Nibble from "./bind/nibble.ts";
 import * as skip from "./bind/skip.ts";
 import * as Tally from "./bind/tally.ts";
-import { unwrapOr$0r2bmpr, unwrapOr$1rbuegs, mapOr$174crag } from "./core/option.ts";
+import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr, unwrapOr$1rbuegs as option_unwrapOr$1rbuegs, mapOr$174crag as option_mapOr$174crag } from "./core/option.ts";
 
 /**
  * Split the input as `Blob`, compare and hash the parts, skip its leading zeros, and
@@ -105,11 +105,11 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	}
 	rt.byteVecPush(out, rt.hashLen(seen) & 0xff);
 	rt.byteVecPush(out, rt.hashLen(counts) & 0xff);
-	const probe: Blob.Blob = Blob.copyFromSlice(unwrapOr$1rbuegs(rt.byteSliceGetRange(input, 0, 2), input));
+	const probe: Blob.Blob = Blob.copyFromSlice(option_unwrapOr$1rbuegs(rt.byteSliceGetRange(input, 0, 2), input));
 	rt.byteVecPush(out, rt.hashContains(seen, probe) ? 1 : 0);
-	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(counts, probe), 0));
+	rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.hashGet(counts, probe), 0));
 	rt.byteVecPush(out, rt.btreeContains(sorted, probe) ? 1 : 0);
-	rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.btreeGet(firsts, probe), 255));
+	rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.btreeGet(firsts, probe), 255));
 	const _81: rt.RangeFrom<Blob.Blob> = new rt.RangeFrom(Blob.clone$Clone(probe));
 	rt.byteVecPush(out, rt.iterCount(rt.btreeRangeKeys(sorted, _81, Blob.eq$PartialEq, rt.cmpGt(Blob.partialCmp$PartialOrd))) & 0xff);
 	const iter2: rt.Iter<[Blob.Blob, rt.u8]> = rt.btreeIter(firsts);
@@ -132,7 +132,7 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	for (const byte of rt.byteSliceView(input)) {
 		const key: Nibble.Nibble = Nibble.new(byte);
 		rt.byteVecPush(out, rt.hashAdd(nibbles, key) ? 1 : 0);
-		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashInsert(lasts, key, byte), 255));
+		rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.hashInsert(lasts, key, byte), 255));
 		rt.btreeAdd(ordered, key);
 		rt.btreeInsert(values, key, byte);
 	}
@@ -141,10 +141,10 @@ export function keys(input: rt.ByteSlice, bytes: Blob.Blob, out: rt.ByteVec): vo
 	const iterEnd2: rt.u8 = 16;
 	while ((_143 = iterStart2++) < iterEnd2) {
 		const key3: Nibble.Nibble = Nibble.new(rt.u8Mul(_143, 17));
-		rt.byteVecPush(out, mapOr$174crag(rt.hashKey(nibbles, key3), 255, (n: Nibble.Nibble): rt.u8 => {
+		rt.byteVecPush(out, option_mapOr$174crag(rt.hashKey(nibbles, key3), 255, (n: Nibble.Nibble): rt.u8 => {
 			return Nibble.get(n);
 		}));
-		rt.byteVecPush(out, unwrapOr$0r2bmpr(rt.hashGet(lasts, key3), 255));
+		rt.byteVecPush(out, option_unwrapOr$0r2bmpr(rt.hashGet(lasts, key3), 255));
 	}
 	const iter5: rt.Iter<[Nibble.Nibble, rt.u8]> = rt.btreeIter(values);
 	while (true) {

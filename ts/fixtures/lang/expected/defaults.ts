@@ -3,30 +3,30 @@
 import * as rt from "./rt.ts";
 import { copy$u8s } from "./lib.ts";
 import { then$1j955kq, then$1t2ieki } from "./core/bool.ts";
-import { unwrapOrDefault$0k1p6nh } from "./core/option.ts";
-import * as Bare from "./defaults.Bare.ts";
-import * as Made from "./defaults.Made.ts";
-import * as Slot from "./defaults.Slot.ts";
+import { unwrapOrDefault$0k1p6nh as option_unwrapOrDefault$0k1p6nh } from "./core/option.ts";
+import * as defaults_Bare from "./defaults.Bare.ts";
+import * as defaults_Made from "./defaults.Made.ts";
+import * as defaults_Slot from "./defaults.Slot.ts";
 
 /** What a generic caller makes, as kio's `Producer::default` makes its `T`. */
-export function made$Arc_Made(): rt.Arc<Made.Made> {
-	return new rt.Arc(Made.default$Default());
+export function made$Arc_Made(): rt.Arc<defaults_Made.Made> {
+	return new rt.Arc(defaults_Made.default$Default());
 }
 
 /** What a generic caller makes, as kio's `Producer::default` makes its `T`. */
-export function made$Made(): Made.Made {
-	return Made.default$Default();
+export function made$Made(): defaults_Made.Made {
+	return defaults_Made.default$Default();
 }
 
 /** What a generic caller makes, as kio's `Producer::default` makes its `T`. */
-export function made$Mades(): Made.Made[] {
-	return Array.from({ length: 2 }, (): Made.Made => {
-		return Made.default$Default();
+export function made$Mades(): defaults_Made.Made[] {
+	return Array.from({ length: 2 }, (): defaults_Made.Made => {
+		return defaults_Made.default$Default();
 	});
 }
 
 /** What a generic caller makes, as kio's `Producer::default` makes its `T`. */
-export function made$Weak_Made(): rt.Weak<Made.Made> {
+export function made$Weak_Made(): rt.Weak<defaults_Made.Made> {
 	return new rt.Weak();
 }
 
@@ -36,7 +36,7 @@ export function made$unit(): void {
 }
 
 /** What a generic caller makes, as kio's `Producer::default` makes its `T`. */
-export function made$unit_u8_bool_Mades_Bares(): [undefined, [rt.u8, boolean], Made.Made[], Bare.Bare[]] {
+export function made$unit_u8_bool_Mades_Bares(): [undefined, [rt.u8, boolean], defaults_Made.Made[], defaults_Bare.Bare[]] {
 	return [undefined, [0, false], [], []];
 }
 
@@ -47,19 +47,19 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 		const _10: rt.u8 = rt.u8Rem(op, 9);
 		if (_10 === 0) {
 			made$unit();
-			const pair: [rt.u64 | undefined, Made.Made] = [undefined, Made.default$Default()];
-			const nested: [undefined, [rt.u8, boolean], Made.Made[], Bare.Bare[]] = made$unit_u8_bool_Mades_Bares();
-			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtUnit(undefined, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(pair[0], f, rt.u64Debug), (f: rt.Formatter) => Made.fmt$Debug(pair[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtUnit(nested[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(nested[1][0], f), (f: rt.Formatter) => rt.fmtBool(nested[1][1], f)], f), (f: rt.Formatter) => rt.fmtList(nested[2], f, (value: Made.Made, f: rt.Formatter) => Made.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtList(nested[3], f, (value: Bare.Bare, f: rt.Formatter) => Bare.fmt$Debug(value, f))], f)];
+			const pair: [rt.u64 | undefined, defaults_Made.Made] = [undefined, defaults_Made.default$Default()];
+			const nested: [undefined, [rt.u8, boolean], defaults_Made.Made[], defaults_Bare.Bare[]] = made$unit_u8_bool_Mades_Bares();
+			const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtUnit(undefined, f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(pair[0], f, rt.u64Debug), (f: rt.Formatter) => defaults_Made.fmt$Debug(pair[1], f)], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtUnit(nested[0], f), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.u8Debug(nested[1][0], f), (f: rt.Formatter) => rt.fmtBool(nested[1][1], f)], f), (f: rt.Formatter) => rt.fmtList(nested[2], f, (value: defaults_Made.Made, f: rt.Formatter) => defaults_Made.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtList(nested[3], f, (value: defaults_Bare.Bare, f: rt.Formatter) => defaults_Bare.fmt$Debug(value, f))], f)];
 			s = rt.fmtFormat([args2[0], " ", args2[1], " ", args2[2]]);
 		} else if (_10 === 1) {
-			const made: Made.Made[] = made$Mades();
+			const made: defaults_Made.Made[] = made$Mades();
 			const grid: rt.u64[][] = Array.from({ length: 3 }, (): rt.u64[] => {
 				return Array.from({ length: 2 }, (): rt.u64 => {
 					return 0;
 				});
 			});
 			const _35: rt.ByteSlice = rt.byteSliceFrom(madeBytes(op));
-			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(made, f, (value: Made.Made, f: rt.Formatter) => Made.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtList(grid, f, (value: rt.u64[], f: rt.Formatter) => rt.fmtList(value, f, rt.u64Debug)), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_35), f, rt.u8Debug)];
+			const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(made, f, (value: defaults_Made.Made, f: rt.Formatter) => defaults_Made.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtList(grid, f, (value: rt.u64[], f: rt.Formatter) => rt.fmtList(value, f, rt.u64Debug)), (f: rt.Formatter) => rt.fmtList(rt.byteSliceView(_35), f, rt.u8Debug)];
 			s = rt.fmtFormat([args4[0], " ", args4[1], " ", args4[2]]);
 		} else if (_10 === 2) {
 			const counts: rt.Atomic<rt.u64>[] = Array.from({ length: 4 }, (): rt.Atomic<rt.u64> => {
@@ -77,36 +77,36 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtList(part2, f, rt.u64Debug)];
 			s = rt.fmtFormat([args6[0]]);
 		} else if (_10 === 3) {
-			const boxed: Made.Made = Made.default$Default();
-			const shared: rt.Arc<Made.Made> = made$Arc_Made();
-			const again: rt.Arc<Made.Made> = rt.arcClone(shared);
-			const _76: Made.Made = shared.value;
+			const boxed: defaults_Made.Made = defaults_Made.default$Default();
+			const shared: rt.Arc<defaults_Made.Made> = made$Arc_Made();
+			const again: rt.Arc<defaults_Made.Made> = rt.arcClone(shared);
+			const _76: defaults_Made.Made = shared.value;
 			const _79: rt.usize = again.strong;
-			const args8: rt.Fmt[] = [(f: rt.Formatter) => Made.fmt$Debug(boxed, f), (f: rt.Formatter) => Made.fmt$Debug(_76, f), (f: rt.Formatter) => rt.usizeDisplay(_79, f)];
+			const args8: rt.Fmt[] = [(f: rt.Formatter) => defaults_Made.fmt$Debug(boxed, f), (f: rt.Formatter) => defaults_Made.fmt$Debug(_76, f), (f: rt.Formatter) => rt.usizeDisplay(_79, f)];
 			s = rt.fmtFormat([args8[0], " ", args8[1], " ", args8[2]]);
 			again[Symbol.dispose]();
 			shared[Symbol.dispose]();
 		} else if (_10 === 4) {
-			const part = unwrapOrDefault$0k1p6nh(then$1t2ieki(rt.u8Rem(op, 3) === 0, (): [rt.u64 | undefined, Made.Made] => {
-				return [op as rt.u64, Made.default$Default()] as [rt.u64 | undefined, Made.Made];
+			const part = option_unwrapOrDefault$0k1p6nh(then$1t2ieki(rt.u8Rem(op, 3) === 0, (): [rt.u64 | undefined, defaults_Made.Made] => {
+				return [op as rt.u64, defaults_Made.default$Default()] as [rt.u64 | undefined, defaults_Made.Made];
 			}));
-			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part[0], f, rt.u64Debug), (f: rt.Formatter) => Made.fmt$Debug(part[1], f)], f)];
+			const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtOption(part[0], f, rt.u64Debug), (f: rt.Formatter) => defaults_Made.fmt$Debug(part[1], f)], f)];
 			s = rt.fmtFormat([args10[0]]);
 		} else if (_10 === 5) {
-			const empty: rt.Weak<Made.Made> = new rt.Weak();
-			const default_: rt.Weak<Made.Made> = made$Weak_Made();
-			const arc: rt.Arc<Made.Made> = new rt.Arc(Made.default$Default());
-			const live: rt.Weak<Made.Made> = new rt.Weak(arc);
-			const copy: rt.Weak<Made.Made> = rt.weakClone(empty);
-			const _117: rt.Arc<Made.Made> | undefined = rt.weakUpgrade(empty);
+			const empty: rt.Weak<defaults_Made.Made> = new rt.Weak();
+			const default_: rt.Weak<defaults_Made.Made> = made$Weak_Made();
+			const arc: rt.Arc<defaults_Made.Made> = new rt.Arc(defaults_Made.default$Default());
+			const live: rt.Weak<defaults_Made.Made> = new rt.Weak(arc);
+			const copy: rt.Weak<defaults_Made.Made> = rt.weakClone(empty);
+			const _117: rt.Arc<defaults_Made.Made> | undefined = rt.weakUpgrade(empty);
 			const _115: boolean = _117 === undefined;
 			const _120: rt.usize = default_.arc.strong;
 			const _123: boolean = empty.arc === default_.arc;
 			const _127: boolean = empty.arc === copy.arc;
 			const _131: boolean = empty.arc === live.arc;
-			const _137: rt.Arc<Made.Made> | undefined = rt.weakUpgrade(copy);
+			const _137: rt.Arc<defaults_Made.Made> | undefined = rt.weakUpgrade(copy);
 			const _135: boolean = _137 === undefined;
-			const _142: rt.Arc<Made.Made> | undefined = rt.weakUpgrade(live);
+			const _142: rt.Arc<defaults_Made.Made> | undefined = rt.weakUpgrade(live);
 			const _140: boolean = _142 !== undefined;
 			const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBool(_115, f), (f: rt.Formatter) => rt.usizeDisplay(_120, f), (f: rt.Formatter) => rt.fmtBool(_123, f), (f: rt.Formatter) => rt.fmtBool(_127, f), (f: rt.Formatter) => rt.fmtBool(_131, f), (f: rt.Formatter) => rt.fmtBool(_135, f), (f: rt.Formatter) => rt.fmtBool(_140, f)];
 			const _111: string = rt.fmtFormat([args12[0], " ", args12[1], " ", args12[2], " ", args12[3], " ", args12[4], " ", args12[5], " ", args12[6]]);
@@ -120,26 +120,26 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			default_[Symbol.dispose]();
 			empty[Symbol.dispose]();
 		} else if (_10 === 6) {
-			const slot: Slot.Slot = Slot.default$Default();
-			const before: rt.u64 | undefined = Slot.get(slot);
-			const arc2: rt.Arc<Made.Made> = new rt.Arc({ n: op as rt.u64, tag: Made.default$Default().tag });
-			const _161: rt.Weak<Made.Made> = new rt.Weak(arc2);
+			const slot: defaults_Slot.Slot = defaults_Slot.default$Default();
+			const before: rt.u64 | undefined = defaults_Slot.get(slot);
+			const arc2: rt.Arc<defaults_Made.Made> = new rt.Arc({ n: op as rt.u64, tag: defaults_Made.default$Default().tag });
+			const _161: rt.Weak<defaults_Made.Made> = new rt.Weak(arc2);
 			slot.weak[Symbol.dispose]();
 			slot.weak = _161;
-			const _167: rt.u64 | undefined = Slot.get(slot);
+			const _167: rt.u64 | undefined = defaults_Slot.get(slot);
 			const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOption(before, f, rt.u64Debug), (f: rt.Formatter) => rt.fmtOption(_167, f, rt.u64Debug)];
 			s = rt.fmtFormat([args14[0], " ", args14[1]]);
 			arc2[Symbol.dispose]();
 			slot[Symbol.dispose]();
 		} else if (_10 === 7) {
-			let boxed2: Made.Made | undefined = then$1j955kq(rt.u8Rem(op, 3) === 0, (): Made.Made => {
-				return Made.default$Default();
+			let boxed2: defaults_Made.Made | undefined = then$1j955kq(rt.u8Rem(op, 3) === 0, (): defaults_Made.Made => {
+				return defaults_Made.default$Default();
 			});
 			const _179: rt.u64 = op as rt.u64;
 			if (boxed2 === undefined) {
-				boxed2 = Made.default$Default();
+				boxed2 = defaults_Made.default$Default();
 			}
-			(boxed2 as Made.Made).n = rt.u64Add((boxed2 as Made.Made).n, _179);
+			(boxed2 as defaults_Made.Made).n = rt.u64Add((boxed2 as defaults_Made.Made).n, _179);
 			let slots = undefined as Array<rt.u8 | undefined> | undefined;
 			const _184: rt.u8 | undefined = op;
 			if (slots === undefined) {
@@ -152,13 +152,13 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 				rt.panic("index out of bounds: the len is " + 3 + " but the index is " + _187);
 			}
 			(slots as Array<rt.u8 | undefined>)[_187] = _184;
-			const cell: rt.OnceCell<rt.Arc<Made.Made>> = new rt.OnceCell(undefined);
-			const shared2: rt.Arc<Made.Made> = rt.arcClone(rt.onceGetOrInit(cell, (): rt.Arc<Made.Made> => {
-				return new rt.Arc(Made.default$Default());
+			const cell: rt.OnceCell<rt.Arc<defaults_Made.Made>> = new rt.OnceCell(undefined);
+			const shared2: rt.Arc<defaults_Made.Made> = rt.arcClone(rt.onceGetOrInit(cell, (): rt.Arc<defaults_Made.Made> => {
+				return new rt.Arc(defaults_Made.default$Default());
 			}));
-			const _199: Made.Made = shared2.value;
+			const _199: defaults_Made.Made = shared2.value;
 			const _202: rt.usize = shared2.strong;
-			const _207: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(boxed2, f, (value: Made.Made, f: rt.Formatter) => Made.fmt$Debug(value, f));
+			const _207: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(boxed2, f, (value: defaults_Made.Made, f: rt.Formatter) => defaults_Made.fmt$Debug(value, f));
 			const _208: rt.Fmt = (f: rt.Formatter) => rt.fmtOption(slots, f, (value: Array<rt.u8 | undefined>, f: rt.Formatter) => rt.fmtList(value, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug)));
 			const arg2 = _199.n;
 			const args16: rt.Fmt[] = [_207, _208, (f: rt.Formatter) => rt.u64Display(arg2, f), (f: rt.Formatter) => rt.usizeDisplay(_202, f)];
@@ -166,7 +166,7 @@ export function defaults(data: rt.ByteSlice, out: rt.ByteVec): void {
 			shared2[Symbol.dispose]();
 			cell[Symbol.dispose]();
 		} else {
-			const made2: Made.Made = made$Made();
+			const made2: defaults_Made.Made = made$Made();
 			const _218: rt.u64 = rt.u64Add(made2.n, op as rt.u64);
 			const _224: rt.Fmt = (f: rt.Formatter) => rt.u64Display(_218, f);
 			const arg = made2.tag;

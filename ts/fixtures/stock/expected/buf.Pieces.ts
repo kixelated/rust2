@@ -3,7 +3,7 @@
 import * as rt from "./rt.ts";
 import { panicAdvance } from "./bytes.ts";
 import type * as TryGetError from "./bytes.TryGetError.ts";
-import { unwrapOrElse$0s2lrc9 } from "./core/result.ts";
+import { unwrapOrElse$0s2lrc9 as result_unwrapOrElse$0s2lrc9 } from "./core/result.ts";
 
 /** A buffer of the crate's own, in pieces: `Buf`'s provided methods read across them. */
 export interface Pieces {
@@ -222,7 +222,7 @@ export function hasRemaining$Buf(self: Pieces): boolean {
  * This function panics if `self.remaining() < dst.len()`.
  */
 export function copyToSlice$Buf(self: Pieces, dst: rt.ByteSlice): void {
-	unwrapOrElse$0s2lrc9(tryCopyToSlice$Buf(self, dst), (error: TryGetError.TryGetError): undefined => {
+	result_unwrapOrElse$0s2lrc9(tryCopyToSlice$Buf(self, dst), (error: TryGetError.TryGetError): undefined => {
 		panicAdvance(error);
 	});
 }

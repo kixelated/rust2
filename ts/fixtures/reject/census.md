@@ -1,6 +1,6 @@
 # Census of `reject-fixture`
 
-- Refusals: 128
+- Refusals: 130
 - Function instances: 160
 - Generic functions no instance reached, lowered over their type parameters: 10
 
@@ -22,6 +22,7 @@
 | 2 | `_`, a trait object of another crate's trait, which is not supported yet | fixtures/reject/src/lib.rs:11:16 |
 | 2 | `_`, a trait object of the generic trait `_`, which is not supported yet | fixtures/reject/src/lib.rs:472:23 |
 | 2 | a coercion to `_`, which is not supported yet | fixtures/reject/src/lib.rs:463:40 |
+| 2 | a raw pointer to a place of `()`, which has no address of its own | fixtures/reject/src/lib.rs:743:15 |
 | 2 | an iterator of the crate implementing `_`, which is not supported yet | fixtures/reject/src/lib.rs:152:1 |
 | 2 | overriding `_`, which std's adaptors call in place of `next` or beside it | fixtures/reject/src/lib.rs:132:2 |
 | 2 | passing `_`, which drops, to `_`, which is not supported yet | fixtures/reject/src/lib.rs:339:4 |
@@ -61,9 +62,9 @@
 | 1 | an upcast from `_` to `_`, which is not supported yet | fixtures/reject/src/lib.rs:547:32 |
 | 1 | arithmetic on `_` | fixtures/reject/src/lib.rs:8:2 |
 | 1 | comparing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:248:75 |
-| 1 | comparing pointers to `()`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:743:2 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | fixtures/reject/src/lib.rs:792:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | fixtures/reject/src/lib.rs:611:2 |
+| 1 | comparing pointers to `_`, which has no bytes and so no address of its own | fixtures/reject/src/lib.rs:743:70 |
 | 1 | constructing `_` | fixtures/reject/src/lib.rs:362:53 |
 | 1 | hashing `_` as a key, which is not supported yet | fixtures/reject/src/lib.rs:248:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | fixtures/reject/src/lib.rs:323:16 |
@@ -115,6 +116,7 @@ The type or module each refused type or path belongs to.
 | 1 | `Entry` | fixtures/reject/src/lib.rs:332:13 |
 | 1 | `Escaped` | fixtures/reject/src/lib.rs:1087:43 |
 | 1 | `FusedIterator` | fixtures/reject/src/lib.rs:200:1 |
+| 1 | `Fused` | fixtures/reject/src/lib.rs:743:70 |
 | 1 | `HashMap` | fixtures/reject/src/lib.rs:266:6 |
 | 1 | `Hasher` | fixtures/reject/src/lib.rs:274:9 |
 | 1 | `Hits` | fixtures/reject/src/lib.rs:735:21 |
@@ -227,6 +229,7 @@ The type or module each refused type or path belongs to.
 | 1 | comparing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:248:75 |
 | 1 | comparing pointers to `_` in an atomic, which JS has no address of | `u32` | fixtures/reject/src/lib.rs:792:15 |
 | 1 | comparing pointers to `_`, each a place JS makes of its own | `u32` | fixtures/reject/src/lib.rs:611:2 |
+| 1 | comparing pointers to `_`, which has no bytes and so no address of its own | `Fused` | fixtures/reject/src/lib.rs:743:70 |
 | 1 | constructing `_` | `std::borrow::Cow` | fixtures/reject/src/lib.rs:362:53 |
 | 1 | hashing `_` as a key, which is not supported yet | `std::collections::BTreeSet` | fixtures/reject/src/lib.rs:248:75 |
 | 1 | hashing `_` through `_`'s own `Hash::hash_slice`, which is not supported yet | `std::vec::Vec`, `Batched` | fixtures/reject/src/lib.rs:323:16 |
@@ -401,6 +404,13 @@ The type or module each refused type or path belongs to.
 
 - fixtures/reject/src/lib.rs:463:40: a coercion to `std::sync::Weak<dyn Reading>`, which is not supported yet
 - fixtures/reject/src/lib.rs:499:30: a coercion to `&Tail<dyn Reading>`, which is not supported yet
+
+</details>
+
+<details><summary>a raw pointer to a place of `()`, which has no address of its own (2)</summary>
+
+- fixtures/reject/src/lib.rs:743:15: a raw pointer to a place of `()`, which has no address of its own
+- fixtures/reject/src/lib.rs:743:29: a raw pointer to a place of `()`, which has no address of its own
 
 </details>
 
@@ -642,12 +652,6 @@ The type or module each refused type or path belongs to.
 
 </details>
 
-<details><summary>comparing pointers to `()`, which has no bytes and so no address of its own (1)</summary>
-
-- fixtures/reject/src/lib.rs:743:2: comparing pointers to `()`, which has no bytes and so no address of its own
-
-</details>
-
 <details><summary>comparing pointers to `_` in an atomic, which JS has no address of (1)</summary>
 
 - fixtures/reject/src/lib.rs:792:15: comparing pointers to `u32` in an atomic, which JS has no address of
@@ -657,6 +661,12 @@ The type or module each refused type or path belongs to.
 <details><summary>comparing pointers to `_`, each a place JS makes of its own (1)</summary>
 
 - fixtures/reject/src/lib.rs:611:2: comparing pointers to `u32`, each a place JS makes of its own
+
+</details>
+
+<details><summary>comparing pointers to `_`, which has no bytes and so no address of its own (1)</summary>
+
+- fixtures/reject/src/lib.rs:743:70: comparing pointers to `Fused`, which has no bytes and so no address of its own
 
 </details>
 

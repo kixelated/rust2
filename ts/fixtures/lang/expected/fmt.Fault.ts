@@ -2,8 +2,8 @@
 
 import * as rt from "./rt.ts";
 import * as Any from "./core/any.Any.ts";
-import { unwrapOr$0r2bmpr } from "./core/option.ts";
-import * as Pair from "./fmt.Pair.ts";
+import { unwrapOr$0r2bmpr as option_unwrapOr$0r2bmpr } from "./core/option.ts";
+import * as fmt_Pair from "./fmt.Pair.ts";
 
 export function asAny$Erased(self: Fault): Any.Any {
 	return new Any.Fault(self);
@@ -31,7 +31,7 @@ export function fmt$Debug(self: Fault, f: rt.Formatter): rt.Result<undefined, rt
 		return rt.debugStructFinish(rt.debugStructField(rt.debugStructField(rt.fmtDebugStruct(f, _11), _12, _13), _14, _15));
 	}
 	const _18: string = "At";
-	const _19: rt.Fmt = (f: rt.Formatter) => Pair.fmt$Debug(self._0, f);
+	const _19: rt.Fmt = (f: rt.Formatter) => fmt_Pair.fmt$Debug(self._0, f);
 	return rt.debugTupleFinish(rt.debugTupleField(rt.fmtDebugTuple(f, _18), _19));
 }
 
@@ -43,7 +43,7 @@ export type Fault =
 	| { tag: "Short" }
 	| { tag: "Code"; _0: rt.u16 }
 	| { tag: "TooLarge"; size: rt.usize; max: rt.usize }
-	| { tag: "At"; _0: Pair.Pair };
+	| { tag: "At"; _0: fmt_Pair.Pair };
 
 export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Short") {
@@ -62,14 +62,14 @@ export function fmt$Display(self: Fault, f: rt.Formatter): rt.Result<undefined, 
 		return rt.fmtWriteFmt(f, [args4[0], " bytes exceeds the ", args4[1], " byte limit"]);
 	}
 	const arg = self._0;
-	const args6: rt.Fmt[] = [(f: rt.Formatter) => Pair.fmt$Debug(arg, f)];
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => fmt_Pair.fmt$Debug(arg, f)];
 	return rt.fmtWriteFmt(f, ["at ", args6[0]]);
 }
 
 /** The fault `data` picks. */
 function new_(data: rt.ByteSlice): Fault {
 	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
-		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
+		return option_unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
 	};
 	const _3: rt.u8 = rt.u8Rem(at(0), 4);
 	if (_3 === 0) {
