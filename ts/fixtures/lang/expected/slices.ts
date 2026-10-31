@@ -1547,7 +1547,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			rt.iterSum(rt.iterBorrow(folded), rt.usizeAdd, 0);
 			rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.rangeInclusiveIsEmpty(stepped) ? 1 : 0, rt.rangeInclusiveIsEmpty(folded) ? 1 : 0)), undefined, true);
 			const _289: rt.u16[] = words;
-			const bounds6 = rt.sliceGetBounds(rt.rangeInclusiveClone(stepped), _289.length);
+			const bounds6 = rt.sliceGetBounds(stepped.clone(), _289.length);
 			const _288: rt.u16[] | undefined = rt.sliceGetRange(_289, bounds6[0], bounds6[1]);
 			if (_288 === undefined) {
 				_287 = 238;
@@ -1556,7 +1556,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			rt.byteVecPush(out, _287);
 			const _298: rt.ByteSlice = rt.byteVecSlice(bytes);
-			const bounds7 = rt.sliceGetBounds(rt.rangeInclusiveClone(folded), _298.length);
+			const bounds7 = rt.sliceGetBounds(folded.clone(), _298.length);
 			const _297: rt.ByteSlice | undefined = rt.byteSliceGetRange(_298, bounds7[0], bounds7[1]);
 			if (_297 === undefined) {
 				_296 = 238;
@@ -1565,7 +1565,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 			}
 			rt.byteVecPush(out, _296);
 			const _307: Pair.Pair[] = pairs;
-			const bounds8 = rt.sliceGetBounds(rt.rangeInclusiveClone(folded), _307.length);
+			const bounds8 = rt.sliceGetBounds(folded.clone(), _307.length);
 			const _306: Pair.Pair[] | undefined = rt.sliceGetRangeMut(_307, bounds8[0], bounds8[1]);
 			if (_306 === undefined) {
 				_305 = 238;
@@ -1575,7 +1575,7 @@ export function ranges(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 				})(_306);
 			}
 			rt.byteVecPush(out, _305);
-			const bounds9 = rt.sliceIndexBounds(rt.rangeInclusiveClone(folded), words.length);
+			const bounds9 = rt.sliceIndexBounds(folded.clone(), words.length);
 			pokeWords(7, rt.sliceRangeMut(words, bounds9[0], bounds9[1]));
 			const _324: rt.RangeInclusive<rt.usize> = stepped;
 			const slice3 = rt.byteVecSlice(bytes);

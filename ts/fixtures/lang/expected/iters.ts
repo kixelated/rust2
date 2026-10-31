@@ -1153,7 +1153,7 @@ export function ranges(data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.byteVecPush(out, b);
 	rt.byteVecPush(out, rt.rangeIsEmpty(range) ? 1 : 0);
 	rt.byteVecPush(out, rt.rangeContains(range, 64) ? 1 : 0);
-	const copy: rt.Range<rt.u8> = rt.rangeClone(range);
+	const copy: rt.Range<rt.u8> = range.clone();
 	rt.byteVecPush(out, unwrapOr$0r2bmpr(copy.start < copy.end ? copy.start++ : undefined, 255));
 	rt.byteVecPush(out, range.len() & 0xff);
 	const iter: rt.Iter<rt.u8> = rt.iterStepBy(rt.iterRev(range), 3);
@@ -1244,8 +1244,8 @@ export function updates(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec)
 	rt.byteVecPush(out, 208);
 	const _7: rt.u8 = rt.u8Div(b, 2);
 	rt.byteVecPush(out, 209);
-	const made: rt.Range<rt.u8> = new rt.Range(rt.rangeClone(base).start, _7);
-	const _14: rt.Range<rt.u8> = rt.rangeClone(base);
+	const made: rt.Range<rt.u8> = new rt.Range(base.clone().start, _7);
+	const _14: rt.Range<rt.u8> = base.clone();
 	const whole: rt.Range<rt.u8> = new rt.Range(_14.start, _14.end);
 	rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(Uint8Array.of(made.start, _7, whole.start, whole.end)));
 	let iterStart: rt.u8 = rt.u8Div(a, 2);
@@ -1265,7 +1265,7 @@ export function updates(a: rt.u8, b: rt.u8, data: rt.ByteSlice, out: rt.ByteVec)
 	rt.byteVecPush(out, 210);
 	rt.byteVecPush(out, 211);
 	rt.byteVecPush(out, 212);
-	rt.byteVecExtendFromSlice(out, rt.byteSliceRange(data, from, rt.rangeClone(all).end));
+	rt.byteVecExtendFromSlice(out, rt.byteSliceRange(data, from, all.clone().end));
 	rt.byteVecPush(out, 213);
 	rt.byteVecPush(out, rt.byteSliceRange(data, 0).length & 0xff);
 	rt.byteVecPush(out, 214);

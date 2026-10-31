@@ -18,6 +18,7 @@ import { ByteSlice, ByteVec, type None, type Place, panic, type RangeBound, rang
 import type { Hashing } from "./hash.ts";
 import { type Limbs, lt } from "./int.ts";
 import {
+	type Clones,
 	DONE,
 	type Done,
 	exactHint,
@@ -776,9 +777,21 @@ export class HashIter<K, V, T> extends Iter<T> implements Disposable {
 		return acc;
 	}
 
-	/** A fresh iterator of the same map, past what this one took: the map is unchanged while it is held. */
 	override remaining(): Iterable<unknown> {
-		const it = new HashIter<K, V, unknown>(this.h, byValue(this.pick));
+		return this.from(byValue(this.pick));
+	}
+
+	/** std's, of an iterator that borrows the map: where it is, independently of it. */
+	override clone(): Iter<T> {
+		return this.from(this.pick);
+	}
+
+	/**
+	 * A fresh iterator of the same map yielding `pick`, past what this one took: the map is
+	 * unchanged while it is held, and JS can't copy where its own iterator is.
+	 */
+	private from<U>(pick: Pick): HashIter<K, V, U> {
+		const it = new HashIter<K, V, U>(this.h, pick);
 		while (it.left > this.left) it.next();
 		return it;
 	}
@@ -1576,6 +1589,11 @@ export class BTreeIter<K, V, T> extends Iter<T> implements Disposable {
 		return new BTreeIter<K, V, unknown>(byValue(this.pick), this.fl, this.fi, this.bl, this.bi);
 	}
 
+	/** std's, of an iterator that borrows the map. */
+	override clone(): Iter<T> {
+		return new BTreeIter<K, V, T>(this.pick, this.fl, this.fi, this.bl, this.bi, this.n);
+	}
+
 	override len(): number {
 		return this.n;
 	}
@@ -1844,11 +1862,20 @@ abstract class Merge<K> extends Iter<K> {
 	private held: K | Done = DONE;
 	private heldA = false;
 
-	constructor(a: BTreeSet<K>, b: BTreeSet<K>) {
+	constructor(a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) {
 		super();
-		this.a = btreeKeys(a);
-		this.b = btreeKeys(b);
-		this.c = a.c;
+		this.a = a;
+		this.b = b;
+		this.c = c;
+	}
+
+	/** std's: each of its iterators, and the key it holds back. */
+	override clone(): Iter<K> {
+		const kind = this.constructor as new (a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) => Merge<K>;
+		const it = new kind(this.a.clone(), this.b.clone(), this.c);
+		it.held = this.held;
+		it.heldA = this.heldA;
+		return it;
 	}
 
 	/** The next key of each, or `DONE` for one that ended or is held back. */
@@ -1900,12 +1927,12 @@ class SymmetricDifference<K> extends Merge<K> {
 
 /** `BTreeSet::union`: each key of either in order, `a`'s of two equal ones. */
 export function btreeUnion<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
-	return new Union(a, b);
+	return new Union(btreeKeys(a), btreeKeys(b), a.c);
 }
 
 /** `BTreeSet::symmetric_difference`: each key of one that the other lacks, in order. */
 export function btreeSymmetricDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
-	return new SymmetricDifference(a, b);
+	return new SymmetricDifference(btreeKeys(a), btreeKeys(b), a.c);
 }
 
 /**
@@ -1921,12 +1948,20 @@ class Difference<K> extends Iter<K> {
 	private peek: K | Done = DONE;
 	private peeked = false;
 
-	constructor(a: Iter<K>, other: BTreeSet<K>, search: boolean) {
+	constructor(a: Iter<K>, set: BTreeSet<K> | undefined, b: Iter<K>, c: (a: K, b: K) => Ordering) {
 		super();
 		this.a = a;
-		this.set = search ? other : undefined;
-		this.b = search ? iterEmpty() : btreeKeys(other);
-		this.c = other.c;
+		this.set = set;
+		this.b = b;
+		this.c = c;
+	}
+
+	/** std's: each of its iterators, and the key it peeked. */
+	override clone(): Iter<K> {
+		const it = new Difference(this.a.clone(), this.set, this.b.clone(), this.c);
+		it.peek = this.peek;
+		it.peeked = this.peeked;
+		return it;
 	}
 
 	next(): K | Done {
@@ -1972,7 +2007,8 @@ export function btreeDifference<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
 	if (low > 0 || high < 0) return keys;
 	if (low === 0) keys.next();
 	else if (high === 0) keys.nextBack();
-	else return new Difference(keys, b, a.n <= Math.floor(b.n / TIPPING));
+	else if (a.n <= Math.floor(b.n / TIPPING)) return new Difference(keys, b, iterEmpty(), b.c);
+	else return new Difference(keys, undefined, btreeKeys(b), b.c);
 	return keys;
 }
 
@@ -1982,11 +2018,15 @@ class Intersection<K> extends Iter<K> {
 	private readonly b: Iter<K>;
 	private readonly c: (a: K, b: K) => Ordering;
 
-	constructor(a: BTreeSet<K>, b: BTreeSet<K>) {
+	constructor(a: Iter<K>, b: Iter<K>, c: (a: K, b: K) => Ordering) {
 		super();
-		this.a = btreeKeys(a);
-		this.b = btreeKeys(b);
-		this.c = a.c;
+		this.a = a;
+		this.b = b;
+		this.c = c;
+	}
+
+	override clone(): Iter<K> {
+		return new Intersection(this.a.clone(), this.b.clone(), this.c);
 	}
 
 	next(): K | Done {
@@ -2023,7 +2063,7 @@ export function btreeIntersection<K>(a: BTreeSet<K>, b: BTreeSet<K>): Iter<K> {
 	if (high === 0) return iterOnce(aMax);
 	if (a.n <= Math.floor(b.n / TIPPING)) return iterFilter(btreeKeys(a), (key) => btreeContains(b, key));
 	if (b.n <= Math.floor(a.n / TIPPING)) return iterFilter(btreeKeys(b), (key) => btreeContains(a, key));
-	return new Intersection(a, b);
+	return new Intersection(btreeKeys(a), btreeKeys(b), a.c);
 }
 
 /** `BTreeSet::is_subset`: whether `b` holds each key of `a`. */
@@ -2470,6 +2510,15 @@ class DequeIter<T> extends Iter<T> implements Disposable {
 
 	override remaining(): Iterable<T> {
 		return new DequeIter(this.q, this.front, this.back);
+	}
+
+	/** std's: where it is, or of `into_iter`, what it has left, each cloned in order by `h.v`. */
+	override clone(h?: Clones): Iter<T> {
+		if (h?.v === undefined) return new DequeIter(this.q, this.front, this.back, this.drop);
+		const clone = h.v as (item: T) => T;
+		const items: T[] = [];
+		for (let i = this.front; i < this.back; i++) items.push(clone(this.q.b[at(this.q, i)] as T));
+		return iterSlice(items, this.drop);
 	}
 
 	override nextBack(): T | Done {
