@@ -32,3 +32,5 @@ generic std gap is planned here even when moq never calls it.
 - [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
 - [The rest of a boxed slice's impls](/quest/m3/ts-boxed-slice-rest.md) - `clone_from`, `AsRef`, `AsMut`, `TryFrom` into a boxed array, and `Box<str>` into bytes translate for boxed slices
 - [The ASCII methods of u8 and char](/quest/m3/ts-ascii-methods.md) - `u8`'s and `char`'s `is_ascii_*` tests, case maps, and `escape_ascii` translate
+- [A crate's own Extend in a tuple](/quest/m3/ts-tuple-own-extend.md) - `collect` and `extend` into a tuple holding a crate's `Extend` type translate
+- [moq-pin without a network when the pin is present](/quest/m3/ts-moq-pin-offline.md) - `just ts moq-pin` skips its fetch when the pinned commit is already there
