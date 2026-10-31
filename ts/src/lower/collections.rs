@@ -1320,7 +1320,11 @@ pub fn extend<'tcx>(
 	let trusted = super::iter::implements(b.t, iter, "TrustedLen");
 	let vec_reserve = |b: &mut Body<'_, '_, 'tcx>| {
 		let take = super::iter::iter_take(b, iter, trusted, span);
-		vec![take, super::iter::size_of(b, arg(coll, 0), span), Expr::lit(trusted.to_string())]
+		vec![
+			take,
+			super::iter::size_of(b, arg(coll, 0), span),
+			Expr::lit(trusted.to_string()),
+		]
 	};
 	Some(match std {
 		Std::Vec if matches!(arg(coll, 0).kind(), ty::Uint(ty::UintTy::U8)) => {
@@ -1344,7 +1348,11 @@ pub fn extend<'tcx>(
 			droppers.extend(entry_droppers(b, coll, span));
 			// By `for_each`.
 			droppers.push(super::iter::iter_take(b, iter, true, span));
-			let f = if std == Std::BTreeSet { "btreeExtendKeys" } else { "btreeExtend" };
+			let f = if std == Std::BTreeSet {
+				"btreeExtendKeys"
+			} else {
+				"btreeExtend"
+			};
 			Expr::rt(f, super::iter::tail(vec![target, items], droppers))
 		}
 		_ => return None,
@@ -1355,9 +1363,8 @@ pub fn extend<'tcx>(
 /// `Extend<&T>` and `Extend<(&K, &V)>` store a copy: `None` where `item` is what it stores,
 /// a copy is the value itself, or `coll` is no collection of items.
 pub fn copy_borrowed<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, item: Ty<'tcx>, span: Span) -> Option<Expr> {
-	let Some(
-		Std::Vec | Std::VecDeque | Std::BinaryHeap | Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet,
-	) = b.t.std_of(coll)
+	let Some(Std::Vec | Std::VecDeque | Std::BinaryHeap | Std::HashMap | Std::HashSet | Std::BTreeMap | Std::BTreeSet) =
+		b.t.std_of(coll)
 	else {
 		return None;
 	};
@@ -1461,12 +1468,20 @@ fn part<'tcx>(b: &mut Body<'_, '_, 'tcx>, coll: Ty<'tcx>, item: Ty<'tcx>, span: 
 		Std::HashMap | Std::HashSet => {
 			let mut args = entry_droppers(b, coll, span);
 			args.push(hash_max(b, coll, span));
-			let f = if std == Std::HashSet { "hashKeysPart" } else { "hashPart" };
+			let f = if std == Std::HashSet {
+				"hashKeysPart"
+			} else {
+				"hashPart"
+			};
 			Expr::rt(f, super::iter::tail(Vec::new(), args))
 		}
 		Std::BTreeMap | Std::BTreeSet => {
 			let droppers = entry_droppers(b, coll, span);
-			let f = if std == Std::BTreeSet { "btreeKeysPart" } else { "btreePart" };
+			let f = if std == Std::BTreeSet {
+				"btreeKeysPart"
+			} else {
+				"btreePart"
+			};
 			Expr::rt(f, super::iter::tail(Vec::new(), droppers))
 		}
 		_ => return None,

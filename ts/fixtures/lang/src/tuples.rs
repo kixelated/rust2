@@ -132,8 +132,10 @@ fn pairs(data: &[u8], out: &mut Vec<u8>) {
 
 /// Triples, of mixed collections, and tuples of collections within one.
 fn triples(data: &[u8], out: &mut Vec<u8>) {
-	let (v, q, s): (Vec<u8>, VecDeque<u16>, String) =
-		data.iter().map(|&b| (b, u16::from(b) << 8, char::from(b'a' + b % 26))).collect();
+	let (v, q, s): (Vec<u8>, VecDeque<u16>, String) = data
+		.iter()
+		.map(|&b| (b, u16::from(b) << 8, char::from(b'a' + b % 26)))
+		.collect();
 	out.extend(v);
 	out.extend(q.iter().flat_map(|n| n.to_le_bytes()));
 	out.extend(s.bytes());
@@ -212,7 +214,10 @@ fn extended(data: &[u8], out: &mut Vec<u8>) {
 		VecDeque::from([1_u16]),
 		HashSet::from([5_u8]),
 	);
-	t.extend(data.iter().map(|&b| (b, char::from(b), (b % 8, u16::from(b)), u16::from(b), b % 16)));
+	t.extend(
+		data.iter()
+			.map(|&b| (b, char::from(b), (b % 8, u16::from(b)), u16::from(b), b % 16)),
+	);
 	let (v, s, tree, q, set) = t;
 	out.extend(v);
 	out.extend(s.bytes());
@@ -227,10 +232,20 @@ fn extended(data: &[u8], out: &mut Vec<u8>) {
 
 /// `Extend<&T>` and `Extend<(&K, &V)>`, which store copies of what the items borrow.
 fn borrowed(data: &[u8], out: &mut Vec<u8>) {
-	let mut points: Vec<Spot> = data.iter().map(|&b| Spot { x: b, y: u16::from(b) << 2 }).collect();
+	let mut points: Vec<Spot> = data
+		.iter()
+		.map(|&b| Spot {
+			x: b,
+			y: u16::from(b) << 2,
+		})
+		.collect();
 	let mut t: (Vec<u8>, Vec<Spot>, HashMap<u8, u8>, String) = Default::default();
 	let marks = ['z', 'é'];
-	t.extend(data.iter().zip(&points).map(|(b, p)| (b, p, (b, b), &marks[usize::from(b & 1)])));
+	t.extend(
+		data.iter()
+			.zip(&points)
+			.map(|(b, p)| (b, p, (b, b), &marks[usize::from(b & 1)])),
+	);
 	let mut ones = (Vec::new(),);
 	ones.extend(points.iter().map(|p| (p,)));
 	for p in &mut points {
@@ -270,15 +285,18 @@ fn dropped(data: &[u8], out: &mut Vec<u8>) {
 	drop(held);
 	drop(set);
 	flush(&log, out);
-	let (tree, keys): (BTreeMap<u8, Logged>, HashSet<Logged>) =
-		(data.iter().enumerate()).map(|(i, &b)| ((b % 3, logged(i as u8, 0)), logged(0x80 | i as u8, b % 5))).unzip();
+	let (tree, keys): (BTreeMap<u8, Logged>, HashSet<Logged>) = (data.iter().enumerate())
+		.map(|(i, &b)| ((b % 3, logged(i as u8, 0)), logged(0x80 | i as u8, b % 5)))
+		.unzip();
 	flush(&log, out);
 	let mut held: Vec<&Logged> = keys.iter().collect();
 	held.sort_by_key(|l| l.key);
 	out.extend(held.iter().map(|l| l.id));
 	drop(tree);
 	flush(&log, out);
-	let source: Vec<(Logged, u8)> = (data.iter().enumerate()).map(|(i, &b)| (logged(i as u8, b), b)).collect();
+	let source: Vec<(Logged, u8)> = (data.iter().enumerate())
+		.map(|(i, &b)| (logged(i as u8, b), b))
+		.collect();
 	let n = usize::from(data.first().copied().unwrap_or(0) % 8);
 	let (taken, bytes): (Vec<Logged>, Vec<u8>) = source.into_iter().take(n).unzip();
 	flush(&log, out);
@@ -348,7 +366,10 @@ fn shunted(data: &[u8], out: &mut Vec<u8>) {
 		}
 		Err(e) => out.extend([0xfa, e]),
 	}
-	let found: Option<(Vec<u16>, BTreeSet<u8>)> = data.iter().map(|&b| b.checked_sub(4).map(|n| (u16::from(n), b % 8))).collect();
+	let found: Option<(Vec<u16>, BTreeSet<u8>)> = data
+		.iter()
+		.map(|&b| b.checked_sub(4).map(|n| (u16::from(n), b % 8)))
+		.collect();
 	match found {
 		Some((v, tree)) => {
 			out.extend(v.iter().flat_map(|n| n.to_le_bytes()));

@@ -1210,7 +1210,11 @@ pub(super) fn string_extend<'tcx>(
 	iter: Ty<'tcx>,
 	span: Span,
 ) -> Option<Expr> {
-	let extend = if text_items(b.t, item)? { "stringExtend" } else { "stringExtendChars" };
+	let extend = if text_items(b.t, item)? {
+		"stringExtend"
+	} else {
+		"stringExtendChars"
+	};
 	let drops = iter_drops(b, iter, span);
 	Some(Expr::rt(extend, tail(vec![s, items], vec![drops])))
 }
