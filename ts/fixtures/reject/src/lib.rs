@@ -119,11 +119,6 @@ pub fn swap_guards<'a>(a: &mut std::sync::MutexGuard<'a, u8>, b: &mut std::sync:
 	std::mem::swap(a, b);
 }
 
-/// An adaptor without a mapping.
-pub fn cycled(v: &[u8]) -> usize {
-	v.iter().cycle().take(3).count()
-}
-
 /// An iterator whose `fold` std's adaptors would call in place of its `next`.
 pub struct Folds;
 

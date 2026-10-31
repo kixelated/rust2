@@ -36,6 +36,7 @@ mod collections;
 mod combinators;
 mod counts;
 mod cows;
+mod cycles;
 mod defaults;
 mod durations;
 mod dyns;
