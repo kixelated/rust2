@@ -575,6 +575,10 @@ const rangeFroms = Array.from({ length: 16 * 4 * 4 * 10 }, (_, i) => {
 	return Uint8Array.of(rangeFromsOp, kind, ...data);
 });
 
+/** `iters::range_methods` of each type's table, at each pair of its first eight values. */
+const rangeMethodsOp = op("iters::range_methods");
+const rangeMethods = Array.from({ length: 19 * 64 }, (_, i) => Uint8Array.of(rangeMethodsOp, i % 19, Math.floor(i / 19) % 8, Math.floor(i / 152)));
+
 /**
  * `iters::compares` of each comparison, shape, and pair, over no items, one, a run up to
  * 255, which `start..` panics past and a sum overflows at, NaNs, and repeats.
@@ -584,4 +588,4 @@ const compares = [[], [5], [1, 2, 3], [250, 251, 252, 253, 254, 255], [0xff, 3, 
 	Array.from({ length: 256 }, (_, kind) => Uint8Array.of(comparesOp, kind, ...data)),
 );
 
-export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares];
+export const cases: Uint8Array[] = [...loops, ...durations, ...ints(), ...utf8, ...floats, ...formats, ...parsed, ...singlesCases, ...singlesFormats, ...singlesParsed, ...dyns, ...cells, ...shared, ...locks, ...onces, ...bounds, ...unsafeCells, ...edits, ...subslices, ...consumers, ...closures, ...elements, ...ranges, ...reducers, ...sliceEdits, ...drains, ...iters, ...hinted, ...peekedOthers, ...hints, ...reserves, ...setOps, ...zeros, ...floatsMulAdds, ...singlesMulAdds, ...unlikeEqs, ...ownNes, ...rangeFroms, ...compares, ...unlikeCompares, ...rangeMethods];

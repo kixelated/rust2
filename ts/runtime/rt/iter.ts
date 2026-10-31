@@ -24,6 +24,7 @@
 
 import { ByteSlice, ByteVec, byteVecPush, Err, type None, Ok, type Place, panic, place, type RangeBound, type Result, sliceView } from "../rt.ts";
 import { AtIndex, BTreeIter, HashIter, type Ordering } from "./collections.ts";
+import { type Hasher, hash8 } from "./hash.ts";
 import { charStep, intToBig, type Limbs, lt as wideLt, type Step } from "./int.ts";
 import { drop as dispose, dropRange } from "./task.ts";
 
@@ -3428,10 +3429,16 @@ class OptionShunt<U> extends Adaptor<U | undefined | None, U> {
 	}
 }
 
-/** `a < b` of two integers of one type, or two booleans. */
+/** `a < b` of two integers, `char`s, or floats of one type, or two booleans. */
 function lt<T>(a: T, b: T): boolean {
 	if (typeof a === "object" || typeof b === "object") return wideLt(a as number | Limbs, b as number | Limbs);
 	return (a as number) < (b as number);
+}
+
+/** `a <= b` of two of what `lt` compares: never of a NaN. */
+function le<T>(a: T, b: T): boolean {
+	if (typeof a === "object" || typeof b === "object") return !wideLt(b as number | Limbs, a as number | Limbs);
+	return (a as number) <= (b as number);
 }
 
 /**
@@ -3529,9 +3536,9 @@ export function rangeIsEmpty<T>(r: Range<T>): boolean {
 	return !lt(r.start, r.end);
 }
 
-/** `Range::contains`. */
+/** `Range::contains`: `start <= item < end`, so nothing past a NaN. */
 export function rangeContains<T>(r: Range<T>, item: T): boolean {
-	return !lt(item, r.start) && lt(item, r.end);
+	return le(r.start, item) && lt(item, r.end);
 }
 
 /**
@@ -3569,6 +3576,22 @@ export class RangeFrom<T> extends Iter<T> {
 	override clone(): RangeFrom<T> {
 		return new RangeFrom(this.start, this.int);
 	}
+}
+
+/** `RangeFrom::contains`. */
+export function rangeFromContains<T>(r: RangeFrom<T>, item: T): boolean {
+	return le(r.start, item);
+}
+
+/** `RangeTo::contains` and `RangeToInclusive::contains`. */
+export function rangeToContains<T>(r: { readonly end: T; readonly inclusive?: true }, item: T): boolean {
+	return r.inclusive ? le(item, r.end) : lt(item, r.end);
+}
+
+/** `RangeBounds::contains` of a pair of `Bound`s. */
+export function boundsContains<T>([start, end]: readonly [RangeBound<T>, RangeBound<T>], item: T): boolean {
+	const above = start.tag === "Unbounded" || (start.tag === "Included" ? le(start._0, item) : lt(start._0, item));
+	return above && (end.tag === "Unbounded" || (end.tag === "Included" ? le(item, end._0) : lt(item, end._0)));
 }
 
 /** std's `Step::forward` in a debug build: `n + by`, panicking past `int`'s last value. */
@@ -3695,15 +3718,56 @@ export function rangeInclusiveEnd<T>(r: RangeInclusive<T>): T {
 	return r.hi;
 }
 
-/** `RangeInclusive::is_empty`. */
+/** `RangeInclusive::into_inner`: its bounds as they are, even exhausted. */
+export function rangeInclusiveIntoInner<T>(r: RangeInclusive<T>): [T, T] {
+	return [r.lo, r.hi];
+}
+
+/** `RangeInclusive::is_empty`: exhausted, or not `start <= end`, as of a NaN. */
 export function rangeInclusiveIsEmpty<T>(r: RangeInclusive<T>): boolean {
-	return r.exhausted || lt(r.hi, r.lo);
+	return r.exhausted || !le(r.lo, r.hi);
 }
 
 /** `RangeInclusive::contains`. */
 export function rangeInclusiveContains<T>(r: RangeInclusive<T>, item: T): boolean {
 	// Exhausted, it may have wrapped past its end, and contains nothing, as std's bounds say.
-	return !r.exhausted && !lt(item, r.lo) && !lt(r.hi, item);
+	return !r.exhausted && le(r.lo, item) && le(item, r.hi);
+}
+
+/** What `==` and `Hash` read of any of std's ranges that holds a bound, whatever steps it. */
+type Bounded<T> =
+	| { readonly lo: T; readonly hi: T; readonly exhausted: boolean }
+	| { readonly start: T; readonly end: T }
+	| { readonly start: T }
+	| { readonly end: T };
+
+/**
+ * `PartialEq::eq` of std's ranges of one kind, from their bounds' `eq`: each bound's, then
+ * whether an inclusive one is exhausted, as std's derived one compares its fields.
+ */
+export function rangeEq<T>(eq: (a: T, b: T) => boolean): (a: Bounded<T>, b: Bounded<T>) => boolean {
+	return (a, b) => {
+		if ("exhausted" in a) {
+			const c = b as typeof a;
+			return eq(a.lo, c.lo) && eq(a.hi, c.hi) && a.exhausted === c.exhausted;
+		}
+		const c = b as { readonly start: T; readonly end: T };
+		return (!("start" in a) || eq(a.start, c.start)) && (!("end" in a) || eq(a.end, c.end));
+	};
+}
+
+/** `Hash::hash` of std's ranges, from their bounds': each bound's, then whether an inclusive one is exhausted. */
+export function rangeHash<T>(hash: (value: T, s: Hasher) => void): (value: Bounded<T>, s: Hasher) => void {
+	return (r, s) => {
+		if ("exhausted" in r) {
+			hash(r.lo, s);
+			hash(r.hi, s);
+			hash8(r.exhausted, s);
+			return;
+		}
+		if ("start" in r) hash(r.start, s);
+		if ("end" in r) hash(r.end, s);
+	};
 }
 
 /** `RangeInclusive::start_bound`: its start, included. */

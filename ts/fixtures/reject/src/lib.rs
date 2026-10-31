@@ -984,3 +984,37 @@ impl Ord for Ranked {
 pub fn ranked_cells(entries: Vec<(std::cell::Cell<Ranked>, Noisy)>) -> usize {
 	entries.into_iter().collect::<std::collections::BTreeMap<_, _>>().len()
 }
+
+impl PartialEq<Key> for u8 {
+	fn eq(&self, other: &Key) -> bool {
+		*self == other.0
+	}
+}
+
+impl PartialEq<u8> for Key {
+	fn eq(&self, other: &u8) -> bool {
+		self.0 == *other
+	}
+}
+
+impl PartialOrd<Key> for u8 {
+	fn partial_cmp(&self, other: &Key) -> Option<std::cmp::Ordering> {
+		self.partial_cmp(&other.0)
+	}
+}
+
+impl PartialOrd<u8> for Key {
+	fn partial_cmp(&self, other: &u8) -> Option<std::cmp::Ordering> {
+		self.0.partial_cmp(other)
+	}
+}
+
+/// Integer bounds against the crate's item, which compares by its own `PartialOrd`.
+pub fn keyed_across(n: u8) -> bool {
+	(..10u8).contains(&Key(n)) || std::ops::RangeBounds::contains(&(1u8..), &Key(n))
+}
+
+/// Bounds behind `&mut`s, which JS may keep as places rather than the integers.
+pub fn place_bounds(a: &mut u8, b: &mut u8) -> bool {
+	(a..b).is_empty()
+}
