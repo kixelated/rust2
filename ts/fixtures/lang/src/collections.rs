@@ -1353,3 +1353,143 @@ pub fn unlike_eqs(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	put_eq(it.next_if_eq(&stepped).is_some(), &log, out);
 	out.push(it.count() as u8);
 }
+
+/// `v` in a deque wrapped around its buffer: the first half pushed to the front backwards,
+/// the rest to the back.
+fn wrapped<T: Clone>(v: &[T]) -> VecDeque<T> {
+	let half = v.len() / 2;
+	let mut q = VecDeque::new();
+	for item in v[..half].iter().rev() {
+		q.push_front(item.clone());
+	}
+	q.extend(v[half..].iter().cloned());
+	q
+}
+
+/// `f` of each of `v`.
+fn each<T, U>(v: &[T], f: impl Fn(&T) -> U) -> Vec<U> {
+	v.iter().map(f).collect()
+}
+
+/// An item whose `ne` sees the remainder by 3 where its `eq` sees it by 4, so what `==` and
+/// `!=` find tells which std calls. Each call adds to the log, in order.
+#[derive(Clone)]
+struct Picky<'a>(u16, &'a std::cell::Cell<u16>);
+
+impl Picky<'_> {
+	fn log(&self, other: &Self, by: u16) {
+		self.1
+			.set(self.1.get().wrapping_mul(31).wrapping_add(self.0 ^ other.0 << 4 ^ by));
+	}
+}
+
+impl PartialEq for Picky<'_> {
+	fn eq(&self, other: &Self) -> bool {
+		self.log(other, 0x100);
+		self.0 % 4 == other.0 % 4
+	}
+
+	fn ne(&self, other: &Self) -> bool {
+		self.log(other, 0x200);
+		self.0 % 3 != other.0 % 3
+	}
+}
+
+/// Which an `Arc` or an `Rc` of one finds equal to itself before comparing.
+impl Eq for Picky<'_> {}
+
+/// `==` and `!=` of what holds a `Picky`, whose `ne` std's of tuples, `Arc`s, `Rc`s, and
+/// `Box`es call, and std's `==` of slices calls of each item, but which an `Option`'s and
+/// a `Reverse`'s `ne`, as `!eq`, does not: of unequal lengths, empty, nested, and with
+/// items `eq` and `ne` disagree on at the positions `kind` picks.
+pub fn own_nes(kind: u8, data: &[u8], out: &mut Vec<u8>) {
+	use std::rc::Rc;
+	use std::sync::Arc;
+
+	let log = std::cell::Cell::new(0);
+	let (by_ne, by_eq) = (usize::from(kind & 7), usize::from(kind >> 3 & 7));
+	let step = |i: usize| match i {
+		_ if i == by_eq => 3,
+		_ if i == by_ne => 4,
+		_ => 12,
+	};
+	let a: Vec<Picky> = data.iter().map(|&x| Picky(x.into(), &log)).collect();
+	let mut b: Vec<Picky> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &x)| Picky(u16::from(x) + step(i), &log))
+		.collect();
+	if kind & 0x40 != 0 {
+		b.pop();
+	}
+	let at = |v: &[Picky<'_>], i: usize| v.get(i).map_or(0, |p| p.0);
+	let one = |v: &[Picky<'_>], i: usize| Picky(at(v, i), &log);
+
+	put_eq(a == b, &log, out);
+	put_eq(a != b, &log, out);
+	put_eq(a[..] == b[..], &log, out);
+	put_eq(&a[..] != &b[..], &log, out);
+	put_eq(Vec::<Picky>::new() == Vec::new(), &log, out);
+	put_eq(Vec::<Picky>::new() != b, &log, out);
+	let (pa, pb) = ([one(&a, 0), one(&a, 1)], [one(&b, 0), one(&b, 1)]);
+	put_eq(pa == pb, &log, out);
+	put_eq(pa != pb, &log, out);
+	put_eq(pa == b[..], &log, out);
+	put_eq(vec![a.clone(), a.clone()] == [a.clone(), b.clone()], &log, out);
+	put_eq(vec![a.clone(), b.clone()] != [a.clone(), a.clone()], &log, out);
+
+	// A tuple's `!=` stops at the first field whose `ne` finds it unequal.
+	let tuple = |v: &[Picky<'_>]| (one(v, 0), at(v, 2) as u8, one(v, 1));
+	put_eq(tuple(&a) != tuple(&b), &log, out);
+	put_eq(tuple(&a) == tuple(&b), &log, out);
+	put_eq((tuple(&a), 1u8) != (tuple(&b), 1u8), &log, out);
+	put_eq(
+		each(&a, |p| (p.clone(), p.0 as u8)) == each(&b, |p| (p.clone(), p.0 as u8)),
+		&log,
+		out,
+	);
+	put_eq(
+		&each(&a, |p| (p.clone(), p.0 as u8))[..] != &each(&b, |p| (p.clone(), p.0 as u8))[..],
+		&log,
+		out,
+	);
+	put_eq((Some(one(&a, 0)),) != (Some(one(&b, 0)),), &log, out);
+	put_eq((Reverse(one(&a, 0)),) != (Reverse(one(&b, 0)),), &log, out);
+	put_eq((Box::new(one(&a, 0)),) != (Box::new(one(&b, 0)),), &log, out);
+	put_eq((&one(&a, 0),) != (&one(&b, 0),), &log, out);
+	put_eq(
+		each(&a, |p| Some(p.clone())) == each(&b, |p| Some(p.clone())),
+		&log,
+		out,
+	);
+	put_eq(
+		each(&a, |p| Reverse(p.clone())) == each(&b, |p| Reverse(p.clone())),
+		&log,
+		out,
+	);
+	put_eq(
+		each(&a, |p| Box::new(p.clone())) == each(&b, |p| Box::new(p.clone())),
+		&log,
+		out,
+	);
+
+	// An `Arc` of an `Eq` finds itself equal without comparing; of a tuple with a float,
+	// which is no `Eq`, it compares even itself.
+	let arc = Arc::new(one(&a, 0));
+	put_eq(arc != arc.clone(), &log, out);
+	put_eq(arc == arc.clone(), &log, out);
+	put_eq(Arc::new(one(&a, 0)) != Arc::new(one(&b, 0)), &log, out);
+	let floated = Arc::new((one(&a, 0), 0.5f32));
+	put_eq(floated != floated.clone(), &log, out);
+	put_eq(floated != Arc::new((one(&b, 0), 0.5)), &log, out);
+	put_eq(Rc::new(one(&a, 1)) != Rc::new(one(&b, 1)), &log, out);
+	let shared = each(&a, |p| Arc::new(p.clone()));
+	put_eq(shared == shared.clone(), &log, out);
+	put_eq(shared == each(&b, |p| Arc::new(p.clone())), &log, out);
+	put_eq((arc.clone(), 0u8) != (Arc::new(one(&b, 0)), 0u8), &log, out);
+
+	put_eq(wrapped(&a) == wrapped(&b), &log, out);
+	put_eq(wrapped(&a) != wrapped(&b), &log, out);
+	put_eq(wrapped(&a) == b, &log, out);
+	put_eq(wrapped(&a) == &b[..], &log, out);
+}

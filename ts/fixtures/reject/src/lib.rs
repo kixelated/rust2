@@ -286,23 +286,6 @@ pub fn raw_keys() -> usize {
 	map.len()
 }
 
-pub struct Picky(pub u8);
-
-impl PartialEq for Picky {
-	fn eq(&self, other: &Self) -> bool {
-		self.0 == other.0
-	}
-
-	fn ne(&self, other: &Self) -> bool {
-		self.0 > other.0
-	}
-}
-
-/// An `Arc`'s `!=` calls `Picky`'s own `ne`, which `!eq` would not.
-pub fn picky(a: &std::sync::Arc<Picky>, b: &std::sync::Arc<Picky>) -> bool {
-	a != b
-}
-
 /// `max` drops the operand it doesn't return, which the runtime's leaves undropped.
 pub fn widest(a: std::sync::Arc<str>, b: std::sync::Arc<str>) -> std::sync::Arc<str> {
 	a.max(b)
