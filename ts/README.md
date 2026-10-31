@@ -138,8 +138,9 @@ crate translation reaches is refused, and so are two versions of one crate it re
 An `rt.ByteSlice` is a range of a `Uint8Array`: its `data`, from `start`, for `length`
 bytes. A caller passes bytes as `rt.byteSliceFrom(array)` and reads a slice it gets as
 `rt.byteSliceView(slice)`, a view of it. A mutable part of a slice of other values, as
-`&mut v[a..b]`, `split_at_mut`, and `chunks_mut` lend it, is a `Proxy` of an array whose
-elements are the slice's, read and written where they are, since a JS array has no views.
+`&mut v[a..b]`, `split_at_mut`, `chunks_mut`, and `split_mut` lend it, is a `Proxy` of an
+array whose elements are the slice's, read and written where they are, since a JS array
+has no views.
 
 `usize` is 32 bits, as on wasm32, so it is exact in a `number`. Arithmetic is checked as
 a debug build checks it, so translated code panics where native code would: it never

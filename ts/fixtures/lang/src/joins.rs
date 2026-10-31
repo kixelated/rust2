@@ -73,13 +73,7 @@ fn ids(v: Vec<Logged>, log: &RefCell<Vec<u8>>, out: &mut Vec<u8>) {
 /// `concat` and `join` of what `kind` picks, each over the parts of `data` between its
 /// zeros, as many as `kind`'s high bits pick, none and empty ones included.
 pub fn joins(kind: u8, data: &[u8], out: &mut Vec<u8>) {
-	let mut all = Vec::new();
-	let mut rest = data;
-	while let Some(i) = rest.iter().position(|&b| b == 0) {
-		all.push(&rest[..i]);
-		rest = &rest[i + 1..];
-	}
-	all.push(rest);
+	let all: Vec<&[u8]> = data.split(|&b| b == 0).collect();
 	let parts = &all[..usize::from(kind >> 3) % (all.len() + 1)];
 	let sep = data.first().copied().unwrap_or(7);
 	let seps = &data[..data.len().min(3)];

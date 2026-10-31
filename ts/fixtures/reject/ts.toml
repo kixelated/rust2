@@ -121,5 +121,15 @@ roots = [
     "field_part_replaced",
     "generic_part_replaced",
     "written_part_replaced",
+    "kept_read",
+    "kept_written",
+    "kept_swapped",
+    "kept_replaced",
+    "kept_boxed",
+    "kept_called",
+    "kept_object",
+    "kept_instance",
+    "atomic_swapped",
+    "atomic_exchanged",
 ]
 printable = ["Meters"]

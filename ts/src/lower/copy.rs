@@ -322,11 +322,13 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 /// writes into `p`; through a reference or a box, as `*r = v` does into what `r` points
 /// at; or by anything code it doesn't read can do with a mutable reference or pointer to
 /// one, which counts as a write: one a parameter of a std function the crate names takes,
-/// or one kept anywhere but in a local, whose uses tell. Bodies are read as written, over
-/// their own type parameters, so a write into a type parameter stands for the type each
-/// instance of the body that translation reaches gives it, or in a census lowering a
-/// function over its own type parameters, for every type its bounds let it be. A write
-/// that fills memory nothing points into yet gives no pointer's object another.
+/// or one kept anywhere but in a local. A kept one writes nothing whole, since what reads
+/// it back is the crate's code, whose writes count where they are, or std's, given it
+/// where a call shows. Bodies are read as written, over their own type parameters, so a
+/// write into a type parameter stands for the type each instance of the body that
+/// translation reaches gives it, or in a census lowering a function over its own type
+/// parameters, for every type its bounds let it be. A write that fills memory nothing
+/// points into yet gives no pointer's object another.
 #[derive(Default)]
 pub struct Writes<'tcx> {
 	into: Types<'tcx>,
@@ -793,7 +795,7 @@ impl<'tcx> BodyWrites<'_, '_, '_, 'tcx> {
 impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, '_, 'tcx> {
 	fn visit_assign(&mut self, place: &Place<'tcx>, rvalue: &Rvalue<'tcx>, location: Location) {
 		if place.as_local().is_none() {
-			self.pointees(place.ty(self.body, self.tcx).ty, true);
+			self.pointees(place.ty(self.body, self.tcx).ty, false);
 		}
 		self.store_through(*place, location);
 		// A `dyn Any` has no method that writes: a write through its downcast counts where it is.
@@ -824,7 +826,7 @@ impl<'tcx> Visitor<'tcx> for BodyWrites<'_, '_, '_, 'tcx> {
 		}
 		match &terminator.kind {
 			mir::TerminatorKind::Call { destination, .. } if destination.as_local().is_none() => {
-				self.pointees(destination.ty(self.body, self.tcx).ty, true)
+				self.pointees(destination.ty(self.body, self.tcx).ty, false)
 			}
 			mir::TerminatorKind::Yield { value, .. } => self.pointees(value.ty(self.body, self.tcx), true),
 			_ => {}
