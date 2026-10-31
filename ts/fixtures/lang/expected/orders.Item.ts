@@ -17,25 +17,25 @@ export class Item {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function drop$Drop(self: Item): void {
+export function drop$ops_Drop(self: Item): void {
 	orders_log(Uint8Array.of(100, self.tag, 0));
 }
 
-export function lt$PartialOrd(self: Item, other: Item): boolean {
+export function lt$cmp_PartialOrd(self: Item, other: Item): boolean {
 	orders_log(Uint8Array.of(60, self.tag, other.tag));
 	return self.key < other.key;
 }
 
-export function le$PartialOrd(self: Item, other: Item): boolean {
+export function le$cmp_PartialOrd(self: Item, other: Item): boolean {
 	orders_log(Uint8Array.of(108, self.tag, other.tag));
 	return self.key <= other.key;
 }
 
-export function ge$PartialOrd(self: Item, other: Item): boolean {
+export function ge$cmp_PartialOrd(self: Item, other: Item): boolean {
 	orders_log(Uint8Array.of(103, self.tag, other.tag));
 	return self.key >= other.key;
 }

@@ -2,7 +2,7 @@
 
 import { log as zeros_log } from "./zeros.ts";
 
-export function eq$PartialEq(_self: Defaulted, _other: Defaulted): boolean {
+export function eq$cmp_PartialEq(_self: Defaulted, _other: Defaulted): boolean {
 	return true;
 }
 

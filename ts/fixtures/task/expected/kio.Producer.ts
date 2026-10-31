@@ -14,7 +14,7 @@ export class Producer {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.state[Symbol.dispose]();
 	}
 }
@@ -45,7 +45,7 @@ export function clone$Clone(self: Producer): Producer {
 	return new Producer(rt.arcClone(self.state));
 }
 
-export function drop$Drop(self: Producer): void {
+export function drop$ops_Drop(self: Producer): void {
 	const state: rt.Mutex<State.State> = rt.mutexLock(self.state.value);
 	state.value.producers = rt.usizeSub(state.value.producers, 1);
 	if (!(state.value.producers > 0)) {

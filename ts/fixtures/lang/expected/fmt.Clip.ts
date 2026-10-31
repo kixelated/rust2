@@ -7,7 +7,7 @@ export interface Clip {
 	_0: string;
 }
 
-export function fmt$Debug(self: Clip, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Clip, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (rt.fmtAlternate(f)) {
 		if (!rt.fmtWriteStr(f, "#").ok) {
 			return rt.Err(new rt.FmtError());

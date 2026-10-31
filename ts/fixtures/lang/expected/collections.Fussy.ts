@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function cmp$Ord(self: Fussy, other: Fussy): rt.Ordering {
+export function cmp$cmp_Ord(self: Fussy, other: Fussy): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
 

@@ -5,37 +5,37 @@ import * as Hop from "./keys.Hop.ts";
 import * as Horizon from "./keys.Horizon.ts";
 import * as Name from "./keys.Name.ts";
 
-export function eq$PartialEq(self: Seen, other: Seen): boolean {
+export function eq$cmp_PartialEq(self: Seen, other: Seen): boolean {
 	if (!({ Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[self.tag] === { Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[other.tag])) {
 		return false;
 	}
 	if (self.tag === "Hop") {
-		return rt.eqOption(Hop.eq$PartialEq)(self._0, (other as { tag: "Hop"; _0: Hop.Hop | undefined })._0);
+		return rt.eqOption(Hop.eq$cmp_PartialEq)(self._0, (other as { tag: "Hop"; _0: Hop.Hop | undefined })._0);
 	}
 	if (self.tag === "Twice") {
-		return Horizon.eq$PartialEq(self._0, (other as { tag: "Twice"; _0: Horizon.Horizon })._0);
+		return Horizon.eq$cmp_PartialEq(self._0, (other as { tag: "Twice"; _0: Horizon.Horizon })._0);
 	}
 	if (self.tag === "Text") {
 		return self._0 === (other as { tag: "Text"; _0: string })._0;
 	}
 	if (self.tag === "Name") {
-		return Name.eq$PartialEq(self._0, (other as { tag: "Name"; _0: Name.Name })._0);
+		return Name.eq$cmp_PartialEq(self._0, (other as { tag: "Name"; _0: Name.Name })._0);
 	}
-	return Hop.eq$PartialEq(self._0, (other as { tag: "Mut"; _0: Hop.Hop })._0);
+	return Hop.eq$cmp_PartialEq(self._0, (other as { tag: "Mut"; _0: Hop.Hop })._0);
 }
 
-export function partialCmp$PartialOrd(self: Seen, other: Seen): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Seen, other: Seen): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Seen, other: Seen): rt.Ordering {
+export function cmp$cmp_Ord(self: Seen, other: Seen): rt.Ordering {
 	if (self.tag === "Hop") {
 		if (other.tag === "Hop") {
-			return rt.cmpOption(Hop.cmp$Ord)(self._0, other._0);
+			return rt.cmpOption(Hop.cmp$cmp_Ord)(self._0, other._0);
 		}
 	} else if (self.tag === "Twice") {
 		if (other.tag === "Twice") {
-			return Horizon.cmp$Ord(self._0, other._0);
+			return Horizon.cmp$cmp_Ord(self._0, other._0);
 		}
 	} else if (self.tag === "Text") {
 		if (other.tag === "Text") {
@@ -43,26 +43,26 @@ export function cmp$Ord(self: Seen, other: Seen): rt.Ordering {
 		}
 	} else if (self.tag === "Name") {
 		if (other.tag === "Name") {
-			return Name.cmp$Ord(self._0, other._0);
+			return Name.cmp$cmp_Ord(self._0, other._0);
 		}
 	} else if (other.tag === "Mut") {
-		return Hop.cmp$Ord(self._0, other._0);
+		return Hop.cmp$cmp_Ord(self._0, other._0);
 	}
 	return rt.cmp({ Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[self.tag], { Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[other.tag]);
 }
 
-export function hash$Hash_DefaultHasher(self: Seen, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Seen, state: rt.Hasher): void {
 	rt.hash32({ Hop: 0, Twice: 1, Text: 2, Name: 3, Mut: 4 }[self.tag], state);
 	if (self.tag === "Hop") {
-		rt.hashOption(Hop.hash$Hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined)(self._0, state);
+		rt.hashOption(Hop.hash$Hash_hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined)(self._0, state);
 	} else if (self.tag === "Twice") {
-		Horizon.hash$Hash_DefaultHasher(self._0, state);
+		Horizon.hash$Hash_hash_DefaultHasher(self._0, state);
 	} else if (self.tag === "Text") {
 		rt.hashStr(self._0, state);
 	} else if (self.tag === "Name") {
-		Name.hash$Hash_DefaultHasher(self._0, state);
+		Name.hash$Hash_hash_DefaultHasher(self._0, state);
 	} else {
-		Hop.hash$Hash_DefaultHasher(self._0, state);
+		Hop.hash$Hash_hash_DefaultHasher(self._0, state);
 	}
 }
 

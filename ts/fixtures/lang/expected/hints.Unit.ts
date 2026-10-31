@@ -6,19 +6,19 @@ export function clone$Clone(_self: Unit): Unit {
 	return {};
 }
 
-export function eq$PartialEq(_self: Unit, _other: Unit): boolean {
+export function eq$cmp_PartialEq(_self: Unit, _other: Unit): boolean {
 	return true;
 }
 
-export function partialCmp$PartialOrd(_self: Unit, _other: Unit): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(_self: Unit, _other: Unit): rt.Ordering | undefined {
 	return 0;
 }
 
-export function cmp$Ord(_self: Unit, _other: Unit): rt.Ordering {
+export function cmp$cmp_Ord(_self: Unit, _other: Unit): rt.Ordering {
 	return 0;
 }
 
-export function hash$Hash_DefaultHasher(_self: Unit, _state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(_self: Unit, _state: rt.Hasher): void {
 }
 
 /** Zero-sized, whose derived `clone` assigns nothing. */

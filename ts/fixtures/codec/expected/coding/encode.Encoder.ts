@@ -51,7 +51,7 @@ export function varint(self: Encoder, v: rt.u64): rt.Result<undefined, EncodeErr
 	if (write(v, self.form, self.buf).ok) {
 		return rt.OK;
 	}
-	return rt.Err(EncodeError.from$From_BoundsExceeded({}));
+	return rt.Err(EncodeError.from$convert_From_coding_varint_BoundsExceeded({}));
 }
 
 /** Write an optional varint: `None` as 0, and `Some(n)` as `n + 1`. */
@@ -143,7 +143,7 @@ export function fill(self: Encoder, prefix: Prefix.Prefix): rt.Result<undefined,
 				return rt.OK;
 			}
 		} else {
-			return rt.Err(EncodeError.from$From_BoundsExceeded({}));
+			return rt.Err(EncodeError.from$convert_From_coding_varint_BoundsExceeded({}));
 		}
 	} else {
 		const _7: rt.Result<rt.u16, EncodeError.EncodeError> = result_mapErr$0ujtlj1(rt.u16TryFrom(rt.usizeSub(end, body)), (_2: rt.TryFromIntError): EncodeError.EncodeError => {

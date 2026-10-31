@@ -2,11 +2,11 @@
 
 import * as rt from "../rt.ts";
 
-export function asDisplay$AsDisplay_u16(self: rt.u16): rt.u16 {
+export function asDisplay$thiserror___private21_AsDisplay_ref_u16(self: rt.u16): rt.u16 {
 	return self;
 }
 
-export function asDisplay$AsDisplay_usize(self: rt.usize): rt.usize {
+export function asDisplay$thiserror___private21_AsDisplay_ref_usize(self: rt.usize): rt.usize {
 	return self;
 }
 

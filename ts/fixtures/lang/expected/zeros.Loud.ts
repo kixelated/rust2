@@ -5,11 +5,11 @@ import { log as zeros_log } from "./zeros.ts";
 export class Loud {
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function drop$Drop(_self: Loud): void {
+export function drop$ops_Drop(_self: Loud): void {
 	zeros_log(1);
 }
 

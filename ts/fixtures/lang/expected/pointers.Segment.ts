@@ -26,8 +26,26 @@ function new_(): Segment {
 			rt.panic("index out of bounds: the len is " + 4 + " but the index is " + at);
 		}
 		const _15: Lent.Lent<[rt.u8, rt.u8]>[] = slots;
-		const _13: Lent.Lent<[rt.u8, rt.u8]> = Lent.new$MaybeUninit_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]);
+		const _13: Lent.Lent<[rt.u8, rt.u8]> = Lent.new$mem_MaybeUninit_tuple2_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]);
 		rt.ptrWrite(_15[at], _13);
+	}
+	return { filled: 0, slots };
+}
+
+/** As [`Self::new`], with kio's loop written with an iterator. */
+export function iterated(): Segment {
+	const slots: Lent.Lent<[rt.u8, rt.u8]>[] = Array.from({ length: 4 }, (): Lent.Lent<[rt.u8, rt.u8]> => {
+		return (new Lent.Lent((undefined as unknown) as rt.Cell<[rt.u8, rt.u8]>) as unknown) as Lent.Lent<[rt.u8, rt.u8]>;
+	});
+	const iter: rt.Iter<Lent.Lent<[rt.u8, rt.u8]>> = rt.iterSlice(slots);
+	while (true) {
+		const _8: Lent.Lent<[rt.u8, rt.u8]> | rt.Done = iter.next();
+		if (_8 === rt.DONE) {
+			break;
+		}
+		const uninit = _8;
+		rt.ptrWrite(uninit, Lent.new$mem_MaybeUninit_tuple2_u8_u8(([undefined, undefined] as unknown) as [rt.u8, rt.u8]));
+		uninit;
 	}
 	return { filled: 0, slots };
 }

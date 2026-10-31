@@ -13,15 +13,15 @@ export class Counted {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function hash$Hash_DefaultHasher(self: Counted, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Counted, state: rt.Hasher): void {
 	rt.hash8(self._0, state);
 }
 
-export function drop$Drop(self: Counted): void {
+export function drop$ops_Drop(self: Counted): void {
 	rt.cellSet(self._1, rt.u8Add(self._1.v, 1));
 }
 

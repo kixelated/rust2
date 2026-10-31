@@ -9,7 +9,7 @@ export interface Capped {
 	cap: rt.usize;
 }
 
-export function writeStr$Write(self: Capped, s: string): rt.Result<undefined, rt.FmtError> {
+export function writeStr$fmt_Write(self: Capped, s: string): rt.Result<undefined, rt.FmtError> {
 	self.calls = rt.u8Add(self.calls, 1);
 	if (!(rt.usizeAdd(rt.stringLen(self.text), rt.stringLen(s)) > self.cap)) {
 		const iter: rt.Iter<rt.char> = rt.strChars(s);

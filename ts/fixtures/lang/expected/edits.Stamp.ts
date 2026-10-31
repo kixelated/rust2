@@ -2,11 +2,11 @@
 
 import * as rt from "./rt.ts";
 
-export function partialCmp$PartialOrd(self: Stamp, other: Stamp): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Stamp, other: Stamp): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Stamp, other: Stamp): rt.Ordering {
+export function cmp$cmp_Ord(self: Stamp, other: Stamp): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
 

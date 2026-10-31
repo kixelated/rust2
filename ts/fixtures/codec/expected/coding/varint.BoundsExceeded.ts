@@ -2,11 +2,11 @@
 
 import * as rt from "../rt.ts";
 
-export function fmt$Debug(_self: BoundsExceeded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(_self: BoundsExceeded, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.fmtWriteStr(f, "BoundsExceeded");
 }
 
-export function fmt$Display(_self: BoundsExceeded, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(_self: BoundsExceeded, __formatter: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	return rt.fmtWriteStr(__formatter, "value out of range");
 }
 

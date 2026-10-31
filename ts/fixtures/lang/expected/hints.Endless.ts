@@ -7,7 +7,7 @@ export interface Endless {
 	_0: rt.u64;
 }
 
-export function next$Iterator(self: Endless): rt.u64 | rt.Done {
+export function next$iter_Iterator(self: Endless): rt.u64 | rt.Done {
 	return self._0;
 }
 

@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(self: Window, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Window, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Window";
 	const _4: string = "start";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.durationDebug(self.start, f);
@@ -15,19 +15,19 @@ export function default$Default(): Window {
 	return { start: { secs: 0, nanos: 0 }, len: undefined };
 }
 
-export function eq$PartialEq(self: Window, other: Window): boolean {
+export function eq$cmp_PartialEq(self: Window, other: Window): boolean {
 	if (!rt.durationEq(self.start, other.start)) {
 		return false;
 	}
 	return rt.eqOption(rt.durationEq)(self.len, other.len);
 }
 
-export function hash$Hash_DefaultHasher(self: Window, state: rt.Hasher): void {
+export function hash$Hash_hash_DefaultHasher(self: Window, state: rt.Hasher): void {
 	rt.durationHash(self.start, state);
 	rt.hashOption(rt.durationHash)(self.len, state);
 }
 
-export function cmp$Ord(self: Window, other: Window): rt.Ordering {
+export function cmp$cmp_Ord(self: Window, other: Window): rt.Ordering {
 	const cmp: rt.Ordering = rt.durationCmp(self.start, other.start);
 	if (cmp === 0) {
 		return rt.cmpOption(rt.durationCmp)(self.len, other.len);

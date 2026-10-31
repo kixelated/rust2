@@ -27,16 +27,16 @@ export function thenSome$1af3oea(self: boolean, t: rt.u32): rt.u32 | undefined {
 	return t;
 }
 
-export function then$1xpp3sz(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
+export function then$06wuxll(self: boolean, f: () => Guard.Guard | undefined): Guard.Guard | undefined | rt.None {
 	if (!self) {
-		return undefined;
+		return rt.None;
 	}
 	return f();
 }
 
-export function then$06wuxll(self: boolean, f: () => Guard.Guard | undefined): Guard.Guard | undefined | rt.None {
+export function then$1xpp3sz(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
 	if (!self) {
-		return rt.None;
+		return undefined;
 	}
 	return f();
 }

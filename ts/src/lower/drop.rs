@@ -538,6 +538,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			owner: Some(info.sym),
 			kind: SymKind::Method,
 			order: 0,
+			span: rustc_span::DUMMY_SP,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,

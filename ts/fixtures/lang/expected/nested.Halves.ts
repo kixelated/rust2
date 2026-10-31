@@ -8,7 +8,7 @@ export interface Halves {
 	_0: rt.u8;
 }
 
-export function next$Iterator(self: Halves): rt.u8 | undefined | rt.Done {
+export function next$iter_Iterator(self: Halves): rt.u8 | undefined | rt.Done {
 	const _2: rt.u8 | undefined = rt.u8CheckedSub(self._0, 1);
 	if (_2 !== undefined) {
 		const n: rt.u8 = _2;

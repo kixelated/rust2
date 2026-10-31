@@ -24,7 +24,7 @@ export class Watch {
  * What [`at`] reads, through [`streamed`]: a value of 3 modulo 4 errs, and is
  * watched as ten times itself.
  */
-export function poll$Task(self: Watch, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
+export function poll$kio_Task(self: Watch, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	const _3: rt.Result<rt.Poll<rt.u64 | undefined>, rt.u64> = streamed(at(self.rx, self.index, waiter));
 	if (_3.ok) {
 		return _3.value;

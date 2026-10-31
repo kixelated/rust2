@@ -3,24 +3,24 @@
 import * as rt from "./rt.ts";
 import * as Hop from "./keys.Hop.ts";
 
-export function eq$PartialEq(self: Horizon, other: Horizon): boolean {
+export function eq$cmp_PartialEq(self: Horizon, other: Horizon): boolean {
 	if (!(self.local === other.local)) {
 		return false;
 	}
-	return rt.eqOption(Hop.eq$PartialEq)(self.exclude, other.exclude);
+	return rt.eqOption(Hop.eq$cmp_PartialEq)(self.exclude, other.exclude);
 }
 
-export function hash$Hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
-	rt.hashOption(Hop.hash$Hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined)(self.exclude, state);
+export function hash$Hash_hash_DefaultHasher(self: Horizon, state: rt.Hasher): void {
+	rt.hashOption(Hop.hash$Hash_hash_DefaultHasher as (a0: Hop.Hop, a1: rt.Hasher) => undefined)(self.exclude, state);
 	rt.hash8(self.local, state);
 }
 
-export function partialCmp$PartialOrd(self: Horizon, other: Horizon): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Horizon, other: Horizon): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Horizon, other: Horizon): rt.Ordering {
-	const cmp: rt.Ordering = rt.cmpOption(Hop.cmp$Ord)(self.exclude, other.exclude);
+export function cmp$cmp_Ord(self: Horizon, other: Horizon): rt.Ordering {
+	const cmp: rt.Ordering = rt.cmpOption(Hop.cmp$cmp_Ord)(self.exclude, other.exclude);
 	if (cmp === 0) {
 		return rt.cmp(self.local, other.local);
 	}

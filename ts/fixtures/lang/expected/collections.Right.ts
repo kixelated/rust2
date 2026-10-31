@@ -7,7 +7,7 @@ export interface Right {
 	_0: rt.u16;
 }
 
-export function eq$PartialEq_Left(self: Right, other: Left.Left): boolean {
+export function eq$cmp_PartialEq_collections_Left(self: Right, other: Left.Left): boolean {
 	Left.log(other, 1024);
 	return rt.u16Rem(self._0, 4) === rt.u16Rem(other._0, 4);
 }
