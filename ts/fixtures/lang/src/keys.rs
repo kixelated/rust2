@@ -1090,4 +1090,13 @@ fn keyed<T: Ord + Hash + Clone, const N: usize>(data: &[u8], make: impl Fn(u8) -
 		]);
 	}
 	out.push(options.contains(&None) as u8);
+	// Keys that are references to elements, found by what each points at.
+	let firsts: Vec<T> = data.iter().filter_map(|&b| make(b).first().cloned()).collect();
+	let refs: BTreeMap<&T, u8> = firsts.iter().enumerate().map(|(i, k)| (k, i as u8)).collect();
+	let hashed: HashSet<&T> = firsts.iter().collect();
+	for b in 0..8 {
+		if let Some(first) = make(b).first() {
+			out.extend([refs.get(first).copied().unwrap_or(0xdd), hashed.contains(first) as u8]);
+		}
+	}
 }

@@ -34,3 +34,4 @@ generic std gap is planned here even when moq never calls it.
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [A parameter read only where lowering leaves nothing](/quest/m3/ts-unread-params.md) - an instance whose lowering drops every read of a parameter marks it unused, so `tsc` accepts it
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
+- [Unbounded ranges as iterators adaptors take](/quest/m3/ts-range-from-iter.md) - `iter.zip(0..)` and other adaptors taking a `start..` type-check
