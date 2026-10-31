@@ -1,9 +1,9 @@
 //! What may hold a raw pointer, so that rustc's liveness of those locals bounds where it
 //! may still be read: the pointer made at the statement being lowered, or every pointer
 //! into memory a write fills, which nothing points into yet if none may be read after.
-//! Std's code given one, as its iterators are, keeps it only where its result says if it
-//! may call none of the crate's code: a type of the crate it is given meets no bound of its
-//! but std's own, inert impls, and has no drop glue.
+//! Std's code given one, as its iterators are, keeps it only in what it returns if it can
+//! run none of the crate's code: each of the crate's types it is given has no drop glue
+//! and meets only bounds that call nothing or that std's own impls, inert in turn, meet.
 
 use std::cell::RefCell;
 
@@ -272,9 +272,9 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 		Some(new)
 	}
 
-	/// What a call of `func` given `args`, of which those at `given` hold pointers, returns:
-	/// a pointer at what level of what one points at; `None` if it may keep one anywhere
-	/// else.
+	/// What a call of `func` given `args`, of which those at `given` hold pointers, returns
+	/// as a `returned`: a pointer at what level of what one points at; `None` if it may keep
+	/// one anywhere else.
 	fn call(
 		&self,
 		func: &Operand<'tcx>,
@@ -722,11 +722,11 @@ impl<'x, 'a, 'tcx> Trace<'x, 'a, 'tcx> {
 		false
 	}
 
-	/// Where the pointers `local` may hold, to a `filled` value if known, may have come from, following
-	/// copies, casts, pointers made through them, and calls of std or the crate that return
-	/// where they point, or of std's that run none of the crate's code, which may return
-	/// what their arguments reach, and change what their mutable borrows of a local hold;
-	/// `None` if from anywhere else, such as memory.
+	/// Where the pointers `local` may hold, to a `filled` value if known, may have come
+	/// from, following copies, casts, pointers made through them, and calls of std or the
+	/// crate that return where they point, or of std's that run none of the crate's code,
+	/// which may return what their arguments reach and change what their mutable borrows of
+	/// a local hold; `None` if from anywhere else, such as memory.
 	fn origins(&self, local: Local, filled: Option<Ty<'tcx>>) -> Option<FxIndexSet<Source>> {
 		let defs = self.defs();
 		let defs = defs.as_ref().expect("defs are found");
