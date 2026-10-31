@@ -1,7 +1,7 @@
 # Census of `reject-fixture`
 
-- Refusals: 119
-- Function instances: 144
+- Refusals: 120
+- Function instances: 148
 - Generic functions no instance reached, lowered over their type parameters: 10
 
 ## By construct
@@ -40,6 +40,7 @@
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | fixtures/reject/src/lib.rs:534:12 |
 | 1 | `_`, which is not supported yet | fixtures/reject/src/lib.rs:279:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | fixtures/reject/src/lib.rs:401:6 |
+| 1 | `collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet | fixtures/reject/src/lib.rs:985:22 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | fixtures/reject/src/lib.rs:62:10 |
 | 1 | a `collect` in place of `_`, a zip std reads by index, holding values that drop, which is not supported yet | fixtures/reject/src/lib.rs:221:40 |
 | 1 | a `skip` of `_`, a zip std reads by index, of items that drop, which is not supported yet | fixtures/reject/src/lib.rs:214:8 |
@@ -132,13 +133,15 @@ The type or module each refused type or path belongs to.
 | 1 | `poll` | fixtures/reject/src/lib.rs:515:2 |
 | 1 | `rt.Poll` | fixtures/reject/src/lib.rs:515:2 |
 | 1 | `std::any::Any` | fixtures/reject/src/lib.rs:558:4 |
+| 1 | `std::cell::Cell` | fixtures/reject/src/lib.rs:985:22 |
+| 1 | `std::collections::BTreeMap` | fixtures/reject/src/lib.rs:985:22 |
 | 1 | `std::iter::Extend` | fixtures/reject/src/lib.rs:955:6 |
 | 1 | `std::iter::Map` | fixtures/reject/src/lib.rs:221:40 |
 | 1 | `std::iter::Zip` | fixtures/reject/src/lib.rs:214:8 |
 | 1 | `std::net::AddrParseError` | fixtures/reject/src/lib.rs:451:32 |
 | 1 | `std::net::Ipv4Addr` | fixtures/reject/src/lib.rs:451:32 |
-| 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:984:32 |
-| 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:984:11 |
+| 1 | `std::ops::RangeFrom` | fixtures/reject/src/lib.rs:1014:32 |
+| 1 | `std::ops::RangeTo` | fixtures/reject/src/lib.rs:1014:11 |
 | 1 | `std::ops::Range` | fixtures/reject/src/lib.rs:172:8 |
 | 1 | `std::option::Option` | fixtures/reject/src/lib.rs:387:2 |
 | 1 | `std::slice::IterMut` | fixtures/reject/src/lib.rs:786:15 |
@@ -188,6 +191,7 @@ The type or module each refused type or path belongs to.
 | 1 | `_` with a mutable reference to a value JS copies, which its mapping would copy | `std::sync::Mutex::get_mut` | fixtures/reject/src/lib.rs:534:12 |
 | 1 | `_`, which is not supported yet | `Hasher::write` | fixtures/reject/src/lib.rs:279:9 |
 | 1 | `_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported | `BytesMut::capacity` | fixtures/reject/src/lib.rs:401:6 |
+| 1 | `collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet | `std::collections::BTreeMap`, `std::cell::Cell` | fixtures/reject/src/lib.rs:985:22 |
 | 1 | `fmt::Arguments` with a placeholder, or not made in place, written to `_`'s own `fmt::Write`, which is not supported yet: std splits what a placeholder writes into `write_str` calls the runtime does not make | `Sink` | fixtures/reject/src/lib.rs:62:10 |
 | 1 | a `collect` in place of `_`, a zip std reads by index, holding values that drop, which is not supported yet | `std::iter::Map` | fixtures/reject/src/lib.rs:221:40 |
 | 1 | a `skip` of `_`, a zip std reads by index, of items that drop, which is not supported yet | `std::iter::Zip` | fixtures/reject/src/lib.rs:214:8 |
@@ -231,7 +235,7 @@ The type or module each refused type or path belongs to.
 | 1 | union `_`, whose fields overlap in `_` and `f64`, which JS keeps apart | `Bits`, `u32` | fixtures/reject/src/lib.rs:602:1 |
 | 1 | unsupported call to `_` | `<std::any::TypeId as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:558:2 |
 | 1 | unsupported call to `_` | `<std::borrow::Cow as std::ops::Deref>::deref` | fixtures/reject/src/lib.rs:361:2 |
-| 1 | unsupported call to `_` | `<std::ops::RangeFrom as std::ops::RangeBounds>::contains` | fixtures/reject/src/lib.rs:984:32 |
+| 1 | unsupported call to `_` | `<std::ops::RangeFrom as std::ops::RangeBounds>::contains` | fixtures/reject/src/lib.rs:1014:32 |
 | 1 | unsupported call to `_` | `<std::option::Option as std::cmp::PartialEq>::eq` | fixtures/reject/src/lib.rs:387:2 |
 | 1 | unsupported call to `_` | `<std::slice::Iter as std::iter::Iterator>::cycle` | fixtures/reject/src/lib.rs:124:11 |
 | 1 | unsupported call to `_` | `<std::slice::IterMut as std::iter::Iterator>::is_sorted` | fixtures/reject/src/lib.rs:786:15 |
@@ -239,7 +243,7 @@ The type or module each refused type or path belongs to.
 | 1 | unsupported call to `_` | `<u8 as std::hash::Hash>::hash` | fixtures/reject/src/lib.rs:319:10 |
 | 1 | unsupported call to `_` | `std::any::TypeId::of` | fixtures/reject/src/lib.rs:558:17 |
 | 1 | unsupported call to `_` | `std::ops::Range::contains` | fixtures/reject/src/lib.rs:172:8 |
-| 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:984:11 |
+| 1 | unsupported call to `_` | `std::ops::RangeTo::contains` | fixtures/reject/src/lib.rs:1014:11 |
 | 1 | unsupported call to `_` | `std::std::Layout::new` | fixtures/reject/src/lib.rs:585:15 |
 | 1 | unsupported call to `_` | `std::std::alloc` | fixtures/reject/src/lib.rs:587:11 |
 | 1 | unsupported call to `_` | `std::std::dealloc` | fixtures/reject/src/lib.rs:590:3 |
@@ -266,8 +270,8 @@ The type or module each refused type or path belongs to.
 - fixtures/reject/src/lib.rs:590:3: unsupported call to `std::alloc::dealloc`
 - fixtures/reject/src/lib.rs:786:15: unsupported call to `<std::slice::IterMut<'_, u8> as std::iter::Iterator>::is_sorted`
 - fixtures/reject/src/lib.rs:911:10: unsupported call to `<std::vec::Vec<u8> as std::clone::Clone>::clone_from`
-- fixtures/reject/src/lib.rs:984:11: unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>`
-- fixtures/reject/src/lib.rs:984:32: unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>`
+- fixtures/reject/src/lib.rs:1014:11: unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>`
+- fixtures/reject/src/lib.rs:1014:32: unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>`
 
 </details>
 
@@ -496,6 +500,12 @@ The type or module each refused type or path belongs to.
 <details><summary>`_`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported (1)</summary>
 
 - fixtures/reject/src/lib.rs:401:6: `BytesMut::capacity`, which reads a capacity that depends on whether the other handles of its storage dropped, which is not supported
+
+</details>
+
+<details><summary>`collect` of `_`, which sorts by `_`'s own `Ord`, of entries that drop, which is not supported yet (1)</summary>
+
+- fixtures/reject/src/lib.rs:985:22: `collect` of `std::collections::BTreeMap<std::cell::Cell<Ranked>, Noisy>`, which sorts by `std::cell::Cell<Ranked>`'s own `Ord`, of entries that drop, which is not supported yet
 
 </details>
 

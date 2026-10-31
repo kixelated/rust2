@@ -311,8 +311,9 @@ number, string, or boolean in a JS `Map`, which compares those as Rust's `Eq` do
 finds any other key, a 64-bit one past 2^53 included, through its translated `Hash` and
 `Eq`; a B-tree orders every key by its translated `Ord`. std's impls are the runtime's: an
 `Option` orders `None` first, an `Arc` compares, orders, and hashes as what it holds,
-so a map of `Arc<str>` finds a `&str`, and arrays, slices, and vectors, of bytes or of
-other elements, order by their elements and then their length, and compare and hash alike
+so a map of `Arc<str>` finds a `&str`, a `Cell` and a `RefCell` compare and order as
+what they hold, a `RefCell` borrowing each, a one-time cell compares its `Option`, and
+arrays, slices, and vectors, of bytes or of other elements, order by their elements and then their length, and compare and hash alike
 whatever their form, so a map of `Vec<u8>` finds a `&[u8]` and one of `[u16; 2]` a `&[u16]`.
 Slices, arrays, `Vec`s, and `VecDeque`s compare against each
 other as std's do, by their lengths and then each pair of items in order, through the
@@ -714,8 +715,9 @@ built natively for wasm32 and run beside its translation on the same inputs by
   closures that log what each
   adaptor reads, `Option`'s and `Result`'s combinators, with closures that log each call,
   and std's collections, over keys whose own `Hash`, `Eq`, and `Ord`
-  disagree with JS's, sequences, tuples, and `Arc`s compared across forms and item types by an
-  `eq` and `ne` that disagree, `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
+  disagree with JS's, sequences, tuples, `Arc`s, and cells compared across forms and item
+  types by an `eq` and `ne` that disagree, a `RefCell` compared while mutably borrowed,
+  `vec![x; n]` of types whose `Clone` counts its clones, `&mut`
   to values JS copies, of locals, fields, elements, and a map's values, passed on,
   returned, kept in a struct, and captured, a `Vec`'s edits and sorts, with closures
   that log what each is called with, std's `Bound`, `Reverse`, and `NonZero`, and raw

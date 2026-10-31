@@ -27,8 +27,8 @@ an assignment through a reference to `std::pin::Pin<std::boxed::Box<dyn std::fut
 replacing the value behind a reference to `std::pin::Pin<std::boxed::Box<[u8; 2]>>` at fixtures/reject/src/lib.rs:106:2
 unsupported call to `<std::slice::Iter<'_, u8> as std::iter::Iterator>::cycle` at fixtures/reject/src/lib.rs:124:11
 unsupported call to `std::ops::Range::<Key>::contains::<Key>` at fixtures/reject/src/lib.rs:172:8
-unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>` at fixtures/reject/src/lib.rs:984:11
-unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>` at fixtures/reject/src/lib.rs:984:32
+unsupported call to `std::ops::RangeTo::<u8>::contains::<Key>` at fixtures/reject/src/lib.rs:1014:11
+unsupported call to `<std::ops::RangeFrom<u8> as std::ops::RangeBounds<u8>>::contains::<Key>` at fixtures/reject/src/lib.rs:1014:32
 a `skip` of `std::iter::Zip<std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:213:27: 213:31}>, std::iter::Map<std::slice::Iter<'_, u8>, {closure@fixtures/reject/src/lib.rs:213:59: 213:63}>>`, a zip std reads by index, of items that drop, which is not supported yet at fixtures/reject/src/lib.rs:214:8
 a `collect` in place of `std::iter::Map<std::iter::Zip<std::iter::Map<std::vec::IntoIter<u8>, {closure@fixtures/reject/src/lib.rs:220:32: 220:40}>, std::ops::Range<u8>>, {closure@fixtures/reject/src/lib.rs:221:24: 221:32}>`, a zip std reads by index, holding values that drop, which is not supported yet at fixtures/reject/src/lib.rs:221:40
 an assignment through a reference to `std::pin::Pin<&mut Noisy>` at fixtures/reject/src/lib.rs:226:2
@@ -112,6 +112,7 @@ a raw pointer to `(u32, u32)` in `Gap`, which the crate may put another object i
 a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:947:19
 a raw pointer to `std::mem::MaybeUninit<(u32, u32)>` in `Gap`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:948:19
 `std::iter::Extend::extend` of a reference to an array of bytes it is generic over, which its mapping would take as the array, not as a slice of it at fixtures/reject/src/lib.rs:955:6
+`collect` of `std::collections::BTreeMap<std::cell::Cell<Ranked>, Noisy>`, which sorts by `std::cell::Cell<Ranked>`'s own `Ord`, of entries that drop, which is not supported yet at fixtures/reject/src/lib.rs:985:22
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:137:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:157:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:185:2

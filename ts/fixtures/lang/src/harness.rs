@@ -184,6 +184,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::range_froms", iters::range_froms),
 		("iters::range_methods", iters::range_methods),
 		("clones::iters", clones::iters),
+		("collections::cell_eqs", collections::cell_eqs),
 	]
 }
 
