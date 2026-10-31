@@ -185,6 +185,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("iters::range_methods", iters::range_methods),
 		("clones::iters", clones::iters),
 		("collections::cell_eqs", collections::cell_eqs),
+		("iters::compares", iters::compares),
+		("collections::unlike_compares", collections::unlike_compares),
 	]
 }
 

@@ -733,6 +733,11 @@ pub fn inside(log: &Log, id: u32, arg: u8) {
 	inside::inside(log, id, arg);
 }
 
+/// Run scenario `arg % 9` of what std's comparisons of iterators drop.
+pub fn compared(log: &Log, id: u32, arg: u8) {
+	iters::compared(log, id, arg);
+}
+
 /// Run scenario `arg % 9` of what a `Vec`'s edits, its, a tuple's, and a box's `clone`,
 /// `Ord`'s defaults, and an iterator's `max` and `min` drop. One ends in an index past the
 /// end, which panics with std's message.
