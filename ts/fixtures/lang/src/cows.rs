@@ -348,12 +348,22 @@ pub fn slices(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			}
 			put_words(out, &c);
 			put_words(out, &kept);
-			// A payload passed on as a `&mut`, which leaves a clone as it was too.
+			// A payload passed on as a `&mut`, then replaced and read through the same
+			// borrow, which leaves a clone as it was too.
 			let mut e = cow_of(&v, !owned);
 			let kept = e.clone();
 			match &mut e {
-				Cow::Borrowed(s) => repoint(s, half),
-				Cow::Owned(o) => o.truncate(1),
+				Cow::Borrowed(s) => {
+					repoint(s, half);
+					out.push(s.len() as u8);
+					*s = &v[..v.len().min(1)];
+					out.push(s.len() as u8);
+				}
+				Cow::Owned(o) => {
+					o.truncate(1);
+					*o = half.to_vec();
+					out.push(o.len() as u8);
+				}
 			}
 			put_words(out, &e);
 			put_words(out, &kept);

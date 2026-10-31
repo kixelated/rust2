@@ -800,8 +800,8 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 
 	/// A store of `value` to `place` as a store of the whole value to what holds it, where
 	/// `place`, or what a reference to it reads, is the payload of an `Option`, `Poll`,
-	/// `Result`, `ControlFlow`, or `Cow<[T]>`: JS shares their values as immutable, so a
-	/// payload changes by making its enum again.
+	/// `Result`, or `ControlFlow`: JS shares their values as immutable, so a payload
+	/// changes by making its enum again.
 	fn rebuilt(&mut self, place: Place<'tcx>, value: Expr, span: Span) -> (Place<'tcx>, Expr) {
 		let tcx = self.tcx;
 		let (mut at, mut value, mut rebuilt) = (place, value, false);
@@ -830,13 +830,10 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let ty::Adt(adt, args) = ty.kind() else {
 				break;
 			};
-			let made = match Std::of(tcx, adt.did()) {
-				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow) => true,
-				// Its variant is its class, which a `Vec` or a slice in its place would lose.
-				Some(Std::Cow) => crate::lower::library::cow_slice(tcx, ty).is_some(),
-				_ => false,
-			};
-			if !made {
+			if !matches!(
+				Std::of(tcx, adt.did()),
+				Some(Std::Option | Std::Poll | Std::Result | Std::ControlFlow)
+			) {
 				break;
 			}
 			value = self.adt(adt.did(), *variant, args, vec![value], ty, span);
