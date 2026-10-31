@@ -179,6 +179,101 @@ pub fn divide(a: u64, b: u64) -> Result<(u64, u64), Error> {
 	}
 }
 
+/// `n` narrowed as [`widths`] does, unless 0: a tuple inside an `Option` is a struct.
+pub fn spread(n: u64) -> Option<(u8, i16, u32, u64)> {
+	(n != 0).then(|| widths(n))
+}
+
+/// Where `needle` first starts in `haystack`, and its length, as moq-mux's
+/// `find_start_code` returns it.
+pub fn find(haystack: &[u8], needle: &[u8]) -> Option<(usize, usize)> {
+	(haystack.windows(needle.len()))
+		.position(|window| window == needle)
+		.map(|at| (at, needle.len()))
+}
+
+/// Each point named by its index, with its shape: rows of tuples, as moq-net's stats
+/// snapshots return them.
+pub fn rows(points: &[Point]) -> Vec<(String, Shape, Point)> {
+	(points.iter().enumerate())
+		.map(|(i, p)| {
+			let shape = match p.x == p.y {
+				true => Shape::Square,
+				false => Shape::Circle,
+			};
+			(format!("p{i}"), shape, *p)
+		})
+		.collect()
+}
+
+/// Counters by name, which takes each counter's handle in a tuple.
+pub struct Board {
+	counters: std::collections::BTreeMap<String, Counter>,
+}
+
+impl Board {
+	pub fn new(counters: Vec<(String, Counter)>) -> Self {
+		Self {
+			counters: counters.into_iter().collect(),
+		}
+	}
+
+	/// Each name and its counter, highest first, as hang's `ranked`: each pair borrowed,
+	/// so each crosses as a clone.
+	pub fn ranked(&self) -> impl Iterator<Item = (&String, &Counter)> {
+		let mut ranked: Vec<_> = self.counters.iter().collect();
+		ranked.sort_by_key(|(_, counter)| std::cmp::Reverse(counter.get()));
+		ranked.into_iter()
+	}
+}
+
+/// A span: a record whose fields are tuples, one holding text.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Span {
+	pub bounds: (u32, u32),
+	pub named: Option<(String, Shape)>,
+}
+
+/// The span's two halves, each a tuple inside the tuple returned.
+pub fn halves(span: &Span) -> ((u32, u32), (u32, u32)) {
+	let (start, end) = span.bounds;
+	let mid = start + (end - start) / 2;
+	((start, mid), (mid, end))
+}
+
+/// `value` doubled: a tuple of one inside an `Option` keeps `None` apart from
+/// `Some((None,))`.
+pub fn doubled(value: Option<(Option<u32>,)>) -> Option<(Option<u32>,)> {
+	value.map(|(n,)| (n.map(|n| n * 2),))
+}
+
+/// A title, for formal speech: a tuple of one borrowed string, whose C struct one of an
+/// owned string shares.
+pub fn title(formal: bool) -> Option<(&'static str,)> {
+	formal.then_some(("Dr",))
+}
+
+/// `name`, unless empty: a tuple of one owned string.
+pub fn named(name: &str) -> Option<(String,)> {
+	(!name.is_empty()).then(|| (name.to_string(),))
+}
+
+/// `value` lent back: a borrowed tuple of one, returned as a clone, is a tuple, not its
+/// element, as only a tuple returned whole is.
+pub fn lent_back(value: &(Vec<u8>,)) -> &(Vec<u8>,) {
+	value
+}
+
+/// `bytes` in a boxed tuple of one, which is a tuple too.
+pub fn boxed_tuple(bytes: Vec<u8>) -> Box<(Vec<u8>,)> {
+	Box::new((bytes,))
+}
+
+/// `pair` with its sides swapped: a tuple taken by value.
+pub fn swapped(pair: (String, u32)) -> (u32, String) {
+	(pair.1, pair.0)
+}
+
 /// Holds counters and lends them: each borrowed return is a new handle to a clone.
 #[derive(Default)]
 pub struct Registry {
@@ -272,6 +367,21 @@ pub fn end(limit: u64) -> Bound<u64> {
 	match limit {
 		0 => Bound::Unbounded,
 		limit => Bound::Excluded(limit),
+	}
+}
+
+/// A range's two bounds, up to the end `limit` puts on it: returned whole, a tuple, not
+/// the pair a `RangeBounds` parameter takes.
+pub fn ends(limit: u64) -> (Bound<u64>, Bound<u64>) {
+	(Bound::Included(0), end(limit))
+}
+
+/// `n` if below `limit`, or else the bounds it falls outside: an error is the pair a
+/// `RangeBounds` parameter takes, not a tuple.
+pub fn below(n: u64, limit: u64) -> Result<u64, (Bound<u64>, Bound<u64>)> {
+	match n < limit {
+		true => Ok(n),
+		false => Err(ends(limit)),
 	}
 }
 
@@ -534,10 +644,10 @@ impl Drop for Token {
 	}
 }
 
-/// Bytes whose drop counts in [`dropped`], as a token's does.
-pub fn token_bytes(id: u32) -> Bytes {
+/// `len` bytes of `id`'s low byte, whose drop counts in [`dropped`], as a token's does.
+pub fn token_bytes(id: u32, len: u32) -> Bytes {
 	// The token is held only for its drop.
-	struct Owner(#[allow(dead_code)] Token, [u8; 4]);
+	struct Owner(#[allow(dead_code)] Token, Vec<u8>);
 
 	impl AsRef<[u8]> for Owner {
 		fn as_ref(&self) -> &[u8] {
@@ -545,7 +655,7 @@ pub fn token_bytes(id: u32) -> Bytes {
 		}
 	}
 
-	Bytes::from_owner(Owner(Token::new(id), id.to_le_bytes()))
+	Bytes::from_owner(Owner(Token::new(id), vec![id as u8; len as usize]))
 }
 
 /// A payload and its sequence number: a record, whose bytes cross in both ways.
@@ -597,6 +707,12 @@ pub fn bump_both(a: &Tally, b: &Tally) -> u32 {
 /// What `by` returns, plus `by_data`: a closure taking nothing, whose data C names apart.
 pub fn offset(by: impl Fn() -> u32, by_data: u32) -> u32 {
 	by() + by_data
+}
+
+/// What `by_` returns, plus `c_by_`: names C++ gives a closure's trampoline and a parameter
+/// renamed apart from a generated name, which must stay apart.
+pub fn shift(by_: impl Fn() -> u32, c_by_: u32) -> u32 {
+	by_() + c_by_
 }
 
 /// A position, which C reaches only as [`walk`] lends it.
@@ -702,6 +818,131 @@ impl<'a, V> From<&'a V> for Timed<&'a V> {
 /// A timed value's compact JSON text, taken as moq's JSON tracks take theirs.
 pub fn timed_text<'a, T: serde::Serialize + 'a>(value: impl Into<Timed<&'a T>>) -> String {
 	serde_json::to_string(value.into().value).expect("a JSON document serializes")
+}
+
+/// A timed payload on a track, which what converts into one converts into.
+pub struct Sample(Timed<Bytes>);
+
+impl<T: Into<Timed<Bytes>>> From<T> for Sample {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// A sample's bytes in hex, which need not be UTF-8, two conversions from what C lends.
+pub fn sample_hex(sample: impl Into<Sample>) -> String {
+	hex(sample.into().0.value)
+}
+
+/// A sample queued past the conversion, so what converts into it is owned.
+pub struct Queued(Sample);
+
+impl<T: Into<Sample> + 'static> From<T> for Queued {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// A queued sample's bytes in hex, which need not be UTF-8, three conversions from owned bytes.
+pub fn queued_hex(queued: impl Into<Queued>) -> String {
+	hex(queued.into().0.0.value)
+}
+
+/// A name from a label, or from what converts into a `Tock`, which converts from what
+/// converts into a `Tick`: a cycle, which only the label leaves.
+pub struct Tick(String);
+
+impl From<Label> for Tick {
+	fn from(label: Label) -> Self {
+		Self(label.name)
+	}
+}
+
+impl<T: Into<Tock> + Copy> From<T> for Tick {
+	fn from(value: T) -> Self {
+		Self(value.into().0)
+	}
+}
+
+/// What converts into a `Tick` converts into a `Tock`.
+pub struct Tock(String);
+
+impl<T: Into<Tick> + Copy> From<T> for Tock {
+	fn from(value: T) -> Self {
+		Self(value.into().0)
+	}
+}
+
+/// The name a `Tick` takes.
+pub fn tick_name(tick: impl Into<Tick>) -> String {
+	tick.into().0
+}
+
+/// A label's name, scoped to a lifetime it borrows nothing for.
+pub struct Scoped<'a>(String, std::marker::PhantomData<&'a ()>);
+
+impl From<Label> for Scoped<'_> {
+	fn from(label: Label) -> Self {
+		Self(label.name, std::marker::PhantomData)
+	}
+}
+
+/// What converts into a `Scoped<'static>`, which an owned label does.
+pub struct Rooted(Scoped<'static>);
+
+impl<T: Into<Scoped<'static>>> From<T> for Rooted {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// The name a `Rooted` takes, through a target whose lifetime is `'static`.
+pub fn rooted_name(rooted: impl Into<Rooted>) -> String {
+	rooted.into().0.0
+}
+
+/// Text copied from a borrow, so `'static` whatever it borrowed.
+pub struct Copied<'a>(String, std::marker::PhantomData<&'a ()>);
+
+impl<'a> From<&'a str> for Copied<'static> {
+	fn from(text: &'a str) -> Self {
+		Self(text.to_string(), std::marker::PhantomData)
+	}
+}
+
+/// What converts into a `Copied<'static>`, which a borrow C lends does.
+pub struct Stored(Copied<'static>);
+
+impl<T: Into<Copied<'static>>> From<T> for Stored {
+	fn from(value: T) -> Self {
+		Self(value.into())
+	}
+}
+
+/// The text a `Stored` takes, through a target whose lifetime its source does not borrow for.
+pub fn stored_text(stored: impl Into<Stored>) -> String {
+	stored.into().0.0
+}
+
+/// A label's name, layered over a `Vec` of its first type once more for each conversion,
+/// until its second type is no longer `u8`.
+pub struct Layer<T, U>(String, std::marker::PhantomData<(T, U)>);
+
+impl From<Label> for Layer<u8, u8> {
+	fn from(label: Label) -> Self {
+		Self(label.name, std::marker::PhantomData)
+	}
+}
+
+impl<T, S: Into<Layer<Vec<T>, T>> + Copy> From<S> for Layer<T, u8> {
+	fn from(value: S) -> Self {
+		Self(value.into().0, std::marker::PhantomData)
+	}
+}
+
+/// The name a `Layer<u8, u8>` takes, through a chain that grows twice and ends.
+pub fn layer_name(layer: impl Into<Layer<u8, u8>>) -> String {
+	layer.into().0
 }
 
 pub fn greet(name: impl Into<String>, shape: Shape) -> String {
@@ -850,6 +1091,29 @@ pub struct Inner<T> {
 /// it: each instance takes its value.
 pub fn kept(from: impl Seed<u64> + 'static) -> u64 {
 	from.seed()
+}
+
+/// Outlives what it is called with, as its supertrait says, and consumes itself, so no
+/// callback implements it.
+pub trait Kept: 'static {
+	fn kept(self) -> i32;
+}
+
+impl Kept for Point {
+	fn kept(self) -> i32 {
+		self.x - self.y
+	}
+}
+
+impl Kept for &'static Point {
+	fn kept(self) -> i32 {
+		self.y - self.x
+	}
+}
+
+/// As `kept`, with the bound that outlives the call implied by `Kept`: it takes a value.
+pub fn keep(kept: impl Kept) -> i32 {
+	kept.kept()
 }
 
 /// A generic record only a constant names, which infers its instance.

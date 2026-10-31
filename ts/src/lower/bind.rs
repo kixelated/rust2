@@ -13,7 +13,7 @@ use rustc_metadata::creader::CStore;
 use rustc_middle::ty::{self, Instance, InstanceKind, TyCtxt, TypeVisitableExt};
 use rustc_span::Span;
 
-use super::{Translator, camel, short_name};
+use super::{Translator, camel, names};
 use crate::program::{Bound, Check, ModPath, Program, SymKind, Symbol, module_file};
 use crate::ts::{Expr, Function, Item, Param, StmtKind, SymId, Type};
 
@@ -142,13 +142,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				},
 			);
 		}
-		let bodies = tcx
-			.mir_keys(())
-			.iter()
-			.map(|def_id| def_id.to_def_id())
-			.chain(self.read.iter().copied());
+		let bodies = tcx.mir_keys(()).iter().map(|def_id| def_id.to_def_id());
 		// A binding's code, a bound type's methods' included, is code it doesn't read.
-		self.writes = super::copy::Writes::of_bodies(tcx, bodies, &|def_id| {
+		self.writes = super::copy::Writes::of_bodies(self, bodies, &self.read, &|def_id| {
 			self.crates.translates(def_id) && !self.bound(def_id)
 		});
 	}
@@ -205,6 +201,12 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			return None;
 		};
 		(adt.did().krate == def_id.krate && self.bound_drops(adt.did()).is_some()).then_some(adt.did())
+	}
+
+	/// Each file the config binds: its module, what importers call it, and its file's name
+	/// as an identifier.
+	pub(super) fn bound_files(&self) -> impl Iterator<Item = (&ModPath, &str, &str)> {
+		(self.bindings.files.iter()).map(|(module, file)| (module, file.namespace.as_str(), file.prefix.as_str()))
 	}
 
 	/// Whether `def_id` is of a crate that translates, rather than bound.
@@ -309,10 +311,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			if crate::lower::iter::is_next(tcx, def_id) {
 				self.err(span, "iterating a bound type, which is not supported yet");
 			}
-			let sig = tcx.instantiate_bound_regions_with_erased(
-				tcx.fn_sig(def_id).instantiate(tcx, instance.args).skip_norm_wip(),
-			);
-			let sig = tcx.normalize_erasing_regions(self.typing_env_pub(), ty::Unnormalized::new_wip(sig));
+			let sig = self.sig(def_id, instance.args);
 			// `=> undefined` for `()`, not `fn_ty`'s `=> void`, which accepts any return value.
 			let params = sig.inputs().iter().map(|t| self.ty(*t, span)).collect();
 			let ty = Type::Func(params, Box::new(self.ty(sig.output(), span)));
@@ -405,6 +404,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			owner: None,
 			kind,
 			order: 0,
+			span: rustc_span::DUMMY_SP,
 			instance: String::new(),
 			name,
 			alias: None,
@@ -421,6 +421,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			owner: None,
 			kind: SymKind::Function,
 			order: self.program.checks.len() as u32,
+			span,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,
@@ -470,8 +471,6 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	if program.checks.is_empty() {
 		return;
 	}
-	let module = check_module();
-	let path = out.join(module_file(&module));
 	let failed = |msg: String| {
 		tcx.dcx().err(format!("rust2-ts: {msg}"));
 		_ = crate::program::clean(out);
@@ -479,6 +478,14 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	if let Err(err) = tsc_version() {
 		return failed(err);
 	}
+	// `tsc` names each file from its working directory, which the OS resolves through any
+	// symlink, so it's given the project by the real path too.
+	let real = match out.canonicalize() {
+		Ok(real) => real,
+		Err(err) => return failed(format!("resolving {}: {err}", out.display())),
+	};
+	let module = check_module();
+	let path = real.join(module_file(&module));
 	let items: Vec<&Item> = program.checks.iter().map(|check| &check.item).collect();
 	let printed = match crate::print::module(program, &module, &items, &path) {
 		Ok(printed) => printed,
@@ -516,19 +523,14 @@ pub fn typecheck(tcx: TyCtxt<'_>, program: &Program, out: &Path) {
 	}
 	let text = String::from_utf8_lossy(&output.stdout);
 	let prefix = format!("{name}(");
-	// Where the output is, which a message naming a module spells out, as given or as the
-	// path it resolves to.
-	let dirs: Vec<String> = [Some(out.to_path_buf()), out.canonicalize().ok()]
-		.into_iter()
-		.flatten()
-		.map(|dir| format!("{}/", dir.display()))
-		.collect();
+	// Where the output is, which a message naming a module spells out.
+	let dir = format!("{}/", real.display());
 	// Each item's instances of a generic function fail alike, so each failure is reported once.
 	let mut reported = std::collections::HashSet::new();
 	for diagnostic in diagnostics(&text) {
 		// One in a binding's file names it from the runtime's directory.
 		let diagnostic = diagnostic.strip_prefix("../").unwrap_or(&diagnostic);
-		let diagnostic = dirs.iter().fold(diagnostic.to_string(), |d, dir| d.replace(dir, ""));
+		let diagnostic = diagnostic.replace(&dir, "");
 		let check = diagnostic
 			.strip_prefix(&prefix)
 			.and_then(|rest| rest.split([',', ')']).next())
@@ -610,19 +612,14 @@ pub fn check_module() -> ModPath {
 /// implements with the trait's type arguments as the impl names them, as a translated
 /// function's suffix has them, but not the type arguments of the type or the function,
 /// which a generic TS function takes. `Bytes::slice` is `slice`, and `Bytes`'s
-/// `PartialEq<[u8]>` is `eq$PartialEq_u8s`.
+/// `PartialEq<[u8]>` is `eq$cmp_PartialEq_slice_u8`.
 fn export_name(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 	let base = camel(tcx.item_name(def_id).as_str());
 	let Some(imp) = tcx.trait_impl_of_assoc(def_id) else {
 		return base;
 	};
 	let trait_ref = tcx.impl_trait_ref(imp).instantiate_identity().skip_norm_wip();
-	let mut parts = vec![tcx.item_name(trait_ref.def_id).to_string()];
-	let args = tcx
-		.generics_of(trait_ref.def_id)
-		.own_args_no_defaults(tcx, trait_ref.args);
-	parts.extend(args.iter().filter_map(|arg| arg.as_type()).map(|t| short_name(tcx, t)));
-	format!("{base}${}", parts.join("_"))
+	format!("{base}${}", names::trait_name(tcx, trait_ref))
 }
 
 /// The item `segments` name under `module`, through modules, and then a type's inherent

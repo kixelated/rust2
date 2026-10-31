@@ -2,9 +2,9 @@
 
 import * as rt from "./rt.ts";
 import * as Stats from "./atomics.Stats.ts";
-import { thenSome$bool_i16, thenSome$bool_i32, thenSome$bool_i64, thenSome$bool_i8, thenSome$bool_isize, thenSome$bool_u16, thenSome$bool_u32$2, thenSome$bool_u64, thenSome$bool_u8, thenSome$bool_usize } from "./core/bool.ts";
-import { isSomeAnd$Option_u8_bools_closure0 } from "./core/option.ts";
-import { unwrapOr$Result_i16_i16, unwrapOr$Result_i32_i32, unwrapOr$Result_i64_i64, unwrapOr$Result_i8_i8, unwrapOr$Result_isize_isize, unwrapOr$Result_u16_u16, unwrapOr$Result_u32_u32, unwrapOr$Result_u64_u64, unwrapOr$Result_u8_u8, unwrapOr$Result_usize_usize } from "./core/result.ts";
+import { thenSome$0kwiij6, thenSome$0n2gkz4, thenSome$0tjggir, thenSome$1s4itlz, thenSome$0jkru5t, thenSome$0b23a33, thenSome$1af3oea, thenSome$1ugl8af, thenSome$0d5am30, thenSome$07z8k4h } from "./core/bool.ts";
+import { isSomeAnd$09tpccf } from "./core/option.ts";
+import { unwrapOr$1pnwyus as result_unwrapOr$1pnwyus, unwrapOr$0xokg9f as result_unwrapOr$0xokg9f, unwrapOr$1imvcmw as result_unwrapOr$1imvcmw, unwrapOr$06fxvgg as result_unwrapOr$06fxvgg, unwrapOr$0gr9tn5 as result_unwrapOr$0gr9tn5, unwrapOr$0hnup9g as result_unwrapOr$0hnup9g, unwrapOr$1dnnsw8 as result_unwrapOr$1dnnsw8, unwrapOr$1k2j44a as result_unwrapOr$1k2j44a, unwrapOr$0jmm2jy as result_unwrapOr$0jmm2jy, unwrapOr$1czbd6g as result_unwrapOr$1czbd6g } from "./core/result.ts";
 
 /** An ordering from `b`: one of `valid`, or from 0xf0 on any, which may panic. */
 export function order(b: rt.u8, valid: rt.AtomicOrdering[]): rt.AtomicOrdering {
@@ -121,8 +121,8 @@ export function i16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 				return rt.i16WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_i16_i16(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i16): rt.i16 | undefined => {
-				return thenSome$bool_i16(x4 !== v, v);
+			old = result_unwrapOr$1pnwyus(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i16): rt.i16 | undefined => {
+				return thenSome$0kwiij6(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.i16> = atomic;
@@ -235,8 +235,8 @@ export function i32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 				return rt.i32WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_i32_i32(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i32): rt.i32 | undefined => {
-				return thenSome$bool_i32(x4 !== v, v);
+			old = result_unwrapOr$0xokg9f(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i32): rt.i32 | undefined => {
+				return thenSome$0n2gkz4(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.i32> = atomic;
@@ -349,8 +349,8 @@ export function i64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 				return rt.i64Xor(rt.i64WrappingSub(x5, v), 1);
 			}, rt.i64Eq);
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_i64_i64(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i64): rt.i64 | undefined => {
-				return thenSome$bool_i64(rt.i64Ne(x4, v), v);
+			old = result_unwrapOr$1imvcmw(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i64): rt.i64 | undefined => {
+				return thenSome$0tjggir(rt.i64Ne(x4, v), v);
 			}, rt.i64Eq), v);
 		} else {
 			const _116: rt.Place<rt.i64> = atomic;
@@ -463,8 +463,8 @@ export function i8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 				return rt.i8WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_i8_i8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i8): rt.i8 | undefined => {
-				return thenSome$bool_i8(x4 !== v, v);
+			old = result_unwrapOr$06fxvgg(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.i8): rt.i8 | undefined => {
+				return thenSome$1s4itlz(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.i8> = atomic;
@@ -577,8 +577,8 @@ export function isizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 				return rt.isizeWrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_isize_isize(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.isize): rt.isize | undefined => {
-				return thenSome$bool_isize(x4 !== v, v);
+			old = result_unwrapOr$0gr9tn5(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.isize): rt.isize | undefined => {
+				return thenSome$0jkru5t(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.isize> = atomic;
@@ -691,8 +691,8 @@ export function u16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 				return rt.u16WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_u16_u16(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u16): rt.u16 | undefined => {
-				return thenSome$bool_u16(x4 !== v, v);
+			old = result_unwrapOr$0hnup9g(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u16): rt.u16 | undefined => {
+				return thenSome$0b23a33(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.u16> = atomic;
@@ -805,8 +805,8 @@ export function u32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 				return (rt.u32WrappingSub(x5, v) ^ 1) >>> 0;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_u32_u32(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u32): rt.u32 | undefined => {
-				return thenSome$bool_u32$2(x4 !== v, v);
+			old = result_unwrapOr$1dnnsw8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u32): rt.u32 | undefined => {
+				return thenSome$1af3oea(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.u32> = atomic;
@@ -919,8 +919,8 @@ export function u64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 				return rt.u64Xor(rt.u64WrappingSub(x5, v), 1);
 			}, rt.u64Eq);
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_u64_u64(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u64): rt.u64 | undefined => {
-				return thenSome$bool_u64(rt.u64Ne(x4, v), v);
+			old = result_unwrapOr$1k2j44a(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u64): rt.u64 | undefined => {
+				return thenSome$1ugl8af(rt.u64Ne(x4, v), v);
 			}, rt.u64Eq), v);
 		} else {
 			const _116: rt.Place<rt.u64> = atomic;
@@ -1033,8 +1033,8 @@ export function u8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 				return rt.u8WrappingSub(x5, v) ^ 1;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_u8_u8(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u8): rt.u8 | undefined => {
-				return thenSome$bool_u8(x4 !== v, v);
+			old = result_unwrapOr$0jmm2jy(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.u8): rt.u8 | undefined => {
+				return thenSome$0d5am30(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.u8> = atomic;
@@ -1147,8 +1147,8 @@ export function usizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 				return (rt.usizeWrappingSub(x5, v) ^ 1) >>> 0;
 			});
 		} else if (_60 === 14) {
-			old = unwrapOr$Result_usize_usize(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.usize): rt.usize | undefined => {
-				return thenSome$bool_usize(x4 !== v, v);
+			old = result_unwrapOr$1czbd6g(rt.atomicTryUpdate(atomic, any, failure, (x4: rt.usize): rt.usize | undefined => {
+				return thenSome$07z8k4h(x4 !== v, v);
 			}), v);
 		} else {
 			const _116: rt.Place<rt.usize> = atomic;
@@ -1162,7 +1162,7 @@ export function usizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 
 export function bools(dataData: Uint8Array, dataStart: number, dataLen: number, out: rt.ByteVec): void {
 	let old!: boolean;
-	const flag: rt.Atomic<boolean> = new rt.Atomic(isSomeAnd$Option_u8_bools_closure0(rt.byteSliceFirst(new rt.ByteSlice(dataData, dataStart, dataLen)), (_2: rt.u8): boolean => {
+	const flag: rt.Atomic<boolean> = new rt.Atomic(isSomeAnd$09tpccf(rt.byteSliceFirst(new rt.ByteSlice(dataData, dataStart, dataLen)), (_2: rt.u8): boolean => {
 		return (_2 & 1) === 1;
 	}));
 	let dataData2: Uint8Array = dataData;

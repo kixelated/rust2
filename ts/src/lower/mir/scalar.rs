@@ -311,6 +311,7 @@ impl<'tcx> crate::lower::Translator<'_, 'tcx> {
 			owner: None,
 			kind: crate::program::SymKind::Value,
 			order: u32::MAX,
+			span,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,
@@ -332,21 +333,20 @@ impl<'tcx> crate::lower::Translator<'_, 'tcx> {
 		sym
 	}
 
-	/// Put the slot `sym` beside `instance`, named for it, if it comes first in the source
-	/// of the functions that share it, whatever order translation reaches them in.
+	/// Put the slot `sym` beside `instance`, named for it and suffixed as it is, if it comes
+	/// first in the source of the functions that share it, whatever order translation
+	/// reaches them in.
 	fn place_slot(&mut self, sym: crate::ts::SymId, instance: ty::Instance<'tcx>) {
 		let owner = self.instance(instance);
-		let (order, module) = (self.program.syms[owner].order, self.program.syms[owner].module.clone());
+		let owner = &self.program.syms[owner];
+		let (order, module, suffix) = (owner.order, owner.module.clone(), owner.suffix.clone());
 		let slot = &self.program.syms[sym];
-		if !slot.base.is_empty() && (order, &module) >= (slot.order, &slot.module) {
+		if !slot.base.is_empty() && (order, &module, &suffix) >= (slot.order, &slot.module, &slot.suffix) {
 			return;
 		}
-		let base = format!(
-			"{}Out",
-			crate::lower::camel(self.tcx.item_name(instance.def_id()).as_str())
-		);
+		let base = crate::lower::names::slot_base(self.tcx, instance.def_id());
 		let slot = &mut self.program.syms[sym];
-		(slot.order, slot.module, slot.base) = (order, module, base);
+		(slot.order, slot.module, slot.base, slot.suffix) = (order, module, base, suffix);
 	}
 
 	/// The type of a variable or field that holds `part`.
@@ -1486,7 +1486,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 									els: Vec::new(),
 								}
 								.at(None);
-								self.emit(vec![check], None, false, out);
+								self.emit(vec![check], false, out);
 							}
 						}
 						parts.extend([pure(d.clone(), ds), pure(s.clone(), ss), pure(mid, steady)]);
@@ -1558,7 +1558,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				};
 				let mut pre = Vec::new();
 				let error = self.b.convert(error, from, to, span, &mut pre);
-				self.emit(pre, None, false, out);
+				self.emit(pre, false, out);
 				let mut parts = vec![None; shape.size()];
 				parts[0] = Some((Expr::lit("true"), true));
 				*parts.last_mut().expect("an error") = Some(self.leaf(error));
@@ -1600,7 +1600,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			Type::Union(vec![err_ty.clone(), Type::Builtin("undefined")]),
 		));
 		let stmt = StmtKind::Expr(Expr::ident(&err).assign(call)).at(None);
-		self.emit(vec![stmt], Some(&err), false, out);
+		self.emit(vec![stmt], false, out);
 		let mut parts = vec![Some((Expr::ident(&err).binary("!==", Expr::undefined()), true))];
 		let mut kinds = Vec::new();
 		slotted.ok.parts("", &mut kinds);
@@ -1621,7 +1621,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let values = values.into_iter().map(Expr::typed).collect();
 		let mut pre = Vec::new();
 		let call = self.b.direct_call(instance, values, span, &mut pre);
-		self.emit(pre, None, false, out);
+		self.emit(pre, false, out);
 		match self.b.t.loc(span) {
 			Some(loc) => Expr::Located(loc, Box::new(call)),
 			None => call,
@@ -1642,7 +1642,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	pub(super) fn forward_call(&mut self, args: &[Spanned<Operand<'tcx>>], span: Span, out: &mut Vec<Stmt>) {
 		let call = self.slotted_raw(mir::RETURN_PLACE, args, span, out);
 		let loc = self.b.t.loc(span);
-		self.emit(vec![StmtKind::Return(Some(call)).at(loc)], None, false, out);
+		self.emit(vec![StmtKind::Return(Some(call)).at(loc)], false, out);
 	}
 
 	/// The assignments of the result, a statement's or a call's, after which nothing runs
@@ -1728,7 +1728,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		let loc = self.b.t.loc(span);
 		let mut pre = Vec::new();
 		let value = self.place_expr(Place::return_place(), span, &mut pre);
-		self.emit(pre, None, false, out);
+		self.emit(pre, false, out);
 		let ty = self.b.t.ty(slot.ret, span);
 		let (result, _) = self.steady_value(value, "result", ty, out);
 		let check = StmtKind::If {
@@ -1736,7 +1736,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			then: vec![StmtKind::Return(Some(result.clone().member("error"))).at(loc)],
 			els: Vec::new(),
 		};
-		self.emit(vec![check.at(None)], None, false, out);
+		self.emit(vec![check.at(None)], false, out);
 		let parts = self.take_apart(result.member("value"), &slot.ok, span, out);
 		self.slot_write(slot, parts.into_iter().map(|(e, _)| Some(e)).collect(), span, out);
 	}
@@ -1752,7 +1752,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		match &flag {
 			Expr::Lit(t) if t == "false" => {}
 			Expr::Lit(t) if t == "true" => {
-				self.emit(vec![StmtKind::Return(Some(err)).at(loc)], None, false, out);
+				self.emit(vec![StmtKind::Return(Some(err)).at(loc)], false, out);
 				return;
 			}
 			_ => {
@@ -1761,7 +1761,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					then: vec![StmtKind::Return(Some(err)).at(loc)],
 					els: Vec::new(),
 				};
-				self.emit(vec![check.at(None)], None, false, out);
+				self.emit(vec![check.at(None)], false, out);
 			}
 		}
 		self.slot_write(&slot, parts[1..=n].to_vec(), span, out);
@@ -1774,7 +1774,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			.map(|(i, part)| StmtKind::Expr(slot.field(i).assign(part.unwrap_or_else(Expr::undefined))).at(None))
 			.collect();
 		stmts.push(StmtKind::Return(Some(Expr::undefined())).at(loc));
-		self.emit(stmts, None, false, out);
+		self.emit(stmts, false, out);
 	}
 
 	/// The parts of `op`, a local held as its parts read whole, as `ok_or` and `?` take it.
@@ -1966,7 +1966,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 		self.steady.insert(name.clone());
 		self.scalar_binds.push((name.clone(), ty));
 		let stmt = StmtKind::Expr(Expr::ident(&name).assign(value)).at(None);
-		self.emit(vec![stmt], Some(&name), false, out);
+		self.emit(vec![stmt], false, out);
 		(Expr::ident(name), true)
 	}
 
@@ -2003,7 +2003,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 						true => {
 							let name = self.b.fresh("part");
 							let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
-							self.emit(vec![stmt], None, false, out);
+							self.emit(vec![stmt], false, out);
 							Some(Expr::ident(name))
 						}
 						false => Some(value),
@@ -2026,7 +2026,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 			.expect("a local held as its parts")
 			.assigned = true;
 		let stmt = StmtKind::Expr(Expr::ident(var).assign(value)).at(None);
-		self.emit(vec![stmt], Some(var), false, out);
+		self.emit(vec![stmt], false, out);
 	}
 }
 

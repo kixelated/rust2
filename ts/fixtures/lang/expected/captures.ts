@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function through(n: rt.Place<rt.u8>, b: rt.u8): rt.u8 {
+export function through$u8s(n: rt.Place<rt.u8>, b: rt.u8): rt.u8 {
 	return ((): rt.u8 => {
 		n.v = rt.u8WrappingAdd(n.v, b);
 		return n.v;
@@ -22,7 +22,7 @@ export function u8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u8 = ([rt.u8FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u8, rt.ByteSlice])[0];
-	const put: (a0: rt.u8) => void = (v: rt.u8): void => {
+	const put: (a0: rt.u8) => undefined = (v: rt.u8): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u8ToBeBytes(v)));
 	};
 	let n3: rt.u8 = a;
@@ -57,13 +57,13 @@ export function u8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$u8_u8s_closure5((): rt.u8 => {
+	const part10 = once$u8_captures_u8s_closure5((): rt.u8 => {
 		n3 = rt.u8WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.u8, rt.u8] = twice$u8_u8s_closure6((): rt.u8 => {
+	const _108: [rt.u8, rt.u8] = twice$u8_captures_u8s_closure6((): rt.u8 => {
 		n3 = rt.u8WrappingAdd(n3, a);
 		return n3;
 	});
@@ -91,7 +91,7 @@ export function u8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$u8s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.u8 => {
@@ -104,7 +104,7 @@ export function u8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	put(n3);
 }
 
-export function through$2(n: rt.Place<rt.u16>, b: rt.u16): rt.u16 {
+export function through$u16s(n: rt.Place<rt.u16>, b: rt.u16): rt.u16 {
 	return ((): rt.u16 => {
 		n.v = rt.u16WrappingAdd(n.v, b);
 		return n.v;
@@ -124,7 +124,7 @@ export function u16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u16 = ([rt.u16FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u16, rt.ByteSlice])[0];
-	const put: (a0: rt.u16) => void = (v: rt.u16): void => {
+	const put: (a0: rt.u16) => undefined = (v: rt.u16): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u16ToBeBytes(v)));
 	};
 	let n3: rt.u16 = a;
@@ -159,13 +159,13 @@ export function u16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$u16_u16s_closure5((): rt.u16 => {
+	const part10 = once$u16_captures_u16s_closure5((): rt.u16 => {
 		n3 = rt.u16WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.u16, rt.u16] = twice$u16_u16s_closure6((): rt.u16 => {
+	const _108: [rt.u16, rt.u16] = twice$u16_captures_u16s_closure6((): rt.u16 => {
 		n3 = rt.u16WrappingAdd(n3, a);
 		return n3;
 	});
@@ -193,7 +193,7 @@ export function u16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$2(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$u16s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.u16 => {
@@ -206,7 +206,7 @@ export function u16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	put(n3);
 }
 
-export function through$3(n: rt.Place<rt.u32>, b: rt.u32): rt.u32 {
+export function through$u32s(n: rt.Place<rt.u32>, b: rt.u32): rt.u32 {
 	return ((): rt.u32 => {
 		n.v = rt.u32WrappingAdd(n.v, b);
 		return n.v;
@@ -226,7 +226,7 @@ export function u32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u32 = ([rt.u32FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u32, rt.ByteSlice])[0];
-	const put: (a0: rt.u32) => void = (v: rt.u32): void => {
+	const put: (a0: rt.u32) => undefined = (v: rt.u32): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u32ToBeBytes(v)));
 	};
 	let n3: rt.u32 = a;
@@ -261,13 +261,13 @@ export function u32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$u32_u32s_closure5((): rt.u32 => {
+	const part10 = once$u32_captures_u32s_closure5((): rt.u32 => {
 		n3 = rt.u32WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.u32, rt.u32] = twice$u32_u32s_closure6((): rt.u32 => {
+	const _108: [rt.u32, rt.u32] = twice$u32_captures_u32s_closure6((): rt.u32 => {
 		n3 = rt.u32WrappingAdd(n3, a);
 		return n3;
 	});
@@ -295,7 +295,7 @@ export function u32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$3(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$u32s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.u32 => {
@@ -308,7 +308,7 @@ export function u32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	put(n3);
 }
 
-export function through$4(n: rt.Place<rt.u64>, b: rt.u64): rt.u64 {
+export function through$u64s(n: rt.Place<rt.u64>, b: rt.u64): rt.u64 {
 	return ((): rt.u64 => {
 		n.v = rt.u64WrappingAdd(n.v, b);
 		return n.v;
@@ -328,7 +328,7 @@ export function u64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u64 = ([rt.u64FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u64, rt.ByteSlice])[0];
-	const put: (a0: rt.u64) => void = (v: rt.u64): void => {
+	const put: (a0: rt.u64) => undefined = (v: rt.u64): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u64ToBeBytes(v)));
 	};
 	let n3: rt.u64 = a;
@@ -363,13 +363,13 @@ export function u64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$u64_u64s_closure5((): rt.u64 => {
+	const part10 = once$u64_captures_u64s_closure5((): rt.u64 => {
 		n3 = rt.u64WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.u64, rt.u64] = twice$u64_u64s_closure6((): rt.u64 => {
+	const _108: [rt.u64, rt.u64] = twice$u64_captures_u64s_closure6((): rt.u64 => {
 		n3 = rt.u64WrappingAdd(n3, a);
 		return n3;
 	});
@@ -397,7 +397,7 @@ export function u64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$4(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$u64s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.u64 => {
@@ -410,7 +410,7 @@ export function u64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	put(n3);
 }
 
-export function through$5(n: rt.Place<rt.u128>, b: rt.u128): rt.u128 {
+export function through$u128s(n: rt.Place<rt.u128>, b: rt.u128): rt.u128 {
 	return ((): rt.u128 => {
 		n.v = rt.u128WrappingAdd(n.v, b);
 		return n.v;
@@ -430,7 +430,7 @@ export function u128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.u128 = ([rt.u128FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.u128, rt.ByteSlice])[0];
-	const put: (a0: rt.u128) => void = (v: rt.u128): void => {
+	const put: (a0: rt.u128) => undefined = (v: rt.u128): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.u128ToBeBytes(v)));
 	};
 	let n3: rt.u128 = a;
@@ -465,13 +465,13 @@ export function u128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$u128_u128s_closure5((): rt.u128 => {
+	const part10 = once$u128_captures_u128s_closure5((): rt.u128 => {
 		n3 = rt.u128WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.u128, rt.u128] = twice$u128_u128s_closure6((): rt.u128 => {
+	const _108: [rt.u128, rt.u128] = twice$u128_captures_u128s_closure6((): rt.u128 => {
 		n3 = rt.u128WrappingAdd(n3, a);
 		return n3;
 	});
@@ -499,7 +499,7 @@ export function u128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$5(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$u128s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.u128 => {
@@ -512,7 +512,7 @@ export function u128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	put(n3);
 }
 
-export function through$6(n: rt.Place<rt.usize>, b: rt.usize): rt.usize {
+export function through$usizes(n: rt.Place<rt.usize>, b: rt.usize): rt.usize {
 	return ((): rt.usize => {
 		n.v = rt.usizeWrappingAdd(n.v, b);
 		return n.v;
@@ -532,7 +532,7 @@ export function usizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.usize = ([rt.usizeFromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.usize, rt.ByteSlice])[0];
-	const put: (a0: rt.usize) => void = (v: rt.usize): void => {
+	const put: (a0: rt.usize) => undefined = (v: rt.usize): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.usizeToBeBytes(v)));
 	};
 	let n3: rt.usize = a;
@@ -567,13 +567,13 @@ export function usizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$usize_usizes_closure5((): rt.usize => {
+	const part10 = once$usize_captures_usizes_closure5((): rt.usize => {
 		n3 = rt.usizeWrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.usize, rt.usize] = twice$usize_usizes_closure6((): rt.usize => {
+	const _108: [rt.usize, rt.usize] = twice$usize_captures_usizes_closure6((): rt.usize => {
 		n3 = rt.usizeWrappingAdd(n3, a);
 		return n3;
 	});
@@ -601,7 +601,7 @@ export function usizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$6(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$usizes(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.usize => {
@@ -627,7 +627,7 @@ export function i8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i8 = ([rt.i8FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i8, rt.ByteSlice])[0];
-	const put: (a0: rt.i8) => void = (v: rt.i8): void => {
+	const put: (a0: rt.i8) => undefined = (v: rt.i8): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i8ToBeBytes(v)));
 	};
 	let n3: rt.i8 = a;
@@ -662,13 +662,13 @@ export function i8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$i8_i8s_closure5((): rt.i8 => {
+	const part10 = once$i8_captures_i8s_closure5((): rt.i8 => {
 		n3 = rt.i8WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.i8, rt.i8] = twice$i8_i8s_closure6((): rt.i8 => {
+	const _108: [rt.i8, rt.i8] = twice$i8_captures_i8s_closure6((): rt.i8 => {
 		n3 = rt.i8WrappingAdd(n3, a);
 		return n3;
 	});
@@ -696,7 +696,7 @@ export function i8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$7(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$i8s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.i8 => {
@@ -709,7 +709,7 @@ export function i8s(dataData: Uint8Array, dataStart: number, dataLen: number, ou
 	put(n3);
 }
 
-export function through$7(n: rt.Place<rt.i8>, b: rt.i8): rt.i8 {
+export function through$i8s(n: rt.Place<rt.i8>, b: rt.i8): rt.i8 {
 	return ((): rt.i8 => {
 		n.v = rt.i8WrappingAdd(n.v, b);
 		return n.v;
@@ -729,7 +729,7 @@ export function i16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i16 = ([rt.i16FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i16, rt.ByteSlice])[0];
-	const put: (a0: rt.i16) => void = (v: rt.i16): void => {
+	const put: (a0: rt.i16) => undefined = (v: rt.i16): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i16ToBeBytes(v)));
 	};
 	let n3: rt.i16 = a;
@@ -764,13 +764,13 @@ export function i16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$i16_i16s_closure5((): rt.i16 => {
+	const part10 = once$i16_captures_i16s_closure5((): rt.i16 => {
 		n3 = rt.i16WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.i16, rt.i16] = twice$i16_i16s_closure6((): rt.i16 => {
+	const _108: [rt.i16, rt.i16] = twice$i16_captures_i16s_closure6((): rt.i16 => {
 		n3 = rt.i16WrappingAdd(n3, a);
 		return n3;
 	});
@@ -798,7 +798,7 @@ export function i16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$8(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$i16s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.i16 => {
@@ -811,7 +811,7 @@ export function i16s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	put(n3);
 }
 
-export function through$8(n: rt.Place<rt.i16>, b: rt.i16): rt.i16 {
+export function through$i16s(n: rt.Place<rt.i16>, b: rt.i16): rt.i16 {
 	return ((): rt.i16 => {
 		n.v = rt.i16WrappingAdd(n.v, b);
 		return n.v;
@@ -831,7 +831,7 @@ export function i32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i32 = ([rt.i32FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i32, rt.ByteSlice])[0];
-	const put: (a0: rt.i32) => void = (v: rt.i32): void => {
+	const put: (a0: rt.i32) => undefined = (v: rt.i32): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i32ToBeBytes(v)));
 	};
 	let n3: rt.i32 = a;
@@ -866,13 +866,13 @@ export function i32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$i32_i32s_closure5((): rt.i32 => {
+	const part10 = once$i32_captures_i32s_closure5((): rt.i32 => {
 		n3 = rt.i32WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.i32, rt.i32] = twice$i32_i32s_closure6((): rt.i32 => {
+	const _108: [rt.i32, rt.i32] = twice$i32_captures_i32s_closure6((): rt.i32 => {
 		n3 = rt.i32WrappingAdd(n3, a);
 		return n3;
 	});
@@ -900,7 +900,7 @@ export function i32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$9(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$i32s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.i32 => {
@@ -913,7 +913,7 @@ export function i32s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	put(n3);
 }
 
-export function through$9(n: rt.Place<rt.i32>, b: rt.i32): rt.i32 {
+export function through$i32s(n: rt.Place<rt.i32>, b: rt.i32): rt.i32 {
 	return ((): rt.i32 => {
 		n.v = rt.i32WrappingAdd(n.v, b);
 		return n.v;
@@ -933,7 +933,7 @@ export function i64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i64 = ([rt.i64FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i64, rt.ByteSlice])[0];
-	const put: (a0: rt.i64) => void = (v: rt.i64): void => {
+	const put: (a0: rt.i64) => undefined = (v: rt.i64): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i64ToBeBytes(v)));
 	};
 	let n3: rt.i64 = a;
@@ -968,13 +968,13 @@ export function i64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$i64_i64s_closure5((): rt.i64 => {
+	const part10 = once$i64_captures_i64s_closure5((): rt.i64 => {
 		n3 = rt.i64WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.i64, rt.i64] = twice$i64_i64s_closure6((): rt.i64 => {
+	const _108: [rt.i64, rt.i64] = twice$i64_captures_i64s_closure6((): rt.i64 => {
 		n3 = rt.i64WrappingAdd(n3, a);
 		return n3;
 	});
@@ -1002,7 +1002,7 @@ export function i64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$10(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$i64s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.i64 => {
@@ -1015,7 +1015,7 @@ export function i64s(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	put(n3);
 }
 
-export function through$10(n: rt.Place<rt.i64>, b: rt.i64): rt.i64 {
+export function through$i64s(n: rt.Place<rt.i64>, b: rt.i64): rt.i64 {
 	return ((): rt.i64 => {
 		n.v = rt.i64WrappingAdd(n.v, b);
 		return n.v;
@@ -1035,7 +1035,7 @@ export function i128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.i128 = ([rt.i128FromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.i128, rt.ByteSlice])[0];
-	const put: (a0: rt.i128) => void = (v: rt.i128): void => {
+	const put: (a0: rt.i128) => undefined = (v: rt.i128): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.i128ToBeBytes(v)));
 	};
 	let n3: rt.i128 = a;
@@ -1070,13 +1070,13 @@ export function i128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$i128_i128s_closure5((): rt.i128 => {
+	const part10 = once$i128_captures_i128s_closure5((): rt.i128 => {
 		n3 = rt.i128WrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.i128, rt.i128] = twice$i128_i128s_closure6((): rt.i128 => {
+	const _108: [rt.i128, rt.i128] = twice$i128_captures_i128s_closure6((): rt.i128 => {
 		n3 = rt.i128WrappingAdd(n3, a);
 		return n3;
 	});
@@ -1104,7 +1104,7 @@ export function i128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$11(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$i128s(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.i128 => {
@@ -1117,7 +1117,7 @@ export function i128s(dataData: Uint8Array, dataStart: number, dataLen: number, 
 	put(n3);
 }
 
-export function through$11(n: rt.Place<rt.i128>, b: rt.i128): rt.i128 {
+export function through$i128s(n: rt.Place<rt.i128>, b: rt.i128): rt.i128 {
 	return ((): rt.i128 => {
 		n.v = rt.i128WrappingAdd(n.v, b);
 		return n.v;
@@ -1137,7 +1137,7 @@ export function isizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	const n2: rt.usize = rt.min(_20.length, rt.byteSliceFrom(buf2).length);
 	rt.byteSliceCopyFromSlice(rt.byteSliceRange(rt.byteSliceFrom(buf2), 0, n2), rt.byteSliceRange(_20, 0, n2));
 	const b: rt.isize = ([rt.isizeFromBeBytes(buf2), rt.byteSliceRange(_20, n2)] as [rt.isize, rt.ByteSlice])[0];
-	const put: (a0: rt.isize) => void = (v: rt.isize): void => {
+	const put: (a0: rt.isize) => undefined = (v: rt.isize): undefined => {
 		rt.byteVecExtendFromSlice(out, rt.byteSliceFrom(rt.isizeToBeBytes(v)));
 	};
 	let n3: rt.isize = a;
@@ -1172,13 +1172,13 @@ export function isizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	})();
 	put(part8);
 	put(n3);
-	const part10 = once$isize_isizes_closure5((): rt.isize => {
+	const part10 = once$isize_captures_isizes_closure5((): rt.isize => {
 		n3 = rt.isizeWrappingAdd(n3, b);
 		return n3;
 	});
 	put(part10);
 	put(n3);
-	const _108: [rt.isize, rt.isize] = twice$isize_isizes_closure6((): rt.isize => {
+	const _108: [rt.isize, rt.isize] = twice$isize_captures_isizes_closure6((): rt.isize => {
 		n3 = rt.isizeWrappingAdd(n3, a);
 		return n3;
 	});
@@ -1206,7 +1206,7 @@ export function isizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	})();
 	put(part16);
 	put(pair[0]);
-	const part18 = through$12(rt.place(() => m, (value) => m = value), b);
+	const part18 = through$isizes(rt.place(() => m, (value) => m = value), b);
 	put(part18);
 	put(m);
 	const part20 = ((): rt.isize => {
@@ -1219,7 +1219,7 @@ export function isizes(dataData: Uint8Array, dataStart: number, dataLen: number,
 	put(n3);
 }
 
-export function through$12(n: rt.Place<rt.isize>, b: rt.isize): rt.isize {
+export function through$isizes(n: rt.Place<rt.isize>, b: rt.isize): rt.isize {
 	return ((): rt.isize => {
 		n.v = rt.isizeWrappingAdd(n.v, b);
 		return n.v;
@@ -1256,99 +1256,99 @@ export function captures(kind: rt.u8, dataData: Uint8Array, dataStart: number, d
 	}
 }
 
-export function once$i128_i128s_closure5(f: () => rt.i128): rt.i128 {
+export function once$i128_captures_i128s_closure5(f: () => rt.i128): rt.i128 {
 	return f();
 }
 
-export function once$i16_i16s_closure5(f: () => rt.i16): rt.i16 {
+export function once$i16_captures_i16s_closure5(f: () => rt.i16): rt.i16 {
 	return f();
 }
 
-export function once$i32_i32s_closure5(f: () => rt.i32): rt.i32 {
+export function once$i32_captures_i32s_closure5(f: () => rt.i32): rt.i32 {
 	return f();
 }
 
-export function once$i64_i64s_closure5(f: () => rt.i64): rt.i64 {
+export function once$i64_captures_i64s_closure5(f: () => rt.i64): rt.i64 {
 	return f();
 }
 
-export function once$i8_i8s_closure5(f: () => rt.i8): rt.i8 {
+export function once$i8_captures_i8s_closure5(f: () => rt.i8): rt.i8 {
 	return f();
 }
 
-export function once$isize_isizes_closure5(f: () => rt.isize): rt.isize {
+export function once$isize_captures_isizes_closure5(f: () => rt.isize): rt.isize {
 	return f();
 }
 
-export function once$u128_u128s_closure5(f: () => rt.u128): rt.u128 {
+export function once$u128_captures_u128s_closure5(f: () => rt.u128): rt.u128 {
 	return f();
 }
 
-export function once$u16_u16s_closure5(f: () => rt.u16): rt.u16 {
+export function once$u16_captures_u16s_closure5(f: () => rt.u16): rt.u16 {
 	return f();
 }
 
-export function once$u32_u32s_closure5(f: () => rt.u32): rt.u32 {
+export function once$u32_captures_u32s_closure5(f: () => rt.u32): rt.u32 {
 	return f();
 }
 
-export function once$u64_u64s_closure5(f: () => rt.u64): rt.u64 {
+export function once$u64_captures_u64s_closure5(f: () => rt.u64): rt.u64 {
 	return f();
 }
 
-export function once$u8_u8s_closure5(f: () => rt.u8): rt.u8 {
+export function once$u8_captures_u8s_closure5(f: () => rt.u8): rt.u8 {
 	return f();
 }
 
-export function once$usize_usizes_closure5(f: () => rt.usize): rt.usize {
+export function once$usize_captures_usizes_closure5(f: () => rt.usize): rt.usize {
 	return f();
 }
 
-export function twice$i128_i128s_closure6(f: () => rt.i128): [rt.i128, rt.i128] {
+export function twice$i128_captures_i128s_closure6(f: () => rt.i128): [rt.i128, rt.i128] {
 	return [f(), f()] as [rt.i128, rt.i128];
 }
 
-export function twice$i16_i16s_closure6(f: () => rt.i16): [rt.i16, rt.i16] {
+export function twice$i16_captures_i16s_closure6(f: () => rt.i16): [rt.i16, rt.i16] {
 	return [f(), f()] as [rt.i16, rt.i16];
 }
 
-export function twice$i32_i32s_closure6(f: () => rt.i32): [rt.i32, rt.i32] {
+export function twice$i32_captures_i32s_closure6(f: () => rt.i32): [rt.i32, rt.i32] {
 	return [f(), f()] as [rt.i32, rt.i32];
 }
 
-export function twice$i64_i64s_closure6(f: () => rt.i64): [rt.i64, rt.i64] {
+export function twice$i64_captures_i64s_closure6(f: () => rt.i64): [rt.i64, rt.i64] {
 	return [f(), f()] as [rt.i64, rt.i64];
 }
 
-export function twice$i8_i8s_closure6(f: () => rt.i8): [rt.i8, rt.i8] {
+export function twice$i8_captures_i8s_closure6(f: () => rt.i8): [rt.i8, rt.i8] {
 	return [f(), f()] as [rt.i8, rt.i8];
 }
 
-export function twice$isize_isizes_closure6(f: () => rt.isize): [rt.isize, rt.isize] {
+export function twice$isize_captures_isizes_closure6(f: () => rt.isize): [rt.isize, rt.isize] {
 	return [f(), f()] as [rt.isize, rt.isize];
 }
 
-export function twice$u128_u128s_closure6(f: () => rt.u128): [rt.u128, rt.u128] {
+export function twice$u128_captures_u128s_closure6(f: () => rt.u128): [rt.u128, rt.u128] {
 	return [f(), f()] as [rt.u128, rt.u128];
 }
 
-export function twice$u16_u16s_closure6(f: () => rt.u16): [rt.u16, rt.u16] {
+export function twice$u16_captures_u16s_closure6(f: () => rt.u16): [rt.u16, rt.u16] {
 	return [f(), f()] as [rt.u16, rt.u16];
 }
 
-export function twice$u32_u32s_closure6(f: () => rt.u32): [rt.u32, rt.u32] {
+export function twice$u32_captures_u32s_closure6(f: () => rt.u32): [rt.u32, rt.u32] {
 	return [f(), f()] as [rt.u32, rt.u32];
 }
 
-export function twice$u64_u64s_closure6(f: () => rt.u64): [rt.u64, rt.u64] {
+export function twice$u64_captures_u64s_closure6(f: () => rt.u64): [rt.u64, rt.u64] {
 	return [f(), f()] as [rt.u64, rt.u64];
 }
 
-export function twice$u8_u8s_closure6(f: () => rt.u8): [rt.u8, rt.u8] {
+export function twice$u8_captures_u8s_closure6(f: () => rt.u8): [rt.u8, rt.u8] {
 	return [f(), f()] as [rt.u8, rt.u8];
 }
 
-export function twice$usize_usizes_closure6(f: () => rt.usize): [rt.usize, rt.usize] {
+export function twice$usize_captures_usizes_closure6(f: () => rt.usize): [rt.usize, rt.usize] {
 	return [f(), f()] as [rt.usize, rt.usize];
 }
 

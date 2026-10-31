@@ -121,6 +121,12 @@ impl Split for At {
 	}
 }
 
+// Two instances, of two `Ok` types, so two slots of one function.
+fn lead<T: From<u8>>(data: &[u8]) -> Result<(T, &[u8]), Error> {
+	let (&first, rest) = data.split_first().ok_or(Error::Short(1))?;
+	Ok((T::from(first), rest))
+}
+
 fn split_with<'a, S: Split>(s: &S, data: &'a [u8]) -> Result<(&'a [u8], &'a [u8]), Error> {
 	s.split(data)
 }
@@ -206,6 +212,14 @@ pub fn returns(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			match none_err(data) {
 				Ok(s) => out.push(s.len() as u8),
 				Err(e) => out.extend_from_slice(&[0xee, e.unwrap_or(0)]),
+			}
+			match (lead::<u16>(data), lead::<u32>(&data[data.len().min(1)..])) {
+				(Ok((a, _)), Ok((b, rest))) => {
+					out.extend_from_slice(&a.to_be_bytes());
+					out.extend_from_slice(&b.to_be_bytes());
+					out.push(rest.len() as u8);
+				}
+				(a, b) => out.extend_from_slice(&[a.is_ok() as u8, b.is_ok() as u8]),
 			}
 		}
 		_ => {

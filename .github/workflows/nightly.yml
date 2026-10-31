@@ -38,6 +38,11 @@ jobs:
       - name: Build
         run: nix build .#ts
 
+      # The fixtures against std checked in their own target directories, as outside Nix,
+      # whose snapshots hold the flake's sysroot to the same output.
+      - name: Fixtures without the sysroot
+        run: nix develop --command env RUST2_TS_SYSROOT= just ts test --test fixtures
+
   uniffi-fixtures:
     name: UniFFI fixtures
     # x86_64: nixpkgs marks Swift 6.3 broken on aarch64-linux, where it fails to link with
@@ -170,6 +175,101 @@ jobs:
         with:
           name: ffi-census
           path: ffi/target/census
+
+      # The C++ header again with Clang, at each standard and with exceptions and RTTI on
+      # and off. C stays GCC's, so the export the steps above built stays fresh.
+      - name: Clang
+        run: nix develop .#clang --command bash -c 'export CC=gcc; just ffi test cpp && just ffi moq-cpp'
+
+  # The C++ header with the compilers the job above lacks, through the same checks.
+  ffi-cpp:
+    name: Export moq-net to C++ (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: MSVC
+            os: windows-latest
+          - name: Apple Clang
+            os: macos-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # ffi/rust-toolchain.toml links to ts/'s.
+      - name: Symlinks
+        if: runner.os == 'Windows'
+        run: git config --global core.symlinks true
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No Nix: its dev shell would replace the system compiler under test. The runner's
+      # rustup installs rust-toolchain.toml's channel.
+      - name: Install just
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: just
+
+      # What a developer prompt sets for cl. VCINSTALLDIR stays unset, so rustc still finds
+      # its linker itself rather than Git's link.exe on PATH.
+      - name: MSVC
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          & "$vs\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          foreach ($name in 'INCLUDE', 'LIB', 'LIBPATH', 'PATH') {
+            "$name=$((Get-Item "env:$name").Value)" >> $env:GITHUB_ENV
+          }
+
+      - name: Test
+        run: just ffi test cpp
+
+      - name: Export
+        run: just ffi moq-cpp
+
+  # The Kotlin on ART, shrunk by R8 as an app shrinks it. x86_64, as moq's Android build:
+  # this image ships the Android SDK and NDK, and its KVM runs an x86_64 emulator at speed.
+  ffi-android:
+    name: Export to Kotlin on Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/nix
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # The oldest API level moq's Android library supports, then the one it compiles
+      # against. The second reuses the first's builds.
+      - name: API 24
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 24
+          arch: x86_64
+          script: nix develop .#android --command just ffi android
+
+      - name: API 35
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          arch: x86_64
+          script: nix develop .#android --command just ffi android
 
   ffi-bench:
     name: Bench the C export against moq-c

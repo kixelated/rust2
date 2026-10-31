@@ -17,6 +17,11 @@
 
 #include "api.hpp"
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 namespace {
 
 // Print a returned buffer.
@@ -169,6 +174,86 @@ int script() {
 			print("divide err ", api::error_to_string(r.error()), "\n");
 		}
 	}
+	// A tuple inside another type is a std::tuple.
+	for (std::uint64_t n : {98305, 0}) {
+		if (auto spread = api::spread(n)) {
+			auto [s8, s16, s32, s64] = *spread;
+			std::printf("spread %u %d %u %llu\n", s8, s16, s32, ull(s64));
+		} else {
+			std::printf("spread none\n");
+		}
+	}
+	for (const char *needle : {"lo", "x"}) {
+		if (auto found = api::find("hello", needle)) {
+			std::printf("find %zu %zu\n", std::get<0>(*found), std::get<1>(*found));
+		} else {
+			std::printf("find none\n");
+		}
+	}
+	std::printf("rows");
+	auto stat_rows = api::rows({api::point{1, 2}, api::point{3, 3}});
+	for (std::size_t i = 0; i < stat_rows.size(); i++) {
+		auto &[name, shape, at] = stat_rows[i];
+		print(i == 0 ? " " : ", ", name, " ");
+		print("", api::shape_debug(shape), " ");
+		std::printf("%d %d", at.x, at.y);
+	}
+	std::printf("\n");
+	{
+		// Each handle in a tuple moves in, as one taken by value does.
+		std::vector<std::tuple<api::view, api::counter>> tallies;
+		tallies.emplace_back("low", api::counter::new_("l", 1));
+		tallies.emplace_back("high", api::counter::new_("h", 9));
+		auto board = api::board::new_(std::move(tallies));
+		std::printf("ranked");
+		auto ranked = board.ranked();
+		for (std::size_t i = 0; i < ranked.size(); i++) {
+			auto &[name, counter] = ranked[i];
+			print(i == 0 ? " " : ", ", name, " ");
+			print("", counter.name(), " ");
+			std::printf("%llu", ull(counter.get()));
+		}
+		std::printf("\n");
+	}
+	api::span span{{2, 10}, std::make_tuple(api::buf("s"), api::shape::square)};
+	auto [lower_half, upper_half] = api::halves(span);
+	std::printf("halves %u %u %u %u ", std::get<0>(lower_half), std::get<1>(lower_half), std::get<0>(upper_half),
+				std::get<1>(upper_half));
+	print("", span.debug(), "\n");
+	auto [swapped_n, swapped_text] = api::swapped({"t", 4});
+	std::printf("swapped %u ", swapped_n);
+	print("", swapped_text, "\n");
+	using single = std::tuple<std::optional<std::uint32_t>>;
+	for (const auto &value : {std::optional<single>(), std::optional<single>(single()), std::optional<single>(single(3))}) {
+		auto doubled = api::doubled(value);
+		if (!doubled) {
+			std::printf("doubled None\n");
+		} else if (auto n = std::get<0>(*doubled)) {
+			std::printf("doubled Some((Some(%u),))\n", *n);
+		} else {
+			std::printf("doubled Some((None,))\n");
+		}
+	}
+	// A borrowed or boxed tuple of one is a tuple, not its element.
+	{
+		std::uint8_t lent_bytes[] = {1, 2};
+		std::uint8_t boxed_bytes[] = {3};
+		auto [lent] = api::lent_back(std::make_tuple(api::view(lent_bytes, 2)));
+		auto [boxed] = api::boxed_tuple(api::view(boxed_bytes, 1));
+		const api::buf *both[] = {&lent, &boxed};
+		for (int i = 0; i < 2; i++) {
+			std::printf("%s[", i == 0 ? "lent back " : " boxed ");
+			for (std::size_t j = 0; j < both[i]->size(); j++) {
+				std::printf("%s%u", j == 0 ? "" : ", ", both[i]->data()[j]);
+			}
+			std::printf("]");
+		}
+		std::printf("\n");
+	}
+	// A borrowed string and an owned one share a tuple struct.
+	print("title Some((\"", std::get<0>(*api::title(true)), "\",)) ");
+	std::printf("%s ", api::title(false) ? "Some" : "None");
+	print("named Some((\"", std::get<0>(*api::named("x")), "\",))\n");
 
 	// Each lent counter is a new handle to a clone.
 	api::registry registry = api::registry::new_(api::counter::new_("first", 1));
@@ -196,6 +281,7 @@ int script() {
 	std::printf("walk %llu\n", ull(api::walk(3, [](const api::cursor &cursor) { return cursor.at() * 2; })));
 	std::printf("each %u\n", api::each(2, [](std::uint32_t at) { std::printf("visit %u\n", at); }));
 	std::printf("offset %u\n", api::offset([] { return 7u; }, 3));
+	std::printf("shift %u\n", api::shift([] { return 7u; }, 4));
 
 	// A type generic only over lifetimes is a handle to its 'static form.
 	{
@@ -232,6 +318,23 @@ int script() {
 	std::printf(" ");
 	print_bound(api::end(0));
 	std::printf("\n");
+	auto [ends_start, ends_end] = api::ends(3);
+	std::printf("ends ");
+	print_bound(ends_start);
+	std::printf(" ");
+	print_bound(ends_end);
+	std::printf("\n");
+	for (std::uint64_t n : {2, 5}) {
+		if (auto r = api::below(n, 3)) {
+			std::printf("below %llu\n", ull(*r));
+		} else {
+			std::printf("below err ");
+			print_bound(r.error().start);
+			std::printf(" ");
+			print_bound(r.error().end);
+			std::printf("\n");
+		}
+	}
 	api::window window{{2, 8}, api::end(5)};
 	std::printf("window %s %s ", yes(window.contains(4)), yes(window.contains(6)));
 	print("", window.debug(), "\n");
@@ -241,6 +344,12 @@ int script() {
 	const std::uint8_t binary[] = {0xff, 0x00, 'a'};
 	print("hex ", api::hex(api::view(binary, sizeof binary)), "\n");
 	print("timed hex ", api::timed_hex(api::view(binary, sizeof binary)), "\n");
+	print("sample hex ", api::sample_hex(api::view(binary, sizeof binary)), "\n");
+	print("queued hex ", api::queued_hex(api::view(binary, sizeof binary)), "\n");
+	print("tick ", api::tick_name(api::label{api::buf("tick"), std::nullopt, std::nullopt}), "\n");
+	print("rooted ", api::rooted_name(api::label{api::buf("rooted"), std::nullopt, std::nullopt}), "\n");
+	print("stored ", api::stored_text("stored"), "\n");
+	print("layer ", api::layer_name(api::label{api::buf("layer"), std::nullopt, std::nullopt}), "\n");
 	api::event events[] = {api::event_moved{p}, api::event_named{api::buf("n")}, api::event_done{}};
 	for (const auto &event : events) {
 		print("", api::describe(event), "\n");
@@ -359,7 +468,8 @@ int script() {
 	print("", pair.debug(), " ");
 	std::printf("%s\n", yes(pair == swapped));
 	std::printf("even %s %s\n", yes(pair.even()), yes(api::pair_u32{7, 7}.even()));
-	api::pair_size_u8 sizes = api::tag({1, 2}, 3);
+	// An instance renamed alone, beside another of `Pair` that keeps its name.
+	api::size_tag sizes = api::tag({1, 2}, 3);
 	api::pair_u8_size flipped = sizes.swap();
 	std::printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", flipped.debug(), "\n");
@@ -381,7 +491,7 @@ int script() {
 		// by reference, which leaves C++ its handle. Two arguments sharing a last segment
 		// name their instances apart by the module of one.
 		api::counter from_point = api::counter::seeded_point("p", {-3, 4});
-		api::counter from_size = api::counter::seeded_size("s", {5, 6});
+		api::counter from_size = api::counter::from_size("s", {5, 6});
 		api::counter from_counter = api::counter::seeded_counter("c", from_point);
 		api::counter from_polar = api::counter::seeded_polar_point("q", {1, 2});
 		std::printf("seeded %llu %llu %llu %llu past %llu seeds %llu\n", ull(from_point.get()), ull(from_size.get()),
@@ -396,6 +506,7 @@ int script() {
 	            api::outer_inner_u8::new_(4).get());
 	// A bound that outlives the call takes a value, and an instance only a constant names.
 	std::printf("kept %llu boxed %u\n", ull(api::kept_point({1, -2})), api::boxed().value);
+	std::printf("keep %d\n", api::keep_point({1, -2}));
 	// Inferred instances taking a lent closure and a foreign implementation, and one only
 	// its impl of a trait names.
 	api::pair_u32 sides{2, 5};
@@ -825,6 +936,10 @@ int broken(const char *which) {
 } // namespace
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+	// The transcript's lines end as Rust's do, which text mode would turn into CRLF.
+	_setmode(_fileno(stdout), _O_BINARY);
+#endif
 	if (argc > 1 && std::strcmp(argv[1], "futures") == 0) {
 		return futures();
 	}

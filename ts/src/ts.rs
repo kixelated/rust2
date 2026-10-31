@@ -3,6 +3,8 @@
 //! Translated items and class fields are referenced by id, and named once every item
 //! is known, since a later item can force a rename.
 
+use std::collections::HashSet;
+
 /// A translated item: a function, struct, or type alias.
 pub type SymId = usize;
 
@@ -50,6 +52,9 @@ pub enum Expr {
 	/// `e as T`: a literal whose type TypeScript would widen, or an integer cast to
 	/// another integer type with the same value.
 	As(Box<Expr>, Type),
+	/// `f<A, B>`: a generic function given its type arguments, which TypeScript cannot
+	/// infer from its call alone.
+	Instantiate(Box<Expr>, Vec<Type>),
 	Located(Loc, Box<Expr>),
 }
 
@@ -75,6 +80,15 @@ impl Expr {
 
 	pub fn member(self, name: impl Into<String>) -> Self {
 		Self::Member(Box::new(self), Key::Name(name.into()))
+	}
+
+	/// What `self` reads, if it is an `rt.Place` made here: `rt.place(() => read, set)`.
+	pub fn place_read(&self) -> Option<&Expr> {
+		let Self::Call(f, args) = self else { return None };
+		match (&**f, args.as_slice()) {
+			(Self::Rt(name), [Self::Lambda(params, read), _]) if name == "place" && params.is_empty() => Some(read),
+			_ => None,
+		}
 	}
 
 	pub fn field(self, field: FieldId) -> Self {
@@ -352,6 +366,7 @@ impl Expr {
 			| Expr::Unary(_, e)
 			| Expr::Postfix(e, _)
 			| Expr::As(e, _)
+			| Expr::Instantiate(e, _)
 			| Expr::Located(_, e) => e.syms_mut(f),
 			Expr::Array(es) => es.iter_mut().for_each(|e| e.syms_mut(f)),
 			Expr::Object(props) => props.iter_mut().for_each(|(_, e)| e.syms_mut(f)),
@@ -367,6 +382,167 @@ impl Expr {
 				a.syms_mut(f);
 				b.syms_mut(f);
 				c.syms_mut(f);
+			}
+			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		}
+	}
+}
+
+/// Mark `_name` each parameter that `body` never names, as `noUnusedParameters` wants,
+/// and those of each function `body` makes: decided from the output, whatever reads
+/// lowering left out.
+pub fn mark_unread(params: &mut [Param], body: &mut [Stmt]) {
+	let free = free_names(body);
+	mark_params(params, &free, declared(body));
+}
+
+/// Mark `_name` each parameter not in `free`, the names its body reads from outside it,
+/// choosing a name that is none of those, nothing the body `declared`, and no other
+/// parameter.
+fn mark_params(params: &mut [Param], free: &HashSet<String>, declared: HashSet<String>) {
+	let mut taken = declared;
+	taken.extend(free.iter().chain(params.iter().map(|p| &p.name)).cloned());
+	for param in params {
+		if !param.name.starts_with('_') && !free.contains(&param.name) {
+			param.name = crate::program::unique(&mut taken, &format!("_{}", param.name));
+		}
+	}
+}
+
+/// The names `stmts` declare in their own block.
+fn declared(stmts: &[Stmt]) -> HashSet<String> {
+	(stmts.iter())
+		.filter_map(|s| match &s.kind {
+			StmtKind::Decl { name, .. } | StmtKind::Declare { name, .. } => Some(name.clone()),
+			_ => None,
+		})
+		.collect()
+}
+
+/// The names `stmts` read or assign from outside them, marking the parameters of each
+/// function they make.
+fn free_names(stmts: &mut [Stmt]) -> HashSet<String> {
+	let mut free = HashSet::new();
+	for stmt in stmts.iter_mut() {
+		match &mut stmt.kind {
+			StmtKind::Expr(e) | StmtKind::Return(Some(e)) => e.free_names(&mut free),
+			StmtKind::Decl { init, .. } => init.iter_mut().for_each(|e| e.free_names(&mut free)),
+			StmtKind::If { cond, then, els } => {
+				cond.free_names(&mut free);
+				free.extend(free_names(then));
+				free.extend(free_names(els));
+			}
+			StmtKind::While { cond: e, body, .. } => {
+				e.free_names(&mut free);
+				free.extend(free_names(body));
+			}
+			StmtKind::ForOf { name, iter, body, .. } => {
+				iter.free_names(&mut free);
+				let mut inner = free_names(body);
+				inner.remove(name);
+				free.extend(inner);
+			}
+			StmtKind::Block { body, .. } => free.extend(free_names(body)),
+			StmtKind::Switch {
+				disc, cases, default, ..
+			} => {
+				disc.free_names(&mut free);
+				for (case, body) in cases {
+					case.free_names(&mut free);
+					free.extend(free_names(body));
+				}
+				free.extend(free_names(default));
+			}
+			StmtKind::Declare { .. } | StmtKind::Return(None) | StmtKind::Break(_) | StmtKind::Continue(_) => {}
+		}
+	}
+	for name in declared(stmts) {
+		free.remove(&name);
+	}
+	free
+}
+
+impl Expr {
+	/// Mark the unread parameters of each function this makes, as [`mark_unread`] does.
+	pub fn mark_unread(&mut self) {
+		self.free_names(&mut HashSet::new());
+	}
+
+	/// Add the names the expression reads or assigns from outside it to `free`, marking
+	/// the parameters of each function it makes.
+	fn free_names(&mut self, free: &mut HashSet<String>) {
+		match self {
+			Expr::Ident(name) => {
+				free.insert(name.clone());
+			}
+			Expr::Arrow(params, _, body) => {
+				let inner = free_names(body);
+				function_free(params, inner, declared(body), free);
+			}
+			Expr::Lambda(params, body) => {
+				let mut inner = HashSet::new();
+				body.free_names(&mut inner);
+				function_free(params, inner, HashSet::new(), free);
+			}
+			Expr::Member(e, _)
+			| Expr::Unary(_, e)
+			| Expr::Postfix(e, _)
+			| Expr::As(e, _)
+			| Expr::Instantiate(e, _)
+			| Expr::Located(_, e) => e.free_names(free),
+			Expr::Array(es) => es.iter_mut().for_each(|e| e.free_names(free)),
+			Expr::Object(props) => props.iter_mut().for_each(|(_, e)| e.free_names(free)),
+			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
+				a.free_names(free);
+				b.free_names(free);
+			}
+			Expr::Call(callee, args) | Expr::New(callee, args) => {
+				callee.free_names(free);
+				args.iter_mut().for_each(|e| e.free_names(free));
+			}
+			Expr::Cond(a, b, c) => {
+				a.free_names(free);
+				b.free_names(free);
+				c.free_names(free);
+			}
+			Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+		}
+	}
+}
+
+/// Mark the parameters of a function made in an expression, whose body reads `inner` from
+/// outside it and `declared` its own, adding to `free` what it reads from outside itself.
+fn function_free(params: &mut [Param], inner: HashSet<String>, declared: HashSet<String>, free: &mut HashSet<String>) {
+	mark_params(params, &inner, declared);
+	free.extend(inner.into_iter().filter(|name| params.iter().all(|p| p.name != *name)));
+}
+
+impl Expr {
+	/// Each item the expression reads as it is evaluated, outside the functions it makes.
+	pub fn eager_syms(&self, f: &mut impl FnMut(SymId)) {
+		match self {
+			Expr::Sym(id) => f(*id),
+			Expr::Arrow(..) | Expr::Lambda(..) => {}
+			Expr::Member(e, _)
+			| Expr::Unary(_, e)
+			| Expr::Postfix(e, _)
+			| Expr::As(e, _)
+			| Expr::Instantiate(e, _)
+			| Expr::Located(_, e) => e.eager_syms(f),
+			Expr::Array(es) => es.iter().for_each(|e| e.eager_syms(f)),
+			Expr::Object(props) => props.iter().for_each(|(_, e)| e.eager_syms(f)),
+			Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
+				a.eager_syms(f);
+				b.eager_syms(f);
+			}
+			Expr::Call(callee, args) | Expr::New(callee, args) => {
+				callee.eager_syms(f);
+				args.iter().for_each(|e| e.eager_syms(f));
+			}
+			Expr::Cond(a, b, c) => {
+				a.eager_syms(f);
+				b.eager_syms(f);
+				c.eager_syms(f);
 			}
 			Expr::Ident(_) | Expr::This | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
 		}
@@ -413,6 +589,22 @@ pub enum Type {
 	StrLit(String),
 	/// An object type; a `Some` key is a class field.
 	Object(Vec<(String, Type)>),
+}
+
+impl Type {
+	/// Whether it names the type parameter `param`.
+	pub fn names(&self, param: &str) -> bool {
+		match self {
+			Type::Param(name) => name == param,
+			Type::Builtin(_) | Type::StrLit(_) => false,
+			Type::Rt(_, tys) | Type::Sym(_, tys) | Type::Union(tys) | Type::Tuple(tys) => {
+				tys.iter().any(|t| t.names(param))
+			}
+			Type::Array(t) => t.names(param),
+			Type::Func(tys, ret) => ret.names(param) || tys.iter().any(|t| t.names(param)),
+			Type::Object(fields) => fields.iter().any(|(_, t)| t.names(param)),
+		}
+	}
 }
 
 #[derive(Clone, Debug)]

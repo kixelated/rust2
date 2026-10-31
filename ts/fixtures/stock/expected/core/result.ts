@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import type * as TryGetError from "../bytes.TryGetError.ts";
 
-export function unwrapOrElse$Result_unit_TryGetError_copy_to_slice_closure0(self: rt.Result<undefined, TryGetError.TryGetError>, op: (a0: TryGetError.TryGetError) => void): void {
+export function unwrapOrElse$0s2lrc9(self: rt.Result<undefined, TryGetError.TryGetError>, op: (a0: TryGetError.TryGetError) => undefined): void {
 	if (!self.ok) {
 		op(self.error);
 	}

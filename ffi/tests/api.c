@@ -217,6 +217,105 @@ static int script(void) {
 			api_error_free(&err);
 		}
 	}
+	/* A tuple inside another type is a struct, its fields _0, _1, and so on. */
+	uint64_t spreads[] = {98305, 0};
+	for (int i = 0; i < 2; i++) {
+		api_option_tuple_u8_i16_u32_u64 spread = api_spread(spreads[i]);
+		if (spread.some) {
+			printf("spread %u %d %u %llu\n", spread.value._0, spread.value._1, spread.value._2,
+				   (unsigned long long)spread.value._3);
+		} else {
+			printf("spread none\n");
+		}
+	}
+	const char *needles[] = {"lo", "x"};
+	for (int i = 0; i < 2; i++) {
+		api_option_tuple_usize_usize found = api_find(str("hello"), str(needles[i]));
+		if (found.some) {
+			printf("find %zu %zu\n", found.value._0, found.value._1);
+		} else {
+			printf("find none\n");
+		}
+	}
+	api_point row_points[] = {{.x = 1, .y = 2}, {.x = 3, .y = 3}};
+	api_vec_tuple_string_shape_point stat_rows = api_rows((api_vec_point){.ptr = row_points, .len = 2});
+	printf("rows");
+	for (size_t i = 0; i < stat_rows.len; i++) {
+		/* The array's free frees each element's buffer. */
+		printf("%s%.*s ", i == 0 ? " " : ", ", (int)stat_rows.ptr[i]._0.len, (const char *)stat_rows.ptr[i]._0.ptr);
+		print("", api_shape_debug(&stat_rows.ptr[i]._1), " ");
+		printf("%d %d", stat_rows.ptr[i]._2.x, stat_rows.ptr[i]._2.y);
+	}
+	printf("\n");
+	api_vec_tuple_string_shape_point_free(stat_rows);
+	/* Each handle in a tuple moves in, as one taken by value does. */
+	api_tuple_string_counter tallies[] = {
+		{._0 = str("low"), ._1 = api_counter_new(str("l"), 1)},
+		{._0 = str("high"), ._1 = api_counter_new(str("h"), 9)},
+	};
+	api_board *board = api_board_new((api_vec_tuple_string_counter){.ptr = tallies, .len = 2});
+	api_counter_free(tallies[0]._1);
+	api_counter_free(tallies[1]._1);
+	api_vec_tuple_string_counter ranked = api_board_ranked(board);
+	printf("ranked");
+	for (size_t i = 0; i < ranked.len; i++) {
+		printf("%s%.*s ", i == 0 ? " " : ", ", (int)ranked.ptr[i]._0.len, (const char *)ranked.ptr[i]._0.ptr);
+		print("", api_counter_name(ranked.ptr[i]._1), " ");
+		printf("%llu", (unsigned long long)api_counter_get(ranked.ptr[i]._1));
+	}
+	printf("\n");
+	api_vec_tuple_string_counter_free(ranked);
+	api_board_free(board);
+	api_span span = {
+		.bounds = {._0 = 2, ._1 = 10},
+		.named = {.some = true, .value = {._0 = str("s"), ._1 = API_SHAPE_SQUARE}},
+	};
+	api_tuple_u32_u32 lower_half, upper_half;
+	api_halves(span, &lower_half, &upper_half);
+	printf("halves %u %u %u %u ", lower_half._0, lower_half._1, upper_half._0, upper_half._1);
+	print("", api_span_debug(&span), "\n");
+	uint32_t swapped_n;
+	api_buf swapped_text;
+	api_swapped((api_tuple_string_u32){._0 = str("t"), ._1 = 4}, &swapped_n, &swapped_text);
+	printf("swapped %u ", swapped_n);
+	print("", swapped_text, "\n");
+	api_option_tuple_option_u32 doubles[] = {
+		{.some = false},
+		{.some = true, .value = {._0 = {.some = false}}},
+		{.some = true, .value = {._0 = {.some = true, .value = 3}}},
+	};
+	for (int i = 0; i < 3; i++) {
+		api_option_tuple_option_u32 doubled = api_doubled(doubles[i]);
+		if (!doubled.some) {
+			printf("doubled None\n");
+		} else if (!doubled.value._0.some) {
+			printf("doubled Some((None,))\n");
+		} else {
+			printf("doubled Some((Some(%u),))\n", doubled.value._0.value);
+		}
+	}
+	/* A borrowed or boxed tuple of one is a tuple struct, not its element. */
+	uint8_t lent_bytes[] = {1, 2};
+	uint8_t boxed_bytes[] = {3};
+	api_tuple_bytes lent_one = api_lent_back((api_tuple_bytes){._0 = {.ptr = lent_bytes, .len = 2}});
+	api_tuple_bytes boxed_one = api_boxed_tuple((api_buf){.ptr = boxed_bytes, .len = 1});
+	api_buf both[] = {lent_one._0, boxed_one._0};
+	for (int i = 0; i < 2; i++) {
+		printf("%s[", i == 0 ? "lent back " : " boxed ");
+		for (size_t j = 0; j < both[i].len; j++) {
+			printf("%s%u", j == 0 ? "" : ", ", both[i].ptr[j]);
+		}
+		printf("]");
+		api_buf_free(both[i]);
+	}
+	printf("\n");
+	/* A borrowed string and an owned one share a tuple struct. */
+	api_option_tuple_string formal = api_title(true);
+	api_option_tuple_string informal = api_title(false);
+	api_option_tuple_string named = api_named(str("x"));
+	print("title Some((\"", formal.value._0, "\",)) ");
+	printf("%s ", informal.some ? "Some" : "None");
+	print("named Some((\"", named.value._0, "\",))\n");
 
 	/* Each lent counter is a new handle to a clone. */
 	api_registry *registry = api_registry_new(api_counter_new(str("first"), 1));
@@ -252,6 +351,7 @@ static int script(void) {
 	printf("walk %llu\n", (unsigned long long)api_walk(3, visit, NULL));
 	printf("each %u\n", api_each(2, print_visit, NULL));
 	printf("offset %u\n", api_offset(seven, NULL, 3));
+	printf("shift %u\n", api_shift(seven, NULL, 4));
 	api_registry_free(registry);
 
 	/* A type generic only over lifetimes is a handle to its 'static form. */
@@ -298,6 +398,27 @@ static int script(void) {
 	printf(" ");
 	print_bound(api_end(0));
 	printf("\n");
+	api_bound_u64 ends_start, ends_end;
+	api_ends(3, &ends_start, &ends_end);
+	printf("ends ");
+	print_bound(ends_start);
+	printf(" ");
+	print_bound(ends_end);
+	printf("\n");
+	uint64_t belows[] = {2, 5};
+	for (int i = 0; i < 2; i++) {
+		uint64_t n;
+		api_bounds_u64 outside;
+		if (api_below(belows[i], 3, &n, &outside)) {
+			printf("below %llu\n", (unsigned long long)n);
+		} else {
+			printf("below err ");
+			print_bound(outside.start);
+			printf(" ");
+			print_bound(outside.end);
+			printf("\n");
+		}
+	}
 	api_window window = {.range = {.start = 2, .end = 8}, .end = api_end(5)};
 	printf("window %s %s ", api_window_contains(&window, 4) ? "true" : "false",
 		   api_window_contains(&window, 6) ? "true" : "false");
@@ -308,6 +429,12 @@ static int script(void) {
 	api_buf binary = {.ptr = (const uint8_t *)"\xff\0a", .len = 3};
 	print("hex ", api_hex(binary), "\n");
 	print("timed hex ", api_timed_hex(binary), "\n");
+	print("sample hex ", api_sample_hex(binary), "\n");
+	print("queued hex ", api_queued_hex(binary), "\n");
+	print("tick ", api_tick_name((api_label){.name = str("tick")}), "\n");
+	print("rooted ", api_rooted_name((api_label){.name = str("rooted")}), "\n");
+	print("stored ", api_stored_text(str("stored")), "\n");
+	print("layer ", api_layer_name((api_label){.name = str("layer")}), "\n");
 	api_event events[3] = {
 		{.tag = API_EVENT_MOVED, .moved = {._0 = p}},
 		{.tag = API_EVENT_NAMED, .named = {.name = str("n")}},
@@ -435,8 +562,9 @@ static int script(void) {
 	api_pair_u32 twins = {.left = 7, .right = 7};
 	printf("even %s %s\n", api_pair_u32_even(&pair) ? "true" : "false",
 	       api_pair_u32_even(&twins) ? "true" : "false");
-	api_pair_size_u8 sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
-	api_pair_u8_size flipped = api_pair_size_u8_swap(&sizes);
+	/* An instance renamed alone, beside another of `Pair` that keeps its name. */
+	api_size_tag sizes = api_tag((api_size){.width = 1, .height = 2}, 3);
+	api_pair_u8_size flipped = api_size_tag_swap(&sizes);
 	printf("sized %u %u ", flipped.left, flipped.right.width);
 	print("", api_pair_u8_size_debug(&flipped), "\n");
 	api_pair_u32 byte = {.left = 258, .right = 9};
@@ -461,7 +589,7 @@ static int script(void) {
 	/* Generic functions and methods, at each implementation of the trait bounding them, by
 	   reference, which leaves C its handle. */
 	api_counter *from_point = api_counter_seeded_point(str("p"), (api_point){.x = -3, .y = 4});
-	api_counter *from_size = api_counter_seeded_size(str("s"), (api_size){.width = 5, .height = 6});
+	api_counter *from_size = api_counter_from_size(str("s"), (api_size){.width = 5, .height = 6});
 	api_counter *from_counter = api_counter_seeded_counter(str("c"), from_point);
 	/* Two instances whose arguments share a last segment: one takes its module too. */
 	api_counter *from_polar = api_counter_seeded_polar_point(str("q"), (api_polar_point){.turns = 1, .distance = 2});
@@ -486,6 +614,7 @@ static int script(void) {
 	api_outer_inner_u8_free(outer);
 	/* A bound that outlives the call takes a value, and an instance only a constant names. */
 	printf("kept %llu boxed %u\n", (unsigned long long)api_kept_point((api_point){.x = 1, .y = -2}), api_boxed().value);
+	printf("keep %d\n", api_keep_point((api_point){.x = 1, .y = -2}));
 	/* Inferred instances taking a lent closure and a foreign implementation, and one only
 	 * its impl of a trait names. */
 	api_pair_u32 sides = {.left = 2, .right = 5};

@@ -5,9 +5,9 @@ use std::collections::HashMap;
 /// A generic type.
 pub struct Wrap<T>(pub T);
 
-/// A tuple inside an `Option`: only a returned tuple crosses, as out pointers.
-pub fn pair() -> Option<(u8, u8)> {
-	Some((1, 2))
+/// A tuple of references taken: C lends nothing inside a value.
+pub fn pair(pair: (&str, u8)) -> u8 {
+	pair.1
 }
 
 /// Another crate's type, which has no mapping.
@@ -373,6 +373,132 @@ pub fn kept<'a>(value: impl Into<Held<'a>> + 'static) -> u32 {
 	*value.into().0
 }
 
+/// Excluded, what converts into a `Held<'static>`.
+pub struct Holder(pub Held<'static>);
+
+impl<T: Into<Held<'static>>> From<T> for Holder {
+	fn from(value: T) -> Self {
+		Holder(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which a level of its conversion demands.
+pub fn holder(value: impl Into<Holder>) -> u32 {
+	*value.into().0.0
+}
+
+/// Excluded, what converts into a `Held<'a>`, at the lifetime the parameter names.
+pub struct Lender<'a>(pub Held<'a>);
+
+impl<'a, T: Into<Held<'a>>> From<T> for Lender<'a> {
+	fn from(value: T) -> Self {
+		Lender(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the target ties a level's lifetime to.
+pub fn lender(value: impl Into<Lender<'static>>) -> u32 {
+	*value.into().0.0
+}
+
+/// Excluded, what converts into a `Held<'b>` for a `'b` that outlives its own `'a`.
+pub struct Outlived<'a>(pub Held<'a>);
+
+impl<'a, 'b: 'a, T: Into<Held<'b>>> From<T> for Outlived<'a> {
+	fn from(value: T) -> Self {
+		Outlived(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which its target's lifetime passes on
+/// through a lifetime bound.
+pub fn outlived(value: impl Into<Outlived<'static>>) -> u32 {
+	*value.into().0.0
+}
+
+/// Excluded, two lifetimes, what converts into a `Held` for the second converting into it.
+pub struct Paired<'a, 'b>(pub &'a u32, pub Held<'b>);
+
+impl<'a, 'b, T: Into<Held<'b>>> From<T> for Paired<'a, 'b> {
+	fn from(value: T) -> Self {
+		Paired(&0, value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the second of its target's two
+/// `'static` lifetimes demands.
+pub fn paired(value: impl Into<Paired<'static, 'static>>) -> u32 {
+	*value.into().1.0
+}
+
+/// Excluded, a `'static` borrow, from what converts into one.
+pub struct Pinned(pub &'static u32);
+
+impl<T: Into<&'static u32>> From<T> for Pinned {
+	fn from(value: T) -> Self {
+		Pinned(value.into())
+	}
+}
+
+/// Excluded, what converts into a `Pinned`.
+pub struct Pinner(pub Pinned);
+
+impl<T: Into<Pinned>> From<T> for Pinner {
+	fn from(value: T) -> Self {
+		Pinner(value.into())
+	}
+}
+
+/// Takes a borrow only for as long as `'static`, which the last level's target demands.
+pub fn pinner(value: impl Into<Pinner>) -> u32 {
+	*value.into().0.0
+}
+
+/// Excluded, what converts into one of a `Vec` of its type, and so into ever larger ones.
+pub struct Grows<T>(pub Vec<T>);
+
+impl<T, U: Into<Grows<Vec<T>>> + Copy> From<U> for Grows<T> {
+	fn from(value: U) -> Self {
+		let _ = value.into();
+		Grows(Vec::new())
+	}
+}
+
+/// Takes what converts into a `Grows`, a chain that grows without end.
+pub fn grows(value: impl Into<Grows<u8>>) -> usize {
+	value.into().0.len()
+}
+
+/// Excluded, a name from a string, or from bytes that need not be UTF-8.
+pub struct Called(pub String);
+
+impl From<String> for Called {
+	fn from(name: String) -> Self {
+		Called(name)
+	}
+}
+
+impl From<Vec<u8>> for Called {
+	fn from(name: Vec<u8>) -> Self {
+		Called(String::from_utf8_lossy(&name).into_owned())
+	}
+}
+
+/// Excluded, what converts into a name.
+pub struct Caller(pub Called);
+
+impl<T: Into<Called>> From<T> for Caller {
+	fn from(value: T) -> Self {
+		Caller(value.into())
+	}
+}
+
+/// Takes a string or bytes through `Called`'s conversions, which C, passing either as one
+/// buffer, cannot pick between.
+pub fn call(caller: impl Into<Caller>) -> String {
+	caller.into().0.0
+}
+
 /// A range is a value, not an iterator to collect: one that maps to no range is refused.
 pub fn alphabet() -> std::ops::Range<char> {
 	'a'..'z'
@@ -573,4 +699,10 @@ impl std::str::pattern::Pattern for Slash {
 /// Halves split where the crate's own pattern says.
 pub fn halves() -> impl Iterator<Item = &'static str> {
 	"a/b".split(Slash)
+}
+
+/// Two tuples whose C names run their elements together alike: both are
+/// `reject_tuple_tuple_u8_u16_u32`.
+pub fn mixed(a: Option<((u8, u16), u32)>, b: Option<((u8, u16, u32),)>) -> bool {
+	a.is_some() && b.is_some()
 }

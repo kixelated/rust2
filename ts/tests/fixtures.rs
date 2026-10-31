@@ -380,7 +380,7 @@ fn share() {
 	typecheck(&out);
 	differential("share-fixture", &[], &out, "harness.ts", 1_000);
 	let config = fixture("share").join("ts.toml");
-	for feature in ["call", "pointer"] {
+	for feature in ["call", "pointer", "unwritten"] {
 		let out = scratch().join("share").join(feature);
 		let args: [&std::ffi::OsStr; 5] = [
 			"--out".as_ref(),
@@ -449,8 +449,16 @@ fn bind() {
 	snapshot("bind", &out);
 	typecheck(&out);
 	differential("bind-fixture", &[], &out, "harness.ts", 1_000);
+	// Each through a symlink, as a linked target directory reaches its output, though `tsc`
+	// names each file from the real directory.
+	let real = scratch().join("bind").join("real");
+	let linked = scratch().join("bind").join("linked");
+	std::fs::create_dir_all(&real).unwrap();
+	if !linked.exists() {
+		std::os::unix::fs::symlink(&real, &linked).unwrap();
+	}
 	for config in ["wrong", "refused"] {
-		let out = scratch().join("bind").join(config);
+		let out = linked.join(config);
 		let toml = fixture("bind").join(format!("{config}.toml"));
 		let output = driver("bind", &toml, &["--out".as_ref(), out.as_ref()], "build");
 		assert!(
@@ -479,18 +487,19 @@ fn bind() {
 /// A package and its dependency translate as one program, trait objects of the
 /// dependency's trait and its safe twin of its `unsafe` included, and run as native Rust
 /// does. Its `unsafe` that nothing binds is refused at its span, and so are its iterator
-/// that runs from either end and a module of the package's that would share the
-/// dependency's files.
+/// that runs from either end, a module of the package's that would share the
+/// dependency's files, and two instances whose suffixes are alike.
 #[test]
 fn crates() {
 	let out = translated("crates");
 	snapshot("crates", &out);
 	typecheck(&out);
 	differential("crates-fixture", &[], &out, "harness.ts", 1_000);
-	let cases: [(&str, &str, &[&str]); 3] = [
+	let cases: [(&str, &str, &[&str]); 4] = [
 		("refused", "refused.toml", &[]),
 		("rev", "ts.toml", &["--", "--features", "rev"]),
 		("shared", "ts.toml", &["--", "--features", "shared"]),
+		("alike", "alike.toml", &["--", "--features", "alike"]),
 	];
 	for (case, config, cargo) in cases {
 		let out = scratch().join("crates").join(case);
@@ -565,6 +574,55 @@ fn census() {
 		got == want,
 		"the census differs; rerun with UPDATE_EXPECT=1\n{}",
 		diff(&want, &got)
+	);
+}
+
+/// One target directory keeps what it checked against each sysroot apart: a crate
+/// checked against another std is never loaded. Switching sysroots checks a registry
+/// dependency again, and switching back checks none. The other sysroot is the same std by
+/// another path, which is all that tells sysroots apart.
+#[test]
+fn sysroot() {
+	let Some(std) = std::env::var("RUST2_TS_SYSROOT").ok().filter(|dir| !dir.is_empty()) else {
+		// Each target directory checks its own std instead.
+		return;
+	};
+	let name = Path::new(&std).file_name().unwrap().to_str().unwrap();
+	let other = format!("{std}/../{name}");
+	let dir = scratch().join("sysroot");
+	let _ = std::fs::remove_dir_all(&dir);
+	let checked = |sysroot: &str| {
+		let output = Command::new(env!("CARGO_BIN_EXE_rust2-ts"))
+			.arg("--config")
+			.arg(fixture("reject").join("census.toml"))
+			.arg("--census")
+			.arg(dir.join("census.md"))
+			.env("CARGO_TARGET_DIR", dir.join("build"))
+			.env("RUST2_TS_SYSROOT", sysroot)
+			.output()
+			.expect("running rust2-ts");
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		assert!(
+			output.status.success(),
+			"the census against {sysroot} failed:\n{stderr}"
+		);
+		stderr
+			.lines()
+			.filter_map(|line| line.trim_start().strip_prefix("Checking "))
+			.map(|line| line.split(' ').next().unwrap().to_string())
+			.collect::<Vec<_>>()
+	};
+	let all = checked(&std);
+	assert!(all.iter().any(|c| c == "bytes"), "bytes was not checked: {all:?}");
+	assert_eq!(
+		checked(&other),
+		all,
+		"switching to {other} kept a crate checked against {std}"
+	);
+	assert_eq!(
+		checked(&std),
+		["reject-fixture"],
+		"switching back to {std} checked its crates again"
 	);
 }
 

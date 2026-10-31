@@ -8,6 +8,44 @@
   and scalars returns its error or `undefined`, and leaves the `Ok`'s parts in a
   module-level slot, such as `readOut`. A root still takes an `rt.ByteSlice` and returns
   the `Result`.
+- `rt.cmpTuple` takes the tuple type it compares and what it returns, `rt.Ordering` for
+  `Ord::cmp` or `rt.Ordering | undefined` for `PartialOrd::partial_cmp`, as type
+  arguments, as in `rt.cmpTuple<[rt.u8, Key], rt.Ordering>([rt.cmp, Key.cmp$cmp_Ord])`.
+
+- An instance's suffix spells each type, trait, and closure by its path, the crate's own
+  by its module path, a dependency's under its crate, and std's by its public path
+  without a module its item repeats; `&` as `ref`, `&mut` as `mut`, and a slice, array,
+  or tuple with its length; and a function's nested item or async block by where it is.
+  No name is numbered `$2` on any more: `Fault.fmt$Display` is `Fault.fmt$fmt_Display`,
+  `Group.encode$Encode_Version` is `Group.encode$coding_encode_Encode_lite_version_Version`,
+  `read$u8s` is `read$mut_ref_slice_u8`, `through$2` is `through$u16s`, and
+  `blocksFuture$2` is `blocksFuture$closure0`. A type declared in a function has its
+  module suffixed alike, `copy.Pair$run.ts`. A trait object's class is `of$` and its
+  type, `Shape.of$dyns_Square` for `Shape.Square`, or `ofPlace$` for one of a place,
+  rather than `Square$Place`. A binding's export of a trait's function names the trait by
+  its path too: `eq$cmp_PartialEq`, `cmp$cmp_Ord`, `deref$ops_Deref`, and
+  `from$convert_From_Vec_u8`. A caller takes the new names from the output.
+- `rt.Waker` has `data` and `vtable`, its identity, in place of `willWake`, which is
+  `rt.willWake(a, b)`: a caller's own waker gives as `data` what each of its clones
+  shares, such as the task it wakes, and as `vtable` an object of its kind of waker.
+- A `start..` is an `rt.RangeFrom`, an iterator as `rt.Range` is, rather than
+  `{ start }`: a caller passes one as `new rt.RangeFrom(start, rt.u64Step)`, with its
+  integer type's `Step`, or `rt.charStep`, and none for other types. A binding taking one
+  still reads its `start`. An `rt.Range` or `rt.RangeInclusive` of `char`s takes
+  `rt.charStep` too, to step past the surrogates. One of unsigned `NonZero`s takes
+  `rt.nonZeroStep` of its integer's `Step` and maximum, as in
+  `new rt.RangeInclusive(lo, hi, rt.nonZeroStep(rt.u8Step, 255))`.
+- A closure, a `fn` pointer, a `dyn Fn`, or a function item as a value returns
+  `undefined` for `()`, not `void`, as in `(a0: rt.u8) => undefined`: a caller passes such
+  a parameter a function typed `=> undefined`.
+- An instance of a generic std function, such as `core/option.ts`'s, is named for a hash
+  of its text, `map$1cf8u0y`, rather than for its type arguments and the closure of one
+  of the instances merged into it, `map$Option_u64_u64_rescale_closure0`. A caller that
+  imports one by name takes the new name from the output.
+- `rt.hashInt` is one function per width, as std writes each integer: `rt.hash8` for a
+  `u8`, `i8`, or `bool`, `rt.hash16`, `rt.hash32` for a `char`, `usize`, or `isize` too,
+  `rt.hash64`, and `rt.hash128`. `rt.Hasher` is an interface, and `rt.hashFinish` of a
+  `DefaultHasher` is std's SipHash-1-3 of what was written, a whole `rt.u64`.
 - A `&mut` to an `Arc` or a `Waker`, pinned or boxed too, is an `rt.Place` of it, as a `&mut`
   to a number is, rather than the object: a caller passes one as `{ v: arc }` and reads
   the `Arc` it holds after the call from `v`.
@@ -51,7 +89,7 @@
   `true`.
 - The runtime's `iterMax`, `iterMin`, `iterMaxByKey`, and `iterMinByKey` take a
   `PartialOrd::lt` after the iterator and any key function, for items or keys of any type:
-  `rt.iterMax(it, rt.cmpLt(rt.cmp))`.
+  `rt.iterMax(it, rt.cmpLt(rt.cmpStr))`, or of integers, `rt.iterMax(it, rt.lt)`.
 - `rt.FromUtf8Error` holds its `rt.Utf8Error` as std's does: `e.validUpTo` and
   `e.errorLen` are `e.error.validUpTo` and `e.error.errorLen`.
 - `ts.toml` no longer takes `ignore-macros`: `tracing`'s events are left out without it,

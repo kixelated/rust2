@@ -6,14 +6,14 @@ export function clone$Clone(self: Named): Named {
 	return { id: self.id, name: self.name };
 }
 
-export function eq$PartialEq(self: Named, other: Named): boolean {
+export function eq$cmp_PartialEq(self: Named, other: Named): boolean {
 	if (!(self.id === other.id)) {
 		return false;
 	}
 	return self.name === other.name;
 }
 
-export function partialCmp$PartialOrd(self: Named, other: Named): rt.Ordering | undefined {
+export function partialCmp$cmp_PartialOrd(self: Named, other: Named): rt.Ordering | undefined {
 	const cmp: rt.Ordering | undefined = rt.cmp(self.id, other.id);
 	if (cmp !== undefined) {
 		if (cmp === 0) {

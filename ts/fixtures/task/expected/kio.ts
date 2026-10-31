@@ -6,70 +6,70 @@ import * as Consumer from "./kio.Consumer.ts";
 import * as Pending from "./kio.Pending.ts";
 import type * as Waiter from "./kio.Waiter.ts";
 
-export function poll$Task_boxed_closure0_closure3(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64>, waiter: Waiter.Waiter): rt.Poll<rt.u64> {
+export function poll$kio_Task_futures_boxed_closure0_closure3(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64>, waiter: Waiter.Waiter): rt.Poll<rt.u64> {
 	return self(waiter);
 }
 
-export function poll$Task_boxed_closure0_closure5(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64>, waiter: Waiter.Waiter): rt.Poll<rt.u64> {
+export function poll$kio_Task_futures_boxed_closure0_closure5(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64>, waiter: Waiter.Waiter): rt.Poll<rt.u64> {
 	return self(waiter);
 }
 
-export function poll$Task_closed_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<undefined>, waiter: Waiter.Waiter): rt.Poll<undefined> {
+export function poll$kio_Task_kio_Consumer_closed_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<undefined>, waiter: Waiter.Waiter): rt.Poll<undefined> {
 	return self(waiter);
 }
 
-export function poll$Task_front_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.usize>, waiter: Waiter.Waiter): rt.Poll<rt.usize> {
+export function poll$kio_Task_kio_Consumer_recv_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	return self(waiter);
 }
 
-export function poll$Task_recv_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
+export function poll$kio_Task_kio_Consumer_wait_closure0_closure0_model_watch_closure0_closure1_usize(self: (a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>, waiter: Waiter.Waiter): rt.Poll<rt.Result<rt.usize, Closed.Closed>> {
 	return self(waiter);
 }
 
-export function poll$Task_wait_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>, waiter: Waiter.Waiter): rt.Poll<rt.Result<rt.usize, Closed.Closed>> {
+export function poll$kio_Task_model_front_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.usize>, waiter: Waiter.Waiter): rt.Poll<rt.usize> {
 	return self(waiter);
 }
 
-export function poll$Task_watch_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
+export function poll$kio_Task_model_watch_closure0_closure0(self: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>, waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> {
 	return self(waiter);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$boxed_closure0_closure3_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	return Pending.new$boxed_closure0_closure3(poll);
+export function wait$futures_boxed_closure0_closure3_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
+	return Pending.new$futures_boxed_closure0_closure3(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
-	return Pending.new$boxed_closure0_closure5(poll);
+export function wait$futures_boxed_closure0_closure5_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64>> {
+	return Pending.new$futures_boxed_closure0_closure5(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$closed_closure0_closure0_unit(poll: (a0: Waiter.Waiter) => rt.Poll<undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>> {
-	return Pending.new$closed_closure0_closure0(poll);
+export function wait$kio_Consumer_closed_closure0_closure0_unit(poll: (a0: Waiter.Waiter) => rt.Poll<undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>> {
+	return Pending.new$kio_Consumer_closed_closure0_closure0(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$front_closure0_closure0_usize(poll: (a0: Waiter.Waiter) => rt.Poll<rt.usize>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.usize>> {
-	return Pending.new$front_closure0_closure0(poll);
+export function wait$kio_Consumer_recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
+	return Pending.new$kio_Consumer_recv_closure0_closure0(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$recv_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return Pending.new$recv_closure0_closure0(poll);
+export function wait$kio_Consumer_wait_closure0_closure0_model_watch_closure0_closure1_usize_Result_usize_kio_Closed(poll: (a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>> {
+	return Pending.new$kio_Consumer_wait_closure0_closure0_model_watch_closure0_closure1_usize(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$wait_closure0_closure0_Result_usize_Closed(poll: (a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.Result<rt.usize, Closed.Closed>>> {
-	return Pending.new$wait_closure0_closure0(poll);
+export function wait$model_front_closure0_closure0_usize(poll: (a0: Waiter.Waiter) => rt.Poll<rt.usize>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.usize>> {
+	return Pending.new$model_front_closure0_closure0(poll);
 }
 
 /** A future from a poll function that receives a [`Waiter`]. */
-export function wait$watch_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
-	return Pending.new$watch_closure0_closure0(poll);
+export function wait$model_watch_closure0_closure0_Option_u64(poll: (a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>): Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>> {
+	return Pending.new$model_watch_closure0_closure0(poll);
 }
 
-export class waitFuture$watch_closure0_closure1_usize {
+export class waitFuture$kio_Consumer_model_watch_closure0_closure1_usize {
 	#state: number = 0;
 	#self: Consumer.Consumer;
 	#f: (a0: rt.u64[]) => rt.Poll<rt.usize>;
@@ -92,13 +92,13 @@ export class waitFuture$watch_closure0_closure1_usize {
 		if (this.#state === 0) {
 			const self: Consumer.Consumer = this.#self;
 			let captured = this.#f;
-			this.#awaitee = wait$wait_closure0_closure0_Result_usize_Closed((waiter: Waiter.Waiter): rt.Poll<rt.Result<rt.usize, Closed.Closed>> => {
-				return Consumer.poll$watch_closure0_closure1_usize(self, waiter, captured);
+			this.#awaitee = wait$kio_Consumer_wait_closure0_closure0_model_watch_closure0_closure1_usize_Result_usize_kio_Closed((waiter: Waiter.Waiter): rt.Poll<rt.Result<rt.usize, Closed.Closed>> => {
+				return Consumer.poll$mut_model_watch_closure0_closure1_usize(self, waiter, captured);
 			});
 		} else if (this.#state === 1) {
 			rt.asyncFnResumed();
 		}
-		const _8: rt.Poll<rt.Result<rt.usize, Closed.Closed>> = Pending.poll$Future_wait_closure0_closure0(this.#awaitee, _2);
+		const _8: rt.Poll<rt.Result<rt.usize, Closed.Closed>> = Pending.poll$Future_kio_Consumer_wait_closure0_closure0_model_watch_closure0_closure1_usize(this.#awaitee, _2);
 		if (_8 !== rt.Pending) {
 			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
@@ -109,7 +109,7 @@ export class waitFuture$watch_closure0_closure1_usize {
 	}
 }
 
-export class closedFuture {
+export class closedFuture$kio_Consumer {
 	#state: number = 0;
 	#self: Consumer.Consumer;
 	#awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<undefined>>;
@@ -127,13 +127,13 @@ export class closedFuture {
 	poll(_2: rt.Context): rt.Poll<undefined> {
 		if (this.#state === 0) {
 			const self: Consumer.Consumer = this.#self;
-			this.#awaitee = wait$closed_closure0_closure0_unit((waiter: Waiter.Waiter): rt.Poll<undefined> => {
+			this.#awaitee = wait$kio_Consumer_closed_closure0_closure0_unit((waiter: Waiter.Waiter): rt.Poll<undefined> => {
 				return Consumer.pollClosed(self, waiter);
 			});
 		} else if (this.#state === 1) {
 			rt.asyncFnResumed();
 		}
-		if (Pending.poll$Future_closed_closure0_closure0(this.#awaitee, _2) !== rt.Pending) {
+		if (Pending.poll$Future_kio_Consumer_closed_closure0_closure0(this.#awaitee, _2) !== rt.Pending) {
 			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;
 			return undefined;
@@ -143,7 +143,7 @@ export class closedFuture {
 	}
 }
 
-export class recvFuture {
+export class recvFuture$kio_Consumer {
 	#state: number = 0;
 	#self: Consumer.Consumer;
 	#awaitee!: Pending.Pending<(a0: Waiter.Waiter) => rt.Poll<rt.u64 | undefined>>;
@@ -161,13 +161,13 @@ export class recvFuture {
 	poll(_2: rt.Context): rt.Poll<rt.u64 | undefined> {
 		if (this.#state === 0) {
 			const self: Consumer.Consumer = this.#self;
-			this.#awaitee = wait$recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
+			this.#awaitee = wait$kio_Consumer_recv_closure0_closure0_Option_u64((waiter: Waiter.Waiter): rt.Poll<rt.u64 | undefined> => {
 				return Consumer.pollRecv(self, waiter);
 			});
 		} else if (this.#state === 1) {
 			rt.asyncFnResumed();
 		}
-		const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_recv_closure0_closure0(this.#awaitee, _2);
+		const _7: rt.Poll<rt.u64 | undefined> = Pending.poll$Future_kio_Consumer_recv_closure0_closure0(this.#awaitee, _2);
 		if (_7 !== rt.Pending) {
 			this.#awaitee[Symbol.dispose]();
 			this.#state = 1;

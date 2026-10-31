@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(self: Made, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Made, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Made";
 	const _4: string = "n";
 	const _5: rt.Fmt = (f: rt.Formatter) => rt.u64Debug(self.n, f);

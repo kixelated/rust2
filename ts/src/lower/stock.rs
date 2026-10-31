@@ -1,9 +1,9 @@
 //! Well-known crates that translation maps itself, as it maps std, so a consumer binds
 //! none of them: `bytes`' `Bytes`, which is the `rt.ByteSlice` a `&[u8]` is, and
 //! `BytesMut`, which is `rt.BytesMut`, and `rand`'s thread-local generator, which draws
-//! from the platform's cryptographic source. The rest of `bytes`, such as `Buf`'s provided
-//! methods of the crate's own buffers, translates from its MIR. `tracing`'s events are
-//! left out where they are written, by [`super::Translator::ignored_site`].
+//! from the platform's cryptographic source. The rest of `bytes`, such as most of `Buf`'s
+//! provided methods of the crate's own buffers, translates from its MIR. `tracing`'s
+//! events are left out where they are written, by [`super::Translator::ignored_site`].
 
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{CrateNum, DefId};
@@ -65,13 +65,18 @@ pub fn mapped(tcx: TyCtxt<'_>, did: DefId) -> bool {
 
 /// Whether `instance`, a provided method of `Buf` or `BufMut`, maps for its `Self`, which
 /// [`mapped`] can't tell from the method alone: one the mapping names, of a buffer whose
-/// impl maps. The others lower from their MIR, as for the crate's own buffers.
+/// impl maps, and `copy_to_bytes` of any other, whose `BytesMut::put` reads a capacity.
+/// The others lower from their MIR, as for the crate's own buffers.
 pub fn maps<'tcx>(tcx: TyCtxt<'tcx>, instance: Instance<'tcx>) -> bool {
 	let did = instance.def_id();
-	tcx.crate_name(did.krate).as_str() == "bytes"
-		&& tcx.trait_of_assoc(did).is_some()
-		&& mapped_self(tcx, instance.args.type_at(0))
-		&& (BUF.contains(&tcx.item_name(did).as_str()) || BUF_MUT.contains(&tcx.item_name(did).as_str()))
+	if tcx.crate_name(did.krate).as_str() != "bytes" || tcx.trait_of_assoc(did).is_none() {
+		return false;
+	}
+	let name = tcx.item_name(did);
+	match mapped_self(tcx, instance.args.type_at(0)) {
+		true => BUF.contains(&name.as_str()) || BUF_MUT.contains(&name.as_str()),
+		false => name.as_str() == "copy_to_bytes",
+	}
 }
 
 /// `Buf`'s methods that the mapping names for its buffers.
@@ -108,6 +113,9 @@ const BUF: &[&str] = &[
 	"get_i128",
 	"get_i128_le",
 	"get_i128_ne",
+	"get_f32",
+	"get_f32_le",
+	"get_f32_ne",
 	"get_f64",
 	"get_f64_le",
 	"get_f64_ne",
@@ -152,6 +160,9 @@ const BUF_MUT: &[&str] = &[
 	"put_i128",
 	"put_i128_le",
 	"put_i128_ne",
+	"put_f32",
+	"put_f32_le",
+	"put_f32_ne",
 	"put_f64",
 	"put_f64_le",
 	"put_f64_ne",
@@ -169,7 +180,7 @@ enum Buffer {
 	/// A `Bytes`, whose `&mut` is an `rt.Place`.
 	Bytes,
 	BytesMut,
-	/// A `&[u8]`, which `Buf` reads through `&self` only: a `&mut` to it is refused.
+	/// A `&[u8]`, whose `&mut` is an `rt.Place` too.
 	Slice,
 	/// A `Vec<u8>`, which `BufMut` writes.
 	Vec,
@@ -322,7 +333,12 @@ fn bytes<'tcx>(
 		Some(Std::BytesMut) => return bytes_mut(b, call, name, args, out),
 		_ => {}
 	}
-	let buffer = Buffer::of(tcx, targ(call.args, 0))?;
+	let Some(buffer) = Buffer::of(tcx, targ(call.args, 0)) else {
+		return match (owner, name) {
+			("Buf", "copy_to_bytes") => provided_copy_to_bytes(b, call, args),
+			_ => None,
+		};
+	};
 	match owner {
 		"Buf" => buf(b, call, buffer, name, args),
 		"BufMut" => buf_mut(b, call, buffer, name, args),
@@ -434,12 +450,12 @@ fn buf<'tcx>(
 ) -> Option<Expr> {
 	let mut args = args.into_iter();
 	let this = args.next()?;
-	// What reads past the front: a `Bytes`'s place, or a `BytesMut`. A `&[u8]`'s would be a
-	// `&mut` to a reference, which is not supported yet.
+	// What reads past the front: a `Bytes`'s or a `&[u8]`'s place, which `bytes` reads
+	// alike but to advance and copy out, or a `BytesMut`.
 	let prefix = match buffer {
-		Buffer::Bytes => Some("bytes"),
+		Buffer::Bytes | Buffer::Slice => Some("bytes"),
 		Buffer::BytesMut => Some("bytesMut"),
-		Buffer::Slice | Buffer::Vec => None,
+		Buffer::Vec => None,
 	};
 	let rt = |f: &str, args: Vec<Expr>| Some(Expr::rt(format!("{}{f}", prefix?), args));
 	Some(match name {
@@ -447,16 +463,18 @@ fn buf<'tcx>(
 		"has_remaining" => this.member("length").binary("!==", Expr::lit("0")),
 		"chunk" if buffer == Buffer::BytesMut => view(this),
 		"chunk" => this,
+		"advance" if buffer == Buffer::Slice => Expr::rt("byteSliceAdvance", vec![this, args.next()?]),
 		"advance" => rt("Advance", vec![this, args.next()?])?,
 		"copy_to_slice" => rt("CopyToSlice", vec![this, args.next()?])?,
 		"copy_to_bytes" if buffer == Buffer::BytesMut => Expr::rt(
 			"bytesMutFreeze",
 			vec![Expr::rt("bytesMutSplitTo", vec![this, args.next()?])],
 		),
+		"copy_to_bytes" if buffer == Buffer::Slice => Expr::rt("byteSliceCopyToBytes", vec![this, args.next()?]),
 		"copy_to_bytes" => rt("SplitTo", vec![this, args.next()?])?,
 		_ => {
 			let (ty, le) = scalar(name.strip_prefix("get_")?);
-			let out = signature(b.t.tcx, call).output();
+			let out = b.t.sig(call.def_id, call.args).output();
 			let le = Expr::lit(le.to_string());
 			match ty {
 				"uint" | "int" => {
@@ -465,6 +483,7 @@ fn buf<'tcx>(
 					let read = rt("ReadInt", vec![this, size, args.next()?, signed, le])?;
 					int.method("fromBeBytes", vec![read])
 				}
+				"f32" => Expr::rt("f32FromBeBytes", vec![rt("Read", vec![this, Expr::lit("4"), le])?]),
 				"f64" => Expr::rt("f64FromBeBytes", vec![rt("Read", vec![this, Expr::lit("8"), le])?]),
 				_ => {
 					let int = Int::of(out)?;
@@ -512,7 +531,7 @@ fn buf_mut<'tcx>(
 		"put_bytes" => rt("PutFill", vec![this, args.next()?, args.next()?]),
 		_ => {
 			let (ty, le) = scalar(name.strip_prefix("put_")?);
-			let input = *signature(b.t.tcx, call).inputs().get(1)?;
+			let input = *b.t.sig(call.def_id, call.args).inputs().get(1)?;
 			let value = args.next()?;
 			let le = Expr::lit(le.to_string());
 			match ty {
@@ -520,6 +539,7 @@ fn buf_mut<'tcx>(
 					let be = Int::of(input)?.method("toBeBytes", vec![value]);
 					rt("PutInt", vec![this, be, args.next()?, le])
 				}
+				"f32" => rt("PutBytes", vec![this, Expr::rt("f32ToBeBytes", vec![value]), le]),
 				"f64" => rt("PutBytes", vec![this, Expr::rt("f64ToBeBytes", vec![value]), le]),
 				_ => {
 					let int = Int::of(input)?;
@@ -567,29 +587,51 @@ fn put<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, buffer: Buffer, this
 		);
 		return Some(b.err(call.span, msg));
 	}
-	let buf = tcx
-		.traits(call.def_id.krate)
-		.iter()
-		.copied()
-		.find(|&tr| tcx.item_name(tr).as_str() == "Buf")?;
-	let mut method = |name: &str| {
-		let f = tcx
-			.associated_items(buf)
-			.in_definition_order()
-			.find(|i| i.is_fn() && i.name().as_str() == name)?
-			.def_id;
-		Some(b.fn_value(f, tcx.mk_args(&[ty.into()]), call.span))
-	};
 	let (has, remaining, chunk, advance) = (
-		method("has_remaining")?,
-		method("remaining")?,
-		method("chunk")?,
-		method("advance")?,
+		buf_method(b, call, ty, "has_remaining")?,
+		buf_method(b, call, ty, "remaining")?,
+		buf_method(b, call, ty, "chunk")?,
+		buf_method(b, call, ty, "advance")?,
 	);
 	Some(Expr::rt(
 		"byteVecPutBuf",
 		vec![this, src, has, remaining, chunk, advance],
 	))
+}
+
+/// `Buf::copy_to_bytes` as `bytes` provides it, of a buffer the mapping doesn't read: it
+/// puts a `Take` of the buffer into a new `BytesMut` of the capacity asked for, which
+/// copies chunk by chunk through the buffer's own methods, as the runtime does.
+fn provided_copy_to_bytes<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, args: Vec<Expr>) -> Option<Expr> {
+	let ty = targ(call.args, 0);
+	if b.t.needs_place(ty) {
+		let msg = format!("`Buf::copy_to_bytes` of `{ty}`, a value JS copies, which is not supported");
+		return Some(b.err(call.span, msg));
+	}
+	let mut args = args.into_iter();
+	let (this, len) = (args.next()?, args.next()?);
+	let (remaining, chunk, advance) = (
+		buf_method(b, call, ty, "remaining")?,
+		buf_method(b, call, ty, "chunk")?,
+		buf_method(b, call, ty, "advance")?,
+	);
+	Some(Expr::rt("bufCopyToBytes", vec![this, len, remaining, chunk, advance]))
+}
+
+/// The function value of `Buf`'s method `name` for the buffer `ty`, of the crate `call` is to.
+fn buf_method<'tcx>(b: &mut Body<'_, '_, 'tcx>, call: &Call<'tcx>, ty: Ty<'tcx>, name: &str) -> Option<Expr> {
+	let tcx = b.t.tcx;
+	let buf = tcx
+		.traits(call.def_id.krate)
+		.iter()
+		.copied()
+		.find(|&tr| tcx.item_name(tr).as_str() == "Buf")?;
+	let f = tcx
+		.associated_items(buf)
+		.in_definition_order()
+		.find(|i| i.is_fn() && i.name().as_str() == name)?
+		.def_id;
+	Some(b.fn_value(f, tcx.mk_args(&[ty.into()]), call.span))
 }
 
 /// A `get_` or `put_` method's scalar, and whether its bytes are little-endian, as
@@ -599,12 +641,6 @@ fn scalar(name: &str) -> (&str, bool) {
 		Some(ty) => (ty, true),
 		None => (name, false),
 	}
-}
-
-/// The signature of the function `call` names, with its arguments.
-fn signature<'tcx>(tcx: TyCtxt<'tcx>, call: &Call<'tcx>) -> ty::FnSig<'tcx> {
-	let sig = tcx.fn_sig(call.def_id).instantiate(tcx, call.args).skip_norm_wip();
-	tcx.instantiate_bound_regions_with_erased(sig)
 }
 
 /// A function of `rand`: `rng`, or a method of its `Rng` or `RngExt` on a `ThreadRng`.

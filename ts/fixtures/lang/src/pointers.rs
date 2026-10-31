@@ -1,11 +1,18 @@
 //! Raw pointers: a circular list of boxed nodes as `hashlink`'s `LinkedHashMap` keeps one,
 //! linked through a union and holding a `MaybeUninit` entry, with a free list of nodes to
 //! reuse; pointers to numbers, to fields, and to whole values, read, written, swapped,
-//! and compared; and pointers to the parts of a struct kept as objects.
+//! and compared; pointers to the parts of a struct kept as objects; the pointers
+//! `UnsafeCell::get` gives; slots of fresh memory written whole before any pointer
+//! into them is taken, by index or through std's iterators over them; and pointers into
+//! nodes that an `AtomicPtr` and memory hold pointers to.
 
+use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
+use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::{AtomicBool, AtomicPtr};
 
 struct Links<V> {
 	next: NonNull<Node<V>>,
@@ -446,5 +453,743 @@ pub fn sentinels(data: &[u8], out: &mut Vec<u8>) {
 			out.push(units.as_ptr().read().into_iter().count() as u8);
 			out.push(units.as_ref().len() as u8);
 		}
+	}
+}
+
+/// A struct JS keeps as an object, which Rust copies. It has no `Default`, which
+/// `generics::reset` would count as replaced whole.
+#[derive(Clone, Copy)]
+struct Duo(u8, u8);
+
+/// A struct JS keeps as an object, owning a count.
+struct Held {
+	n: u8,
+	count: Rc<()>,
+}
+
+/// crossbeam-epoch's own wrapper over `UnsafeCell`, which lends its pointer to a closure.
+struct Wrapped<T>(UnsafeCell<T>);
+
+impl<T> Wrapped<T> {
+	const fn new(value: T) -> Self {
+		Self(UnsafeCell::new(value))
+	}
+
+	fn with<R>(&self, f: impl FnOnce(*const T) -> R) -> R {
+		f(self.0.get())
+	}
+
+	fn with_mut<R>(&self, f: impl FnOnce(*mut T) -> R) -> R {
+		f(self.0.get())
+	}
+}
+
+/// `UnsafeCell`s of a number, a string, a struct Rust copies, and one that owns a count: written
+/// through `get` and `get_mut`, read through another `get` and before a write, assigned
+/// through `get`, which drops what each held, replaced whole, and their values taken out.
+pub fn cells(data: &[u8], out: &mut Vec<u8>) {
+	let count = Rc::new(());
+	let mut num = UnsafeCell::new(u32::MAX - 1);
+	let mut pair = UnsafeCell::new(Duo(0, 0xff));
+	let mut text = UnsafeCell::new(String::new());
+	let mut held = Wrapped::new(Held {
+		n: 0,
+		count: Rc::clone(&count),
+	});
+	for &op in data {
+		let n = op / 8;
+		match op % 8 {
+			// A write through one pointer, seen through another, and a value read out before it.
+			0 => {
+				let (a, b) = (&num, &num);
+				let before = unsafe { *b.get() };
+				unsafe { *a.get() = (*b.get()).wrapping_add(u32::from(n) << 26) };
+				out.extend(before.to_le_bytes());
+				out.extend(unsafe { *b.get() }.to_le_bytes());
+			}
+			1 => {
+				*num.get_mut() ^= u32::from(n);
+				out.extend(num.get_mut().to_le_bytes());
+			}
+			// A part written, then the whole, with a copy read out before each.
+			2 => {
+				let before = unsafe { *pair.get() };
+				unsafe { (*pair.get()).0 = n };
+				let between = unsafe { *pair.get() };
+				let p = pair.get();
+				unsafe { *p = Duo((*p).1, (*p).0) };
+				pair.get_mut().1 ^= 0x80;
+				out.extend([
+					before.0,
+					before.1,
+					between.0,
+					between.1,
+					pair.get_mut().0,
+					pair.get_mut().1,
+				]);
+			}
+			3 => {
+				unsafe { (*text.get()).push(char::from(b'a' + n % 26)) };
+				text.get_mut().push('!');
+				out.extend(unsafe { &*text.get() }.as_bytes());
+			}
+			// Assigned through the pointer, which drops what it held, or written over, which
+			// leaks it.
+			4 => {
+				let fresh = Held {
+					n,
+					count: Rc::clone(&count),
+				};
+				match n % 2 {
+					0 => held.with_mut(|p| unsafe { *p = fresh }),
+					_ => held.with_mut(|p| unsafe { ptr::write(p, fresh) }),
+				}
+				out.extend([held.with(|p| unsafe { (*p).n }), Rc::strong_count(&count) as u8]);
+			}
+			5 => {
+				held.with_mut(|p| unsafe { (*p).n = (*p).n.wrapping_add(n) });
+				held.0.get_mut().n ^= 1;
+				out.push(held.with(|p| unsafe { (*p).n }));
+			}
+			// Each of a number and a string replaced whole, its old value taken out, while
+			// the pointers `get` gave in other arms are dead. A cell of an object can't be,
+			// as a pointer `get` gave would keep the old object.
+			6 => {
+				let old = std::mem::replace(&mut num, UnsafeCell::new(u32::from(n)));
+				out.extend(old.into_inner().to_le_bytes());
+				let old = std::mem::replace(&mut text, UnsafeCell::new(n.to_string()));
+				out.extend(old.into_inner().as_bytes());
+				*pair.get_mut() = Duo(n, !n);
+			}
+			// One made, written through `get`, and its value taken out and dropped.
+			_ => {
+				let made = Wrapped::new(Held {
+					n,
+					count: Rc::clone(&count),
+				});
+				made.with_mut(|p| unsafe { (*p).n ^= 0x55 });
+				out.push(Rc::strong_count(&count) as u8);
+				let made = made.0.into_inner();
+				out.push(made.n);
+				drop(made);
+				out.push(Rc::strong_count(&count) as u8);
+			}
+		}
+	}
+	out.extend(num.into_inner().to_le_bytes());
+	let Duo(a, b) = pair.into_inner();
+	out.extend([a, b]);
+	out.extend(text.into_inner().as_bytes());
+	drop(held);
+	out.push(Rc::strong_count(&count) as u8);
+}
+
+fn renew_num(cell: &mut UnsafeCell<u32>, value: u32) -> u32 {
+	std::mem::replace(cell, UnsafeCell::new(value)).into_inner()
+}
+
+/// Pointers that keep pointing where Rust's do across `mem::replace`, `mem::swap`,
+/// `mem::take`, and `*r = v`: one taken after its variable is replaced, one whose number
+/// parts are, ones a helper writes through a `&mut` into the object there, and one taken
+/// through two helpers and read while the variable is borrowed, which is assigned after;
+/// one to a part a `&mut` given as `mem::replace`'s value borrows, which it leaves be;
+/// and one through a reference `mem::replace` pointed elsewhere first.
+pub fn rebound(data: &[u8], out: &mut Vec<u8>) {
+	for &n in data {
+		match n % 7 {
+			0 => out.extend(replaced_before(n)),
+			6 => out.extend(retargeted(n)),
+			5 => out.extend(lent_as_value(n)),
+			1 => out.extend(parts_replaced(n)),
+			2 => out.extend(written_in_place(n)),
+			3 => out.extend(cell_written_in_place(n)),
+			_ => out.extend(borrowed_through(n)),
+		}
+	}
+}
+
+fn replaced_before(n: u8) -> [u8; 2] {
+	let mut pair = (n, !n);
+	let old = std::mem::replace(&mut pair, (n ^ 1, n));
+	let p = &raw mut pair;
+	unsafe { (*p).1 ^= old.0 };
+	[pair.0, pair.1]
+}
+
+struct Span {
+	range: (u8, u8),
+}
+
+fn lent_as_value(n: u8) -> [u8; 4] {
+	let mut span = Span { range: (n, !n) };
+	let mut other = (0, 0);
+	let mut r = &mut other;
+	let p = &raw mut span.range;
+	let old = std::mem::replace(&mut r, &mut span.range);
+	old.0 = n ^ 1;
+	r.0 ^= 3;
+	unsafe { [(*p).0, (*p).1, other.0, span.range.0] }
+}
+
+fn retargeted(n: u8) -> [u8; 2] {
+	let mut a = (n, !n);
+	let mut b = (n ^ 5, n);
+	let mut r = &mut a;
+	let _ = std::mem::replace(&mut r, &mut b);
+	let p = &raw mut *r;
+	a = (0, 0);
+	unsafe { [(*p).0 ^ a.0, (*p).1] }
+}
+
+fn parts_replaced(n: u8) -> [u8; 4] {
+	let mut pair = (n, !n);
+	let p = &raw mut pair;
+	let old = std::mem::replace(&mut pair.0, n.wrapping_add(1));
+	std::mem::swap(&mut pair.0, &mut pair.1);
+	let taken = std::mem::take(&mut pair.1);
+	unsafe { [(*p).0, (*p).1, old, taken] }
+}
+
+fn written_in_place(n: u8) -> [u8; 6] {
+	let mut a = Duo(n, 1);
+	let mut b = Duo(2, n);
+	let p = &raw mut a;
+	let old = renew(&mut a, Duo(n ^ 3, n ^ 4));
+	let between = unsafe { *p };
+	exchange(&mut a, &mut b);
+	let swapped = unsafe { *p };
+	assign(&mut a, Duo(old.1, b.0));
+	unsafe { [between.0, between.1, swapped.0, swapped.1, (*p).0, (*p).1] }
+}
+
+fn cell_written_in_place(n: u8) -> [u8; 4] {
+	let mut cell = UnsafeCell::new(u32::from(n) << 9);
+	let p = cell.get();
+	let old = renew_num(&mut cell, u32::from(n) + 7);
+	let between = unsafe { *p };
+	let taken = clear(&mut cell);
+	[
+		old as u8,
+		(old >> 9) as u8,
+		between as u8,
+		taken as u8 ^ unsafe { *p } as u8,
+	]
+}
+
+fn borrowed_through(n: u8) -> [u8; 3] {
+	let mut d = Duo(n, !n);
+	let first = flipped(&mut d);
+	d = Duo(d.1, d.0);
+	[first, d.0, d.1]
+}
+
+fn renew(at: &mut Duo, value: Duo) -> Duo {
+	std::mem::replace(at, value)
+}
+
+fn exchange(a: &mut Duo, b: &mut Duo) {
+	std::mem::swap(a, b)
+}
+
+fn assign(at: &mut Duo, value: Duo) {
+	*at = value;
+}
+
+fn clear(cell: &mut UnsafeCell<u32>) -> u32 {
+	std::mem::take(cell).into_inner()
+}
+
+/// The first of `d`, flipped through the pointer `pointer_of` gives.
+fn flipped(d: &mut Duo) -> u8 {
+	let p = pointer_of(d);
+	unsafe {
+		(*p).0 ^= 0x5a;
+		(*p).0
+	}
+}
+
+fn pointer_of(d: &mut Duo) -> *mut Duo {
+	&raw mut *d
+}
+
+/// A struct JS keeps as an object, holding bytes.
+struct Log {
+	bytes: Vec<u8>,
+}
+
+/// Pointers to variables JS keeps as objects, each dead before its variable is assigned
+/// again, so it reads the object the variable held while it was made: one made in each
+/// iteration of a loop that assigns the variable after, one an arm makes where another
+/// arm replaces its variable, and ones nested loops make.
+pub fn lapsed(data: &[u8], out: &mut Vec<u8>) {
+	let mut pair = Duo(0, 0xff);
+	let mut log = Log { bytes: Vec::new() };
+	let mut window = [0u8; 3];
+	for &n in data {
+		let p = &raw mut pair;
+		unsafe { (*p).0 = (*p).0.wrapping_add(n) };
+		out.extend(unsafe { [(*p).0, (*p).1] });
+		pair = Duo(pair.1 ^ n, pair.0);
+		match n % 4 {
+			0 => {
+				let q = &raw mut log;
+				unsafe { (*q).bytes.push(n) };
+				out.extend(unsafe { &(*q).bytes });
+			}
+			1 => {
+				let old = std::mem::replace(&mut log, Log { bytes: vec![n, !n] });
+				out.extend(old.bytes);
+				let old = std::mem::replace(&mut pair, Duo(n, n ^ 0x0f));
+				out.extend([old.0, old.1]);
+			}
+			// The outer loop's pointer, read in the inner one and after it, and the inner
+			// one's own, whose variable each inner iteration assigns.
+			2 => {
+				let mut duo = Duo(n, 0);
+				let outer = &raw mut duo;
+				for i in 0..n % 5 {
+					let inner = &raw mut window;
+					unsafe {
+						(*inner)[usize::from(i % 3)] ^= n;
+						(*outer).1 = (*outer).1.wrapping_add((*inner)[0]);
+					}
+					window = [window[2], window[0], window[1].wrapping_add(i)];
+				}
+				out.extend(unsafe { [(*outer).0, (*outer).1] });
+				duo = Duo(duo.1, duo.0);
+				out.extend([duo.0, duo.1]);
+			}
+			_ => {
+				let p = &raw mut window;
+				let copy = p;
+				out.push(unsafe { (*copy)[0] });
+				window = [n; 3];
+			}
+		}
+	}
+	out.extend([pair.0, pair.1]);
+	out.extend(log.bytes);
+	out.extend(window);
+}
+
+/// Structs JS keeps as objects, which Rust copies, and which only the generic bodies below
+/// write into, each reached at one of them: by a call, through a trait object, and through
+/// a closure. Each copy of one is copied in JS too, as are none of the types they aren't
+/// reached at, such as `nested`'s, whose pointers translate.
+#[derive(Clone, Copy, Default)]
+struct ByCall(u8, u8);
+
+#[derive(Clone, Copy, Default)]
+struct ByObject(u8, u8);
+
+#[derive(Clone, Copy, Default)]
+struct ByClosure(u8, u8);
+
+fn put<T>(slot: &mut T, value: T) {
+	*slot = value;
+}
+
+/// A value of a `T` in a cell, which `reset` gives `T`'s default.
+struct Bin<T>(UnsafeCell<T>);
+
+trait Reset {
+	fn reset(&self);
+}
+
+impl<T: Default> Reset for Bin<T> {
+	fn reset(&self) {
+		unsafe { *self.0.get() = T::default() };
+	}
+}
+
+fn resetter<T: Default>(slot: *mut T) -> impl FnOnce() {
+	move || unsafe { *slot = T::default() }
+}
+
+/// Each byte a copy of one of them, the original written whole after by its generic body,
+/// and both put. Each is a function of its own, as a loop assigns its variables again.
+pub fn writers(data: &[u8], out: &mut Vec<u8>) {
+	for &byte in data {
+		let n = byte / 3;
+		out.extend(match byte % 3 {
+			0 => by_call(n),
+			1 => by_object(n),
+			_ => by_closure(n),
+		});
+	}
+}
+
+fn by_call(n: u8) -> [u8; 4] {
+	let mut a = ByCall(n, 1);
+	let b = a;
+	put(&mut a, ByCall(2, !n));
+	[a.0, a.1, b.0, b.1]
+}
+
+fn by_object(n: u8) -> [u8; 4] {
+	let bin = Bin(UnsafeCell::new(ByObject(n, 1)));
+	let before = unsafe { *bin.0.get() };
+	let object: &dyn Reset = &bin;
+	object.reset();
+	let after = bin.0.into_inner();
+	[after.0, after.1, before.0, before.1]
+}
+
+fn by_closure(n: u8) -> [u8; 4] {
+	let mut a = ByClosure(n, 1);
+	let b = a;
+	resetter(&raw mut a)();
+	[a.0, a.1, b.0, b.1]
+}
+
+struct Gauge {
+	range: (u8, u8),
+	slot: MaybeUninit<(u8, u8)>,
+}
+
+/// Each part of a `Gauge` written into, never given another object.
+fn nudge(g: &mut Gauge, n: u8) {
+	g.range.0 ^= n;
+	unsafe { (*g.slot.as_mut_ptr()).1 ^= n };
+}
+
+/// Pointers std makes to parts kept as objects, which a helper writes into but never gives
+/// another object: `NonNull::from` of a `&mut` and of a `&`, `into` of a `&mut`, and
+/// `MaybeUninit::as_mut_ptr` and `as_ptr`. Each is a function of its own, as a loop assigns
+/// its variables again.
+pub fn made(data: &[u8], out: &mut Vec<u8>) {
+	for &n in data {
+		out.extend(made_parts(n));
+	}
+}
+
+fn made_parts(n: u8) -> [u8; 7] {
+	let mut g = Gauge {
+		range: (n, !n),
+		slot: MaybeUninit::new((!n, n)),
+	};
+	let p = NonNull::from(&mut g.range);
+	let q = g.slot.as_mut_ptr();
+	nudge(&mut g, n ^ 0x5a);
+	unsafe { (*q).0 = p.as_ref().1 };
+	let r = NonNull::from(&g.range);
+	let s = g.slot.as_ptr();
+	let t: NonNull<(u8, u8)> = (&mut g.range).into();
+	nudge(&mut g, n);
+	unsafe {
+		[
+			p.as_ref().0,
+			p.as_ref().1,
+			r.as_ref().0,
+			t.as_ref().1,
+			(*s).0,
+			(*s).1,
+			g.slot.assume_init().0,
+		]
+	}
+}
+
+/// A cell read and written only through the pointer it lends a closure, as kio's
+/// `sync::UnsafeCell` is.
+struct Lent<T>(UnsafeCell<T>);
+
+impl<T> Lent<T> {
+	const fn new(value: T) -> Self {
+		Self(UnsafeCell::new(value))
+	}
+
+	fn with<R>(&self, f: impl FnOnce(*const T) -> R) -> R {
+		f(self.0.get())
+	}
+
+	fn with_mut<R>(&self, f: impl FnOnce(*mut T) -> R) -> R {
+		f(self.0.get())
+	}
+}
+
+type Entry = Lent<MaybeUninit<(u8, u8)>>;
+
+/// A run of slots as kio's log keeps one: each filled whole with an empty cell while
+/// nothing points into the fresh allocation yet, then written and read through the
+/// pointer its cell lends.
+struct Segment {
+	filled: usize,
+	slots: Box<[MaybeUninit<Entry>; 4]>,
+}
+
+impl Segment {
+	fn new() -> Self {
+		let mut slots = Box::new([const { MaybeUninit::uninit() }; 4]);
+		for at in 0..4 {
+			slots[at].write(Lent::new(MaybeUninit::uninit()));
+		}
+		Segment { filled: 0, slots }
+	}
+
+	/// As [`Self::new`], with kio's loop written with an iterator.
+	fn iterated() -> Self {
+		let mut slots = Box::new([const { MaybeUninit::uninit() }; 4]);
+		for slot in slots.iter_mut() {
+			slot.write(Lent::new(MaybeUninit::uninit()));
+		}
+		Segment { filled: 0, slots }
+	}
+
+	fn slot(&self, at: usize) -> &Entry {
+		unsafe { self.slots[at].assume_init_ref() }
+	}
+}
+
+/// Entries pushed into segments of slots that each fill whole first, read back, and
+/// changed in place through the pointer each slot's cell lends.
+pub fn segments(data: &[u8], out: &mut Vec<u8>) {
+	let mut log: Vec<Segment> = Vec::new();
+	let mut len = 0;
+	for &byte in data {
+		match byte % 4 {
+			0 => {
+				if len % 8 == 0 {
+					log.push(Segment::new());
+				} else if len % 4 == 0 {
+					log.push(Segment::iterated());
+				}
+				let segment = &mut log[len / 4];
+				segment
+					.slot(segment.filled)
+					.with_mut(|p| unsafe { (*p).write((byte, !byte)) });
+				segment.filled += 1;
+				len += 1;
+			}
+			1 if len > 0 => {
+				let at = usize::from(byte) % len;
+				let (a, b) = log[at / 4].slot(at % 4).with(|p| unsafe { *(*p).assume_init_ref() });
+				out.extend([a, b]);
+			}
+			2 if len > 0 => {
+				let at = usize::from(byte) % len;
+				log[at / 4]
+					.slot(at % 4)
+					.with_mut(|p| unsafe { (*(*p).as_mut_ptr()).1 ^= byte });
+			}
+			_ => out.push(log.iter().map(|s| s.filled as u8).sum()),
+		}
+	}
+}
+
+/// A struct JS keeps as an object, with a part it keeps as one too.
+struct Run {
+	span: (u8, u8),
+	n: u8,
+}
+
+/// A `MaybeUninit` array and a `MaybeUninit` variable, each slot written whole before any
+/// pointer into it is taken, then changed through pointers to a part of each and read back.
+pub fn uninit_runs(data: &[u8], out: &mut Vec<u8>) {
+	let mut runs: [MaybeUninit<Run>; 3] = [const { MaybeUninit::uninit() }; 3];
+	for at in 0..3 {
+		let n = data.get(at).copied().unwrap_or(0);
+		runs[at].write(Run {
+			span: (n, !n),
+			n: at as u8,
+		});
+	}
+	let mut last = MaybeUninit::<Run>::uninit();
+	unsafe {
+		last.as_mut_ptr().write(Run {
+			span: (data.len() as u8, 0),
+			n: 3,
+		})
+	};
+	let tail = unsafe { &raw mut (*last.as_mut_ptr()).span };
+	for &byte in data {
+		let run = unsafe { runs[usize::from(byte) % 3].assume_init_mut() };
+		let span = &raw mut run.span;
+		unsafe {
+			(*span).0 ^= byte;
+			(*span).1 = (*span).1.wrapping_add(run.n);
+			(*tail).1 = (*tail).1.wrapping_add((*span).0);
+			out.push((*span).0);
+		}
+	}
+	for run in &runs {
+		let run = unsafe { run.assume_init_ref() };
+		out.extend([run.span.0, run.span.1, run.n]);
+	}
+	let last = unsafe { last.assume_init() };
+	out.extend([last.span.0, last.span.1, last.n]);
+}
+
+/// `MaybeUninit` slots each written whole through std's iterators over them before any
+/// pointer into them is taken: an array's `iter_mut`, a boxed slice's `&mut`, its
+/// `chunks_exact_mut`, and a `zip` with an index range; then changed through pointers to
+/// a part of each and read back.
+pub fn iterated_runs(data: &[u8], out: &mut Vec<u8>) {
+	let byte = |at: usize| data.get(at).copied().unwrap_or(0);
+	let mut runs: [MaybeUninit<Run>; 3] = [const { MaybeUninit::uninit() }; 3];
+	for slot in runs.iter_mut() {
+		slot.write(Run {
+			span: (byte(0), !byte(0)),
+			n: 0,
+		});
+	}
+	let mut boxed: Box<[MaybeUninit<Run>]> = Box::new([const { MaybeUninit::uninit() }; 4]);
+	for slot in &mut boxed {
+		slot.write(Run {
+			span: (byte(1), 1),
+			n: 1,
+		});
+	}
+	for (chunk, at) in boxed.chunks_exact_mut(2).zip(0u8..) {
+		for slot in chunk {
+			slot.write(Run {
+				span: (byte(2), at),
+				n: at.wrapping_add(byte(3)),
+			});
+		}
+	}
+	for (slot, at) in runs.iter_mut().zip(0..) {
+		slot.write(Run {
+			span: (byte(at), at as u8),
+			n: at as u8,
+		});
+	}
+	for &byte in data {
+		let run = unsafe { runs[usize::from(byte) % 3].assume_init_mut() };
+		let span = &raw mut run.span;
+		unsafe {
+			(*span).0 ^= byte;
+			(*span).1 = (*span).1.wrapping_add(run.n);
+			out.push((*span).0);
+		}
+		let run = unsafe { boxed[usize::from(byte) % 4].assume_init_mut() };
+		let span = &raw mut run.span;
+		unsafe {
+			(*span).1 ^= byte;
+			out.push((*span).1);
+		}
+	}
+	for run in runs.iter().chain(boxed.iter()) {
+		let run = unsafe { run.assume_init_ref() };
+		out.extend([run.span.0, run.span.1, run.n]);
+	}
+}
+
+/// A struct JS keeps as an object, holding an `rt.Cell`.
+struct Stable(UnsafeCell<u8>);
+
+fn first_set<T>(pair: &mut (T, Stable), value: T) {
+	pair.0 = value;
+}
+
+fn stable_cell(stable: &Stable) -> *mut u8 {
+	stable.0.get()
+}
+
+/// A pointer to a cell beside a field a generic body writes whole, which leaves the cell's
+/// struct be.
+pub fn beside_written(data: &[u8], out: &mut Vec<u8>) {
+	let mut pair = (0u16, Stable(UnsafeCell::new(0)));
+	let cell = stable_cell(&pair.1);
+	for &byte in data {
+		first_set(&mut pair, u16::from(byte));
+		unsafe { *cell = (*cell).wrapping_add(byte) };
+		out.push(unsafe { *cell } ^ pair.0 as u8);
+	}
+}
+
+/// A node a list links through an `AtomicPtr`, holding a cell it lends a pointer into, as
+/// wasmtimer's timer nodes hold futures' `AtomicWaker`.
+struct Waiter {
+	next: AtomicPtr<Waiter>,
+	enqueued: AtomicBool,
+	slot: UnsafeCell<(u8, u8)>,
+}
+
+fn waiter(n: u8) -> *mut Waiter {
+	Box::into_raw(Box::new(Waiter {
+		next: AtomicPtr::new(ptr::null_mut()),
+		enqueued: AtomicBool::new(false),
+		slot: UnsafeCell::new((n, 0)),
+	}))
+}
+
+fn slot_of(waiter: &Waiter) -> *mut (u8, u8) {
+	waiter.slot.get()
+}
+
+/// Waiters pushed onto an atomic head and popped through `get_mut`, as wasmtimer's
+/// `ArcList` keeps them, with the one popped last kept in memory too.
+struct Waiters {
+	head: AtomicPtr<Waiter>,
+	last: *mut Waiter,
+}
+
+impl Waiters {
+	fn push(&self, waiter: *mut Waiter) {
+		let node = unsafe { &*waiter };
+		if node.enqueued.swap(true, SeqCst) {
+			return;
+		}
+		let mut head = self.head.load(SeqCst);
+		loop {
+			node.next.store(head, SeqCst);
+			match self.head.compare_exchange(head, waiter, SeqCst, SeqCst) {
+				Ok(_) => break,
+				Err(now) => head = now,
+			}
+		}
+	}
+
+	fn pop(&mut self) -> bool {
+		let head = *self.head.get_mut();
+		if head.is_null() {
+			return false;
+		}
+		*self.head.get_mut() = unsafe { (*head).next.load(SeqCst) };
+		unsafe { (*head).enqueued.store(false, SeqCst) };
+		self.last = head;
+		true
+	}
+}
+
+/// Waiters linked and unlinked, each changed and read through the pointer into its cell
+/// taken when it was made, which nothing writing a waiter whole leaves stale.
+pub fn waiters(data: &[u8], out: &mut Vec<u8>) {
+	let nodes = [waiter(0), waiter(1), waiter(2), waiter(3)];
+	let slots = unsafe {
+		[
+			slot_of(&*nodes[0]),
+			slot_of(&*nodes[1]),
+			slot_of(&*nodes[2]),
+			slot_of(&*nodes[3]),
+		]
+	};
+	let mut list = Waiters {
+		head: AtomicPtr::new(ptr::null_mut()),
+		last: ptr::null_mut(),
+	};
+	for &byte in data {
+		let at = usize::from(byte >> 2) % 4;
+		match byte % 4 {
+			0 => list.push(nodes[at]),
+			1 => out.push(u8::from(list.pop())),
+			2 if !list.last.is_null() => unsafe {
+				let slot = slot_of(&*list.last);
+				(*slot).1 = (*slot).1.wrapping_add(byte);
+			},
+			_ => {
+				let (a, b) = unsafe { *slots[at] };
+				out.extend([a, b]);
+			}
+		}
+	}
+	let mut at = list.head.load(SeqCst);
+	while !at.is_null() {
+		let (a, b) = unsafe { *slot_of(&*at) };
+		out.extend([a, b]);
+		at = unsafe { (*at).next.load(SeqCst) };
+	}
+	for node in 0..4 {
+		drop(unsafe { Box::from_raw(nodes[node]) });
 	}
 }

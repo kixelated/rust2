@@ -60,6 +60,7 @@ direnv loads it automatically, but if not: `nix develop --command ...`.
 ```bash
 just check   # Lint everything, including the quest tree
 just test    # Run the tests
+just ci      # Both, as the land gate runs them; run before every push
 just fix     # Auto-fix formatting
 ```
 

@@ -3,7 +3,7 @@
 import * as rt from "../rt.ts";
 import type * as Guard from "../model.Guard.ts";
 
-export function thenSome$bool_Guard(self: boolean, t: Guard.Guard): Guard.Guard | undefined {
+export function thenSome$0zvoczk(self: boolean, t: Guard.Guard): Guard.Guard | undefined {
 	let _0!: Guard.Guard | undefined;
 	let _4: boolean = false;
 	_4 = true;
@@ -20,21 +20,28 @@ export function thenSome$bool_Guard(self: boolean, t: Guard.Guard): Guard.Guard 
 	return _0;
 }
 
-export function thenSome$bool_u32(self: boolean, t: rt.u32): rt.u32 | undefined {
+export function thenSome$1af3oea(self: boolean, t: rt.u32): rt.u32 | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return t;
 }
 
-export function then$bool_Guard_folded_closure50_closure0(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
+export function then$06wuxll(self: boolean, f: () => Guard.Guard | undefined): Guard.Guard | undefined | rt.None {
+	if (!self) {
+		return rt.None;
+	}
+	return f();
+}
+
+export function then$1xpp3sz(self: boolean, f: () => Guard.Guard): Guard.Guard | undefined {
 	if (!self) {
 		return undefined;
 	}
 	return f();
 }
 
-export function then$bool_u32_discarded_closure13(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+export function then$1j9nint(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _5: boolean = false;
 	_5 = true;
@@ -51,7 +58,7 @@ export function then$bool_u32_discarded_closure13(self: boolean, f: () => rt.u32
 	return _0;
 }
 
-export function then$bool_u32_discarded_closure17(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+export function then$0kxuq3f(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	let _0!: rt.u32 | undefined;
 	let _5: boolean = false;
 	_5 = true;
@@ -68,7 +75,7 @@ export function then$bool_u32_discarded_closure17(self: boolean, f: () => rt.u32
 	return _0;
 }
 
-export function then$bool_u32_folded_closure43_closure0(self: boolean, f: () => rt.u32): rt.u32 | undefined {
+export function then$0ea5h05(self: boolean, f: () => rt.u32): rt.u32 | undefined {
 	if (!self) {
 		return undefined;
 	}

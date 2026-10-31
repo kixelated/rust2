@@ -5,29 +5,29 @@ import { bytesMut, reserves, reads, writes, edits } from "./buf.ts";
 import * as Owner from "./harness.Owner.ts";
 
 /**
- * Each case, which the first byte picks modulo their count, so a case added at the end
- * moves no other.
+ * Each case's name and what it runs. The first byte picks one modulo their count, so a
+ * case added at the end moves no other.
  */
-export function cases(): Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> {
-	return [(a0: rt.ByteSlice, a1: rt.ByteVec): void => {
-		return slices(a0.data, a0.start, a0.length, a1);
-	}, (a02: rt.ByteSlice, a12: rt.ByteVec): void => {
-		return made(a02.data, a02.start, a02.length, a12);
-	}, (a03: rt.ByteSlice, a13: rt.ByteVec): void => {
-		return events(a03.data, a03.start, a03.length, a13);
-	}, (a04: rt.ByteSlice, a14: rt.ByteVec): void => {
-		return random(a04.data, a04.start, a04.length, a14);
-	}, (a05: rt.ByteSlice, a15: rt.ByteVec): void => {
-		return bytesMut(a05.data, a05.start, a05.length, a15);
-	}, (a06: rt.ByteSlice, a16: rt.ByteVec): void => {
-		return reads(a06.data, a06.start, a06.length, a16);
-	}, (a07: rt.ByteSlice, a17: rt.ByteVec): void => {
-		return writes(a07.data, a07.start, a07.length, a17);
-	}, (a08: rt.ByteSlice, a18: rt.ByteVec): void => {
-		return edits(a08.data, a08.start, a08.length, a18);
-	}, (a09: rt.ByteSlice, a19: rt.ByteVec): void => {
-		return reserves(a09.data, a09.start, a09.length, a19);
-	}];
+export function cases(): [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined][] {
+	return [["slices", (a0: rt.ByteSlice, a1: rt.ByteVec): undefined => {
+		slices(a0.data, a0.start, a0.length, a1);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["made", (a02: rt.ByteSlice, a12: rt.ByteVec): undefined => {
+		made(a02.data, a02.start, a02.length, a12);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["events", (a03: rt.ByteSlice, a13: rt.ByteVec): undefined => {
+		events(a03.data, a03.start, a03.length, a13);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["random", (a04: rt.ByteSlice, a14: rt.ByteVec): undefined => {
+		random(a04.data, a04.start, a04.length, a14);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["buf::bytes_mut", (a05: rt.ByteSlice, a15: rt.ByteVec): undefined => {
+		bytesMut(a05.data, a05.start, a05.length, a15);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["buf::reads", (a06: rt.ByteSlice, a16: rt.ByteVec): undefined => {
+		reads(a06.data, a06.start, a06.length, a16);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["buf::writes", (a07: rt.ByteSlice, a17: rt.ByteVec): undefined => {
+		writes(a07.data, a07.start, a07.length, a17);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["buf::edits", (a08: rt.ByteSlice, a18: rt.ByteVec): undefined => {
+		edits(a08.data, a08.start, a08.length, a18);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined], ["buf::reserves", (a09: rt.ByteSlice, a19: rt.ByteVec): undefined => {
+		reserves(a09.data, a09.start, a09.length, a19);
+	}] as [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined]];
 }
 
 /** Run one case. */
@@ -35,11 +35,24 @@ export function run(input: rt.ByteSlice): rt.ByteVec {
 	const out: rt.ByteVec = new rt.ByteVec();
 	if (input.length !== 0) {
 		const op: rt.u8 = input.data[input.start];
-		const cases_: Array<(a0: rt.ByteSlice, a1: rt.ByteVec) => void> = cases();
-		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
+		const cases_: [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined][] = cases();
+		cases_[rt.idx(cases_, rt.usizeRem(op as rt.usize, cases_.length))][1](new rt.ByteSlice(input.data, input.start + 1, input.length - 1), out);
 		return out;
 	}
 	return out;
+}
+
+/** The first byte that picks the case named `name`, which `caller.ts` targets by. */
+export function op(name: string): rt.u8 {
+	const _2: rt.usize | undefined = rt.iterPosition(rt.iterSlice(cases()), (_22: [string, (a0: rt.ByteSlice, a1: rt.ByteVec) => undefined]): boolean => {
+		return _22[0] === name;
+	});
+	if (_2 === undefined) {
+		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtPad(f, name)];
+		rt.panicFmt(["no case ", args2[0]]);
+	} else {
+		return _2 & 0xff;
+	}
 }
 
 /**
@@ -106,14 +119,14 @@ export function made(dataData: Uint8Array, dataStart: number, dataLen: number, o
 	if (dataLen !== 0) {
 		const skip: rt.u8 = dataData[dataStart];
 		const rest: rt.ByteSlice = new rt.ByteSlice(dataData, dataStart + 1, dataLen - 1);
-		const made_: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$AsRef_u8s({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
+		const made: rt.ByteSlice[] = [rt.byteVecSlice(rt.byteSliceToByteVec(rest)), rt.byteSliceFrom(Uint8Array.of(0, 9, 13, 10, 92, 34, 39, 126, 127, 128, 255)), rt.stringAsBytes("string"), rt.stringAsBytes("text"), rt.byteSliceRange(rt.byteSliceFrom(Uint8Array.of(115, 116, 97, 116, 105, 99)), 0), rt.bytesNew(), Owner.asRef$convert_AsRef_slice_u8({ data: rt.byteSliceToByteVec(rest), skip: skip as rt.usize })];
 		const source: rt.ByteVec = rt.byteSliceToByteVec(rest);
 		const copied: rt.ByteSlice = rt.bytesCopyFromSlice(rt.byteVecSlice(source));
 		rt.byteVecClear(source);
 		rt.byteVecPush(source, 0);
 		const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.bytesDebug(copied, f)];
 		rt.byteVecExtendFromSlice(out, rt.stringAsBytes(rt.fmtFormat([args2[0]])));
-		const iter: rt.Iter<rt.ByteSlice> = rt.iterSlice(made_);
+		const iter: rt.Iter<rt.ByteSlice> = rt.iterSlice(made);
 		while (true) {
 			const _46: rt.ByteSlice | rt.Done = iter.next();
 			if (_46 === rt.DONE) {

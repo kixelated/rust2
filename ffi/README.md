@@ -26,7 +26,8 @@ its source's URL.
 A `[replace]` from the source it replaces, which no `[patch]` can carry, is an error.
 Beside the C header, `include/<prefix>.hpp` holds the same API in C++, and
 `kotlin/<prefix>.kt` holds it in Kotlin, over JNI functions the crate builds with
-`--features kotlin`.
+`--features kotlin`, and `kotlin/<prefix>.pro` the R8 and ProGuard rules keeping what
+those functions look up by name.
 
 ```toml
 # ffi.toml, beside the package's Cargo.toml unless --manifest-path says otherwise.
@@ -68,6 +69,7 @@ export's, and adds nothing; another crate's type is refused.
 | `fn` and inherent `pub` methods | functions named through their type |
 | `Result<T, E>` | `bool f(..., T *out, E *err)` |
 | a returned tuple `(A, B)` | one out pointer each: `void f(..., A *out0, B *out1)` |
+| a tuple inside another type, or as a field or parameter | `<prefix>_tuple_<A>_<B>`: a struct of fields `_0`, `_1`, and so on; of references only returned |
 | `async fn`, or a return that implements `Future` | a future: `f` makes it, `f_poll` polls it, `f_future_free` drops it; a function that is not `async` runs at the call, as in Rust |
 | `poll_x`, when `x` exports as a future | left out: the future is its poll |
 | `bool`, integers but 128-bit, floats, `char` | `bool`, `<stdint.h>` types, `float`, `double`, a `uint32_t` code point |
@@ -85,9 +87,9 @@ export's, and adds nothing; another crate's type is refused.
 | `Option<T>` | a null handle or buffer, or `<prefix>_option_<T>` |
 | a `pub const` | a `#define` if a `bool` or integer, else a function returning it |
 | `impl Into<X>`, `impl AsRef<X>`, or a bound implying one, as a supertrait does | `X`, or `&X` and then `String` or `Vec<T>` where `X` is `str` or `[T]` |
-| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes: a source parameter by its bounds as above, so `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes`, and any other source as it is, so `impl<'a, V> From<&'a V> for Timed<&'a V>` takes `&V` |
+| `impl Into<X>`, where `X` does not map | what a `From` implementation into `X` takes: a source parameter by its bounds as above, so `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` takes `Bytes`, and by each `Into<Y>` whose `Y` does not map, what converts into `Y` in turn, each `Y` once and refusing a chain longer than the crate's recursion limit; any other source as it is, so `impl<'a, V> From<&'a V> for Timed<&'a V>` takes `&V`. Two sources C passes as one buffer, such as `String` and `Vec<u8>`, are refused, unless they are forms of one value, as `&str` and `String` are |
 | `impl IntoIterator<Item = X>`, where `X` is no type parameter | `Vec<X>` |
-| another type parameter | `serde_json::Value` for a serde `Serialize` or `Deserialize` bound, else the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
+| another type parameter | `serde_json::Value` for a serde `Serialize` or `Deserialize` bound, else the first of `String`, `Bytes`, and `Vec<u8>` meeting its bounds, or a foreign implementation of its one exported trait; else an instance of the function at each type the exports implement a trait bounding it for, as `&X` where that meets its bounds too and no bound, its own or one a supertrait implies, makes it outlive the call, so C keeps its handle, and, as an argument of a generic type, at each argument of an instance that meets its bounds and makes each generic type the signature names an instance |
 
 A generic type infers the instances it exports at, with no config: the one at its
 defaults, if each type parameter has one; the one each inherent impl is of, such as
@@ -173,8 +175,11 @@ refused, and the census counts why.
   name. A type instance's methods are named through it, and a function instance appends
   its arguments' names, a reference's by what it borrows. An `exclude` of a type or method
   by the generic type's path leaves it out of every instance, and by the instance's path
-  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one; a
-  `rename` by the generic item's path renames each of its instances.
+  (`"catalog::Producer<moq_mux::catalog::hang::Extra>::stats"`) out of that one. A
+  `rename` matches paths as `exclude` does: by the generic item's path it renames each of
+  its instances, and by an instance's path (`"catalog::Producer<moq_mux::catalog::hang::Extra>"`)
+  that one alone, whose arguments then add nothing to its name, while the others keep
+  theirs. The longer path wins, and at one length, the instance's.
 
 ## C++
 
@@ -184,7 +189,8 @@ exceptions and RTTI on or off: it throws nothing and reads no type information.
 - **Names** are the C names without the prefix, in a namespace of it: `moq_track_producer`
   is `moq::track_producer`, and its method `moq_track_producer_append_group` is
   `moq::track_producer::append_group`. A keyword takes a trailing `_` (`counter::new_`),
-  as does a member named as its class or one of its fields.
+  as does a member named as its class or one of its fields, and a parameter named as a
+  member or as anything in the namespace, which it would hide.
 - **Objects** are classes owning their handle, move-only unless `Clone`, whose copy
   clones. `&self` methods are `const`, and `self` methods are `&&`, so a call that moves
   the value out reads `std::move(c).into_label()`. A handle taken by value is moved into,
@@ -237,11 +243,13 @@ in as a `ByteArray`, bytes returned as their owner, and anything else encoded in
   or for one with data a sealed class of a data class per variant. `Display` is
   `toString()`, `Debug` `debug()`, and `Default` a companion's `default()`.
 - **Bytes** passed in are a `ByteArray`, copied, as are those Rust lends a closure or trait
-  method. Bytes Rust returns, or a record holds, are a `Bytes`, which lends Rust's buffer
-  as a read-only direct `ByteBuffer` until `close()` frees it, or, never closed, until the
-  GC collects that buffer; `Bytes(ByteArray)` holds Kotlin's for a record passed in.
+  method. Bytes Rust returns, or a record holds, are a `Bytes`, a read-only `ByteBuffer`:
+  up to 1 KiB copied, and longer ones lending Rust's buffer as a direct one until `close()`
+  frees it, or, never closed, until the GC collects that buffer, since a copy undercuts
+  `NewDirectByteBuffer` only that far; `Bytes(ByteArray)` holds Kotlin's for a record
+  passed in.
   Strings are `String`, `Option<T>` `T?`, a tuple `Pair`,
-  `Triple`, or past them a generated `Tuple<n>`, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
+  `Triple`, or else a generated `Tuple<n>`, though a tuple of one returned whole is its element, `Duration` `kotlin.time.Duration`, and an `Err` a thrown `<E>Exception`
   holding it, whose message is its `Display`.
 - A **path** is a `String`: one Rust returns that is not UTF-8 throws. A `SocketAddr`,
   `SocketAddrV4`, or `SocketAddrV6` is a `java.net.InetSocketAddress`, which must be
@@ -259,6 +267,10 @@ in as a `ByteArray`, bytes returned as their owner, and anything else encoded in
 - A **waker** is a `Waker`, which Rust may call from any thread.
 - **The contract** is checked when the library loads, before any other call: a Kotlin
   file and a library from different builds throw.
+- **Shrinking**: `<prefix>.pro` keeps what the JNI glue finds by name, `Native`, its native
+  methods, and the Kotlin functions Rust calls, while R8 strips and renames the rest. An
+  Android library ships it as a consumer rule (`consumerProguardFiles`), which its AAR
+  carries to each app that shrinks it.
 
 ## IR
 
@@ -286,7 +298,9 @@ refusal, which is a bug in the exporter's inference rather than in the crate.
 ```bash
 just ffi test     # export the fixtures, build them, and drive api from C, C++, and Kotlin
 just ffi moq      # export moq's crates at the pinned revision, build them, and run moq/moq.c, moq/moq.cpp, and moq/moq.kt
+just ffi moq-cpp  # the same export, running only moq/moq.cpp
 just ffi census   # census each into target/census
+nix develop .#android --command just ffi android  # the Kotlin test, shrunk by R8, on the Android device adb reaches
 nix develop .#bench --command just ffi bench  # frame writes and reads, through the export from C, C++, and Kotlin, and moq's rs/moq-c
 ```
 
@@ -298,7 +312,11 @@ runs the script through the C++ header at C++17, 20, and 23, with exceptions and
 at 17 and 23, then checks its futures: a wake that lands during a poll, a cancel between a
 wake and its poll that loses nothing, and a coroutine resumed or destroyed. `tests/api.kt`
 runs the script through the Kotlin on the JVM, checks its futures the same way, and breaks
-each runtime check, which must throw or abort with its message. The `reject`
+each runtime check, which must throw or abort with its message. `just ffi android` runs the
+same on ART: the Kotlin and `tests/api.kt`, shrunk by R8 into an app's dex with only the
+generated rules keeping what JNI looks up, against the library built by the NDK for the
+device's ABI, which ANDROID_HOME and ANDROID_NDK_HOME locate. Nightly runs it on an
+x86_64 emulator at API 24, the oldest moq's Android library supports, and at API 35. The `reject`
 fixture's expected errors, each with its notes, are `fixtures/reject/expected.txt`.
 moq's crates export through `target/moq-ffi`, an empty library on each that `just ffi moq`
 writes in place of moq-ffi's remainder. `moq/moq.c` publishes and subscribes to a moq-net
@@ -310,3 +328,10 @@ QUIC, both on moq-tokio's fallback runtime, whose threads wake C's. `moq/moq.cpp
 same through the C++ header, short of the catalog's field, at C++17 without exceptions or
 RTTI, as OBS builds it, serving on an executor's thread and blocking on each read, and
 `moq/moq.kt` through the Kotlin, serving in a coroutine and suspending on each read.
+
+The C++ builds take `CXX`, or `c++`, with every warning an error and `-Wshadow`, which
+stands in for MSVC's warnings that a name hides another. On Windows they take MSVC's `cl`
+from a developer environment, at `/W4` with `/permissive-`, and `/std:c++latest` for 23.
+They link what rustc prints a program linking the library needs. Nightly runs
+`just ffi test cpp` and `just ffi moq-cpp` with Clang on Linux and macOS and with MSVC on
+Windows.

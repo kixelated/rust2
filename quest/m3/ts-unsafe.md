@@ -17,7 +17,7 @@ annotations or config; this quest is what retires them.
 Decided with the maintainer on 2026-10-28, typed pointers: a raw pointer is what its
 reference is, the object, an `rt.Place`, or `rt.NULL`, and a pointer into a slice or `Vec`
 is `{ array, index }`. Byte reinterpretation, pointer-to-integer casts, and raw allocation
-are refused with a span. [#201](https://github.com/kixelated/rust2/pull/201) landed `Box`
+are refused with a span. [#201](https://github.com/moq-dev/rust2/pull/201) landed `Box`
 to raw and back, `NonNull`, `MaybeUninit`, raw reads and writes, `get_unchecked`, and
 unions whose overlapping fields share a type, which took hashlink from 375 refusals to
 none of its own `unsafe`.
@@ -34,16 +34,30 @@ none of its own `unsafe`.
 - `&raw const *r` where `r` is a `&T` to a value JS copies or a library object, such as
   foldhash's seed and arrayvec's `as_ptr`: the reference is the value, not where it is
   kept, so it needs the place the reference came from.
-- A pointer to a part kept as an object is refused where the crate may put another
-  object there, judged by type over the whole program: a generic function writing a whole
-  `T` counts for every `T` its bounds allow. Judge by the instances translation reaches
-  if a consumer's pointer is refused only by that.
+- `UnsafeCell::raw_get`, `from_mut`, and `replace`, refused with their span: none is in
+  moq's census at the pin.
 - A slice's pointer cast to an array's of its length, `*(s as *const [u8] as *const
   [u8; N])`, which `bytes`' `Buf::get_u16` and wider read a crate's own buffer through
-  ([#222](https://github.com/kixelated/rust2/pull/222)): the bytes keep their type, so
+  ([#222](https://github.com/moq-dev/rust2/pull/222)): the bytes keep their type, so
   this reinterprets nothing. Those getters also need `<[u8]>::get` and `get_mut` of a
-  range, and each integer's `from_le_bytes` and `from_ne_bytes`, and `chunks_vectored`
-  needs `std::io::IoSlice`: 184 of moq-net's 197 refusals in `bytes`, the rest being 12
-  of [`f32`](/quest/m3/ts-f32.md) and one of [`&mut &[u8]`](/quest/m3/ts-mut-ref.md).
+  range, and `chunks_vectored` needs `std::io::IoSlice`: the rest of moq-net's refusals
+  in `bytes`.
+- The integers' `unchecked_add`, `unchecked_sub`, `unchecked_mul`, `unchecked_neg`,
+  `unchecked_shl`, `unchecked_shr`, `unchecked_funnel_shl`, and `unchecked_funnel_shr`, and
+  `NonZero::new_unchecked`, refused with their span: each is its checked form where Rust
+  defines it, but a debug build aborts on a violated precondition where the checked form
+  panics with another message.
+- `BinaryHeap` and `PeekMut` translate from std's MIR, whose `Hole` moves elements
+  through raw pointers into the `Vec`'s storage, replacing `rt.BinaryHeap` and
+  `rt.PeekMut`, the hand-written port of std's sifts that
+  [#252](https://github.com/moq-dev/rust2/pull/252) mapped them to and that must track
+  std's by hand. The lang fixture's `orders` differential case proves the translation
+  still matches std's comparisons, pop order, and drops.
+- `Vec::drain` translates from std's MIR, whose `Drain` reads its range out and moves the
+  tail back through raw pointers into the `Vec`'s storage, replacing `rt.vecDrain` and
+  `rt.byteVecDrain`, the runtime port that
+  [the slice gaps' PR](https://github.com/moq-dev/rust2/pull/259) mapped it to. The lang
+  fixture's `slices::drains` differential case proves the translation still matches std's
+  items, drops, and what a forgotten drain leaves.
 
 Public API: the translator's output.

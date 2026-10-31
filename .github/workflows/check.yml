@@ -3,12 +3,12 @@ name: Check
 permissions:
   contents: read
 
-# Not on a push to main: main only fast-forwards to a tree land.yml already checked.
+# PRs land through the host land gate (`quest land serve` on the maintainer's
+# host), which runs `just ci` once over each batch. This workflow stays for a
+# manual run on a hosted runner.
 on:
-  pull_request:
   workflow_dispatch:
 
-# Cancel in-flight runs when a new commit lands on the same ref.
 concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
@@ -29,7 +29,4 @@ jobs:
       - uses: ./.github/actions/nix
 
       - name: Check
-        run: nix develop --command just check
-
-      - name: Test
-        run: nix develop --command just test
+        run: nix develop --command just ci

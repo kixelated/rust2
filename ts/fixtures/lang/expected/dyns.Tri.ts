@@ -4,16 +4,16 @@ import * as rt from "./rt.ts";
 import * as Any from "./core/any.Any.ts";
 
 /** Over early-bound lifetimes, which its signature takes as arguments too. */
-export function larger$Shape(self: Tri, other: rt.u32): rt.u32 {
-	return rt.max(area$Shape(self), other);
+export function larger$dyns_Shape(self: Tri, other: rt.u32): rt.u32 {
+	return rt.max(area$dyns_Shape(self), other);
 }
 
 /** Writes through a `&mut` to a number, which is an `rt.Place`. */
-export function tally$Shape(self: Tri, sum: rt.Place<rt.u32>): void {
-	sum.v = rt.u32WrappingAdd(sum.v, area$Shape(self));
+export function tally$dyns_Shape(self: Tri, sum: rt.Place<rt.u32>): void {
+	sum.v = rt.u32WrappingAdd(sum.v, area$dyns_Shape(self));
 }
 
-export function fmt$Debug(self: Tri, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Tri, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	if (self.tag === "Flat") {
 		return rt.fmtWriteStr(f, "Flat");
 	}
@@ -25,14 +25,14 @@ export function fmt$Debug(self: Tri, f: rt.Formatter): rt.Result<undefined, rt.F
 /** An enum, which JS copies, so `&mut self` reaches it through a place. */
 export type Tri = { tag: "Flat" } | { tag: "Tall"; _0: rt.u8 };
 
-export function area$Shape(self: Tri): rt.u32 {
+export function area$dyns_Shape(self: Tri): rt.u32 {
 	if (self.tag === "Flat") {
 		return 0;
 	}
 	return rt.u32Mul(self._0 as rt.u32, 3);
 }
 
-export function grow$Shape(self: rt.Place<Tri>, by: rt.u8): void {
+export function grow$dyns_Shape(self: rt.Place<Tri>, by: rt.u8): void {
 	let _3!: Tri;
 	if (self.v.tag === "Flat") {
 		if (!(rt.u8Rem(by, 2) === 0)) {
@@ -47,25 +47,25 @@ export function grow$Shape(self: rt.Place<Tri>, by: rt.u8): void {
 }
 
 /** Provided, and overridden by one impl. */
-export function sides$Shape(_self: Tri): rt.u8 {
+export function sides$dyns_Shape(_self: Tri): rt.u8 {
 	return 3;
 }
 
-export function intoArea$Shape(self: Tri): rt.u32 {
-	return rt.u32WrappingMul(area$Shape(self), 2);
+export function intoArea$dyns_Shape(self: Tri): rt.u32 {
+	return rt.u32WrappingMul(area$dyns_Shape(self), 2);
 }
 
-export function label$Named(self: Tri): string {
-	const args2: rt.Fmt[] = [(f: rt.Formatter) => fmt$Debug(self, f)];
+export function label$dyns_Named(self: Tri): string {
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => fmt$fmt_Debug(self, f)];
 	return rt.fmtFormat(["tri ", args2[0]]);
 }
 
-export function asAny$Erased(self: Tri): Any.Any {
-	return new Any.Tri(self);
+export function asAny$dyns_Erased(self: Tri): Any.Any {
+	return new Any.of$dyns_Tri(self);
 }
 
-export function asAnyMut$Erased(self: rt.Place<Tri>): Any.Any {
-	return new Any.Tri$Place(self);
+export function asAnyMut$dyns_Erased(self: rt.Place<Tri>): Any.Any {
+	return new Any.ofPlace$dyns_Tri(self);
 }
 
 //# sourceMappingURL=dyns.Tri.ts.map

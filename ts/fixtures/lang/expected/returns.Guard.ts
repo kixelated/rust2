@@ -14,11 +14,11 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 	}
 }
 
-export function drop$Drop(self: Guard): void {
+export function drop$ops_Drop(self: Guard): void {
 	const _3: rt.ByteSlice = rt.byteSliceRange(self._0, rt.usizeRem(self._1 as rt.usize, 2));
 	narrow(_3.data, _3.start, _3.length);
 }

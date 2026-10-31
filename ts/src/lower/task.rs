@@ -42,14 +42,16 @@ impl<'tcx> Translator<'_, 'tcx> {
 
 impl<'tcx> Body<'_, '_, 'tcx> {
 	/// `value`, a `from` coerced to `to`, which points at a `dyn Future` through
-	/// references, boxes, and pins, whose JS value is what they point at.
+	/// references, boxes, and pins, whose JS value is what they point at, or an `rt.Place`
+	/// of it for a `&mut` to a reference.
 	pub fn dyn_future(&mut self, from: Ty<'tcx>, to: Ty<'tcx>, value: Expr, span: Span) -> Expr {
 		let tcx = self.t.tcx;
-		let (mut pointee, mut target, mut borrowed) = (from, to, false);
+		let (mut pointee, mut target, mut borrowed, mut value) = (from, to, false, value);
 		while !matches!(target.kind(), ty::Dynamic(..)) {
 			(pointee, target) = match (pointee.kind(), target.kind()) {
 				(ty::Ref(_, a, _), ty::Ref(_, b, _)) => {
 					borrowed = true;
+					value = self.t.pointee_value(pointee, value);
 					(*a, *b)
 				}
 				(ty::Adt(a, a_args), ty::Adt(b, b_args))
@@ -73,8 +75,11 @@ impl<'tcx> Body<'_, '_, 'tcx> {
 		let tcx = self.t.tcx;
 		let object = match from.kind() {
 			ty::Dynamic(..) | ty::Coroutine(..) => true,
-			// What a reference or a box points at, which its JS value is.
-			ty::Ref(_, inner, _) => return self.future_object(*inner, value, true, dropped, span),
+			// What a reference or a box points at, which its JS value is, or an `rt.Place` of.
+			ty::Ref(_, inner, _) => {
+				let value = self.t.pointee_value(from, value);
+				return self.future_object(*inner, value, true, dropped, span);
+			}
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
 				Some(Std::PollFn | Std::Pending) => true,
 				Some(Std::Box | Std::Pin) => {
@@ -132,6 +137,26 @@ pub fn call<'tcx>(
 	let e = match (owner, name) {
 		("Arc" | "Rc", "new") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
 		("Arc" | "Rc", "new_cyclic") => Expr::rt("arcNewCyclic", args),
+		// JS erases the pin.
+		("Arc" | "Rc", "pin") => Expr::New(Box::new(Expr::Rt("Arc".into())), args),
+		// A `&mut` to the value, which is where it is for one JS copies. `make_mut` takes the
+		// `Arc`'s place, which it may point at a new `Arc`.
+		("Arc" | "Rc", "get_mut" | "make_mut") if call.args.type_at(0).is_sized(tcx, b.t.typing_env_pub()) => {
+			let value = call.args.type_at(0);
+			let place = if b.t.needs_place(value) { "Place" } else { "" };
+			match name {
+				"get_mut" => Expr::rt(format!("arcGetMut{place}"), args),
+				_ => {
+					let clone = super::collections::clone_fn(b, value, call.span);
+					let arc = b.t.sig(call.def_id, call.args).inputs()[0].peel_refs();
+					let Some(droppers) = b.t.droppers([arc], call.span) else {
+						return Ok(Some(Expr::undefined()));
+					};
+					let values = args.into_iter().chain([clone]).chain(droppers).collect();
+					Expr::rt(format!("arcMakeMut{place}"), values)
+				}
+			}
+		}
 		// An `Arc<str>` of a string, which JS shares as it is.
 		("From", "from")
 			if let [arc, from] = call.args.as_slice()
@@ -153,6 +178,11 @@ pub fn call<'tcx>(
 		("Waker", "noop") => Expr::Rt("NOOP_WAKER".into()),
 		("AsRef", "as_ref") if self_std == Some(Std::Arc) => first(args).member("value"),
 		("Arc" | "Rc", "downgrade") | ("Weak", "new") => Expr::New(Box::new(Expr::Rt("Weak".into())), args),
+		// The value of the last strong one, which its count says, and else its `None`.
+		("Arc" | "Rc", "into_inner") => {
+			let none = b.t.none_arg(call.args.type_at(0));
+			Expr::rt("arcIntoInner", args.into_iter().chain(none).collect())
+		}
 		("Arc" | "Rc", "strong_count") => first(args).member("strong"),
 		("Arc" | "Rc", "weak_count") => first(args).member("weak"),
 		// Two `Arc`s of trait objects are views of the `Arc`s they were made from.
@@ -176,11 +206,21 @@ pub fn call<'tcx>(
 		("Clone", "clone") if self_std == Some(Std::Weak) => Expr::rt("weakClone", args),
 		// A waker is the executor's, whose `clone` is its own.
 		("Clone", "clone") if self_std == Some(Std::Waker) => first(args).member("clone").call(vec![]),
+		// A reference is the object it points at, which its own `Deref` gives: read out of a
+		// `&mut` that is an `rt.Place`, whose place `DerefMut` lends on.
+		("Deref", "deref") if let Some(ty) = self_ty.filter(|t| t.is_ref()) => b.t.pointee_value(ty, first(args)),
+		("DerefMut", "deref_mut") if self_ty.is_some_and(|t| t.is_ref()) => first(args),
 		("Deref", "deref") | ("DerefMut", "deref_mut") => match self_std {
 			Some(Std::Arc | Std::Mutex | Std::MutexGuard | Std::Ref | Std::RefMut) => first(args).member("value"),
-			// A pinned `Arc` is the `Arc`, which holds its value.
-			Some(Std::Pin) => match self_ty.map(|t| t.peel_refs().kind()) {
-				Some(ty::Adt(_, pin)) if std_of(pin.type_at(0)) == Some(Std::Arc) => first(args).member("value"),
+			Some(Std::LazyCell | Std::LazyLock) if name == "deref" => first(args).member("force").call(vec![]),
+			// A pin is its pointer, which derefs as it does: an `Arc` to the value it holds, and
+			// a reference to what it points at.
+			Some(Std::Pin) => match self_ty.map(|t| t.kind()) {
+				Some(ty::Adt(_, pin)) => match pin.type_at(0).kind() {
+					ty::Adt(arc, _) if Std::of(tcx, arc.did()) == Some(Std::Arc) => first(args).member("value"),
+					ty::Ref(..) if name == "deref" => b.t.pointee_value(pin.type_at(0), first(args)),
+					_ => first(args),
+				},
 				_ => first(args),
 			},
 			_ => return Err(args),
@@ -222,13 +262,37 @@ pub fn call<'tcx>(
 			let [key, f] = two(args);
 			Expr::result(true, f.call(vec![key.member("get").call(Vec::new())]))
 		}
+		// With what drops the value it replaces.
+		("LocalKey", "set") => {
+			let Some(droppers) = b.t.droppers([call.args.type_at(0)], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			Expr::rt("localKeyRefCellSet", args.into_iter().chain(droppers).collect())
+		}
+		// With the value's place where JS would copy it.
+		("LocalKey", "with_borrow_mut") => match b.t.needs_place(call.args.type_at(0)) {
+			true => Expr::rt("localKeyWithBorrowMutPlace", args),
+			false => Expr::rt("localKeyWithBorrowMut", args),
+		},
 		// With the `Option`'s `None` where it is `rt.None`.
 		("LocalKey", "initialize_with") => {
 			let none = b.t.none_arg(call.args.type_at(0));
 			Expr::rt("localKeyInitializeWith", args.into_iter().chain(none).collect())
 		}
 		("Atomic", _) => return atomic(b, call, name, args),
+		("LazyCell" | "LazyLock", "force") => first(args).member("force").call(vec![]),
 		("OnceCell" | "OnceLock", _) => return once(b, call, name, args),
+		// A `OnceLock` of `true`, which nothing poisons, as a panic aborts.
+		("Once", "new") => once_unrun(),
+		("Once", "is_completed") => first(args).member("v").binary("===", Expr::lit("true")),
+		// With what drops `f`, as `discards` says, uncalled if the `Once` has run.
+		("Once", "call_once" | "call_once_force") => {
+			let Some(droppers) = b.t.droppers([call.args.type_at(0)], call.span) else {
+				return Ok(Some(Expr::undefined()));
+			};
+			Expr::rt("onceCall", args.into_iter().chain(droppers).collect())
+		}
+		("OnceState", "is_poisoned") => Expr::rt("onceIsPoisoned", args),
 		("From", "from") if matches!(self_std, Some(Std::OnceCell | Std::OnceLock)) => {
 			let cell = self_ty.expect("a `From` impl's type");
 			Expr::New(Box::new(Expr::Rt(once_class(b, cell).into())), args)
@@ -244,10 +308,13 @@ pub fn call<'tcx>(
 		}
 		("Waker", "wake_by_ref") => first(args).member("wakeByRef").call(vec![]),
 		("Waker", "wake") => first(args).member("wake").call(vec![]),
-		("Waker", "will_wake") => {
-			let [l, r] = two(args);
-			l.member("willWake").call(vec![r])
+		("Waker", "will_wake") => Expr::rt("willWake", args),
+		// Its identity: what a pointer to `()` stands for, whatever the waker's JS type.
+		("Waker", "data") => {
+			let ty = b.t.sig(call.def_id, call.args).output();
+			Expr::As(Box::new(first(args).member("data")), b.t.ty(ty, call.span))
 		}
+		("Waker", "vtable") => first(args).member("vtable"),
 		// With what drops its function, unless that is borrowed.
 		("poll_fn", "poll_fn") => {
 			let dropper = b.t.drop_fn(call.args.type_at(1), call.span);
@@ -260,6 +327,12 @@ pub fn call<'tcx>(
 		// A box's JS value is what it holds.
 		("Box", "pin") => first(args),
 		("Future", "poll") => match self_ty.map(Ty::kind) {
+			// A `&mut` polls what it points at, whose pinned `&mut` is an `rt.Place` of it.
+			Some(ty::Ref(_, inner, _)) => {
+				let [future, cx] = two(args);
+				let args = vec![future.member("v"), cx];
+				b.call_def(call.def_id, tcx.mk_args(&[(*inner).into()]), args, call.span, out)
+			}
 			// std's futures and a `dyn Future` are `rt.Future`s, which poll themselves.
 			_ if matches!(self_std, Some(Std::PollFn | Std::Pending))
 				|| self_ty.is_some_and(|ty| b.t.dyn_future(ty).is_some()) =>
@@ -267,8 +340,7 @@ pub fn call<'tcx>(
 				let [future, cx] = two(args);
 				future.member("poll").call(vec![cx])
 			}
-			// A pinned pointer, a box, or a `&mut` polls what it points at, which its JS
-			// value is.
+			// A pinned pointer or a box polls what it points at, which its JS value is.
 			Some(ty::Adt(adt, adt_args)) if matches!(Std::of(tcx, adt.did()), Some(Std::Pin | Std::Box)) => {
 				let inner = match Std::of(tcx, adt.did()) {
 					Some(Std::Pin) => adt_args.type_at(0).builtin_deref(true),
@@ -276,9 +348,6 @@ pub fn call<'tcx>(
 				};
 				let Some(inner) = inner else { return Err(args) };
 				b.call_def(call.def_id, tcx.mk_args(&[inner.into()]), args, call.span, out)
-			}
-			Some(ty::Ref(_, inner, _)) => {
-				b.call_def(call.def_id, tcx.mk_args(&[(*inner).into()]), args, call.span, out)
 			}
 			_ => return Err(args),
 		},
@@ -325,6 +394,25 @@ fn atomic<'tcx>(
 		args.extend(int.filter(|int| int.big()).map(|int| int.func("eq")));
 		Expr::rt(f, args)
 	};
+	// A pointer compares as `ptr::eq` does only where it is the object it points at.
+	let generics = tcx.generics_of(imp).count();
+	let atomic = tcx
+		.type_of(imp)
+		.instantiate(tcx, &call.args[..generics])
+		.skip_norm_wip();
+	if let ty::Adt(_, atomic_args) = atomic.kind()
+		&& let ty::RawPtr(pointee, _) = atomic_args.type_at(0).kind()
+		&& matches!(
+			name,
+			"compare_exchange" | "compare_exchange_weak" | "try_update" | "fetch_update" | "update"
+		)
+		&& b.t.incomparable(*pointee).is_some()
+	{
+		return Ok(Some(b.err(
+			call.span,
+			format!("comparing pointers to `{pointee}` in an atomic, which JS has no address of"),
+		)));
+	}
 	let e = match name {
 		"new" => Expr::New(Box::new(Expr::Rt("Atomic".into())), args),
 		"load" => Expr::rt("atomicLoad", args),
@@ -445,6 +533,11 @@ pub fn once_new<'tcx>(b: &Body<'_, '_, 'tcx>, cell: Ty<'tcx>) -> Expr {
 		Box::new(Expr::Rt(once_class(b, cell).into())),
 		vec![b.t.none(args.type_at(0))],
 	)
+}
+
+/// `Once::new()`: an `rt.OnceLock` holding nothing, as no function has run.
+pub fn once_unrun() -> Expr {
+	Expr::New(Box::new(Expr::Rt("OnceLock".into())), vec![Expr::undefined()])
 }
 
 /// The runtime class of `cell`, a `OnceCell` or `OnceLock`.

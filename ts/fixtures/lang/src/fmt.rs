@@ -3,7 +3,11 @@
 
 #![allow(dead_code, reason = "fields only `Debug` reads")]
 
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::fmt;
+use std::ops::{Range, RangeToInclusive};
+use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::generics::Wrap;
 use crate::shapes::{Point, Shape};
@@ -559,6 +563,389 @@ pub fn panics(kind: u8, rest: &[u8], out: &mut Vec<u8>) {
 	}
 }
 
+/// `Debug` that pads its text, so a width and precision passed to it show, and marks `#`.
+#[derive(Clone, Copy)]
+pub struct Clip(&'static str);
+
+impl fmt::Debug for Clip {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		if f.alternate() {
+			f.write_str("#")?;
+		}
+		f.pad(self.0)
+	}
+}
+
+#[derive(Debug)]
+pub struct Shared {
+	arc: Arc<Pair>,
+	span: Range<u16>,
+	upto: RangeToInclusive<u8>,
+}
+
+/// std's ranges' `Debug`, which passes its options to each bound, and an `Arc`'s `Debug`
+/// and `Display`, which pass them to what it holds.
+pub fn wrapped(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let (a, b) = (i32::from(at(0)) - 128, i32::from(at(1)) - 100);
+	let w = usize::from(at(2) % 10);
+	put(
+		out,
+		&format!("{:?} {:?} {:?} {:?} {:?} {:?}", a..b, a..=b, a.., ..b, ..=b, ..),
+	);
+	put(
+		out,
+		&format!(
+			"{:5?}|{:<4?}|{:+?}|{:05?}|{:x?}|{:#X?}|{:w$?}|{:^w$?}|{:>3?}|{:#?}",
+			a..b,
+			a..=b,
+			a..,
+			..b,
+			..=b,
+			a..b,
+			a..=b,
+			..=b,
+			..,
+			a..b
+		),
+	);
+	let lo = Clip(STRINGS[usize::from(at(3)) % STRINGS.len()]);
+	let hi = Clip(STRINGS[usize::from(at(4)) % STRINGS.len()]);
+	put(
+		out,
+		&format!(
+			"{:?}|{:8.2?}|{:#?}|{:_>w$.1?}|{:#4?}",
+			lo..hi,
+			lo..=hi,
+			..hi,
+			lo..,
+			..=lo
+		),
+	);
+	let (x, y) = (u32::from(at(5)) * 0x101, u32::from(at(6)));
+	put(
+		out,
+		&format!("{:?}|{:>9?}|{:#?}", Hex(x)..Hex(y), Hex(x)..=Hex(y), ..Hex(y)),
+	);
+	let pairs = Pair(at(7), -1)..Pair(1, i64::MIN);
+	put(out, &format!("{pairs:?}|{pairs:#?}|{pairs:x?}|{pairs:+?}"));
+	// Iteration leaves an inclusive range in the state its `Debug` prints.
+	let mut drained = (at(8) % 4)..=(at(9) % 4);
+	while drained.next().is_some() {}
+	let mut top = at(8).max(250)..=255;
+	while top.next().is_some() {}
+	let mut back = 0..=(at(9) % 3);
+	while back.next_back().is_some() {}
+	let mut far = at(8)..=at(9);
+	far.nth(usize::from(at(10) % 8));
+	put(out, &format!("{drained:?} {top:?} {back:?} {far:?} {:?}", 0..=0));
+
+	let arc = Arc::new(Hex(x));
+	put(out, &format!("{arc}|{arc:>12}|{arc:#}|{arc:?}|{arc:>6?}|{arc:#?}"));
+	put(out, &arc.to_string());
+	let nested = Arc::new(Arc::new(a));
+	put(
+		out,
+		&format!("{nested}|{nested:+05}|{nested:?}|{nested:x?}|{nested:#X?}|{nested:<6?}|{nested:^+w$}"),
+	);
+	let rc = Rc::new(STRINGS[usize::from(at(3)) % STRINGS.len()].to_string());
+	put(out, &format!("{rc}|{rc:>8.2}|{rc:?}"));
+	let list = Arc::new([Pair(at(7), 2), Pair(3, -4)].to_vec());
+	put(out, &format!("{list:?} {list:#?}"));
+	let held = Arc::new(a)..Arc::new(b);
+	put(out, &format!("{held:?} {held:+04?} {:?}", Arc::new(lo)..Arc::new(hi)));
+	let shared = Shared {
+		arc: Arc::new(Pair(at(7), 5)),
+		span: u16::from(at(8))..300,
+		upto: ..=at(9),
+	};
+	put(out, &format!("{shared:?} {shared:#?}"));
+	let t: Arc<str> = Arc::from(STRINGS[usize::from(at(3)) % STRINGS.len()]);
+	put(out, &format!("{t} {t:?} {t:>9.2}"));
+}
+
+/// std's collections' `Debug`, which passes its options to each element: a deque from its
+/// head however its buffer wraps, sets and maps in braces, nested, and pretty. A hash
+/// collection holds at most one entry, since std leaves their order unspecified.
+pub fn collections(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	// Each byte pushes or pops at either end, so the head wraps around the buffer.
+	let mut q: VecDeque<Option<u8>> = VecDeque::with_capacity(4);
+	for &b in data {
+		match b % 4 {
+			0 => q.push_back((b % 3 != 0).then_some(b)),
+			1 => q.push_front((b % 3 != 0).then_some(b)),
+			2 => {
+				q.pop_back();
+			}
+			_ => {
+				q.pop_front();
+			}
+		}
+	}
+	put(out, &format!("{q:?}|{q:#?}|{q:x?}|{q:>4?}"));
+	// Pushed at the front, the head wraps to the buffer's end, and popping the back past
+	// where it started leaves only what wrapped.
+	let mut wrapped = VecDeque::with_capacity(4);
+	wrapped.extend([Hex(1), Hex(2)]);
+	wrapped.push_front(Hex(u32::from(at(0)) * 0x1001));
+	wrapped.push_front(Hex(u32::from(at(1))));
+	wrapped.pop_back();
+	let mid = format!("{wrapped:?}");
+	wrapped.pop_back();
+	put(out, &format!("{mid}|{wrapped:?}|{wrapped:#?}|{wrapped:6?}"));
+	let empty = VecDeque::<u8>::new();
+	let units: VecDeque<()> = (0..at(2) % 3).map(|_| ()).collect();
+	put(out, &format!("{empty:?}|{empty:#?}|{units:?}"));
+	let nested: VecDeque<VecDeque<Pair>> = [VecDeque::new(), VecDeque::from([Pair(at(3), -1), Pair(2, 3)])].into();
+	put(out, &format!("{nested:?}|{nested:#?}"));
+
+	let sorted: BTreeSet<Option<u8>> = data.iter().map(|&b| (b % 3 != 0).then_some(b % 8)).collect();
+	put(out, &format!("{sorted:?}|{sorted:#?}|{sorted:02x?}"));
+	let mut map: BTreeMap<u8, VecDeque<Pair>> = BTreeMap::new();
+	for &b in data.iter().take(6) {
+		map.entry(b % 4).or_default().push_front(Pair(b, -i64::from(b)));
+	}
+	put(
+		out,
+		&format!(
+			"{map:?}|{map:#?}|{:?}|{:#?}",
+			BTreeMap::<u8, u8>::new(),
+			BTreeSet::<u8>::new()
+		),
+	);
+	let (mut one, mut set) = (HashMap::new(), HashSet::new());
+	if let Some(&b) = data.first() {
+		one.insert((b % 2 == 0).then_some(b), Hex(b.into()));
+	}
+	if let Some(&b) = data.get(1) {
+		set.insert(b);
+	}
+	put(out, &format!("{one:?}|{one:#?}|{one:>3?}|{set:?}|{set:#?}|{set:#04x?}"));
+}
+
+/// `Debug` of std's enums beside its ranges and comparisons, each derived: a variant with
+/// a field passes the options to it, and one without writes its name unpadded. A
+/// `ControlFlow` that `?` would break with holds the `Err` or `None` it was applied to.
+pub fn enums(data: &[u8], out: &mut Vec<u8>) {
+	use std::cmp::{Ordering, Reverse};
+	use std::convert::Infallible;
+	use std::ops::{Bound, ControlFlow, RangeBounds};
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let w = usize::from(at(0) % 10);
+	fn pick<T>(by: u8, x: T) -> Bound<T> {
+		match by % 3 {
+			0 => Bound::Included(x),
+			1 => Bound::Excluded(x),
+			_ => Bound::Unbounded,
+		}
+	}
+	let n = pick(at(1), at(2));
+	put(out, &format!("{n:?}|{n:#?}|{n:x?}|{n:#X?}|{n:>w$?}|{n:_^7?}|{n:+04?}"));
+	let s = pick(at(3), STRINGS[usize::from(at(4)) % STRINGS.len()]);
+	put(out, &format!("{s:?}|{s:#?}|{s:>9?}|{s:*<w$.2?}"));
+	let c = pick(at(5), char::from(at(6)));
+	put(out, &format!("{c:?}|{c:#?}|{c:^6?}"));
+	let o = pick(at(7), (at(8) % 2 == 0).then_some(at(9)));
+	put(out, &format!("{o:?}|{o:#?}|{o:x?}|{o:>4?}"));
+	let bytes = pick(at(10), &data[..data.len().min(3)]);
+	put(out, &format!("{bytes:?}|{bytes:#?}|{bytes:x?}|{bytes:3?}"));
+	let clip = pick(at(11), Clip(STRINGS[usize::from(at(12)) % STRINGS.len()]));
+	put(out, &format!("{:8.2?}|{:#?}|{:?}", clip.as_ref(), Some(clip), (n, s)));
+	// A range's bounds borrow its own.
+	let r = at(1)..=at(2);
+	put(
+		out,
+		&format!(
+			"{:?} {:?} {:?} {:x?} {:#?}",
+			r.start_bound(),
+			r.end_bound(),
+			(at(1)..).end_bound(),
+			(..at(2)).end_bound(),
+			RangeBounds::<u8>::start_bound(&..)
+		),
+	);
+
+	let ord = at(1).cmp(&at(2));
+	let all = [Ordering::Less, Ordering::Equal, Ordering::Greater];
+	put(out, &format!("{ord:?}|{ord:>8?}|{ord:#?}|{all:?}|{all:#?}"));
+	let rev = Reverse(at(1));
+	let nested = Reverse(Reverse(STRINGS[usize::from(at(4)) % STRINGS.len()]));
+	put(
+		out,
+		&format!("{rev:?}|{rev:#?}|{rev:x?}|{rev:>w$?}|{nested:?}|{nested:#?}"),
+	);
+
+	let text = STRINGS[usize::from(at(4)) % STRINGS.len()];
+	let flow = match at(1) % 2 {
+		0 => ControlFlow::Break(text),
+		_ => ControlFlow::Continue(u16::from(at(2)) * 300),
+	};
+	put(out, &format!("{flow:?}|{flow:#?}|{flow:x?}|{flow:>w$?}"));
+	let unit: ControlFlow<u8> = match at(1) % 2 {
+		0 => ControlFlow::Break(at(2)),
+		_ => ControlFlow::Continue(()),
+	};
+	put(out, &format!("{unit:?}|{unit:#?}|{unit:03?}"));
+	let erred: ControlFlow<Result<Infallible, u8>, u16> = match at(1) % 2 {
+		0 => ControlFlow::Break(Err(at(2))),
+		_ => ControlFlow::Continue(u16::from(at(2))),
+	};
+	put(out, &format!("{erred:?}|{erred:#?}|{erred:>5?}"));
+	let none: ControlFlow<Option<Infallible>, u8> = match at(1) % 2 {
+		0 => ControlFlow::Break(None),
+		_ => ControlFlow::Continue(at(2)),
+	};
+	// `()` is `undefined`, so its `None` is `rt.None`.
+	let unit_none: ControlFlow<Option<Infallible>> = match at(2) % 2 {
+		0 => ControlFlow::Break(None),
+		_ => ControlFlow::Continue(()),
+	};
+	put(
+		out,
+		&format!("{none:?}|{none:#?}|{none:<4?}|{unit_none:?}|{unit_none:#?}"),
+	);
+	let ok: Result<u8, Infallible> = Ok(at(2));
+	put(out, &format!("{ok:?}|{ok:#?}"));
+}
+
+/// std's iterators' `Debug`, each the items it has left in its own wrapper, through each
+/// element's `Debug` with the formatter's options: consumed from either end, empty, and
+/// pretty. A hash iterator holds at most one entry, since std leaves their order unspecified.
+pub fn iters(data: &[u8], out: &mut Vec<u8>) {
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let (front, back) = (usize::from(at(0) % 3), usize::from(at(1) % 3));
+	// Taken from the front by `nth`, and from the back by `next_back`.
+	fn skip<I: Iterator>(mut it: I, n: usize) -> I {
+		if n > 0 {
+			it.nth(n - 1);
+		}
+		it
+	}
+	fn ends<I: DoubleEndedIterator>(it: I, front: usize, back: usize) -> I {
+		let mut it = skip(it, front);
+		for _ in 0..back {
+			it.next_back();
+		}
+		it
+	}
+
+	let it = ends(data.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}|{it:>3?}"));
+	let mut v: Vec<u8> = data.iter().take(5).copied().collect();
+	let it = ends(v.iter_mut(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let pairs: Vec<Pair> = data.iter().take(4).map(|&b| Pair(b, -i64::from(b))).collect();
+	let it = ends(pairs.into_iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	put(out, &format!("{:x?}", ends(data.to_vec().into_iter(), front, back)));
+	let mut hexes: Vec<Hex> = data.iter().take(5).map(|&b| Hex(u32::from(b) * 0x101)).collect();
+	let it = ends(hexes.drain(1..), front, back);
+	put(out, &format!("{it:?}|{it:#x?}"));
+	drop(it);
+	let mut bytes = data.to_vec();
+	let it = ends(bytes.drain(..data.len() / 2), front, back);
+	put(out, &format!("{it:?}|{it:02X?}"));
+	drop(it);
+	// Arrays of bytes, which a borrow lends as slices of them.
+	let arrays: Vec<[u8; 2]> = data.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
+	let it = ends(arrays.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let mut arrays = arrays;
+	put(out, &format!("{:?}", ends(arrays.iter_mut(), back, front)));
+	let empty: &[Option<u8>] = &[];
+	put(out, &format!("{:?}|{:#?}", empty.iter(), Vec::<u8>::new().into_iter()));
+
+	let heap: BinaryHeap<u8> = data.iter().copied().collect();
+	let it = ends(heap.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	put(out, &format!("{:?}", ends(heap.clone().into_iter(), front, back)));
+	let mut drained = heap.clone();
+	let it = ends(drained.drain(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	drop(it);
+	let q: VecDeque<Option<u8>> = data.iter().map(|&b| (b % 3 != 0).then_some(b)).collect();
+	let it = ends(q.into_iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+
+	// Text of one-, two-, three-, and four-byte chars, and chars `Debug` escapes.
+	let text: String = data
+		.iter()
+		.map(|&b| ['a', 'é', '中', '🦀', '\n', '\''][usize::from(b % 6)])
+		.collect();
+	let it = ends(text.chars(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:>3?}"));
+	let it = ends(text.bytes(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}"));
+	put(out, &format!("{:?}|{:#?}|{:?}", "".chars(), "".chars(), "".bytes()));
+
+	let mut map: BTreeMap<u8, Option<u8>> = data.iter().map(|&b| (b % 16, (b % 3 != 0).then_some(b))).collect();
+	let it = ends(map.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}"));
+	put(
+		out,
+		&format!(
+			"{:?}|{:?}",
+			ends(map.keys(), front, back),
+			ends(map.values(), front, back)
+		),
+	);
+	let lo = at(2) % 16;
+	put(
+		out,
+		&format!(
+			"{:?}|{:?}",
+			ends(map.range(lo..), front, back),
+			ends(map.range(..=lo), front, back)
+		),
+	);
+	put(out, &format!("{:?}", ends(map.iter_mut(), front, back)));
+	put(out, &format!("{:?}", ends(map.values_mut(), front, back)));
+	put(out, &format!("{:?}", ends(map.range_mut(lo..), front, back)));
+	put(out, &format!("{:?}", ends(map.clone().into_iter(), front, back)));
+	put(out, &format!("{:?}", ends(map.clone().into_keys(), front, back)));
+	put(out, &format!("{:?}", ends(map.into_values(), front, back)));
+	let keyed: BTreeMap<[u8; 2], Hex> = data.chunks_exact(2).map(|c| ([c[0], c[1]], Hex(c[0].into()))).collect();
+	let it = ends(keyed.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#x?}|{:?}", ends(keyed.keys(), back, front)));
+	let set: BTreeSet<u8> = data.iter().map(|&b| b % 16).collect();
+	let it = ends(set.iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let it = ends(set.range(lo..), front, back);
+	put(out, &format!("{it:?}|{it:#?}|{it:x?}"));
+	let it = ends(set.into_iter(), front, back);
+	put(out, &format!("{it:?}|{it:#?}"));
+	let empty = BTreeMap::<u8, u8>::new();
+	put(out, &format!("{:?}|{:#?}", empty.iter(), BTreeSet::<u8>::new().iter()));
+	put(out, &format!("{:?}", empty.into_keys()));
+
+	let (mut one, mut keys) = (HashMap::new(), HashSet::new());
+	if let Some(&b) = data.first() {
+		one.insert((b % 2 == 0).then_some(b), u16::from(b) * 0x101);
+		keys.insert([b, at(1)]);
+	}
+	// Past its one entry, or not.
+	let n = usize::from(at(1) % 2);
+	put(out, &format!("{:?}|{:#?}", one.iter(), skip(one.iter(), n)));
+	put(out, &format!("{:?}|{:?}", skip(one.keys(), n), skip(one.values(), n)));
+	put(out, &format!("{:?}", skip(one.iter_mut(), n)));
+	put(out, &format!("{:x?}", skip(one.values_mut(), 1 - n)));
+	put(out, &format!("{:?}", skip(one.clone().into_iter(), n)));
+	put(
+		out,
+		&format!("{:?}|{:?}", one.clone().into_keys(), skip(one.clone().into_values(), n)),
+	);
+	let it = skip(one.drain(), n);
+	put(out, &format!("{it:?}|{it:#?}"));
+	drop(it);
+	put(
+		out,
+		&format!("{:?}|{:#?}", skip(keys.iter(), n), keys.clone().into_iter()),
+	);
+	let it = skip(keys.drain(), 1 - n);
+	put(out, &format!("{it:?}"));
+}
+
 /// An error only a TypeScript caller prints, as moq's callers print its errors: nothing
 /// translated formats it, so its `Display` and `Debug` come along as `printable`.
 #[derive(Debug)]
@@ -603,9 +990,127 @@ pub fn printed(data: &[u8]) -> Vec<u8> {
 }
 
 /// A root only the `stable_names` test adds, reaching another instance of what `run`
-/// reaches one of: a generic method's, a closure's, and an impl's of another trait.
+/// reaches one of: a generic method's, a closure's, an impl's of another trait, a std
+/// function's that merges with one `run` reaches and sorts before it, and an impl's over a
+/// deeper `&mut` than `run`'s, which sorts before its others. Its trait object's module shares its name with a type's this
+/// module imports, and sorts first.
 pub fn added(out: &mut Vec<u8>) {
 	out.push(Wrap::new(1u8).into_inner());
+	out.push(1u8.partial_cmp(&2).map_or(7, |o| o as i8 as u8));
 	let mapped = Wrap::new(2u8).map(|b| Pair(b, 0));
 	put(out, &format!("{mapped:?} {:?}", Padded("added")));
+	let shape: &dyn crate::dyns::Shape = &3u32;
+	out.push(shape.sides());
+	out.extend_from_slice(&crate::refs::deeper(4).to_be_bytes());
+}
+
+/// A writer of the crate's own that fails a `write_str` past `cap` bytes, and counts each.
+pub struct Capped {
+	text: String,
+	calls: u8,
+	cap: usize,
+}
+
+impl fmt::Write for Capped {
+	fn write_str(&mut self, s: &str) -> fmt::Result {
+		self.calls += 1;
+		if self.text.len() + s.len() > self.cap {
+			return Err(fmt::Error);
+		}
+		for c in s.chars() {
+			self.text.push(c);
+		}
+		Ok(())
+	}
+}
+
+/// A writer of the crate's own that writes each `char` twice through its own `write_char`.
+pub struct Twice(String);
+
+impl fmt::Write for Twice {
+	fn write_str(&mut self, s: &str) -> fmt::Result {
+		for c in s.chars() {
+			self.0.push(c);
+		}
+		Ok(())
+	}
+
+	fn write_char(&mut self, c: char) -> fmt::Result {
+		self.0.push(c);
+		self.0.push(c);
+		Ok(())
+	}
+}
+
+/// Literals, a `char` of each width, and empty pieces, each its own call, stopping at the
+/// first error.
+fn literals<W: fmt::Write>(mut w: W, c: char) -> fmt::Result {
+	w.write_str("ab")?;
+	write!(w, "")?;
+	write!(w, "{}", "")?;
+	w.write_char(c)?;
+	write!(w, "c{}d", "x")?;
+	w.write_char('😀')?;
+	writeln!(w)?;
+	write!(w, "{{}}")?;
+	w.write_str("")?;
+	writeln!(w, "end")
+}
+
+/// Placeholders with options, through a writer std's impl forwards to.
+fn placed<W: fmt::Write>(mut w: W, n: u8) -> fmt::Result {
+	write!(w, "n={n:03}|{n:>4x}|{:?}|{:<3}|{:+}", "q\"é", 'ß', i16::from(n) - 100)?;
+	w.write_char('é')?;
+	writeln!(w, "{n:#b}")
+}
+
+/// `Display` through a `Formatter` as a writer, which takes no options from the placeholder.
+pub struct Placed(u8);
+
+impl fmt::Display for Placed {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		placed(&mut *f, self.0)?;
+		literals(f, 'é')
+	}
+}
+
+/// Each result as a byte: 1 for `Ok`.
+fn result(out: &mut Vec<u8>, r: fmt::Result) {
+	out.push(r.is_ok() as u8);
+}
+
+/// `fmt::Write` for a `String`, through `&mut W`, and for the crate's own writers.
+pub fn writes(data: &[u8], out: &mut Vec<u8>) {
+	use std::fmt::Write as _;
+	let at = |i: usize| data.get(i).copied().unwrap_or(0);
+	let c = char::from_u32(u32::from(at(0)) * 0x101).unwrap_or('?');
+	let mut s = String::new();
+	result(out, write!(s, "a{}b{:>5}|{:?}|{:x}", at(1), c, "q\"é", at(2)));
+	result(out, writeln!(s));
+	result(out, s.write_char(c));
+	result(out, s.write_str("tail"));
+	// An error from a placeholder stops after what it wrote, before the next piece.
+	result(out, write!(s, "x{}y{}", Fails(at(3)), at(4)));
+	result(out, literals(&mut s, c));
+	result(out, placed(&mut s, at(5)));
+	let mut inner = &mut s;
+	result(out, literals(&mut inner, 'ß'));
+	result(out, placed(&mut &mut inner, at(6)));
+	put(out, &s);
+	put(out, &format!("{}|{:>30}", Placed(at(7)), Placed(at(8))));
+	let mut capped = Capped {
+		text: String::new(),
+		calls: 0,
+		cap: usize::from(at(9) % 40),
+	};
+	result(out, literals(&mut capped, c));
+	result(out, capped.write_char(c));
+	result(out, write!(capped, "z"));
+	result(out, literals(&mut &mut capped, 'é'));
+	out.push(capped.calls);
+	put(out, &capped.text);
+	let mut twice = Twice(String::new());
+	result(out, literals(&mut twice, c));
+	result(out, twice.write_char('ß'));
+	put(out, &twice.0);
 }

@@ -1,7 +1,12 @@
 //! A translated crate: its items, the names they print with, and the files they go to.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::hash::Hasher;
 use std::path::{Path, PathBuf};
+
+use rustc_data_structures::base_n::{CASE_INSENSITIVE, ToBaseN};
+use rustc_data_structures::stable_hash::StableHasher;
+use rustc_hashes::Hash64;
 
 use crate::print;
 use crate::ts::{self, FieldId, Function, Item, SymId};
@@ -10,9 +15,11 @@ use crate::ts::{self, FieldId, Function, Item, SymId};
 /// file's path from there, and its text.
 pub const RUNTIME: &[(&str, &str)] = &[
 	("rt.ts", include_str!("../runtime/rt.ts")),
+	("rt/ascii.ts", include_str!("../runtime/rt/ascii.ts")),
 	("rt/bytes.ts", include_str!("../runtime/rt/bytes.ts")),
 	("rt/collections.ts", include_str!("../runtime/rt/collections.ts")),
 	("rt/float.ts", include_str!("../runtime/rt/float.ts")),
+	("rt/hash.ts", include_str!("../runtime/rt/hash.ts")),
 	("rt/int.ts", include_str!("../runtime/rt/int.ts")),
 	("rt/iter.ts", include_str!("../runtime/rt/iter.ts")),
 	("rt/rand.ts", include_str!("../runtime/rt/rand.ts")),
@@ -31,10 +38,10 @@ pub type ModPath = Vec<String>;
 #[derive(Debug)]
 pub struct Symbol {
 	pub module: ModPath,
-	/// The name it would like, before collisions are resolved.
+	/// Its item's name, which its instances share.
 	pub base: String,
 	/// Appended after a `$`, whether or not another instance of its item is reached:
-	/// what tells the instance apart, such as `Display_Pair`. Empty for none.
+	/// what tells the instance apart, such as `fmt_Display_copy_Pair`. Empty for none.
 	pub suffix: String,
 	/// The class a method belongs to.
 	pub owner: Option<SymId>,
@@ -42,6 +49,9 @@ pub struct Symbol {
 	/// Its source position in rustc's source map, which numbers files in the order it
 	/// loads them.
 	pub order: u32,
+	/// Where it is defined, or first reached for what translation makes, which a collision
+	/// of its name reports.
+	pub span: rustc_span::Span,
 	/// The function instance it is, printed in full; empty for anything else.
 	pub instance: String,
 	/// The final name, set by [`Program::name`].
@@ -106,6 +116,93 @@ pub struct Program {
 	pub bound: BTreeMap<ModPath, Bound>,
 	/// What `tsc` checks each binding against: a function of the check module each.
 	pub checks: Vec<Check>,
+	/// What import bindings avoid.
+	pub names: Names,
+}
+
+/// The census import bindings are chosen by: each name a module could declare at its top
+/// level, as far as its first `$`, as [`Program::name`] names the symbol, and every module
+/// of the crate graph that could, whether or not translation reaches it. An import binds
+/// by its plain name where no other module could declare one of it, so whether it does
+/// depends on the crate graph alone, as rustc's trimmed paths do.
+#[derive(Debug, Default)]
+pub struct Names(HashMap<String, BTreeMap<ModPath, ModPath>>);
+
+impl Names {
+	/// Note that `module` could declare `name`, which importers qualify by `path`.
+	pub fn declare(&mut self, name: &str, module: ModPath, path: ModPath) {
+		self.0.entry(root(name).to_string()).or_default().insert(module, path);
+	}
+
+	/// What an importer prefixes `name` from `module` with, after an `_`: the shortest end
+	/// of its module path no other module that could declare it shares, or `None` where no
+	/// other could. `always` qualifies it even so, where the importer declares the name
+	/// itself.
+	pub fn qualifier(&self, name: &str, module: &ModPath, always: bool) -> Result<Option<String>, String> {
+		let root = root(name);
+		let path = self
+			.0
+			.get(root)
+			.and_then(|modules| modules.get(module))
+			.ok_or_else(|| {
+				format!(
+					"the census of names misses `{name}`, which {} declares",
+					module_file(module).display()
+				)
+			})?;
+		let modules = &self.0[root];
+		if !always && modules.len() == 1 {
+			return Ok(None);
+		}
+		let others: Vec<&ModPath> = (modules.iter())
+			.filter(|(other, _)| *other != module)
+			.map(|(_, path)| path)
+			.collect();
+		let len = (1..path.len())
+			.find(|&len| (others.iter()).all(|other| *other == path || !other.ends_with(&path[path.len() - len..])))
+			.unwrap_or(path.len());
+		let mut qualifier = path[path.len() - len..].join("_");
+		// A type and a value of one Rust module, in their two namespaces: the type's module
+		// adds its name, as its file does.
+		if others.contains(&path) && module.last().is_some_and(|last| last.contains('.')) {
+			qualifier = format!("{qualifier}_{root}");
+		}
+		Ok(Some(qualifier))
+	}
+
+	/// Fail where two qualified bindings, or one and a plain name, would be one name, so
+	/// that no translation can bind two items alike.
+	pub fn check(&self) -> Result<(), String> {
+		let mut bindings: HashMap<String, &ModPath> = HashMap::new();
+		for (name, modules) in &self.0 {
+			for module in modules.keys() {
+				let Some(qualifier) = self.qualifier(name, module, false)? else {
+					continue;
+				};
+				let binding = format!("{qualifier}_{name}");
+				if self.0.contains_key(&binding) {
+					return Err(format!(
+						"`{name}` of {} would bind as `{binding}`, which is another item's name",
+						module_file(module).display()
+					));
+				}
+				if let Some(other) = bindings.insert(binding.clone(), module) {
+					return Err(format!(
+						"{} and {} would each bind an item as `{binding}`",
+						module_file(other).display(),
+						module_file(module).display()
+					));
+				}
+			}
+		}
+		Ok(())
+	}
+}
+
+/// A name as far as its first `$`, which the suffix after it only tells apart within one
+/// module.
+pub fn root(name: &str) -> &str {
+	name.split('$').next().unwrap_or(name)
 }
 
 /// A binding's file, which callers import whole, as they do a type's module.
@@ -143,6 +240,27 @@ impl Program {
 			name: String::new(),
 		});
 		self.fields.len() - 1
+	}
+
+	/// Mark each parameter of every function that nothing reads, as [`ts::mark_unread`] does.
+	pub fn mark_unread(&mut self) {
+		for item in &mut self.items {
+			match item {
+				Item::Function(f) => ts::mark_unread(&mut f.params, &mut f.body),
+				Item::Struct { fields, .. } => {
+					for field in fields {
+						if let ts::FieldInit::Value(e) = &mut field.init {
+							e.mark_unread();
+						}
+					}
+				}
+				Item::Value { value, .. } => value.mark_unread(),
+				Item::Union { .. } => {}
+			}
+		}
+		for f in self.methods.values_mut().flatten() {
+			ts::mark_unread(&mut f.params, &mut f.body);
+		}
 	}
 
 	/// Make one function of the instances of a std function whose output is the same, as
@@ -202,9 +320,10 @@ impl Program {
 		}
 	}
 
-	/// Put every item and method in order, and name every symbol and field, resolving
-	/// collisions within each scope in that order.
-	pub fn name(&mut self) {
+	/// Put every item and method in order, and name every symbol and field: each symbol by
+	/// its base and suffix alone, failing where two in one scope would share a name, and a
+	/// field by its own, numbered where it clashes in its class.
+	pub fn name(&mut self) -> Result<(), (rustc_span::Span, String)> {
 		let syms = &self.syms;
 		self.items
 			.sort_by(|a, b| syms[item_sym(a)].key().cmp(&syms[item_sym(b)].key()));
@@ -233,29 +352,51 @@ impl Program {
 				continue;
 			}
 			ids.sort_by(|&a, &b| self.syms[a].key().cmp(&self.syms[b].key()));
-			let mut taken = HashSet::new();
-			match &scope {
-				// The runtime's import binding.
-				Scope::Module(_) => {
-					taken.insert("rt".to_string());
-				}
-				// What a class already defines.
-				Scope::Owner(_) => taken.extend(["constructor".to_string(), "prototype".to_string()]),
-			}
+			// What a class already defines, and else the runtime's import binding.
+			let defined: &[&str] = match &scope {
+				Scope::Module(_) => &["rt"],
+				Scope::Owner(_) => &["constructor", "prototype"],
+			};
+			let mut named: HashMap<String, Option<SymId>> =
+				defined.iter().map(|name| (name.to_string(), None)).collect();
 			for id in ids {
 				let sym = &self.syms[id];
+				if self.by_text(id) {
+					continue;
+				}
 				let base = match sym.suffix.is_empty() {
 					true => sym.base.clone(),
 					false => format!("{}${}", sym.base, sym.suffix),
 				};
-				let escaped = match sym.kind {
+				let name = match sym.kind {
 					SymKind::Function | SymKind::Value => crate::lower::escape(&base),
 					_ => base.clone(),
 				};
-				let name = unique(&mut taken, &escaped);
-				self.syms[id].alias = (name == escaped && escaped != base).then_some(base);
+				if let Some(other) = named.insert(name.clone(), Some(id)) {
+					let what = |sym: &Symbol| match sym.instance.is_empty() {
+						true => format!("`{}`", sym.base),
+						false => format!("`{}`", sym.instance),
+					};
+					let file = module_file(&sym.module);
+					let msg = match other {
+						Some(other) => format!(
+							"{} and {} would both be named `{name}` in {}",
+							what(&self.syms[other]),
+							what(sym),
+							file.display()
+						),
+						None => format!(
+							"{} would be named `{name}`, which {} defines",
+							what(sym),
+							file.display()
+						),
+					};
+					return Err((sym.span, msg));
+				}
+				self.syms[id].alias = (name != base).then_some(base);
 				self.syms[id].name = name;
 			}
+			let mut taken: HashSet<String> = named.into_keys().collect();
 			if let Scope::Owner(owner) = scope {
 				for field in self.fields.iter_mut().filter(|f| f.owner == owner) {
 					let base = match field.base.strip_prefix('#') {
@@ -271,6 +412,72 @@ impl Program {
 				}
 			}
 		}
+		self.name_by_text()
+	}
+
+	/// Whether `id` is an instance of a std function that another could have merged into,
+	/// which is named for its text rather than for its type arguments.
+	fn by_text(&self, id: SymId) -> bool {
+		self.std.contains(&id) && !self.syms[id].suffix.is_empty()
+	}
+
+	/// Name each instance [`Program::by_text`] picks `base$hash`, a hash of its text with
+	/// what it calls by name, so the name is the same whichever of the instances that merged
+	/// into it translation reaches. Those it calls are named first; instances that call each
+	/// other read each other's calls alike.
+	fn name_by_text(&mut self) -> Result<(), (rustc_span::Span, String)> {
+		let functions: BTreeMap<SymId, &Function> = (self.items.iter())
+			.filter_map(|item| match item {
+				Item::Function(f) if self.by_text(f.sym) => Some((f.sym, f)),
+				_ => None,
+			})
+			.collect();
+		let path = |sym: &Symbol| format!("{}/{}", sym.module.join("/"), sym.name);
+		let mut texts = print::Texts::new(
+			(self.syms.iter().enumerate())
+				.filter(|(_, sym)| !sym.name.is_empty())
+				.map(|(id, sym)| (id, path(sym)))
+				.collect(),
+		);
+		let hash = |texts: &print::Texts, f: &Function| {
+			let mut hasher = StableHasher::new();
+			hasher.write(texts.text(self, f).as_bytes());
+			let hash: Hash64 = hasher.finish();
+			(hash.as_u64() as u32).to_base_fixed_len(CASE_INSENSITIVE).to_string()
+		};
+		let mut names = Vec::new();
+		for group in callees_first(&functions) {
+			for &id in &group {
+				texts.set(id, "recursive".into());
+			}
+			let mut hashes: Vec<String> = group.iter().map(|id| hash(&texts, functions[id])).collect();
+			if group.len() > 1 {
+				for (&id, h) in group.iter().zip(&hashes) {
+					texts.set(id, h.clone());
+				}
+				hashes = group.iter().map(|id| hash(&texts, functions[id])).collect();
+			}
+			for (id, h) in group.into_iter().zip(hashes) {
+				let sym = &self.syms[id];
+				let name = format!("{}${h}", sym.base);
+				texts.set(id, format!("{}/{name}", sym.module.join("/")));
+				names.push((id, name));
+			}
+		}
+		for (id, name) in names {
+			let module = &self.syms[id].module;
+			if self.syms.iter().any(|s| &s.module == module && s.name == name) {
+				return Err((
+					self.syms[id].span,
+					format!(
+						"two functions of {} hash to one name, {name}",
+						module_file(module).display()
+					),
+				));
+			}
+			self.syms[id].name = name;
+		}
+		Ok(())
 	}
 
 	/// Write every module, the runtime, and their source maps to `out`.
@@ -344,6 +551,65 @@ impl Program {
 		// `decode.Decoder` binds `Decoder`, or `decode_Decoder` if that is taken.
 		module.last()?.split_once('.')
 	}
+}
+
+/// The strongly connected components of the calls among `functions`, each after those it
+/// calls, by Tarjan's algorithm.
+fn callees_first(functions: &BTreeMap<SymId, &Function>) -> Vec<Vec<SymId>> {
+	#[derive(Default)]
+	struct Walk {
+		index: HashMap<SymId, usize>,
+		low: HashMap<SymId, usize>,
+		stack: Vec<SymId>,
+		on_stack: HashSet<SymId>,
+		groups: Vec<Vec<SymId>>,
+	}
+	fn visit(walk: &mut Walk, calls: &BTreeMap<SymId, Vec<SymId>>, id: SymId) {
+		let index = walk.index.len();
+		walk.index.insert(id, index);
+		walk.low.insert(id, index);
+		walk.stack.push(id);
+		walk.on_stack.insert(id);
+		for &callee in &calls[&id] {
+			if !walk.index.contains_key(&callee) {
+				visit(walk, calls, callee);
+				let low = walk.low[&id].min(walk.low[&callee]);
+				walk.low.insert(id, low);
+			} else if walk.on_stack.contains(&callee) {
+				let low = walk.low[&id].min(walk.index[&callee]);
+				walk.low.insert(id, low);
+			}
+		}
+		if walk.low[&id] == index {
+			let mut group = Vec::new();
+			while let Some(member) = walk.stack.pop() {
+				walk.on_stack.remove(&member);
+				group.push(member);
+				if member == id {
+					break;
+				}
+			}
+			walk.groups.push(group);
+		}
+	}
+	let calls: BTreeMap<SymId, Vec<SymId>> = (functions.iter())
+		.map(|(&id, f)| {
+			let mut callees = Vec::new();
+			ts::syms_mut(&mut f.body.clone(), &mut |callee| {
+				if functions.contains_key(callee) {
+					callees.push(*callee);
+				}
+			});
+			(id, callees)
+		})
+		.collect();
+	let mut walk = Walk::default();
+	for &id in calls.keys() {
+		if !walk.index.contains_key(&id) {
+			visit(&mut walk, &calls, id);
+		}
+	}
+	walk.groups
 }
 
 /// What a function of a module prints as, but for its own name: its item, parameters,

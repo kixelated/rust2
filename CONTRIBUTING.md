@@ -1,9 +1,6 @@
 # Commits
 
-PRs land on `main` only through `quest land`, each as one squash commit: the PR title becomes the commit subject and the PR's commit messages become the body.
-Queue a PR with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this), and the Land workflow runs Check's steps once on the batch, landing the longest passing prefix.
-The admin bypass of `main`'s ruleset is for emergencies.
-Until the land setup in `quest/m1/land.md` is done, `--land` fails: merge with `gh pr merge <pr> --squash --match-head-commit <reviewed sha>` instead.
+PRs into `main` land as squash commits through the land gate, so the PR title becomes the commit subject.
 
 - Use conventional-commit subjects (`feat(ts): ...`, `fix: ...`, `chore: ...`, `docs: ...`).
 - AI commit attribution goes in a `Co-Authored-By:` trailer, not the commit body.
@@ -21,18 +18,21 @@ Have at least these sections:
 - **Follow-ups**: any issues encountered or quests created.
 
 Never rebase or force-push a pushed branch; merge the base branch in instead.
-Open a draft PR while working, run `just check` and `just test` before every push, and mark the PR ready yourself when the work is done.
+Open a draft PR while working, run `just ci` before every push, and mark the PR ready yourself when the work is done.
+
+# Landing
+
+PRs into `main` get no cloud CI; `just ci` runs the same gate locally.
+PRs land only through `quest land`: queue the reviewed head with `quest merge <pr> <token> --land <sha>` (`/quest-merge` does this).
+The land gate, `quest land serve` on the maintainer's host, takes the longest-queued PR plus up to log₂ n more that merge cleanly, runs `just ci` once on the batch, and lands each PR through GitHub's squash merge.
+A failing batch is ejected together, and a Codex fixer makes mechanical fixes and requeues healthy PRs or hands them back with a comment: read why in the PR, fix the cause, and queue again.
+The admin bypass of `main`'s ruleset is for emergencies.
 
 # Reviews
 
-AI agents review pushes on their own. Never explicitly request a review.
-
-For each finding:
-
-- If you don't agree with it, reply to the finding and move on.
-- If it's a relatively easy improvement, fix it and push.
-
-Queue a PR only after a review from a reviewer other than Grok has no findings, or every finding is fixed or replied to.
+Review each PR locally with `/quest-review`, as the quest guide describes; merging never waits on an online reviewer, and never request one.
+The PR body's `## Review` record counts as the required review when it names the head being merged, and so does a recorded skip of a change too trivial to review.
+Address online reviewers' findings already posted on that head before merging: fix them, or reply where you disagree.
 
 # Follow-ups
 

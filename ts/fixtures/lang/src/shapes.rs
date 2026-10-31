@@ -1647,6 +1647,125 @@ fn rematched(data: &[u8], out: &mut Vec<u8>) {
 		}
 	}
 	reseated(data, out);
+	decided_by_bool(data, out);
+}
+
+/// A match a `bool` already decided: `matches!`, and `==` of a derived `PartialEq`.
+fn decided_by_bool(data: &[u8], out: &mut Vec<u8>) {
+	let s = shape(data);
+	if matches!(s, Shape::Dot) {
+		out.push(match s {
+			Shape::Line(..) => 60,
+			_ => 61,
+		});
+	}
+	if matches!(s, Shape::Line(..) | Shape::Rect { .. }) {
+		out.push(match s {
+			Shape::Line(from, _) => from.x as u8,
+			Shape::Rect { width, .. } => width as u8,
+			Shape::Dot => 62,
+		});
+	}
+	if !matches!(s, Shape::Line(..)) {
+		out.push(match s {
+			Shape::Line(_, to) => to.y as u8,
+			_ => 63,
+		});
+	}
+	// A `bool` that is `false` on a way in that knows nothing of the place.
+	let wide = data.len() > 2 && matches!(s, Shape::Rect { .. });
+	out.push(match wide {
+		true => match s {
+			Shape::Rect { height, .. } => height as u8,
+			_ => 64,
+		},
+		false => match s {
+			Shape::Rect { .. } => 65,
+			_ => 66,
+		},
+	});
+	if s == Shape::Dot {
+		out.push(match s {
+			Shape::Line(..) => 67,
+			_ => 68,
+		});
+	}
+	if s != Shape::Dot {
+		out.push(match s {
+			Shape::Dot => 69,
+			_ => 70,
+		});
+	}
+	// Another `Line` may hold other points, so `!=` rules out no variant with fields.
+	let line = Shape::Line(Point::new(0, 0), Point::new(0, 0));
+	if s == line {
+		out.push(match s {
+			Shape::Line(_, to) => to.x as u8 ^ 71,
+			_ => 72,
+		});
+	}
+	if s != line {
+		out.push(match s {
+			Shape::Line(..) => 73,
+			_ => 74,
+		});
+	}
+	let t = shape(&data[data.len().min(1)..]);
+	if let Shape::Rect { .. } = t
+		&& s == t
+	{
+		out.push(match s {
+			Shape::Rect { width, .. } => width as u8 ^ 75,
+			_ => 76,
+		});
+	}
+	// What changes the place or the `bool` after the test undecides the match.
+	let mut m = s;
+	let dot = matches!(m, Shape::Dot);
+	m = t;
+	if dot {
+		out.push(match m {
+			Shape::Line(..) => 77,
+			_ => 78,
+		});
+	}
+	let mut dot = matches!(s, Shape::Dot);
+	if data.len() > 3 {
+		dot = !dot;
+	}
+	if dot {
+		out.push(match s {
+			Shape::Line(..) => 79,
+			_ => 80,
+		});
+	}
+	// So does a write through a pointer to the `bool`.
+	let mut seen = matches!(s, Shape::Dot);
+	let at = &raw mut seen;
+	match seen {
+		true => {
+			// SAFETY: `at` points at `seen`, which nothing else borrows.
+			unsafe { *at = data.len() > 4 };
+			out.push(match seen {
+				true => 83,
+				false => 84,
+			});
+		}
+		false => out.push(85),
+	}
+	// A `bool` carried around a loop, set from what the place was before it changed.
+	let mut cur = s;
+	let mut was_dot = false;
+	for i in 0..3u8 {
+		if was_dot {
+			out.push(match cur {
+				Shape::Dot => 81,
+				_ => 82,
+			});
+		}
+		was_dot = matches!(cur, Shape::Dot);
+		cur = shape(&[i, i]);
+	}
 }
 
 /// A reference pointed elsewhere without an assignment to it: through a `&mut` to it,
@@ -1850,6 +1969,72 @@ fn absurd(v: (Void, u8)) -> u8 {
 #[allow(unreachable_code)]
 fn early(n: u8) -> u8 {
 	match return n.wrapping_add(1) {}
+}
+
+/// A struct whose fields' other variants can't exist.
+struct Parts {
+	left: Result<u8, Infallible>,
+	right: Option<Result<u16, Void>>,
+}
+
+/// An enum whose other variant holds a value that can't exist.
+enum Partial {
+	Real(u8),
+	#[allow(dead_code)]
+	Never(Void),
+}
+
+/// A `Result` that can't fail, which counts its calls so their order shows.
+fn counted(calls: &mut u8, b: u8) -> Result<u8, Infallible> {
+	*calls = calls.wrapping_add(1);
+	Ok(b.wrapping_mul(*calls))
+}
+
+/// Patterns on parts of a place whose other variants can't exist, which test nothing
+/// there, while what they read still runs in order.
+pub fn uninhabited(data: &[u8], out: &mut Vec<u8>) {
+	let a = data.first().copied().unwrap_or(0);
+	let b = data.get(1).copied().unwrap_or(0);
+	let mut calls = 0;
+	let (Ok(x), Ok(y)) = (counted(&mut calls, a), counted(&mut calls, b));
+	out.extend_from_slice(&[x, y, calls]);
+	let [Ok(x), Ok(y)] = [counted(&mut calls, b), counted(&mut calls, a)];
+	out.extend_from_slice(&[x, y, calls]);
+	// A call's result read only to find its one variant.
+	let Ok(_) = counted(&mut calls, a);
+	out.push(calls);
+	let (Ok(_),) = (counted(&mut calls, a),);
+	out.push(calls);
+	let (Ok(_), (Ok(_),)) = (counted(&mut calls, a), (counted(&mut calls, b),));
+	out.push(calls);
+	let pair = (counted(&mut calls, a), Partial::Real(b));
+	let (Ok(x), Partial::Real(y)) = pair;
+	out.extend_from_slice(&[x, y]);
+
+	let held = Parts {
+		left: Ok(a),
+		right: (b % 2 == 0).then_some(Ok(u16::from(b) << 4)),
+	};
+	let Parts { left: Ok(l), right } = held;
+	match right {
+		Some(Ok(r)) => out.extend_from_slice(&r.to_be_bytes()),
+		None => out.push(l),
+	}
+	match (Partial::Real(a), held.left) {
+		(Partial::Real(p), Ok(q)) => out.push(p ^ q),
+	}
+
+	// The other part can fail.
+	if let (Ok(x), Some(&y)) = (counted(&mut calls, a), data.get(2)) {
+		out.extend_from_slice(&[x, y]);
+	} else {
+		out.push(calls);
+	}
+	let (Ok(x), Some(&y)) = (counted(&mut calls, b), data.get(3)) else {
+		out.push(calls);
+		return;
+	};
+	out.extend_from_slice(&[x, y, calls]);
 }
 
 /// Closures capturing by reference and by move, and functions as values.

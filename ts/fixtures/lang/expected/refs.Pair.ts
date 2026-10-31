@@ -6,4 +6,24 @@ export interface Pair {
 	n: rt.u8;
 }
 
+export function tally$refs_Tally(self: Pair, n: rt.u8): void {
+	self.n = rt.u8WrappingAdd(self.n, n);
+}
+
+export function total$refs_Tally(self: Pair): rt.u32 {
+	return self.n as rt.u32;
+}
+
+export function tally$refs_Tally_mut(self: rt.Place<Pair>, n: rt.u8): void {
+	tally$refs_Tally(self.v, n);
+}
+
+export function total$refs_Tally_mut(self: Pair): rt.u32 {
+	return total$refs_Tally(self);
+}
+
+export function total$refs_Tally_mut_mut(self: rt.Place<Pair>): rt.u32 {
+	return total$refs_Tally_mut(self.v);
+}
+
 //# sourceMappingURL=refs.Pair.ts.map

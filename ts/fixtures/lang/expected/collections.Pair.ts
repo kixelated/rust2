@@ -2,19 +2,19 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Pair, other: Pair): boolean {
+export function eq$cmp_PartialEq(self: Pair, other: Pair): boolean {
 	if (!(self.a === other.a)) {
 		return false;
 	}
 	return self.b === other.b;
 }
 
-export function hash$Hash_DefaultHasher(self: Pair, state: rt.Hasher): void {
-	rt.hashInt(self.a, state);
-	rt.hashInt(self.b, state);
+export function hash$Hash_hash_DefaultHasher(self: Pair, state: rt.Hasher): void {
+	rt.hash8(self.a, state);
+	rt.hash16(self.b, state);
 }
 
-export function cmp$Ord(self: Pair, other: Pair): rt.Ordering {
+export function cmp$cmp_Ord(self: Pair, other: Pair): rt.Ordering {
 	const cmp: rt.Ordering = rt.cmp(self.a, other.a);
 	if (cmp === 0) {
 		return rt.cmp(self.b, other.b);

@@ -25,16 +25,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1792405127,
-        "narHash": "sha256-bPAAaDjorIe/9V3sgnC85yOQVerd079HT6bOfB0WgFo=",
+        "lastModified": 1792751030,
+        "narHash": "sha256-GJA/+e5UX3M+d91hb15mW4euuUdtHudJaE59iMs1I1g=",
         "owner": "jdx",
         "repo": "mr-boxington",
-        "rev": "2ade2bc6b661f1b40a55cfa7083fa9a4efc9348d",
+        "rev": "5a50200abf386580642b87eca2995156316b56a7",
         "type": "github"
       },
       "original": {
         "owner": "jdx",
-        "ref": "v1.25.0",
+        "ref": "v1.27.0",
         "repo": "mr-boxington",
         "type": "github"
       }
@@ -65,17 +65,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1793122509,
-        "narHash": "sha256-zF1ETuYCXPrO++RnIuuFx2VgwMxEiQ38l5QsZCh01vc=",
-        "owner": "kixelated",
+        "lastModified": 1793429482,
+        "narHash": "sha256-C2zcd/wLcc5kC/nZiuviIAMgpoCMJRc2JzYEQno2EHA=",
+        "owner": "moq-dev",
         "repo": "quest",
-        "rev": "943cecaf58a2722dd05f27ab468972c5fe9b714d",
+        "rev": "dc8008bc9e846a206403b1b738ede19fdd797f5e",
         "type": "github"
       },
       "original": {
-        "owner": "kixelated",
+        "owner": "moq-dev",
         "repo": "quest",
-        "rev": "943cecaf58a2722dd05f27ab468972c5fe9b714d",
+        "rev": "dc8008bc9e846a206403b1b738ede19fdd797f5e",
         "type": "github"
       }
     },

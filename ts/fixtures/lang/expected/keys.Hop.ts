@@ -2,19 +2,19 @@
 
 import * as rt from "./rt.ts";
 
-export function eq$PartialEq(self: Hop, other: Hop): boolean {
+export function eq$cmp_PartialEq(self: Hop, other: Hop): boolean {
 	return rt.u64Eq(self._0, other._0);
 }
 
-export function hash$Hash_DefaultHasher(self: Hop, state: rt.Hasher): void {
-	rt.hashInt(self._0, state);
+export function hash$Hash_hash_DefaultHasher(self: Hop, state: rt.Hasher): void {
+	rt.hash64(self._0, state);
 }
 
-export function partialCmp$PartialOrd(self: Hop, other: Hop): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Hop, other: Hop): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Hop, other: Hop): rt.Ordering {
+export function cmp$cmp_Ord(self: Hop, other: Hop): rt.Ordering {
 	return rt.cmp(self._0, other._0);
 }
 

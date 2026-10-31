@@ -234,3 +234,69 @@ pub(super) fn extended(log: &Log, id: u32) {
 	queue.extend(list![guard(19), guard(20)]);
 	log.note(format!("ordered {} {} {}", tree.len(), ordered.len(), queue.len()));
 }
+
+/// What std's comparisons of iterators drop of the keys they read: each pair once
+/// compared, the second first; an item read past the other side's end; the closure a `_by`
+/// form owns, as the first side's fold ends; then the second side and the first. `eq` of
+/// two `TrustedLen` sides of unlike lengths reads neither.
+pub(super) fn compared(log: &Log, id: u32, arg: u8) {
+	let key = |n: u32| Key::new(id + n, log.clone());
+	let keys = |ns: &[u32]| ns.iter().map(|&n| key(n)).collect::<Vec<_>>();
+	let guard = |n: u32| Guard::new(id + n, log.clone());
+	let guards = |ns: &[u32]| ns.iter().map(|&n| guard(n)).collect::<Vec<_>>();
+	let order = |o: Option<std::cmp::Ordering>| o.map_or(9, |o| o as i8);
+	let c = guard(10);
+	match arg % 9 {
+		0 => {
+			let eq = keys(&[1, 2, 3]).into_iter().eq(keys(&[1, 5, 6]));
+			log.note(format!("eq {eq}"));
+		}
+		1 => {
+			let eq = keys(&[1, 2, 3]).into_iter().eq(keys(&[1, 2]));
+			let ne = keys(&[4]).into_iter().ne(keys(&[4, 5]));
+			log.note(format!("eq {eq} {ne}"));
+		}
+		2 => {
+			let eq = keys(&[1, 2, 3]).into_iter().filter(|_| true).eq(keys(&[1, 2]));
+			log.note(format!("eq {eq}"));
+		}
+		3 => {
+			let cmp = keys(&[1, 2]).into_iter().cmp(keys(&[1, 2, 4]));
+			log.note(format!("cmp {}", cmp as i8));
+		}
+		4 => {
+			let cmp = keys(&[1, 3, 5]).into_iter().partial_cmp(keys(&[1, 2]));
+			let lt = keys(&[6]).into_iter().lt(keys(&[6]));
+			log.note(format!("partial_cmp {} {lt}", order(cmp)));
+		}
+		5 => {
+			let cmp = keys(&[1, 2]).into_iter().cmp_by(guards(&[1, 2, 5]), move |x, y| {
+				c.note("compared");
+				x.id.cmp(&y.id())
+			});
+			log.note(format!("cmp_by {}", cmp as i8));
+		}
+		6 => {
+			let eq = keys(&[1, 2]).into_iter().eq_by(guards(&[1]), move |x, y| {
+				c.note("compared");
+				x.id == y.id()
+			});
+			log.note(format!("eq_by {eq}"));
+		}
+		7 => {
+			let cmp = keys(&[1, 2, 3]).into_iter().partial_cmp_by(guards(&[1]), move |x, y| {
+				c.note("compared");
+				x.id.partial_cmp(&y.id())
+			});
+			log.note(format!("partial_cmp_by {}", order(cmp)));
+		}
+		_ => {
+			// Each borrowed, which neither drops.
+			let (mut a, mut b) = (keys(&[1, 2, 3]).into_iter(), keys(&[1, 4, 5]).into_iter());
+			let cmp = a.by_ref().cmp(b.by_ref());
+			log.note(format!("cmp {}", cmp as i8));
+			drop(b);
+			drop(a);
+		}
+	}
+}

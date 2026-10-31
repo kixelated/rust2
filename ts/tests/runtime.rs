@@ -14,7 +14,7 @@ fn spawn_budget() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
-/// A NaN keeps its payload and sign through `f64`'s bits, which `nan.ts` checks in Node.
+/// A NaN keeps its payload and sign through `f64`'s and `f32`'s bits, which `nan.ts` checks in Node.
 #[test]
 fn nan_payloads() {
 	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("nan.ts");
@@ -25,7 +25,8 @@ fn nan_payloads() {
 	assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
 }
 
-/// A recursive `OnceLock` init panics with std's message, which `once.ts` checks.
+/// A recursive `OnceLock` init, or `LazyLock` or `LazyCell` force, panics with std's
+/// message, which `once.ts` checks.
 #[test]
 fn once_recursive() {
 	let script = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join("once.ts");

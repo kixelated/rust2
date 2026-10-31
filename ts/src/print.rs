@@ -17,7 +17,7 @@ pub struct Printed {
 
 /// Print one module's items to the file at `path`.
 pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path) -> Result<Printed, String> {
-	let bindings = Bindings::new(program, module, items);
+	let bindings = Bindings::new(program, module, items)?;
 	let mut p = Printer {
 		program,
 		bindings: &bindings,
@@ -125,6 +125,49 @@ pub fn module(program: &Program, module: &ModPath, items: &[&Item], path: &Path)
 	})
 }
 
+/// Functions printed apart from any module, each item they refer to by the name given here
+/// and the function itself unnamed: the same text for two functions that print the same.
+pub struct Texts {
+	bindings: Bindings,
+}
+
+impl Texts {
+	pub fn new(names: HashMap<SymId, String>) -> Self {
+		Self {
+			bindings: Bindings {
+				names,
+				imports: BTreeMap::new(),
+				namespaces: BTreeMap::new(),
+			},
+		}
+	}
+
+	pub fn set(&mut self, id: SymId, name: String) {
+		self.bindings.names.insert(id, name);
+	}
+
+	pub fn text(&self, program: &Program, f: &Function) -> String {
+		let mut p = Printer {
+			program,
+			bindings: &self.bindings,
+			out: String::new(),
+			line: 0,
+			col: 0,
+			indent: 0,
+			tokens: Vec::new(),
+			uses_rt: false,
+			renames: HashMap::new(),
+			aliases: Vec::new(),
+		};
+		p.write("(");
+		p.params(&f.params);
+		let ret = p.ty(&f.ret);
+		p.write(&format!("): {ret} {{\n"));
+		p.block_body(&f.body);
+		p.out
+	}
+}
+
 /// `to` relative to the directory `from`, both absolute.
 fn relative(from: &Path, to: &Path) -> PathBuf {
 	let from: Vec<Component> = from.components().collect();
@@ -145,8 +188,6 @@ struct Bindings {
 	/// How the module names each top-level symbol it refers to: by a binding of its own,
 	/// or as a member of a type's module it imports whole, `Decoder.slice`.
 	names: HashMap<SymId, String>,
-	/// Every name the module binds, which a local must not shadow.
-	bound: HashSet<String>,
 	/// For each module imported from by name: each symbol, in that module's order, its
 	/// binding, and whether it is used as a value rather than only as a type.
 	imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>>,
@@ -156,13 +197,14 @@ struct Bindings {
 }
 
 impl Bindings {
-	fn new(program: &Program, module: &ModPath, items: &[&Item]) -> Self {
+	fn new(program: &Program, module: &ModPath, items: &[&Item]) -> Result<Self, String> {
 		let mut refs = Refs::default();
 		for item in items {
 			refs.item(program, item);
 		}
 
 		let mut names = HashMap::new();
+		// What the module declares, with the runtime's binding.
 		let mut taken: HashSet<String> = HashSet::from(["rt".to_string()]);
 		for (id, sym) in program.syms.iter().enumerate() {
 			if sym.owner.is_none() && &sym.module == module {
@@ -170,6 +212,28 @@ impl Bindings {
 				taken.insert(sym.name.clone());
 			}
 		}
+		let declared = taken.clone();
+		let mut bind = |name: &str, from: &ModPath| -> Result<String, String> {
+			let qualify = |always| -> Result<String, String> {
+				Ok(match program.names.qualifier(name, from, always)? {
+					Some(qualifier) => format!("{qualifier}_{name}"),
+					None => name.to_string(),
+				})
+			};
+			let mut binding = qualify(false)?;
+			// A name the module declares that no other could, as a trait object's class is
+			// named for the type it wraps.
+			if declared.contains(&binding) {
+				binding = qualify(true)?;
+			}
+			match taken.insert(binding.clone()) {
+				true => Ok(binding),
+				false => Err(format!(
+					"{} would bind two items as `{binding}`",
+					module_file(module).display()
+				)),
+			}
+		};
 
 		let mut imports: BTreeMap<ModPath, Vec<(SymId, String, bool)>> = BTreeMap::new();
 		let mut namespaces: BTreeMap<ModPath, (String, bool)> = BTreeMap::new();
@@ -182,48 +246,28 @@ impl Bindings {
 		foreign.sort_by(|a, b| key(a.0).cmp(&key(b.0)));
 		for (id, value) in foreign {
 			let sym = &program.syms[id];
-			if let Some((module, ty)) = program.namespace(&sym.module) {
-				let (binding, used) = namespaces.entry(sym.module.clone()).or_insert_with(|| {
-					let mut binding = ty.to_string();
-					let mut n = 2;
-					while taken.contains(&binding) {
-						binding = match n {
-							2 => format!("{module}_{ty}"),
-							_ => format!("{module}_{ty}{n}"),
-						};
-						n += 1;
-					}
-					taken.insert(binding.clone());
-					(binding, false)
-				});
+			if let Some((_, ty)) = program.namespace(&sym.module) {
+				let (binding, used) = match namespaces.entry(sym.module.clone()) {
+					std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+					std::collections::btree_map::Entry::Vacant(entry) => entry.insert((bind(ty, &sym.module)?, false)),
+				};
 				*used |= value;
 				let member = sym.alias.as_ref().unwrap_or(&sym.name);
 				names.insert(id, format!("{binding}.{member}"));
 				continue;
 			}
-			let mut binding = sym.name.clone();
-			if taken.contains(&binding) {
-				let prefix = sym.module.last().map_or("lib", String::as_str);
-				binding = format!("{prefix}_{}", sym.name);
-				let mut n = 2;
-				while taken.contains(&binding) {
-					binding = format!("{prefix}_{}{n}", sym.name);
-					n += 1;
-				}
-			}
-			taken.insert(binding.clone());
+			let binding = bind(&sym.name, &sym.module)?;
 			names.insert(id, binding.clone());
 			imports
 				.entry(sym.module.clone())
 				.or_default()
 				.push((id, binding, value));
 		}
-		Self {
+		Ok(Self {
 			names,
-			bound: taken,
 			imports,
 			namespaces,
-		}
+		})
 	}
 }
 
@@ -368,6 +412,10 @@ impl Refs {
 			Expr::As(e, ty) => {
 				self.expr(program, e);
 				self.ty(program, ty);
+			}
+			Expr::Instantiate(e, tys) => {
+				self.expr(program, e);
+				tys.iter().for_each(|ty| self.ty(program, ty));
 			}
 		}
 	}
@@ -612,18 +660,25 @@ impl Printer<'_> {
 		self.write("}\n");
 	}
 
-	/// Renames for the locals of `f` that a module binding would shadow.
+	/// Renames for the locals of `f` that would shadow a binding it refers to.
 	fn renames_for(&self, f: &Function) -> HashMap<String, String> {
 		let mut locals = Vec::new();
 		for param in &f.params {
 			locals.push(param.name.clone());
 		}
 		collect_locals(&f.body, &mut locals);
+		let mut refs = Refs::default();
+		refs.function(self.program, f);
+		// The runtime's too, which printing may call anywhere.
+		let referred: HashSet<&str> = (refs.used.keys())
+			.map(|id| self.bindings.names[id].split('.').next().unwrap())
+			.chain(["rt"])
+			.collect();
 		let mut taken: HashSet<String> = locals.iter().cloned().collect();
-		taken.extend(self.bindings.bound.iter().cloned());
+		taken.extend(referred.iter().map(|name| name.to_string()));
 		let mut renames = HashMap::new();
 		for local in locals {
-			if self.bindings.bound.contains(&local) {
+			if referred.contains(local.as_str()) {
 				let mut name = format!("{local}_");
 				while taken.contains(&name) {
 					name.push('_');
@@ -673,9 +728,9 @@ impl Printer<'_> {
 		match &stmt.kind {
 			StmtKind::Expr(e) => {
 				// A statement can't start with `{`, which would open a block.
-				let prec = match e {
-					Expr::Object(_) => 20,
-					_ => 0,
+				let prec = match starts_with_object(e) {
+					true => 20,
+					false => 0,
 				};
 				self.expr(e, prec);
 				self.write(";\n");
@@ -962,6 +1017,11 @@ impl Printer<'_> {
 				let ty = self.ty(ty);
 				self.write(&format!(" as {ty}"));
 			}
+			Expr::Instantiate(f, tys) => {
+				self.base(f);
+				let tys: Vec<String> = tys.iter().map(|ty| self.ty(ty)).collect();
+				self.write(&format!("<{}>", tys.join(", ")));
+			}
 			Expr::Located(loc, inner) => {
 				self.mark(Some(*loc));
 				self.expr(inner, min.max(prec));
@@ -1113,7 +1173,7 @@ fn prec(e: &Expr) -> u8 {
 		Expr::Unary(..) => 17,
 		Expr::Postfix(..) => 18,
 		Expr::Lit(text) if text.starts_with('-') => 17,
-		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) => 19,
+		Expr::New(..) | Expr::Call(..) | Expr::Member(..) | Expr::Index(..) | Expr::Instantiate(..) => 19,
 		Expr::Located(_, e) => prec(e),
 		_ => 20,
 	}
@@ -1194,9 +1254,12 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 		}
 		Expr::Array(es) => es.iter().for_each(|e| collect_expr_locals(e, out)),
 		Expr::Object(props) => props.iter().for_each(|(_, e)| collect_expr_locals(e, out)),
-		Expr::Member(e, _) | Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => {
-			collect_expr_locals(e, out)
-		}
+		Expr::Member(e, _)
+		| Expr::Unary(_, e)
+		| Expr::Located(_, e)
+		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
+		| Expr::Postfix(e, _) => collect_expr_locals(e, out),
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
 			collect_expr_locals(a, out);
 			collect_expr_locals(b, out);
@@ -1211,5 +1274,23 @@ fn collect_expr_locals(e: &Expr, out: &mut Vec<String>) {
 			collect_expr_locals(c, out);
 		}
 		Expr::Ident(_) | Expr::This | Expr::Sym(_) | Expr::Rt(_) | Expr::Lit(_) | Expr::Str(_) => {}
+	}
+}
+
+/// Whether `e` prints starting with an object literal, as `{ start: g }.start` does.
+fn starts_with_object(e: &Expr) -> bool {
+	match e {
+		Expr::Object(_) => true,
+		Expr::Member(e, _)
+		| Expr::Index(e, _)
+		| Expr::Call(e, _)
+		| Expr::Postfix(e, _)
+		| Expr::Binary(e, _, _)
+		| Expr::Cond(e, _, _)
+		| Expr::Assign(e, _)
+		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
+		| Expr::Located(_, e) => starts_with_object(e),
+		_ => false,
 	}
 }

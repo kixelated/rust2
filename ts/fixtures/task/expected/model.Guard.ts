@@ -4,13 +4,13 @@ import * as rt from "./rt.ts";
 import * as Log from "./log.Log.ts";
 
 /** Consumes the box, dropping it on return. */
-export function take$Part(self: Guard): rt.u32 {
-	const _0: rt.u32 = rt.u32WrappingAdd(id$Part(self), 1);
+export function take$drops_objects_Part(self: Guard): rt.u32 {
+	const _0: rt.u32 = rt.u32WrappingAdd(id$drops_objects_Part(self), 1);
 	self[Symbol.dispose]();
 	return _0;
 }
 
-export function id$Part(self: Guard): rt.u32 {
+export function id$drops_objects_Part(self: Guard): rt.u32 {
 	return id(self);
 }
 
@@ -25,13 +25,13 @@ export class Guard {
 	}
 
 	[Symbol.dispose](): void {
-		drop$Drop(this);
+		drop$ops_Drop(this);
 		this.log[Symbol.dispose]();
 	}
 }
 
-function new_(id_: rt.u32, log_: Log.Log): Guard {
-	return new Guard(id_, log_);
+function new_(id: rt.u32, log: Log.Log): Guard {
+	return new Guard(id, log);
 }
 
 export function id(self: Guard): rt.u32 {
@@ -63,7 +63,7 @@ export function unbox(self: Guard, event: string): rt.u32 {
 	return finish(self, event);
 }
 
-export function drop$Drop(self: Guard): void {
+export function drop$ops_Drop(self: Guard): void {
 	const arg = self.id;
 	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.u32Display(arg, f)];
 	const _4: string = rt.fmtFormat(["g", args2[0], " drop"]);

@@ -24,6 +24,41 @@ fn repin(p: &mut Pin<Arc<u8>>, to: u8) {
 	*p = Pin::new(Arc::new(to));
 }
 
+/// What a pointer to a pinned `Arc` reads, through its own `Deref` and then the pin's.
+fn through<P: std::ops::Deref<Target = Pin<Arc<u8>>>>(p: P) -> u8 {
+	**p
+}
+
+/// What a pointer to an `Arc` reads, through its own `Deref` and then the `Arc`'s.
+fn through_arc<P: std::ops::Deref<Target = Arc<u8>>>(p: P) -> u8 {
+	**p
+}
+
+/// What a pointer to a guard reads, through its own `Deref` and then the guard's.
+fn through_mutex<P: std::ops::Deref<Target = Mutex<u8>>>(p: P) -> u8 {
+	*p.lock().unwrap()
+}
+
+/// Writes a byte through a pointer's `DerefMut`.
+fn write_through<P: std::ops::DerefMut<Target = u8>>(mut p: P, by: u8) {
+	*p ^= by;
+}
+
+/// Replaces an `Arc` through a pointer's `DerefMut`.
+fn replace_through<P: std::ops::DerefMut<Target = Arc<u8>>>(mut p: P, by: u8) {
+	*p = Arc::new(by);
+}
+
+/// A pin of a byte, made through a function pointer, that writes the byte.
+fn pin_via<'a>(p: &'a mut u8) -> Pin<&'a mut u8> {
+	let f: fn(&'a mut u8) -> Pin<&'a mut u8> = Pin::new;
+	f(p)
+}
+
+fn locked_by(n: u8) -> Mutex<u8> {
+	Mutex::new(n.wrapping_add(3))
+}
+
 /// The `Arc` a pinned box holds, replaced through `Pin`'s `DerefMut`.
 fn rebox(p: &mut Pin<Box<Arc<u8>>>, to: u8) {
 	**p = Arc::new(to);
@@ -183,6 +218,36 @@ pub fn objects(data: &[u8], out: &mut Vec<u8>) {
 	let mut boxed = Box::pin(Arc::clone(&held));
 	rebox(&mut boxed, by.wrapping_add(9));
 	out.extend_from_slice(&[**boxed, Arc::strong_count(&held) as u8]);
+	// A pinned reference to an `Arc` lends the `Arc`, and a reference to a pinned `Arc`
+	// the pin, each through `Deref`.
+	let lent = Pin::new(&held);
+	out.extend_from_slice(&[Arc::strong_count(&*lent) as u8, **lent, through(&pinned)]);
+	out.extend_from_slice(&[through_arc(&held), through_mutex(&locked_by(by))]);
+	// A mutable reference to each, read through the shared `Deref`.
+	out.extend_from_slice(&[through_arc(&mut Arc::clone(&held)), through(&mut pinned)]);
+	out.push(through_mutex(&mut locked_by(by)));
+	// Written through `DerefMut` of a pinned or plain mutable reference, and of a guard.
+	let mut byte = by;
+	*Pin::new(&mut byte) ^= 0x5a;
+	write_through(Pin::new(&mut byte), 0x21);
+	write_through(&mut byte, 0x0c);
+	out.push(byte);
+	let mut replaced = Arc::new(by);
+	*Pin::new(&mut replaced) = Arc::new(by.wrapping_add(1));
+	out.push(*replaced);
+	replace_through(Pin::new(&mut replaced), by.wrapping_add(2));
+	out.push(*replaced);
+	replace_through(&mut replaced, by.wrapping_add(3));
+	out.push(*replaced);
+	let guarded = Mutex::new(Arc::new(by));
+	replace_through(guarded.lock().unwrap(), by.wrapping_add(4));
+	out.push(**guarded.lock().unwrap());
+	let mut pinned_byte = by;
+	*Pin::get_mut(pin_via(&mut pinned_byte)) ^= 0x5a;
+	out.push(pinned_byte);
+	let mut owned = Arc::clone(&held);
+	let lent = Pin::new(&mut owned);
+	out.extend_from_slice(&[Arc::strong_count(&*lent) as u8, **lent]);
 	// Through a guard, taken and assigned.
 	let locked = Mutex::new(v);
 	let taken = std::mem::take(&mut *locked.lock().unwrap());

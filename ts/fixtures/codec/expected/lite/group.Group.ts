@@ -7,13 +7,13 @@ import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
 import type * as Prefix from "../coding/encode.Prefix.ts";
 import * as Form from "../coding/varint.Form.ts";
-import { decodeWith$Group_decode_closure0 } from "../lite/message.ts";
-import * as Version from "../lite/version.Version.ts";
+import { decodeWith$lite_group_Group_coding_decode_Decode_lite_version_Version_T_decode_closure0_lite_group_Group } from "../lite/message.ts";
+import * as lite_version_Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Version(bufData: Uint8Array, bufStart: number, bufLen: number, version: Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
-	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, Form.from$From_Version(version));
-	const _5: rt.Result<Group, DecodeError.DecodeError> = decode$Decode_Version(r, version);
+export function decodeSlice$coding_decode_Decode_lite_version_Version(bufData: Uint8Array, bufStart: number, bufLen: number, version: lite_version_Version.Version): rt.Result<[Group, rt.usize], DecodeError.DecodeError> {
+	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, Form.from$convert_From_lite_version_Version(version));
+	const _5: rt.Result<Group, DecodeError.DecodeError> = decode$coding_decode_Decode_lite_version_Version(r, version);
 	if (_5.ok) {
 		return rt.Ok([_5.value, rt.usizeSub(bufLen, Decoder.remaining(r))] as [Group, rt.usize]);
 	}
@@ -27,7 +27,7 @@ export interface Group {
 }
 
 /** Decode a message body (without size prefix). */
-export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version): rt.Result<Group, DecodeError.DecodeError> {
+export function decodeMsg$lite_message_Message(r: Decoder.Decoder, version: lite_version_Version.Version): rt.Result<Group, DecodeError.DecodeError> {
 	let frameStart!: rt.u64;
 	const _3: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
 	if (_3.ok) {
@@ -35,7 +35,7 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 		const _8: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
 		if (_8.ok) {
 			const sequence: rt.u64 = _8.value;
-			if (!Version.hasFrameBounds(version)) {
+			if (!lite_version_Version.hasFrameBounds(version)) {
 				frameStart = 0;
 			} else {
 				const _15: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
@@ -53,12 +53,12 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 }
 
 /** Encode this message body (without size prefix). */
-export function encodeMsg$Message(self: Group, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encodeMsg$lite_message_Message(self: Group, w: Encoder.Encoder, version: lite_version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self.subscribe);
 	if (_4.ok) {
 		const _9: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self.sequence);
 		if (_9.ok) {
-			if (!Version.hasFrameBounds(version)) {
+			if (!lite_version_Version.hasFrameBounds(version)) {
 				if (self.frameStart !== 0) {
 					return rt.Err("Version" as EncodeError.EncodeError);
 				}
@@ -76,9 +76,9 @@ export function encodeMsg$Message(self: Group, w: Encoder.Encoder, version: Vers
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
-export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encode$coding_encode_Encode_lite_version_Version(self: Group, w: Encoder.Encoder, version: lite_version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const prefix: Prefix.Prefix = Encoder.prefixVarint(w);
-	const _39: rt.Result<undefined, EncodeError.EncodeError> = encodeMsg$Message(self, w, version);
+	const _39: rt.Result<undefined, EncodeError.EncodeError> = encodeMsg$lite_message_Message(self, w, version);
 	if (_39.ok) {
 		if (!(Encoder.since(w, prefix) > 65535)) {
 			const _49: rt.Result<undefined, EncodeError.EncodeError> = Encoder.fill(w, prefix);
@@ -95,9 +95,9 @@ export function encode$Encode_Version(self: Group, w: Encoder.Encoder, version: 
 }
 
 /** Decode the value from the front of the decoder. */
-export function decode$Decode_Version(r: Decoder.Decoder, version: Version.Version): rt.Result<Group, DecodeError.DecodeError> {
-	return decodeWith$Group_decode_closure0(r, (body: Decoder.Decoder): rt.Result<Group, DecodeError.DecodeError> => {
-		return decodeMsg$Message(body, version);
+export function decode$coding_decode_Decode_lite_version_Version(r: Decoder.Decoder, version: lite_version_Version.Version): rt.Result<Group, DecodeError.DecodeError> {
+	return decodeWith$lite_group_Group_coding_decode_Decode_lite_version_Version_T_decode_closure0_lite_group_Group(r, (body: Decoder.Decoder): rt.Result<Group, DecodeError.DecodeError> => {
+		return decodeMsg$lite_message_Message(body, version);
 	});
 }
 

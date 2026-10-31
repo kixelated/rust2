@@ -4,7 +4,8 @@
 //! Each name is its C name without the prefix, in a namespace of the prefix: `moq_track`
 //! is `moq::track`, and a method is its C name without its type's (`moq_track_close` is
 //! `moq::track::close`). C names are unique, so these are too, once a keyword, or a member
-//! named as its class or a field, takes a trailing `_`. An object is a move-only class
+//! named as its class or a field, takes a trailing `_`; so does a parameter named as a
+//! member or as anything in the namespace, which it would hide. An object is a move-only class
 //! owning its handle, copyable if `Clone`; a record a struct; an enum an `enum class`, or
 //! for one with data a `std::variant` of a struct per variant, with its methods free
 //! functions; a closure lent for the call a template parameter. The runtime they share,
@@ -26,6 +27,7 @@ pub fn header(abi: &Abi<'_>, packages: &str) -> Result<String, String> {
 		out: String::new(),
 		defs: String::new(),
 		defined: BTreeSet::new(),
+		globals: runtime_names().map(str::to_string).collect(),
 		errors: Vec::new(),
 	};
 	h.write(packages);
@@ -53,6 +55,8 @@ struct Header<'a> {
 	defs: String,
 	/// The value types written so far, so each is written after what it holds.
 	defined: BTreeSet<String>,
+	/// The names declared in the namespace, which a parameter named alike would hide.
+	globals: BTreeSet<String>,
 	errors: Vec<String>,
 }
 
@@ -80,6 +84,12 @@ impl<'a> Header<'a> {
 	/// The namespace's `detail`, qualified.
 	fn d(&self) -> String {
 		format!("::{}::detail", self.ns)
+	}
+
+	/// `name`, declared in the namespace.
+	fn global(&mut self, name: &str) -> String {
+		self.globals.insert(name.to_string());
+		name.to_string()
 	}
 
 	/// The C++ type of `ty` as a value: a field, or what a function returns, owning what
@@ -144,8 +154,8 @@ impl<'a> Header<'a> {
 				}
 				Type::Object(i) if abi.api.objects[*i].copy => format!("const {} *", self.owned(inner)),
 				// Moved out of, as a handle taken by value is.
-				_ if matches!(inner.base(), Type::Object(_)) => format!("::std::optional<{}>", self.owned(inner)),
-				_ => format!("const ::std::optional<{}> &", self.owned(inner)),
+				_ if moves(abi, inner) => format!("::std::optional<{}>", self.held(inner)),
+				_ => format!("const ::std::optional<{}> &", self.held(inner)),
 			},
 			Type::Waker => format!("const ::{}::waker &", self.ns),
 			Type::Ref(m, inner) if matches!(**inner, Type::Object(_)) => match m {
@@ -158,6 +168,9 @@ impl<'a> Header<'a> {
 				format!("const {} &", self.owned(ty))
 			}
 			Type::Enum(i) if !abi.api.enums[*i].plain() => format!("const {} &", self.owned(ty)),
+			// Moved out of, each handle as a handle taken by value is.
+			Type::Tuple(_) if moves(abi, ty) => self.held(ty),
+			Type::Tuple(_) => format!("const {} &", self.held(ty)),
 			ty => self.owned(ty),
 		}
 	}
@@ -167,9 +180,18 @@ impl<'a> Header<'a> {
 		let Type::List(inner) = ty else {
 			unreachable!("{ty:?} is no Vec")
 		};
-		match Abi::is_buf(inner) {
-			true => format!("::std::vector<::{}::view>", self.ns),
-			false => format!("::std::vector<{}>", self.owned(inner)),
+		format!("::std::vector<{}>", self.held(inner))
+	}
+
+	/// The C++ type a parameter's `Vec`, `Option`, or tuple holds a `ty` as: bytes as a view.
+	fn held(&self, ty: &Type) -> String {
+		match ty {
+			ty if Abi::is_buf(ty) => format!("::{}::view", self.ns),
+			Type::Tuple(elements) => {
+				let elements: Vec<String> = elements.iter().map(|e| self.held(e)).collect();
+				format!("::std::tuple<{}>", elements.join(", "))
+			}
+			ty => self.owned(ty),
 		}
 	}
 
@@ -180,6 +202,7 @@ impl<'a> Header<'a> {
 		match ty {
 			Type::List(_) => true,
 			Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => self.arena(inner),
+			Type::Tuple(elements) => elements.iter().any(|e| self.arena(e)),
 			Type::Record(i) => api.records[*i].fields.iter().any(|f| self.arena(&f.ty)),
 			Type::Enum(i) => (api.enums[*i].variants.iter()).any(|v| v.fields.iter().any(|f| self.arena(&f.ty))),
 			_ => false,
@@ -220,11 +243,14 @@ impl<'a> Header<'a> {
 			Type::Char => format!("static_cast<uint32_t>({e})"),
 			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
 			Type::Waker => format!("{d}::give({d}::access::raw({e}))"),
-			Type::List(inner) => format!(
-				"a_.list<::{}>({e}, [&](const auto &x) {{ return {}; }})",
-				abi.list(inner),
-				self.lower(inner, "x")
-			),
+			Type::List(inner) => {
+				let x = format!("x{}_", lists(inner));
+				format!(
+					"a_.list<::{}>({e}, [&](const auto &{x}) {{ return {}; }})",
+					abi.list(inner),
+					self.lower(inner, &x)
+				)
+			}
 			Type::Option(inner) => match inner.base() {
 				Type::Object(_) => format!("({e} ? {d}::access::raw(*{e}) : nullptr)"),
 				base @ Type::List(elem) => format!(
@@ -253,7 +279,12 @@ impl<'a> Header<'a> {
 			Type::Str | Type::String | Type::Slice | Type::Vec | Type::Bytes | Type::Path | Type::PathBuf => {
 				unreachable!("a buffer is above")
 			}
-			Type::Tuple(_) => unreachable!("a tuple is only returned"),
+			Type::Tuple(elements) => {
+				let fields: Vec<String> = (0..elements.len())
+					.map(|n| self.lower(&elements[n], &format!("::std::get<{n}>({e})")))
+					.collect();
+				format!("::{}{{{}}}", abi.tuple(elements), fields.join(", "))
+			}
 		}
 	}
 
@@ -269,12 +300,15 @@ impl<'a> Header<'a> {
 			Type::Bool | Type::Int(_) | Type::F32 | Type::F64 => e.to_string(),
 			Type::Char => format!("static_cast<char32_t>({e})"),
 			Type::Duration | Type::SocketAddr(_) | Type::Range(_) | Type::Bound(_) | Type::Bounds(_) => e.to_string(),
-			Type::List(inner) => format!(
-				"{d}::lift_list<{}>({e}, [&](const auto &c) {{ return {}; }}, &::{}_free)",
-				self.owned(inner),
-				self.lift(inner, "c"),
-				abi.list(inner)
-			),
+			Type::List(inner) => {
+				let c = format!("c{}_", lists(inner));
+				format!(
+					"{d}::lift_list<{}>({e}, [&](const auto &{c}) {{ return {}; }}, &::{}_free)",
+					self.owned(inner),
+					self.lift(inner, &c),
+					abi.list(inner)
+				)
+			}
 			Type::Option(inner) => {
 				let owned = self.owned(inner);
 				match inner.base() {
@@ -299,6 +333,12 @@ impl<'a> Header<'a> {
 				false => format!("{d}::lift({e})"),
 			},
 			Type::Object(_) => format!("{d}::access::wrap<{}>({e})", self.owned(ty)),
+			Type::Tuple(elements) => {
+				let lifted: Vec<String> = (elements.iter().enumerate())
+					.map(|(n, ty)| self.lift(ty, &format!("{e}._{n}")))
+					.collect();
+				format!("{}({})", self.owned(ty), lifted.join(", "))
+			}
 			other => unreachable!("{other:?} is never returned"),
 		}
 	}
@@ -373,19 +413,23 @@ impl<'a> Header<'a> {
 			"\nnamespace detail {{\n\n// Checked at load, before any other call: a header and a library from different builds\n// must not mix.\ninline const bool contract = ::{p}_contract() == {upper}_CONTRACT ||\n\t(fail(\"{p}.hpp and the library are from different builds\"), false);\n\n}} // namespace detail\n",
 			upper = p.to_uppercase()
 		));
-		self.line(format!("using duration = ::{p}_duration;"));
-		self.line(format!("using socket_addr = ::{p}_socket_addr;"));
+		let mut aliases = vec![
+			("duration".to_string(), format!("{p}_duration")),
+			("socket_addr".to_string(), format!("{p}_socket_addr")),
+		];
 		if abi.ranges.values().any(|ty| matches!(ty, Type::Bound(_))) {
-			self.line(format!("using bound = ::{};", abi.rt("bound")));
+			aliases.push(("bound".to_string(), abi.rt("bound")));
 		}
-		for name in abi.ranges.keys() {
-			self.line(format!("using {} = ::{name};", self.name(name)));
+		aliases.extend(abi.ranges.keys().map(|name| (self.name(name), name.clone())));
+		for (alias, c) in aliases {
+			let alias = self.global(&alias);
+			self.line(format!("using {alias} = ::{c};"));
 		}
 		self.line("");
 
 		// Plain enums, complete at once.
 		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| e.plain()) {
-			let name = self.name(&abi.enumeration(i));
+			let name = self.global(&self.name(&abi.enumeration(i)));
 			let variants: Vec<String> = e
 				.variants
 				.iter()
@@ -400,28 +444,31 @@ impl<'a> Header<'a> {
 
 		// Every class and struct, declared so any signature may name it.
 		for i in 0..api.records.len() {
-			self.line(format!("struct {};", self.name(&abi.record(i))));
+			let name = self.global(&self.name(&abi.record(i)));
+			self.line(format!("struct {name};"));
 		}
 		for i in 0..api.objects.len() {
-			self.line(format!("class {};", self.name(&abi.object(i))));
+			let name = self.global(&self.name(&abi.object(i)));
+			self.line(format!("class {name};"));
 		}
 		for i in 0..api.callbacks.len() {
-			self.line(format!("class {};", self.name(&abi.callback(i))));
+			let name = self.global(&self.name(&abi.callback(i)));
+			self.line(format!("class {name};"));
 		}
 		for (i, e) in api.enums.iter().enumerate().filter(|(_, e)| !e.plain()) {
 			let name = abi.enumeration(i);
 			let payloads: Vec<String> = e
 				.variants
 				.iter()
-				.map(|v| self.name(&format!("{name}_{}", abi::snake(&v.name))))
+				.map(|v| self.global(&self.name(&format!("{name}_{}", abi::snake(&v.name)))))
 				.collect();
 			for payload in &payloads {
 				self.line(format!("struct {payload};"));
 			}
+			let alias = self.global(&self.name(&name));
 			self.line(format!(
-				"{}using {} = ::std::variant<{}>;",
+				"{}using {alias} = ::std::variant<{}>;",
 				docs(&e.docs, ""),
-				self.name(&name),
 				payloads.join(", ")
 			));
 		}
@@ -432,7 +479,7 @@ impl<'a> Header<'a> {
 		for (function, owner) in &futures {
 			let export = abi.export(function, owner.as_ref());
 			if let Some((handle, _, _)) = &export.future {
-				let name = self.name(handle);
+				let name = self.global(&self.name(handle));
 				self.line(format!(
 					"namespace detail {{\nstruct {name}_op;\n}}\nusing {name} = ::{ns}::future<detail::{name}_op>;"
 				));
@@ -445,10 +492,10 @@ impl<'a> Header<'a> {
 				Literal::Bool(_) => "bool",
 				Literal::Int(int, _) => cpp_int(int),
 			};
+			let name = self.global(&self.name(&abi.name(&constant.path)));
 			self.line(format!(
-				"{}inline constexpr {ty} {} = {};",
+				"{}inline constexpr {ty} {name} = {};",
 				docs(&constant.docs, ""),
-				self.name(&abi.name(&constant.path)),
 				abi.constant(&constant.path)
 			));
 		}
@@ -1050,15 +1097,26 @@ impl<'a> Header<'a> {
 			prelude.insert(0, format!("{d}::arena a_;"));
 		}
 		let mut templates = Vec::new();
+		// A parameter named as a member or anything in the namespace would hide it.
+		let members = match class {
+			Some((taken, Owner::Member)) => taken,
+			_ => &[],
+		};
+		let mut names: Vec<String> = Vec::new();
 		for param in &function.params {
 			let (_, c_ty) = c_params.next().expect("each parameter has its C one");
-			let name = escape(&param.name);
+			let name = parameter(&param.name, |name| {
+				self.globals.contains(name) || members.iter().chain(&names).any(|n| n == name)
+			});
+			names.push(name.clone());
 			if let (Type::Closure(lent, ret), Ty::Fn(c_lent, c_ret)) = (&param.ty, c_ty) {
 				c_params.next().expect("a closure has its data");
 				let f = format!("F{}", templates.len());
 				params.push(format!("{f} &&{name}"));
-				prelude.push(self.closure(&f, &name, (lent, ret), (c_lent, c_ret)));
-				args.push(format!("c_{name}_"));
+				// Named by its type, not its parameter, so no renamed parameter takes the name.
+				let trampoline = format!("c_{}_", f.to_lowercase());
+				prelude.push(self.closure(&f, &trampoline, (lent, ret), (c_lent, c_ret)));
+				args.push(trampoline);
 				args.push(format!(
 					"const_cast<void *>(static_cast<const void *>(::std::addressof({name})))"
 				));
@@ -1121,9 +1179,8 @@ impl<'a> Header<'a> {
 			body.join("\n\t")
 		));
 		let mut text = function.docs.clone();
-		for param in &function.params {
+		for (param, name) in function.params.iter().zip(&names) {
 			if let Type::Closure(lent, _) = &param.ty {
-				let name = escape(&param.name);
 				text.push_str(&format!(
 					"\n\nRust calls `{name}` only during the call, from any thread."
 				));
@@ -1147,43 +1204,51 @@ impl<'a> Header<'a> {
 		(declaration, member)
 	}
 
-	/// The trampoline C calls for the closure parameter `name`, of type `f`, taking `lent`
-	/// and returning `ret`, which C declares as `c_lent` and `c_ret`: it lends each object
-	/// as its class.
-	fn closure(&self, f: &str, name: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
+	/// The trampoline C calls for a closure parameter of type `f`, as the local `local`,
+	/// taking `lent` and returning `ret`, which C declares as `c_lent` and `c_ret`: it lends
+	/// each object as its class.
+	fn closure(&self, f: &str, local: &str, (lent, ret): (&[Type], &Type), (c_lent, c_ret): (&[Ty], &Ty)) -> String {
 		let abi = self.abi;
 		let d = self.d();
-		let c_params: Vec<String> = std::iter::once("void *data".to_string())
-			.chain(c_lent.iter().enumerate().map(|(k, ty)| decl(abi, ty, &format!("p{k}"))))
+		let c_params: Vec<String> = std::iter::once("void *data_".to_string())
+			.chain(
+				c_lent
+					.iter()
+					.enumerate()
+					.map(|(k, ty)| decl(abi, ty, &format!("p{k}_"))),
+			)
 			.collect();
 		let mut body = vec![format!(
-			"auto &f = *static_cast<::std::remove_reference_t<{f}> *>(data);"
+			"auto &f_ = *static_cast<::std::remove_reference_t<{f}> *>(data_);"
 		)];
 		let mut args = Vec::new();
 		for (k, (ty, c_ty)) in lent.iter().zip(c_lent).enumerate() {
-			let p = format!("p{k}");
+			let p = format!("p{k}_");
 			match (ty, c_ty) {
 				(Type::Ref(m, object), Ty::Handle { name: c, constant }) => {
 					let constant = match constant {
 						true => "const ",
 						false => "",
 					};
-					body.push(format!("{d}::lent<{}, {constant}::{c}> l{k}({p});", self.owned(object)));
+					body.push(format!(
+						"{d}::lent<{}, {constant}::{c}> l{k}_({p});",
+						self.owned(object)
+					));
 					args.push(match m {
-						crate::ir::Mutability::Not => format!("::std::as_const(l{k}.get())"),
-						crate::ir::Mutability::Mut => format!("l{k}.get()"),
+						crate::ir::Mutability::Not => format!("::std::as_const(l{k}_.get())"),
+						crate::ir::Mutability::Mut => format!("l{k}_.get()"),
 					});
 				}
 				_ => args.push(self.lift_lent(ty, &p)),
 			}
 		}
-		let call = format!("f({})", args.join(", "));
+		let call = format!("f_({})", args.join(", "));
 		body.push(match ret {
 			Type::Unit => format!("{call};"),
 			ret => format!("return {};", self.lower(ret, &call)),
 		});
 		format!(
-			"auto c_{name}_ = []({}) noexcept -> {} {{\n\t\t{}\n\t}};",
+			"auto {local} = []({}) noexcept -> {} {{\n\t\t{}\n\t}};",
 			c_params.join(", "),
 			decl(abi, c_ret, ""),
 			body.join("\n\t\t")
@@ -1226,6 +1291,61 @@ impl<'a> Header<'a> {
 	}
 }
 
+/// The names the runtime declares in the namespace, outside its `detail`, and `detail`.
+fn runtime_names() -> impl Iterator<Item = &'static str> {
+	let mut detail = false;
+	let lines = RUNTIME.lines().filter(move |line| {
+		match *line {
+			"namespace detail {" => detail = true,
+			"} // namespace detail" => detail = false,
+			_ => {}
+		}
+		!detail
+	});
+	let names = lines.filter_map(|line| {
+		let rest = ["class ", "struct ", "using "]
+			.iter()
+			.find_map(|kw| line.strip_prefix(kw))?;
+		rest.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).next()
+	});
+	std::iter::once("detail").chain(names)
+}
+
+/// The C++ name of the parameter `rust`, with `_` appended while `taken` holds it or it is
+/// a name the header gives its own locals and members.
+fn parameter(rust: &str, taken: impl Fn(&str) -> bool) -> String {
+	let mut name = escape(rust);
+	while taken(&name) || generated(&name) {
+		name.push('_');
+	}
+	name
+}
+
+/// Whether the header names its own locals and members `name`: the arena `a_`, a handle's
+/// `raw_`, a C value or a closure's trampoline `c_…_`, and a trampoline's or lambda's `f_`,
+/// `data_`, `p0_`, `l0_`, `x0_`, or `c0_`.
+fn generated(name: &str) -> bool {
+	let Some(stem) = name.strip_suffix('_') else {
+		return false;
+	};
+	let numbered = |prefix: char| {
+		stem.strip_prefix(prefix)
+			.is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+	};
+	let c_value = stem.starts_with("c_") && !stem.ends_with('_');
+	matches!(stem, "a" | "raw" | "f" | "data") || c_value || "xcpl".chars().any(numbered)
+}
+
+/// How many lists `ty` nests, which names the element of each list's lambda apart from
+/// those of the lambdas around it.
+fn lists(ty: &Type) -> usize {
+	match ty {
+		Type::List(inner) => 1 + lists(inner),
+		Type::Option(inner) | Type::Box(inner) | Type::Ref(_, inner) => lists(inner),
+		_ => 0,
+	}
+}
+
 /// The enum named `c` in C.
 fn enumeration(abi: &Abi<'_>, c: &str) -> Type {
 	let i = (0..abi.api.enums.len()).find(|&i| abi.enumeration(i) == c);
@@ -1238,11 +1358,13 @@ fn record(abi: &Abi<'_>, c: &str) -> Type {
 	Type::Record(i.expect("a member method's value is a record"))
 }
 
-/// Whether passing a `Vec` of `elem` moves each handle out, as a handle taken by value is.
-fn moves(abi: &Abi<'_>, elem: &Type) -> bool {
-	match elem {
+/// Whether passing `ty` moves a handle out of a `Vec`, `Option`, or tuple, as a handle
+/// taken by value is.
+fn moves(abi: &Abi<'_>, ty: &Type) -> bool {
+	match ty {
 		Type::Object(i) => !abi.api.objects[*i].copy,
 		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => moves(abi, inner),
+		Type::Tuple(elements) => elements.iter().any(|e| moves(abi, e)),
 		_ => false,
 	}
 }
@@ -1276,6 +1398,7 @@ fn init(ty: &Type) -> &'static str {
 	match ty {
 		Type::Object(_) | Type::Enum(_) | Type::Record(_) => "",
 		Type::Box(inner) => init(inner),
+		Type::Tuple(elements) if elements.iter().any(|e| init(e).is_empty()) => "",
 		_ => "{}",
 	}
 }
@@ -1410,5 +1533,25 @@ pub fn escape(name: &str) -> String {
 		Some(c) if c.is_ascii_digit() => format!("_{name}"),
 		_ if KEYWORDS.contains(&name) => format!("{name}_"),
 		_ => name.to_string(),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::parameter;
+
+	#[test]
+	fn parameters_keep_apart_from_what_they_would_hide() {
+		let taken = |name: &str| ["a", "size", "size_"].contains(&name);
+		// Past a namespace name, and past the arena `a_` the rename would reach.
+		assert_eq!(parameter("a", taken), "a__");
+		// Past a name already taken by the first rename.
+		assert_eq!(parameter("size", taken), "size__");
+		// A keyword escapes as before; a name like a generated one moves out of its way.
+		assert_eq!(parameter("new", taken), "new_");
+		assert_eq!(parameter("raw_", taken), "raw__");
+		assert_eq!(parameter("c_out_", taken), "c_out__");
+		assert_eq!(parameter("x1_", taken), "x1__");
+		assert_eq!(parameter("x_", taken), "x_");
 	}
 }

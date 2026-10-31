@@ -6,13 +6,13 @@ import * as Decoder from "../coding/decode.Decoder.ts";
 import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
 import type * as Form from "../coding/varint.Form.ts";
-import * as Version from "../coding/version.Version.ts";
-import type * as version_Version from "../lite/version.Version.ts";
+import * as coding_version_Version from "../coding/version.Version.ts";
+import type * as lite_version_Version from "../lite/version.Version.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Form(bufData: Uint8Array, bufStart: number, bufLen: number, version: Form.Form): rt.Result<[Versions, rt.usize], DecodeError.DecodeError> {
+export function decodeSlice$coding_decode_Decode_coding_varint_Form(bufData: Uint8Array, bufStart: number, bufLen: number, version: Form.Form): rt.Result<[Versions, rt.usize], DecodeError.DecodeError> {
 	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, version);
-	const _5: rt.Result<Versions, DecodeError.DecodeError> = decode$Decode_Form(r, version);
+	const _5: rt.Result<Versions, DecodeError.DecodeError> = decode$coding_decode_Decode_coding_varint_Form(r, version);
 	if (_5.ok) {
 		return rt.Ok([_5.value, rt.usizeSub(bufLen, Decoder.remaining(r))] as [Versions, rt.usize]);
 	}
@@ -21,18 +21,18 @@ export function decodeSlice$Decode_Form(bufData: Uint8Array, bufStart: number, b
 
 /** A list of versions in preferred order. */
 export interface Versions {
-	_0: Version.Version[];
+	_0: coding_version_Version.Version[];
 }
 
 /** Decode the version list. */
-export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.Result<Versions, DecodeError.DecodeError> {
+export function decode$coding_decode_Decode_coding_varint_Form(r: Decoder.Decoder, version: Form.Form): rt.Result<Versions, DecodeError.DecodeError> {
 	const _3: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
 	if (_3.ok) {
 		const count: rt.u64 = _3.value;
-		const vs: Version.Version[] = [];
+		const vs: coding_version_Version.Version[] = [];
 		const iter: rt.Range<rt.u64> = new rt.Range(0, count, rt.u64Step);
 		while (iter.next() !== rt.DONE) {
-			const _15: rt.Result<Version.Version, DecodeError.DecodeError> = Version.decode$Decode_Form(r, version);
+			const _15: rt.Result<coding_version_Version.Version, DecodeError.DecodeError> = coding_version_Version.decode$coding_decode_Decode_coding_varint_Form(r, version);
 			if (_15.ok) {
 				vs.push(_15.value);
 			} else {
@@ -45,11 +45,11 @@ export function decode$Decode_Form(r: Decoder.Decoder, version: Form.Form): rt.R
 }
 
 /** Encode the version list. */
-export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
+export function encode$coding_encode_Encode_coding_varint_Form(self: Versions, w: Encoder.Encoder, version: Form.Form): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
 		for (const _14 of self._0) {
-			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Form(_14, w, version);
+			const _18: rt.Result<undefined, EncodeError.EncodeError> = coding_version_Version.encode$coding_encode_Encode_coding_varint_Form(_14, w, version);
 			if (!_18.ok) {
 				return _18;
 			}
@@ -60,11 +60,11 @@ export function encode$Encode_Form(self: Versions, w: Encoder.Encoder, version: 
 }
 
 /** Encode the version list. */
-export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, version: version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encode$coding_encode_Encode_lite_version_Version(self: Versions, w: Encoder.Encoder, version: lite_version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const _4: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, self._0.length as rt.u64);
 	if (_4.ok) {
 		for (const _14 of self._0) {
-			const _18: rt.Result<undefined, EncodeError.EncodeError> = Version.encode$Encode_Version(_14, w, version);
+			const _18: rt.Result<undefined, EncodeError.EncodeError> = coding_version_Version.encode$coding_encode_Encode_lite_version_Version(_14, w, version);
 			if (!_18.ok) {
 				return _18;
 			}
@@ -74,7 +74,7 @@ export function encode$Encode_Version(self: Versions, w: Encoder.Encoder, versio
 	return _4;
 }
 
-export function from$From_Versions(vs: Version.Version[]): Versions {
+export function from$convert_From_array2_coding_version_Version(vs: coding_version_Version.Version[]): Versions {
 	return { _0: vs.slice() };
 }
 

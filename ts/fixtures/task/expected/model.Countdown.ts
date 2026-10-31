@@ -18,7 +18,7 @@ export class Countdown {
 	}
 }
 
-export function next$Iterator(self: Countdown): rt.u32 | rt.Done {
+export function next$iter_Iterator(self: Countdown): rt.u32 | rt.Done {
 	if (!(self.left === 0)) {
 		self.left = rt.u32Sub(self.left, 1);
 		Guard.note(self.guard, "count");

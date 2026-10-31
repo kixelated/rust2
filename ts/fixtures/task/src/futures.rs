@@ -1,11 +1,13 @@
 //! std's future helpers over a channel: `pin!`, `poll_fn`, `future::pending`, `Poll`'s
-//! methods, and wakers from `Arc<impl Wake>` and `Waker::noop`; and boxed futures,
-//! `Pin<Box<dyn Future>>` included.
+//! methods, and wakers from `Arc<impl Wake>` and `Waker::noop`, and their identities; and
+//! boxed futures, `Pin<Box<dyn Future>>` included.
 
+use std::cell::Cell;
 use std::future::{self, Future};
 use std::pin::{Pin, pin};
+use std::ptr;
 use std::sync::Arc;
-use std::task::{Context, Poll, Wake, Waker};
+use std::task::{Context, Poll, RawWakerVTable, Wake, Waker};
 
 use kio::Consumer;
 
@@ -105,11 +107,107 @@ impl Wake for Plain {
 	}
 }
 
+/// A waker's identity, as kio's `Polling` keeps it.
+type Identity = (*const (), *const RawWakerVTable);
+
+std::thread_local! {
+	/// The identity of the waker of the innermost `run` on this thread.
+	static POLLING: Cell<Option<Identity>> = const { Cell::new(None) };
+}
+
+/// Run `poll` as the task `waker` wakes, as kio's `Polling::run` does.
+fn run<R>(waker: &Waker, poll: impl FnOnce() -> R) -> R {
+	let outer = POLLING.replace(Some((waker.data(), waker.vtable())));
+	let output = poll();
+	POLLING.set(outer);
+	output
+}
+
+/// Whether `waker` is the one the innermost `run` holds, as kio's `Polling::hold` asks.
+fn polling(waker: &Waker) -> bool {
+	POLLING.with(|polling| polling.get() == Some((waker.data(), waker.vtable())))
+}
+
+/// Every value until the channel closes, summed, comparing wakers' identities as kio's
+/// `Polling` does. First, wakers made from one `Arc` and from another, of two `Wake`
+/// impls, `Waker::noop`, and pointers to `()`; then, each poll, the task's waker against
+/// its last poll's, a clone, a `Context` of a clone, and a `run` of `Waker::noop` inside.
+pub async fn wakers(mut rx: Consumer, guard: Guard) -> u64 {
+	let relay = |id| Relay {
+		task: Waker::noop().clone(),
+		guard: Guard::new(guard.id() + id, guard.log().clone()),
+	};
+	let one = Arc::new(relay(100));
+	let (a, b) = (Waker::from(one.clone()), Waker::from(one.clone()));
+	let other = Waker::from(Arc::new(relay(200)));
+	let plain = Waker::from(Arc::new(Plain(relay(300))));
+	let noop = Waker::noop();
+	let unit = Box::into_raw(Box::new(()));
+	let checks = [
+		a.will_wake(&a.clone()),
+		a.will_wake(&b),
+		a.data() == b.data(),
+		a.will_wake(&other),
+		a.data() == other.data(),
+		ptr::eq(a.vtable(), other.vtable()),
+		ptr::eq(a.vtable(), plain.vtable()),
+		a.will_wake(noop),
+		noop.will_wake(Waker::noop()),
+		noop.will_wake(&noop.clone()),
+		noop.data().is_null(),
+		one.task.will_wake(noop),
+		ptr::null::<()>() == ptr::dangling(),
+		ptr::dangling::<()>() == ptr::dangling(),
+		unit.cast_const() == ptr::dangling(),
+		ptr::dangling::<std::mem::MaybeUninit<()>>().cast::<()>() == ptr::dangling(),
+	];
+	// SAFETY: the box's own pointer, which nothing else holds.
+	drop(unsafe { Box::from_raw(unit) });
+	put(Box::leak(Box::new(())), ());
+	// SAFETY: a dangling pointer to a value of no bytes is valid to write.
+	put(unsafe { &mut *ptr::dangling_mut() }, ());
+	guard.note(&format!("wakers {checks:?}"));
+	drop((a, b, other, plain));
+	let mut last: Option<Identity> = None;
+	let mut total = 0;
+	loop {
+		let mut next = pin!(rx.recv());
+		let value = future::poll_fn(|cx| {
+			let waker = cx.waker();
+			let same = last == Some((waker.data(), waker.vtable()));
+			last = Some((waker.data(), waker.vtable()));
+			run(waker, || {
+				let clone = waker.clone();
+				let lent = Context::from_waker(&clone);
+				let inner = run(noop, || (polling(noop), polling(waker)));
+				guard.note(&format!(
+					"same {same} clone {} lent {} inner {inner:?} after {}",
+					polling(&clone),
+					lent.waker().will_wake(waker),
+					polling(waker),
+				));
+				next.as_mut().poll(cx)
+			})
+		})
+		.await;
+		match value {
+			Some(value) => total += value,
+			None => return total,
+		}
+	}
+}
+
+/// Write `value` through `slot`, which a dangling pointer to `()` may give.
+fn put<T>(slot: &mut T, value: T) {
+	*slot = value;
+}
+
 /// A boxed future, as moq's `MaybeSendBox` is.
 type Boxed<'a> = Pin<Box<dyn Future<Output = u64> + 'a>>;
 
 /// Boxed futures over a channel: `Box::pin` of an async fn, awaited, and of a `&mut` to a
-/// `poll_fn`, whose box drops without dropping it, then a queue of
+/// `poll_fn` and to a `&mut` to it, whose box drops without dropping it, and a `&mut dyn
+/// Future` of a `&mut` to it, then a queue of
 /// `Pin<Box<dyn Future>>`s of an async block, kio's `Pending`, a struct of the crate's,
 /// and a `poll_fn`, each owning a guard. A `poll_fn` boxed in a [`Forward`] polls the
 /// queue in turn through [`poll_unsized`], as moq's tasks do through kio's
@@ -126,7 +224,13 @@ pub async fn boxed(mut rx: Consumer, guard: Guard) -> u64 {
 		Poll::Ready(4)
 	});
 	let erased: Boxed<'_> = Box::pin(&mut lend);
-	let lent = erased.await + (&mut lend).await;
+	let lent = erased.await;
+	let mut lending = &mut lend;
+	let twice: Boxed<'_> = Box::pin(&mut lending);
+	let lent = lent + twice.await;
+	let mut lending = &mut lend;
+	let direct: &mut (dyn Future<Output = u64> + Unpin) = &mut lending;
+	let lent = lent + direct.await + (&mut lend).await;
 	guard.note(&format!("lent {lent}"));
 	drop(lend);
 	let (block, waiting, ready) = (

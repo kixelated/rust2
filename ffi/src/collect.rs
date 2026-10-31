@@ -25,6 +25,7 @@ use rustc_trait_selection::infer::InferCtxtExt;
 use rustc_trait_selection::traits::ObligationCtxt;
 use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
 
+use crate::config;
 use crate::ir::{
 	Access, Api, Callback, Constant, Dyn, Enum, Family, Field, Function, Int, Literal, Mutability, Object, Param, Path,
 	Receiver, Record, Traits, Type, Variant,
@@ -283,12 +284,9 @@ impl<'tcx> Collector<'tcx> {
 	/// Whether the config excludes `path`, counting the exclusion. A member of an instance
 	/// is left out by its instance's path or its type's, which leaves it out of each.
 	fn exclude(&mut self, path: &[String]) -> bool {
-		let generic: Vec<&str> = path[1..].iter().map(|s| s.split('<').next().unwrap_or(s)).collect();
-		let generic = generic.join("::");
-		let (report, joined) = self.report(path);
-		for (excluded, count) in &mut report.excluded {
-			let covers = |path: &str| path == excluded || path.starts_with(&format!("{excluded}::"));
-			if covers(&joined) || covers(&generic) {
+		let (report, _) = self.report(path);
+		for (_, key) in config::keys(&path[1..]) {
+			if let Some((_, count)) = report.excluded.iter_mut().find(|(excluded, _)| *excluded == key) {
 				*count += 1;
 				return true;
 			}
@@ -830,12 +828,13 @@ impl<'tcx> Collector<'tcx> {
 					continue;
 				};
 				let api = &mut self.api;
-				let (path, docs) = (site.path, docs.clone());
+				let (path, shown, docs) = (site.path, site.shown, docs.clone());
 				match decl {
 					Decl::Record(i) => {
 						*i = api.records.len();
 						api.records.push(Record {
 							path,
+							shown,
 							args: Vec::new(),
 							span,
 							docs,
@@ -849,6 +848,7 @@ impl<'tcx> Collector<'tcx> {
 						*i = api.enums.len();
 						api.enums.push(Enum {
 							path,
+							shown,
 							args: Vec::new(),
 							span,
 							docs,
@@ -866,6 +866,7 @@ impl<'tcx> Collector<'tcx> {
 						let lifetimes = tcx.generics_of(def_id).own_counts().lifetimes;
 						api.objects.push(Object {
 							path,
+							shown,
 							args: Vec::new(),
 							span,
 							docs,
@@ -914,6 +915,7 @@ impl<'tcx> Collector<'tcx> {
 		};
 		let parse = |docs: &str| Function {
 			path: path("parse"),
+			shown: path("parse"),
 			span,
 			docs: docs.to_string(),
 			receiver: None,
@@ -948,6 +950,7 @@ impl<'tcx> Collector<'tcx> {
 					parse("Parse a JSON document, failing with why it is not one."),
 					Function {
 						path: path("to_text"),
+						shown: path("to_text"),
 						span,
 						docs: "The document as JSON text.".to_string(),
 						receiver: Some(Receiver::Ref),
@@ -966,6 +969,7 @@ impl<'tcx> Collector<'tcx> {
 		};
 		Object {
 			path: path(""),
+			shown: path(""),
 			args: Vec::new(),
 			span,
 			docs: docs.to_string(),
@@ -1437,6 +1441,7 @@ impl<'tcx> Collector<'tcx> {
 				Ok((get, set)) => {
 					let accessor = |receiver, params, ok, set| Function {
 						path: [&site.path[..], std::slice::from_ref(&name)].concat(),
+						shown: shown.clone(),
 						span,
 						docs: docs(tcx, field.did),
 						receiver: Some(receiver),
@@ -1624,7 +1629,9 @@ impl<'tcx> Collector<'tcx> {
 					let function = self
 						.instantiate(item.def_id, None)
 						.and_then(|instances| match &instances[..] {
-							[one] if one.named.is_empty() => self.function(item.def_id, method, Some(self_ty), one),
+							[one] if one.named.is_empty() => {
+								self.function(item.def_id, method.clone(), method, Some(self_ty), one)
+							}
 							_ => Err(vec![why("generic parameter", name.to_string())]),
 						});
 					match function {
@@ -1676,18 +1683,19 @@ impl<'tcx> Collector<'tcx> {
 			let Some(shown) = self.shown(shown, instance) else {
 				continue;
 			};
-			let function = self.function(def_id, path.clone(), self_ty, instance);
+			let function = self.function(def_id, path.clone(), shown.clone(), self_ty, instance);
 			functions.push((function, shown, !instance.named.is_empty()));
 		}
 		functions
 	}
 
-	/// A function or method's signature at one of its instances: a method's receiver is
-	/// `self_ty`.
+	/// A function or method's signature at one of its instances, which the config names by
+	/// `shown`: a method's receiver is `self_ty`.
 	fn function(
 		&self,
 		def_id: DefId,
 		path: Path,
+		shown: Path,
 		self_ty: Option<Ty<'tcx>>,
 		instance: &Instantiation<'tcx>,
 	) -> Result<Function, Vec<Why>> {
@@ -1841,6 +1849,7 @@ impl<'tcx> Collector<'tcx> {
 		match (errs.is_empty(), ok) {
 			(true, Some(ok)) => Ok(Function {
 				path,
+				shown,
 				span: tcx.def_span(def_id),
 				docs: docs(tcx, def_id),
 				receiver,
@@ -1900,6 +1909,13 @@ impl<'tcx> Collector<'tcx> {
 						construct: "callback bound",
 						..
 					}) if self.taken(def_id, param).is_some() => kept.push(param),
+					// A conversion refused for its chains takes no other type in its place.
+					Err(
+						why @ Why {
+							construct: "ambiguous conversion" | "growing conversion",
+							..
+						},
+					) => return Err(vec![why]),
 					Err(why) => {
 						let mut each = self.each(def_id, param, &base);
 						// Before any trait is declared, it may stay for a foreign implementation.
@@ -1966,6 +1982,13 @@ impl<'tcx> Collector<'tcx> {
 			})
 	}
 
+	/// `def_id`'s bounds at `base`, with each they imply, such as a supertrait's.
+	fn implied(&self, def_id: DefId, base: &[ty::GenericArg<'tcx>]) -> Vec<ty::Clause<'tcx>> {
+		let tcx = self.tcx;
+		let clauses = tcx.clauses_of(def_id).instantiate(tcx, tcx.mk_args(base)).clauses;
+		elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip())).collect()
+	}
+
 	/// The types a type parameter may be exported as, best first, which typing takes the
 	/// first of: `X` for each `Into<X>` or `AsRef<X>` its bounds imply, or `&X` and then
 	/// `String` or `Vec<T>` where `X` is `str` or `[T]`, `Vec<X>` for
@@ -1983,13 +2006,8 @@ impl<'tcx> Collector<'tcx> {
 			.filter(|pred| pred.self_ty().skip_binder() == param)
 			.collect();
 		// With the bounds they imply: `IntoBytes: AsRef<[u8]>` makes a parameter it bounds bytes.
-		let implied: Vec<_> = elaborate(tcx, identity.clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
-		// A parameter that must outlive the call cannot borrow what C lends for it.
-		let outlives = implied.iter().any(|clause| {
-			clause
-				.as_type_outlives_clause()
-				.is_some_and(|pred| pred.skip_binder().0 == param)
-		});
+		let implied = self.implied(def_id, base);
+		let outlives = must_outlive(&implied, param);
 		let string = tcx
 			.lang_items()
 			.string()
@@ -2003,47 +2021,61 @@ impl<'tcx> Collector<'tcx> {
 			let target = || bound.skip_binder().trait_ref.args.type_at(1);
 			if tcx.is_diagnostic_item(sym::Into, tr) || tcx.is_diagnostic_item(sym::AsRef, tr) {
 				// An `Into` target that does not map takes what converts into it instead.
-				let into = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
-					.then(|| self.sources(def_id, target()));
-				// A source that must outlive the call, or converts into a parameter that must, owns
-				// it, so one that borrows, as `&'a u32` into `impl Into<Held<'a>> + 'static`, is not taken.
-				let sources = (into.into_iter().flatten())
-					.filter(|(x, _)| !outlives || !x.walk().any(|arg| arg.as_region().is_some()))
-					.map(|(x, source)| (x, outlives || source));
-				for (target, outlives) in std::iter::once((target(), outlives)).chain(sources) {
+				let sources = (tcx.is_diagnostic_item(sym::Into, tr) && !self.maps(target(), Pos::Param))
+					.then(|| self.sources(def_id, target(), outlives))
+					.transpose()?;
+				let sources = (sources.into_iter().flatten()).map(|(x, outlives, imp)| (x, outlives, Some(imp)));
+				for (target, outlives, imp) in std::iter::once((target(), outlives, None)).chain(sources) {
 					let owned = match target.kind() {
 						ty::Str => string,
 						ty::Slice(elem) => self.vec_of(*elem),
 						_ => {
-							candidates.push(target);
+							candidates.push((target, imp));
 							continue;
 						}
 					};
 					// A borrow of what C lends, unless the parameter outlives the call, then the
 					// owned form, which meets bounds that only owned types implement.
 					if !outlives {
-						candidates.push(Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target));
+						candidates.push((Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, target), imp));
 					}
-					candidates.extend(owned);
+					candidates.extend(owned.map(|owned| (owned, imp)));
 				}
 			} else if Some(tr) == self.range_bounds {
-				candidates.extend(self.bounds(target()));
+				candidates.extend(self.bounds(target()).map(|ty| (ty, None)));
 			} else if tcx.is_diagnostic_item(sym::IntoIterator, tr) {
-				candidates.extend(self.items(&identity.clauses, param).and_then(|item| self.vec_of(item)));
+				let items = self.items(&identity.clauses, param).and_then(|item| self.vec_of(item));
+				candidates.extend(items.map(|ty| (ty, None)));
 			} else if serde(tcx, tr) {
-				candidates.extend(self.json());
+				candidates.extend(self.json().map(|ty| (ty, None)));
 			}
 		}
-		candidates.extend(string);
+		candidates.extend(string.map(|ty| (ty, None)));
 		if let Some(bytes) = self.bytes {
-			candidates.push(Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()));
+			candidates.push((Ty::new_adt(tcx, tcx.adt_def(bytes), ty::List::empty()), None));
 		}
-		candidates.extend(self.vec_of(tcx.types.u8));
+		candidates.extend(self.vec_of(tcx.types.u8).map(|ty| (ty, None)));
 		// `impl Into<Arc<str>>` takes a `String` too, which maps where `Arc<str>` does not.
-		candidates
-			.retain(|&candidate| self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param));
+		candidates.retain(|&(candidate, _)| {
+			self.at(def_id, param, base, candidate).is_some() && self.maps(candidate, Pos::Param)
+		});
+		// Two sources that C passes as one buffer but that hold different values, as a
+		// `String` and a `Vec<u8>` do, leave the caller no say in which conversion runs. Forms
+		// of one value, as `&str` and `String` are, convert alike.
+		let buffers: Vec<_> = (candidates.iter())
+			.filter_map(|&(ty, imp)| Some((ty, self.ty(ty, Pos::Param).ok()?.buffer()?, imp?)))
+			.collect();
+		for (i, (x, buffer, _)) in buffers.iter().enumerate() {
+			if let Some((y, _, imp)) = (buffers[..i].iter()).find(|(_, other, _)| other != buffer) {
+				return Err(Why {
+					construct: "ambiguous conversion",
+					detail: x.to_string(),
+					note: Some((tcx.def_span(*imp), format!("`{y}` converts too, which C passes alike"))),
+				});
+			}
+		}
 		if !candidates.is_empty() {
-			return Ok(candidates);
+			return Ok(candidates.into_iter().map(|(candidate, _)| candidate).collect());
 		}
 		// A bound on one of the crate's traits takes a foreign implementation.
 		let local: Vec<_> = bounds
@@ -2089,11 +2121,62 @@ impl<'tcx> Collector<'tcx> {
 			.filter(|item| !item.has_non_region_param())
 	}
 
-	/// What `impl Into<target>` takes through the `From` implementations into `target`: a
-	/// source that is a type parameter by each `Into<X>` or `AsRef<X>` its bounds imply, and
-	/// whether they make it outlive the call, so `impl<B: Into<Bytes>> From<B> for
-	/// Timed<Bytes>` makes `impl Into<Timed<Bytes>>` bytes; any other source as it is.
-	fn sources(&self, def_id: DefId, target: Ty<'tcx>) -> Vec<(Ty<'tcx>, bool)> {
+	/// What `impl Into<target>` takes through chains of `From` implementations into
+	/// `target`, closest first, each with whether it must outlive the call, as `outlives`
+	/// says the parameter must, and the implementation it converts through. A source that
+	/// is a type parameter takes each `X` of its `Into<X>` or `AsRef<X>` bounds, so
+	/// `impl<B: Into<Bytes>> From<B> for Timed<Bytes>` makes `impl Into<Timed<Bytes>>`
+	/// bytes, and an `Into<X>` whose `X` does not map takes what converts into `X` in turn,
+	/// each target once, which ends a cycle. Any other source is taken as it is. A chain
+	/// longer than the crate's recursion limit, past which rustc proves no conversion
+	/// either, grows without end and is refused.
+	fn sources(&self, def_id: DefId, target: Ty<'tcx>, outlives: bool) -> Result<Vec<(Ty<'tcx>, bool, DefId)>, Why> {
+		let tcx = self.tcx;
+		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+		let (statics, _) = self.borrows(def_id, sig.skip_binder());
+		// Each target, with whether what converts into it must outlive the call, and how
+		// many conversions it is from the parameter.
+		let root = target;
+		let mut targets = vec![(target, outlives, 0)];
+		let mut found = Vec::new();
+		let mut i = 0;
+		while let Some(&(target, outlives, depth)) = targets.get(i) {
+			for (x, lasting, imp, into) in self.hop(def_id, target, &statics) {
+				let outlives = outlives || lasting;
+				if into && !self.maps(x, Pos::Param) {
+					if !tcx.recursion_limit().value_within_limit(depth + 1) {
+						return Err(Why {
+							construct: "growing conversion",
+							detail: root.to_string(),
+							note: Some((tcx.def_span(imp), "applies past the recursion limit".to_string())),
+						});
+					}
+					if !targets.iter().any(|&(y, o, _)| (y, o) == (x, outlives)) {
+						targets.push((x, outlives, depth + 1));
+					}
+					continue;
+				}
+				// A source that borrows for `'static`, or must outlive the call, or converts into a
+				// parameter that must, owns it, so one that borrows, as `&'a u32` into
+				// `impl Into<Held<'a>> + 'static`, is not taken. A target it converts through may
+				// name a lifetime, as `Scoped<'static>` does.
+				let regions: Vec<_> = x.walk().filter_map(|arg| arg.as_region()).collect();
+				let lent = regions.iter().any(|r| r.is_static()) || (outlives && !regions.is_empty());
+				if !lent && !found.iter().any(|&(y, o, _)| (y, o) == (x, outlives)) {
+					found.push((x, outlives, imp));
+				}
+			}
+			i += 1;
+		}
+		Ok(found)
+	}
+
+	/// The sources of the `From` implementations into `target`, each with whether it must
+	/// outlive the call, its implementation, and whether a type parameter's `Into` bound
+	/// names it, so what converts into it converts into `target` too. Each names `'static`
+	/// where `target` ties a lifetime to `'static` or to one of `statics`, which the export
+	/// makes `'static`, as `Held<'static>` ties the `'a` of `From<&'a u32> for Held<'a>`.
+	fn hop(&self, def_id: DefId, target: Ty<'tcx>, statics: &[ty::Region<'tcx>]) -> Vec<(Ty<'tcx>, bool, DefId, bool)> {
 		let tcx = self.tcx;
 		let Some(from) = tcx.get_diagnostic_item(sym::From) else {
 			return Vec::new();
@@ -2101,8 +2184,6 @@ impl<'tcx> Collector<'tcx> {
 		let Some(simple) = simplify_type(tcx, target, TreatParams::AsRigid) else {
 			return Vec::new();
 		};
-		let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
-		let (statics, _) = self.borrows(def_id, sig.skip_binder());
 		let mut found = Vec::new();
 		for &imp in tcx
 			.trait_impls_of(from)
@@ -2124,45 +2205,69 @@ impl<'tcx> Collector<'tcx> {
 			{
 				continue;
 			}
+			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
+			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip()))
+				.map(|clause| infcx.deeply_resolve_ignoring_regions(clause))
+				.collect();
+			// Each of the implementation's lifetimes that matching `target` relates to one that is
+			// `'static`, and each that outlives one of those, as `'b: 'a` makes `'b`.
+			let forever = |r: ty::Region<'tcx>| r.is_static() || statics.contains(&r);
+			let mut pinned: Vec<_> = infcx.with_region_constraints(|data| {
+				(data.constraints.iter())
+					.filter_map(|(c, _)| match (c.sub.is_var(), c.sup.is_var()) {
+						(true, false) if forever(c.sup) => Some(c.sub),
+						(false, true) if forever(c.sub) => Some(c.sup),
+						_ => None,
+					})
+					.collect()
+			});
+			while let Some(long) = (implied.iter())
+				.filter_map(|clause| clause.as_region_outlives_clause())
+				.map(|pred| pred.skip_binder())
+				.find(|pred| (forever(pred.1) || pinned.contains(&pred.1)) && !pinned.contains(&pred.0))
+				.map(|pred| pred.0)
+			{
+				pinned.push(long);
+			}
+			let pin = |ty: Ty<'tcx>| {
+				ty::fold_regions(tcx, infcx.deeply_resolve_ignoring_regions(ty), |r, _| {
+					if r.is_bound() {
+						r
+					} else if r.is_static() || pinned.contains(&r) {
+						tcx.lifetimes.re_static
+					} else {
+						tcx.lifetimes.re_erased
+					}
+				})
+			};
 			// Any other source is taken as it is: `impl<'a, V> From<&'a V> for Timed<&'a V>`
 			// makes `impl Into<Timed<&'a T>>` take `&T`. One that may have to outlive the call,
-			// by naming `'static`, by a lifetime bound, or by a lifetime the target ties to one
-			// the export makes `'static`, as `impl Into<Held<'static>>` does, takes nothing C lends.
+			// by naming `'static` or by a lifetime bound, takes nothing C lends.
 			if !source.is_ty_var() {
-				let regions = |ty: Ty<'tcx>| ty.walk().filter_map(|arg| arg.as_region()).collect::<Vec<_>>();
-				let lasting = regions(source).iter().any(|r| r.is_static())
-					|| (!regions(source).is_empty() && regions(target).iter().any(|r| statics.contains(r)))
-					|| (tcx.clauses_of(imp).instantiate(tcx, args).clauses.iter()).any(|clause| {
+				let x = pin(source);
+				let lasting = x.walk().any(|arg| arg.as_region().is_some_and(|r| r.is_static()))
+					|| (clauses.iter()).any(|clause| {
 						let clause = clause.skip_norm_wip();
 						clause.as_type_outlives_clause().is_some() || clause.as_region_outlives_clause().is_some()
 					});
-				if lasting {
-					continue;
-				}
-				let x = tcx.erase_and_anonymize_regions(infcx.deeply_resolve_ignoring_regions(source));
-				if !x.has_non_region_infer() && !found.contains(&(x, false)) {
-					found.push((x, false));
+				if !lasting && !x.has_non_region_infer() {
+					found.push((x, false, imp, false));
 				}
 				continue;
 			}
 			let source = infcx.deeply_resolve_ignoring_regions(source);
-			let clauses = tcx.clauses_of(imp).instantiate(tcx, args).clauses;
-			let implied: Vec<_> = elaborate(tcx, clauses.iter().map(|clause| clause.skip_norm_wip())).collect();
-			let outlives = implied.iter().any(|clause| {
-				clause
-					.as_type_outlives_clause()
-					.is_some_and(|pred| infcx.deeply_resolve_ignoring_regions(pred.skip_binder().0) == source)
-			});
+			let outlives = must_outlive(&implied, source);
 			for bound in (implied.iter())
 				.filter_map(|clause| clause.as_trait_clause())
 				.filter(|bound| {
 					tcx.is_diagnostic_item(sym::Into, bound.def_id())
 						|| tcx.is_diagnostic_item(sym::AsRef, bound.def_id())
 				}) {
-				let bound = infcx.deeply_resolve_ignoring_regions(bound.skip_binder());
-				let x = tcx.erase_and_anonymize_regions(bound.trait_ref.args.type_at(1));
-				if bound.self_ty() == source && !x.has_non_region_infer() && !found.contains(&(x, outlives)) {
-					found.push((x, outlives));
+				let into = tcx.is_diagnostic_item(sym::Into, bound.def_id());
+				let bound = bound.skip_binder();
+				let x = pin(bound.trait_ref.args.type_at(1));
+				if bound.self_ty() == source && !x.has_non_region_infer() {
+					found.push((x, outlives, imp, into));
 				}
 			}
 		}
@@ -2197,13 +2302,7 @@ impl<'tcx> Collector<'tcx> {
 		let at = |candidate: Ty<'tcx>| self.at(def_id, param, base, candidate);
 		// A lifetime bound, such as `'static`, which a reference to a value C passes for the
 		// call cannot meet, though `at` holds modulo regions.
-		let outlives = (tcx
-			.clauses_of(def_id)
-			.instantiate(tcx, tcx.mk_args(base))
-			.clauses
-			.iter())
-		.filter_map(|clause| clause.skip_norm_wip().as_type_outlives_clause())
-		.any(|pred| pred.skip_binder().0 == param);
+		let outlives = must_outlive(&self.implied(def_id, base), param);
 		let mut found: Vec<Ty<'tcx>> = Vec::new();
 		for ty in self.implementors(def_id, param) {
 			if outlives && ty.is_ref() {
@@ -2727,20 +2826,24 @@ impl<'tcx> Collector<'tcx> {
 		(held, lent)
 	}
 
-	/// What a function returns: a tuple's elements each, or else one value.
+	/// What a function returns: a tuple returned whole, even a pair of bounds, is written
+	/// through an out pointer per element.
 	fn ret(&self, ty: Ty<'tcx>) -> Result<Type, Why> {
-		let ty::Tuple(list) = ty.kind() else {
-			return self.ty(ty, Pos::Return);
-		};
-		if list.is_empty() {
-			return Ok(Type::Unit);
+		match ty.kind() {
+			ty::Tuple(list) if !list.is_empty() => self.tuple(ty, Pos::Return),
+			_ => self.ty(ty, Pos::Return),
 		}
-		let mut elements = Vec::new();
-		for element in list.iter() {
-			match self.ty(element, Pos::Return)? {
-				Type::Unit => return Err(why("unit in a tuple", ty.to_string())),
-				element => elements.push(element),
-			}
+	}
+
+	/// The tuple `ty`, each element mapped as inside a value at `pos`.
+	fn tuple(&self, ty: Ty<'tcx>, pos: Pos) -> Result<Type, Why> {
+		let elements = (ty.tuple_fields().iter())
+			.map(|element| self.ty(element, pos.inner()))
+			.collect::<Result<Vec<_>, _>>()?;
+		// C lends nothing inside a value, and an element lowered back into one is a clone
+		// of what Rust lent.
+		if elements.iter().any(borrows) && !matches!(pos, Pos::Return | Pos::Returned) {
+			return Err(why("tuple of references", ty.to_string()));
 		}
 		Ok(Type::Tuple(elements))
 	}
@@ -2830,7 +2933,8 @@ impl<'tcx> Collector<'tcx> {
 		};
 		match self.ty(ty, Pos::Return) {
 			Ok(ok) => Some(Function {
-				path,
+				path: path.clone(),
+				shown: path,
 				span,
 				docs: docs(tcx, def_id),
 				receiver: None,
@@ -3069,7 +3173,7 @@ impl<'tcx> Collector<'tcx> {
 				{
 					Type::Bounds(int)
 				}
-				_ => return Err(why("tuple", "")),
+				_ => self.tuple(ty, pos)?,
 			},
 			ty::Array(..) => return Err(why("array", ty.to_string())),
 			ty::Slice(_) | ty::Str => return Err(why("unsized type", ty.to_string())),
@@ -3136,6 +3240,7 @@ fn buildable(api: &Api, ty: &Type, held: &[bool]) -> bool {
 		Type::Object(i) => held[*i],
 		Type::Ref(_, inner) | Type::Box(inner) => buildable(api, inner, held),
 		Type::Record(i) => api.records[*i].fields.iter().all(|f| buildable(api, &f.ty, held)),
+		Type::Tuple(elements) => elements.iter().all(|ty| buildable(api, ty, held)),
 		Type::Enum(i) => api.enums[*i]
 			.variants
 			.iter()
@@ -3199,6 +3304,7 @@ fn borrows(ty: &Type) -> bool {
 	match ty {
 		Type::Ref(..) => true,
 		Type::Option(inner) | Type::Box(inner) | Type::List(inner) => borrows(inner),
+		Type::Tuple(elements) => elements.iter().any(borrows),
 		_ => false,
 	}
 }
@@ -3286,6 +3392,14 @@ fn docs(tcx: TyCtxt<'_>, def_id: DefId) -> String {
 
 /// Whether `tr` is `Send`, `Sync`, or `Sized`, which a foreign implementation or a lent
 /// closure meets.
+/// Whether `implied`, bounds with each they imply, makes `param` outlive the call, so it
+/// cannot borrow what C lends for the call, as `impl Kept` cannot where `Kept: 'static`.
+fn must_outlive<'tcx>(implied: &[ty::Clause<'tcx>], param: Ty<'tcx>) -> bool {
+	(implied.iter())
+		.filter_map(|clause| clause.as_type_outlives_clause())
+		.any(|pred| pred.skip_binder().0 == param)
+}
+
 fn marker(tcx: TyCtxt<'_>, tr: DefId) -> bool {
 	[sym::Send, sym::Sync]
 		.iter()

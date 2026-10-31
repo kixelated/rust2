@@ -9,7 +9,7 @@ export function copyFromSlice(data: rt.ByteSlice): Blob {
 	return rt.byteSliceFrom(rt.byteSliceView(data).slice());
 }
 
-export function from$From_Vec_u8(vec: rt.ByteVec): Blob {
+export function from$convert_From_Vec_u8(vec: rt.ByteVec): Blob {
 	return rt.byteVecSlice(vec);
 }
 
@@ -44,10 +44,23 @@ export function clone$Clone(self: Blob): Blob {
 	return self;
 }
 
-export function deref$Deref(self: Blob): rt.ByteSlice {
+export function deref$ops_Deref(self: Blob): rt.ByteSlice {
 	return self;
 }
 
-export function eq$PartialEq(self: Blob, other: Blob): boolean {
+export function eq$cmp_PartialEq(self: Blob, other: Blob): boolean {
 	return rt.byteSliceEq(self, other);
+}
+
+export function hash$Hash(self: Blob, state: rt.Hasher): undefined {
+	rt.hashBytes(self, state);
+	return undefined;
+}
+
+export function partialCmp$cmp_PartialOrd(self: Blob, other: Blob): rt.Ordering {
+	return rt.cmpBytes(self, other);
+}
+
+export function cmp$cmp_Ord(self: Blob, other: Blob): rt.Ordering {
+	return rt.cmpBytes(self, other);
 }

@@ -15,7 +15,9 @@ mod cfg;
 pub mod coroutine;
 mod decided;
 pub mod glue;
+pub(super) mod holders;
 mod inline;
+mod memory;
 mod place;
 mod rvalue;
 mod scalar;
@@ -30,7 +32,7 @@ use rustc_middle::ty::{self, EarlyBinder, Instance, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
 
 use self::cfg::Exit;
-pub use self::place::{made_slice, slice_member};
+pub use self::place::{made_slice, slice_member, writes_captures};
 pub use self::scalar::Slotted;
 use super::Translator;
 use super::body::Body;
@@ -50,7 +52,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 	let ret_ty = mir.return_ty();
 	let parted = t.parted(instance);
 	let slotted = t.slotted(instance);
-	let mut b = Body::new(t, instance.args);
+	let mut b = Body::new(t);
 	b.parted = parted;
 	b.slotted = slotted.clone();
 	let mut fx = Fx::new(&mut b, &mir, Env::Plain, span);
@@ -82,6 +84,7 @@ pub fn function<'a, 'tcx>(t: &mut Translator<'a, 'tcx>, instance: Instance<'tcx>
 fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, span: Span) -> Option<mir::Body<'tcx>> {
 	let tcx = t.tcx;
 	let def_id = instance.def_id();
+	t.lowered.insert(instance);
 	// A `const`'s, as a function of no arguments that makes its value.
 	let body = match tcx.def_kind(def_id) {
 		DefKind::Const => tcx.mir_for_ctfe(def_id).clone(),
@@ -121,9 +124,9 @@ fn instance_mir<'tcx>(t: &mut Translator<'_, 'tcx>, instance: Instance<'tcx>, sp
 
 /// Why a body of std's can't lower as the crate's do, if it can't. The crate's analysis of
 /// what it writes into reads only its own bodies, so one must change nothing in place: no
-/// assignment through a projection or a reference, and no mutable borrow or pointer. And
-/// core's plain integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is
-/// checked.
+/// assignment through a projection or a reference, and no mutable borrow or pointer but of
+/// a function to call it, as `FnMut` is, whose writes are its own body's. And core's plain
+/// integer arithmetic wraps, as `wrapping_add` lowers, where the crate's is checked.
 fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'static str> {
 	const WRITE: &str = "a change in place, which a body of std's is not supported to make";
 	const WRAP: &str = "arithmetic that wraps, which a body of std's is not supported to do";
@@ -132,6 +135,12 @@ fn std_refused<'tcx>(tcx: TyCtxt<'tcx>, body: &mir::Body<'tcx>) -> Option<&'stat
 			match &stmt.kind {
 				StatementKind::Assign(assign) if !assign.0.projection.is_empty() => return Some(WRITE),
 				StatementKind::Assign(assign) => match &assign.1 {
+					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, place)
+						if place.projection.is_empty()
+							&& matches!(
+								body.local_decls[place.local].ty.kind(),
+								ty::Closure(..) | ty::FnDef(..) | ty::FnPtr(..)
+							) => {}
 					Rvalue::Ref(_, mir::BorrowKind::Mut { .. }, _) | Rvalue::RawPtr(mir::RawPtrKind::Mut, _) => {
 						return Some(WRITE);
 					}
@@ -307,9 +316,10 @@ pub struct Fx<'m, 'b, 'a, 'tcx> {
 	halves: FxHashMap<Local, (&'m Operand<'tcx>, &'m Operand<'tcx>)>,
 	/// Temporaries of those joins, whose assignments go unlowered.
 	joined: FxHashSet<Local>,
-	/// The paths a switch lowered so far tests the variant of, which `tsc` narrows in
-	/// its arms.
-	switched: FxHashSet<String>,
+	/// The paths a switch lowered so far tests the variant of, with the enum it tests,
+	/// which `tsc` narrows in its arms. An `Option`'s `Some` is the path itself, so it
+	/// may be tested as both.
+	switched: FxHashSet<(String, Ty<'tcx>)>,
 	/// Locals whose variant some switch tests, or that std takes, directly or through a
 	/// reference to them.
 	tested: IndexVec<Local, bool>,
@@ -528,7 +538,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 								.any(|op| self.changes(op.ty(&mir.local_decls, self.tcx), part));
 							self.arg_use[local] = true;
 							self.arg_alone[local] = alone;
-							self.arg_kept[local] = kept || self.holds(result, part);
+							self.arg_kept[local] = kept || self.b.t.holds(result, part);
 						}
 					}
 					self.def(*destination);
@@ -627,11 +637,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				let base = match named.get(&local) {
 					Some(name) => super::camel(name.as_str()),
 					None => format!("_{}", local.as_u32()),
-				};
-				let base = match self.uses[local] == 0 && local.as_usize() <= mir.arg_count {
-					// A parameter nothing reads, which `noUnusedParameters` wants marked.
-					true if !base.starts_with('_') => format!("_{base}"),
-					_ => base,
 				};
 				let name = self.b.fresh(&base);
 				if self.borrowed[local] {
@@ -860,31 +865,20 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 	}
 
-	/// A struct of no fields or an empty array that nothing assigns, which MIR leaves
-	/// unassigned since it holds nothing: JS needs it made.
+	/// A zero-sized value that nothing assigns, the result included, which MIR leaves
+	/// unassigned since it holds nothing: JS needs it made, as a constant of it is. A
+	/// closure's is declared once instead, in [`Self::lower`].
 	fn unassigned(&mut self, local: Local, ty: Ty<'tcx>) -> Option<Expr> {
-		if self.defs[local] != 0 || self.is_arg(local) || local == mir::RETURN_PLACE {
+		if self.defs[local] != 0 || self.is_arg(local) || self.uses[local] == 0 || ty.is_closure() {
 			return None;
 		}
-		if let ty::Array(elem, len) = ty.kind()
-			&& len.try_to_target_usize(self.tcx) == Some(0)
-		{
-			return Some(match elem.kind() {
-				ty::Uint(ty::UintTy::U8) => Expr::ident("Uint8Array").member("of").call(Vec::new()),
-				_ => Expr::As(
-					Box::new(Expr::Array(Vec::new())),
-					self.b.t.ty(ty, self.local_span(local)),
-				),
-			});
-		}
-		let ty::Adt(adt, _) = ty.kind() else {
-			return None;
-		};
-		if !adt.is_struct() || !self.b.t.own(adt.did()) || adt.all_fields().next().is_some() {
+		let env = self.b.t.typing_env_pub();
+		let layout = self.tcx.layout_of(env.as_query_input(ty)).ok()?;
+		if !layout.is_zst() || layout.is_uninhabited() {
 			return None;
 		}
-		let info = self.b.t.adt(*adt, self.local_span(local));
-		Some(self.b.t.construct(info.sym, &ts::Ctor::Unit, &[], Vec::new()))
+		let span = self.local_span(local);
+		Some(self.const_value(mir::ConstValue::ZeroSized, ty, span))
 	}
 
 	/// Whether `local` is a box's pointer, as a box's dereference reads it.
@@ -1010,7 +1004,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let tcx = self.tcx;
 		let pointees = |func: &Operand<'tcx>, i: usize| match *func.ty(&self.mir.local_decls, tcx).kind() {
-			ty::FnDef(def_id, gargs) if self.b.t.mapped(def_id, self.b.subst(gargs.skip_binder())) => {
+			ty::FnDef(def_id, gargs) if self.b.t.mapped(def_id, gargs.skip_binder()) => {
 				let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
 				let input = tcx.instantiate_bound_regions_with_erased(sig).inputs().get(i).copied();
 				input.is_some_and(|t| matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
@@ -1122,7 +1116,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			let Some(local) = destination.as_local() else {
 				continue;
 			};
-			if crate::lower::iter::is_next(tcx, def_id) && self.defs[local] == 1 {
+			// The return place leaves as the `Option` the signature declares, unless this is a
+			// `next` itself, which returns the protocol's item or `rt.DONE` below.
+			if crate::lower::iter::is_next(tcx, def_id) && self.defs[local] == 1 && local != mir::RETURN_PLACE {
 				nexts.push((local, gargs.skip_binder().type_at(0)));
 			}
 			if crate::lower::library::key(tcx, def_id).is_some_and(|(o, n)| o == "Try" && n == "branch")
@@ -1164,7 +1160,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					continue;
 				}
 				self.next_results.insert(to);
-			} else if local != mir::RETURN_PLACE && small_range(tcx, iter_ty) {
+			} else if small_range(tcx, iter_ty) {
 				self.range_nexts.insert(local);
 			}
 			self.next_results.insert(local);
@@ -1403,6 +1399,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 		}
 		assigned && switched
+	}
+
+	/// Whether the switch on the discriminant `local` tests it, rather than going the one
+	/// way its type leaves.
+	fn discr_tested(&self, local: Local) -> bool {
+		self.mir.basic_blocks.iter().any(|data| {
+			matches!(
+				&data.terminator().kind,
+				TerminatorKind::SwitchInt { discr: Operand::Move(p) | Operand::Copy(p), targets }
+					if p.as_local() == Some(local) && !self.switch_targets(targets).0.is_empty()
+			)
+		})
 	}
 
 	/// The parameters: `_1` through the argument count, but a closure's environment or a
@@ -1804,10 +1812,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 	// Emission
 
 	/// Emit the statements `stmts`, which together are one MIR statement, folding in the
-	/// pending temporaries they read once where that keeps every effect in order.
-	/// `writes` is the local the statement assigns whole. If `hold`, nothing runs now:
-	/// the statements are a value being held back itself.
-	fn emit(&mut self, stmts: Vec<Stmt>, writes: Option<&str>, hold: bool, out: &mut Vec<Stmt>) {
+	/// pending temporaries they read once where that keeps every effect in order. If
+	/// `hold`, nothing runs now: the statements are a value being held back itself.
+	fn emit(&mut self, stmts: Vec<Stmt>, hold: bool, out: &mut Vec<Stmt>) {
 		if self.pending.is_empty() {
 			out.extend(stmts);
 			return;
@@ -1867,18 +1874,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			.filter(|&i| fold[i])
 			.map(|i| self.pending[i].order)
 			.min();
+		// A temporary held past a write of a name it reads would read the new value.
+		let written = assigned(&stmts);
 		let mut flush = Vec::new();
 		for (i, p) in self.pending.iter().enumerate() {
 			if fold[i] {
 				continue;
 			}
 			let read = count[i] > 0;
+			let overwritten = written.contains(&p.name) || p.reads.iter().any(|r| written.contains(r));
 			let keep = match hold {
-				true => !read,
-				false => {
-					let overwritten = writes.is_some_and(|w| w == p.name || p.reads.iter().any(|r| r == w));
-					!read && !p.effect && !p.memory && !overwritten
-				}
+				true => !read && !overwritten,
+				false => !read && !p.effect && !p.memory && !overwritten,
 			};
 			let after = first_folded.is_some_and(|f| p.order > f);
 			if !keep {
@@ -1968,7 +1975,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let mut stmts = pre;
 		stmts.extend(exprs.into_iter().map(|e| StmtKind::Expr(e).at(None)));
 		let mut emitted = Vec::new();
-		self.emit(stmts, None, hold, &mut emitted);
+		self.emit(stmts, hold, &mut emitted);
 		let folded = emitted
 			.drain(emitted.len() - n..)
 			.map(|s| match s.kind {
@@ -2151,7 +2158,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				if self.uses[local] == 0 {
 					// Nothing reads it: only its effects run.
 					if effect {
-						self.emit(vec![StmtKind::Expr(value).at(None)], None, false, out);
+						self.emit(vec![StmtKind::Expr(value).at(None)], false, out);
 					}
 					return;
 				}
@@ -2186,7 +2193,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				}
 				self.assigned[local] = true;
 				let stmt = StmtKind::Expr(Expr::ident(&name).assign(value)).at(None);
-				self.emit(vec![stmt], Some(&name), false, out);
+				self.emit(vec![stmt], false, out);
 				// An aggregate assigned once and never changed: its operands, as emitted,
 				// read in place of its fields.
 				if parts.is_some()
@@ -2202,7 +2209,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			Slot::Unit => {
 				if effect {
-					self.emit(vec![StmtKind::Expr(value).at(None)], None, false, out);
+					self.emit(vec![StmtKind::Expr(value).at(None)], false, out);
 				}
 			}
 			Slot::Alias(_) | Slot::Discr(_) | Slot::Flag(_) => unreachable!("set by their own assignment"),
@@ -2247,7 +2254,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			StatementKind::SetDiscriminant { place, variant_index } => {
 				let target = self.set_discriminant(**place, *variant_index, span);
 				if let Some(stmt) = target {
-					self.emit(vec![stmt], None, false, out);
+					self.emit(vec![stmt], false, out);
 				}
 			}
 			StatementKind::Intrinsic(intrinsic) => match &**intrinsic {
@@ -2280,8 +2287,9 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			match self.slots[local] {
 				Slot::Alias(_) => {
 					let target = match rvalue {
-						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span) {
-							Some(e) => e,
+						Rvalue::Ref(_, kind, p) => match self.mut_subslice(*kind, *p, span, out) {
+							// One view, however many times it is read.
+							Some(e) => self.path(e, "view", out),
 							None => match self.reborrowed(*kind, *p, span, out) {
 								Some(e) => e,
 								// Read whole, the place is held as it is now for its `rt.Place`.
@@ -2322,7 +2330,18 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					};
 					let ty = p.ty(&self.mir.local_decls, self.tcx).ty;
 					let target = self.place_expr(*p, span, out);
-					let target = self.path(target, "scrutinee", out);
+					// A switch whose other variants can't exist tests nothing, so the read
+					// runs only for its effects.
+					let target = match self.discr_tested(local) {
+						true => self.path(target, "scrutinee", out),
+						false => {
+							let target = self.fold_exprs(Vec::new(), vec![target], false, out).remove(0);
+							if self.part_reads(&target).0 {
+								self.emit(vec![StmtKind::Expr(target).at(None)], false, out);
+							}
+							Expr::undefined()
+						}
+					};
 					self.slots[local] = Slot::Discr(Some((target, ty)));
 					return;
 				}
@@ -2397,16 +2416,16 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 				_ => None,
 			};
 			if !pre.is_empty() {
-				self.emit(pre, None, false, out);
+				self.emit(pre, false, out);
 			}
 			self.set_local(local, value, effect, memory, parts, out);
 			return;
 		}
 		if !pre.is_empty() {
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 		}
 		let stmts = self.store(place, value, span);
-		self.emit(stmts, None, false, out);
+		self.emit(stmts, false, out);
 	}
 
 	/// Hold `value` in a path that reads it again for free.
@@ -2417,7 +2436,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		}
 		let name = self.b.fresh(base);
 		let stmt = StmtKind::decl(false, name.clone(), None, Some(value)).at(None);
-		self.emit(vec![stmt], None, false, out);
+		self.emit(vec![stmt], false, out);
 		Expr::ident(name)
 	}
 
@@ -2479,7 +2498,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					}
 				};
 				let loc = self.b.t.loc(span);
-				self.emit(vec![StmtKind::Return(value).at(loc)], None, false, out);
+				self.emit(vec![StmtKind::Return(value).at(loc)], false, out);
 				self.flush(out);
 				Exit::End
 			}
@@ -2488,7 +2507,6 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			TerminatorKind::Unreachable | TerminatorKind::Return => {
 				self.emit(
 					vec![StmtKind::Expr(Expr::rt("unreachable", vec![Expr::undefined()])).at(None)],
-					None,
 					false,
 					out,
 				);
@@ -2514,7 +2532,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 							.at(None),
 						];
 					}
-					self.emit(glue, None, false, out);
+					self.emit(glue, false, out);
 				} else if self.b.t.drops(ty) {
 					let mut pre = Vec::new();
 					let value = self.place_expr(*place, span, &mut pre);
@@ -2525,7 +2543,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 					if let Some(dropped) = dropped {
 						pre.push(StmtKind::Expr(dropped).at(None));
 					}
-					self.emit(pre, None, false, out);
+					self.emit(pre, false, out);
 				}
 				Exit::Goto(target.as_usize())
 			}
@@ -2610,7 +2628,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		let tests: Vec<(Expr, BasicBlock)> = match discr_local.map(|l| self.slots[l].clone()) {
 			Some(Slot::Discr(Some((scrut, ty)))) => {
 				if !arms.is_empty() && whole.is_none() {
-					self.switched.extend(scrut.path_key());
+					self.switched.extend(scrut.path_key().map(|key| (key, ty)));
 				}
 				let tests: Vec<Expr> = arms
 					.iter()
@@ -2739,11 +2757,11 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 						.at(self.b.t.loc(span)),
 					);
 				}
-				self.emit(pre, None, false, out);
+				self.emit(pre, false, out);
 				return;
 			}
 			pre.push(StmtKind::Expr(Expr::rt("idx", vec![slice, index])).at(self.b.t.loc(span)));
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 			return;
 		}
 		let mut pre = Vec::new();
@@ -2772,7 +2790,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 		// An assert that always fails, such as a coroutine's after it returned.
 		if matches!(&failed, Expr::Lit(t) if t == "true") {
 			pre.push(StmtKind::Expr(panic).at(self.b.t.loc(span)));
-			self.emit(pre, None, false, out);
+			self.emit(pre, false, out);
 			return;
 		}
 		pre.push(
@@ -2783,7 +2801,7 @@ impl<'m, 'b, 'a, 'tcx> Fx<'m, 'b, 'a, 'tcx> {
 			}
 			.at(self.b.t.loc(span)),
 		);
-		self.emit(pre, None, false, out);
+		self.emit(pre, false, out);
 	}
 
 	/// The panic of an assert that fails: the runtime's own function for a coroutine
@@ -2871,8 +2889,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 	fn changes(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		use rustc_middle::ty::TypeVisitableExt;
 		let env = self.b.t.typing_env_pub();
-		let overlaps = |t: Ty<'tcx>| self.holds(t, part) || self.holds(part, t);
-		self.reaches(ty, |t| match t.kind() {
+		let overlaps = |t: Ty<'tcx>| self.b.t.holds(t, part) || self.b.t.holds(part, t);
+		self.b.t.reaches(ty, |t| match t.kind() {
 			ty::RawPtr(..) => true,
 			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => overlaps(*inner),
 			// Inside a binder, as a function pointer's signature, only its kind tells.
@@ -2901,20 +2919,8 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				self.holds_behind(result, t)
 					|| args
 						.iter()
-						.any(|a| self.stores(a.node.ty(&self.mir.local_decls, self.tcx), t))
+						.any(|a| self.b.t.stores(a.node.ty(&self.mir.local_decls, self.tcx), t))
 			})
-	}
-
-	/// Whether a value of `ty` reaches somewhere that could take a `part` in: a raw
-	/// pointer, or a mutable reference to or interior mutability around what could hold one.
-	fn stores(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
-		use rustc_middle::ty::TypeVisitableExt;
-		let env = self.b.t.typing_env_pub();
-		self.reaches(ty, |t| match t.kind() {
-			ty::RawPtr(..) => true,
-			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => self.holds(*inner, part),
-			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && self.holds(t, part),
-		})
 	}
 
 	/// The local whose own value `op` moves out, which nothing reads after, if it holds a
@@ -2996,12 +3002,40 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				adt.all_fields()
 					.any(|field| self.holds_behind(self.b.t.field_ty(field.did, args), part))
 			}
-			_ => self.holds(ty, part),
+			_ => self.b.t.holds(ty, part),
 		}
+	}
+}
+
+/// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
+/// which TypeScript types as the whole union already.
+pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
+	let mut inner = &value;
+	while let Expr::Located(_, e) = inner {
+		inner = e;
+	}
+	match inner {
+		Expr::As(_, t) if *t == ty => Ok(value),
+		Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => Err(value),
+		_ => Ok(Expr::As(Box::new(value.typed()), ty)),
+	}
+}
+
+impl<'tcx> Translator<'_, 'tcx> {
+	/// Whether a value of `ty` reaches somewhere that could take a `part` in: a raw
+	/// pointer, or a mutable reference to or interior mutability around what could hold one.
+	pub(crate) fn stores(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+		use rustc_middle::ty::TypeVisitableExt;
+		let env = self.typing_env_pub();
+		self.reaches(ty, |t| match t.kind() {
+			ty::RawPtr(..) => true,
+			ty::Ref(_, inner, rustc_ast::Mutability::Mut) => self.holds(*inner, part),
+			_ => !t.has_escaping_bound_vars() && !t.is_freeze(self.tcx, env) && self.holds(t, part),
+		})
 	}
 
 	/// Whether a value of `ty` could hold a `part`: holds its type, or hides what it holds.
-	fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
+	pub(crate) fn holds(&self, ty: Ty<'tcx>, part: Ty<'tcx>) -> bool {
 		// An array and a slice of its element share storage through an unsizing coercion.
 		let storage = |t: Ty<'tcx>| match t.kind() {
 			ty::Array(elem, _) => Ty::new_slice(self.tcx, *elem),
@@ -3019,7 +3053,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 
 	/// Whether `f` holds for any type a value of `ty` holds: its type arguments, which are
 	/// what std's types hold, and the fields of the crate's own types.
-	fn reaches(&self, ty: Ty<'tcx>, mut f: impl FnMut(Ty<'tcx>) -> bool) -> bool {
+	pub(crate) fn reaches(&self, ty: Ty<'tcx>, mut f: impl FnMut(Ty<'tcx>) -> bool) -> bool {
 		let mut seen = FxHashSet::default();
 		let mut stack = vec![ty];
 		while let Some(ty) = stack.pop() {
@@ -3028,28 +3062,14 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 					return true;
 				}
 				if let ty::Adt(adt, args) = t.kind()
-					&& self.b.t.own(adt.did())
+					&& self.own(adt.did())
 					&& seen.insert(t)
 				{
-					stack.extend(adt.all_fields().map(|field| self.b.t.field_ty(field.did, args)));
+					stack.extend(adt.all_fields().map(|field| self.field_ty(field.did, args)));
 				}
 			}
 		}
 		false
-	}
-}
-
-/// `value` as a value of `ty`, its JS union type: `Ok` of it, or `Err` of an `Ok` or `Err`,
-/// which TypeScript types as the whole union already.
-pub(super) fn whole(value: Expr, ty: Type) -> Result<Expr, Expr> {
-	let mut inner = &value;
-	while let Expr::Located(_, e) = inner {
-		inner = e;
-	}
-	match inner {
-		Expr::As(_, t) if *t == ty => Ok(value),
-		Expr::Call(f, _) if matches!(&**f, Expr::Rt(n) if n == "Ok" || n == "Err") => Err(value),
-		_ => Ok(Expr::As(Box::new(value.typed()), ty)),
 	}
 }
 
@@ -3139,7 +3159,7 @@ fn scan(e: &Expr, reads: &mut Vec<Read>, lazy: bool) {
 				_ => Read::Effect,
 			});
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) => scan(e, reads, lazy),
+		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Instantiate(e, _) => scan(e, reads, lazy),
 		Expr::Postfix(e, _) => {
 			scan(e, reads, lazy);
 			reads.push(Read::Effect);
@@ -3238,13 +3258,25 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 				return false;
 			}
 			// The payload of a `Result` made here is what it was made of, which `tsc` reads
-			// where it can't narrow the `Result`.
-			if let (Expr::Call(f, args), ts::Key::Name(key)) = (step::peel(base), &*key)
-				&& let Expr::Rt(ctor) = step::peel(f)
-				&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
-				&& let [payload] = args.as_slice()
-			{
-				*e = payload.clone();
+			// where it can't narrow the `Result`, cast to its variant or not, and so is what an
+			// `rt.Place` made here holds.
+			let made = match step::peel(base) {
+				Expr::As(made, _) => step::peel(made),
+				base => base,
+			};
+			let folded = match (made, &*key) {
+				(Expr::Call(f, args), ts::Key::Name(key))
+					if let Expr::Rt(ctor) = step::peel(f)
+						&& matches!((ctor.as_str(), key.as_str()), ("Ok", "value") | ("Err", "error"))
+						&& let [payload] = args.as_slice() =>
+				{
+					Some(payload.clone())
+				}
+				(_, ts::Key::Name(key)) if key == "v" => step::peel(base).place_read().cloned(),
+				_ => None,
+			};
+			if let Some(folded) = folded {
+				*e = folded;
 			}
 			true
 		}
@@ -3276,7 +3308,9 @@ fn subst(e: &mut Expr, name: &str, value: &Expr) -> bool {
 			}
 			true
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Postfix(e, _) => subst(e, name, value),
+		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Instantiate(e, _) | Expr::Postfix(e, _) => {
+			subst(e, name, value)
+		}
 		Expr::Binary(l, _, r) | Expr::Assign(l, r) => subst(l, name, value) || subst(r, name, value),
 		Expr::Cond(c, a, b) => subst(c, name, value) || subst(a, name, value) || subst(b, name, value),
 		Expr::Arrow(..) | Expr::Lambda(..) => false,
@@ -3301,24 +3335,26 @@ fn widen_reads(test: Expr, key: &str, ty: &Type) -> Expr {
 }
 
 /// Drop the declarations of variables nothing reads, keeping the effects of what was
-/// assigned to them.
+/// assigned to them, until what those dropped read is read elsewhere.
 fn prune_unread(stmts: &mut Vec<Stmt>) {
-	let mut declared = Vec::new();
-	for stmt in stmts.iter() {
-		if let StmtKind::Declare { name, .. } = &stmt.kind {
-			declared.push(name.clone());
+	loop {
+		let mut declared = Vec::new();
+		for stmt in stmts.iter() {
+			if let StmtKind::Declare { name, .. } = &stmt.kind {
+				declared.push(name.clone());
+			}
 		}
+		let mut reads = Vec::new();
+		for stmt in stmts.iter() {
+			scan_reads(stmt, &mut reads);
+		}
+		let read: FxHashSet<&str> = reads.iter().map(String::as_str).collect();
+		let unread: FxHashSet<String> = declared.into_iter().filter(|n| !read.contains(n.as_str())).collect();
+		if unread.is_empty() {
+			return;
+		}
+		strip_assignments(stmts, &unread);
 	}
-	let mut reads = Vec::new();
-	for stmt in stmts.iter() {
-		scan_reads(stmt, &mut reads);
-	}
-	let read: FxHashSet<&str> = reads.iter().map(String::as_str).collect();
-	let unread: FxHashSet<String> = declared.into_iter().filter(|n| !read.contains(n.as_str())).collect();
-	if unread.is_empty() {
-		return;
-	}
-	strip_assignments(stmts, &unread);
 }
 
 /// Every name `stmt` reads, but not as the target of an assignment to it.
@@ -3350,6 +3386,23 @@ fn scan_reads(stmt: &Stmt, out: &mut Vec<String>) {
 	}
 }
 
+/// The names `stmts` assign, anywhere in them, as themselves or cast to a variant's type.
+fn assigned(stmts: &[Stmt]) -> FxHashSet<String> {
+	let mut names = FxHashSet::default();
+	for stmt in stmts {
+		visit_stmt(stmt, &mut |e| {
+			visit_expr(e, &mut |e| {
+				if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
+					&& let Some(name) = assigned_name(target)
+				{
+					names.insert(name.to_string());
+				}
+			})
+		});
+	}
+	names
+}
+
 fn reads_of(e: &Expr, out: &mut Vec<String>) {
 	match e {
 		Expr::Ident(name) => out.push(name.clone()),
@@ -3365,9 +3418,12 @@ fn reads_of(e: &Expr, out: &mut Vec<String>) {
 			reads_of(f, out);
 			args.iter().for_each(|e| reads_of(e, out));
 		}
-		Expr::Unary(_, e) | Expr::Located(_, e) | Expr::As(e, _) | Expr::Lambda(_, e) | Expr::Postfix(e, _) => {
-			reads_of(e, out)
-		}
+		Expr::Unary(_, e)
+		| Expr::Located(_, e)
+		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
+		| Expr::Lambda(_, e)
+		| Expr::Postfix(e, _) => reads_of(e, out),
 		Expr::Binary(l, _, r) => {
 			reads_of(l, out);
 			reads_of(r, out);
@@ -3509,12 +3565,24 @@ fn writes_of(e: &Expr, name: &str) -> usize {
 	let mut n = 0;
 	visit_expr(e, &mut |e| {
 		if let Expr::Assign(target, _) | Expr::Postfix(target, _) = e
-			&& matches!(&**target, Expr::Ident(i) if i == name)
+			&& assigned_name(target) == Some(name)
 		{
 			n += 1;
 		}
 	});
 	n
+}
+
+/// The name an assignment to `target` writes whole: itself, or cast to the type of a
+/// variant it holds, as a `Cow`'s payload is.
+fn assigned_name(mut target: &Expr) -> Option<&str> {
+	while let Expr::As(inner, _) = target {
+		target = inner;
+	}
+	match target {
+		Expr::Ident(name) => Some(name),
+		_ => None,
+	}
 }
 
 /// Call `f` on each expression the statement holds directly, and in its blocks.
@@ -3559,6 +3627,7 @@ fn visit_expr(e: &Expr, f: &mut dyn FnMut(&Expr)) {
 		| Expr::Unary(_, e)
 		| Expr::Located(_, e)
 		| Expr::As(e, _)
+		| Expr::Instantiate(e, _)
 		| Expr::Lambda(_, e)
 		| Expr::Postfix(e, _) => visit_expr(e, f),
 		Expr::Index(a, b) | Expr::Binary(a, _, b) | Expr::Assign(a, b) => {
@@ -3587,7 +3656,9 @@ fn parts_of(value: &Expr) -> Option<Vec<Expr>> {
 			Some(items.clone())
 		}
 		Expr::Object(props) => Some(props.iter().map(|(_, v)| v.clone()).collect()),
-		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range") => Some(items.clone()),
+		Expr::New(f, items) if matches!(&**f, Expr::Rt(name) if name == "Range" || name == "RangeFrom") => {
+			Some(items.clone())
+		}
 		_ => None,
 	}
 }
@@ -3877,7 +3948,7 @@ fn inert(e: &Expr) -> bool {
 	match e {
 		Expr::Array(items) => items.iter().all(inert),
 		Expr::Object(props) => props.iter().all(|(_, v)| inert(v)),
-		Expr::As(e, _) | Expr::Located(_, e) => inert(e),
+		Expr::As(e, _) | Expr::Instantiate(e, _) | Expr::Located(_, e) => inert(e),
 		Expr::Lambda(..) | Expr::Arrow(..) => true,
 		e => e.is_path(),
 	}

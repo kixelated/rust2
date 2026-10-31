@@ -4,7 +4,7 @@ import * as rt from "../rt.ts";
 import * as DecodeError from "../coding/decode.DecodeError.ts";
 import { read, readOut } from "../coding/varint.ts";
 import type * as Form from "../coding/varint.Form.ts";
-import { mapErr$Result_usize_TryFromIntError_DecodeError_bytes_closure0, inspectErr$Result_u8s_DecodeError_bytes_closure1 } from "../core/result.ts";
+import { mapErr$06mnjtr as result_mapErr$06mnjtr, inspectErr$156koiv } from "../core/result.ts";
 import type * as Control from "../stats.Control.ts";
 
 /**
@@ -45,8 +45,8 @@ export function need(self: Decoder): rt.usize {
 
 /** Record that a read wanted `more` bytes past the current position. */
 export function short(self: Decoder, more: rt.usize): DecodeError.DecodeError {
-	const need_: rt.usize = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
-	self.need = rt.max(self.need, need_);
+	const need: rt.usize = rt.usizeSaturatingAdd(rt.usizeSub(self.len, self.buf.length), more);
+	self.need = rt.max(self.need, need);
 	return { tag: "Short" } as DecodeError.DecodeError;
 }
 
@@ -62,11 +62,11 @@ export function isEmpty(self: Decoder): boolean {
 
 /** Read `len` raw bytes. */
 export function slice(self: Decoder, len: rt.usize): DecodeError.DecodeError | undefined {
-	const slice_: rt.ByteSlice = self.buf;
-	if (len <= slice_.length) {
-		self.buf = new rt.ByteSlice(slice_.data, slice_.start + len, slice_.length - len);
-		sliceOut.pData = slice_.data;
-		sliceOut.pStart = slice_.start;
+	const slice: rt.ByteSlice = self.buf;
+	if (len <= slice.length) {
+		self.buf = new rt.ByteSlice(slice.data, slice.start + len, slice.length - len);
+		sliceOut.pData = slice.data;
+		sliceOut.pStart = slice.start;
 		sliceOut.pLen = len;
 		return undefined;
 	}
@@ -180,7 +180,7 @@ export function bytes(self: Decoder): DecodeError.DecodeError | undefined {
 	const start: rt.ByteSlice = self.buf;
 	const _6: rt.Result<rt.u64, DecodeError.DecodeError> = varint(self);
 	if (_6.ok) {
-		const _3: rt.Result<rt.usize, DecodeError.DecodeError> = mapErr$Result_usize_TryFromIntError_DecodeError_bytes_closure0(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
+		const _3: rt.Result<rt.usize, DecodeError.DecodeError> = result_mapErr$06mnjtr(rt.usizeTryFrom(_6.value), (_2: rt.TryFromIntError): DecodeError.DecodeError => {
 			return { tag: "BoundsExceeded" } as DecodeError.DecodeError;
 		});
 		if (_3.ok) {
@@ -188,10 +188,10 @@ export function bytes(self: Decoder): DecodeError.DecodeError | undefined {
 			const part: Uint8Array = sliceOut.pData;
 			const part2: number = sliceOut.pStart;
 			const part3: number = sliceOut.pLen;
-			const _15: (a0: DecodeError.DecodeError) => void = (_22: DecodeError.DecodeError): void => {
+			const _15: (a0: DecodeError.DecodeError) => undefined = (_22: DecodeError.DecodeError): undefined => {
 				self.buf = start;
 			};
-			_0 = inspectErr$Result_u8s_DecodeError_bytes_closure1((err !== undefined ? rt.Err(err as DecodeError.DecodeError) : rt.Ok(new rt.ByteSlice(part, part2, part3))) as rt.Result<rt.ByteSlice, DecodeError.DecodeError>, _15);
+			_0 = inspectErr$156koiv((err !== undefined ? rt.Err(err as DecodeError.DecodeError) : rt.Ok(new rt.ByteSlice(part, part2, part3))) as rt.Result<rt.ByteSlice, DecodeError.DecodeError>, _15);
 		} else {
 			_0 = _3;
 		}
@@ -220,7 +220,7 @@ export function string(self: Decoder): rt.Result<string, DecodeError.DecodeError
 		if (_2.ok) {
 			return rt.Ok(_2.value);
 		}
-		return rt.Err(DecodeError.from$From_FromUtf8Error((_2 as { ok: false; error: rt.FromUtf8Error }).error));
+		return rt.Err(DecodeError.from$convert_From_string_FromUtf8Error((_2 as { ok: false; error: rt.FromUtf8Error }).error));
 	}
 	return rt.Err(err as DecodeError.DecodeError);
 }

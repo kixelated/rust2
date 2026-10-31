@@ -6,56 +6,56 @@ import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import type * as Group from "../lite/group.Group.ts";
 import type * as Probe from "../lite/probe.Probe.ts";
 
-export function mapErr$Result_Group_DecodeError_DecodeError_complete(self: rt.Result<Group.Group, DecodeError.DecodeError>, _: (a0: DecodeError.DecodeError) => DecodeError.DecodeError): rt.Result<Group.Group, DecodeError.DecodeError> {
+export function mapErr$0577706(self: rt.Result<Group.Group, DecodeError.DecodeError>, _: (a0: DecodeError.DecodeError) => DecodeError.DecodeError): rt.Result<Group.Group, DecodeError.DecodeError> {
 	if (self.ok) {
 		return self;
 	}
 	return rt.Err(DecodeError.complete(self.error));
 }
 
-export function mapErr$Result_Probe_DecodeError_DecodeError_complete(self: rt.Result<Probe.Probe, DecodeError.DecodeError>, _: (a0: DecodeError.DecodeError) => DecodeError.DecodeError): rt.Result<Probe.Probe, DecodeError.DecodeError> {
+export function mapErr$04g1m7s(self: rt.Result<Probe.Probe, DecodeError.DecodeError>, _: (a0: DecodeError.DecodeError) => DecodeError.DecodeError): rt.Result<Probe.Probe, DecodeError.DecodeError> {
 	if (self.ok) {
 		return self;
 	}
 	return rt.Err(DecodeError.complete(self.error));
 }
 
-export function mapErr$Result_u16_TryFromIntError_EncodeError_fill_closure0(self: rt.Result<rt.u16, rt.TryFromIntError>, op: (a0: rt.TryFromIntError) => EncodeError.EncodeError): rt.Result<rt.u16, EncodeError.EncodeError> {
+export function mapErr$0ujtlj1(self: rt.Result<rt.u16, rt.TryFromIntError>, op: (a0: rt.TryFromIntError) => EncodeError.EncodeError): rt.Result<rt.u16, EncodeError.EncodeError> {
 	if (self.ok) {
 		return self as rt.Result<rt.u16, EncodeError.EncodeError>;
 	}
 	return rt.Err(op(self.error));
 }
 
-export function mapErr$Result_usize_TryFromIntError_DecodeError_bytes_closure0(self: rt.Result<rt.usize, rt.TryFromIntError>, op: (a0: rt.TryFromIntError) => DecodeError.DecodeError): rt.Result<rt.usize, DecodeError.DecodeError> {
+export function mapErr$06mnjtr(self: rt.Result<rt.usize, rt.TryFromIntError>, op: (a0: rt.TryFromIntError) => DecodeError.DecodeError): rt.Result<rt.usize, DecodeError.DecodeError> {
 	if (self.ok) {
 		return self as rt.Result<rt.usize, DecodeError.DecodeError>;
 	}
 	return rt.Err(op(self.error));
 }
 
-export function inspectErr$Result_u8s_DecodeError_bytes_closure1(self: rt.Result<rt.ByteSlice, DecodeError.DecodeError>, f: (a0: DecodeError.DecodeError) => void): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
+export function inspectErr$156koiv(self: rt.Result<rt.ByteSlice, DecodeError.DecodeError>, f: (a0: DecodeError.DecodeError) => undefined): rt.Result<rt.ByteSlice, DecodeError.DecodeError> {
 	if (!self.ok) {
 		f(self.error);
 	}
 	return self;
 }
 
-export function andThen$Result_Group_DecodeError_Group_decode_with_closure0(self: rt.Result<Group.Group, DecodeError.DecodeError>, op: (a0: Group.Group) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {
+export function andThen$0hcfsqc(self: rt.Result<Group.Group, DecodeError.DecodeError>, op: (a0: Group.Group) => rt.Result<Group.Group, DecodeError.DecodeError>): rt.Result<Group.Group, DecodeError.DecodeError> {
 	if (self.ok) {
 		return op(self.value);
 	}
 	return self;
 }
 
-export function andThen$Result_Probe_DecodeError_Probe_decode_with_closure0(self: rt.Result<Probe.Probe, DecodeError.DecodeError>, op: (a0: Probe.Probe) => rt.Result<Probe.Probe, DecodeError.DecodeError>): rt.Result<Probe.Probe, DecodeError.DecodeError> {
+export function andThen$1kvlask(self: rt.Result<Probe.Probe, DecodeError.DecodeError>, op: (a0: Probe.Probe) => rt.Result<Probe.Probe, DecodeError.DecodeError>): rt.Result<Probe.Probe, DecodeError.DecodeError> {
 	if (self.ok) {
 		return op(self.value);
 	}
 	return self;
 }
 
-export function unwrapOr$Result_usize_TryFromIntError(self: rt.Result<rt.usize, rt.TryFromIntError>, default_: rt.usize): rt.usize {
+export function unwrapOr$0jeml8j(self: rt.Result<rt.usize, rt.TryFromIntError>, default_: rt.usize): rt.usize {
 	if (self.ok) {
 		return self.value;
 	}

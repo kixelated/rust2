@@ -11,8 +11,6 @@ use crate::ts::{Expr, Key, Param, Stmt, StmtKind};
 
 pub struct Body<'b, 'a, 'tcx> {
 	pub t: &'b mut Translator<'a, 'tcx>,
-	/// The instance's generic arguments.
-	pub args: GenericArgsRef<'tcx>,
 	/// Every name in the function, so none shadows another.
 	names: FxHashSet<String>,
 	/// Which of the function's parameters are byte slices it takes as their parts, by
@@ -24,18 +22,13 @@ pub struct Body<'b, 'a, 'tcx> {
 }
 
 impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
-	pub fn new(t: &'b mut Translator<'a, 'tcx>, args: GenericArgsRef<'tcx>) -> Self {
+	pub fn new(t: &'b mut Translator<'a, 'tcx>) -> Self {
 		Body {
 			t,
-			args,
 			names: FxHashSet::default(),
 			parted: Vec::new(),
 			slotted: None,
 		}
-	}
-
-	pub fn subst<T: ty::TypeFoldable<ty::TyCtxt<'tcx>>>(&self, value: T) -> T {
-		self.t.subst(self.args, value)
 	}
 
 	pub fn err(&mut self, span: Span, msg: impl Into<String>) -> Expr {
@@ -91,7 +84,6 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		out: &mut Vec<Stmt>,
 	) -> Expr {
 		let tcx = self.t.tcx;
-		let gargs = self.subst(gargs);
 
 		// A tuple struct or variant's constructor, called or passed as a value.
 		if let rustc_hir::def::DefKind::Ctor(..) = tcx.def_kind(def_id) {
@@ -131,8 +123,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			let call = self.direct_call(instance, values, span, out);
 			// The crate's own `next` returns an item or `rt.DONE`, and its caller an `Option`.
 			if super::iter::is_next(tcx, did) {
-				let sig = tcx.fn_sig(did).instantiate(tcx, instance.args).skip_norm_wip();
-				let option = tcx.instantiate_bound_regions_with_erased(sig).output();
+				let option = self.t.sig(did, instance.args).output();
 				self.t.ty(option, span);
 				let ty::Adt(_, option_args) = option.kind() else {
 					unreachable!("`next` returns an `Option`")
@@ -156,10 +147,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		if let Some(referent) = library::referent(tcx, def_id, gargs, instance) {
 			// An operand that was a reference to an `rt.Place`, as `&&mut u32` is, passes
 			// what the Place points at.
-			let inputs = |gargs| {
-				let sig = tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip();
-				tcx.instantiate_bound_regions_with_erased(sig).inputs().to_vec()
-			};
+			let inputs = |gargs| self.t.sig(def_id, gargs).inputs().to_vec();
 			let args = std::iter::zip(args, std::iter::zip(inputs(gargs), inputs(referent)))
 				.map(|(arg, (was, now))| match was.kind() {
 					ty::Ref(_, inner, _) if was != now => self.t.pointee_value(*inner, arg),
@@ -209,8 +197,11 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 			return match (std, variant.index()) {
 				(library::Std::Option, 1) | (library::Std::Poll, 0) => values.pop().unwrap(),
 				(library::Std::Cow, _) if library::string(tcx, Ty::new_adt(tcx, adt, gargs)) => values.pop().unwrap(),
+				(library::Std::Cow, _) if let Some(elem) = library::cow_slice(tcx, Ty::new_adt(tcx, adt, gargs)) => {
+					library::cow_made(elem, variant, values.pop().unwrap())
+				}
 				(library::Std::Result, i) => Expr::result(i == 0, values.pop().unwrap()),
-				(library::Std::Reverse, _) => values.pop().unwrap(),
+				(library::Std::Reverse | library::Std::Wrapping | library::Std::Saturating, _) => values.pop().unwrap(),
 				(library::Std::Bound | library::Std::TryLockError, _) => {
 					let ts_ty = self.t.ty(Ty::new_adt(tcx, adt, gargs), span);
 					library::tagged(adt.variant(variant).name.as_str(), values.pop(), ts_ty)
@@ -309,29 +300,80 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 		args
 	}
 
-	/// A function item as a value.
+	/// A value of one of std's types made of zero-sized `values`, which MIR reads as a
+	/// constant rather than from what made it, or `values` back for another type.
+	pub fn zero_sized_std(&mut self, ty: Ty<'tcx>, values: Vec<Expr>, span: Span) -> Result<Expr, Vec<Expr>> {
+		let tcx = self.t.tcx;
+		let ty::Adt(adt, _) = ty.kind() else {
+			return Err(values);
+		};
+		if library::nothing(tcx, ty) {
+			return Ok(Expr::undefined());
+		}
+		// Typed, as what reads it may infer nothing of it.
+		if library::empty_iter(tcx, adt.did()) {
+			let ts_ty = self.t.ty(ty, span);
+			return Ok(Expr::As(Box::new(Expr::rt("iterEmpty", Vec::new())), ts_ty));
+		}
+		let Some((make, gargs)) = super::iter::maker(self.t, ty) else {
+			return Err(values);
+		};
+		let mut pre = Vec::new();
+		let made = self.call_def(make, gargs, values, span, &mut pre);
+		Ok(match pre.is_empty() {
+			true => made,
+			false => self.err(span, format!("a constant of type `{ty}` whose making takes statements")),
+		})
+	}
+
+	/// A function item as a value, typed as one: a declared function's `()` result is `void`,
+	/// which a value's type says is `undefined`.
 	pub fn fn_value(&mut self, def_id: rustc_hir::def_id::DefId, gargs: GenericArgsRef<'tcx>, span: Span) -> Expr {
 		let tcx = self.t.tcx;
-		let gargs = self.subst(gargs);
-		let sig = tcx.instantiate_bound_regions_with_erased(tcx.fn_sig(def_id).instantiate(tcx, gargs).skip_norm_wip());
+		let sig = self.t.sig(def_id, gargs);
 		let names: Vec<String> = (0..sig.inputs().len()).map(|i| self.fresh(&format!("a{i}"))).collect();
-		let values: Vec<Expr> = names.iter().map(Expr::ident).collect();
+		// std's mappings take a `&mut` they declare that is an `rt.Place` as what it points
+		// at, as a call's operands pass it.
+		let pointees = match self.t.mapped(def_id, gargs) {
+			true => super::pointer::pointees(tcx, def_id),
+			false => Vec::new(),
+		};
+		let values: Vec<Expr> = std::iter::zip(&names, sig.inputs())
+			.enumerate()
+			.map(
+				|(i, (name, &ty))| match pointees.get(i) == Some(&true) && self.t.place_pointee(ty).is_some() {
+					true => Expr::ident(name).member("v"),
+					false => Expr::ident(name),
+				},
+			)
+			.collect();
 		// A binding's export, or a function whose body translates, is named directly.
 		if !matches!(tcx.def_kind(def_id), rustc_hir::def::DefKind::Ctor(..))
 			&& let Ok(Some(instance)) = Instance::try_resolve(tcx, self.t.typing_env_pub(), def_id, gargs)
 		{
-			if let Some(sym) = self.t.bound_fn(instance, span) {
-				return Expr::Sym(sym);
-			}
-			// One that takes byte slices as their parts, or hands back its `Ok`'s, is wrapped
-			// to take and return them whole.
-			if self.t.lowers(instance) && self.t.parted(instance).is_empty() && self.t.slotted(instance).is_none() {
-				return Expr::Sym(self.t.callee(instance, span));
+			let sym = match self.t.bound_fn(instance, span) {
+				Some(sym) => Some(sym),
+				// One that takes byte slices as their parts, or hands back its `Ok`'s, is wrapped
+				// to take and return them whole.
+				None => (self.t.lowers(instance) && self.t.parted(instance).is_empty() && self.t.slotted(instance).is_none())
+					.then(|| self.t.callee(instance, span)),
+			};
+			if let Some(sym) = sym {
+				return match sig.output().is_unit() {
+					true => Expr::As(Box::new(Expr::Sym(sym)), self.t.fn_ty(sig.inputs(), sig.output(), span)),
+					false => Expr::Sym(sym),
+				};
 			}
 		}
 		let mut body = Vec::new();
 		let call = self.call_def(def_id, gargs, values, span, &mut body);
-		body.push(StmtKind::Return(Some(call.typed())).at(None));
+		body.push(
+			match sig.output().is_unit() {
+				true => StmtKind::Expr(call),
+				false => StmtKind::Return(Some(call.typed())),
+			}
+			.at(None),
+		);
 		let params = names
 			.into_iter()
 			.zip(sig.inputs())
@@ -340,7 +382,7 @@ impl<'b, 'a, 'tcx> Body<'b, 'a, 'tcx> {
 				Param { name, ty: Some(ty) }
 			})
 			.collect();
-		let ret = self.t.ret_ty(sig.output(), span);
+		let ret = self.t.ty(sig.output(), span);
 		Expr::Arrow(params, ret, body)
 	}
 }

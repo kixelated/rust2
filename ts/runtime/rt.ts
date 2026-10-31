@@ -6,14 +6,18 @@
 // `writeStr`, a future's `poll`, a waker's, and `[Symbol.dispose]`.
 
 import type { Ordering } from "./rt/collections.ts";
-import { type char, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
-import { dropAll, type Pending } from "./rt/task.ts";
+import type { ParseFloatError } from "./rt/float.ts";
+import { type char, type ParseCharError, type ParseIntError, type TryFromIntError, type u32, type usize, u8Debug, usizeDebug, usizeDisplay } from "./rt/int.ts";
+import type { Iter, Range, RangeInclusive } from "./rt/iter.ts";
+import { drop as dispose, dropAll, type Pending } from "./rt/task.ts";
 
 import { AtIndex } from "./rt/collections.ts";
 import { UNPRINTABLE } from "./rt/unicode.ts";
+export * from "./rt/ascii.ts";
 export * from "./rt/bytes.ts";
 export * from "./rt/collections.ts";
 export * from "./rt/float.ts";
+export * from "./rt/hash.ts";
 export * from "./rt/int.ts";
 export * from "./rt/iter.ts";
 export * from "./rt/rand.ts";
@@ -103,6 +107,9 @@ export const NULL: never = null as never;
 
 /** A dangling raw pointer, `NonNull::dangling`, of any type: nothing reads through it. */
 export const DANGLING: never = /* @__PURE__ */ Object.freeze({}) as never;
+
+/** A dangling pointer to `()`, std's every one: a place that holds only `()`. */
+export const DANGLING_UNIT: Place<undefined> = { v: undefined };
 
 /**
  * `ptr::write` of `value` through a pointer to an object: `value` copied into it, one
@@ -215,6 +222,11 @@ export const None: unique symbol = /* @__PURE__ */ Symbol("None");
 /** The type of `None`. */
 export type None = typeof None;
 
+/** `f` of what `o` holds, or `None`: `Option::map` of a payload that is never `undefined`. */
+export function optionMap<T, U>(o: T | undefined, f: (value: T) => U): U | undefined {
+	return o === undefined ? undefined : f(o);
+}
+
 /** `Option::unwrap`: the value, or a panic. */
 export function optionUnwrap<T>(o: T | undefined): T;
 export function optionUnwrap<T>(o: T | None, none: None): T;
@@ -245,7 +257,7 @@ export function at<T>(slice: ArrayLike<T>, index: number): T {
 }
 
 /** Panic unless `start..end` is in a slice of `length`, as std's range checks do. */
-function rangeCheck(length: number, start: number, end: number): void {
+export function rangeCheck(length: number, start: number, end: number): void {
 	if (start > length) panic(`range start index ${start} out of range for slice of length ${length}`);
 	if (end > length) panic(`range end index ${end} out of range for slice of length ${length}`);
 	if (start > end) panic(`slice index starts at ${start} but ends at ${end}`);
@@ -257,14 +269,107 @@ export function sliceRange<T>(s: T[], start: number, end: number = s.length): T[
 	return s.slice(start, end);
 }
 
+/**
+ * `s[start..end]` lent mutably: an array whose every element is `s`'s, read and written
+ * where it is, as a JS array has no views of its own. Its own array, holes of the same
+ * length, answers for the rest, such as `length` and the methods. A view of a view reads
+ * the array beneath both.
+ */
+export function sliceView<T>(s: T[], start: number, end: number): T[] {
+	const outer = (s as { [VIEW]?: View<T> })[VIEW];
+	const view = outer ? new View(outer.s, outer.start + start, end - start) : new View(s, start, end - start);
+	return new Proxy(new Array<T>(end - start), view);
+}
+
+/** What a `sliceView` answers to its own `View` by. */
+const VIEW = /* @__PURE__ */ Symbol("view");
+
+/** A `sliceView`'s traps: of `length` elements of `s` from `start`. */
+class View<T> implements ProxyHandler<T[]> {
+	readonly s: T[];
+	readonly start: number;
+	readonly length: number;
+
+	constructor(s: T[], start: number, length: number) {
+		this.s = s;
+		this.start = start;
+		this.length = length;
+	}
+
+	/** Where in `s` the element `key` names is, or -1 if it names none. */
+	at(key: string | symbol): number {
+		if (typeof key !== "string") return -1;
+		const i = Number(key);
+		return Number.isInteger(i) && i >= 0 && i < this.length && String(i) === key ? this.start + i : -1;
+	}
+
+	get(target: T[], key: string | symbol): unknown {
+		if (key === VIEW) return this;
+		const i = this.at(key);
+		return i < 0 ? Reflect.get(target, key) : this.s[i];
+	}
+
+	set(target: T[], key: string | symbol, value: T): boolean {
+		const i = this.at(key);
+		if (i < 0) return Reflect.set(target, key, value);
+		this.s[i] = value;
+		return true;
+	}
+
+	has(target: T[], key: string | symbol): boolean {
+		return this.at(key) >= 0 || Reflect.has(target, key);
+	}
+
+	ownKeys(target: T[]): (string | symbol)[] {
+		return [...Array.from({ length: this.length }, (_, i) => String(i)), ...Reflect.ownKeys(target)];
+	}
+
+	getOwnPropertyDescriptor(target: T[], key: string | symbol): PropertyDescriptor | undefined {
+		const i = this.at(key);
+		if (i < 0) return Reflect.getOwnPropertyDescriptor(target, key);
+		return { value: this.s[i], writable: true, enumerable: true, configurable: true };
+	}
+}
+
+/** `&mut s[start..end]`: the runtime's view of it, checked as `sliceRange` checks it. */
+export function sliceRangeMut<T>(s: T[], start: number, end: number = s.length): T[] {
+	rangeCheck(s.length, start, end);
+	return sliceView(s, start, end);
+}
+
+/** `get` of `start..end`: the part, or `undefined` unless it is within the slice. */
+export function sliceGetRange<T>(s: T[], start: number, end: number = s.length): T[] | undefined {
+	return start <= end && end <= s.length ? s.slice(start, end) : undefined;
+}
+
+/** `get_mut` of `start..end`: the runtime's view of it, or `undefined` as `sliceGetRange`. */
+export function sliceGetRangeMut<T>(s: T[], start: number, end: number = s.length): T[] | undefined {
+	return start <= end && end <= s.length ? sliceView(s, start, end) : undefined;
+}
+
+/** `last_chunk`: the last `n` elements, or `undefined` if fewer. */
+export function sliceLastChunk<T>(s: T[], n: number): T[] | undefined {
+	return n > s.length ? undefined : s.slice(s.length - n);
+}
+
+/** `last_chunk_mut`: a view of the last `n` elements, or `undefined` if fewer. */
+export function sliceLastChunkMut<T>(s: T[], n: number): T[] | undefined {
+	return n > s.length ? undefined : sliceView(s, s.length - n, s.length);
+}
+
+/** `split_last_chunk`: the rest and the last `n` elements, or `undefined` if fewer. */
+export function sliceSplitLastChunk<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : sliceSplitAt(s, s.length - n);
+}
+
+/** `split_last_chunk_mut`: views of the rest and the last `n` elements, or `undefined` if fewer. */
+export function sliceSplitLastChunkMut<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : sliceSplitAtMut(s, s.length - n);
+}
+
 /** `split_first`: the first element and the rest, or `undefined` if empty. */
 export function sliceSplitFirst<T>(s: T[]): [T, T[]] | undefined {
 	return s.length === 0 ? undefined : [s[0], s.slice(1)];
-}
-
-/** `split_first_chunk`: the first `n` elements and the rest, or `undefined` if shorter. */
-export function sliceSplitFirstChunk<T>(s: T[], n: number): [T[], T[]] | undefined {
-	return s.length < n ? undefined : [s.slice(0, n), s.slice(n)];
 }
 
 /** `split_at`, panicking past the length. */
@@ -278,14 +383,45 @@ export function sliceSplitAtChecked<T>(s: T[], n: number): [T[], T[]] | undefine
 	return n > s.length ? undefined : [s.slice(0, n), s.slice(n)];
 }
 
-/** `first`: the first element, or `undefined` if empty. */
+/** `split_at_mut`: views of either half, panicking past the length. */
+export function sliceSplitAtMut<T>(s: T[], n: number): [T[], T[]] {
+	if (n > s.length) panic("mid > len");
+	return [sliceView(s, 0, n), sliceView(s, n, s.length)];
+}
+
+/** `split_at_mut_checked`: views of either half, or `undefined` past the length. */
+export function sliceSplitAtMutChecked<T>(s: T[], n: number): [T[], T[]] | undefined {
+	return n > s.length ? undefined : [sliceView(s, 0, n), sliceView(s, n, s.length)];
+}
+
+/**
+ * `split_first_mut`: the first element, as its place if it is one JS copies, and a view
+ * of the rest, or `undefined` if empty.
+ */
+export function sliceSplitFirstMut<T>(s: T[], place: true): [Place<T>, T[]] | undefined;
+export function sliceSplitFirstMut<T>(s: T[], place: false): [T, T[]] | undefined;
+export function sliceSplitFirstMut<T>(s: T[], place: boolean): [Place<T> | T, T[]] | undefined {
+	if (s.length === 0) return undefined;
+	return [place ? new AtIndex(s, 0) : s[0], sliceView(s, 1, s.length)];
+}
+
+/** `split_last_mut`: as `sliceSplitFirstMut`, the last element and a view of the rest. */
+export function sliceSplitLastMut<T>(s: T[], place: true): [Place<T>, T[]] | undefined;
+export function sliceSplitLastMut<T>(s: T[], place: false): [T, T[]] | undefined;
+export function sliceSplitLastMut<T>(s: T[], place: boolean): [Place<T> | T, T[]] | undefined {
+	const n = s.length - 1;
+	if (n < 0) return undefined;
+	return [place ? new AtIndex(s, n) : s[n], sliceView(s, 0, n)];
+}
+
+/** `first`, and `first_mut` of an element that is an object: the first element, or `none` if empty. */
 export function sliceFirst<T>(s: ArrayLike<T>): T | undefined;
 export function sliceFirst<T>(s: ArrayLike<T>, none: None): T | None;
 export function sliceFirst<T>(s: ArrayLike<T>, none?: None): T | undefined | None {
 	return s.length === 0 ? none : s[0];
 }
 
-/** `get`: the element at `index`, or `undefined` past the end. */
+/** `get`, and `get_mut` of an element that is an object: the element at `index`, or `none` past the end. */
 export function sliceGet<T>(s: ArrayLike<T>, index: number): T | undefined;
 export function sliceGet<T>(s: ArrayLike<T>, index: number, none: None): T | None;
 export function sliceGet<T>(s: ArrayLike<T>, index: number, none?: None): T | undefined | None {
@@ -305,9 +441,11 @@ export function nonZero<T>(n: T): T | undefined {
 	return n === 0 ? undefined : n;
 }
 
-/** `last`, and `last_mut` of an element that is an object: the last element, or `undefined` if empty. */
-export function sliceLast<T>(s: ArrayLike<T>): T | undefined {
-	return s.length === 0 ? undefined : s[s.length - 1];
+/** `last`, and `last_mut` of an element that is an object: the last element, or `none` if empty. */
+export function sliceLast<T>(s: ArrayLike<T>): T | undefined;
+export function sliceLast<T>(s: ArrayLike<T>, none: None): T | None;
+export function sliceLast<T>(s: ArrayLike<T>, none?: None): T | undefined | None {
+	return s.length === 0 ? none : s[s.length - 1];
 }
 
 /** `get_mut` of an element JS copies: its place, or `undefined` past the end. */
@@ -336,6 +474,91 @@ export function sliceSwap<T>(s: T[], a: number, b: number): void {
 	const x = s[idx(s, a)];
 	s[a] = s[idx(s, b)];
 	s[b] = x;
+}
+
+/**
+ * `fill`: a clone of `value` into each slot but the last, each old element dropped once
+ * its slot's clone is made, then `value` itself into the last, or `value` dropped if there
+ * is none. `clone` is `undefined` where a clone is the value.
+ */
+export function sliceFill<T>(s: T[], value: T, clone: ((value: T) => T) | undefined, drop?: (item: T) => void): void {
+	const last = s.length - 1;
+	if (last < 0) return drop?.(value);
+	for (let i = 0; i < last; i++) {
+		const item = clone === undefined ? value : clone(value);
+		drop?.(s[i]);
+		s[i] = item;
+	}
+	drop?.(s[last]);
+	s[last] = value;
+}
+
+/** `fill_with`: `f()` into each slot in order, each old element dropped once its slot's value is made. */
+export function sliceFillWith<T>(s: T[], f: () => T, drop?: (item: T) => void): void {
+	for (let i = 0; i < s.length; i++) {
+		const item = f();
+		drop?.(s[i]);
+		s[i] = item;
+	}
+}
+
+/** `rotate_left`, panicking past the length. */
+export function sliceRotateLeft<T>(s: T[], mid: number): void {
+	if (mid > s.length) panic("assertion failed: mid <= self.len()");
+	rotate(s, mid);
+}
+
+/** `rotate_right`, panicking past the length. */
+export function sliceRotateRight<T>(s: T[], k: number): void {
+	if (k > s.length) panic("assertion failed: k <= self.len()");
+	rotate(s, s.length - k);
+}
+
+/** The elements from `mid` on, then those before it, in place. */
+function rotate<T>(s: T[], mid: number): void {
+	if (mid === 0 || mid === s.length) return;
+	const head = s.slice(0, mid);
+	s.copyWithin(0, mid);
+	for (let i = 0; i < mid; i++) s[s.length - mid + i] = head[i];
+}
+
+/** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds; `copy` is `undefined` where a copy is the value. */
+export function sliceCopyWithin<T>(s: T[], start: number, end: number, dest: number, copy?: (value: T) => T): void {
+	copyWithinCheck(s.length, start, end, dest);
+	if (copy === undefined) {
+		s.copyWithin(dest, start, end);
+		return;
+	}
+	const items = s.slice(start, end);
+	for (let i = 0; i < items.length; i++) s[dest + i] = copy(items[i]);
+}
+
+/** `copy_within`'s checks of `start..end` and `dest` in `length` elements. */
+function copyWithinCheck(length: number, start: number, end: number, dest: number): void {
+	// `slice::range` checks the end first, then `range` reports the rest.
+	if (end > length) panic(`range end index ${end} out of range for slice of length ${length}`);
+	rangeCheck(length, start, end);
+	if (dest > length - (end - start)) panic("dest is out of bounds");
+}
+
+/** `copy_from_slice`, and `clone_from_slice` of a `TrivialClone`, panicking if the lengths differ; `copy` as `sliceCopyWithin`'s. */
+export function sliceCopyFromSlice<T>(dst: T[], src: ArrayLike<T>, copy?: (value: T) => T): void {
+	if (dst.length !== src.length) copyLengthFail(dst.length, src.length);
+	for (let i = 0; i < src.length; i++) dst[i] = copy === undefined ? src[i] : copy(src[i]);
+}
+
+/** `clone_from_slice`: each slot's clone in order, each old element dropped once its slot's clone is made, panicking first if the lengths differ. */
+export function sliceCloneFromSlice<T>(dst: T[], src: ArrayLike<T>, clone: ((value: T) => T) | undefined, drop?: (item: T) => void): void {
+	if (dst.length !== src.length) panic("destination and source slices have different lengths");
+	for (let i = 0; i < src.length; i++) {
+		const item = clone === undefined ? src[i] : clone(src[i]);
+		drop?.(dst[i]);
+		dst[i] = item;
+	}
+}
+
+function copyLengthFail(dst: number, src: number): never {
+	panic(`copy_from_slice: source slice length (${src}) does not match destination slice length (${dst})`);
 }
 
 /** `sort_by` and `sort_unstable_by`: by `cmp`, whether it orders `Less`, as `sliceSort` sorts. */
@@ -388,6 +611,26 @@ export function sliceSort<T>(s: { [i: number]: T; length: number }, less: (a: T,
 			while (i < left.length) s[k++] = left[i++];
 		}
 	}
+}
+
+/**
+ * `is_sorted`, by `le`, the elements' `PartialOrd::le`: as std's, which below 33 elements
+ * stops at the first pair out of order, and past that tests every pair of each chunk of 33
+ * before it stops, the last element of one the first of the next.
+ */
+export function sliceIsSorted<T>(s: { [i: number]: T; length: number }, le: (a: T, b: T) => boolean): boolean {
+	const CHUNK = 33;
+	const n = s.length;
+	let i = 0;
+	if (n >= CHUNK) {
+		for (; i < n - CHUNK; i += CHUNK - 1) {
+			let sorted = true;
+			for (let j = i + 1; j < i + CHUNK; j++) sorted = le(s[j - 1], s[j]) && sorted;
+			if (!sorted) return false;
+		}
+	}
+	for (i++; i < n; i++) if (!le(s[i - 1], s[i])) return false;
+	return true;
 }
 
 /**
@@ -457,6 +700,46 @@ export function vecAssign<T>(v: T[], value: T[]): void {
 export function vecInsert<T>(v: T[], i: number, item: T): void {
 	if (i > v.length) panic(`insertion index (is ${i}) should be <= len (is ${v.length})`);
 	v.splice(i, 0, item);
+}
+
+/** `Vec::pop` of an element that can be `undefined`: the last element, or `none` if empty. */
+export function vecPop<T>(v: T[], none: None): T | None {
+	return v.length === 0 ? none : (v.pop() as T);
+}
+
+/**
+ * `Vec::pop_if`: the last element if `f` takes it, given the element, or else `none`. An
+ * empty `v` drops `f` by `dropF` uncalled.
+ */
+export function vecPopIf<T>(v: T[], f: (item: T) => boolean, dropF?: (f: (item: T) => boolean) => void): T | undefined;
+export function vecPopIf<T>(v: T[], f: (item: T) => boolean, dropF: ((f: (item: T) => boolean) => void) | undefined, none: None): T | None;
+export function vecPopIf<T>(v: T[], f: (item: T) => boolean, dropF?: (f: (item: T) => boolean) => void, none?: None): T | None | undefined {
+	if (v.length === 0) {
+		dropF?.(f);
+		return none;
+	}
+	return f(v[v.length - 1]) ? (v.pop() as T) : none;
+}
+
+/** `Vec::pop_if` of an element JS copies, which `f` takes the place of. */
+export function vecPopIfMut<T>(v: T[], f: (item: Place<T>) => boolean, dropF?: (f: (item: Place<T>) => boolean) => void): T | undefined;
+export function vecPopIfMut<T>(
+	v: T[],
+	f: (item: Place<T>) => boolean,
+	dropF: ((f: (item: Place<T>) => boolean) => void) | undefined,
+	none: None,
+): T | None;
+export function vecPopIfMut<T>(
+	v: T[],
+	f: (item: Place<T>) => boolean,
+	dropF?: (f: (item: Place<T>) => boolean) => void,
+	none?: None,
+): T | None | undefined {
+	if (v.length === 0) {
+		dropF?.(f);
+		return none;
+	}
+	return f(new AtIndex(v, v.length - 1)) ? (v.pop() as T) : none;
 }
 
 /** `Vec::remove`: the element at `i`, with those after it moved down. */
@@ -529,15 +812,35 @@ export function byteSliceRange(s: ByteSlice, start: number, end: number = s.leng
 	return new ByteSlice(s.data, s.start + start, end - start);
 }
 
+/** `get` of `start..end`: the part, or `undefined` unless it is within the slice. */
+export function byteSliceGetRange(s: ByteSlice, start: number, end: number = s.length): ByteSlice | undefined {
+	return start <= end && end <= s.length ? new ByteSlice(s.data, s.start + start, end - start) : undefined;
+}
+
+/** `last_chunk`: the last `n` bytes, or `undefined` if fewer. */
+export function byteSliceLastChunk(s: ByteSlice, n: number): ByteSlice | undefined {
+	return n > s.length ? undefined : new ByteSlice(s.data, s.start + s.length - n, n);
+}
+
+/** `split_last_chunk`: the rest and the last `n` bytes, or `undefined` if fewer. */
+export function byteSliceSplitLastChunk(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
+	return n > s.length ? undefined : byteSliceSplitAt(s, s.length - n);
+}
+
 /** `split_first`: the first byte and the rest, or `undefined` if empty. */
 export function byteSliceSplitFirst(s: ByteSlice): [number, ByteSlice] | undefined {
 	return s.length === 0 ? undefined : [s.data[s.start], new ByteSlice(s.data, s.start + 1, s.length - 1)];
 }
 
-/** `split_first_chunk`: the first `n` bytes and the rest, or `undefined` if shorter. */
-export function byteSliceSplitFirstChunk(s: ByteSlice, n: number): [ByteSlice, ByteSlice] | undefined {
-	if (s.length < n) return undefined;
-	return [new ByteSlice(s.data, s.start, n), new ByteSlice(s.data, s.start + n, s.length - n)];
+/** `split_first_mut`: the first byte's place and the rest, or `undefined` if empty. */
+export function byteSliceSplitFirstMut(s: ByteSlice): [Place<number>, ByteSlice] | undefined {
+	return s.length === 0 ? undefined : [new AtIndex(s.data, s.start), new ByteSlice(s.data, s.start + 1, s.length - 1)];
+}
+
+/** `split_last_mut`: the last byte's place and the rest, or `undefined` if empty. */
+export function byteSliceSplitLastMut(s: ByteSlice): [Place<number>, ByteSlice] | undefined {
+	const n = s.length - 1;
+	return n < 0 ? undefined : [new AtIndex(s.data, s.start + n), new ByteSlice(s.data, s.start, n)];
 }
 
 /** `*r` of a `&[u8; N]`: a copy of its bytes. */
@@ -597,19 +900,43 @@ export function copyBytes(dst: Uint8Array, at: number, src: Uint8Array, start: n
 
 /** `copy_from_slice`, panicking if the lengths differ. */
 export function byteSliceCopyFromSlice(dst: ByteSlice, src: ByteSlice): void {
-	if (dst.length !== src.length) {
-		panic(`copy_from_slice: source slice length (${src.length}) does not match destination slice length (${dst.length})`);
-	}
+	if (dst.length !== src.length) copyLengthFail(dst.length, src.length);
 	copyBytes(dst.data, dst.start, src.data, src.start, src.length);
 }
 
 /** `copy_within`: `s[start..end]` copied to index `dest`, panicking out of bounds. */
 export function byteSliceCopyWithin(s: ByteSlice, start: number, end: number, dest: number): void {
-	// `slice::range` checks the end first, then `range` reports the rest.
-	if (end > s.length) panic(`range end index ${end} out of range for slice of length ${s.length}`);
-	rangeCheck(s.length, start, end);
-	if (dest > s.length - (end - start)) panic("dest is out of bounds");
+	copyWithinCheck(s.length, start, end, dest);
 	s.data.copyWithin(s.start + dest, s.start + start, s.start + end);
+}
+
+/** `fill` of bytes. */
+export function byteSliceFill(s: ByteSlice, value: number): void {
+	s.data.fill(value, s.start, s.start + s.length);
+}
+
+/** `fill_with` of bytes: `f()` into each in order. */
+export function byteSliceFillWith(s: ByteSlice, f: () => number): void {
+	for (let i = 0; i < s.length; i++) s.data[s.start + i] = f();
+}
+
+/** `rotate_left` of bytes, panicking past the length. */
+export function byteSliceRotateLeft(s: ByteSlice, mid: number): void {
+	if (mid > s.length) panic("assertion failed: mid <= self.len()");
+	byteRotate(s, mid);
+}
+
+/** `rotate_right` of bytes, panicking past the length. */
+export function byteSliceRotateRight(s: ByteSlice, k: number): void {
+	if (k > s.length) panic("assertion failed: k <= self.len()");
+	byteRotate(s, s.length - k);
+}
+
+/** The bytes from `mid` on, then those before it, in place. */
+function byteRotate(s: ByteSlice, mid: number): void {
+	const head = s.data.slice(s.start, s.start + mid);
+	s.data.copyWithin(s.start, s.start + mid, s.start + s.length);
+	s.data.set(head, s.start + s.length - mid);
 }
 
 /** `to_vec` of bytes. */
@@ -660,6 +987,32 @@ export function arrayFromFn<T>(n: number, f: (i: number) => T): T[] {
 export function bytesFromFn(n: number, f: (i: number) => number): Uint8Array {
 	const out = bytes(n);
 	for (let i = 0; i < n; i++) out[i] = f(i);
+	return out;
+}
+
+/** `<[T; N]>::map`: `f` of each element, called in order. */
+export function arrayMap<T, U>(a: ArrayLike<T>, f: (x: T) => U): U[] {
+	const out: U[] = [];
+	for (let i = 0; i < a.length; i++) out.push(f(a[i]));
+	return out;
+}
+
+/** `<[T; N]>::map` to bytes. */
+export function bytesMap<T>(a: ArrayLike<T>, f: (x: T) => number): Uint8Array {
+	const out = bytes(a.length);
+	for (let i = 0; i < a.length; i++) out[i] = f(a[i]);
+	return out;
+}
+
+/** `<[T; N]>::each_ref` and `each_mut` of elements lent as themselves. */
+export function arrayFrom<T>(a: ArrayLike<T>): T[] {
+	return Array.from(a);
+}
+
+/** `<[T; N]>::each_mut` of elements JS copies: the place of each. */
+export function arrayPlaces<T>(a: { [i: number]: T; length: number }): Place<T>[] {
+	const out: Place<T>[] = [];
+	for (let i = 0; i < a.length; i++) out.push(new AtIndex(a, i));
 	return out;
 }
 
@@ -719,6 +1072,19 @@ export function byteVecPush(v: ByteVec, byte: number): void {
 /** `Vec::pop`: the last byte, or `undefined` if empty. */
 export function byteVecPop(v: ByteVec): number | undefined {
 	return v.length === 0 ? undefined : v.data[--v.length];
+}
+
+/** `Vec::pop_if`, which `f` takes the last byte's place in. An empty `v` drops `f` by `dropF` uncalled. */
+export function byteVecPopIf(
+	v: ByteVec,
+	f: (byte: Place<number>) => boolean,
+	dropF?: (f: (byte: Place<number>) => boolean) => void,
+): number | undefined {
+	if (v.length === 0) {
+		dropF?.(f);
+		return undefined;
+	}
+	return f(new AtIndex(v.data, v.length - 1)) ? v.data[--v.length] : undefined;
 }
 
 /** `Vec::extend_from_slice`. */
@@ -787,6 +1153,74 @@ export function byteVecDedupByMut(v: ByteVec, same: (a: Place<number>, b: Place<
 /** `Vec::dedup_by_key`, whose places `key` takes. */
 export function byteVecDedupByKeyMut<K>(v: ByteVec, key: (byte: Place<number>) => K, eq: (a: K, b: K) => boolean): void {
 	byteVecDedupByMut(v, (a, b) => eq(key(a), key(b)));
+}
+
+// Cows of slices. An owned one is its `Vec` and a borrowed one its slice, told apart by
+// class: a `Cow<[u8]>` is an `rt.ByteVec` or an `rt.ByteSlice`, and any other is an array
+// or the `rt.Borrowed` wrapping the array it borrows.
+
+/**
+ * The slice a `Cow<[T]>` borrows, which it clones before it changes. A `&mut` to the
+ * borrow writes `slice`, so no two `Cow`s share one.
+ */
+export class Borrowed<T> {
+	slice: T[];
+
+	constructor(slice: T[]) {
+		this.slice = slice;
+	}
+}
+
+/** `Cow<[T]>`: the `Vec` it owns, or the slice it borrows. */
+export type Cow<T> = T[] | Borrowed<T>;
+/** `Cow<[u8]>`: the `Vec<u8>` it owns, or the bytes it borrows. */
+export type ByteCow = ByteVec | ByteSlice;
+
+/** `Deref` of a `Cow<[T]>`: its slice. */
+export function cowSlice<T>(c: Cow<T>): T[] {
+	return c instanceof Borrowed ? c.slice : c;
+}
+
+/** `Deref` of a `Cow<[u8]>`: its bytes. */
+export function byteCowSlice(c: ByteCow): ByteSlice {
+	return c instanceof ByteVec ? byteVecSlice(c) : c;
+}
+
+/** `Cow::into_owned` of a `Cow<[T]>`: its `Vec`, or a clone of what it borrows, each item by `clone` if given. */
+export function cowIntoOwned<T>(c: Cow<T>, clone?: (item: T) => T): T[] {
+	if (!(c instanceof Borrowed)) return c;
+	return clone === undefined ? c.slice.slice() : c.slice.map(clone);
+}
+
+/** `Cow::into_owned` of a `Cow<[u8]>`. */
+export function byteCowIntoOwned(c: ByteCow): ByteVec {
+	return c instanceof ByteVec ? c : byteSliceToByteVec(c);
+}
+
+/** `Clone` of a `Cow<[T]>`: a borrow of the same slice, or a clone of its `Vec`. */
+export function cowClone<T>(c: Cow<T>, clone?: (item: T) => T): Cow<T> {
+	if (c instanceof Borrowed) return new Borrowed(c.slice);
+	return clone === undefined ? c.slice() : c.map(clone);
+}
+
+/** `Clone` of a `Cow<[u8]>`. */
+export function byteCowClone(c: ByteCow): ByteCow {
+	return c instanceof ByteVec ? byteSliceToByteVec(byteVecSlice(c)) : c;
+}
+
+/** Drop a `Cow<[T]>`: the items it owns, by `f` if given. */
+export function cowDrop<T>(c: Cow<T>, f?: (item: T) => void): void {
+	if (!(c instanceof Borrowed)) dropAll(c, f);
+}
+
+/** `f` of the slices two `Cow<[T]>`s deref to, as their `PartialEq` and `Ord` compare them. */
+export function cowBy<T, R>(f: (a: T[], b: T[]) => R): (a: Cow<T>, b: Cow<T>) => R {
+	return (a, b) => f(cowSlice(a), cowSlice(b));
+}
+
+/** `Hash::hash` of a `Cow<[T]>`: its slice's. */
+export function hashCow<T, S>(hash: (value: T[], s: S) => void): (value: Cow<T>, s: S) => void {
+	return (value, s) => hash(cowSlice(value), s);
 }
 
 // Strings
@@ -878,15 +1312,13 @@ export function charFromU32(n: u32): char | undefined {
 	return n > 0x10ffff || (n >= 0xd800 && n <= 0xdfff) ? undefined : (n as char);
 }
 
-/** `char::is_ascii_digit`. */
-export function charIsAsciiDigit(c: char): boolean {
-	return c >= 0x30 && c <= 0x39;
-}
-
 // Formatting, as `core::fmt` does it: the same output byte for byte.
 
 /** `core::fmt::Error`. */
 export class FmtError {}
+
+/** `core::str::ParseBoolError`. */
+export class ParseBoolError {}
 
 /** `fmt::Result`. */
 export type FmtResult = Result<undefined, FmtError>;
@@ -1006,6 +1438,14 @@ export function fmtWriteFmt(f: Formatter, args: Arguments): FmtResult {
 	return write(f.out, args);
 }
 
+/** `write!` into a `String`, `s`: `s` with what was written, even before an error, and the result. */
+export function fmtWriteString(s: string, args: Arguments): { s: string; result: FmtResult } {
+	const out = new StringWriter();
+	out.s = s;
+	const result = write(out, args);
+	return { s: out.s, result };
+}
+
 /** `Formatter::alternate`: whether the spec has `#`. */
 export function fmtAlternate(f: Formatter): boolean {
 	return f.spec.alternate === true;
@@ -1038,7 +1478,11 @@ export function fmtPad(f: Formatter, s: string): FmtResult {
 
 /** Write an integer's sign, `prefix` if alternate, and `digits`, padded to the width. */
 export function fmtPadIntegral(f: Formatter, nonnegative: boolean, prefix: string, digits: string): FmtResult {
-	const head = (nonnegative ? (f.spec.plus ? "+" : "") : "-") + (fmtAlternate(f) ? prefix : "");
+	return fmtPadFormatted(f, (nonnegative ? (f.spec.plus ? "+" : "") : "-") + (fmtAlternate(f) ? prefix : ""), digits);
+}
+
+/** `Formatter::pad_formatted_parts`: `head` and `digits`, ASCII, padded to the width, the `0` flag's zeros between them. */
+export function fmtPadFormatted(f: Formatter, head: string, digits: string): FmtResult {
 	const length = head.length + digits.length;
 	const width = f.spec.width ?? 0;
 	if (length >= width) return f.out.writeStr(head + digits);
@@ -1194,9 +1638,13 @@ export function debugListEntry(b: DebugList, value: Fmt): DebugList {
 	return b;
 }
 
-/** `DebugList::entries`. */
-export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>): DebugList {
-	for (const item of items) debugListEntry(b, (f) => debug(item, f));
+/** `DebugList::entries`: each item written and then dropped by `drop`, and then `items` dropped, as std's `for` does. */
+export function debugListEntries<T>(b: DebugList, items: Iterable<T>, debug: Debug<T>, drop?: (value: T) => void): DebugList {
+	for (const item of items) {
+		debugListEntry(b, (f) => debug(item, f));
+		drop?.(item);
+	}
+	dispose(items);
 	return b;
 }
 
@@ -1335,9 +1783,122 @@ export function fmtResult<T, E>(r: Result<T, E>, f: Formatter, ok: Debug<T>, err
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, r.ok ? "Ok" : "Err"), field));
 }
 
-/** `Debug` of a slice, array, or `Vec`. */
+/** `Debug` of a slice, array, `Vec`, `VecDeque`, or `BinaryHeap`. */
 export function fmtList<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
 	return debugListFinish(debugListEntries(fmtDebugList(f), items, debug));
+}
+
+/** `Debug` of a set: std's `DebugSet` is its `DebugList` in braces. */
+export function fmtSet<T>(items: Iterable<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	const b = debugListEntries({ fmt: f, result: f.out.writeStr("{"), hasFields: false }, items, debug);
+	if (b.result.ok) b.result = f.out.writeStr("}");
+	return b.result;
+}
+
+/** `Debug` of a map: a set of entries, each its key and value apart by `": "` in one indented field. */
+export function fmtMap<K, V>(entries: Iterable<[K, V]>, f: Formatter, key: Debug<K>, value: Debug<V>): FmtResult {
+	return fmtSet(entries, f, ([k, v], f) => {
+		let r = key(k, f);
+		if (r.ok) r = f.out.writeStr(": ");
+		return r.ok ? value(v, f) : r;
+	});
+}
+
+/** What one of std's iterators writes around its list: a tuple struct's name, or a struct's name and its one field's. */
+export type IterWrap = string | readonly [name: string, field: string];
+
+/** `Debug` of one of std's iterators: the items `it` has left, as a list inside `wraps`, outermost first. */
+export function fmtIter<T>(it: Iter<unknown>, f: Formatter, debug: Debug<T>, wraps: readonly IterWrap[] = []): FmtResult {
+	return wrapIn(f, wraps, (f) => fmtList(it.remaining() as Iterable<T>, f, debug));
+}
+
+function wrapIn(f: Formatter, wraps: readonly IterWrap[], inner: Fmt): FmtResult {
+	if (wraps.length === 0) return inner(f);
+	const [wrap, ...rest] = wraps;
+	const field: Fmt = (f) => wrapIn(f, rest, inner);
+	if (typeof wrap === "string") return fmtDebugTupleFields(f, wrap, [field]);
+	return fmtDebugStructFields(f, wrap[0], [wrap[1]], [field]);
+}
+
+/** `Debug` of `str::Chars`: its name around the list of chars it has left, which a field's indent would not be. */
+export function fmtChars(it: Iter<char>, f: Formatter): FmtResult {
+	let r = f.out.writeStr("Chars(");
+	if (r.ok) r = fmtList(it.remaining() as Iterable<char>, f, fmtCharDebug);
+	return r.ok ? f.out.writeStr(")") : r;
+}
+
+/** `Debug` of a key as a `BTreeSet`'s `range` and `into_iter` list it: its map's entry, the key and a `SetValZST`. */
+export function fmtSetVal<K>(debug: Debug<K>): Debug<K> {
+	return (key, f) => fmtTuple([(f) => debug(key, f), (f) => f.out.writeStr("SetValZST")], f);
+}
+
+/** `Debug` of a range: each bound present, written with the formatter's options, around `dots`, which none pads. */
+function fmtBounds(f: Formatter, start: Fmt | undefined, dots: string, end: Fmt | undefined): FmtResult {
+	if (start !== undefined) {
+		const r = start(f);
+		if (!r.ok) return r;
+	}
+	const r = f.out.writeStr(dots);
+	return r.ok && end !== undefined ? end(f) : r;
+}
+
+/** `Debug` of `start..end`. */
+export function fmtRange<T>(r: Range<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, (f) => debug(r.start, f), "..", (f) => debug(r.end, f));
+}
+
+/** `Debug` of `start..=end`, which notes once iteration has exhausted it. */
+export function fmtRangeInclusive<T>(r: RangeInclusive<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	const result = fmtBounds(f, (f) => debug(r.lo, f), "..=", (f) => debug(r.hi, f));
+	return result.ok && r.exhausted ? f.out.writeStr(" (exhausted)") : result;
+}
+
+/** `Debug` of `start..`. */
+export function fmtRangeFrom<T>(r: { start: T }, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, (f) => debug(r.start, f), "..", undefined);
+}
+
+/** `Debug` of `..end`. */
+export function fmtRangeTo<T>(r: { end: T }, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, undefined, "..", (f) => debug(r.end, f));
+}
+
+/** `Debug` of `..=end`. */
+export function fmtRangeToInclusive<T>(r: { end: T }, f: Formatter, debug: Debug<T>): FmtResult {
+	return fmtBounds(f, undefined, "..=", (f) => debug(r.end, f));
+}
+
+/** `Debug` of `..`. */
+export function fmtRangeFull(_: undefined, f: Formatter): FmtResult {
+	return f.out.writeStr("..");
+}
+
+/** `Debug` of a `Bound`: its variant, around what it holds. */
+export function fmtBound<T>(b: RangeBound<T>, f: Formatter, debug: Debug<T>): FmtResult {
+	if (b.tag === "Unbounded") return f.out.writeStr("Unbounded");
+	return fmtDebugTupleFields(f, b.tag, [(f) => debug(b._0, f)]);
+}
+
+/** `Debug` of an `Ordering`, unpadded. */
+export function fmtOrdering(o: Ordering, f: Formatter): FmtResult {
+	return f.out.writeStr(o < 0 ? "Less" : o > 0 ? "Greater" : "Equal");
+}
+
+/** `Debug` of a `ControlFlow` held as a `Result`, `Ok` to continue: `stop` writes what it breaks with, the `Err` itself with `residual`, as `?` breaks with it. */
+export function fmtControlFlow<C, B>(r: Result<C, B>, f: Formatter, go: Debug<C>, stop: Debug<B>): FmtResult;
+export function fmtControlFlow<C, E>(r: Result<C, E>, f: Formatter, go: Debug<C>, stop: Debug<Result<never, E>>, residual: true): FmtResult;
+export function fmtControlFlow<C, B>(r: Result<C, B>, f: Formatter, go: Debug<C>, stop: Debug<B> | Debug<Result<never, B>>, residual = false): FmtResult {
+	if (r.ok) return fmtDebugTupleFields(f, "Continue", [(f) => go(r.value, f)]);
+	const held: Fmt = residual ? (f) => (stop as Debug<Result<never, B>>)(r, f) : (f) => (stop as Debug<B>)(r.error, f);
+	return fmtDebugTupleFields(f, "Break", [held]);
+}
+
+/** `Debug` of a `ControlFlow` held as the `Option` `?` was applied to, which breaks with `None`. */
+export function fmtControlFlowOption<C>(o: C | undefined, f: Formatter, go: Debug<C>, stop: Debug<undefined>): FmtResult;
+export function fmtControlFlowOption<C>(o: C | None, f: Formatter, go: Debug<C>, stop: Debug<undefined>, none: None): FmtResult;
+export function fmtControlFlowOption<C>(o: C | undefined | None, f: Formatter, go: Debug<C>, stop: Debug<undefined>, none?: None): FmtResult {
+	if (o === none) return fmtDebugTupleFields(f, "Break", [(f) => stop(undefined, f)]);
+	return fmtDebugTupleFields(f, "Continue", [(f) => go(o as C, f)]);
 }
 
 /** `Debug` of a tuple, given each element's. */
@@ -1365,6 +1926,54 @@ export function fmtErrorDisplay(_: FmtError, f: Formatter): FmtResult {
 /** `Debug` of `TryFromIntError`. */
 export function fmtTryFromIntErrorDebug(e: TryFromIntError, f: Formatter): FmtResult {
 	return debugTupleFinish(debugTupleField(fmtDebugTuple(f, "TryFromIntError"), (f) => f.out.writeStr(e.kind)));
+}
+
+/** `Debug` of `ParseIntError`. */
+export function fmtParseIntErrorDebug(e: ParseIntError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseIntError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseIntError`. */
+export function fmtParseIntErrorDisplay(e: ParseIntError, f: Formatter): FmtResult {
+	const messages = {
+		Empty: "cannot parse integer from empty string",
+		InvalidDigit: "invalid digit found in string",
+		PosOverflow: "number too large to fit in target type",
+		NegOverflow: "number too small to fit in target type",
+		Zero: "number would be zero for non-zero type",
+		NotAPowerOfTwo: "number is not a power of two",
+	};
+	return fmtPad(f, messages[e.kind]);
+}
+
+/** `Debug` of `ParseBoolError`. */
+export function fmtParseBoolErrorDebug(_: ParseBoolError, f: Formatter): FmtResult {
+	return f.out.writeStr("ParseBoolError");
+}
+
+/** `Display` of `ParseBoolError`. */
+export function fmtParseBoolErrorDisplay(_: ParseBoolError, f: Formatter): FmtResult {
+	return fmtPad(f, "provided string was not `true` or `false`");
+}
+
+/** `Debug` of `ParseCharError`. */
+export function fmtParseCharErrorDebug(e: ParseCharError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseCharError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseCharError`. */
+export function fmtParseCharErrorDisplay(e: ParseCharError, f: Formatter): FmtResult {
+	return fmtPad(f, e.kind === "EmptyString" ? "cannot parse char from empty string" : "too many characters in string");
+}
+
+/** `Debug` of `ParseFloatError`. */
+export function fmtParseFloatErrorDebug(e: ParseFloatError, f: Formatter): FmtResult {
+	return fmtDebugStructFields(f, "ParseFloatError", ["kind"], [(f) => f.out.writeStr(e.kind)]);
+}
+
+/** `Display` of `ParseFloatError`. */
+export function fmtParseFloatErrorDisplay(e: ParseFloatError, f: Formatter): FmtResult {
+	return fmtPad(f, e.kind === "Empty" ? "cannot parse float from empty string" : "invalid float literal");
 }
 
 /** `Debug` of `PoisonError`. */

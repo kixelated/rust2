@@ -16,19 +16,21 @@ generic std gap is planned here even when moq never calls it.
 - [Retrial Cranelift on moq's tests](/quest/m3/cranelift-unwind.md) - waits on upstream: moq's tests pass under Cranelift, so its CI can weigh it again
 - [Relink without rebuilding](/quest/m3/relink.md) - measure upstream's skip of dependency-only rebuilds on moq's edits once it reaches nightly
 - [Unsafe code the translator can model](/quest/m3/ts-unsafe.md) - a dependency using only `unsafe` the translator can model translates from source
-- [f32](/quest/m3/ts-f32.md) - `f32` and `Duration`'s `f32` methods translate as `f64` does
-- [A mutable reference to a reference](/quest/m3/ts-mut-ref.md) - `&mut &[u8]` and `&mut &mut T` translate, so `Buf` of a `&[u8]` and `bytes`' forwarding impls do
 - [The capacity of a BytesMut](/quest/m3/ts-bytes-capacity.md) - `BytesMut::capacity` and what reads it translate with `bytes`' values
-- [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, and `dyn Buf` translate, so a consumer neither rewrites nor binds them
+- [BufMut's provided writes through a &mut](/quest/m3/ts-buf-mut-forward.md) - `put`, `put_bytes`, `put_uint`, and `put_int` of a `&mut Vec<u8>` or `&mut BytesMut` translate
+- [Trait objects](/quest/m3/ts-dyn.md) - `dyn Error`, `dyn Iterator`, `dyn Buf`, and `Arc<dyn Debug>` translate, so a consumer neither rewrites nor binds them
+- [Placeholders written to a crate's own fmt::Write](/quest/m3/ts-fmt-calls.md) - `write!` with placeholders into a crate's own writer translates, its `write_str` seeing each call std makes
 - [Waiting: type-check in process with tsrs](/quest/m3/ts-tsrs.md) - rust2-ts checks bindings through tsrs instead of `tsc` once it is a stable library
-- [An inclusive range folded through an adaptor](/quest/m3/ts-range-fold.md) - a `RangeInclusive` folded through `map`, `filter`, or `rev` ends in core's state, and `by_ref` of one type-checks
-- [Binding gaps](/quest/m3/ts-bind-gaps.md) - bound types as keys, unit returns checked, renamed dependencies
-- [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's folds, zips, flattens, and collects drop as std's do
-- [Checks on the differential harnesses](/quest/m3/ts-harness.md) - step lists that drift, literal op bytes, and `refs`'s coverage fail a test or get cases
-- [Ordering in std](/quest/m3/ts-ordering.md) - `cmp::max`/`min`, `is_sorted`, and `BinaryHeap`, and #173's cost on integers measured
-- [Arc's unique-access functions](/quest/m3/ts-arc-mut.md) - `Arc::get_mut`, `make_mut`, `pin`, and `as_deref` of an `Option<Arc>` translate
-- [Debug and Display of Arc and ranges](/quest/m3/ts-fmt-wrappers.md) - `Arc<T>` formats as `T`, and ranges as std's `Debug`
-- [Fold a match a bool decided](/quest/m3/ts-fold-bool.md) - `if matches!` and derived `==` drop a later match's dead arms
-- [Rename one instance](/quest/m3/ffi-instance-rename.md) - `rename` by an instance's path, once a consumer's clash needs it
-- [Into targets through a chain of From implementations](/quest/m3/ffi-from-chains.md) - `sources` follows more than one level, once a consumer's parameter needs it
+- [Drop order in std's folds and iterators](/quest/m3/ts-drop-order.md) - the values that drop still refused in std's consumers, flattens, and collects drop as std's do
+- [References to byte arrays std is given](/quest/m3/ts-byte-refs-given.md) - `Option<&[u8; N]>::copied`, `mem::swap` through a `&mut [u8; N]`, and std's other functions given a reference to an array they take as `&T` translate
+- [Waiting: a slice object for a mutable part of other values](/quest/m3/ts-slice-object.md) - waits on a moq profile showing the `Proxy` view's traps matter, then decides on an `rt.ByteSlice`-like form
 - [Port the workflow guard to kixelated/quest](/quest/m3/quest-workflow-guard.md) - quest's environment guard parses YAML as this repository's does
+- [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
+- [ptr::replace whose result nothing reads](/quest/m3/ts-ptr-replace-unread.md) - `ptr::replace` with its result discarded type-checks
+- [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
+- [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
+- [A B-tree's collect by std's sort and dedup](/quest/m3/ts-btree-collect-order.md) - collecting into a B-tree keeps the keys std's does when a key's impls disagree
+- [A &mut str to any String](/quest/m3/ts-str-places.md) - `make_ascii_*` of a `String` a tuple, an array, or a `Vec` holds, and of a part of one, translate
+- [The rest of a boxed slice's impls](/quest/m3/ts-boxed-slice-rest.md) - `clone_from`, `AsRef`, `AsMut`, `TryFrom` into a boxed array, and `Box<str>` into bytes translate for boxed slices
+- [A crate's own Extend in a tuple](/quest/m3/ts-tuple-own-extend.md) - `collect` and `extend` into a tuple holding a crate's `Extend` type translate
+- [moq-pin without a network when the pin is present](/quest/m3/ts-moq-pin-offline.md) - `just ts moq-pin` skips its fetch when the pinned commit is already there

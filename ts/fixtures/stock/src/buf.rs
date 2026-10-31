@@ -100,7 +100,7 @@ impl<B: Buf> Checked for B {
 
 /// A scalar read off the front of a buffer by `n`'s pick, as a `u128`'s bytes.
 fn read<B: Buf>(buf: &mut B, n: usize) -> u128 {
-	match n % 14 {
+	match n % 15 {
 		0 => buf.get_u8().into(),
 		1 => buf.get_i8() as u128,
 		2 => buf.get_u16().into(),
@@ -114,6 +114,7 @@ fn read<B: Buf>(buf: &mut B, n: usize) -> u128 {
 		10 => buf.get_uint(n % 10).into(),
 		11 => buf.get_int_le(n % 10) as u128,
 		12 => buf.get_f64().to_bits().into(),
+		13 => buf.get_f32_le().to_bits().into(),
 		_ => {
 			let mut dst = [0; 3];
 			buf.copy_to_slice(&mut dst[..n % 4]);
@@ -197,18 +198,41 @@ impl Buf for Pieces {
 	}
 }
 
-/// The same reads off a `Bytes`, a `BytesMut`, and a buffer in pieces: each scalar, and
-/// what remains.
+/// A buffer in pieces with only `Buf`'s required methods, so `copy_to_bytes` is the
+/// provided one, which reads it through a `Take<&mut Self>`.
+struct Provided(Pieces);
+
+impl Buf for Provided {
+	fn remaining(&self) -> usize {
+		self.0.remaining()
+	}
+
+	fn chunk(&self) -> &[u8] {
+		self.0.chunk()
+	}
+
+	fn advance(&mut self, cnt: usize) {
+		self.0.advance(cnt);
+	}
+}
+
+/// The same reads off a `Bytes`, a `BytesMut`, a `&[u8]`, buffers in pieces, and each
+/// through the impl forwarding through a `&mut`: each scalar, and what remains.
 pub fn reads(data: &[u8], out: &mut Vec<u8>) {
 	let [kind, cut, ops @ ..] = data else {
 		return;
 	};
 	let (ops, input) = ops.split_at(ops.len() / 2);
 	let cut = *cut as usize % (input.len() + 1);
-	let rest = match kind % 3 {
+	let rest = match kind % 8 {
 		0 => read_all(&mut Bytes::copy_from_slice(input), ops, read, out),
 		1 => read_all(&mut BytesMut::from(input), ops, read, out),
-		_ => read_all(&mut Pieces::new(input, cut), ops, read_pieces, out),
+		2 => read_all(&mut Pieces::new(input, cut), ops, read_pieces, out),
+		3 => read_all(&mut &input[..], ops, read, out),
+		4 => read_all(&mut Provided(Pieces::new(input, cut)), ops, read_pieces, out),
+		5 => read_all(&mut &mut Bytes::copy_from_slice(input), ops, read, out),
+		6 => read_all(&mut &mut &input[..], ops, read, out),
+		_ => read_all(&mut &mut Pieces::new(input, cut), ops, read_pieces, out),
 	};
 	out.extend_from_slice(&rest);
 	// Put whole, chunk by chunk.
@@ -223,7 +247,7 @@ pub fn reads(data: &[u8], out: &mut Vec<u8>) {
 
 /// The reads of `Buf`'s provided methods that translate for a buffer of the crate's own:
 /// those whose MIR reads no bytes as another type.
-fn read_pieces(buf: &mut Pieces, n: usize) -> u128 {
+fn read_pieces<B: Buf>(buf: &mut B, n: usize) -> u128 {
 	match n % 2 {
 		0 => buf.get_u8().into(),
 		_ => {
@@ -248,12 +272,18 @@ fn read_all<B: Buf>(buf: &mut B, ops: &[u8], read: fn(&mut B, usize) -> u128, ou
 	buf.copy_to_bytes(n).to_vec()
 }
 
-/// The same writes into a `Vec<u8>` and a `BytesMut`, which must match.
+/// The same writes into a `Vec<u8>` and a `BytesMut`, which must match, and through the
+/// impl forwarding through a `&mut`.
 pub fn writes(data: &[u8], out: &mut Vec<u8>) {
 	let mut vec = Vec::new();
 	let mut buf = BytesMut::new();
 	write_all(&mut vec, data);
 	write_all(&mut buf, data);
+	let (mut through_vec, mut through_buf) = (Vec::new(), BytesMut::new());
+	write_through(&mut &mut through_vec, data);
+	write_through(&mut &mut through_buf, data);
+	out.extend_from_slice(&through_vec);
+	out.extend_from_slice(&through_buf);
 	out.push((vec == buf) as u8);
 	out.push((vec.remaining_mut() == buf.remaining_mut()) as u8);
 	out.push(buf.has_remaining_mut() as u8);
@@ -267,7 +297,7 @@ fn write_all<B: BufMut>(buf: &mut B, data: &[u8]) {
 		data = rest;
 		let (op, n) = (*op, *n);
 		let v = u64::from(n) * 0x0101_0101_0101_0101;
-		match op % 15 {
+		match op % 16 {
 			0 => buf.put_u8(n),
 			1 => buf.put_i8(n as i8),
 			2 => buf.put_u16(v as u16),
@@ -282,7 +312,30 @@ fn write_all<B: BufMut>(buf: &mut B, data: &[u8]) {
 			11 => buf.put_slice(&[op, n]),
 			12 => buf.put_bytes(n, n as usize % 7),
 			13 => buf.put(Bytes::from_static(b"put")),
+			14 => buf.put_f32(f32::from(n) / 3.0),
 			_ => buf.put_f64(f64::from(n) / 3.0),
+		}
+	}
+}
+
+/// A write by each pair of `data`'s bytes, of those that `&mut T` forwards, and of those
+/// whose provided body calls only those.
+fn write_through<B: BufMut>(buf: &mut B, data: &[u8]) {
+	let mut data = data;
+	while let [op, n, rest @ ..] = data {
+		data = rest;
+		let (op, n) = (*op, *n);
+		let v = u64::from(n) * 0x0101_0101_0101_0101;
+		match op % 9 {
+			0 => buf.put_u8(n),
+			1 => buf.put_i8(n as i8),
+			2 => buf.put_u16_le(v as u16),
+			3 => buf.put_i32(v as i32),
+			4 => buf.put_u64(v),
+			5 => buf.put_slice(&[op, n]),
+			6 => buf.put_i128_le(i128::from(v) << 40),
+			7 => buf.put_f64(f64::from(n) / 3.0),
+			_ => buf.put_u8(buf.has_remaining_mut() as u8 + (buf.remaining_mut() % 7) as u8),
 		}
 	}
 }

@@ -1,7 +1,7 @@
 // The iterator workloads' hand-written route: each chain in the codec fixture's
 // `bench.rs` op 6, written with ES iterator helpers (`Iterator.prototype.map` and the
 // rest), as TypeScript would write it without the translation's `rt.Iter`. Helpers
-// without an ES counterpart, `enumerate` here, are a `for ... of` with a counter.
+// without an ES counterpart, `enumerate` and `zip` here, are a `for ... of` with a counter.
 
 /** Run one chain, as `bench::run`'s op 6 does, over `data`. */
 export function iterate(chain: number, data: Uint8Array): Uint8Array {
@@ -33,6 +33,13 @@ export function iterate(chain: number, data: Uint8Array): Uint8Array {
 					.take(512)
 					.reduce((acc, b) => acc ^ b, 0),
 			);
+		case 6: {
+			// No ES helper zips: the back read by index beside the front's `for ... of`.
+			let n = 0;
+			let back = data.length;
+			for (const a of data.values()) if (a < data[--back]) n++;
+			return u64(n);
+		}
 		default: {
 			let last = 0;
 			let i = 0;

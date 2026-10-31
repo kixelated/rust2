@@ -10,11 +10,11 @@ export interface Tilt {
 	_0: rt.u8;
 }
 
-export function partialCmp$PartialOrd(self: Tilt, other: Tilt): rt.Ordering | undefined {
-	return cmp$Ord(self, other);
+export function partialCmp$cmp_PartialOrd(self: Tilt, other: Tilt): rt.Ordering | undefined {
+	return cmp$cmp_Ord(self, other);
 }
 
-export function cmp$Ord(self: Tilt, other: Tilt): rt.Ordering {
+export function cmp$cmp_Ord(self: Tilt, other: Tilt): rt.Ordering {
 	if (rt.u8Rem(self._0, 2) === 1) {
 		return -1;
 	}

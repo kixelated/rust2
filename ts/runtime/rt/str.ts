@@ -6,9 +6,11 @@
 // well formed, so a pattern's text matches where its UTF-8 would, never across a
 // surrogate pair.
 
-import { fmtCharDebug, panic, panicFmt, stringLen } from "../rt.ts";
+import { fmtCharDebug, type Place, panic, panicFmt, stringLen } from "../rt.ts";
+import { type Bounds, boundsRange, type Part } from "./collections.ts";
 import type { char, u8, usize } from "./int.ts";
-import { DONE, type Done, Iter, iterSlice } from "./iter.ts";
+import { type Clones, DONE, type Done, Iter, iterForEach, iterSlice, type SizeHint } from "./iter.ts";
+import { drop as dispose } from "./task.ts";
 
 const encoder = /* @__PURE__ */ new TextEncoder();
 
@@ -118,6 +120,29 @@ class Chars extends Iter<char> {
 		this.#back = before(this.#s, this.#back);
 		return this.#s.codePointAt(this.#back) as char;
 	}
+
+	/** std's: a char per four bytes of what is left, and at most one per byte. */
+	override sizeHint(): SizeHint {
+		const bytes = utf8Len(this.#s, this.#front, this.#back);
+		return [Math.ceil(bytes / 4), bytes];
+	}
+
+	/** `as_str`: what is left. */
+	rest(): string {
+		return this.#s.slice(this.#front, this.#back);
+	}
+
+	override clone(): Iter<char> {
+		const it = new Chars(this.#s);
+		it.#front = this.#front;
+		it.#back = this.#back;
+		return it;
+	}
+
+	/** std's `Debug` lists a clone. */
+	override remaining(): Iterable<char> {
+		return this.clone();
+	}
 }
 
 /**
@@ -139,6 +164,17 @@ class Searcher {
 		this.s = s;
 		this.#p = p;
 		this.#back = s.length;
+	}
+
+	/** std's: where it is, with its pattern cloned by `h.f`, a closure's as Rust clones it. */
+	clone(h: Clones | undefined): Searcher {
+		const m = new Searcher(this.s, h?.f === undefined ? this.#p : (h.f as (p: Pattern) => Pattern)(this.#p));
+		m.#front = this.#front;
+		m.#back = this.#back;
+		m.#matched = this.#matched;
+		m.start = this.start;
+		m.end = this.end;
+		return m;
 	}
 
 	nextMatch(): boolean {
@@ -220,6 +256,14 @@ class Split extends Iter<string> {
 		this.#end = m.s.length;
 	}
 
+	override clone(h?: Clones): Iter<string> {
+		const it = new Split(this.#m.clone(h));
+		it.#start = this.#start;
+		it.#end = this.#end;
+		it.#finished = this.#finished;
+		return it;
+	}
+
 	next(): string | Done {
 		if (this.#finished) return DONE;
 		const m = this.#m;
@@ -262,6 +306,15 @@ class MatchIndices extends Iter<[usize, string]> {
 	constructor(m: Searcher) {
 		super();
 		this.#m = m;
+	}
+
+	override clone(h?: Clones): Iter<[usize, string]> {
+		const it = new MatchIndices(this.#m.clone(h));
+		it.#front = this.#front;
+		it.#frontBytes = this.#frontBytes;
+		it.#back = this.#back;
+		it.#backBytes = this.#backBytes;
+		return it;
 	}
 
 	next(): [usize, string] | Done {
@@ -362,4 +415,200 @@ export function strIsCharBoundary(s: string, i: number): boolean {
 /** `str::bytes`: its UTF-8 bytes. */
 export function strBytes(s: string): Iter<u8> {
 	return iterSlice(encoder.encode(s));
+}
+
+// `String`'s edits, each giving the edited string, which the caller writes where the
+// `&mut String` points, and what the edit returns beside it.
+
+/** `isize::MAX` on wasm32, past which std refuses a capacity. */
+const ISIZE_MAX = 0x7fffffff;
+
+/**
+ * `concat` and `join` of strings by `sep`, which panic as std's do where the bytes they
+ * reserve pass `usize::MAX` or what a `String` may hold.
+ */
+export function strsJoin(parts: readonly string[], sep: string): string {
+	const seps = Math.max(parts.length - 1, 0);
+	let units = sep.length * seps;
+	for (const part of parts) units += part.length;
+	// A code unit is one to three bytes, so only a long result needs its bytes counted, each
+	// distinct part once, as such a result mostly repeats a few.
+	if (units * 3 > ISIZE_MAX) {
+		const counted = new Map<string, number>();
+		const count = (s: string): number => {
+			let n = counted.get(s);
+			if (n === undefined) counted.set(s, (n = stringLen(s)));
+			return n;
+		};
+		let len = count(sep) * seps;
+		for (const part of parts) len += count(part);
+		if (len > 0xffffffff) panic("attempt to join into collection with len > usize::MAX");
+		if (len > ISIZE_MAX) panic("capacity overflow");
+	}
+	return parts.join(sep);
+}
+
+/** `String::with_capacity`: the empty string, which keeps no capacity. */
+export function stringWithCapacity(capacity: usize): string {
+	if (capacity > ISIZE_MAX) panic("capacity overflow");
+	return "";
+}
+
+/** `String::reserve` and `reserve_exact`, which panic as std's do past `isize::MAX`. */
+export function stringReserve(s: string, additional: usize): void {
+	// A code unit is at most three bytes, so only a large `additional` needs the length.
+	if (additional > ISIZE_MAX - 3 * s.length && additional > ISIZE_MAX - utf8Len(s, 0, s.length)) {
+		panic("capacity overflow");
+	}
+}
+
+/** The code unit where byte `i` of `s` starts a char, or panic with `message`. */
+function boundary(s: string, i: number, message: string): number {
+	const at = unitAt(s, 0, 0, i);
+	if (at < 0) panic(message);
+	return at;
+}
+
+/** `String::truncate`: `s` to `len` bytes, or as it is if no longer. */
+export function stringTruncate(s: string, len: usize): string {
+	const at = unitAt(s, 0, 0, len);
+	if (at >= 0) return s.slice(0, at);
+	if (len > utf8Len(s, 0, s.length)) return s;
+	panic("assertion failed: self.is_char_boundary(new_len)");
+}
+
+/** `String::insert_str`, and `insert` of a char's text. */
+export function stringInsertStr(s: string, i: usize, text: string): string {
+	const at = boundary(s, i, "assertion failed: self.is_char_boundary(idx)");
+	return s.slice(0, at) + text + s.slice(at);
+}
+
+/** `String::retain`: the chars `f` keeps, calling it on each in order. */
+export function stringRetain(s: string, f: (c: char) => boolean): string {
+	let kept = "";
+	for (const ch of s) if (f(ch.codePointAt(0) as char)) kept += ch;
+	return kept;
+}
+
+/** `String::replace_range`. */
+export function stringReplaceRange(s: string, r: Bounds<number>, text: string): string {
+	const [start, end] = boundsRange(r, utf8Len(s, 0, s.length));
+	const from = boundary(s, start, "start of range should be a character boundary");
+	const to = boundary(s, end, "end of range should be a character boundary");
+	return s.slice(0, from) + text + s.slice(to);
+}
+
+/** `String::extend_from_within`. */
+export function stringExtendFromWithin(s: string, r: Bounds<number>): string {
+	const [start, end] = boundsRange(r, utf8Len(s, 0, s.length));
+	const from = boundary(s, start, "assertion failed: self.is_char_boundary(start)");
+	const to = boundary(s, end, "assertion failed: self.is_char_boundary(end)");
+	return s + s.slice(from, to);
+}
+
+/** `String::pop`: the rest, and the last char if any. */
+export function stringPop(s: string): [string, char | undefined] {
+	if (s.length === 0) return [s, undefined];
+	const at = before(s, s.length);
+	return [s.slice(0, at), s.codePointAt(at) as char];
+}
+
+/** `String::remove`: the rest, and the char at byte `i`. */
+export function stringRemove(s: string, i: usize): [string, char] {
+	const at = unitAt(s, 0, 0, i);
+	if (at < 0) sliceFailed(s, i, utf8Len(s, 0, s.length));
+	if (at === s.length) panic("cannot remove a char from the end of a string");
+	const c = s.codePointAt(at) as number;
+	return [s.slice(0, at) + s.slice(at + (c > 0xffff ? 2 : 1)), c as char];
+}
+
+/** `String::split_off`: what comes before byte `i`, and after it. */
+export function stringSplitOff(s: string, i: usize): [string, string] {
+	const at = boundary(s, i, "assertion failed: self.is_char_boundary(at)");
+	return [s.slice(0, at), s.slice(at)];
+}
+
+// `String` from and into iterators. Each reads the iterator by `for_each`, as std's does,
+// which `drops` makes its own `fold`.
+
+/**
+ * `Extend<char>` and `Extend<&char>` of `s`, and `collect` of chars from `""`: `s` and each
+ * char, once it reserved the iterator's lower bound, which panics past `isize::MAX`.
+ */
+export function stringExtendChars(s: string, it: Iter<char>, drops = false): string {
+	stringReserve(s, it.sizeHint()[0]);
+	iterForEach(
+		it,
+		(c) => {
+			s += String.fromCodePoint(c);
+		},
+		drops,
+	);
+	return s;
+}
+
+/** `String` as a tuple's part, of chars, which reserves as `stringReserve`. */
+export const STRING_CHARS_PART: Part<string, char> = {
+	reserve: stringReserve,
+	one: (s, c) => s + String.fromCodePoint(c),
+};
+
+/** `String` as a tuple's part, of strings, which never reserves. */
+export const STRING_PART: Part<string, string> = { one: (s, text) => s + text };
+
+/** `Extend` of `s` by strings, `&str`, `String`, or `Cow<str>`, and `collect` of `&str`s from `""`. */
+export function stringExtend(s: string, it: Iter<string>, drops = false): string {
+	iterForEach(
+		it,
+		(text) => {
+			s += text;
+		},
+		drops,
+	);
+	return s;
+}
+
+/** `collect` of owned strings, a `String` or `Cow<str>`: the first by `next`, then the rest extend it. */
+export function stringFromStrings(it: Iter<string>, drops = false): string {
+	const first = it.next();
+	if (first !== DONE) return stringExtend(first, it, drops);
+	if (drops) dispose(it);
+	return "";
+}
+
+/**
+ * `String::drain`: the chars within the byte range `r` of the string at `s`, which leaves
+ * the string without them as it drops, and as it was if it never does, as `mem::forget`
+ * leaves it.
+ */
+export function stringDrain(s: Place<string>, r: Bounds<number>): Iter<char> {
+	const text = s.v;
+	const [start, end] = boundsRange(r, utf8Len(text, 0, text.length));
+	const from = boundary(text, start, "assertion failed: self.is_char_boundary(start)");
+	const to = boundary(text, end, "assertion failed: self.is_char_boundary(end)");
+	return new StringDrain(s, text, from, to);
+}
+
+/** `Drain::as_str`: the chars `drain` has yet to yield. */
+export function stringDrainAsStr(drain: Iter<char>): string {
+	return (drain as Chars).rest();
+}
+
+class StringDrain extends Chars implements Disposable {
+	readonly #s: Place<string>;
+	readonly #text: string;
+	readonly #from: number;
+	readonly #to: number;
+
+	constructor(s: Place<string>, text: string, from: number, to: number) {
+		super(text.slice(from, to));
+		this.#s = s;
+		this.#text = text;
+		this.#from = from;
+		this.#to = to;
+	}
+
+	[Symbol.dispose](): void {
+		this.#s.v = this.#text.slice(0, this.#from) + this.#text.slice(this.#to);
+	}
 }

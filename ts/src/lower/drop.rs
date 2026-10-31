@@ -9,7 +9,7 @@
 use rustc_middle::ty::{self, AdtDef, Instance, Ty, TypeVisitableExt};
 use rustc_span::Span;
 
-use super::library::Std;
+use super::library::{self, Std};
 use super::mir::Capture;
 use super::{Adt, AdtRepr, Translator};
 use crate::program::{SymKind, Symbol};
@@ -31,8 +31,11 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let drops = match ty.kind() {
 			ty::Adt(adt, _) if let Some(drops) = self.bound_drops(adt.did()) => drops,
 			ty::Adt(adt, args) => match Std::of(tcx, adt.did()) {
-				// A guard unlocks its mutex or ends its borrow, and a `Weak` uncounts itself.
-				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard | Std::Ref | Std::RefMut) => true,
+				// A guard unlocks its mutex or ends its borrow, a `Weak` uncounts itself, and a
+				// `PeekMut` sifts what it lent.
+				Some(Std::Arc | Std::Weak | Std::Waker | Std::MutexGuard | Std::Ref | Std::RefMut | Std::PeekMut) => {
+					true
+				}
 				Some(
 					Std::Option
 					| Std::Result
@@ -45,6 +48,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::PoisonError
 					| Std::OnceCell
 					| Std::OnceLock
+					| Std::LazyCell
+					| Std::LazyLock
 					| Std::Poll
 					| Std::Pin
 					| Std::PollFn
@@ -53,12 +58,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::BTreeMap
 					| Std::BTreeSet
 					| Std::VecDeque
+					| Std::BinaryHeap
 					| Std::Bound
 					| Std::TryLockError
-					| Std::Reverse,
+					| Std::Reverse
+					| Std::Wrapping
+					| Std::Saturating
+					| Std::Range
+					| Std::RangeInclusive
+					| Std::RangeFrom
+					| Std::RangeTo
+					| Std::RangeToInclusive,
 				) => args.types().any(|t| self.drops(t)),
 				// An entry borrows its map, and holds only the key it was given.
 				Some(Std::Entry) => args.types().next().is_some_and(|k| self.drops(k)),
+				// The items of the `Vec` it owns.
+				Some(Std::Cow) => library::cow_slice(tcx, ty).is_some_and(|elem| self.drops(elem)),
+				// A `Vec`'s drain moves the vector's tail back as it drops, and a `String`'s takes
+				// the drained text out of it.
+				None if {
+					let path = library::std_path(tcx, adt.did());
+					path == ["vec", "drain", "Drain"] || path == ["string", "Drain"]
+				} =>
+				{
+					true
+				}
 				None | Some(Std::Peekable) if self.std_iter(ty) => match adt.has_dtor(tcx) {
 					// What owns its items, an `IntoIter` or a `Drain`, drops those it still holds.
 					true => args.types().any(|t| self.drops(t)),
@@ -69,7 +93,8 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 				None => false,
 			},
 			ty::Tuple(tys) => tys.iter().any(|t| self.drops(t)),
-			ty::Array(elem, _) => self.drops(*elem),
+			// A slice, which a box owns.
+			ty::Array(elem, _) | ty::Slice(elem) => self.drops(*elem),
 			ty::Closure(_, args) => args.as_closure().upvar_tys().iter().any(|t| self.drops(t)),
 			// Whatever it was made of may drop.
 			ty::Coroutine(..) | ty::Param(_) | ty::Dynamic(..) => true,
@@ -138,7 +163,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::Option
 					| Std::Box
 					| Std::Pin
-					| Std::Reverse,
+					| Std::Reverse
+					| Std::Wrapping
+					| Std::Saturating,
 				) => self.disposable(args.type_at(0), span),
 				// An `rt.Iter` drops what it was given to.
 				None | Some(Std::Peekable) if self.std_iter(ty) => self.closures_held(ty),
@@ -171,7 +198,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		};
 		match Std::of(self.tcx, adt.did()) {
 			_ if self.bound_drops(adt.did()).is_some() => true,
-			Some(Std::Box | Std::Pin | Std::Reverse | Std::PoisonError) => self.always_disposes(args.type_at(0)),
+			Some(Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::Saturating | Std::PoisonError) => {
+				self.always_disposes(args.type_at(0))
+			}
 			Some(
 				Std::Waker
 				| Std::PollFn
@@ -233,7 +262,9 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					| Std::OnceLock
 					| Std::Poll
 					| Std::Pin
-					| Std::Reverse,
+					| Std::Reverse
+					| Std::Wrapping
+					| Std::Saturating,
 				) => args.types().all(|t| self.inert(t)),
 				// Its waker.
 				Some(Std::Context) => false,
@@ -290,14 +321,42 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 					let option = Ty::new_option(self.tcx, args.type_at(0));
 					return self.drop_value(value.member("v"), option, span);
 				}
-				Std::Box | Std::Pin | Std::Reverse | Std::PoisonError => {
+				Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::Saturating | Std::PoisonError => {
 					return self.drop_value(value, args.type_at(0), span);
 				}
+				// Its value, or the function that never made one.
+				Std::LazyCell | Std::LazyLock => ("lazyDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashMap => ("hashDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::BTreeMap => ("btreeDrop", vec![value, each(self, 0)?, each(self, 1)?]),
 				Std::HashSet => ("hashDrop", vec![value, each(self, 0)?]),
 				Std::BTreeSet => ("btreeDrop", vec![value, each(self, 0)?]),
 				Std::VecDeque => ("dequeDrop", vec![value, each(self, 0)?]),
+				Std::BinaryHeap => ("heapDrop", vec![value, each(self, 0)?]),
+				Std::PeekMut => ("peekMutDrop", vec![value]),
+				// What it owns, and nothing it borrows.
+				Std::Cow => {
+					let elem = library::cow_slice(self.tcx, ty)?;
+					let mut args = vec![value];
+					if !self.disposable(elem, span) {
+						args.push(self.drop_fn(elem, span)?);
+					}
+					("cowDrop", args)
+				}
+				// Its bounds, in the order std's fields are, `rt.RangeInclusive`'s by its own names.
+				Std::Range | Std::RangeInclusive => {
+					let (lo, hi) = match std {
+						Std::Range => ("start", "end"),
+						_ => ("lo", "hi"),
+					};
+					let bounds = Expr::Array(vec![value.clone().member(lo), value.member(hi)]);
+					let mut args = vec![bounds];
+					if !self.disposable(arg(0), span) {
+						args.push(self.drop_fn(arg(0), span)?);
+					}
+					("dropAll", args)
+				}
+				Std::RangeFrom => return self.drop_value(value.member("start"), arg(0), span),
+				Std::RangeTo | Std::RangeToInclusive => return self.drop_value(value.member("end"), arg(0), span),
 				// A vacant entry holds the key it was given; an occupied one dropped it as
 				// `entry` found the map's.
 				Std::Entry => match self.tcx.item_name(adt.did()).as_str() {
@@ -410,15 +469,17 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		Some(droppers)
 	}
 
-	/// The elements of an array or `Vec` that `ty` is, or holds in an `Option` or a box,
+	/// The elements of an array, slice, or `Vec` that `ty` is, or holds in an `Option` or a box,
 	/// whose JS value is the array or `undefined`.
 	fn elements(&self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
 		match ty.kind() {
-			ty::Array(elem, _) => Some(*elem),
+			ty::Array(elem, _) | ty::Slice(elem) => Some(*elem),
 			ty::Adt(adt, args) => match Std::of(self.tcx, adt.did())? {
 				Std::Vec => Some(args.type_at(0)),
 				Std::Option if self.erases_to(args.type_at(0)).undefined => None,
-				Std::Option | Std::Box | Std::Pin | Std::Reverse => self.elements(args.type_at(0)),
+				Std::Option | Std::Box | Std::Pin | Std::Reverse | Std::Wrapping | Std::Saturating => {
+					self.elements(args.type_at(0))
+				}
 				_ => None,
 			},
 			_ => None,
@@ -483,6 +544,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 			owner: Some(info.sym),
 			kind: SymKind::Method,
 			order: 0,
+			span: rustc_span::DUMMY_SP,
 			instance: String::new(),
 			name: String::new(),
 			alias: None,

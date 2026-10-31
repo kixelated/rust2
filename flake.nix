@@ -11,7 +11,7 @@
     # The quest CLI, which also serves the quest guide and skills the stubs in
     # .claude/skills call. Bump the rev to upgrade them.
     quest = {
-      url = "github:kixelated/quest/943cecaf58a2722dd05f27ab468972c5fe9b714d";
+      url = "github:moq-dev/quest/dc8008bc9e846a206403b1b738ede19fdd797f5e";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "flake-utils";
     };
@@ -26,7 +26,7 @@
     # The compiler cache the benchmark's Nix comparison measures, at the release
     # moq's CI runs. Bumping it is a corpus change, like ra-jit's.
     mbx = {
-      url = "github:jdx/mr-boxington/v1.25.0";
+      url = "github:jdx/mr-boxington/v1.27.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -72,6 +72,31 @@
           # the repo toolchain. ts/justfile puts it first for its recipes.
           tsToolchain = pkgs.rust-bin.fromRustupToolchainFile ./ts/rust-toolchain.toml;
           quest-cli = quest.packages.${system}.default;
+          # std checked once per toolchain for the TypeScript driver's target, with the
+          # profile translation reads its MIR at, as the sysroot rust2-ts takes instead of
+          # checking std with -Zbuild-std in every target directory. Offline, from the
+          # crates rust-src vendors.
+          rust2-ts-std = pkgs.stdenv.mkDerivation {
+            name = "rust2-ts-std";
+            dontUnpack = true;
+            nativeBuildInputs = [ tsToolchain ];
+            buildPhase = ''
+              export CARGO_HOME=$TMPDIR/cargo CARGO_UNSTABLE_PROFILE_RUSTFLAGS=true
+              mkdir -p sysroot/src && cd sysroot
+              printf '[package]\nname = "sysroot"\nversion = "0.0.0"\nedition = "2024"\n' > Cargo.toml
+              touch src/lib.rs
+              # The crates ts/src/cli.rs's STD names.
+              cargo check --offline --target wasm32-unknown-unknown -Zbuild-std=core,alloc,std,panic_abort \
+                --config "source.crates-io.replace-with = 'vendored'" \
+                --config "source.vendored.directory = '${tsToolchain}/lib/rustlib/src/rust/library/vendor'" \
+                --config ${./ts/src/profile.toml}
+            '';
+            installPhase = ''
+              lib=$out/lib/rustlib/wasm32-unknown-unknown/lib
+              mkdir -p $lib
+              find target/wasm32-unknown-unknown -name 'lib*.rmeta' ! -name 'libsysroot-*' -exec cp -t $lib {} +
+            '';
+          };
           # The driver links its nightly's rustc libraries, and runs cargo from it too.
           rust2-ts =
             (pkgs.makeRustPlatform {
@@ -101,6 +126,7 @@
                 # tsc checks bindings, from the caller's PATH first.
                 postInstall = ''
                   wrapProgram $out/bin/rust2-ts --set-default CARGO ${tsToolchain}/bin/cargo \
+                    --set-default RUST2_TS_SYSROOT ${rust2-ts-std} \
                     --suffix PATH : ${pkgs.typescript}/bin
                 '';
                 # The tests need node, tsc, and wasm builds: `just ts test` runs them.
@@ -275,6 +301,7 @@
               kotlin
             ];
             RUST2_TS_TOOLCHAIN = tsToolchain;
+            RUST2_TS_SYSROOT = rust2-ts-std;
             KOTLINX_COROUTINES = "${kotlinx-coroutines}";
           };
           # `just ts bench` adds Chrome and Firefox as engines, and wasm-bindgen for moq-wasm's
@@ -287,6 +314,22 @@
             ];
             # `just ffi bench` builds moq's rs/moq-c, whose VAAPI bindings run bindgen.
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          });
+          # Clang beside the default shell's GCC, which the nightly builds the exporter's C++ with.
+          devShells.clang = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang ];
+          });
+          # `just ffi android` builds the Kotlin's library for an Android device, with the NDK
+          # cargo-ndk finds through ANDROID_NDK_HOME: the SDK and NDK are the caller's, as moq's
+          # Android build takes the GitHub runner image's.
+          devShells.android = self.devShells.${system}.default.overrideAttrs (old: {
+            nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.cargo-ndk ];
+            RUST2_TS_TOOLCHAIN = tsToolchain.override {
+              targets = (builtins.fromTOML (builtins.readFile ./ts/rust-toolchain.toml)).toolchain.targets ++ [
+                "aarch64-linux-android"
+                "x86_64-linux-android"
+              ];
+            };
           });
           # Every foreign toolchain the UniFFI fixture suite runs, apart for their size.
           devShells.uniffi = self.devShells.${system}.default.overrideAttrs (old: {

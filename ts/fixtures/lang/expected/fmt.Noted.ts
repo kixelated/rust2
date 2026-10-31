@@ -8,7 +8,7 @@ export interface Noted {
 	_0: rt.u8;
 }
 
-export function fmt$Display(self: Noted, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Display(self: Noted, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const log: rt.ByteVec = new rt.ByteVec();
 	const _7: rt.u8 = note(log, self._0);
 	const _11: boolean = note(log, 1) === self._0;

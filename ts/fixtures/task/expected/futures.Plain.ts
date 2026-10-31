@@ -17,7 +17,7 @@ export class Plain {
 	}
 }
 
-export function wake$Wake(self: rt.Arc<Plain>): void {
+export function wake$task_Wake(self: rt.Arc<Plain>): void {
 	Guard.note(self.value._0.guard, "plain wake");
 	self.value._0.task.wakeByRef();
 	self[Symbol.dispose]();

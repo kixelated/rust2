@@ -29,7 +29,7 @@ export function hold(self: Park, cx: rt.Context): Waiter.Waiter {
 	if (self._0 === undefined) {
 		reuse = false;
 	} else {
-		reuse = cx.willWake(self._0.waker);
+		reuse = rt.willWake(cx, self._0.waker);
 	}
 	if (!reuse) {
 		const _10: Waiter.Waiter | undefined = Waiter.new(cx.clone());

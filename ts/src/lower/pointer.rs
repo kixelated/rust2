@@ -6,14 +6,23 @@
 //! which a `Vec` or an `Arc` also is here: its JS object is what it owns, not where Rust
 //! keeps it. Null is `rt.NULL`, and a dangling pointer `rt.DANGLING`.
 //!
+//! A pointer to `()`, as std erases one, is an identity that compares as itself: null,
+//! `rt.DANGLING_UNIT`, or a waker's data. One to a place of `()` or from a reference to
+//! one is refused, as an `rt.Place` of it would be an identity of its own each borrow.
+//!
 //! A whole value written through a pointer to an object is copied into that object, so
 //! every pointer to it sees the write. That goes one object deep, as `*r = v` does through
 //! a `&mut`, so a pointer to a part kept as an object is refused wherever the crate may
-//! give that part another object. A value read out is a copy of what the crate writes
-//! into in place, so a later write leaves it be.
+//! give that part another object. One to a variable's object is refused wherever the
+//! function may give the variable another after: by assigning it, by writing it whole
+//! through an alias of a borrow of it, or by `mem::replace`, `swap`, or `take` of one. A
+//! value read out is a copy of what the crate writes into in place, so a later write
+//! leaves it be.
 //!
 //! A `MaybeUninit<T>` is a `T`: `undefined` where JS copies a `T` and it holds none yet,
-//! or an object whose parts hold none yet where a pointer to it is the object.
+//! or an object whose parts hold none yet where a pointer to it is the object. An
+//! `UnsafeCell<T>` is an `rt.Cell`, which is the place a pointer to `T` is, or else holds
+//! the object it is.
 
 use rustc_middle::ty::{self, Ty, TypeVisitableExt};
 use rustc_span::Span;
@@ -42,9 +51,10 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		let ty = self.uninit_inner(ty);
 		let object = match (self.object_kind(ty), ty.kind()) {
 			(Some(ObjectKind::Array | ObjectKind::Bytes), ty::Array(..) | ty::Tuple(_)) => true,
-			// An async body passes its context as a pointer to it.
+			// An async body passes its context as a pointer to it, and a waker's vtable is
+			// one that is its identity.
 			(Some(ObjectKind::Class), ty::Adt(adt, _)) => match Std::of(self.tcx, adt.did()) {
-				Some(std) => std == Std::Context,
+				Some(std) => matches!(std, Std::Context | Std::WakerVTable),
 				None => self.bound_drops(adt.did()).is_none(),
 			},
 			_ => false,
@@ -52,6 +62,31 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 		match object {
 			true => Pointee::Object,
 			false => Pointee::Place,
+		}
+	}
+
+	/// Whether a pointer to `ty` is an identity: one to `()`, through any `MaybeUninit`s.
+	pub fn identity_pointee(&self, ty: Ty<'tcx>) -> bool {
+		self.uninit_inner(ty).is_unit()
+	}
+
+	/// Why pointers to `ty` that are not null don't compare as their JS values, if they
+	/// don't. Two `rt.Place`s of one place are two objects, and Rust leaves where a value of
+	/// no bytes is unspecified, but a pointer to `()` is an identity.
+	pub fn incomparable(&self, ty: Ty<'tcx>) -> Option<String> {
+		if self.identity_pointee(ty) {
+			return None;
+		}
+		if self.zero_sized(ty) {
+			return Some(format!(
+				"comparing pointers to `{ty}`, which has no bytes and so no address of its own"
+			));
+		}
+		match self.pointee(ty) {
+			Pointee::Object => None,
+			Pointee::Place => Some(format!(
+				"comparing pointers to `{ty}`, each a place JS makes of its own"
+			)),
 		}
 	}
 
@@ -108,7 +143,7 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 
 	/// A `MaybeUninit<ty>` that holds nothing yet: its parts kept as objects are there, so
 	/// a pointer to one can initialize it, holding nothing yet themselves.
-	fn uninit(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
+	pub fn uninit(&mut self, ty: Ty<'tcx>, span: Span) -> Expr {
 		let ts_ty = self.ty(ty, span);
 		let empty = self.shell(ty, span);
 		Expr::As(Box::new(Expr::As(Box::new(empty), Type::Builtin("unknown"))), ts_ty)
@@ -146,7 +181,15 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 							.iter()
 							.map(|f| self.field_ty(f.did, args))
 							.collect();
-						let values = tys.into_iter().map(|t| self.shell(t, span)).collect();
+						// A class's constructor types each of its parameters.
+						let plain = self.plain(info.sym);
+						let values = tys
+							.into_iter()
+							.map(|t| match plain {
+								true => self.shell(t, span),
+								false => self.uninit(t, span),
+							})
+							.collect();
 						self.construct(info.sym, &ctor, &fields, values)
 					}
 					AdtRepr::Slots(_) => Expr::Object(Vec::new()),
@@ -158,6 +201,106 @@ impl<'a, 'tcx> Translator<'a, 'tcx> {
 	}
 }
 
+/// Whether std's `def_id` with `args` makes a raw pointer to what its first argument, a
+/// reference, points at: `UnsafeCell::get`, `MaybeUninit::as_ptr` and `as_mut_ptr`, and
+/// `NonNull::from` and `into`.
+pub fn from_reference<'tcx>(
+	tcx: ty::TyCtxt<'tcx>,
+	def_id: rustc_hir::def_id::DefId,
+	args: ty::GenericArgsRef<'tcx>,
+) -> bool {
+	let Some((owner, name)) = super::library::key(tcx, def_id) else {
+		return false;
+	};
+	match (owner.as_str(), name.as_str()) {
+		("UnsafeCell", "get") | ("MaybeUninit", "as_ptr" | "as_mut_ptr") => true,
+		("From", "from") | ("Into", "into") => {
+			let (to, from) = match owner.as_str() {
+				"From" => (args.type_at(0), args.type_at(1)),
+				_ => (args.type_at(1), args.type_at(0)),
+			};
+			matches!(to.kind(), ty::Adt(adt, _) if Std::of(tcx, adt.did()) == Some(Std::NonNull)) && from.is_ref()
+		}
+		_ => false,
+	}
+}
+
+/// What the value std's `def_id` returns points at, if it is a raw pointer, `NonNull`,
+/// `MaybeUninit`, `UnsafeCell`, or `Box` function that runs none of the crate's code and
+/// keeps what it is given nowhere but in what it returns.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Derives {
+	/// Where its first argument points, as a whole.
+	Same,
+	/// Anywhere its arguments reach, if anywhere.
+	Other,
+	/// Wherever what it reads where its first argument points does.
+	Loaded,
+}
+
+/// How std's `def_id` derives what it returns, if [`Derives`] describes it.
+pub fn derives(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Option<Derives> {
+	if !super::library::is_std(tcx, def_id) {
+		return None;
+	}
+	let (owner, name) = super::library::key(tcx, def_id)?;
+	match (owner.as_str(), name.as_str()) {
+		("ptr", "cast" | "cast_const" | "cast_mut" | "as_ref" | "as_mut")
+		| ("NonNull", "new" | "new_unchecked" | "as_ptr" | "as_ref" | "as_mut" | "cast" | "cast_const" | "cast_mut")
+		| ("MaybeUninit", "as_ptr" | "as_mut_ptr" | "assume_init_ref" | "assume_init_mut" | "write")
+		| ("Box", "into_raw" | "leak" | "from_raw") => Some(Derives::Same),
+		(
+			"ptr",
+			"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "eq" | "add" | "sub" | "offset"
+			| "wrapping_add" | "wrapping_sub" | "wrapping_offset" | "write" | "write_unaligned" | "write_volatile",
+		)
+		| ("NonNull", "dangling" | "add" | "sub" | "offset" | "write")
+		| ("MaybeUninit", "new" | "uninit" | "assume_init")
+		| ("UnsafeCell", "new" | "get" | "raw_get" | "get_mut" | "into_inner")
+		| ("Box", "new") => Some(Derives::Other),
+		("ptr", "read" | "read_unaligned" | "read_volatile")
+		| ("NonNull", "read")
+		| ("MaybeUninit", "assume_init_read") => Some(Derives::Loaded),
+		_ => None,
+	}
+}
+
+/// Whether std's `def_id`, which [`derives`] describes, keeps its second argument where its
+/// first points.
+pub fn stores(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if matches!(owner.as_str(), "ptr" | "NonNull" | "MaybeUninit")
+			&& matches!(name.as_str(), "write" | "write_unaligned" | "write_volatile")
+	)
+}
+
+/// Whether std's `def_id` returns memory nothing points into yet.
+pub fn allocates(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
+	super::library::is_std(tcx, def_id)
+		&& matches!(
+			super::library::key(tcx, def_id),
+			Some((owner, name)) if matches!(
+				(owner.as_str(), name.as_str()),
+				("alloc", "alloc" | "alloc_zeroed") | ("Box", "new" | "new_uninit" | "new_zeroed")
+			)
+		)
+}
+
+/// How many of std's `def_id`'s first arguments are `&mut`s whose lowering gives what
+/// they borrow another value, rather than writing into it, where one is an alias of a
+/// borrowed place: the place is assigned again. `mem::replace`'s value is no such one.
+pub fn rebinds(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> usize {
+	match super::library::key(tcx, def_id) {
+		Some((owner, name)) if owner == "mem" => match name.as_str() {
+			"replace" | "take" => 1,
+			"swap" => 2,
+			_ => 0,
+		},
+		_ => 0,
+	}
+}
+
 /// Whether std's `def_id` is one this module maps that lends a place: it makes the
 /// `rt.Place` of the `&mut` it returns.
 pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
@@ -166,16 +309,18 @@ pub fn lends(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 		Some((owner, name)) if matches!(
 			(owner.as_str(), name.as_str()),
 			("MaybeUninit", "as_mut_ptr" | "write" | "assume_init_mut" | "assume_init_drop")
+				| ("UnsafeCell", "get_mut")
 				| ("NonNull" | "ptr", "as_mut")
 				| ("Box", "leak")
 		)
 	)
 }
 
-/// Whether std's `def_id` is one this module maps that only points a pointer elsewhere,
-/// reads through it, or drops what it points at, so it gives no part another object.
-pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
-	matches!(
+/// Whether std's `def_id` with `args` is one that only makes a pointer or points one
+/// elsewhere, reads through it, or drops what it points at, as this module maps them, or
+/// an atomic's, which holds a pointer as a value, so it gives no part another object.
+pub fn keeps<'tcx>(tcx: ty::TyCtxt<'tcx>, def_id: rustc_hir::def_id::DefId, args: ty::GenericArgsRef<'tcx>) -> bool {
+	let keeps = matches!(
 		super::library::key(tcx, def_id),
 		Some((owner, name)) if matches!(
 			(owner.as_str(), name.as_str()),
@@ -191,21 +336,41 @@ pub fn keeps(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
 				"null" | "null_mut" | "dangling" | "dangling_mut" | "is_null" | "as_ref" | "as_mut" | "cast" | "cast_const"
 					| "cast_mut" | "eq" | "read" | "read_unaligned" | "read_volatile" | "drop_in_place"
 			) | ("Box", "into_raw" | "leak" | "from_raw")
-		)
-	)
+				| ("UnsafeCell", "new" | "get" | "get_mut" | "into_inner")
+		) || owner == "Atomic" && super::library::is_std(tcx, def_id)
+	);
+	keeps || from_reference(tcx, def_id, args)
 }
 
 /// Whether std's `def_id` is one a mapping takes the `rt.Place` a `&mut` is for, rather
-/// than what it points at: a `MaybeUninit`'s, which it points into, and a well-known
+/// than what it points at: a `MaybeUninit`'s, which it points into, an `Arc`'s that
+/// `make_mut` replaces, a `String`'s that a drain edits as it drops, and a well-known
 /// crate's, such as a `Bytes` that `Buf::advance` moves past its front.
 pub fn takes_place(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> bool {
-	matches!(super::library::key(tcx, def_id), Some((owner, _)) if owner == "MaybeUninit")
-		|| super::stock::is_stock(tcx, def_id)
+	matches!(
+		super::library::key(tcx, def_id),
+		Some((owner, name)) if owner == "MaybeUninit"
+			|| matches!(owner.as_str(), "Arc" | "Rc") && name == "make_mut"
+			|| (owner.as_str(), name.as_str()) == ("String", "drain")
+	) || super::stock::is_stock(tcx, def_id)
 }
 
-/// A call of std's raw pointer, `NonNull`, `MaybeUninit`, or `Box` functions that make or
-/// take a raw pointer: its mapping, `None` if it has none, or its arguments back if it is
-/// no such call.
+/// Which of std's `def_id`'s parameters its mapping takes as what the `&mut` it declares
+/// points at, rather than the `rt.Place` that `&mut` may be: not a type parameter that
+/// one instantiates, as `Pin::new`'s pointer.
+pub fn pointees(tcx: ty::TyCtxt<'_>, def_id: rustc_hir::def_id::DefId) -> Vec<bool> {
+	let takes_place = takes_place(tcx, def_id);
+	let sig = tcx.fn_sig(def_id).instantiate_identity().skip_norm_wip();
+	tcx.instantiate_bound_regions_with_erased(sig)
+		.inputs()
+		.iter()
+		.map(|t| !takes_place && matches!(t.kind(), ty::Ref(_, _, rustc_ast::Mutability::Mut)))
+		.collect()
+}
+
+/// A call of std's raw pointer, `NonNull`, `MaybeUninit`, `UnsafeCell`, or `Box` functions
+/// that make or take a raw pointer: its mapping, `None` if it has none, or its arguments
+/// back if it is no such call.
 pub fn call<'tcx>(
 	b: &mut Body<'_, '_, 'tcx>,
 	call: &Call<'tcx>,
@@ -222,7 +387,22 @@ pub fn call<'tcx>(
 	let mut arg = || args.next().expect("an argument");
 	let e = match (owner, name) {
 		("ptr", "null" | "null_mut") => Expr::Rt("NULL".into()),
-		// One to a value of no bytes points at one, which every read of it reads.
+		// A pointer to `()` is an identity, which the `rt.Place` of a place or a reference
+		// is not. A box of one holds nothing, so its pointer is dangling.
+		("MaybeUninit", "as_ptr" | "as_mut_ptr") | ("UnsafeCell", "get") if b.t.identity_pointee(pointee()) => b.err(
+			span,
+			"a raw pointer to a place of `()`, which has no address of its own",
+		),
+		("From", "from") if pointer_self(b, call).is_some_and(|t| b.t.identity_pointee(t)) => b.err(
+			span,
+			"a raw pointer to a place of `()`, which has no address of its own",
+		),
+		("Box", "into_raw" | "leak") if b.t.identity_pointee(pointee()) => Expr::Rt("DANGLING_UNIT".into()),
+		// One to a value of no bytes points at one, which every read of it reads. One to
+		// `()` is an identity, the same for every call, as its address is.
+		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.identity_pointee(pointee()) => {
+			Expr::Rt("DANGLING_UNIT".into())
+		}
 		("NonNull", "dangling") | ("ptr", "dangling" | "dangling_mut") if b.t.zero_sized(pointee()) => {
 			match (b.t.empty(pointee()), kind(b, pointee())) {
 				(false, _) => b.err(
@@ -318,6 +498,13 @@ pub fn call<'tcx>(
 			let (p, value) = (arg(), arg());
 			write(b, p, value, pointee(), span)
 		}
+		// A place of no bytes has nothing to read or write, and every value of its type is
+		// the one it holds.
+		("ptr", "replace") if b.t.zero_sized(pointee()) => {
+			let _ = arg();
+			arg()
+		}
+		("ptr", "swap") if b.t.zero_sized(pointee()) => Expr::undefined(),
 		("ptr", "replace") => {
 			let p = b.spill(arg(), "pointer", out);
 			let value = arg();
@@ -379,6 +566,12 @@ pub fn call<'tcx>(
 			};
 			b.t.drop_value(value, pointee(), span).unwrap_or_else(Expr::undefined)
 		}
+		// An `rt.Cell`, which is the place a pointer to a value JS copies is, and holds the
+		// object a pointer to any other is.
+		("UnsafeCell", "new") => Expr::New(Box::new(Expr::Rt("Cell".into())), vec![arg()]),
+		("UnsafeCell", "get") if kind(b, pointee()) == Some(Pointee::Place) => arg(),
+		("UnsafeCell", "get_mut") if b.t.needs_place(pointee()) => arg(),
+		("UnsafeCell", "get" | "get_mut" | "into_inner") => arg().member("v"),
 		("mem", "forget") => Expr::undefined(),
 		_ => return Err(args.collect()),
 	};
@@ -418,22 +611,11 @@ fn write<'tcx>(b: &mut Body<'_, '_, 'tcx>, p: Expr, value: Expr, ty: Ty<'tcx>, s
 }
 
 /// Whether pointers `x` and `y` to `ty` point at the same place: the same object, or
-/// null both. Two `rt.Place`s of one place are two objects, and Rust leaves where a value
-/// of no bytes is unspecified, so both are refused.
+/// null both.
 pub fn compare<'tcx>(b: &mut Body<'_, '_, 'tcx>, x: Expr, y: Expr, ty: Ty<'tcx>, span: Span) -> Expr {
 	let null = |e: &Expr| matches!(e, Expr::Rt(n) if n == "NULL");
-	if b.t.zero_sized(ty) && !null(&x) && !null(&y) {
-		return b.err(
-			span,
-			format!("comparing pointers to `{ty}`, which has no bytes and so no address of its own"),
-		);
-	}
-	match b.t.pointee(ty) {
-		Pointee::Object => x.binary("===", y),
-		Pointee::Place if null(&x) || null(&y) => x.binary("===", y),
-		Pointee::Place => b.err(
-			span,
-			format!("comparing pointers to `{ty}`, each a place JS makes of its own"),
-		),
+	match b.t.incomparable(ty) {
+		Some(why) if !null(&x) && !null(&y) => b.err(span, why),
+		_ => x.binary("===", y),
 	}
 }

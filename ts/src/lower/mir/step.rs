@@ -265,7 +265,7 @@ impl<'tcx> Fx<'_, '_, '_, 'tcx> {
 				continue;
 			}
 			let stmt = StmtKind::Expr(Expr::ident(&var).assign(value)).at(None);
-			self.emit(vec![stmt], Some(&var), false, out);
+			self.emit(vec![stmt], false, out);
 		}
 	}
 

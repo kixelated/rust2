@@ -18,12 +18,12 @@ export function rising(self: Dir): boolean {
 	return !_2;
 }
 
-export function eq$PartialEq(self: Dir, other: Dir): boolean {
+export function eq$cmp_PartialEq(self: Dir, other: Dir): boolean {
 	return rising(self) === rising(other);
 }
 
-export function hash$Hash_DefaultHasher(self: Dir, state: rt.Hasher): void {
-	rt.hashInt(rising(self), state);
+export function hash$Hash_hash_DefaultHasher(self: Dir, state: rt.Hasher): void {
+	rt.hash8(rising(self), state);
 }
 
 //# sourceMappingURL=collections.Dir.ts.map

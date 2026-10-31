@@ -11,10 +11,10 @@ module-level out slot. Chrome's varint and frame decode on `just ts bench` are f
 ## Plan
 
 Decided with the maintainer on 2026-10-28: this absorbs passing slices as parts, which
-[#160](https://github.com/kixelated/rust2/pull/160) implemented. Alone, parts gain nothing in
+[#160](https://github.com/moq-dev/rust2/pull/160) implemented. Alone, parts gain nothing in
 Chrome, since V8 already removes a slice object that doesn't escape once it inlines, and
 Node's varint decode is 11-15% slower. They land only with the return ABI ("e1").
-[#138](https://github.com/kixelated/rust2/pull/138)'s per-function scratch measured slower
+[#138](https://github.com/moq-dev/rust2/pull/138)'s per-function scratch measured slower
 than `main`: copying between scratches when one function returns another's result cost the
 most. One out slot per payload type, which a forwarded result already fills, avoids that.
 

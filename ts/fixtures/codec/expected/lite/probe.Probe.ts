@@ -7,15 +7,15 @@ import type * as EncodeError from "../coding/encode.EncodeError.ts";
 import * as Encoder from "../coding/encode.Encoder.ts";
 import type * as Prefix from "../coding/encode.Prefix.ts";
 import * as Form from "../coding/varint.Form.ts";
-import { unwrapOr$Option_u64, map$Option_u64_u64_encode_msg_closure0 } from "../core/option.ts";
-import { decodeWith$Probe_decode_closure0 } from "../lite/message.ts";
-import * as Version from "../lite/version.Version.ts";
+import { unwrapOr$1tvry1i as option_unwrapOr$1tvry1i, map$1cf8u0y as option_map$1cf8u0y } from "../core/option.ts";
+import { decodeWith$lite_probe_Probe_coding_decode_Decode_lite_version_Version_T_decode_closure0_lite_probe_Probe } from "../lite/message.ts";
+import * as lite_version_Version from "../lite/version.Version.ts";
 import type * as Control from "../stats.Control.ts";
 
 /** Decode the value from the front of `buf`, returning it and the bytes it took. */
-export function decodeSlice$Decode_Version(bufData: Uint8Array, bufStart: number, bufLen: number, version: Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
-	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, Form.from$From_Version(version));
-	const _5: rt.Result<Probe, DecodeError.DecodeError> = decode$Decode_Version(r, version);
+export function decodeSlice$coding_decode_Decode_lite_version_Version(bufData: Uint8Array, bufStart: number, bufLen: number, version: lite_version_Version.Version): rt.Result<[Probe, rt.usize], DecodeError.DecodeError> {
+	const r: Decoder.Decoder = Decoder.new(bufData, bufStart, bufLen, Form.from$convert_From_lite_version_Version(version));
+	const _5: rt.Result<Probe, DecodeError.DecodeError> = decode$coding_decode_Decode_lite_version_Version(r, version);
 	if (_5.ok) {
 		return rt.Ok([_5.value, rt.usizeSub(bufLen, Decoder.remaining(r))] as [Probe, rt.usize]);
 	}
@@ -23,9 +23,9 @@ export function decodeSlice$Decode_Version(bufData: Uint8Array, bufStart: number
 }
 
 /** Encode the value to the given encoder, which may hold partial output on error. */
-export function encode$Encode_Version(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encode$coding_encode_Encode_lite_version_Version(self: Probe, w: Encoder.Encoder, version: lite_version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	const prefix: Prefix.Prefix = Encoder.prefixVarint(w);
-	const _39: rt.Result<undefined, EncodeError.EncodeError> = encodeMsg$Message(self, w, version);
+	const _39: rt.Result<undefined, EncodeError.EncodeError> = encodeMsg$lite_message_Message(self, w, version);
 	if (_39.ok) {
 		if (!(Encoder.since(w, prefix) > 65535)) {
 			const _49: rt.Result<undefined, EncodeError.EncodeError> = Encoder.fill(w, prefix);
@@ -42,9 +42,9 @@ export function encode$Encode_Version(self: Probe, w: Encoder.Encoder, version: 
 }
 
 /** Decode the value from the front of the decoder. */
-export function decode$Decode_Version(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
-	return decodeWith$Probe_decode_closure0(r, (body: Decoder.Decoder): rt.Result<Probe, DecodeError.DecodeError> => {
-		return decodeMsg$Message(body, version);
+export function decode$coding_decode_Decode_lite_version_Version(r: Decoder.Decoder, version: lite_version_Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
+	return decodeWith$lite_probe_Probe_coding_decode_Decode_lite_version_Version_T_decode_closure0_lite_probe_Probe(r, (body: Decoder.Decoder): rt.Result<Probe, DecodeError.DecodeError> => {
+		return decodeMsg$lite_message_Message(body, version);
 	});
 }
 
@@ -60,7 +60,7 @@ export interface Probe {
 }
 
 /** Decode a message body (without size prefix). */
-export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
+export function decodeMsg$lite_message_Message(r: Decoder.Decoder, version: lite_version_Version.Version): rt.Result<Probe, DecodeError.DecodeError> {
 	let bitrate!: rt.u64 | undefined;
 	let rtt!: rt.u64 | undefined;
 	if (version === "Lite01" || version === "Lite02") {
@@ -74,7 +74,7 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 		} else {
 			bitrate = val;
 		}
-		if (!Version.hasProbeRtt(version)) {
+		if (!lite_version_Version.hasProbeRtt(version)) {
 			rtt = undefined;
 		} else {
 			const _13: rt.Result<rt.u64, DecodeError.DecodeError> = Decoder.varint(r);
@@ -95,16 +95,16 @@ export function decodeMsg$Message(r: Decoder.Decoder, version: Version.Version):
 }
 
 /** Encode this message body (without size prefix). */
-export function encodeMsg$Message(self: Probe, w: Encoder.Encoder, version: Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
+export function encodeMsg$lite_message_Message(self: Probe, w: Encoder.Encoder, version: lite_version_Version.Version): rt.Result<undefined, EncodeError.EncodeError> {
 	if (version === "Lite01" || version === "Lite02") {
 		return rt.Err("Version" as EncodeError.EncodeError);
 	}
-	const _9: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, unwrapOr$Option_u64(map$Option_u64_u64_encode_msg_closure0(self.bitrate, (v: rt.u64): rt.u64 => {
+	const _9: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, option_unwrapOr$1tvry1i(option_map$1cf8u0y(self.bitrate, (v: rt.u64): rt.u64 => {
 		return rt.u64Max(v, 1);
 	}), 0));
 	if (_9.ok) {
-		if (Version.hasProbeRtt(version)) {
-			const _17: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, unwrapOr$Option_u64(map$Option_u64_u64_encode_msg_closure0(self.rtt, (v2: rt.u64): rt.u64 => {
+		if (lite_version_Version.hasProbeRtt(version)) {
+			const _17: rt.Result<undefined, EncodeError.EncodeError> = Encoder.varint(w, option_unwrapOr$1tvry1i(option_map$1cf8u0y(self.rtt, (v2: rt.u64): rt.u64 => {
 				return rt.u64Max(v2, 1);
 			}), 0));
 			if (!_17.ok) {

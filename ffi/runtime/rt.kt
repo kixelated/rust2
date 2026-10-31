@@ -160,8 +160,12 @@ class Reader(bytes: ByteArray) {
 		return v
 	}
 
-	/** Bytes Rust handed over uncopied, as their owner, or null for none. */
-	fun owned(): Bytes? = b.getLong().let { if (it == 0L) null else Bytes(it) }
+	/** Bytes Rust handed over, copied or lent by their owner, or null for none. */
+	fun owned(): Bytes? = when (val n = b.getInt()) {
+		-1 -> null
+		LENT -> Bytes(b.getLong())
+		else -> Bytes(ByteArray(n).also { b.get(it) })
+	}
 
 	fun string(): String? {
 		val n = b.getInt()
@@ -251,11 +255,11 @@ abstract class Cleanup(owner: Any?) : java.lang.ref.PhantomReference<Any>(owner,
  * only once no call does, and a call after [close] throws. An owned one is closed once
  * the GC collects [owner], if nothing closed it.
  */
-class Handle(owner: Any, internal val raw: Long, private val free: ((Long) -> Unit)?, private val type: String) :
+class Handle(owner: Any, internal val raw: Long, private val free: Drop?, private val type: String) :
 	Cleanup(if (free == null) null else owner) {
-	// One for the owner until closed, and one per call holding it.
-	private val holds = java.util.concurrent.atomic.AtomicLong(1)
-	private val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+	// The holds, one for the owner until closed and one per call, shifted past a bit set
+	// once closed: one word, so a handle allocates nothing beside itself.
+	@Volatile @JvmField internal var state = HELD
 
 	init {
 		if (free != null) track()
@@ -263,18 +267,25 @@ class Handle(owner: Any, internal val raw: Long, private val free: ((Long) -> Un
 
 	fun hold(): Long {
 		while (true) {
-			val n = holds.get()
-			kotlin.check(n != 0L && !closed.get()) { "$type is closed" }
-			if (holds.compareAndSet(n, n + 1)) return raw
+			val n = state
+			kotlin.check(n and CLOSED == 0L) { "$type is closed" }
+			if (STATE.compareAndSet(this, n, n + HELD)) return raw
 		}
 	}
 
-	fun release() {
-		if (holds.decrementAndGet() == 0L && free != null && untrack()) free.invoke(raw)
-	}
+	fun release() = freed(STATE.addAndGet(this, -HELD))
 
 	fun close() {
-		if (closed.compareAndSet(false, true)) release()
+		while (true) {
+			val n = state
+			if (n and CLOSED != 0L) return
+			if (STATE.compareAndSet(this, n, (n or CLOSED) - HELD)) return freed((n or CLOSED) - HELD)
+		}
+	}
+
+	// Free it once no hold is left.
+	private fun freed(n: Long) {
+		if (n < HELD && free != null && untrack()) free.drop(raw)
 	}
 
 	// A call still holding it frees it once it returns.
@@ -289,6 +300,18 @@ class Handle(owner: Any, internal val raw: Long, private val free: ((Long) -> Un
 			release()
 		}
 	}
+
+	private companion object {
+		const val CLOSED = 1L
+		const val HELD = 2L
+		val STATE: java.util.concurrent.atomic.AtomicLongFieldUpdater<Handle> =
+			java.util.concurrent.atomic.AtomicLongFieldUpdater.newUpdater(Handle::class.java, "state")
+	}
+}
+
+/** Frees a raw handle: a `fun interface`, so the handle crosses unboxed. */
+fun interface Drop {
+	fun drop(raw: Long)
 }
 
 /** Frees bytes Rust handed over, once, at [free] or once the GC collects [buffer]. */
@@ -304,6 +327,16 @@ class Free(buffer: java.nio.ByteBuffer, private val owner: Long) : Cleanup(buffe
 	override fun collected() = free()
 }
 
+/** What precedes a lent buffer's owner where an encoded one's length would. */
+const val LENT = -2
+
+/** Bytes a call returned: copied, lent by the owner a `LongArray` holds, or null for none. */
+fun owned(given: Any?): Bytes? = when (given) {
+	null -> null
+	is ByteArray -> Bytes(given)
+	else -> Bytes((given as kotlin.LongArray)[0])
+}
+
 /** Run [block] with the raw handle of [handle], or 0 for none, held until it returns. */
 inline fun <R> hold(handle: Handle?, block: (Long) -> R): R = when (handle) {
 	null -> block(0L)
@@ -311,11 +344,10 @@ inline fun <R> hold(handle: Handle?, block: (Long) -> R): R = when (handle) {
 }
 
 /** A waker a future parks on, which latches a wake that lands before it parks. */
-class Signal : Waker {
-	private val state = java.util.concurrent.atomic.AtomicReference<Any?>(null)
-
+// The atomic itself, so a call allocates one object for it.
+class Signal : java.util.concurrent.atomic.AtomicReference<Any?>(null), Waker {
 	override fun wake() {
-		val parked = state.getAndSet(WOKEN)
+		val parked = getAndSet(WOKEN)
 		if (parked !is kotlinx.coroutines.CancellableContinuation<*>) return
 		@Suppress("UNCHECKED_CAST")
 		val c = parked as kotlinx.coroutines.CancellableContinuation<Unit>
@@ -332,11 +364,11 @@ class Signal : Waker {
 	}
 
 	/** Forget any wake before the next poll, which sees whatever it was for. */
-	fun reset() = state.set(null)
+	fun reset() = set(null)
 
 	/** Suspend until a wake since [reset], at once if one already landed. */
 	suspend fun park() = kotlinx.coroutines.suspendCancellableCoroutine<Unit> { c ->
-		if (!state.compareAndSet(null, c)) c.resume(Unit)
+		if (!compareAndSet(null, c)) c.resume(Unit)
 	}
 
 	private companion object {

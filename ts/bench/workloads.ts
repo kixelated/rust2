@@ -5,8 +5,8 @@
 export interface Workload {
 	/** What is coded, such as `varint/quic/2B` or `frames/video/lite-07`, iterated, or converted. */
 	name: string;
-	op: "encode" | "decode" | "iterate" | "map" | "convert" | "add" | "compare" | "handoff";
-	/** Varints, frame headers, messages, items, keys, timestamps, or handoffs per call, which each time is divided by. */
+	op: "encode" | "decode" | "iterate" | "map" | "convert" | "add" | "compare" | "order" | "handoff";
+	/** Varints, frame headers, messages, items, keys, timestamps, integers, or handoffs per call, which each time is divided by. */
 	items: number;
 	input: Uint8Array;
 }
@@ -58,7 +58,7 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 	// Iterator chains over bytes, as `bench.rs`'s op 6 picks them by selector; no byte is
 	// 0xff, so `any` reads them all.
 	const bytes = Uint8Array.from({ length: 1024 }, (_, i) => (i * 167 + 13) % 255);
-	const chains = ["map-filter-count", "any", "filter-collect", "sum", "skip-take-fold", "enumerate-for"];
+	const chains = ["map-filter-count", "any", "filter-collect", "sum", "skip-take-fold", "enumerate-for", "zip-filter-count"];
 	chains.forEach((chain, selector) => {
 		out.push({ name: `iter/${chain}`, op: "iterate", items: bytes.length, input: Uint8Array.of(6, selector, ...bytes) });
 	});
@@ -93,6 +93,12 @@ export function workloads(encode: (input: Uint8Array) => Uint8Array): Workload[]
 	const time = (op: number, params: bigint[]) => Uint8Array.of(op, 0, ...[BigInt(count), ...params].flatMap(u64));
 	out.push({ name: "time/checked-add/micros", op: "add", items: count, input: time(10, video) });
 	out.push({ name: "time/ord/micros-48k", op: "compare", items: count, input: time(11, [...video, ...audio]) });
+
+	// `bench.rs`'s op 12: integers ordered by std's own `Ord`, which the translation tests.
+	const orders = ["sort", "sort-by-key", "iter-max-min", "ord-max-min", "binary-heap"];
+	orders.forEach((name, selector) => {
+		out.push({ name: `order/${name}`, op: "order", items: count, input: Uint8Array.of(12, selector, ...u64(BigInt(count))) });
+	});
 	return out;
 }
 

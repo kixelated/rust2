@@ -2,7 +2,7 @@
 
 import * as rt from "./rt.ts";
 
-export function fmt$Debug(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
+export function fmt$fmt_Debug(self: Moved, f: rt.Formatter): rt.Result<undefined, rt.FmtError> {
 	const _3: string = "Moved";
 	const _4: rt.Fmt = (f: rt.Formatter) => rt.u8Debug(self._0, f);
 	const _6: rt.Fmt = (f: rt.Formatter) => rt.u16Debug(self._1, f);
