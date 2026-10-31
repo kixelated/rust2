@@ -171,6 +171,8 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("arrays::lent", |_, data, out| arrays::lent(data, out)),
 		("floats::mul_adds", floats::mul_adds),
 		("singles::mul_adds", singles::mul_adds),
+		("iters::zips", iters::zips),
+		("iters::zips_back", iters::zips_back),
 	]
 }
 

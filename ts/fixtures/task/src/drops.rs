@@ -714,8 +714,8 @@ fn arcs(log: &Log, id: u32) {
 	count("dropped", &other);
 }
 
-/// Run scenario `arg % 33` of what std's by-value consumers drop of adaptors that hold
-/// closures that drop.
+/// Run scenario `arg % 42` of what std's by-value consumers drop of adaptors that hold
+/// closures that drop, and of zips of items that drop.
 pub fn folded(log: &Log, id: u32, arg: u8) {
 	folds::folded(log, id, arg);
 }

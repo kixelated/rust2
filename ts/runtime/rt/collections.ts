@@ -801,8 +801,8 @@ function taken<K, V>(m: HashMap<K, V>): HashMap<K, V> {
 function extending<C, T>(c: C, items: Iter<T>, add: (item: T) => void, take?: Take): C {
 	if (take === "fold") items.fold<void>(undefined, (_, item) => add(item));
 	else {
-		// By `next` where std's reads by it, and else as its `try_fold` steps.
-		const read = take === "next" ? items : items.folded();
+		// By `next` where std's reads by it, and else as its `for_each` folds.
+		const read = take === "next" ? items : items.folded(true);
 		for (let item = read.next(); item !== DONE; item = read.next()) add(item);
 	}
 	if (take === "next") dispose(items);

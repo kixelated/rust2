@@ -620,19 +620,8 @@ pub fn call<'tcx>(
 			};
 			let (a, other_iter) = (sides.type_at(0), sides.type_at(1));
 			let other_item = b.t.iter_item(other_iter)?;
-			let trusted = zip_reads_by_index(b, a, other_iter, span);
-			// std's reads one item past the end of the first, which it drops, where `next`
-			// could see the difference.
-			if trusted && (b.t.drops(item) || b.t.drops(other_item)) {
-				return Some(b.err(
-					span,
-					format!(
-						"a `zip` of `{a}` and `{other_iter}`, which std reads by index, of items that drop, which is not supported yet"
-					),
-				));
-			}
 			let droppers = vec![
-				Expr::lit(if trusted { "true" } else { "false" }),
+				zip_trusted(b, a, other_iter),
 				b.t.dropper(item, span),
 				b.t.dropper(other_item, span),
 			];
@@ -881,33 +870,19 @@ fn flattens<'tcx>(b: &mut Body<'_, '_, 'tcx>, inner: Ty<'tcx>, span: Span) {
 	}
 }
 
-/// Whether std's `Zip` of `a` and `b` reads both by index, never past the shorter: when
-/// both are `TrustedRandomAccess`. Refuse one that `fold` reads that way but `next` does
-/// not, where the first calls a closure that would see the difference.
-fn zip_reads_by_index<'tcx>(b: &mut Body<'_, '_, 'tcx>, a: Ty<'tcx>, other: Ty<'tcx>, span: Span) -> bool {
-	let both = |b: &mut Body<'_, '_, 'tcx>, name: &str| implements(b.t, a, name) && implements(b.t, other, name);
-	if both(b, "TrustedRandomAccess") {
-		return true;
+/// `rt.Trusted`, how std's `Zip` of `a` and `b` reads them, by the traits it specializes
+/// on: by index if both are `TrustedRandomAccess`, and folded by its size hint if both are
+/// `TrustedLen`, or `TrustedRandomAccessNoCoerce`, whose `fold` reads by index as many
+/// pairs as their exact size hints, but whose `next` reads as any other zip's does.
+fn zip_trusted<'tcx>(b: &Body<'_, '_, 'tcx>, a: Ty<'tcx>, other: Ty<'tcx>) -> Expr {
+	let both = |name: &str| implements(b.t, a, name) && implements(b.t, other, name);
+	if both("TrustedRandomAccess") {
+		Expr::Str("index".into())
+	} else if both("TrustedLen") || both("TrustedRandomAccessNoCoerce") {
+		Expr::Str("len".into())
+	} else {
+		Expr::undefined()
 	}
-	if (both(b, "TrustedRandomAccessNoCoerce") || both(b, "TrustedLen")) && calls_closures(b.t.tcx, a) {
-		b.t.err(
-			span,
-			format!("a `zip` of `{a}`, whose closures std calls one item further through `next` than through `fold`"),
-		);
-	}
-	false
-}
-
-/// Whether `ty`, an iterator, has std's closure-calling adaptors in it, which std counts as
-/// side effects.
-fn calls_closures(tcx: ty::TyCtxt<'_>, ty: Ty<'_>) -> bool {
-	ty.walk().filter_map(|arg| arg.as_type()).any(|t| match t.kind() {
-		ty::Adt(adt, _) => matches!(
-			library::std_path(tcx, adt.did()).last().map(String::as_str),
-			Some("Map" | "Cloned" | "Inspect")
-		),
-		_ => false,
-	})
 }
 
 /// Whether `ty` implements `core`'s trait `name`, one std specializes on: an iterator

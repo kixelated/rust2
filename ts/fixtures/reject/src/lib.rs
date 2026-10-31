@@ -169,12 +169,6 @@ pub fn backs() -> usize {
 	Backs.rev().count()
 }
 
-/// A zip that `count` reads through `fold`, which stops at the shorter side, and a `for`
-/// through `next`, which calls the first side's closure once more.
-pub fn zipped(a: &[u8], b: &[u8]) -> usize {
-	a.iter().map(|x| x + 1).chain(b.iter().copied()).zip(b).count()
-}
-
 /// JS compares objects by identity, not by `PartialOrd`.
 #[derive(PartialEq, PartialOrd)]
 pub struct Key(pub u8);
@@ -217,11 +211,6 @@ impl std::iter::FusedIterator for Fused {}
 
 pub fn fused() -> usize {
 	Fused.fuse().count()
-}
-
-/// std's `zip` of two `TrustedRandomAccess` iterators makes one item past the shorter, and drops it.
-pub fn zip_dropped(v: &[u8]) -> usize {
-	v.iter().map(|&n| Noisy(n)).zip(0..2).count()
 }
 
 /// A pinned reference is its referent in JS: replacing it would change what it points at.
