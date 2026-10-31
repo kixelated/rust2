@@ -400,6 +400,16 @@ fn rewritten(mut p: PhantomData<u8>, n: u8) -> u8 {
 	if p == PhantomData { n } else { 0 }
 }
 
+/// How many items `xs` hold if `value` is `()`, which it always is, beside a function
+/// std's `flatten` makes, whose own parameter is `value` too.
+fn flattened(value: &(), xs: &[Vec<u8>]) -> u8 {
+	if *value == () {
+		xs.iter().flatten().count() as u8
+	} else {
+		0
+	}
+}
+
 /// Functions, closures, and locals whose every read lowers to nothing: a drop of what
 /// drops nothing, and a comparison of what holds nothing.
 pub fn unread(kind: u8, data: &[u8], out: &mut Vec<u8>) {
@@ -419,6 +429,7 @@ pub fn unread(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 			out.push(phantom_eq(PhantomData::<String>, n));
 			out.push(unit_eq(&(), n));
 			out.push(rewritten(PhantomData, n));
+			out.push(flattened(&(), &[data.to_vec(), data.to_vec()]));
 		}
 		_ => {
 			let lock = Lock::new(data.first().map(|&b| u32::from(b)));

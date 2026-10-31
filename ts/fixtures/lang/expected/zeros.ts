@@ -443,6 +443,17 @@ export function rewritten(_1: undefined, n: rt.u8): rt.u8 {
 }
 
 /**
+ * How many items `xs` hold if `value` is `()`, which it always is, beside a function
+ * std's `flatten` makes, whose own parameter is `value` too.
+ */
+export function flattened(_value: undefined, xs: rt.ByteVec[]): rt.u8 {
+	if (!true) {
+		return 0;
+	}
+	return rt.iterCount(rt.iterFlatten(rt.iterSlice(xs), (value: rt.ByteVec) => rt.iterSlice(rt.byteVecView(value)))) & 0xff;
+}
+
+/**
  * Functions, closures, and locals whose every read lowers to nothing: a drop of what
  * drops nothing, and a comparison of what holds nothing.
  */
@@ -467,6 +478,7 @@ export function unread(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 		rt.byteVecPush(out, phantomEq$String(undefined, n));
 		rt.byteVecPush(out, unitEq(undefined, n));
 		rt.byteVecPush(out, rewritten(undefined, n));
+		rt.byteVecPush(out, flattened(undefined, [rt.byteSliceToByteVec(data), rt.byteSliceToByteVec(data)]));
 	} else {
 		const lock: Lock.Lock<rt.u32> = Lock.new$u32(map$1qp1ym6(rt.byteSliceFirst(data), (_2: rt.u8): rt.u32 => {
 			return _2 as rt.u32;
