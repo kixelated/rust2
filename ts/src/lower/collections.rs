@@ -1084,6 +1084,9 @@ fn own_ord<'tcx>(
 					.all_fields()
 					.any(|f| own_ord(b, f.ty(tcx, args).skip_norm_wip(), seen))
 		}
+		// Which compare nothing they name.
+		ty::RawPtr(..) | ty::FnPtr(..) => false,
+		ty::Adt(adt, _) if adt.is_phantom_data() => false,
 		// std's, by what it holds.
 		_ => ty
 			.walk()

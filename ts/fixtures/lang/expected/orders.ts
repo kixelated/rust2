@@ -1248,6 +1248,15 @@ export function btrees(kind: rt.u8, data: rt.ByteSlice, out: rt.ByteVec): void {
 	rt.iterExtendBytes(out, rt.iterSlice(Uint8Array.of(rt.btreeLen(set2) & 0xff, rt.btreeLen(units) & 0xff, rt.btreeLen(map2) & 0xff)), undefined, true);
 	rt.iterExtendBytes(out, rt.btreeValues(map2), undefined, true);
 	flush(out);
+	const _214: rt.Iter<[undefined, orders_Item.Item]> = rt.iterMap(rt.iterEnumerate(rt.iterSlice(rt.byteSliceView(data))), (_213: [rt.usize, rt.u8]): [undefined, orders_Item.Item] => {
+		return [undefined, item(_213[0], _213[1])] as [undefined, orders_Item.Item];
+	});
+	const phantoms: rt.BTreeMap<undefined, orders_Item.Item> = rt.btreeCollect(rt.btreeNew(rt.cmpNothing) as rt.BTreeMap<undefined, orders_Item.Item>, rt.iterToArray(_214, undefined, 2, true), true, undefined, undefined, rt.drop);
+	rt.iterExtendBytes(out, rt.iterMap(rt.btreeValues(phantoms), (x: orders_Item.Item): rt.u8 => {
+		return x.tag;
+	}), undefined, true);
+	rt.btreeDrop(phantoms, undefined, rt.drop);
+	flush(out);
 }
 
 //# sourceMappingURL=orders.ts.map

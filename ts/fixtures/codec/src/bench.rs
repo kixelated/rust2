@@ -227,7 +227,11 @@ fn order(selector: u8, data: &[u8], out: &mut Vec<u8>) {
 		}
 		5 => {
 			let map: BTreeMap<u32, u32> = v.iter().map(|&x| (x % 512, x)).collect();
-			v = vec![*map.keys().next().unwrap(), map.len() as u32, *map.values().next_back().unwrap()];
+			v = vec![
+				*map.keys().next().unwrap(),
+				map.len() as u32,
+				*map.values().next_back().unwrap(),
+			];
 		}
 		6 => {
 			let set: BTreeSet<u32> = v.iter().map(|&x| x % 512).collect();

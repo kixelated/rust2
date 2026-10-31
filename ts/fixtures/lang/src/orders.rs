@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::cmp::{self, Ordering, Reverse};
 use std::collections::binary_heap::PeekMut;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
+use std::marker::PhantomData;
 use std::task::Poll;
 
 thread_local! {
@@ -673,7 +674,11 @@ pub fn btrees(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 		out.extend(map.iter().flat_map(|(k, &v)| [k.tag, v]));
 		if let [a, b, c, ..] = *keys.as_slice() {
 			out.extend(BTreeSet::from([a, b, c]).iter().map(|k| k.tag));
-			out.extend(BTreeMap::from([(a, 1), (b, 2), (c, 3)]).iter().flat_map(|(k, &v)| [k.tag, v]));
+			out.extend(
+				BTreeMap::from([(a, 1), (b, 2), (c, 3)])
+					.iter()
+					.flat_map(|(k, &v)| [k.tag, v]),
+			);
 			out.extend(BTreeSet::from([a]).iter().map(|k| k.tag));
 		}
 		out.push(BTreeSet::<Torn>::from([]).len() as u8);
@@ -710,5 +715,15 @@ pub fn btrees(kind: u8, data: &[u8], out: &mut Vec<u8>) {
 	let map: BTreeMap<Apart, u8> = apart.iter().enumerate().map(|(i, &k)| (k, i as u8)).collect();
 	out.extend([set.len() as u8, units.len() as u8, map.len() as u8]);
 	out.extend(map.values());
+	flush(out);
+	// `PhantomData` compares nothing, so keys of one agree whatever it names, and each
+	// value but the last drops.
+	let phantoms: BTreeMap<PhantomData<Torn>, Item> = data
+		.iter()
+		.enumerate()
+		.map(|(i, &b)| (PhantomData, item(i, b)))
+		.collect();
+	out.extend(phantoms.values().map(|x| x.tag));
+	drop(phantoms);
 	flush(out);
 }
