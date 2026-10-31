@@ -30,5 +30,4 @@ generic std gap is planned here even when moq never calls it.
 - [A deque's two slices](/quest/m3/ts-deque-slices.md) - `VecDeque::as_slices` and `{:?}` of a deque's `Iter`, `IterMut`, and `Drain` translate, split where std's are
 - [LinkedList](/quest/m3/ts-linked-list.md) - `LinkedList` and its methods translate
 - [Zip's next_back in constant time](/quest/m3/ts-zip-back.md) - a reversed zip of random-access iterators skips the longer side's excess at once
-- [Debug of Bound](/quest/m3/ts-bound-debug.md) - `{:?}` of a `Bound`, as a range's `start_bound` gives, translates
 - [Orderings by a crate's impl on references](/quest/m3/ts-ord-ref-impls.md) - a tuple, `Option`, or slice of `&T` orders by the crate's `PartialOrd` for `&T`

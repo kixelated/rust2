@@ -809,6 +809,182 @@ export function collections(data: rt.ByteSlice, out: rt.ByteVec): void {
 }
 
 /**
+ * `Debug` of std's enums beside its ranges and comparisons, each derived: a variant with
+ * a field passes the options to it, and one without writes its name unpadded. A
+ * `ControlFlow` that `?` would break with holds the `Err` or `None` it was applied to.
+ */
+export function enums(data: rt.ByteSlice, out: rt.ByteVec): void {
+	let flow!: rt.Result<rt.u16, string>;
+	let unit!: rt.Result<undefined, rt.u8>;
+	let erred!: rt.Result<rt.u16, rt.u8>;
+	let none!: rt.u8 | undefined;
+	let unitNone!: undefined | rt.None;
+	const at: (a0: rt.usize) => rt.u8 = (i: rt.usize): rt.u8 => {
+		return unwrapOr$0r2bmpr(rt.byteSliceGet(data, i), 0);
+	};
+	const w: rt.usize = rt.u8Rem(at(0), 10) as rt.usize;
+	const n: rt.RangeBound<rt.u8> = pick$u8(at(1), at(2));
+	const args2: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(n, f, rt.u8Debug), rt.fmtCount(w)];
+	put(out, rt.fmtFormat([args2[0], "|", rt.fmtSpec({ alternate: true }, args2[0]), "|", rt.fmtSpec({ debugHex: "x" }, args2[0]), "|", rt.fmtSpec({ alternate: true, debugHex: "X" }, args2[0]), "|", rt.fmtSpec({ align: ">", width: rt.fmtCountOf(args2[1]) }, args2[0]), "|", rt.fmtSpec({ fill: "_", align: "^", width: 7 }, args2[0]), "|", rt.fmtSpec({ plus: true, zero: true, width: 4 }, args2[0])]));
+	const _32: rt.u8 = at(3);
+	const _37: rt.usize = rt.usizeRem(at(4) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+	if (!(_37 < 14)) {
+		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _37);
+	}
+	const s: rt.RangeBound<string> = pick$str(_32, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"][_37]);
+	const args4: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(s, f, rt.fmtStr), rt.fmtCount(w)];
+	put(out, rt.fmtFormat([args4[0], "|", rt.fmtSpec({ alternate: true }, args4[0]), "|", rt.fmtSpec({ align: ">", width: 9 }, args4[0]), "|", rt.fmtSpec({ fill: "*", align: "<", width: rt.fmtCountOf(args4[1]), precision: 2 }, args4[0])]));
+	const part = pick$char(at(5), at(6) as rt.char);
+	const args6: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(part, f, rt.fmtCharDebug)];
+	put(out, rt.fmtFormat([args6[0], "|", rt.fmtSpec({ alternate: true }, args6[0]), "|", rt.fmtSpec({ align: "^", width: 6 }, args6[0])]));
+	const part2 = pick$Option_u8(at(7), thenSome$0d5am30(rt.u8Rem(at(8), 2) === 0, at(9)));
+	const args8: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(part2, f, (value: rt.u8 | undefined, f: rt.Formatter) => rt.fmtOption(value, f, rt.u8Debug))];
+	put(out, rt.fmtFormat([args8[0], "|", rt.fmtSpec({ alternate: true }, args8[0]), "|", rt.fmtSpec({ debugHex: "x" }, args8[0]), "|", rt.fmtSpec({ align: ">", width: 4 }, args8[0])]));
+	const part4 = pick$u8s(at(10), rt.byteSliceRange(data, 0, rt.min(data.length, 3)));
+	const args10: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(part4, f, (value: rt.ByteSlice, f: rt.Formatter) => rt.fmtList(rt.byteSliceView(value), f, rt.u8Debug))];
+	put(out, rt.fmtFormat([args10[0], "|", rt.fmtSpec({ alternate: true }, args10[0]), "|", rt.fmtSpec({ debugHex: "x" }, args10[0]), "|", rt.fmtSpec({ width: 3 }, args10[0])]));
+	const _128: rt.u8 = at(11);
+	const _134: rt.usize = rt.usizeRem(at(12) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+	if (!(_134 < 14)) {
+		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _134);
+	}
+	const clip: rt.RangeBound<Clip.Clip> = pick$Clip(_128, { _0: ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"][_134] });
+	const _152: rt.RangeBound<Clip.Clip> = clip;
+	const _155: rt.RangeBound<Clip.Clip> | undefined = clip;
+	const _157: [rt.RangeBound<rt.u8>, rt.RangeBound<string>] = [n, s];
+	const args12: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(_152, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f)), (f: rt.Formatter) => rt.fmtOption(_155, f, (value: rt.RangeBound<Clip.Clip>, f: rt.Formatter) => rt.fmtBound(value, f, (value: Clip.Clip, f: rt.Formatter) => Clip.fmt$Debug(value, f))), (f: rt.Formatter) => rt.fmtTuple([(f: rt.Formatter) => rt.fmtBound(_157[0], f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBound(_157[1], f, rt.fmtStr)], f)];
+	put(out, rt.fmtFormat([rt.fmtSpec({ width: 8, precision: 2 }, args12[0]), "|", rt.fmtSpec({ alternate: true }, args12[1]), "|", args12[2]]));
+	const r: rt.RangeInclusive<rt.u8> = new rt.RangeInclusive(at(1), at(2), rt.u8Step);
+	const _179: rt.RangeBound<rt.u8> = rt.rangeInclusiveStartBound(r) as rt.RangeBound<rt.u8>;
+	const _182: rt.RangeBound<rt.u8> = rt.rangeInclusiveEndBound(r) as rt.RangeBound<rt.u8>;
+	new rt.RangeFrom(at(1), rt.u8Step);
+	const _185: rt.RangeBound<rt.u8> = { tag: "Unbounded" } as rt.RangeBound<rt.u8>;
+	const _192: rt.RangeBound<rt.u8> = { tag: "Excluded", _0: { end: at(2) }.end } as rt.RangeBound<rt.u8>;
+	const _199: rt.RangeBound<rt.u8> = { tag: "Unbounded" } as rt.RangeBound<rt.u8>;
+	const args14: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtBound(_179, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBound(_182, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBound(_185, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBound(_192, f, rt.u8Debug), (f: rt.Formatter) => rt.fmtBound(_199, f, rt.u8Debug)];
+	put(out, rt.fmtFormat([args14[0], " ", args14[1], " ", args14[2], " ", rt.fmtSpec({ debugHex: "x" }, args14[3]), " ", rt.fmtSpec({ alternate: true }, args14[4])]));
+	const ord: rt.Ordering = rt.cmp(at(1), at(2));
+	const all: rt.Ordering[] = [-1, 0, 1];
+	const args16: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtOrdering(ord, f), (f: rt.Formatter) => rt.fmtList(all, f, rt.fmtOrdering)];
+	put(out, rt.fmtFormat([args16[0], "|", rt.fmtSpec({ align: ">", width: 8 }, args16[0]), "|", rt.fmtSpec({ alternate: true }, args16[0]), "|", args16[1], "|", rt.fmtSpec({ alternate: true }, args16[1])]));
+	const rev: rt.u8 = at(1);
+	const _244: rt.usize = rt.usizeRem(at(4) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+	if (!(_244 < 14)) {
+		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _244);
+	}
+	const nested_: string = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"][_244];
+	const args18: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtDebugTupleFields(f, "Reverse", [(f: rt.Formatter) => rt.u8Debug(rev, f)]), rt.fmtCount(w), (f: rt.Formatter) => rt.fmtDebugTupleFields(f, "Reverse", [(f: rt.Formatter) => rt.fmtDebugTupleFields(f, "Reverse", [(f: rt.Formatter) => rt.fmtStr(nested_, f)])])];
+	put(out, rt.fmtFormat([args18[0], "|", rt.fmtSpec({ alternate: true }, args18[0]), "|", rt.fmtSpec({ debugHex: "x" }, args18[0]), "|", rt.fmtSpec({ align: ">", width: rt.fmtCountOf(args18[1]) }, args18[0]), "|", args18[2], "|", rt.fmtSpec({ alternate: true }, args18[2])]));
+	const _272: rt.usize = rt.usizeRem(at(4) as rt.usize, ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"].length);
+	if (!(_272 < 14)) {
+		rt.panic("index out of bounds: the len is " + 14 + " but the index is " + _272);
+	}
+	const _271: string[] = ["", "a", "héllo", "日本語", "tab\tnew\nline\r", "quote\"back\\slash'", "\u0000\u0001\u001f", " ­", "é", "‍﻿ᅟ\u2028　", "͸􏿽𽀀𿱀", "😀 🇦", "ﾞﾟﾝ", "{}"];
+	if (rt.u8Rem(at(1), 2) === 0) {
+		flow = rt.Err(_271[_272]);
+	} else {
+		flow = rt.Ok(rt.u16Mul(at(2) as rt.u16, 300));
+	}
+	const args20: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtControlFlow(flow, f, rt.u16Debug, rt.fmtStr), rt.fmtCount(w)];
+	put(out, rt.fmtFormat([args20[0], "|", rt.fmtSpec({ alternate: true }, args20[0]), "|", rt.fmtSpec({ debugHex: "x" }, args20[0]), "|", rt.fmtSpec({ align: ">", width: rt.fmtCountOf(args20[1]) }, args20[0])]));
+	if (rt.u8Rem(at(1), 2) === 0) {
+		unit = rt.Err(at(2));
+	} else {
+		unit = rt.OK;
+	}
+	const args22: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtControlFlow(unit, f, rt.fmtUnit, rt.u8Debug)];
+	put(out, rt.fmtFormat([args22[0], "|", rt.fmtSpec({ alternate: true }, args22[0]), "|", rt.fmtSpec({ zero: true, width: 3 }, args22[0])]));
+	if (rt.u8Rem(at(1), 2) === 0) {
+		erred = rt.Err(at(2));
+	} else {
+		erred = rt.Ok(at(2) as rt.u16);
+	}
+	const args24: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtControlFlow(erred, f, rt.u16Debug, (value: rt.Result<never, rt.u8>, f: rt.Formatter) => rt.fmtResult(value, f, (value: never, _f: rt.Formatter) => rt.unreachable(value), rt.u8Debug), true)];
+	put(out, rt.fmtFormat([args24[0], "|", rt.fmtSpec({ alternate: true }, args24[0]), "|", rt.fmtSpec({ align: ">", width: 5 }, args24[0])]));
+	if (rt.u8Rem(at(1), 2) === 0) {
+		none = undefined;
+	} else {
+		none = at(2);
+	}
+	if (rt.u8Rem(at(2), 2) === 0) {
+		unitNone = rt.None;
+	} else {
+		unitNone = undefined;
+	}
+	const args26: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtControlFlowOption(none, f, rt.u8Debug, (value: never | undefined, f: rt.Formatter) => rt.fmtOption(value, f, (value: never, _f: rt.Formatter) => rt.unreachable(value))), (f: rt.Formatter) => rt.fmtControlFlowOption(unitNone, f, rt.fmtUnit, (value: never | undefined, f: rt.Formatter) => rt.fmtOption(value, f, (value: never, _f: rt.Formatter) => rt.unreachable(value)), rt.None)];
+	put(out, rt.fmtFormat([args26[0], "|", rt.fmtSpec({ alternate: true }, args26[0]), "|", rt.fmtSpec({ align: "<", width: 4 }, args26[0]), "|", args26[1], "|", rt.fmtSpec({ alternate: true }, args26[1])]));
+	const part5 = rt.Ok(at(2));
+	const args28: rt.Fmt[] = [(f: rt.Formatter) => rt.fmtResult(part5, f, rt.u8Debug, (value: never, _f: rt.Formatter) => rt.unreachable(value))];
+	put(out, rt.fmtFormat([args28[0], "|", rt.fmtSpec({ alternate: true }, args28[0])]));
+}
+
+export function pick$Clip(by: rt.u8, x: Clip.Clip): rt.RangeBound<Clip.Clip> {
+	const _3: rt.u8 = rt.u8Rem(by, 3);
+	if (_3 === 0) {
+		return { tag: "Included", _0: x } as rt.RangeBound<Clip.Clip>;
+	}
+	if (_3 === 1) {
+		return { tag: "Excluded", _0: x } as rt.RangeBound<Clip.Clip>;
+	}
+	return { tag: "Unbounded" } as rt.RangeBound<Clip.Clip>;
+}
+
+export function pick$Option_u8(by: rt.u8, x: rt.u8 | undefined): rt.RangeBound<rt.u8 | undefined> {
+	const _3: rt.u8 = rt.u8Rem(by, 3);
+	if (_3 === 0) {
+		return { tag: "Included", _0: x } as rt.RangeBound<rt.u8 | undefined>;
+	}
+	if (_3 === 1) {
+		return { tag: "Excluded", _0: x } as rt.RangeBound<rt.u8 | undefined>;
+	}
+	return { tag: "Unbounded" } as rt.RangeBound<rt.u8 | undefined>;
+}
+
+export function pick$char(by: rt.u8, x: rt.char): rt.RangeBound<rt.char> {
+	const _3: rt.u8 = rt.u8Rem(by, 3);
+	if (_3 === 0) {
+		return { tag: "Included", _0: x } as rt.RangeBound<rt.char>;
+	}
+	if (_3 === 1) {
+		return { tag: "Excluded", _0: x } as rt.RangeBound<rt.char>;
+	}
+	return { tag: "Unbounded" } as rt.RangeBound<rt.char>;
+}
+
+export function pick$str(by: rt.u8, x: string): rt.RangeBound<string> {
+	const _3: rt.u8 = rt.u8Rem(by, 3);
+	if (_3 === 0) {
+		return { tag: "Included", _0: x } as rt.RangeBound<string>;
+	}
+	if (_3 === 1) {
+		return { tag: "Excluded", _0: x } as rt.RangeBound<string>;
+	}
+	return { tag: "Unbounded" } as rt.RangeBound<string>;
+}
+
+export function pick$u8(by: rt.u8, x: rt.u8): rt.RangeBound<rt.u8> {
+	const _3: rt.u8 = rt.u8Rem(by, 3);
+	if (_3 === 0) {
+		return { tag: "Included", _0: x } as rt.RangeBound<rt.u8>;
+	}
+	if (_3 === 1) {
+		return { tag: "Excluded", _0: x } as rt.RangeBound<rt.u8>;
+	}
+	return { tag: "Unbounded" } as rt.RangeBound<rt.u8>;
+}
+
+export function pick$u8s(by: rt.u8, x: rt.ByteSlice): rt.RangeBound<rt.ByteSlice> {
+	const _3: rt.u8 = rt.u8Rem(by, 3);
+	if (_3 === 0) {
+		return { tag: "Included", _0: x } as rt.RangeBound<rt.ByteSlice>;
+	}
+	if (_3 === 1) {
+		return { tag: "Excluded", _0: x } as rt.RangeBound<rt.ByteSlice>;
+	}
+	return { tag: "Unbounded" } as rt.RangeBound<rt.ByteSlice>;
+}
+
+/**
  * std's iterators' `Debug`, each the items it has left in its own wrapper, through each
  * element's `Debug` with the formatter's options: consumed from either end, empty, and
  * pretty. A hash iterator holds at most one entry, since std leaves their order unspecified.
