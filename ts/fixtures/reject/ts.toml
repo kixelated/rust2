@@ -29,7 +29,7 @@ roots = [
     "skipped_zip",
     "zip_in_place",
     "replace_pinned_ref",
-    "filter_owned_bytes",
+    "copied_bytes",
     "copied_closure",
     "scanned_unit",
     "set_keys",
@@ -94,13 +94,11 @@ roots = [
     "pointer_statics",
     "bound_ranges",
     "string_retained",
-    "byte_key",
     "put_replaced",
     "object_replaced",
     "closure_replaced",
     "made_part_replaced",
     "uninit_part_replaced",
-    "byte_extended",
     "ranked_cells",
 ]
 printable = ["Meters"]

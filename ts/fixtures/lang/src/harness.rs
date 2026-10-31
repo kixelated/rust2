@@ -203,6 +203,7 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("wraps::i64s", wraps::i64s),
 		("wraps::i128s", wraps::i128s),
 		("wraps::isizes", wraps::isizes),
+		("keys::byte_refs", keys::byte_refs),
 	]
 }
 
