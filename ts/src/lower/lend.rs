@@ -67,7 +67,7 @@ pub fn plan<'tcx>(t: &Translator<'_, 'tcx>, def_id: DefId, args: GenericArgsRef<
 				("PartialOrd" | "Ord" | "PartialEq", _) | ("Hash", "hash") => true,
 				("slice", "iter" | "iter_mut") | ("array", "each_ref" | "each_mut") => true,
 				("IntoIterator", "into_iter") => self_ty.is_some_and(|s| {
-					let s = s.peel_refs();
+					let s = super::iter::unbox_ref(tcx, s).peel_refs();
 					matches!(s.kind(), ty::Slice(_) | ty::Array(..)) || t.std_of(s) == Some(Std::Vec)
 				}),
 				_ => false,

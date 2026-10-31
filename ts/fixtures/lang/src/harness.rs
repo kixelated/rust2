@@ -208,6 +208,9 @@ fn cases() -> Vec<(&'static str, Case)> {
 		("pointers::segments", |_, data, out| pointers::segments(data, out)),
 		("pointers::uninit_runs", |_, data, out| pointers::uninit_runs(data, out)),
 		("keys::byte_refs", keys::byte_refs),
+		("pointers::iterated_runs", |_, data, out| {
+			pointers::iterated_runs(data, out)
+		}),
 	]
 }
 

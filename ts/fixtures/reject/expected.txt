@@ -119,6 +119,10 @@ a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Looped`, which the crat
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Aliased`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1135:29
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Rewritten`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1145:47
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Loaded`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1157:29
+a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Mapped`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1198:39
+a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Repeated`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1232:18
+a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Onced`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1244:46
+`std::iter::once` with a mutable reference to a value JS copies, which its mapping would copy at fixtures/reject/src/lib.rs:1246:22
 overriding `Iterator::fold`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:132:2
 an iterator of the crate implementing `DoubleEndedIterator`, which is not supported yet at fixtures/reject/src/lib.rs:152:1
 overriding `Iterator::size_hint`, which std's adaptors call in place of `next` or beside it at fixtures/reject/src/lib.rs:180:2
@@ -126,3 +130,4 @@ an iterator of the crate implementing `FusedIterator`, which is not supported ye
 `Hasher::write`, which is not supported yet at fixtures/reject/src/lib.rs:274:9
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Escaped`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1087:43
 a raw pointer to `std::cell::UnsafeCell<(u16, u16)>` in `Called`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1101:28
+a raw pointer to `(u16, u16)` in `Copied`, which the crate may put another object in place of at fixtures/reject/src/lib.rs:1187:31

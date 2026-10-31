@@ -35,7 +35,7 @@ import { locks, relock, rwlocks } from "./locks.ts";
 import { nested } from "./nested.ts";
 import { objects } from "./objects.ts";
 import { orders, bytes as orders_bytes } from "./orders.ts";
-import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels, cells as pointers_cells, rebound, lapsed, writers, made, segments, uninitRuns } from "./pointers.ts";
+import { lists, shared as pointers_shared, places, unchecked, nested as pointers_nested, copies as pointers_copies, sentinels, cells as pointers_cells, rebound, lapsed, writers, made, segments, uninitRuns, iteratedRuns } from "./pointers.ts";
 import { refs, toRefs } from "./refs.ts";
 import { copies as shapes_copies, order, discriminants, loops, patterns, uninhabited, closures, library, flows } from "./shapes.ts";
 import { singles, mulAdds as singles_mulAdds, formats as singles_formats, parses as singles_parses } from "./singles.ts";
@@ -207,7 +207,9 @@ export function cases(): [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) 
 		segments(data75, out76);
 	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::uninit_runs", (_2176: rt.u8, data76: rt.ByteSlice, out77: rt.ByteVec): undefined => {
 		uninitRuns(data76, out77);
-	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["keys::byte_refs", byteRefs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["keys::byte_refs", byteRefs as (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined], ["pointers::iterated_runs", (_2177: rt.u8, data77: rt.ByteSlice, out78: rt.ByteVec): undefined => {
+		iteratedRuns(data77, out78);
+	}] as [string, (a0: rt.u8, a1: rt.ByteSlice, a2: rt.ByteVec) => undefined]];
 }
 
 /** Run one case. */

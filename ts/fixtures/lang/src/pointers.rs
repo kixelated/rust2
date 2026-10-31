@@ -3,7 +3,7 @@
 //! reuse; pointers to numbers, to fields, and to whole values, read, written, swapped,
 //! and compared; pointers to the parts of a struct kept as objects; the pointers
 //! `UnsafeCell::get` gives; and slots of fresh memory written whole before any pointer
-//! into them is taken.
+//! into them is taken, by index or through std's iterators over them.
 
 use std::cell::UnsafeCell;
 use std::mem::MaybeUninit;
@@ -923,6 +923,15 @@ impl Segment {
 		Segment { filled: 0, slots }
 	}
 
+	/// As [`Self::new`], with kio's loop written with an iterator.
+	fn iterated() -> Self {
+		let mut slots = Box::new([const { MaybeUninit::uninit() }; 4]);
+		for slot in slots.iter_mut() {
+			slot.write(Lent::new(MaybeUninit::uninit()));
+		}
+		Segment { filled: 0, slots }
+	}
+
 	fn slot(&self, at: usize) -> &Entry {
 		unsafe { self.slots[at].assume_init_ref() }
 	}
@@ -936,8 +945,10 @@ pub fn segments(data: &[u8], out: &mut Vec<u8>) {
 	for &byte in data {
 		match byte % 4 {
 			0 => {
-				if len % 4 == 0 {
+				if len % 8 == 0 {
 					log.push(Segment::new());
+				} else if len % 4 == 0 {
+					log.push(Segment::iterated());
 				}
 				let segment = &mut log[len / 4];
 				segment
@@ -1003,4 +1014,59 @@ pub fn uninit_runs(data: &[u8], out: &mut Vec<u8>) {
 	}
 	let last = unsafe { last.assume_init() };
 	out.extend([last.span.0, last.span.1, last.n]);
+}
+
+/// `MaybeUninit` slots each written whole through std's iterators over them before any
+/// pointer into them is taken: an array's `iter_mut`, a boxed slice's `&mut`, its
+/// `chunks_exact_mut`, and a `zip` with an index range; then changed through pointers to
+/// a part of each and read back.
+pub fn iterated_runs(data: &[u8], out: &mut Vec<u8>) {
+	let byte = |at: usize| data.get(at).copied().unwrap_or(0);
+	let mut runs: [MaybeUninit<Run>; 3] = [const { MaybeUninit::uninit() }; 3];
+	for slot in runs.iter_mut() {
+		slot.write(Run {
+			span: (byte(0), !byte(0)),
+			n: 0,
+		});
+	}
+	let mut boxed: Box<[MaybeUninit<Run>]> = Box::new([const { MaybeUninit::uninit() }; 4]);
+	for slot in &mut boxed {
+		slot.write(Run {
+			span: (byte(1), 1),
+			n: 1,
+		});
+	}
+	for (chunk, at) in boxed.chunks_exact_mut(2).zip(0u8..) {
+		for slot in chunk {
+			slot.write(Run {
+				span: (byte(2), at),
+				n: at.wrapping_add(byte(3)),
+			});
+		}
+	}
+	for (slot, at) in runs.iter_mut().zip(0..) {
+		slot.write(Run {
+			span: (byte(at), at as u8),
+			n: at as u8,
+		});
+	}
+	for &byte in data {
+		let run = unsafe { runs[usize::from(byte) % 3].assume_init_mut() };
+		let span = &raw mut run.span;
+		unsafe {
+			(*span).0 ^= byte;
+			(*span).1 = (*span).1.wrapping_add(run.n);
+			out.push((*span).0);
+		}
+		let run = unsafe { boxed[usize::from(byte) % 4].assume_init_mut() };
+		let span = &raw mut run.span;
+		unsafe {
+			(*span).1 ^= byte;
+			out.push((*span).1);
+		}
+	}
+	for run in runs.iter().chain(boxed.iter()) {
+		let run = unsafe { run.assume_init_ref() };
+		out.extend([run.span.0, run.span.1, run.n]);
+	}
 }
